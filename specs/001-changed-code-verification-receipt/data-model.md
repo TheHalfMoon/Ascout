@@ -47,6 +47,8 @@ includes_untracked_nonignored=true
 
 ChangedFile records path/previous path, kind, line semantics/ranges, and factual test/snapshot/command-surface classification.
 
+Rename identity is strict: `change_kind=renamed` requires `previous_path`; non-rename change kinds do not carry `previous_path`.
+
 ## 4. VerificationTaskDefinition
 
 Fixed semantic task types:
@@ -55,10 +57,10 @@ Fixed semantic task types:
 typecheck
 lint
 test
-pytest_basic
+pytestBasic
 ```
 
-Config cannot add task types or dependency edges.
+The same canonical identifiers are used in config v1 and receipt v1. Config cannot add task types or dependency edges.
 
 Definition fields include task id/type/scope, `authorized_by`, source path, argv when resolved, tool info, timeout, internal prerequisite IDs, selection descriptor.
 
@@ -78,9 +80,10 @@ Each task result records:
 ### Invariants
 
 1. `command_surface_changed=false` ⇒ `execution_admission=normal`, no changed authority paths.
-2. `refused_changed_surface` ⇒ command surface changed, status `NOT_RUN`, reason `command_surface_changed`, task process did not launch.
-3. `explicit_changed_surface_override` ⇒ command surface changed and a human supplied the per-invocation admission; changed authority paths are recorded.
-4. The admission is never persisted as a future trust grant and cannot be auto-supplied by an agent integration.
+2. `command_surface_changed=true` ⇒ admission is either `refused_changed_surface` or `explicit_changed_surface_override`, with at least one changed authority path.
+3. `refused_changed_surface` ⇒ status `NOT_RUN`, reason code `command_surface_changed`, task process did not launch.
+4. `explicit_changed_surface_override` ⇒ a human supplied the per-invocation admission; changed authority paths are recorded.
+5. The admission is never persisted as a future trust grant and cannot be auto-supplied by an agent integration.
 
 Effective command surfaces include the repository/config files actually used to determine/load the task command or executable configuration, not every changed config file in the repository.
 
@@ -98,7 +101,7 @@ Status invariants:
 - `NOT_APPLICABLE`: semantic task category does not apply.
 - `NOT_RUN`: applicable known work did not execute, including missing tool/config, budget, explicit disablement, or changed-command admission refusal.
 
-Non-executed tasks do not fabricate argv/tool identity. Valid test deselection is SelectionAccount data, not task `NOT_RUN`.
+`NOT_RUN`, `BLOCKED`, and `ERROR` require non-empty `reason_code` and `reason_text`. Non-executed tasks do not fabricate argv/tool identity. Valid test deselection is SelectionAccount data, not task `NOT_RUN`.
 
 ## 7. Evidence
 
@@ -143,9 +146,9 @@ SelectionPass has ordinal 1–2, mode, scope, trigger, and counts. Unknown count
 
 For changed executable/instrumentable lines:
 
-- `EXERCISED`: resolved count > 0;
-- `NOT_EXERCISED`: resolved count = 0;
-- `UNRESOLVED`: source/executable mapping cannot be established reliably.
+- `EXERCISED`: resolved execution count is an integer > 0;
+- `NOT_EXERCISED`: resolved execution count is exactly 0;
+- `UNRESOLVED`: execution count is null and a non-empty reason explains why source/executable mapping could not be established reliably.
 
 Coverage is execution evidence, not correctness. Any material `NOT_EXERCISED`/`UNRESOLVED` line remaining after permitted widening prevents exit `0`.
 
