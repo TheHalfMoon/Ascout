@@ -74,7 +74,14 @@
         "is_test_file": {"type": "boolean"},
         "is_snapshot": {"type": "boolean"},
         "is_command_surface": {"type": "boolean"}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"change_kind": {"const": "renamed"}}, "required": ["change_kind"]},
+          "then": {"required": ["previous_path"]},
+          "else": {"not": {"required": ["previous_path"]}}
+        }
+      ]
     },
     "comparison": {
       "type": "object",
@@ -168,16 +175,47 @@
       },
       "allOf": [
         {
+          "if": {"properties": {"status": {"enum": ["NOT_RUN", "BLOCKED", "ERROR"]}}, "required": ["status"]},
+          "then": {
+            "properties": {
+              "reason_code": {"type": "string", "minLength": 1},
+              "reason_text": {"type": "string", "minLength": 1}
+            },
+            "required": ["reason_code", "reason_text"]
+          }
+        },
+        {
           "if": {"properties": {"execution_admission": {"const": "refused_changed_surface"}}, "required": ["execution_admission"]},
-          "then": {"properties": {"command_surface_changed": {"const": true}, "status": {"const": "NOT_RUN"}, "reason_code": {"const": "command_surface_changed"}}, "required": ["reason_code"]}
+          "then": {
+            "properties": {
+              "command_surface_changed": {"const": true},
+              "changed_authority_paths": {"minItems": 1},
+              "status": {"const": "NOT_RUN"},
+              "reason_code": {"const": "command_surface_changed"}
+            }
+          }
         },
         {
           "if": {"properties": {"execution_admission": {"const": "explicit_changed_surface_override"}}, "required": ["execution_admission"]},
-          "then": {"properties": {"command_surface_changed": {"const": true}}, "required": ["changed_authority_paths"]}
+          "then": {
+            "properties": {
+              "command_surface_changed": {"const": true},
+              "changed_authority_paths": {"minItems": 1}
+            }
+          }
         },
         {
           "if": {"properties": {"command_surface_changed": {"const": false}}, "required": ["command_surface_changed"]},
           "then": {"properties": {"execution_admission": {"const": "normal"}, "changed_authority_paths": {"maxItems": 0}}}
+        },
+        {
+          "if": {"properties": {"command_surface_changed": {"const": true}}, "required": ["command_surface_changed"]},
+          "then": {
+            "properties": {
+              "execution_admission": {"enum": ["refused_changed_surface", "explicit_changed_surface_override"]},
+              "changed_authority_paths": {"minItems": 1}
+            }
+          }
         }
       ]
     },
@@ -185,26 +223,127 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["path", "line", "state", "execution_count", "source_task_ids"],
-      "properties": {"path": {"type": "string", "minLength": 1}, "line": {"type": "integer", "minimum": 1}, "state": {"enum": ["EXERCISED", "NOT_EXERCISED", "UNRESOLVED"]}, "execution_count": {"type": ["integer", "null"], "minimum": 0}, "source_task_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}, "reason": {"type": "string"}}
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "line": {"type": "integer", "minimum": 1},
+        "state": {"enum": ["EXERCISED", "NOT_EXERCISED", "UNRESOLVED"]},
+        "execution_count": {"type": ["integer", "null"], "minimum": 0},
+        "source_task_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "UNRESOLVED"}}, "required": ["state"]},
+          "then": {"properties": {"execution_count": {"type": "null"}}, "required": ["reason"]}
+        },
+        {
+          "if": {"properties": {"state": {"const": "EXERCISED"}}, "required": ["state"]},
+          "then": {"properties": {"execution_count": {"type": "integer", "minimum": 1}}}
+        },
+        {
+          "if": {"properties": {"state": {"const": "NOT_EXERCISED"}}, "required": ["state"]},
+          "then": {"properties": {"execution_count": {"const": 0}}}
+        }
+      ]
     },
     "exercise": {
       "type": "object",
       "additionalProperties": false,
       "required": ["changed_executable_lines", "exercised_lines", "not_exercised_lines", "unresolved_lines", "changed_files_with_zero_exercised_lines", "records"],
-      "properties": {"changed_executable_lines": {"type": "integer", "minimum": 0}, "exercised_lines": {"type": "integer", "minimum": 0}, "not_exercised_lines": {"type": "integer", "minimum": 0}, "unresolved_lines": {"type": "integer", "minimum": 0}, "changed_files_with_zero_exercised_lines": {"type": "integer", "minimum": 0}, "records": {"type": "array", "items": {"$ref": "#/$defs/exerciseRecord"}}}
+      "properties": {
+        "changed_executable_lines": {"type": "integer", "minimum": 0},
+        "exercised_lines": {"type": "integer", "minimum": 0},
+        "not_exercised_lines": {"type": "integer", "minimum": 0},
+        "unresolved_lines": {"type": "integer", "minimum": 0},
+        "changed_files_with_zero_exercised_lines": {"type": "integer", "minimum": 0},
+        "records": {"type": "array", "items": {"$ref": "#/$defs/exerciseRecord"}}
+      }
     },
-    "changedCode": {"type": "object", "additionalProperties": false, "required": ["changed_file_count", "changed_text_line_count"], "properties": {"changed_file_count": {"type": "integer", "minimum": 0}, "changed_text_line_count": {"type": "integer", "minimum": 0}}},
-    "testChange": {"type": "object", "additionalProperties": false, "required": ["kind", "path", "source"], "properties": {"kind": {"enum": ["test_file_changed", "test_file_deleted", "snapshot_changed", "snapshot_deleted"]}, "path": {"type": "string", "minLength": 1}, "previous_path": {"type": "string", "minLength": 1}, "source": {"const": "git_diff"}}},
+    "changedCode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["changed_file_count", "changed_text_line_count"],
+      "properties": {
+        "changed_file_count": {"type": "integer", "minimum": 0},
+        "changed_text_line_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "testChange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path", "source"],
+      "properties": {
+        "kind": {"enum": ["test_file_changed", "test_file_deleted", "snapshot_changed", "snapshot_deleted"]},
+        "path": {"type": "string", "minLength": 1},
+        "previous_path": {"type": "string", "minLength": 1},
+        "source": {"const": "git_diff"}
+      }
+    },
     "introducedByChange": {"oneOf": [{"type": "boolean"}, {"const": "unknown"}]},
     "fingerprintVersion": {"oneOf": [{"const": 1}, {"type": "null"}]},
     "finding": {
       "type": "object",
       "additionalProperties": false,
       "required": ["finding_id", "task_id", "producer", "message", "severity", "in_changed_lines", "introduced_by_change", "determinism_class", "observations", "reproduced", "evidence_ids"],
-      "properties": {"finding_id": {"type": "string", "minLength": 1}, "task_id": {"type": "string", "minLength": 1}, "producer": {"type": "string", "minLength": 1}, "rule_or_test_id": {"type": ["string", "null"]}, "message": {"type": "string"}, "path": {"type": ["string", "null"]}, "line_start": {"type": ["integer", "null"], "minimum": 1}, "line_end": {"type": ["integer", "null"], "minimum": 1}, "severity": {"enum": ["info", "low", "medium", "high", "critical", "unknown"]}, "in_changed_lines": {"type": ["boolean", "null"]}, "introduced_by_change": {"$ref": "#/$defs/introducedByChange"}, "determinism_class": {"enum": ["deterministic", "nondeterministic", "unknown"]}, "observations": {"$ref": "#/$defs/observations"}, "reproduced": {"enum": [true, false, "not_applicable", "unknown"]}, "fingerprint_version": {"$ref": "#/$defs/fingerprintVersion"}, "fingerprint": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}, "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}}
+      "properties": {
+        "finding_id": {"type": "string", "minLength": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "producer": {"type": "string", "minLength": 1},
+        "rule_or_test_id": {"type": ["string", "null"]},
+        "message": {"type": "string"},
+        "path": {"type": ["string", "null"]},
+        "line_start": {"type": ["integer", "null"], "minimum": 1},
+        "line_end": {"type": ["integer", "null"], "minimum": 1},
+        "severity": {"enum": ["info", "low", "medium", "high", "critical", "unknown"]},
+        "in_changed_lines": {"type": ["boolean", "null"]},
+        "introduced_by_change": {"$ref": "#/$defs/introducedByChange"},
+        "determinism_class": {"enum": ["deterministic", "nondeterministic", "unknown"]},
+        "observations": {"$ref": "#/$defs/observations"},
+        "reproduced": {"enum": [true, false, "not_applicable", "unknown"]},
+        "fingerprint_version": {"$ref": "#/$defs/fingerprintVersion"},
+        "fingerprint": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
     },
-    "artifact": {"type": "object", "additionalProperties": false, "required": ["artifact_id", "relative_run_path", "kind", "sha256", "byte_length", "redacted", "truncated"], "properties": {"artifact_id": {"type": "string", "minLength": 1}, "task_id": {"type": ["string", "null"]}, "relative_run_path": {"type": "string", "minLength": 1}, "kind": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}, "byte_length": {"type": "integer", "minimum": 0}, "redacted": {"type": "boolean"}, "truncated": {"type": "boolean"}}},
-    "taskStatusCounts": {"type": "object", "additionalProperties": false, "required": ["PASS", "FAIL", "FLAKY", "BLOCKED", "ERROR", "NOT_APPLICABLE", "NOT_RUN"], "properties": {"PASS": {"type": "integer", "minimum": 0}, "FAIL": {"type": "integer", "minimum": 0}, "FLAKY": {"type": "integer", "minimum": 0}, "BLOCKED": {"type": "integer", "minimum": 0}, "ERROR": {"type": "integer", "minimum": 0}, "NOT_APPLICABLE": {"type": "integer", "minimum": 0}, "NOT_RUN": {"type": "integer", "minimum": 0}}},
-    "summary": {"type": "object", "additionalProperties": false, "required": ["task_status_counts", "finding_count", "completeness", "exit_code"], "properties": {"task_status_counts": {"$ref": "#/$defs/taskStatusCounts"}, "finding_count": {"type": "integer", "minimum": 0}, "completeness": {"enum": ["complete", "materially_incomplete", "unknown_due_to_error"]}, "exit_code": {"enum": [0, 1, 2, 3, 4]}}}
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "relative_run_path", "kind", "sha256", "byte_length", "redacted", "truncated"],
+      "properties": {
+        "artifact_id": {"type": "string", "minLength": 1},
+        "task_id": {"type": ["string", "null"]},
+        "relative_run_path": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "byte_length": {"type": "integer", "minimum": 0},
+        "redacted": {"type": "boolean"},
+        "truncated": {"type": "boolean"}
+      }
+    },
+    "taskStatusCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["PASS", "FAIL", "FLAKY", "BLOCKED", "ERROR", "NOT_APPLICABLE", "NOT_RUN"],
+      "properties": {
+        "PASS": {"type": "integer", "minimum": 0},
+        "FAIL": {"type": "integer", "minimum": 0},
+        "FLAKY": {"type": "integer", "minimum": 0},
+        "BLOCKED": {"type": "integer", "minimum": 0},
+        "ERROR": {"type": "integer", "minimum": 0},
+        "NOT_APPLICABLE": {"type": "integer", "minimum": 0},
+        "NOT_RUN": {"type": "integer", "minimum": 0}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_status_counts", "finding_count", "completeness", "exit_code"],
+      "properties": {
+        "task_status_counts": {"$ref": "#/$defs/taskStatusCounts"},
+        "finding_count": {"type": "integer", "minimum": 0},
+        "completeness": {"enum": ["complete", "materially_incomplete", "unknown_due_to_error"]},
+        "exit_code": {"enum": [0, 1, 2, 3, 4]}
+      }
+    }
   }
 }
