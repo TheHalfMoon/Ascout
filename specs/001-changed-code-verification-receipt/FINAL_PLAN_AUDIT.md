@@ -1,7 +1,7 @@
 # 001 — Independent Final Plan Audit
 
 **Date:** 2026-08-21  
-**Audit target exact head:** `e15785545c0075081eeaf2691a41648e76031dfe`  
+**Audit target exact head:** `5ce3c6b9b0fc4bbb14e2a1111a27de5caf9bb3a1`  
 **Branch:** `planning/000-ascout-foundation`  
 **Verdict:** `PASS_READY_FOR_FRESH_EXACT_HEAD_PR_REVIEW`  
 **Implementation authorization:** **NO**  
@@ -9,26 +9,26 @@
 
 This audit supersedes all earlier Ascout founding-plan audit verdicts for merge-readiness purposes.
 
-The target contains the fully reconciled planning set after internal analysis, Qodo review, CodeRabbit findings CR1–CR12, path/privacy hardening, and canonical Master Plan authority repair. It contains no product implementation.
+The audit target contains the reconciled planning set after internal analysis, Qodo review, CodeRabbit findings CR1–CR13, path/privacy hardening, and canonical Master Plan authority repair. It contains no product implementation.
 
-Writing this audit creates a governance-only successor commit. That successor still requires fresh exact-HEAD external review and branch-purity verification. Any later material mutation to constitution/spec/canonical plan/data model/contracts/tasks invalidates affected audit claims.
+Writing this audit creates a governance-only successor commit. That successor still requires fresh exact-HEAD review by every code-review integration actually connected to this PR plus final branch-purity verification. Any later material mutation to constitution/spec/canonical plan/data model/contracts/tasks invalidates affected audit claims.
 
 ## 1. External Review Reconciliation
 
 ### Qodo Q1–Q4
 
-All valid and resolved:
+All valid findings are resolved:
 
 - omission/error statuses require non-empty reasons;
 - rename requires `previous_path`;
 - exercise state/count/reason semantics are strict;
 - `pytestBasic` is canonical across config/receipt/model/plan.
 
-Later repeated Qodo text was checked against exact linked SHAs and contradicted the already-repaired live schema, so it is not treated as new evidence.
+Later stale repetitions were checked against exact linked SHAs and contradicted the repaired schema. Qodo's latest exact-head pass before this audit reported zero bugs, zero rule violations, and zero skill insights. A fresh post-audit exact-head Qodo result remains required.
 
-### CodeRabbit CR1–CR11
+### CodeRabbit CR1–CR12
 
-All valid accepted findings are resolved:
+All accepted findings are resolved:
 
 - fresh exact-head governance;
 - changed-command default refusal consistency;
@@ -40,44 +40,35 @@ All valid accepted findings are resolved:
 - gap-to-exit benchmark assertion;
 - `pytestBasic` command-admission coverage;
 - canonical relative persisted paths;
-- plan opening summary includes `pytestBasic`.
+- plan opening scope includes `pytestBasic`;
+- one canonical Master Plan v1, with the old path reduced to a non-authoritative tombstone.
 
-### CodeRabbit CR12 — conflicting Master Plan authority
+### CodeRabbit CR13 — noncanonical persisted path serialization
 
-**Severity:** BLOCKER / GOVERNANCE  
+**Severity:** MAJOR / DATA INTEGRITY  
 **Verdict:** VALID  
 **Disposition:** RESOLVED
 
-At the reviewed state, both:
+CodeRabbit verified that the prior shared `canonicalRelativePath` rule still accepted:
 
 ```text
-docs/founding/ASCOUT_MASTER_PLAN_V1.md
-docs/founding/MASTER_PLAN_V1.md
+src//file.ts
+src/
 ```
 
-looked like live normative “Master Plan v1” documents and differed materially. That created a credible path for an implementer to reuse superseded command-admission/configuration semantics.
+Those values are relative and non-traversing but not canonical because they contain an empty path segment or trailing separator, allowing more than one serialized representation of the same logical path.
 
-Final authority model:
+The shared path predicate now requires one or more non-empty slash-delimited segments and continues to reject:
 
-```text
-docs/founding/MASTER_PLAN_V1.md
-```
+- POSIX absolute paths;
+- Windows drive and UNC forms;
+- URI-absolute forms;
+- backslashes;
+- `.` / `..` segments;
+- duplicate separators;
+- trailing separators.
 
-is the sole canonical Master Plan v1.
-
-The legacy path:
-
-```text
-docs/founding/ASCOUT_MASTER_PLAN_V1.md
-```
-
-is now a short explicit tombstone marked:
-
-```text
-SUPERSEDED / NON-AUTHORITATIVE
-```
-
-It contains no alternate normative requirements and explicitly states it MUST NOT be used for implementation authorization, Spec Kit derivation, requirement interpretation, task planning, code review, or release decisions. Historical content remains available through Git history.
+CHK088 locks these serialization cases. Existing T009/T025/T026/T033/T081 already own path-contract, semantic validation, end-to-end, and cross-platform negative cases; no task or subsystem was added.
 
 **Result:** `PASS`
 
@@ -95,7 +86,7 @@ Clean exit `0` requires:
 - safe selection/widening;
 - no remaining material `NOT_EXERCISED`/`UNRESOLVED` changed executable line;
 - current-run evidence references resolve;
-- persisted path invariants are valid.
+- persisted path invariants are valid and canonical.
 
 Material exercise gaps never become green; stable incomplete state maps to exit `4` absent higher precedence.
 
@@ -119,7 +110,7 @@ Within that boundary:
 
 ## 4. Source / Evidence / Privacy Audit
 
-Required properties are explicit and reconciled:
+Required properties remain explicit:
 
 - remote ID: `remote:<sha256(normalized-credential-free-remote)>`, `portable=true`;
 - local-only ID: `local:<sha256(canonical-real-path)>`, `portable=false`;
@@ -132,7 +123,7 @@ Required properties are explicit and reconciled:
 - evidence/task/artifact references are unique/resolvable;
 - evidence never transfers across runs/trees;
 - weak fingerprints are matching aids only;
-- `in_changed_lines` is locational, not causal.
+- `in_changed_lines` remains locational rather than causal.
 
 Absolute future implementation benchmark gates remain:
 
@@ -150,9 +141,9 @@ Receipt path-bearing fields use canonical slash-separated relative forms in thei
 - repository fields are repository-root-relative;
 - `artifact.relative_run_path` is current-run-directory-relative.
 
-Schema + semantic validation reject absolute POSIX, Windows drive, UNC, URI-absolute, backslash-canonicalization, `.` / `..` traversal, and namespace-escaping forms after normalization.
+Schema + semantic validation reject absolute/host-native/escaping forms and noncanonical alternate serialization, including duplicate or trailing separators.
 
-No virtual filesystem/path-policy subsystem was added.
+No virtual filesystem, path registry, mount abstraction, or path-policy subsystem was introduced.
 
 **Result:** `PASS`
 
@@ -174,7 +165,7 @@ No virtual filesystem/path-policy subsystem was added.
 - strict admission invariants;
 - opaque repository IDs;
 - root current-run evidence collection;
-- canonical relative persisted-path schema;
+- canonical unique relative persisted-path serialization;
 - separate stability/completeness;
 - redacted persisted argv;
 - one pure semantic validator for cross-object, path-containment, aggregate, completeness, and exit-code consistency.
@@ -183,7 +174,7 @@ No virtual filesystem/path-policy subsystem was added.
 
 ## 7. Benchmark / Cross-Platform Audit
 
-Benchmark measures Ascout's own claims, including:
+Benchmark claims remain bounded to measurable properties:
 
 ```text
 cross-tree evidence leakage = 0
@@ -210,7 +201,7 @@ The final repairs do not introduce:
 - DB/evidence service;
 - daemon/server;
 - validator service;
-- VFS/path policy subsystem;
+- VFS/path-policy subsystem;
 - schema-generation layer;
 - task-name mapping layer;
 - workflow engine;
@@ -221,7 +212,7 @@ The final repairs do not introduce:
 - required AI;
 - sandbox.
 
-CR12 reduces live normative surface from two plans to one.
+CR12 reduces normative surface from two live plans to one. CR13 tightens one existing schema predicate.
 
 **Result:** `PASS`
 
@@ -233,28 +224,29 @@ Task range remains exactly:
 T001–T088
 ```
 
-No implementation task was added for CR12 because canonical-document authority is a governance invariant, not runtime functionality.
+No implementation task was added for CR12 or CR13 because both are covered planning/contract invariants rather than new runtime capabilities.
 
 Requirements/checklist gate:
 
 ```text
-87 / 87 PASS
+88 / 88 PASS
 ```
 
-CHK087 locks the sole canonical Master Plan and tombstone semantics.
+- CHK087 locks sole canonical Master Plan authority and tombstone semantics.
+- CHK088 locks rejection of duplicate path separators and trailing separators.
 
 **Result:** `PASS`
 
 ## 10. Planning-Branch Purity at Audit Target
 
-Exact comparison of `main` to audit target `e15785545c0075081eeaf2691a41648e76031dfe`:
+Exact comparison of `main` to audit target `5ce3c6b9b0fc4bbb14e2a1111a27de5caf9bb3a1`:
 
 - base main SHA: `6735fe500c8408081a9950ac33abc69c3f272ce3`;
-- ahead by 91 commits;
+- ahead by 95 commits;
 - behind by 0;
 - 19 changed files;
 - paths remain only `.specify/`, `docs/founding/`, `specs/001-changed-code-verification-receipt/`, and `LICENSE`;
-- the nineteenth file is the legacy Master Plan tombstone;
+- the nineteenth path is the legacy Master Plan tombstone;
 - no `src/`;
 - no `tests/`;
 - no `benchmarks/`;
@@ -264,7 +256,18 @@ Exact comparison of `main` to audit target `e15785545c0075081eeaf2691a41648e7603
 
 **Result:** `PASS`
 
-## 11. Residual Implementation / Release Gates
+## 11. Review Integration Inventory
+
+Connected review surfaces proven on this PR/current lineage:
+
+1. **CodeRabbit** — commit status/review/comment integration.
+2. **Qodo Code Review** — PR review/comment integration.
+
+No GitHub Actions workflow runs exist on the audit target lineage, and no additional code-review bot is evidenced in the PR discussion/review history at this audit.
+
+The post-audit successor must receive clean current-head evidence from both CodeRabbit and Qodo before merge consideration.
+
+## 12. Residual Implementation / Release Gates
 
 Not planning blockers:
 
@@ -275,22 +278,22 @@ Not planning blockers:
 5. real Vitest/Jest/pytest version variance and selector/config misses;
 6. measured time-to-signal.
 
-## 12. Final Verdict
+## 13. Final Verdict
 
 `PASS_READY_FOR_FRESH_EXACT_HEAD_PR_REVIEW`
 
-At audit target `e15785545c0075081eeaf2691a41648e76031dfe`:
+At audit target `5ce3c6b9b0fc4bbb14e2a1111a27de5caf9bb3a1`:
 
 - open internal BLOCKER findings: **0**
 - open internal MAJOR findings: **0**
 - accepted Qodo findings unrepaired: **0**
-- accepted CodeRabbit findings CR1–CR12 unrepaired: **0**
-- requirements/contract/governance checks: **87/87 PASS**
+- accepted CodeRabbit findings CR1–CR13 unrepaired: **0**
+- requirements/contract/governance checks: **88/88 PASS**
 - constitutional violations: **0**
 - known false-green paths: **0**
 - known silent changed-command execution paths: **0**
 - known unresolved evidence-reference contract paths: **0**
-- known accepted raw/escaping persisted path forms: **0**
+- known accepted noncanonical/escaping persisted path forms: **0**
 - live authoritative Master Plan documents: **1**
 - product implementation files: **0**
 
@@ -299,12 +302,12 @@ At audit target `e15785545c0075081eeaf2691a41648e76031dfe`:
 This verdict authorizes only:
 
 - keeping PR #1 Ready for Review;
-- consuming a **fresh external exact-HEAD review** of the post-audit PR head;
-- final merge consideration only after that review is clean and head/purity are reverified.
+- consuming **fresh external exact-HEAD review evidence** from CodeRabbit and Qodo on the post-audit PR head;
+- final merge consideration only after those reviews are clean and head/purity/threads/mergeability are reverified.
 
 It does **not** authorize:
 
-- merging before fresh repaired-head review completes;
+- merging before all connected review gates are clean on the same head;
 - starting T001;
 - writing product implementation;
 - publishing a package.
