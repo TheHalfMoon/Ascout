@@ -44,7 +44,7 @@ This checklist reviews the **requirements and machine contracts**, not product i
 - [x] CHK025 Tree identity covers HEAD/index/current unstaged mode+content and all non-gitignored untracked files except `.ascout/`.
 - [x] CHK026 There is no heuristic hidden untracked-source omission list.
 - [x] CHK027 Tracked files cannot be excluded merely because tools may rewrite them.
-- [x] CHK028 Start/end drift yields `stable | tree_drifted | unknown` without conflating task error with source stability.
+- [x] CHK028 Start/end drift yields `stable`, `tree_drifted`, or `unknown` without conflating task error with source stability.
 - [x] CHK029 Evidence is run-bound; cross-tree reuse is prohibited.
 - [x] CHK030 Weak finding fingerprints are matching aids only.
 - [x] CHK031 `in_changed_lines` and causal `introduced_by_change` remain separate.
@@ -62,7 +62,7 @@ This checklist reviews the **requirements and machine contracts**, not product i
 - [x] CHK037 Selector blind spots are handled by finite conservative widening.
 - [x] CHK038 Widening is bounded to at most one post-run second pass.
 - [x] CHK039 Selection counts may be null only with explicit limitation; counts are never guessed.
-- [x] CHK040 Exercise coverage has `EXERCISED | NOT_EXERCISED | UNRESOLVED`.
+- [x] CHK040 Exercise coverage has `EXERCISED`, `NOT_EXERCISED`, and `UNRESOLVED` states.
 - [x] CHK041 Coverage is observed execution, not correctness proof.
 - [x] CHK042 Coverage/source-map uncertainty cannot become optimistic exercise.
 
@@ -114,15 +114,26 @@ This checklist reviews the **requirements and machine contracts**, not product i
 - [x] CHK071 Changed-command admission is implemented as a per-run CLI gate rather than a sandbox/trust subsystem.
 - [x] CHK072 Project structure remains an upper bound and stop conditions return material complexity to planning.
 
-## External-Review Contract Regression Checks
+## Qodo Review Regression Checks
 
 - [x] CHK073 `NOT_RUN`, `BLOCKED`, and `ERROR` require non-empty `reason_code` and `reason_text` in receipt v1; omission/error states cannot be machine-opaque.
 - [x] CHK074 `change_kind=renamed` requires `previous_path`, while non-rename change kinds do not carry it, preserving old/new path fidelity.
 - [x] CHK075 Exercise state/count semantics are machine-enforced: `EXERCISED` count > 0; `NOT_EXERCISED` count = 0; `UNRESOLVED` count = null with a non-empty reason.
 - [x] CHK076 Config v1 and receipt v1 use the same canonical fixed-task identifiers: `typecheck`, `lint`, `test`, `pytestBasic`; no hidden mapping layer is required.
 
+## CodeRabbit Review Regression Checks
+
+- [x] CHK077 Canonical workflow requires a fresh exact-HEAD cross-artifact consistency and branch-purity review after final audit and after any material post-audit mutation, before implementation authorization or merge consideration.
+- [x] CHK078 Master Plan, constitution, spec, plan, quickstart, and tasks agree that changed effective command/config authority is refused by default; there is no surviving warning-then-execute rule.
+- [x] CHK079 Governance Markdown tables render with consistent column counts; literal separator characters are not left unescaped inside table cells.
+- [x] CHK080 Receipt v1 contains required root current-run `evidence[]`, and plan/tasks require unique/resolvable run/task/artifact reference integrity rather than free-floating `evidence_ids`.
+- [x] CHK081 Receipt source-state schema enforces privacy-safe repository IDs: `remote:<sha256>` with `portable=true` and `local:<sha256>` with `portable=false`; arbitrary raw URL/path strings are invalid.
+- [x] CHK082 One Ascout-owned pure semantic receipt validator is required before emission and reused by any internal/future receipt acceptance path to enforce evidence references, stability, task/admission, exercise, aggregate completeness, and exit-code invariants beyond JSON Schema field checks.
+- [x] CHK083 Benchmark/task plan explicitly asserts stable runs with remaining material `NOT_EXERCISED`/`UNRESOLVED` gaps never return exit `0`; absent higher precedence they map to exit `4`.
+- [x] CHK084 Command-admission integration coverage includes the executable `pytestBasic` task and effective pytest configuration sources when used.
+
 ## Result
 
-**76/76 requirement-and-contract quality checks PASS after cross-artifact, independent-admission, and Qodo exact-head review repair.**
+**84/84 requirement, contract, governance, and review-regression checks PASS after internal analysis, independent admission audit, Qodo review, and CodeRabbit review reconciliation.**
 
-This means the repaired planning set is internally ready for a renewed final audit and fresh exact-head external review. It does not authorize implementation or merge by itself.
+This means the repaired planning set is internally ready for a renewed Ponytail/final audit and fresh exact-head external review. It does not authorize implementation or merge by itself.
