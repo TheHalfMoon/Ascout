@@ -5,6 +5,7 @@
 ## Prerequisites
 
 - Your own trusted local Git repository.
+- An existing Git HEAD; unborn/no-initial-commit repositories are unsupported by M1 `check`.
 - Node.js 22 or 24 LTS.
 - Project dependencies installed explicitly by you.
 - Supported JS/TS project for first-class exercise reporting.
@@ -31,7 +32,7 @@ Planned effect:
 ascout doctor
 ```
 
-`doctor` explains privacy-safe repository identity, package/tool discovery, command authority/config sources, missing tools, selection/coverage capability, and unsupported M1 traits. Limitations are output.
+`doctor` explains privacy-safe repository identity, exact HEAD identity, package/tool discovery, command authority/config sources, missing tools, selection/coverage capability, and unsupported M1 traits. Limitations are output.
 
 ## 3. Run normal verification
 
@@ -44,8 +45,11 @@ If command surfaces are unchanged, Ascout may run applicable tasks.
 Illustrative receipt where selected tests pass but changed executable gaps remain:
 
 ```text
-SOURCE  repo=remote:9d3f...  portable=true  HEAD=abc123  tree=4f8...
-SCOPE   staged + unstaged + all non-gitignored untracked vs HEAD
+SOURCE  repo=remote:9d3f...  portable=true
+HEAD    0123456789abcdef0123456789abcdef01234567
+BASE    0123456789abcdef0123456789abcdef01234567
+TREE    4f8...
+SCOPE   staged + unstaged + all non-gitignored untracked vs exact source-start HEAD
 
 TASKS
 TYPECHECK     PASS
@@ -63,9 +67,13 @@ RESULT    materially incomplete: exercise gaps remain
 EXIT      4
 ```
 
+For M1 `working_tree_vs_head`, machine `source.start.head_sha` and `comparison.base_ref` are full Git object IDs and must be exactly equal. SHA-1 repositories use 40 hex characters; SHA-256 repositories use 64. Abbreviated, malformed, symbolic/free-form, or mismatched identities fail validation.
+
 All selected tests passing is not green while material changed executable lines remain unexercised/unresolved.
 
 Each `UNRESOLVED` line in the machine receipt carries a non-empty mapping reason.
+
+Changed new-line ranges are inclusive `[start, end]` pairs with positive integers and `start <= end`. An inverted range such as `[10, 1]` is rejected before changed-line counts, coverage intersection, or exercise aggregation.
 
 ## 4. Changed command surface: default refusal
 
@@ -127,7 +135,9 @@ ascout check --format json
 ascout check --format agent
 ```
 
-JSON follows receipt v1 and includes a root `evidence[]` collection. Every task/finding `evidence_id` resolves to current-run evidence before emission. Schema validation plus semantic receipt validation rejects dangling/cross-run/cross-task evidence references and inconsistent stability/completeness/exit summaries.
+JSON follows receipt v1 and includes a root `evidence[]` collection. Every task/finding `evidence_id` resolves to current-run evidence before emission. Schema validation plus semantic receipt validation rejects dangling/cross-run/cross-task evidence references, mismatched source-start/comparison Git object IDs, inverted changed-line ranges, and inconsistent stability/completeness/exit summaries.
+
+Persisted path candidates are rejected on their original spelling before any lossy normalization can collapse or repair invalid forms such as `src//file.ts`, `src/`, absolute/drive/UNC/URI paths, backslashes, or dot traversal.
 
 Agent output uses the same validated truth and stays within the default 16 KiB UTF-8 budget. Both preserve admission state and changed authority paths.
 
@@ -175,4 +185,4 @@ UNIT FLAKY  runs=3 failures=1 reproduced=false
 
 No code/test generation, arbitrary config workflow graph, browser/security/adversarial suite, untrusted PR sandbox, semantic graph, required AI, cloud upload, or correctness claim from coverage.
 
-M1 proves what it actually verified, refuses changed execution authority by default, requires resolvable current-run evidence, and refuses green while material changed code remains unchecked.
+M1 proves what it actually verified, refuses changed execution authority by default, requires resolvable current-run evidence, binds comparison to exact source-start HEAD, rejects invalid changed-line ranges, and refuses green while material changed code remains unchecked.
