@@ -5,16 +5,16 @@
 
 ## Decision
 
-The repaired technical plan remains the minimum credible M1 architecture after internal analysis, the independent admission audit, Qodo review, and CodeRabbit review.
+The repaired technical plan remains the minimum credible M1 architecture after internal analysis, the independent admission audit, Qodo review, and two CodeRabbit exact-head review rounds.
 
 Earlier designs failed the Ponytail test in two material ways and were deleted before implementation:
 
 1. config v1 briefly behaved like a workflow/task-runner DSL; and
 2. changed command/config surfaces were only warned about before execution.
 
-Qodo then tightened four existing machine-contract concepts. CodeRabbit subsequently exposed stale-head governance, evidence-reference integrity, privacy-enforceability, semantic receipt consistency, benchmark, and pytest admission gaps.
+Qodo then tightened four existing machine-contract concepts. CodeRabbit subsequently exposed stale-head governance, evidence-reference integrity, privacy-enforceability, semantic receipt consistency, benchmark, pytest admission, persisted-path containment, and plan-summary consistency gaps.
 
-The accepted review repairs do **not** justify a new service, database, policy engine, code-generation pipeline, schema package, plugin layer, trust store, or task range.
+The accepted review repairs do **not** justify a new service, database, policy engine, code-generation pipeline, schema package, plugin layer, trust store, path subsystem, or task range.
 
 ## Dependency ladder
 
@@ -32,6 +32,7 @@ Boundary: launch normalization only. Ascout owns timeout, bounded capture, proce
 - No Git library: Git CLI is canonical.
 - No logging framework: bounded receipt/artifact writers are enough.
 - No dedicated receipt-validation framework: one pure validator in the receipt model is enough.
+- No path-normalization/virtual-filesystem framework: Node path primitives plus Git-style persisted path normalization are enough.
 - No schema-generation/shared-type package solely because config/receipt contracts are strict.
 - No new schema-validation runtime dependency unless implementation proves the existing minimal approach cannot safely uphold fixed v1 contracts.
 
@@ -41,12 +42,13 @@ Boundary: launch normalization only. Ascout owns timeout, bounded capture, proce
 - `receipt/model.ts` is justified because three renderers share one truth model and one semantic invariant function.
 - Root `evidence[]` is data already required by “Evidence Before Claims”; it is not a persistence service.
 - The semantic receipt validator is a **pure function over one receipt**, not a validator service, workflow engine, or repository.
+- Canonical persisted path validation is another rule in that same pure function, not a filesystem abstraction or path policy engine.
 - `process.ts` is justified by launch/timeout/tree-kill safety.
 - `git.ts` is justified by source identity/diff/drift sharing Git semantics.
 - Fixed internal prerequisite ordering is allowed; user-defined task/prerequisite graphs are not.
 - Config and receipt use the same fixed task identifiers; no translation/mapping layer is justified.
 - Opaque `remote:<sha256>` and `local:<sha256>` IDs reduce privacy state rather than add identity infrastructure.
-- No repository graph, event bus, DI container, persistence abstraction, workflow engine, sandbox manager, trust database, schema-generation pipeline, or distributed validator is permitted.
+- No repository graph, event bus, DI container, persistence abstraction, workflow engine, sandbox manager, trust database, schema-generation pipeline, virtual filesystem, or distributed validator is permitted.
 
 ## Boundaries locked
 
@@ -97,7 +99,9 @@ CodeRabbit repairs also remain inside existing concepts:
 - one pure semantic validator enforces cross-object relations JSON Schema cannot express cleanly;
 - exact-HEAD review is governance freshness, not runtime architecture;
 - pytest command admission is reuse of the same generic admission gate;
-- benchmark gap-to-exit assertion tests an existing product rule.
+- benchmark gap-to-exit assertion tests an existing product rule;
+- persisted path containment is a schema/validator invariant over fields that already existed;
+- adding `pytestBasic` to the opening plan summary fixes scope wording and creates no new behavior.
 
 ### B7 — One receipt interpretation only
 
@@ -105,11 +109,18 @@ Schema validation and semantic validation are two layers of **one** receipt cont
 
 Creating a second acceptance model, alternate summary calculator, validator microservice, or persistence-backed evidence resolver is rejected for M1.
 
+### B8 — Relative persisted paths, not a path subsystem
+
+All persisted repository paths use one canonical slash-separated repository-relative form. `artifact.relative_run_path` uses the same canonical relative shape but is relative to the current run directory. Absolute POSIX, Windows drive/UNC, URI-absolute, backslash-canonicalization violations, and `.` / `..` traversal are rejected after normalization.
+
+This does not require a virtual filesystem, path registry, mount abstraction, or sandbox. It is a privacy/integrity predicate in the existing receipt model.
+
 ## Security/privacy reductions
 
 - Raw credential-bearing Git origins are never persisted.
 - Remote receipt identity is always opaque `remote:<sha256>` with `portable=true`.
 - Local-only identity is `local:<sha256>` with `portable=false`; raw absolute workstation path is never persisted.
+- Every persisted path-bearing receipt field is canonical and relative to its declared repository/run namespace; absolute, UNC, URI, traversal, and noncanonical backslash forms are rejected.
 - Persisted/rendered argv is redacted; raw argv is transient launch input only.
 - All non-gitignored untracked files except `.ascout/` participate in source identity.
 - Unstaged type/mode participates in tree identity.
@@ -132,6 +143,6 @@ A stale audit simply has no authority.
 
 ## Complexity budget
 
-The source tree remains an upper bound. Adjacent modules SHOULD collapse when trivial. New runtime dependencies, DB/background processes, semantic indexes, generic plugin interfaces, arbitrary config workflow edges, recursive widening, persistent trust state, automatic admission escalation, task-name translation layers, receipt-validator services, or schema-generation subsystems require a plan amendment and constitution check.
+The source tree remains an upper bound. Adjacent modules SHOULD collapse when trivial. New runtime dependencies, DB/background processes, semantic indexes, generic plugin interfaces, arbitrary config workflow edges, recursive widening, persistent trust state, automatic admission escalation, task-name translation layers, receipt-validator services, path-policy subsystems, or schema-generation subsystems require a plan amendment and constitution check.
 
 **Disposition:** `PASS_AFTER_REPAIR`. Qodo + CodeRabbit reconciliation strengthened existing truth contracts and governance without expanding the product architecture. No implementation is authorized.
