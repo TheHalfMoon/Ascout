@@ -72,6 +72,14 @@ jobs:
           ./node_modules/.bin/vitest --version
           npm ls --all
 
+      - name: Verify engine-strict install on Node 22.0.0
+        run: |
+          npm ci --engine-strict --ignore-scripts --audit=false --fund=false
+          test ! -e node_modules/@napi-rs/lzma-linux-x64-gnu/package.json
+          ./node_modules/.bin/vite --version
+          ./node_modules/.bin/vitest --version
+          echo ENGINE_STRICT_NODE_22_0_0=PASS
+
       - name: Audit resolved graph
         run: npm audit --package-lock-only --audit-level=high
 
