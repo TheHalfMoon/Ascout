@@ -7,7 +7,7 @@
 
 ## 1. Executive Result
 
-Ascout's founding planning set has been repeatedly challenged rather than accepted at face value. Internal analysis, independent adversarial audit, Qodo, and CodeRabbit exposed defects in execution authority, no-green semantics, source/evidence identity, receipt integrity, persisted-path privacy, benchmark truthfulness, exact-head governance, and finally canonical-document authority.
+Ascout's founding planning set has been repeatedly challenged rather than accepted at face value. Internal analysis, independent adversarial audit, Qodo, and CodeRabbit exposed defects in execution authority, no-green semantics, source/evidence identity, receipt integrity, persisted-path privacy and canonical serialization, benchmark truthfulness, exact-head governance, and canonical-document authority.
 
 Every accepted finding is repaired in the current planning set.
 
@@ -42,7 +42,7 @@ No product implementation is authorized or present.
 | Q3 | MEDIUM | Exercise state/count/reason combinations were underconstrained. | `EXERCISED >0`, `NOT_EXERCISED=0`, `UNRESOLVED=null + reason`. | RESOLVED |
 | Q4 | LOW | `pytestBasic` / `pytest_basic` mismatch. | `pytestBasic` is canonical everywhere. | RESOLVED |
 
-Later Qodo repetitions of Q1–Q4 were checked against the exact linked SHAs and contradicted the live repaired schema. They are stale/cached repetitions, not new findings.
+Later Qodo repetitions of Q1–Q4 were checked against the exact linked SHAs and contradicted the live repaired schema. They are stale/cached repetitions, not new findings. Qodo's latest exact-head pass before this reconciliation reported zero bugs, zero rule violations, and zero skill insights; a fresh final-head pass remains required after the renewed audit.
 
 ## 4. CodeRabbit Reconciliation
 
@@ -60,8 +60,9 @@ Later Qodo repetitions of Q1–Q4 were checked against the exact linked SHAs and
 | CR10 | MAJOR / PRIVACY | Persisted path fields accepted absolute/traversal/host-native forms. | Shared canonical relative path contract + semantic namespace containment; POSIX/drive/UNC/URI/backslash/traversal forms rejected. | RESOLVED |
 | CR11 | MINOR / PLAN | Opening plan summary omitted `pytestBasic`. | Summary explicitly names all four fixed task categories. | RESOLVED |
 | CR12 | BLOCKER / GOVERNANCE | Two live `Master Plan v1` files both looked authoritative and differed materially. | `docs/founding/ASCOUT_MASTER_PLAN_V1.md` is now an explicit `SUPERSEDED / NON-AUTHORITATIVE` tombstone. The sole canonical plan is `docs/founding/MASTER_PLAN_V1.md`; the old path MUST NOT be used for implementation authorization, Spec Kit derivation, requirement interpretation, task planning, review, or release decisions. | RESOLVED |
+| CR13 | MAJOR / DATA INTEGRITY | The shared path regex still accepted noncanonical serialized forms such as `src//file.ts` and `src/`. | `canonicalRelativePath` now requires non-empty slash-delimited segments with no trailing separator while preserving prior absolute/drive/URI/backslash/dot-segment exclusions. CHK088 locks the regression. | RESOLVED |
 
-CR12 is a governance repair only. It removes competing authority instead of introducing another abstraction or product task.
+CR12 is a governance repair only. CR13 strengthens the existing shared path predicate only. Neither adds an architecture subsystem or product task.
 
 ## 5. Canonical Planning Authority
 
@@ -90,7 +91,7 @@ Historical text remains available through Git history, not as a second live spec
 | Exact source binding + drift + no evidence reuse | PASS |
 | Changed command/config authority defaults to refusal | PASS |
 | Opaque remote/local repository identity | PASS |
-| Canonical relative persisted paths only | PASS |
+| Canonical relative persisted paths only, with unique slash-segment serialization | PASS |
 | Native capability before custom infrastructure | PASS |
 | Bounded widening and execution | PASS |
 | Minimal core; no DB/daemon/graph/plugin/AI/path subsystem | PASS |
@@ -103,14 +104,14 @@ No constitutional exception is accepted.
 ## 7. Requirement / Task Traceability
 
 - Source/evidence/task/admission/privacy invariants: T008–T043.
-- Persisted path containment (FR-042 / SC-015): T009, T025, T026, T033, T081.
+- Persisted path containment and canonical serialization (FR-042 / SC-015): T009, T025, T026, T033, T081; negative cases include absolute/drive/UNC/URI/backslash/dot segments, duplicate separators, and trailing separators.
 - Affected selection/exercise: T044–T056.
 - Drift/flake: T057–T064.
 - Test facts/agent receipt: T065–T070.
 - Benchmark integrity: T071–T078, especially T077.
 - Cross-platform/release/governance: T079–T088.
 
-Task range remains exactly **T001–T088**. No task is added for CR12 because canonical-document authority is a planning artifact invariant, not product functionality.
+Task range remains exactly **T001–T088**. No task is added for CR12 or CR13 because they are planning/contract-invariant repairs already covered by existing tasks.
 
 ## 8. Machine Contract Re-check
 
@@ -122,7 +123,7 @@ Receipt v1 has:
 - admission invariants;
 - opaque repository IDs;
 - root `evidence[]`;
-- canonical persisted path schema;
+- canonical persisted path schema with one serialized slash-separated representation per accepted segment sequence;
 - separate stability/completeness;
 - one pure semantic validator for referential/cross-field/path containment/exit consistency.
 
@@ -143,10 +144,10 @@ No invented pre-data recall threshold is frozen.
 Current checklist:
 
 ```text
-87 / 87 PASS
+88 / 88 PASS
 ```
 
-CHK087 locks the single canonical Master Plan authority and prevents the superseded path from becoming a second implementation source.
+CHK087 locks the single canonical Master Plan authority. CHK088 locks canonical path serialization by rejecting duplicate path separators and trailing separators in addition to the earlier containment/privacy cases.
 
 ## 11. Analyze Verdict
 
@@ -155,8 +156,8 @@ CHK087 locks the single canonical Master Plan authority and prevents the superse
 - open internal BLOCKER findings: **0**
 - open internal MAJOR findings: **0**
 - accepted Qodo findings unrepaired: **0**
-- accepted CodeRabbit findings CR1–CR12 unrepaired: **0**
-- requirements/contract/governance checks: **87/87 PASS**
+- accepted CodeRabbit findings CR1–CR13 unrepaired: **0**
+- requirements/contract/governance checks: **88/88 PASS**
 - unresolved constitutional violations: **0**
 - orphan product requirements: **0**
 - product implementation files: **0**
