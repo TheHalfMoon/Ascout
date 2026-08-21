@@ -85,13 +85,31 @@ Internal ordering among fixed product tasks remains product logic, not user-auth
 
 ## R10 — Repository/source identity
 
-**Decision:** Git CLI is canonical source-state input.
+**Decision:** Git CLI is canonical source-state input; persisted repository identity is always opaque and schema-enforceable.
 
-A run records credential-safe remote/local-only repo identity, HEAD, detached/shallow flags, start tree digest, config digest, and end tree digest.
+A run records repository ID, HEAD, detached/shallow flags, start tree digest, config digest, and end tree digest.
 
 ### Remote identity safety
 
-Raw origin text is never persisted. Normalization removes credentials/userinfo/query/fragment material. If safe normalization cannot be established, persist a one-way SHA-256 identifier rather than raw origin text.
+Raw origin text is never persisted. Normalize the remote only long enough to remove credentials/userinfo/query/fragment and canonicalize the credential-free identity, then persist:
+
+```text
+remote:<sha256(normalized-credential-free-remote-identity)>
+portable=true
+```
+
+This avoids schema-level ambiguity about whether a supposedly sanitized URL is actually safe.
+
+### Local identity safety
+
+Without a remote, persist:
+
+```text
+local:<sha256(canonical-real-repository-path)>
+portable=false
+```
+
+The raw absolute path is never persisted/rendered.
 
 ### Tree digest
 
@@ -105,7 +123,7 @@ This is deliberately conservative: a tool writing a non-gitignored untracked fil
 
 ## R11 — Changed-line calculation
 
-**Decision:** Git zero-context unified diff for tracked changes; non-gitignored untracked text files are wholly changed. Binary/non-line inputs are file-level only.
+**Decision:** Git zero-context unified diff for tracked changes; non-gitignored untracked text files are wholly changed. Binary/non-line inputs are file-level only. Rename events preserve both old and new path in the machine receipt.
 
 ## R12 — Workspace scope
 
@@ -168,3 +186,21 @@ Valid affected deselection is selection accounting, not task-level `NOT_RUN`, an
 Upstream: https://github.com/github/spec-kit/releases/tag/v0.16.0
 
 The founding shell could not resolve GitHub/PyPI, so claiming `specify init` executed would be false. Project-specific artifacts follow inspected v0.16.0 workflow/template semantics and `.specify/PROVENANCE.md` records that fact.
+
+## R21 — Receipt validation boundary
+
+**Decision:** JSON Schema validates field-level structure, while one Ascout-owned pure semantic validator verifies cross-object and cross-field invariants before receipt emission.
+
+It verifies at least:
+
+- unique/resolvable evidence/task/artifact references;
+- evidence run/task linkage;
+- source start/end vs stability;
+- task status/reason/admission invariants;
+- exercise record/summary consistency;
+- aggregate counts;
+- completeness and exit-code precedence.
+
+Any internal/future receipt acceptance path reuses the same validator. No validator service, DB, code-generation system, or second receipt interpretation is introduced.
+
+**Why:** JSON Schema draft 2020-12 cannot generally enforce referential equality between arbitrary array objects and root values. A small pure semantic validator is the minimal honest boundary.
