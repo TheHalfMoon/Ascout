@@ -25,7 +25,9 @@ A changed executable line that remains `NOT_EXERCISED` or `UNRESOLVED` after the
 ### III. Source-Bound Truth
 Every run MUST bind evidence to the exact source state observed. Evidence from one run/tree MUST NOT silently become evidence for another. The source identity contract MUST include secret-safe repository identity, HEAD when available, start tree identity, configuration identity, and start/end drift detection.
 
-Persisted remote identity MUST NOT expose raw credentials/userinfo/query/fragment material. All non-gitignored untracked files except `.ascout/` participate in M1 source identity; there is no heuristic hidden untracked-source omission list. Current worktree type/mode changes MUST be represented even when file bytes are unchanged.
+Persisted remote identity MUST NOT expose raw credentials/userinfo/query/fragment material. For a repository with no remote, persisted `local_only` identity MUST be a one-way identifier derived from the canonical local repository path; the raw absolute local path MUST NOT be written to receipts or run artifacts, and `portable` MUST remain false.
+
+All non-gitignored untracked files except `.ascout/` participate in M1 source identity; there is no heuristic hidden untracked-source omission list. Current worktree type/mode changes MUST be represented even when file bytes are unchanged.
 
 Finding fingerprints MAY assist weak run-to-run matching, but are not evidence. `in_changed_lines` MUST NOT be interpreted as `introduced_by_change`; causal attribution remains `unknown` without comparative evidence.
 
@@ -53,7 +55,7 @@ Ascout MUST NOT silently modify product source. Verification artifacts belong in
 
 Every executable verification task MUST have bounded execution semantics. Timeouts, internal errors, blocked downstream work, and concurrent-run behavior MUST fail closed with respect to claims. M1 MUST refuse concurrent Ascout runs rather than queueing them.
 
-Captured/persisted evidence MUST be treated as potentially sensitive. `.ascout/` MUST be ignored by default. Recognized secret-bearing environment values MUST be redacted from persisted output and persisted/rendered command argv. Raw secret-bearing argv and raw credential-bearing origin strings MUST NOT be written to run artifacts. Retained artifacts MUST be documented and bounded.
+Captured/persisted evidence MUST be treated as potentially sensitive. `.ascout/` MUST be ignored by default. Recognized secret-bearing environment values MUST be redacted from persisted output and persisted/rendered command argv. Raw secret-bearing argv, raw credential-bearing origin strings, and raw absolute local repository paths MUST NOT be written to run artifacts. Retained artifacts MUST be documented and bounded.
 
 ### VIII. Provenance, Licensing, and Benchmark-Gated Growth
 Code licenses, rules licenses, data licenses, database redistribution terms, and permitted-use restrictions MUST be evaluated separately. Process isolation MUST NOT be assumed to cure use restrictions, AGPL network-service obligations, data attribution obligations, or nested third-party licenses. Donor code MUST NOT enter Ascout without exact-version/component provenance review.
