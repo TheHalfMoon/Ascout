@@ -23,6 +23,7 @@
   },
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "gitObjectId": {"type": "string", "pattern": "^(?:[a-f0-9]{40}|[a-f0-9]{64})$"},
     "canonicalRelativePath": {
       "type": "string",
       "minLength": 1,
@@ -33,6 +34,17 @@
         {"$ref": "#/$defs/canonicalRelativePath"},
         {"type": "null"}
       ]
+    },
+    "lineRange": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 1},
+        {"type": "integer", "minimum": 1}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2,
+      "$comment": "Semantic receipt validation additionally requires start <= end before any coverage/exercise arithmetic."
     },
     "run": {
       "type": "object",
@@ -54,7 +66,7 @@
         "repository_id": {"type": "string", "minLength": 1},
         "repository_id_kind": {"enum": ["remote", "local_only"]},
         "portable": {"type": "boolean"},
-        "head_sha": {"type": ["string", "null"]},
+        "head_sha": {"$ref": "#/$defs/gitObjectId"},
         "detached": {"type": "boolean"},
         "shallow": {"type": "boolean"},
         "tree_digest_version": {"const": 1},
@@ -102,7 +114,7 @@
         "previous_path": {"$ref": "#/$defs/canonicalRelativePath"},
         "change_kind": {"enum": ["added", "modified", "deleted", "renamed", "type_changed", "untracked"]},
         "line_semantics": {"enum": ["text", "binary_or_non_line", "deleted_only"]},
-        "changed_new_line_ranges": {"type": "array", "items": {"type": "array", "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}], "items": false, "minItems": 2, "maxItems": 2}},
+        "changed_new_line_ranges": {"type": "array", "items": {"$ref": "#/$defs/lineRange"}},
         "is_test_file": {"type": "boolean"},
         "is_snapshot": {"type": "boolean"},
         "is_command_surface": {"type": "boolean"}
@@ -121,12 +133,13 @@
       "required": ["kind", "base_ref", "includes_staged", "includes_unstaged", "includes_untracked_nonignored", "changed_files"],
       "properties": {
         "kind": {"const": "working_tree_vs_head"},
-        "base_ref": {"type": "string", "minLength": 1},
+        "base_ref": {"$ref": "#/$defs/gitObjectId"},
         "includes_staged": {"const": true},
         "includes_unstaged": {"const": true},
         "includes_untracked_nonignored": {"const": true},
         "changed_files": {"type": "array", "items": {"$ref": "#/$defs/changedFile"}}
-      }
+      },
+      "$comment": "For working_tree_vs_head, semantic receipt validation requires base_ref to equal source.start.head_sha exactly."
     },
     "scope": {
       "type": "object",
