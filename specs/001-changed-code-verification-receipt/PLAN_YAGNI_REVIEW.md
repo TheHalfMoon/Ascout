@@ -1,11 +1,16 @@
 # 001 — Post-Plan Ponytail/YAGNI Review
 
-**Gate:** PASS AFTER CROSS-ARTIFACT REDUCTION  
+**Gate:** `PASS_AFTER_REPAIR`  
 **Date:** 2026-08-21
 
 ## Decision
 
-The repaired technical plan is the minimum credible M1 architecture. Cross-artifact analysis found one genuine Ponytail failure in the earlier candidate: config v1 allowed arbitrary task names plus user-defined prerequisites, which was functionally a small workflow/task-runner DSL despite the plan saying no DSL. That surface has been deleted before implementation.
+The repaired technical plan is the minimum credible M1 architecture. Two earlier designs failed the Ponytail test and were deleted before implementation:
+
+1. config v1 briefly behaved like a workflow/task-runner DSL; and
+2. changed command/config surfaces were only warned about before execution, requiring a security fix.
+
+The final design closes both without adding a trust database, sandbox, daemon, or policy engine.
 
 ## Dependency ladder
 
@@ -22,22 +27,22 @@ Boundary: launch normalization only. Ascout owns timeout, bounded capture, proce
 - No coverage database/library: strict line-level LCOV parser is enough.
 - No Git library: Git CLI is canonical.
 - No logging framework: bounded receipt/artifact writers are enough.
-- No schema-validation runtime dependency unless implementation evidence proves a small strict validator cannot uphold the fixed v1 contracts.
+- No schema-validation runtime dependency unless implementation proves a small strict validator cannot uphold the fixed v1 contracts.
 
 ## Abstraction audit
 
-- `src/tools/*` are concrete integrations, not a plugin hierarchy.
+- `src/tools/*` remain concrete integrations, not a plugin hierarchy.
 - `receipt/model.ts` is justified because three renderers share one truth model.
 - `process.ts` is justified by launch/timeout/tree-kill safety.
 - `git.ts` is justified by source identity/diff/drift sharing Git semantics.
-- Fixed internal prerequisite ordering is allowed; **user-defined task/prerequisite graphs are not**.
-- No repository graph, service layer, event bus, DI container, persistence abstraction, or workflow engine is permitted.
+- Fixed internal prerequisite ordering is allowed; user-defined task/prerequisite graphs are not.
+- No repository graph, event bus, DI container, persistence abstraction, workflow engine, sandbox manager, or trust database is permitted.
 
 ## Boundaries locked
 
 ### B1 — No recursive widening engine
 
-A narrowed test run may trigger at most one post-run widening pass. If the wider pass still leaves a material changed executable line unexercised/unresolved, Ascout reports incomplete exit `4`; it does not recursively invent impact analysis.
+A narrowed test run may trigger at most one post-run widening pass. If the wider pass still leaves material changed executable code unexercised/unresolved, Ascout reports incomplete exit `4`; it does not invent recursive impact analysis.
 
 ### B2 — No semantic test-weakening analyzer
 
@@ -45,21 +50,38 @@ M1 reports factual changed/deleted test/snapshot paths only. Semantic weakening 
 
 ### B3 — No config workflow DSL
 
-Config v1 can only override fixed semantic tasks (`typecheck`, `lint`, `test`, `pytestBasic`) plus timeout/budget/redaction. Arbitrary task names, user-authored prerequisites, workspace orchestration, expressions, and hooks are deleted from M1.
+Config v1 can override only fixed semantic tasks (`typecheck`, `lint`, `test`, `pytestBasic`) plus timeout/budget/redaction. Arbitrary task names, user prerequisites, workspace orchestration, expressions, hooks, and admission grants are deleted from M1.
 
 ### B4 — No green exercise gap
 
-An exercise gap is the product's core signal. Allowing selected tests to pass and then returning clean exit `0` while changed executable lines remain `NOT_EXERCISED`/`UNRESOLVED` would make Ascout a misleading task runner. The repaired plan uses exit `4` for this stable-but-incomplete state.
+Remaining material `NOT_EXERCISED`/`UNRESOLVED` changed executable lines produce stable incomplete exit `4`, not clean success.
 
-## Security reductions from analyze
+### B5 — Changed execution authority defaults to refusal
 
-- Raw credential-bearing Git origin strings are never persisted; repository identity is credential-safe.
-- Persisted/rendered argv is redacted using the evidence redaction policy; raw argv is transient launch input only.
-- All non-gitignored untracked files except `.ascout/` participate in source identity, eliminating an undefined "relevant untracked" omission heuristic.
-- Unstaged worktree mode/type participates in tree identity so executable-bit/type changes cannot disappear when bytes are unchanged.
+If the current diff changes the **effective authority files actually used** to derive/load a repository task, warning-then-execute is rejected. The task becomes `NOT_RUN(command_surface_changed)` before process launch/load. A human may explicitly admit the changed surface for one invocation with `--allow-changed-command-surface`.
+
+The admission mechanism deliberately does **not** add:
+
+- `.ascout/trust.json`;
+- persistent trust grants;
+- a sandbox/VM/container layer;
+- a generic policy language;
+- approval databases;
+- agent-autonomous escalation.
+
+This is the smallest design that closes the M1 authority gap.
+
+## Security/privacy reductions
+
+- Raw credential-bearing Git origins are never persisted.
+- Local-only identity is a one-way hash of canonical real path; raw absolute workstation path is never persisted.
+- Persisted/rendered argv is redacted; raw argv is transient launch input only.
+- All non-gitignored untracked files except `.ascout/` participate in source identity.
+- Unstaged type/mode participates in tree identity.
+- Changed effective command authority is refused by default rather than merely warned about.
 
 ## Complexity budget
 
-The source tree remains an upper bound. Adjacent modules SHOULD collapse when trivial. New runtime dependencies, DB/background processes, semantic indexes, generic plugin interfaces, arbitrary config workflow edges, or recursive widening require a plan amendment and constitution check.
+The source tree remains an upper bound. Adjacent modules SHOULD collapse when trivial. New runtime dependencies, DB/background processes, semantic indexes, generic plugin interfaces, arbitrary config workflow edges, recursive widening, persistent trust state, or automatic admission escalation require a plan amendment and constitution check.
 
-**Disposition:** repaired plan is lean enough for final cross-artifact analysis and independent final audit. No implementation is authorized.
+**Disposition:** `PASS_AFTER_REPAIR`. The repaired plan is lean enough for final independent audit. No implementation is authorized.
