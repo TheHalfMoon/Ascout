@@ -3,7 +3,7 @@
 ## Core Principles
 
 ### I. Evidence Before Claims
-Every material verification result MUST identify the task that produced it and the evidence bound to that run. AI-generated hypotheses, if added later, MUST NOT be treated as proof by themselves. Ascout MUST prefer directly observed compiler, test, coverage, and tool evidence over inferred confidence.
+Every material verification result MUST identify the task that produced it and the evidence bound to that run. A receipt that exposes `evidence_ids` MUST also contain resolvable current-run evidence entries; opaque/dangling evidence references are invalid. AI-generated hypotheses, if added later, MUST NOT be treated as proof by themselves. Ascout MUST prefer directly observed compiler, test, coverage, and tool evidence over inferred confidence.
 
 ### II. No Green by Omission
 `PASS` means a task ran successfully; it MUST NOT mean that nothing ran. Unavailable, disabled, budget-limited, blocked, unsupported, admission-refused, or otherwise unexecuted applicable verification MUST remain visible with a reason. Reports MUST NOT use unqualified totality language when material verification did not run.
@@ -18,16 +18,16 @@ The M1 task-status vocabulary is fixed as:
 - `NOT_APPLICABLE`
 - `NOT_RUN(reason_code, reason_text)`
 
-`ERROR` describes failure of Ascout/task execution and MUST NOT be presented as a repository failure. Deselected tests MUST NOT be presented as passed; valid affected-test deselection is selection accounting, not a fabricated task-level `NOT_RUN`.
+`NOT_RUN`, `BLOCKED`, and `ERROR` MUST carry non-empty machine-readable and human-readable reasons. `ERROR` describes failure of Ascout/task execution and MUST NOT be presented as a repository failure. Deselected tests MUST NOT be presented as passed; valid affected-test deselection is selection accounting, not a fabricated task-level `NOT_RUN`.
 
-A changed executable line that remains `NOT_EXERCISED` or `UNRESOLVED` after the permitted conservative widening policy is a material verification gap and MUST prevent clean success exit `0`.
+A changed executable line that remains `NOT_EXERCISED` or `UNRESOLVED` after the permitted conservative widening policy is a material verification gap and MUST prevent clean success exit `0`. `UNRESOLVED` MUST retain a non-empty reason explaining the mapping uncertainty.
 
 ### III. Source-Bound Truth
 Every run MUST bind evidence to the exact source state observed. Evidence from one run/tree MUST NOT silently become evidence for another. The source identity contract MUST include secret-safe repository identity, HEAD when available, start tree identity, configuration identity, and start/end drift detection.
 
-Persisted remote identity MUST NOT expose raw credentials/userinfo/query/fragment material. For a repository with no remote, persisted `local_only` identity MUST be a one-way identifier derived from the canonical local repository path; the raw absolute local path MUST NOT be written to receipts or run artifacts, and `portable` MUST remain false.
+Persisted repository identity MUST be privacy-safe and schema-enforceable. For a repository with a remote, M1 persists `remote:<sha256(normalized-credential-free-remote-identity)>` with `portable=true`; raw origin strings, credentials/userinfo/query/fragment material MUST NOT be written to receipts or run artifacts. For a repository with no remote, M1 persists `local:<sha256(canonical-real-repository-path)>` with `portable=false`; the raw absolute local path MUST NOT be written to receipts or run artifacts.
 
-All non-gitignored untracked files except `.ascout/` participate in M1 source identity; there is no heuristic hidden untracked-source omission list. Current worktree type/mode changes MUST be represented even when file bytes are unchanged.
+All non-gitignored untracked files except `.ascout/` participate in M1 source identity; there is no heuristic hidden untracked-source omission list. Current worktree type/mode changes MUST be represented even when file bytes are unchanged. A rename MUST preserve both current path and previous path in the machine contract.
 
 Finding fingerprints MAY assist weak run-to-run matching, but are not evidence. `in_changed_lines` MUST NOT be interpreted as `introduced_by_change`; causal attribution remains `unknown` without comparative evidence.
 
@@ -36,7 +36,9 @@ Ascout v0.x supports only the developer's own trusted local repository. Arbitrar
 
 Ascout MUST NOT install dependencies implicitly. Every executed task MUST record command provenance (`user_config`, `repo_config`, or `discovery`) and its effective authority/config sources when known.
 
-**A changed command surface MUST NOT be merely warned about and then executed by default.** If the current diff changes an effective command/config source that would be evaluated or loaded for a task (for example package scripts, Ascout command override, TypeScript/ESLint/Vitest/Jest configuration), that task MUST be refused by default as `NOT_RUN(command_surface_changed)` and the changed authority paths MUST be shown. Execution is allowed only when the human caller gives an explicit **per-invocation** changed-surface admission. That admission MUST be recorded in the receipt. It MUST NOT be persisted as a trust grant in config, automatically supplied by agent instructions/hooks, or inferred from prior runs.
+**A changed command surface MUST NOT be merely warned about and then executed by default.** If the current diff changes an effective command/config source that would be evaluated or loaded for a task (for example package scripts, Ascout command override, TypeScript/ESLint/Vitest/Jest/pytest configuration), that task MUST be refused by default as `NOT_RUN(command_surface_changed)` and the changed authority paths MUST be shown. Execution is allowed only when the human caller gives an explicit **per-invocation** changed-surface admission. That admission MUST be recorded in the receipt. It MUST NOT be persisted as a trust grant in config, automatically supplied by agent instructions/hooks, or inferred from prior runs.
+
+`command_surface_changed=true` MUST require at least one changed authority path and MUST NOT coexist with normal admission.
 
 This is a narrow M1 admission boundary, not untrusted-repository sandboxing. Automation MUST NOT silently expand authority.
 
@@ -64,7 +66,7 @@ Captured/persisted evidence MUST be treated as potentially sensitive. `.ascout/`
 ### VIII. Provenance, Licensing, and Benchmark-Gated Growth
 Code licenses, rules licenses, data licenses, database redistribution terms, and permitted-use restrictions MUST be evaluated separately. Process isolation MUST NOT be assumed to cure use restrictions, AGPL network-service obligations, data attribution obligations, or nested third-party licenses. Donor code MUST NOT enter Ascout without exact-version/component provenance review.
 
-Architecture expansion MUST be justified by observed benchmark misses, adoption friction, or operational limits. The benchmark MUST measure Ascout's own claims—not merely donor-tool detection quality. Cross-tree evidence leakage and source-binding violations have an absolute acceptable count of zero.
+Architecture expansion MUST be justified by observed benchmark misses, adoption friction, or operational limits. The benchmark MUST measure Ascout's own claims—not merely donor-tool detection quality. Cross-tree evidence leakage and source-binding violations have an absolute acceptable count of zero. The benchmark MUST also verify that a stable run with remaining material `NOT_EXERCISED` or `UNRESOLVED` lines maps to incomplete exit `4`, never clean exit `0`.
 
 ## Founding Product Constraints
 
@@ -79,6 +81,7 @@ The M1 product wedge is an **evidence-bound changed-code verification receipt**.
 - factual changes to tests/snapshots where reliably detectable;
 - selected/deselected test accounting or explicit unknown limitations;
 - the source state to which current-run evidence belongs;
+- resolvable current-run evidence for every exposed evidence reference;
 - whether any executed task required explicit changed-command-surface admission.
 
 The public identity is:
@@ -104,11 +107,14 @@ All product work MUST follow the canonical founding sequence unless a constituti
 8. requirements-quality checklist;
 9. cross-artifact analysis;
 10. independent final plan audit;
-11. explicit implementation authorization.
+11. fresh exact-HEAD cross-artifact consistency and branch-purity review;
+12. explicit implementation authorization.
+
+A stale audit MUST NOT authorize implementation or merge. Any material mutation after an audited head requires reconciliation of affected claims and a new exact-HEAD review.
 
 Planning artifacts do not authorize implementation by themselves. Complexity violations MUST be recorded/justified; otherwise the simpler design wins.
 
-Tests/benchmark cases MUST validate source binding, no green by omission, changed-command admission, drift, selection accounting, changed-code exercise reporting, secret-safe persistence, and zero cross-tree evidence leakage.
+Tests/benchmark cases MUST validate source binding, evidence-reference integrity, no green by omission, changed-command admission, drift, selection accounting, changed-code exercise reporting, secret-safe persistence, and zero cross-tree evidence leakage.
 
 ## Governance
 
@@ -119,7 +125,7 @@ Amendments require:
 1. explicit constitutional delta;
 2. rationale and affected artifacts;
 3. review for trust/scope/licensing/complexity impact;
-4. semantic constitution version increment;
+4. semantic constitution version increment after canonical ratification;
 5. reconciliation of affected canonical specs.
 
 Principles protecting evidence integrity, no-green-by-omission, source binding, or explicit trust boundaries MUST NOT be weakened through ordinary feature work.
