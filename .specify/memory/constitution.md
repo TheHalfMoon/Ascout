@@ -6,7 +6,7 @@
 Every material verification result MUST identify the task that produced it and the evidence bound to that run. AI-generated hypotheses, if added later, MUST NOT be treated as proof by themselves. Ascout MUST prefer directly observed compiler, test, coverage, and tool evidence over inferred confidence.
 
 ### II. No Green by Omission
-`PASS` means a task ran successfully; it MUST NOT mean that nothing ran. Unavailable, disabled, budget-limited, blocked, unsupported, or otherwise unexecuted applicable verification MUST remain visible with a reason. Reports MUST NOT use unqualified totality language when material verification did not run.
+`PASS` means a task ran successfully; it MUST NOT mean that nothing ran. Unavailable, disabled, budget-limited, blocked, unsupported, admission-refused, or otherwise unexecuted applicable verification MUST remain visible with a reason. Reports MUST NOT use unqualified totality language when material verification did not run.
 
 The M1 task-status vocabulary is fixed as:
 
@@ -34,7 +34,11 @@ Finding fingerprints MAY assist weak run-to-run matching, but are not evidence. 
 ### IV. Trusted Local Scope and Explicit Authority
 Ascout v0.x supports only the developer's own trusted local repository. Arbitrary third-party repositories and untrusted PR branches are out of scope until separately reviewed sandbox/admission design is authorized.
 
-Ascout MUST NOT install dependencies implicitly. Every executed task MUST record command provenance (`user_config`, `repo_config`, or `discovery`) and its source when one exists. If the current change modifies the command surface Ascout intends to execute, Ascout MUST warn before execution. Automation MUST NOT silently expand authority.
+Ascout MUST NOT install dependencies implicitly. Every executed task MUST record command provenance (`user_config`, `repo_config`, or `discovery`) and its effective authority/config sources when known.
+
+**A changed command surface MUST NOT be merely warned about and then executed by default.** If the current diff changes an effective command/config source that would be evaluated or loaded for a task (for example package scripts, Ascout command override, TypeScript/ESLint/Vitest/Jest configuration), that task MUST be refused by default as `NOT_RUN(command_surface_changed)` and the changed authority paths MUST be shown. Execution is allowed only when the human caller gives an explicit **per-invocation** changed-surface admission. That admission MUST be recorded in the receipt. It MUST NOT be persisted as a trust grant in config, automatically supplied by agent instructions/hooks, or inferred from prior runs.
+
+This is a narrow M1 admission boundary, not untrusted-repository sandboxing. Automation MUST NOT silently expand authority.
 
 The core path requires no Ascout account, repository upload, SaaS backend, cloud service, or model/API key. This local-first property MUST NOT be misrepresented as network isolation of child processes/tests.
 
@@ -53,7 +57,7 @@ Changed-code coverage proves observed execution only; it MUST NOT be described a
 ### VII. Bounded, Read-Only, Private Execution
 Ascout MUST NOT silently modify product source. Verification artifacts belong in `.ascout/`; any tracked or included non-gitignored source mutation during verification MUST remain visible as source drift.
 
-Every executable verification task MUST have bounded execution semantics. Timeouts, internal errors, blocked downstream work, and concurrent-run behavior MUST fail closed with respect to claims. M1 MUST refuse concurrent Ascout runs rather than queueing them.
+Every executable verification task MUST have bounded execution semantics. Timeouts, internal errors, blocked downstream work, admission refusal, and concurrent-run behavior MUST fail closed with respect to claims. M1 MUST refuse concurrent Ascout runs rather than queueing them.
 
 Captured/persisted evidence MUST be treated as potentially sensitive. `.ascout/` MUST be ignored by default. Recognized secret-bearing environment values MUST be redacted from persisted output and persisted/rendered command argv. Raw secret-bearing argv, raw credential-bearing origin strings, and raw absolute local repository paths MUST NOT be written to run artifacts. Retained artifacts MUST be documented and bounded.
 
@@ -68,13 +72,14 @@ The M1 product wedge is an **evidence-bound changed-code verification receipt**.
 
 - what changed;
 - what verification ran;
-- what did not run and why;
+- what did not run and why, including admission-refused work;
 - what passed, failed, flaked, errored, or was blocked;
 - which changed executable lines were exercised;
 - which changed executable lines were not exercised or could not be resolved;
 - factual changes to tests/snapshots where reliably detectable;
 - selected/deselected test accounting or explicit unknown limitations;
-- the source state to which current-run evidence belongs.
+- the source state to which current-run evidence belongs;
+- whether any executed task required explicit changed-command-surface admission.
 
 The public identity is:
 
@@ -103,7 +108,7 @@ All product work MUST follow the canonical founding sequence unless a constituti
 
 Planning artifacts do not authorize implementation by themselves. Complexity violations MUST be recorded/justified; otherwise the simpler design wins.
 
-Tests/benchmark cases MUST validate source binding, no green by omission, drift, selection accounting, changed-code exercise reporting, secret-safe persistence, and zero cross-tree evidence leakage.
+Tests/benchmark cases MUST validate source binding, no green by omission, changed-command admission, drift, selection accounting, changed-code exercise reporting, secret-safe persistence, and zero cross-tree evidence leakage.
 
 ## Governance
 
