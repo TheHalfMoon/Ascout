@@ -2,69 +2,73 @@
 
 **Verdict:** `LEAN_ENOUGH_FOR_SPEC_KIT`
 
-This audit applies Ponytail's lazy-senior-developer principle to the founding plan: reuse native/platform capabilities, avoid abstractions before real instances exist, and preserve only complexity required for correctness, trust boundaries, evidence integrity, security, or the product wedge.
+This audit applies Ponytail's lazy-senior-developer principle: reuse native/platform capability, avoid abstractions before real instances exist, and preserve only complexity required for correctness, trust boundaries, evidence integrity, security, or the product wedge.
 
 ## Required in M1
 
-These survive because removing them makes Ascout unsafe, dishonest, unusable, or undifferentiated:
-
 - Git/source identity plus start/end drift detection.
 - Minimal repository/tool discovery.
-- Small explicit configuration escape hatch.
+- Fixed-task configuration override surface only.
 - Command provenance and no implicit installs.
 - Typecheck/lint/test execution.
 - Native related/changed test selection.
 - Coverage-to-diff intersection.
-- Conservative widening and selected/deselected accounting.
-- Factual test-change reporting.
+- Conservative bounded widening and selection accounting.
+- Factual test/snapshot change reporting.
 - Bounded flake handling.
-- Terminal, versioned JSON, and token-bounded agent output.
-- Task timeouts, `ERROR`/`BLOCKED`, concurrent-run refusal, output redaction.
-- A small benchmark measuring Ascout's own trust claims.
+- Terminal, versioned JSON, and bounded-agent output.
+- Task timeouts, `ERROR`/`BLOCKED`, concurrent-run refusal, output/argv redaction.
+- Secret-safe repository identity.
+- Small benchmark measuring Ascout's own trust claims.
 
 ## Deleted or deferred from M1 architecture
 
 - Rust core.
-- SQLite or graph DB.
+- SQLite/graph DB.
 - Daemon/server/control plane.
 - Public plugin SDK.
-- Feature graph / semantic repository index.
+- Feature graph/semantic repository index.
 - TestSprite source import.
-- Browser orchestration.
-- Security-suite orchestration.
+- Browser/security-suite orchestration.
 - Mutation/property/fuzz/DAST/load testing.
 - Accessibility/performance verification.
 - AI reasoning/test generation/automatic fixing.
 - Automatic host-level execution hooks by default.
-- First-class CI/SARIF.
+- First-class CI/SARIF product surface.
 - Untrusted-repository sandbox architecture.
+- Arbitrary config task names, user-defined prerequisite graphs, workflow expressions/hooks.
+- Heuristic hidden "relevant untracked" source omission list.
 
 ## Simplification decisions
 
 1. `ascout audit` is not a separate M1 engine; future whole-scope behavior can be a `check` mode.
-2. `ascout reproduce` is not required to prove the M1 wedge.
-3. Finding fingerprints are weak run-matching aids, not a structural cross-tree identity system.
-4. There is no universal proof/confidence ladder.
-5. Python may use a basic generic task path without forcing Python-specific affected architecture into M1.
-6. Native test/coverage capabilities are used before custom dependency analysis.
-7. No code-intelligence graph is justified until benchmark misses show native selection plus widening is insufficient.
-8. Spec Kit implementation internals are not vendored into Ascout; the project pins workflow provenance and owns only project-specific specification artifacts.
+2. `ascout reproduce` is not required for M1.
+3. Finding fingerprints are weak run-matching aids only.
+4. No universal proof/confidence ladder.
+5. Python stays basic; no Python affected/coverage architecture in M1.
+6. Native runner/coverage capability precedes custom dependency analysis.
+7. No code-intelligence graph until benchmark misses justify it.
+8. Config v1 overrides only fixed semantic tasks; internal ordering is product logic.
+9. One post-run widening pass is the maximum; no recursive impact engine.
+10. Remaining changed executable `NOT_EXERCISED`/`UNRESOLVED` lines are exit `4`, not green.
+11. All non-gitignored untracked files except `.ascout/` participate in source identity; this is simpler and safer than relevance heuristics.
+12. Spec Kit internals are not vendored; workflow provenance is pinned and project-specific artifacts are owned locally.
 
-## Remaining questions belong in the technical plan
+## Technical questions resolved by the plan
 
-The following are not founding-plan blockers:
+The Spec Kit plan now fixes:
 
-- exact config serialization;
-- exact tree-digest canonical serialization;
-- numeric exit codes;
-- coverage normalization representation;
-- Vitest/Jest invocation details;
-- retry defaults;
-- workspace detection details;
-- JSON schema layout/versioning mechanics;
-- Windows process-tree termination implementation;
-- benchmark repository selection.
+- tracked JSON config shape and fixed task categories;
+- versioned tree-digest framing inputs;
+- credential-safe remote identity requirement;
+- numeric exit codes and completeness rules;
+- LCOV line coverage normalization;
+- Vitest/Jest native selection/widening boundaries;
+- bounded retry semantics;
+- receipt schema/stability/completeness split;
+- Windows process-tree cleanup requirement;
+- benchmark construction and integrity gates.
 
-They must be resolved or explicitly bounded by the Spec Kit plan before implementation.
+Implementation constants such as exact termination grace values and exact benchmark repository choices remain implementation/release details, not architecture blockers.
 
-**Final:** the founding scope is lean enough to enter Spec Kit planning. No product implementation is authorized by this audit.
+**Final:** founding scope remains lean after analyze-driven reduction. No product implementation is authorized by this audit.
