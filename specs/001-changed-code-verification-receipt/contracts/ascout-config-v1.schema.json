@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ascout:config:v1",
+  "title": "Ascout Config v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": {"const": 1},
+    "tasks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "typecheck": {"$ref": "#/$defs/taskOverride"},
+        "lint": {"$ref": "#/$defs/taskOverride"},
+        "test": {"$ref": "#/$defs/taskOverride"},
+        "pytestBasic": {"$ref": "#/$defs/taskOverride"}
+      },
+      "default": {}
+    },
+    "timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "defaultTaskMs": {"type": "integer", "minimum": 1},
+        "terminationGraceMs": {"type": "integer", "minimum": 0}
+      }
+    },
+    "budgetMs": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "redactEnv": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    }
+  },
+  "$defs": {
+    "taskOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean", "default": true},
+        "disabledReason": {"type": "string", "minLength": 1},
+        "command": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1
+        },
+        "timeoutMs": {"type": "integer", "minimum": 1}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"enabled": {"const": false}},
+            "required": ["enabled"]
+          },
+          "then": {
+            "required": ["disabledReason"]
+          }
+        }
+      ]
+    }
+  }
+}
