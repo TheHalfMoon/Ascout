@@ -4,7 +4,7 @@
   "title": "Ascout Verification Receipt v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "run", "source", "comparison", "selection", "tasks", "changed_code", "exercise", "test_changes", "findings", "artifacts", "stability", "summary"],
+  "required": ["schema_version", "run", "source", "comparison", "selection", "tasks", "changed_code", "exercise", "test_changes", "findings", "evidence", "artifacts", "stability", "summary"],
   "properties": {
     "schema_version": {"const": "1.0"},
     "run": {"$ref": "#/$defs/run"},
@@ -16,6 +16,7 @@
     "exercise": {"$ref": "#/$defs/exercise"},
     "test_changes": {"type": "array", "items": {"$ref": "#/$defs/testChange"}},
     "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
     "artifacts": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
     "stability": {"enum": ["stable", "tree_drifted", "unknown"]},
     "summary": {"$ref": "#/$defs/summary"}
@@ -50,7 +51,27 @@
         "tracked_index_entry_count": {"type": "integer", "minimum": 0},
         "unstaged_changed_count": {"type": "integer", "minimum": 0},
         "included_untracked_count": {"type": "integer", "minimum": 0}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"repository_id_kind": {"const": "local_only"}}, "required": ["repository_id_kind"]},
+          "then": {
+            "properties": {
+              "repository_id": {"type": "string", "pattern": "^local:[a-f0-9]{64}$"},
+              "portable": {"const": false}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"repository_id_kind": {"const": "remote"}}, "required": ["repository_id_kind"]},
+          "then": {
+            "properties": {
+              "repository_id": {"type": "string", "pattern": "^remote:[a-f0-9]{64}$"},
+              "portable": {"const": true}
+            }
+          }
+        }
+      ]
     },
     "source": {
       "type": "object",
@@ -169,40 +190,22 @@
         "cache_state": {"enum": ["cold", "warm", "reused", "unknown", "not_applicable"]},
         "selected_test_count": {"type": ["integer", "null"], "minimum": 0},
         "deselected_test_count": {"type": ["integer", "null"], "minimum": 0},
-        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
-        "artifact_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "artifact_refs": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
         "output_truncated": {"type": "boolean"}
       },
       "allOf": [
         {
           "if": {"properties": {"status": {"enum": ["NOT_RUN", "BLOCKED", "ERROR"]}}, "required": ["status"]},
-          "then": {
-            "properties": {
-              "reason_code": {"type": "string", "minLength": 1},
-              "reason_text": {"type": "string", "minLength": 1}
-            },
-            "required": ["reason_code", "reason_text"]
-          }
+          "then": {"properties": {"reason_code": {"type": "string", "minLength": 1}, "reason_text": {"type": "string", "minLength": 1}}, "required": ["reason_code", "reason_text"]}
         },
         {
           "if": {"properties": {"execution_admission": {"const": "refused_changed_surface"}}, "required": ["execution_admission"]},
-          "then": {
-            "properties": {
-              "command_surface_changed": {"const": true},
-              "changed_authority_paths": {"minItems": 1},
-              "status": {"const": "NOT_RUN"},
-              "reason_code": {"const": "command_surface_changed"}
-            }
-          }
+          "then": {"properties": {"command_surface_changed": {"const": true}, "changed_authority_paths": {"minItems": 1}, "status": {"const": "NOT_RUN"}, "reason_code": {"const": "command_surface_changed"}}}
         },
         {
           "if": {"properties": {"execution_admission": {"const": "explicit_changed_surface_override"}}, "required": ["execution_admission"]},
-          "then": {
-            "properties": {
-              "command_surface_changed": {"const": true},
-              "changed_authority_paths": {"minItems": 1}
-            }
-          }
+          "then": {"properties": {"command_surface_changed": {"const": true}, "changed_authority_paths": {"minItems": 1}}}
         },
         {
           "if": {"properties": {"command_surface_changed": {"const": false}}, "required": ["command_surface_changed"]},
@@ -210,12 +213,7 @@
         },
         {
           "if": {"properties": {"command_surface_changed": {"const": true}}, "required": ["command_surface_changed"]},
-          "then": {
-            "properties": {
-              "execution_admission": {"enum": ["refused_changed_surface", "explicit_changed_surface_override"]},
-              "changed_authority_paths": {"minItems": 1}
-            }
-          }
+          "then": {"properties": {"execution_admission": {"enum": ["refused_changed_surface", "explicit_changed_surface_override"]}, "changed_authority_paths": {"minItems": 1}}}
         }
       ]
     },
@@ -232,17 +230,9 @@
         "reason": {"type": "string", "minLength": 1}
       },
       "allOf": [
-        {
-          "if": {"properties": {"state": {"const": "UNRESOLVED"}}, "required": ["state"]},
-          "then": {"properties": {"execution_count": {"type": "null"}}, "required": ["reason"]}
-        },
-        {
-          "if": {"properties": {"state": {"const": "EXERCISED"}}, "required": ["state"]},
-          "then": {"properties": {"execution_count": {"type": "integer", "minimum": 1}}}
-        },
-        {
-          "if": {"properties": {"state": {"const": "NOT_EXERCISED"}}, "required": ["state"]},
-          "then": {"properties": {"execution_count": {"const": 0}}}
+        {"if": {"properties": {"state": {"const": "UNRESOLVED"}}, "required": ["state"]}, "then": {"properties": {"execution_count": {"type": "null"}}, "required": ["reason"]}},
+        {"if": {"properties": {"state": {"const": "EXERCISED"}}, "required": ["state"]}, "then": {"properties": {"execution_count": {"type": "integer", "minimum": 1}}}},
+        {"if": {"properties": {"state": {"const": "NOT_EXERCISED"}}, "required": ["state"]}, "then": {"properties": {"execution_count": {"const": 0}}}
         }
       ]
     },
@@ -263,10 +253,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["changed_file_count", "changed_text_line_count"],
-      "properties": {
-        "changed_file_count": {"type": "integer", "minimum": 0},
-        "changed_text_line_count": {"type": "integer", "minimum": 0}
-      }
+      "properties": {"changed_file_count": {"type": "integer", "minimum": 0}, "changed_text_line_count": {"type": "integer", "minimum": 0}}
     },
     "testChange": {
       "type": "object",
@@ -302,7 +289,23 @@
         "reproduced": {"enum": [true, false, "not_applicable", "unknown"]},
         "fingerprint_version": {"$ref": "#/$defs/fingerprintVersion"},
         "fingerprint": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
-        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_id", "run_id", "task_id", "sequence", "kind", "sha256", "artifact_id", "redacted", "truncated"],
+      "properties": {
+        "evidence_id": {"type": "string", "minLength": 1},
+        "run_id": {"type": "string", "minLength": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "sequence": {"type": "integer", "minimum": 1},
+        "kind": {"enum": ["process_result", "test_result", "coverage", "admission", "warning", "other"]},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "artifact_id": {"type": ["string", "null"]},
+        "redacted": {"type": "boolean"},
+        "truncated": {"type": "boolean"}
       }
     },
     "artifact": {
