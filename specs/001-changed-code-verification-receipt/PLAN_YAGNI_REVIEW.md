@@ -5,12 +5,16 @@
 
 ## Decision
 
-The repaired technical plan is the minimum credible M1 architecture. Earlier designs failed the Ponytail test in two material ways and were deleted before implementation:
+The repaired technical plan remains the minimum credible M1 architecture after internal analysis, the independent admission audit, Qodo review, and CodeRabbit review.
+
+Earlier designs failed the Ponytail test in two material ways and were deleted before implementation:
 
 1. config v1 briefly behaved like a workflow/task-runner DSL; and
-2. changed command/config surfaces were only warned about before execution, requiring a security fix.
+2. changed command/config surfaces were only warned about before execution.
 
-A subsequent exact-head Qodo review found four machine-contract gaps. Their repair **tightened existing v1 contracts only**: explicit task reasons, rename path identity, exercise state/count/reason invariants, and one canonical pytest task identifier. No new subsystem, dependency, database, policy engine, or abstraction was introduced.
+Qodo then tightened four existing machine-contract concepts. CodeRabbit subsequently exposed stale-head governance, evidence-reference integrity, privacy-enforceability, semantic receipt consistency, benchmark, and pytest admission gaps.
+
+The accepted review repairs do **not** justify a new service, database, policy engine, code-generation pipeline, schema package, plugin layer, trust store, or task range.
 
 ## Dependency ladder
 
@@ -27,17 +31,22 @@ Boundary: launch normalization only. Ascout owns timeout, bounded capture, proce
 - No coverage database/library: strict line-level LCOV parser is enough.
 - No Git library: Git CLI is canonical.
 - No logging framework: bounded receipt/artifact writers are enough.
-- No schema-validation runtime dependency unless implementation proves a small strict validator cannot uphold the fixed v1 contracts.
+- No dedicated receipt-validation framework: one pure validator in the receipt model is enough.
+- No schema-generation/shared-type package solely because config/receipt contracts are strict.
+- No new schema-validation runtime dependency unless implementation proves the existing minimal approach cannot safely uphold fixed v1 contracts.
 
 ## Abstraction audit
 
 - `src/tools/*` remain concrete integrations, not a plugin hierarchy.
-- `receipt/model.ts` is justified because three renderers share one truth model.
+- `receipt/model.ts` is justified because three renderers share one truth model and one semantic invariant function.
+- Root `evidence[]` is data already required by “Evidence Before Claims”; it is not a persistence service.
+- The semantic receipt validator is a **pure function over one receipt**, not a validator service, workflow engine, or repository.
 - `process.ts` is justified by launch/timeout/tree-kill safety.
 - `git.ts` is justified by source identity/diff/drift sharing Git semantics.
 - Fixed internal prerequisite ordering is allowed; user-defined task/prerequisite graphs are not.
 - Config and receipt use the same fixed task identifiers; no translation/mapping layer is justified.
-- No repository graph, event bus, DI container, persistence abstraction, workflow engine, sandbox manager, or trust database is permitted.
+- Opaque `remote:<sha256>` and `local:<sha256>` IDs reduce privacy state rather than add identity infrastructure.
+- No repository graph, event bus, DI container, persistence abstraction, workflow engine, sandbox manager, trust database, schema-generation pipeline, or distributed validator is permitted.
 
 ## Boundaries locked
 
@@ -55,7 +64,7 @@ Config v1 can override only fixed semantic tasks (`typecheck`, `lint`, `test`, `
 
 ### B4 — No green exercise gap
 
-Remaining material `NOT_EXERCISED`/`UNRESOLVED` changed executable lines produce stable incomplete exit `4`, not clean success.
+Remaining material `NOT_EXERCISED`/`UNRESOLVED` changed executable lines produce stable incomplete exit `4`, not clean success. The benchmark explicitly asserts the same mapping.
 
 ### B5 — Changed execution authority defaults to refusal
 
@@ -70,29 +79,59 @@ The admission mechanism deliberately does **not** add:
 - approval databases;
 - agent-autonomous escalation.
 
+The same generic admission mechanism covers `pytestBasic`; no Python-specific trust subsystem is introduced.
+
 ### B6 — Contract strictness is not architecture
 
-The Qodo repairs remain inside existing receipt/config concepts:
+Qodo repairs stay inside existing receipt/config concepts:
 
-- require reasons where status already semantically needs them;
-- preserve `previous_path` only where rename semantics need it;
-- make the existing three exercise states internally coherent;
-- use `pytestBasic` consistently rather than maintaining a config↔receipt name mapping.
+- require reasons where status already needs them;
+- preserve `previous_path` where rename semantics need it;
+- make the three exercise states internally coherent;
+- use `pytestBasic` consistently rather than maintaining a mapping layer.
 
-Adding a schema-generation tool, shared type package, adapter layer, or migration framework solely to solve these review findings is rejected for M1.
+CodeRabbit repairs also remain inside existing concepts:
+
+- a required root `evidence[]` gives `evidence_ids` something real to reference;
+- opaque repository IDs make privacy constraints schema-enforceable;
+- one pure semantic validator enforces cross-object relations JSON Schema cannot express cleanly;
+- exact-HEAD review is governance freshness, not runtime architecture;
+- pytest command admission is reuse of the same generic admission gate;
+- benchmark gap-to-exit assertion tests an existing product rule.
+
+### B7 — One receipt interpretation only
+
+Schema validation and semantic validation are two layers of **one** receipt contract, not competing interpretations. Any internal/future receipt acceptance path reuses the same pure semantic validator used before emission.
+
+Creating a second acceptance model, alternate summary calculator, validator microservice, or persistence-backed evidence resolver is rejected for M1.
 
 ## Security/privacy reductions
 
 - Raw credential-bearing Git origins are never persisted.
-- Local-only identity is a one-way hash of canonical real path; raw absolute workstation path is never persisted.
+- Remote receipt identity is always opaque `remote:<sha256>` with `portable=true`.
+- Local-only identity is `local:<sha256>` with `portable=false`; raw absolute workstation path is never persisted.
 - Persisted/rendered argv is redacted; raw argv is transient launch input only.
 - All non-gitignored untracked files except `.ascout/` participate in source identity.
 - Unstaged type/mode participates in tree identity.
 - Changed effective command authority is refused by default rather than merely warned about.
 - Omission/error statuses require explicit machine-readable and human-readable reasons.
+- Evidence refs must resolve to current-run evidence/task/artifact objects before emission.
+
+## Governance reduction
+
+The fresh exact-HEAD review gate does not require a review service or new workflow engine. It is a process invariant:
+
+```text
+final audit
+→ material mutation? reconcile affected claims
+→ exact-HEAD cross-artifact + branch-purity review
+→ only then implementation/merge consideration
+```
+
+A stale audit simply has no authority.
 
 ## Complexity budget
 
-The source tree remains an upper bound. Adjacent modules SHOULD collapse when trivial. New runtime dependencies, DB/background processes, semantic indexes, generic plugin interfaces, arbitrary config workflow edges, recursive widening, persistent trust state, automatic admission escalation, or task-name translation layers require a plan amendment and constitution check.
+The source tree remains an upper bound. Adjacent modules SHOULD collapse when trivial. New runtime dependencies, DB/background processes, semantic indexes, generic plugin interfaces, arbitrary config workflow edges, recursive widening, persistent trust state, automatic admission escalation, task-name translation layers, receipt-validator services, or schema-generation subsystems require a plan amendment and constitution check.
 
-**Disposition:** `PASS_AFTER_REPAIR`. Qodo reconciliation strengthened existing contracts without expanding M1 architecture. No implementation is authorized.
+**Disposition:** `PASS_AFTER_REPAIR`. Qodo + CodeRabbit reconciliation strengthened existing truth contracts and governance without expanding the product architecture. No implementation is authorized.
