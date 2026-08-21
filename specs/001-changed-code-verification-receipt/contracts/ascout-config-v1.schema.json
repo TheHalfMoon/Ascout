@@ -14,7 +14,7 @@
         "typecheck": {"$ref": "#/$defs/taskOverride"},
         "lint": {"$ref": "#/$defs/taskOverride"},
         "test": {"$ref": "#/$defs/taskOverride"},
-        "pytest_basic": {"$ref": "#/$defs/taskOverride"}
+        "pytestBasic": {"$ref": "#/$defs/taskOverride"}
       },
       "default": {}
     },
