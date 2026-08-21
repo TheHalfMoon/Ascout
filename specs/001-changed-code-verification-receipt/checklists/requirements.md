@@ -133,9 +133,10 @@ This checklist reviews the **requirements and machine contracts**, not product i
 - [x] CHK084 Command-admission integration coverage includes the executable `pytestBasic` task and effective pytest configuration sources when used.
 - [x] CHK085 Every persisted path-bearing receipt field uses a canonical relative path in its namespace; schema/semantic validation reject POSIX absolute, Windows drive/UNC, URI-absolute, backslash-canonicalization violations, and `.`/`..` traversal forms after normalization.
 - [x] CHK086 The implementation plan opening summary explicitly includes all four fixed executable task categories, including `pytestBasic`; no scope-bearing summary silently drops the Python basic task.
+- [x] CHK087 `docs/founding/MASTER_PLAN_V1.md` is the sole canonical Master Plan v1; legacy `docs/founding/ASCOUT_MASTER_PLAN_V1.md` is an explicit `SUPERSEDED / NON-AUTHORITATIVE` tombstone and MUST NOT be used for implementation authorization, Spec Kit derivation, requirement interpretation, task planning, review, or release decisions.
 
 ## Result
 
-**86/86 requirement, contract, governance, and review-regression checks PASS after internal analysis, independent admission audit, Qodo review, and two CodeRabbit exact-head review rounds.**
+**87/87 requirement, contract, governance, and review-regression checks PASS after internal analysis, independent admission audit, Qodo review, and CodeRabbit exact-head reconciliation rounds.**
 
-This means the repaired planning set is internally ready for a renewed Ponytail/final audit and fresh exact-head external review. It does not authorize implementation or merge by itself.
+This means the repaired planning set is internally ready for renewed analysis/final audit and a fresh exact-head external review. It does not authorize implementation or merge by itself.
