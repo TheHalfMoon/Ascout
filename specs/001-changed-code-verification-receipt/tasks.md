@@ -4,192 +4,167 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 
 # Tasks: Changed-Code Verification Receipt
 
-**Input**: canonical feature artifacts under `specs/001-changed-code-verification-receipt/`.
-
-**Status**: Planning only. This file does not authorize implementation.
-
-**Tests**: Required. Trust semantics, source binding, no-green-by-omission, exercise gaps, cross-platform process behavior, redaction, and contracts are not optional.
+**Status**: Planning only. No implementation authorization.
 
 ## Phase 1 — Repository Setup
 
-- [ ] T001 Create `package.json` with `ascout` bin, Node `>=22`, ESM, build/typecheck/test scripts, and no product runtime dependency beyond the reviewed `cross-spawn` pin.
-- [ ] T002 Create strict TypeScript 6 configuration in `tsconfig.json` for Node >=22.
-- [ ] T003 [P] Add development-only TypeScript/test tooling and lockfile; record exact-version licenses/provenance in `THIRD_PARTY_NOTICES.md`.
-- [ ] T004 [P] Add provenance policy in `docs/legal/CODE_PROVENANCE.md`; preserve Apache-2.0 `LICENSE`.
-- [ ] T005 Update `.gitignore` for `.ascout/`, dependencies, build output, and local coverage without ignoring tracked snapshots/configuration.
-- [ ] T006 Add inert `src/cli.ts` command parsing for `init`, `doctor`, `check` using `node:util.parseArgs`; no repository task execution yet.
-- [ ] T007 Add `tests/integration/cli-help.test.ts` proving the compiled CLI starts without network/account/project config.
-
-**Checkpoint**: inert single-package CLI foundation only.
+- [ ] T001 Create `package.json` with `ascout` bin, Node >=22, ESM, build/typecheck/test scripts, and only reviewed `cross-spawn` as planned product runtime dependency.
+- [ ] T002 Create strict TypeScript 6 `tsconfig.json` for Node >=22.
+- [ ] T003 [P] Add dev-only TypeScript/test tooling + lockfile; record exact licenses/provenance in `THIRD_PARTY_NOTICES.md`.
+- [ ] T004 [P] Add `docs/legal/CODE_PROVENANCE.md`; preserve Apache-2.0 `LICENSE`.
+- [ ] T005 Add `.gitignore` entries for `.ascout/`, dependencies/build/local coverage without hiding tracked snapshots/config.
+- [ ] T006 Add inert `src/cli.ts` parsing for `init`, `doctor`, `check` and `--allow-changed-command-surface`; no task execution yet.
+- [ ] T007 Add CLI smoke test proving startup requires no network/account/project config and agent integration does not implicitly set admission override.
 
 ## Phase 2 — Trust and Evidence Primitives
 
 ### Tests first
 
-- [ ] T008 [P] Add `tests/contract/config-v1.test.ts` covering fixed task keys only (`typecheck`, `lint`, `test`, `pytestBasic`), arbitrary-key rejection, disable reason, argv-array override, timeout/budget/redaction bounds, and absence of user-defined prerequisites/workflow edges.
-- [ ] T009 [P] Add `tests/contract/receipt-v1.test.ts` covering seven task statuses, non-executed task records with empty argv/null tool identity, strict fixed task types/selection-pass schema, source stability states, completeness states, and exit precedence `2 > 3 > 1 > 4 > 0`.
-- [ ] T010 [P] Add `tests/unit/tree-digest.test.ts` golden vectors for clean/staged/unstaged/deletion/symlink/executable-bit/type changes, all non-gitignored untracked files, `.ascout/` exclusion, and tracked snapshot mutation.
-- [ ] T011 [P] Add `tests/unit/git-diff.test.ts` for add/modify/delete/rename/type-change/binary/untracked whole-file line semantics.
-- [ ] T012 [P] Add `tests/unit/repository-identity.test.ts` covering HTTPS credentials, SSH/scp userinfo, query/fragment removal, safe fallback hash, and local-only identity as a one-way canonical-path-derived ID; raw credential-bearing origins and raw absolute local paths MUST never appear in persisted/rendered identity.
-- [ ] T013 [P] Add `tests/integration/process-control.test.ts` for argv preservation, no shell-string launch, capture caps, timeout, child-tree cleanup, and Windows-native cases.
-- [ ] T014 [P] Add `tests/integration/run-lock.test.ts` for live-owner refusal and verified dead-owner recovery.
-- [ ] T015 [P] Add `tests/unit/redact.test.ts` covering secret-bearing env values in stdout/stderr **and persisted/rendered argv**, user redaction names, empty/short-value protection, and truncation metadata.
+- [ ] T008 [P] Config v1 contract test: fixed task keys only, arbitrary-key/prerequisite/workflow rejection, disable reason, argv override, timeout/budget/redaction; no persistent admission/trust setting.
+- [ ] T009 [P] Receipt v1 contract test: fixed task/status/selection shapes, source stability/completeness, admission fields/conditional invariants, exit precedence.
+- [ ] T010 [P] Tree-digest golden tests: clean/staged/unstaged/deletion/symlink/mode/type, all nonignored untracked, `.ascout/` exclusion, tracked snapshot mutation.
+- [ ] T011 [P] Git diff tests: add/modify/delete/rename/type/binary/untracked line semantics.
+- [ ] T012 [P] Repository identity tests: HTTPS credentials, SSH/scp userinfo, query/fragment, fallback hash, local-only one-way canonical-path ID; raw origin/path never persisted.
+- [ ] T013 [P] Process-control tests: argv preservation, no shell-string launch, capture caps, timeout/tree cleanup, Windows-native cases.
+- [ ] T014 [P] Run-lock tests: live-owner refusal, verified dead-owner recovery.
+- [ ] T015 [P] Redaction tests: secret env values in output and persisted argv, configured names, short-value protection, truncation.
+- [ ] T016 [P] Command-admission unit tests: effective authority-path intersection, unchanged normal state, changed default refusal, explicit per-run override, no remembered admission.
 
 ### Implementation
 
-- [ ] T016 Implement strict config parsing/validation and config digest in `src/config.ts`; fixed M1 task keys only, no prerequisite/workflow DSL.
-- [ ] T017 Implement secret-safe repository identity plus HEAD/detached/shallow discovery in `src/git.ts`; remote identity strips unsafe material and local-only identity persists a one-way hash of canonical path, never the raw absolute path.
-- [ ] T018 Implement canonical `tree_digest_v1` in `src/git.ts`, including index state, current unstaged type/mode/content, all non-gitignored untracked files except `.ascout/`, and length-prefixed framing.
-- [ ] T019 Implement zero-context tracked diff + all non-gitignored untracked changed-file scope in `src/git.ts`; do not fabricate line semantics for binary/deleted-only inputs.
-- [ ] T020 Implement cross-platform argv launch/capture/timeout/process-tree termination in `src/process.ts` with reviewed `cross-spawn` and no arbitrary `shell: true`.
-- [ ] T021 Implement atomic `.ascout/run.lock` in `src/lock.ts`; refuse live concurrent runs, recover only verified dead-owner stale lock.
-- [ ] T022 Implement redaction/truncation in `src/redact.ts`; raw secret-bearing argv may be used transiently for launch but MUST NOT be persisted/rendered.
-- [ ] T023 Implement run directory lifecycle and bounded retention in the smallest appropriate module; keep 20 completed runs by default and never delete active run.
-- [ ] T024 Implement single internal receipt model/exit decision in `src/receipt/model.ts`, including run-bound Evidence IDs, weak fingerprints, strict fixed task/selection contract, separate stability/completeness, and no fabricated fields for non-executed tasks.
-- [ ] T025 Implement JSON renderer in `src/receipt/json.ts`; contract tests validate `receipt-v1.schema.json`.
+- [ ] T017 Implement strict fixed-task config parsing/digest in `src/config.ts`; no workflow/prerequisite/admission grant in config.
+- [ ] T018 Implement secret-safe remote identity + one-way local identity + HEAD/detached/shallow in `src/git.ts`.
+- [ ] T019 Implement canonical `tree_digest_v1` in `src/git.ts` with index + unstaged type/mode/content + all nonignored untracked except `.ascout/`.
+- [ ] T020 Implement zero-context tracked diff + nonignored untracked changed-file scope in `src/git.ts`.
+- [ ] T021 Implement `cross-spawn` argv launch/capture/timeout/process-tree control in `src/process.ts`; no arbitrary `shell:true`.
+- [ ] T022 Implement atomic `.ascout/run.lock` in `src/lock.ts`.
+- [ ] T023 Implement output/argv redaction/truncation in `src/redact.ts`; raw secret argv transient only.
+- [ ] T024 Implement run directory lifecycle + bounded retention (20 completed by default, active never removed).
+- [ ] T025 Implement receipt model/exit decision in `src/receipt/model.ts`: run-bound evidence, weak fingerprints, admission state, strict task/selection shape, separate stability/completeness.
+- [ ] T026 Implement JSON renderer and validate emitted receipts against receipt v1.
 
-**Checkpoint**: source/evidence primitives exist; no verification task is yet claimed successful.
-
-## Phase 3 — US1 Source-Bound Verification Receipt
+## Phase 3 — US1 Source-Bound Receipt + Admission
 
 ### Tests first
 
-- [ ] T026 [P] [US1] Add `tests/integration/discovery.test.ts` fixtures for packageManager/lockfile evidence, ambiguity, single package, basic workspaces, and supported runner discovery.
-- [ ] T027 [P] [US1] Add `tests/integration/command-provenance.test.ts` proving executed tasks record authority/source and changed command-surface warning appears before launch.
-- [ ] T028 [P] [US1] Add `tests/integration/missing-tool.test.ts` proving `NOT_RUN(tool_missing/config_missing)` can be represented without invented argv/tool identity and no install command executes.
-- [ ] T029 [P] [US1] Add `tests/integration/task-status.test.ts` distinguishing `FAIL`, `ERROR`, `BLOCKED`, `NOT_APPLICABLE`, `NOT_RUN`; valid affected deselection MUST NOT be modeled as task `NOT_RUN`.
-- [ ] T030 [US1] Add end-to-end `tests/integration/check-receipt.test.ts` asserting secret-safe source identity, comparison scope, config digest, task matrix, artifacts, stability, completeness, and no clean exit when verification is materially incomplete.
+- [ ] T027 [P] Discovery fixtures for packageManager/lockfile ambiguity, single/basic workspace, supported runner discovery.
+- [ ] T028 [P] Command-provenance/admission integration test proving effective changed package/Ascout/TypeScript/ESLint/Vitest/Jest authority paths cause `NOT_RUN(command_surface_changed)` before process launch.
+- [ ] T029 [P] Explicit admission test proving `--allow-changed-command-surface` permits only that invocation, receipt records override + paths, and next ordinary invocation refuses again.
+- [ ] T030 [P] Agent-integration test proving generated instructions/hooks never append the admission override automatically.
+- [ ] T031 [P] Missing-tool/config test proving honest `NOT_RUN` without invented argv/tool and no install execution.
+- [ ] T032 [P] Task-status test distinguishing FAIL/ERROR/BLOCKED/N/A/NOT_RUN and valid deselection accounting.
+- [ ] T033 End-to-end check receipt test: secret-safe source, admission, comparison, config digest, tasks, artifacts, stability/completeness; incomplete cannot green.
 
 ### Implementation
 
-- [ ] T031 [US1] Implement package-manager/project/tool discovery in `src/discovery.ts`; fixed semantic task categories only; conflicting signals fail closed.
-- [ ] T032 [US1] Implement TypeScript task in `src/tools/typescript.ts`, preferring fixed-task override then project script then unambiguous local `tsc`.
-- [ ] T033 [US1] Implement ESLint task in `src/tools/eslint.ts`; disclose changed-file vs project-script scope.
-- [ ] T034 [US1] Implement basic pytest task in `src/tools/pytest.ts`; pass/fail/error only, no Python environment/affected/coverage system.
-- [ ] T035 [US1] Implement internal prerequisite ordering/status propagation in `src/check.ts`; fixed task categories are independent by default and `BLOCKED` is used only for an actual validity dependency, never merely because typecheck/lint failed first.
-- [ ] T036 [US1] Implement command-surface classification/warning in `src/discovery.ts` for Ascout/package/compiler/lint/test config sources.
-- [ ] T037 [US1] Implement terminal receipt in `src/receipt/terminal.ts` with source identity, task matrix, omissions, stability, and completeness.
-- [ ] T038 [US1] Wire `ascout check` in `src/cli.ts`; until exercise verification exists, changed executable code without resolved exercise proof MUST remain incomplete rather than return clean success.
-- [ ] T039 [US1] Implement `ascout doctor` to report discovery/provenance/missing tools/selection/coverage/unsupported traits without executing verification.
-- [ ] T040 [US1] Implement `ascout init` to create minimal fixed-task config and ensure `.ascout/` ignore entry only on explicit invocation; no installs/hooks.
-
-**Checkpoint**: source-bound task receipt exists; exercise gaps may still keep it incomplete.
+- [ ] T034 Implement package-manager/project/tool discovery in `src/discovery.ts`; fixed semantic tasks only, ambiguity fails closed.
+- [ ] T035 Implement TypeScript task in `src/tools/typescript.ts` using override → script → unambiguous local `tsc`.
+- [ ] T036 Implement ESLint task in `src/tools/eslint.ts`; disclose changed-file vs broader project scope.
+- [ ] T037 Implement basic pytest task in `src/tools/pytest.ts`; no Python affected/environment/coverage architecture.
+- [ ] T038 Implement effective command-surface classification and changed-path intersection in `src/discovery.ts` for package scripts, Ascout overrides, and loaded compiler/lint/test configs.
+- [ ] T039 Implement per-run admission decision in `src/check.ts`: default refuse affected task; explicit CLI override only; fixed tasks independent by default; BLOCKED only for genuine validity dependency.
+- [ ] T040 Implement terminal receipt including source, task matrix, admission refusals/overrides, omissions, stability/completeness.
+- [ ] T041 Wire `ascout check` + `--allow-changed-command-surface`; never persist the flag as trust and never green over admission-refused work or unresolved exercise proof.
+- [ ] T042 Implement `ascout doctor` without verification execution; show command authority/config sources and changed surfaces.
+- [ ] T043 Implement `ascout init`: minimal fixed-task config + `.ascout/` ignore only; no installs/hooks/admission grant.
 
 ## Phase 4 — US2 Changed-Code Exercise Gaps
 
 ### Tests first
 
-- [ ] T041 [P] [US2] Add `tests/unit/lcov.test.ts` for line records, repeated records, zero/nonzero counts, malformed input, path normalization, executable-line universe, and unresolved mapping.
-- [ ] T042 [P] [US2] Add Vitest fixture/integration tests under `tests/fixtures/vitest-related/` and `tests/integration/vitest.test.ts` for native related selection, config widening, JSON results, and LCOV directed into `.ascout/`.
-- [ ] T043 [P] [US2] Add Jest fixture/integration tests under `tests/fixtures/jest-related/` and `tests/integration/jest.test.ts` for `--findRelatedTests`, JSON results, LCOV, and widening.
-- [ ] T044 [P] [US2] Add `tests/unit/exercise.test.ts` for `EXERCISED`, `NOT_EXERCISED`, `UNRESOLVED`, changed ranges, and non-line exclusions.
-- [ ] T045 [US2] Add `tests/integration/widening.test.ts` proving at most one post-run widening pass and an unresolved gap if the wider pass still cannot establish relation.
-- [ ] T046 [US2] Add `tests/integration/exercise-exit.test.ts` proving any remaining `NOT_EXERCISED`/`UNRESOLVED` changed executable line yields stable exit `4`, never `0`, even when selected tests pass.
+- [ ] T044 [P] LCOV tests for zero/nonzero/repeated/malformed/path/executable/unresolved semantics.
+- [ ] T045 [P] Vitest fixture/integration: native related selection, config widening, JSON results, LCOV in `.ascout/`.
+- [ ] T046 [P] Jest fixture/integration: `--findRelatedTests`, JSON results, LCOV, widening.
+- [ ] T047 [P] Exercise tests: EXERCISED/NOT_EXERCISED/UNRESOLVED, changed ranges, non-line exclusions.
+- [ ] T048 Widening integration test: at most one post-run pass, unresolved gap if wider pass still insufficient.
+- [ ] T049 Exercise-exit test: remaining material gap => stable exit 4, never 0, even when selected tests pass.
 
 ### Implementation
 
-- [ ] T047 [US2] Implement strict line-only LCOV normalization in `src/coverage/lcov.ts`; malformed/unmappable input becomes explicit error/unresolved state.
-- [ ] T048 [US2] Implement concrete Vitest integration in `src/tools/vitest.ts` using project-local native related/changed behavior, non-watch execution, machine results, and LCOV in run directory.
-- [ ] T049 [US2] Implement concrete Jest integration in `src/tools/jest.ts` using project-local `--findRelatedTests`, machine results, and LCOV in run directory.
-- [ ] T050 [US2] Implement pre-run widening rules in `src/check.ts` for dependency/package-manager/compiler/path/test/workspace/non-source relation-risk surfaces.
-- [ ] T051 [US2] Implement one bounded post-run widening pass; no recursive impact engine.
-- [ ] T052 [US2] Implement changed executable-line exercise intersection in `src/check.ts`; preserve unresolved mapping and treat remaining exercise gaps as materially incomplete.
-- [ ] T053 [US2] Extend terminal/JSON receipts with exercise counts/ranges, widening facts, and completeness/exit `4` for remaining gaps.
+- [ ] T050 Implement strict line-only LCOV normalization in `src/coverage/lcov.ts`.
+- [ ] T051 Implement concrete Vitest integration: project-local native selection, non-watch, machine result, LCOV.
+- [ ] T052 Implement concrete Jest integration: project-local related selection, machine result, LCOV.
+- [ ] T053 Implement pre-run conservative widening triggers.
+- [ ] T054 Implement one bounded post-run widening pass; no recursion.
+- [ ] T055 Implement changed executable exercise intersection; remaining gaps materially incomplete.
+- [ ] T056 Extend terminal/JSON with exercise/widening/completeness exit 4.
 
-**Checkpoint**: Ascout's core wedge is independently demonstrable without a green result over unverified changed executable lines.
-
-## Phase 5 — US3 Selection, Drift, Flake Honesty
+## Phase 5 — US3 Selection, Drift, Flake
 
 ### Tests first
 
-- [ ] T054 [P] [US3] Add `tests/unit/selection.test.ts` for full/native modes, known/null counts, explicit limitations, strict scope/pass contract, and valid deselection accounting without task-level `NOT_RUN`.
-- [ ] T055 [P] [US3] Add `tests/integration/drift.test.ts` for tracked mutation, included-untracked mutation, `.ascout/` artifact exclusion, and exit `3` when no higher-precedence integrity error exists.
-- [ ] T056 [P] [US3] Add `tests/integration/flaky.test.ts` for one failure → `reproduced=unknown`, repeated failures → true, contradictory observations → `FLAKY`/false stable-failure reproduction, and rerun-error → unknown.
-- [ ] T057 [US3] Add `tests/integration/exit-precedence.test.ts` covering simultaneous finding/gap/drift/internal-error conditions.
+- [ ] T057 [P] Selection tests: strict scopes/passes, known/null counts + limitations, valid deselection not task NOT_RUN.
+- [ ] T058 [P] Drift tests: tracked/included-untracked mutation, `.ascout/` exclusion, exit 3 precedence.
+- [ ] T059 [P] Flake tests: one failure unknown, repeated true, contradictory flaky/false stable reproduction, rerun-error unknown.
+- [ ] T060 Exit-precedence tests for simultaneous finding/gap/drift/internal error.
 
 ### Implementation
 
-- [ ] T058 [US3] Finalize SelectionAccount in `src/check.ts` with strict repository/package scopes, count/null limitations, widening triggers, and at most two passes.
-- [ ] T059 [US3] Add end-source rehash and stability finalization in `src/check.ts`; source stability remains orthogonal to task completeness.
-- [ ] T060 [US3] Implement exact failing-test extraction/targeted rerun helpers inside concrete Vitest/Jest modules; at most two extra observations, no whole-suite retry just to label reproduction.
-- [ ] T061 [US3] Normalize observation/reproduction/flake semantics in `src/receipt/model.ts`; keep `introduced_by_change=unknown` absent future comparative proof.
+- [ ] T061 Finalize strict SelectionAccount in `src/check.ts`, max two passes.
+- [ ] T062 Add end-source rehash/stability finalization; source stability orthogonal to task completeness.
+- [ ] T063 Add exact failing-test targeted rerun helpers in Vitest/Jest modules; max two extra observations.
+- [ ] T064 Normalize reproduction/flake semantics; `introduced_by_change=unknown` absent comparative proof.
 
-**Checkpoint**: selection/drift/reproduction semantics are independently testable and source-bound.
-
-## Phase 6 — US4 Test-Change Facts and Agent Receipt
+## Phase 6 — US4 Test Facts + Agent Receipt
 
 ### Tests first
 
-- [ ] T062 [P] [US4] Add `tests/unit/test-changes.test.ts` for changed/deleted test/snapshot paths; no semantic weakening inference.
-- [ ] T063 [P] [US4] Add `tests/unit/agent-receipt.test.ts` proving <=16 KiB UTF-8 default and preservation of identity/status/gap/completeness when detail is omitted.
-- [ ] T064 [US4] Add `tests/contract/receipt-consistency.test.ts` proving terminal/JSON/agent derive from one receipt model.
+- [ ] T065 [P] Test/snapshot changed/deleted factual classification tests; no semantic weakening inference.
+- [ ] T066 [P] Agent receipt <=16 KiB tests preserving identity/status/admission/gaps/completeness + omitted totals.
+- [ ] T067 Cross-format consistency contract: terminal/JSON/agent derive from one model.
 
 ### Implementation
 
-- [ ] T065 [US4] Implement factual test/snapshot diff facts in `src/check.ts` using Git/discovered conventions only.
-- [ ] T066 [US4] Implement bounded agent renderer in `src/receipt/agent.ts`, prioritizing errors/findings/exercise gaps and explicit omitted-detail totals.
-- [ ] T067 [US4] Wire `--format json|agent` in `src/cli.ts` with one internal receipt truth.
+- [ ] T068 Implement factual test/snapshot diff facts.
+- [ ] T069 Implement bounded agent renderer prioritizing errors/findings/admission refusals/exercise gaps.
+- [ ] T070 Wire `--format json|agent` with one truth source.
 
-**Checkpoint**: all M1 user stories are independently demonstrable.
+## Phase 7 — Founding Benchmark
 
-## Phase 7 — Founding Benchmark and Integrity Gates
-
-- [ ] T068 Create `benchmarks/README.md` defining corpus acquisition/licensing/reproducibility and separation from product tests.
-- [ ] T069 Create `benchmarks/manifest.json` with exact upstream repo/commit/case construction/license/ground truth; no silent vendoring.
-- [ ] T070 [P] Add 5–6 reviewed JS/TS selection cases using historical fix + regression-test ground truth.
-- [ ] T071 [P] Add 3–4 reviewed gap cases using production-code change with regression-test change withheld and independent full-run coverage ground truth.
-- [ ] T072 Implement benchmark harness under `benchmarks/harness/` with isolated candidate evidence.
-- [ ] T073 Add metrics: selection recall, false-PASS, cold/warm time, gap accuracy, unresolved rate, drift, deterministic receipt comparison, flake classification.
-- [ ] T074 Add absolute assertions: cross-tree evidence leakage = 0; binding-integrity violations = 0.
-- [ ] T075 Publish every selector miss; do not encode an invented pre-data recall threshold.
+- [ ] T071 Define benchmark corpus acquisition/licensing/reproducibility in `benchmarks/README.md`.
+- [ ] T072 Create exact-upstream/commit/case/license/ground-truth `benchmarks/manifest.json`.
+- [ ] T073 [P] Add 5–6 reviewed historical selection cases.
+- [ ] T074 [P] Add 3–4 reviewed historical gap cases with regression-test change withheld.
+- [ ] T075 Implement isolated benchmark harness.
+- [ ] T076 Add selection recall, false-PASS, cold/warm time, gap accuracy, unresolved rate, drift/determinism/flake metrics.
+- [ ] T077 Add absolute assertions: cross-tree evidence leakage=0; binding-integrity violations=0.
+- [ ] T078 Publish every selector miss; no invented pre-data recall threshold.
 
 ## Phase 8 — Cross-Platform Release Hardening
 
-- [ ] T076 Add development CI `.github/workflows/ci.yml` for Windows/macOS/Linux and Node 22/24; this is project CI, not an Ascout CI/SARIF product surface.
-- [ ] T077 Add native Windows command-shim/process-tree timeout cases; release blocked if only POSIX cleanup is proven.
-- [ ] T078 Add deterministic receipt/golden serialization checks across OS path normalization.
-- [ ] T079 Add npm package-content test excluding `.ascout/`, unintended fixtures/logs/secrets.
-- [ ] T080 Add `SECURITY.md` documenting trusted-local scope, repo-command risk, local-first vs offline, and artifact sensitivity.
-- [ ] T081 Add `CONTRIBUTING.md` documenting constitution/Spec Kit/Ponytail/provenance/test gates.
-- [ ] T082 Update `README.md` with locked identity, exact M1 claims, installation once package identity resolves, and visible non-claims.
-- [ ] T083 Perform exact-version license/provenance review for every runtime/dev dependency and update `THIRD_PARTY_NOTICES.md`; unresolved license/use restrictions block release.
-- [ ] T084 Verify npm package-name ownership/availability or choose a scoped package fallback without changing the `ascout` binary command.
-- [ ] T085 Run the feature quickstart and all contract/integration/benchmark gates from a clean checkout; record release-candidate evidence without publishing a package.
+- [ ] T079 Add project CI Windows/macOS/Linux, Node 22/24; not an Ascout CI/SARIF user surface.
+- [ ] T080 Add native Windows command-shim/process-tree timeout cases; release blocked without Windows proof.
+- [ ] T081 Add deterministic receipt/golden checks across OS path normalization.
+- [ ] T082 Add npm package-content test excluding `.ascout/`, unintended fixtures/logs/secrets.
+- [ ] T083 Add `SECURITY.md` documenting trusted-local scope, command admission, repo-command risk, local-first vs offline, artifact sensitivity.
+- [ ] T084 Add `CONTRIBUTING.md` for constitution/Spec Kit/Ponytail/provenance/test gates.
+- [ ] T085 Update `README.md` with locked identity, M1 claims/non-claims, changed-command admission workflow, install once package identity resolves.
+- [ ] T086 Perform exact-version dependency license/provenance review + `THIRD_PARTY_NOTICES.md`.
+- [ ] T087 Verify npm package ownership or choose scoped fallback preserving `ascout` binary.
+- [ ] T088 Run quickstart + all contract/integration/benchmark gates from clean checkout; record release-candidate evidence without publishing.
 
 ## Execution Order
 
 ```text
 T001–T007 setup
-  → T008–T025 trust/evidence foundation
-  → T026–T040 US1
-  → T041–T053 US2
-  → T054–T061 US3
-  → T062–T067 US4
-  → T068–T075 benchmark
-  → T076–T085 release hardening
+→ T008–T026 trust/evidence
+→ T027–T043 US1/admission
+→ T044–T056 US2
+→ T057–T064 US3
+→ T065–T070 US4
+→ T071–T078 benchmark
+→ T079–T088 release hardening
 ```
-
-Pure parser/contract tests may run in parallel where paths do not conflict. Concrete Vitest/Jest work may run in parallel after the foundation is stable. Corpus curation may begin before harness completion but cannot define product architecture.
 
 ## Smallest Vertical Slice
 
-1. Package/inert CLI.
-2. Source identity/config/process/receipt primitives.
-3. One real source-bound typecheck/test receipt.
+1. Inert CLI.
+2. Source/config/process/receipt/admission primitives.
+3. One source-bound task receipt with changed-command default refusal.
 4. One Vitest related + LCOV exercise-gap path.
-5. Stable gap exit `4` + drift semantics.
-6. Validate before adding Jest/basic pytest/agent format.
+5. Gap exit 4 + drift semantics.
+6. Validate before Jest/basic pytest/agent expansion.
 
 ## Stop Conditions
 
-Implementation MUST stop and return to planning if it requires:
-
-- a second product runtime dependency beyond reviewed `cross-spawn`;
-- database/daemon;
-- generic plugin SDK;
-- semantic dependency graph/index;
-- arbitrary config task names or user-defined prerequisite/workflow graph;
-- automatic untrusted-repository execution;
-- shell-string repo command execution;
-- recursive widening beyond one second pass;
-- an exit/report rule that can hide a material task or exercise gap behind success.
+Return to planning if implementation requires a second product runtime dependency, DB/daemon, generic plugin SDK, semantic graph, arbitrary config workflow, automatic untrusted execution, shell-string commands, recursive widening, persistent changed-surface trust grant, automatic agent admission escalation, or an exit/report rule hiding task/exercise/admission gaps behind success.
