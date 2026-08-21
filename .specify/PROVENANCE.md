@@ -2,16 +2,20 @@
 
 Ascout's founding specification workflow is pinned to **GitHub Spec Kit v0.16.0**.
 
-Upstream: `github/spec-kit`
-Tag: `v0.16.0`
-Release commit: `5dce710`
+Upstream: `github/spec-kit`  
+Tag: `v0.16.0`  
+Release commit: `5dce710ce099067c7d3f2ef47a37b9a1c300b327`  
 Pinned on: `2026-08-21`
+
+## Verification
+
+The full release commit above was independently resolved from the upstream repository and corresponds to the `chore: bump version to 0.16.0` release commit dated 2026-08-05.
 
 ## Bootstrap note
 
-The canonical Ascout artifacts in this branch follow the v0.16.0 Spec Kit constitution/spec/plan/tasks/checklist workflow and template semantics.
+The canonical Ascout artifacts in this branch follow the v0.16.0 Spec Kit constitution/spec/plan/tasks/checklist workflow and inspected template semantics.
 
-The Spec Kit CLI itself was not vendored into Ascout. The execution environment used for repository founding could not resolve `github.com`/PyPI from its shell, so claiming that `specify init` executed would be false. Instead, the upstream v0.16.0 templates and Claude integration behavior were inspected directly from the pinned GitHub tag, and only the project-specific artifacts that Ascout needs are committed here.
+The Spec Kit CLI itself was not vendored into Ascout. The repository-founding shell environment could not resolve GitHub/PyPI, so claiming that `specify init` executed would be false. Instead, upstream v0.16.0 templates and Claude integration behavior were inspected directly from the pinned GitHub tag/commit, and only project-specific artifacts Ascout needs are committed here.
 
 This is intentional YAGNI: Ascout does not vendor Spec Kit implementation internals. A normal developer checkout may install the pinned CLI and use the generated workflow against these artifacts.
 
