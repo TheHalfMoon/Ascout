@@ -4,7 +4,7 @@
 **Created**: 2026-08-21  
 **Feature**: `specs/001-changed-code-verification-receipt/spec.md`
 
-This checklist reviews the **requirements**, not product implementation.
+This checklist reviews the **requirements and machine contracts**, not product implementation.
 
 ## Product Wedge and Scope
 
@@ -114,8 +114,15 @@ This checklist reviews the **requirements**, not product implementation.
 - [x] CHK071 Changed-command admission is implemented as a per-run CLI gate rather than a sandbox/trust subsystem.
 - [x] CHK072 Project structure remains an upper bound and stop conditions return material complexity to planning.
 
+## External-Review Contract Regression Checks
+
+- [x] CHK073 `NOT_RUN`, `BLOCKED`, and `ERROR` require non-empty `reason_code` and `reason_text` in receipt v1; omission/error states cannot be machine-opaque.
+- [x] CHK074 `change_kind=renamed` requires `previous_path`, while non-rename change kinds do not carry it, preserving old/new path fidelity.
+- [x] CHK075 Exercise state/count semantics are machine-enforced: `EXERCISED` count > 0; `NOT_EXERCISED` count = 0; `UNRESOLVED` count = null with a non-empty reason.
+- [x] CHK076 Config v1 and receipt v1 use the same canonical fixed-task identifiers: `typecheck`, `lint`, `test`, `pytestBasic`; no hidden mapping layer is required.
+
 ## Result
 
-**72/72 requirement-quality checks PASS after cross-artifact and independent-admission repair.**
+**76/76 requirement-and-contract quality checks PASS after cross-artifact, independent-admission, and Qodo exact-head review repair.**
 
-This means the requirements are internally ready for the final independent plan verdict. It does not authorize implementation or merge by itself.
+This means the repaired planning set is internally ready for a renewed final audit and fresh exact-head external review. It does not authorize implementation or merge by itself.
