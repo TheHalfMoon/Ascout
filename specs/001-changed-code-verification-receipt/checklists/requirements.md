@@ -137,9 +137,11 @@ This checklist reviews the **requirements and machine contracts**, not product i
 - [x] CHK088 Canonical persisted paths contain no empty path segments and no trailing separator; forms such as `src//file.ts` and `src/` are rejected rather than serialized as alternate representations of the same logical path.
 - [x] CHK089 The implementation test plan makes CR13 executable: T009 contract/semantic tests, T033 end-to-end validation, and T081 cross-platform golden tests explicitly require duplicate-separator and trailing-separator regressions, including `src//file.ts` and `src/`.
 - [x] CHK090 Path validation is fail-closed on the **original receipt candidate spelling before any lossy normalization/collapse/resolution**; `plan.md`, `data-model.md`, `spec.md`, and T009/T025/T033/T081 agree that invalid spellings are rejected and never repaired into valid-looking paths.
+- [x] CHK091 `source.start.head_sha` and `comparison.base_ref` use full Git object IDs (40-hex SHA-1 or 64-hex SHA-256) and semantic receipt validation requires exact equality for M1 `working_tree_vs_head`; unborn, malformed/abbreviated/symbolic, or mismatched comparison identity fails closed.
+- [x] CHK092 Every changed new-line range satisfies positive integer `start <= end`; the semantic validator and T009/T011/T020/T025/T033 explicitly reject an inverted range such as `[10, 1]` before changed-line, coverage, or exercise arithmetic.
 
 ## Result
 
-**90/90 requirement, contract, governance, and review-regression checks PASS after internal analysis, independent admission audit, Qodo review, and CodeRabbit exact-head reconciliation rounds through CR15.**
+**92/92 requirement, contract, governance, and review-regression checks PASS after internal analysis, independent admission audit, Qodo review, and CodeRabbit reconciliation through CR17.**
 
 This means the repaired planning set is internally ready for renewed analysis/final audit and a fresh exact-head external review. It does not authorize implementation or merge by itself.
