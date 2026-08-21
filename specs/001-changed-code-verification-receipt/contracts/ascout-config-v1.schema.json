@@ -6,13 +6,15 @@
   "additionalProperties": false,
   "required": ["version"],
   "properties": {
-    "version": {
-      "const": 1
-    },
+    "version": {"const": 1},
     "tasks": {
       "type": "object",
-      "additionalProperties": {
-        "$ref": "#/$defs/taskConfig"
+      "additionalProperties": false,
+      "properties": {
+        "typecheck": {"$ref": "#/$defs/taskOverride"},
+        "lint": {"$ref": "#/$defs/taskOverride"},
+        "test": {"$ref": "#/$defs/taskOverride"},
+        "pytestBasic": {"$ref": "#/$defs/taskOverride"}
       },
       "default": {}
     },
@@ -28,22 +30,6 @@
       "type": ["integer", "null"],
       "minimum": 1
     },
-    "workspace": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "include": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1},
-          "uniqueItems": true
-        },
-        "exclude": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1},
-          "uniqueItems": true
-        }
-      }
-    },
     "redactEnv": {
       "type": "array",
       "items": {"type": "string", "minLength": 1},
@@ -52,7 +38,7 @@
     }
   },
   "$defs": {
-    "taskConfig": {
+    "taskOverride": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
@@ -63,12 +49,7 @@
           "items": {"type": "string"},
           "minItems": 1
         },
-        "timeoutMs": {"type": "integer", "minimum": 1},
-        "prerequisites": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1},
-          "uniqueItems": true
-        }
+        "timeoutMs": {"type": "integer", "minimum": 1}
       },
       "allOf": [
         {
