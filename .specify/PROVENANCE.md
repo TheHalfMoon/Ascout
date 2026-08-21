@@ -31,6 +31,9 @@ This is intentional YAGNI: Ascout does not vendor Spec Kit implementation intern
 8. checklist
 9. analyze
 10. independent final plan audit
-11. explicit implementation authorization
+11. fresh exact-HEAD cross-artifact + branch-purity review
+12. explicit implementation authorization
+
+A stale audit is never authorization. Any material mutation after the audited head requires reconciliation of affected claims and a new exact-HEAD review before implementation or merge consideration.
 
 `implement` is not authorized by this founding branch.
