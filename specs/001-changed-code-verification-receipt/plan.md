@@ -2,70 +2,59 @@
 
 **Branch**: `planning/000-ascout-foundation` | **Date**: 2026-08-21 | **Spec**: `specs/001-changed-code-verification-receipt/spec.md`
 
-**Input**: Feature specification from `specs/001-changed-code-verification-receipt/spec.md`
-
 **Status**: Plan candidate. No implementation is authorized by this document.
 
 ## Summary
 
-Build the smallest local CLI that turns an AI coding change into an honest source-bound verification receipt. M1 will reuse Git and existing project verification tools rather than build a semantic index: discover the trusted local repository and concrete project tools, bind a run to the exact changed source state, execute typecheck/lint/test tasks with bounded process control, use native Vitest/Jest related selection plus conservative widening, collect line coverage into an Ascout-owned run directory, intersect that evidence with changed executable lines, report factual test changes, detect source drift, and emit one truth model as human, JSON, and bounded-agent receipts.
+Build the smallest local CLI that turns an AI coding change into an honest source-bound verification receipt. M1 reuses Git and project-native verification rather than building a semantic index: bind a run to the exact local source state, execute fixed typecheck/lint/test task categories with bounded process control, use native Vitest/Jest related selection plus conservative widening, normalize line coverage, intersect coverage with changed executable lines, expose factual test/snapshot changes, detect source drift, and render one run truth as terminal, JSON, and bounded-agent receipts.
 
-The reference implementation is TypeScript on supported Node LTS releases. The planned product runtime dependency budget is one dependency (`cross-spawn`) for secure/correct Windows command-shim launching; all other M1 mechanics use Node/Git/project-native capabilities unless implementation evidence forces a reviewed plan delta.
+The reference implementation is TypeScript on Node.js >=22. The planned product runtime dependency budget is one reviewed dependency (`cross-spawn`) for Windows command-shim launch behavior; all other M1 mechanics use Node/Git/project-native capabilities unless implementation evidence forces a reviewed plan delta.
 
 ## Technical Context
 
-**Language/Version**: TypeScript 6.x; Node.js >=22. Primary development/reference Node 24 LTS; CI verifies Node 22 + Node 24.
+**Language/Version**: TypeScript 6.x; Node.js >=22. Primary development Node 24 LTS; development CI covers Node 22 + 24.
 
-**Primary Dependencies**: Node standard library; Git CLI; planned runtime `cross-spawn` only. Project-native TypeScript/ESLint/Vitest/Jest/pytest are executed as external repository tools when present/configured, not bundled by Ascout.
+**Primary Dependencies**: Node standard library; Git CLI; planned runtime `cross-spawn` only. Project TypeScript/ESLint/Vitest/Jest/pytest remain external repository tools.
 
-**Storage**: Local files only. Tracked `ascout.config.json`; ignored `.ascout/` runtime directory containing lock and bounded run artifacts. No database.
+**Storage**: tracked `ascout.config.json`; ignored `.ascout/` lock/run artifacts; no database.
 
-**Testing**: Deterministic unit tests for parsers/classifiers/serialization; contract tests for config/receipt schemas; integration tests using temporary real Git repositories and concrete/fake tool fixtures; OS-matrix GitHub Actions on Windows, macOS, Linux. Benchmark corpus is separate from ordinary unit fixtures.
+**Testing**: deterministic unit/contract/integration tests using temporary Git repositories and concrete/fake tool fixtures; native Windows/macOS/Linux development CI. Benchmark corpus remains separate from ordinary fixtures.
 
-**Target Platform**: Developer CLI on Windows 11/PowerShell or compatible terminal, macOS, and Linux. v0.x operates only in the developer's own trusted local Git repository.
+**Target Platform**: Windows 11, macOS, Linux developer CLI. v0.x assumes the developer's own trusted local Git repository only.
 
-**Project Type**: Single npm CLI package with a `ascout` bin entry. Self-contained native binaries deferred.
-
-**Performance Goals**: On warm supported fixtures, Ascout orchestration overhead excluding child verification runtime SHOULD stay below 10% of the selected underlying verification time and SHOULD NOT dominate sub-second tool runs. Time-to-signal is benchmarked against plain project test commands and full-suite execution; correctness/honesty wins over speed when widening is required.
+**Project Type**: one npm CLI package with `ascout` bin entry. Native binaries deferred.
 
 **Constraints**:
-- no implicit dependency installation;
-- no repository upload/account/SaaS/model requirement;
+- no implicit project dependency installation;
+- no account/upload/SaaS/model requirement;
 - no claim that child processes are offline;
-- no silent product-source mutation;
-- no old evidence reused as current evidence;
+- no silent tracked-source mutation;
+- no cross-run evidence reuse;
 - no deselected test represented as passed;
-- no shell-string execution for discovered commands;
-- bounded task runtime and retained output;
+- no arbitrary shell-string execution;
+- bounded task/runtime artifacts;
 - no untrusted-repository promise;
-- no semantic graph/database/plugin SDK in M1.
-
-**Scale/Scope**: Single-package repositories and basic npm/pnpm/yarn workspaces; JS/TS first-class; basic configured pytest task only. The design MUST remain streaming/bounded enough that ordinary repository size does not require loading raw command output or entire file contents into a single unbounded in-memory report.
+- no DB/daemon/semantic graph/public plugin SDK;
+- no user-defined workflow/task dependency graph in config v1.
 
 ## Constitution Check
 
-*GATE: Must pass before implementation. Re-check after Phase 1 design.*
-
-| Constitutional gate | Plan evidence | Result |
-|---|---|---|
-| Evidence before claims | One run model; task/evidence references; no universal proof ladder | PASS |
-| No green by omission | Seven task statuses + reason-coded non-run; selected/deselected accounting | PASS |
-| Source-bound truth | Start source identity, config digest, end drift digest; evidence IDs run-bound | PASS |
-| Trusted local scope / explicit authority | Own trusted repo only; command provenance; changed command-surface warning; no implicit installs | PASS |
-| Native capability before invention | Git + Vitest/Jest + LCOV; no custom graph or diff engine | PASS |
-| Conservative affected verification | Explicit widening rules and post-run no-relationship widening | PASS |
-| Minimal core | No DB/daemon/server/Rust/plugin SDK/AI; one planned runtime dependency | PASS |
-| Bounded/read-only/private execution | Task timeout, run lock, output caps/retention, redaction, drift detects tracked mutation | PASS |
-| Provenance/licensing | Pinned Spec Kit provenance; donor code not imported; dependency review gate | PASS |
-| Benchmark-gated expansion | M1 benchmark measures binding, false-PASS, selection recall, gap accuracy, timing | PASS |
-
-**Post-design re-check**: PASS. The concrete structure below does not add a semantic index, persistence service, generic adapter framework, or cloud component.
+| Gate | Result |
+|---|---|
+| Evidence before claims | PASS — one run/evidence truth, no proof ladder |
+| No green by omission | PASS — explicit task states, selection disclosure, exercise gaps block exit 0 |
+| Source-bound truth | PASS — secret-safe repo identity, canonical start/end tree digest, no evidence transfer |
+| Trusted local scope / authority | PASS — own trusted repo only, provenance, command-surface warning, no implicit installs |
+| Native capability first | PASS — Git + Vitest/Jest + LCOV; no custom impact graph |
+| Conservative affected verification | PASS — finite pre-run triggers + one post-run widening pass |
+| Minimal core | PASS — one CLI package, one planned runtime dependency, no speculative layers |
+| Bounded/read-only/private | PASS — timeout, process-tree cleanup, lock, bounded artifacts, argv/output redaction |
+| Provenance/licensing | PASS — pinned workflow provenance, donor code excluded, exact dependency review gate |
+| Benchmark-gated growth | PASS — binding/false-PASS/gap/timing metrics measure Ascout itself |
 
 ## Architecture: Minimum Concrete Slice
 
-No generic plugin/adapter API is defined. M1 uses concrete modules for the handful of real tool integrations. Shared interfaces MAY be extracted only where two or more concrete implementations demonstrate identical behavior.
-
-### Run flow
+No public or generic adapter hierarchy is defined. M1 has concrete tool modules and extracts shared behavior only after repetition proves it.
 
 ```text
 CLI parse
@@ -76,231 +65,268 @@ run lock
   ↓
 source identity START
   ↓
-changed-scope + command-surface inspection
+changed scope + command-surface inspection
   ↓
-task planning + widening decision
+fixed task planning + conservative widening
   ↓
-bounded concrete task execution
+bounded concrete execution
   ↓
-test result + LCOV normalization
+test-result + LCOV normalization
   ↓
 changed-line exercise intersection
   ↓
-test-change facts
+test/snapshot change facts
   ↓
-source identity END / drift check
+source identity END / drift
   ↓
-current-run receipt model
+one receipt model
   ├─ terminal
   ├─ JSON
   └─ bounded agent
 ```
 
-### Trust boundary
+## Trust Boundary
 
-M1 assumes the repository is the user's own trusted local repository, but the *current diff* may have changed the commands/config Ascout is about to run. Before executing a repo-derived command, planning records its provenance and checks whether its command-surface source changed. The receipt/warning MUST name that changed source. Host-level automatic hooks remain opt-in.
+M1 assumes the repository is the user's own trusted local repository. The current diff may nevertheless have changed command/config files Ascout is about to use. Every executed task records provenance and the source path that authorized/defined it when one exists; changed command surfaces are named before execution.
 
-The plan does not add `.ascout/trust.json`, VM/container sandboxing, or an untrusted mode.
+M1 does not add `.ascout/trust.json`, sandboxing, static-only untrusted mode, or automatic untrusted-PR execution. Host-level automatic hooks remain opt-in.
 
 ## Source Identity Contract
 
-### Repository identity
+### Secret-safe repository identity
 
-1. If a normalized Git remote origin exists, derive `repo_id` from that normalized origin.
-2. Otherwise derive a `local:` identity from the canonical real repository path and mark it `portable: false`.
+1. Resolve configured Git origin when present.
+2. Never persist/render the raw origin string.
+3. Normalize to a credential-free stable host/path identity by stripping URL/scp userinfo, credentials, query parameters, fragments, and equivalent credential-bearing material.
+4. If the remote cannot be normalized safely, persist a one-way SHA-256 identifier derived from the raw origin rather than the raw string.
+5. Without a remote, derive a `local:` identity from the canonical real repository path and set `portable=false`.
+
+Golden tests include HTTPS credentials, SSH/scp userinfo, query/fragment material, and local-only repositories.
 
 ### HEAD metadata
 
-Record HEAD SHA when resolvable plus detached/shallow flags. A missing initial commit is unsupported for M1 check execution and produces a clear configuration/usage error rather than invented comparison semantics.
+Record HEAD SHA plus detached/shallow flags. A repository with no initial commit is unsupported for M1 `check` and returns a usage/config error rather than invented comparison semantics.
 
-### Tree digest v1
+### `tree_digest_v1`
 
-`tree_digest_v1` is a documented canonical SHA-256 digest over:
+Canonical SHA-256 input:
 
 1. format marker `ascout-tree-v1`;
 2. HEAD SHA;
-3. sorted Git index entries (mode + object id + stage + repo-relative path);
-4. sorted unstaged tracked paths with state marker and SHA-256 of current file bytes/symlink target, or deletion marker;
-5. sorted relevant untracked non-gitignored paths with type/mode marker and SHA-256 of bytes/symlink target.
+3. sorted Git index entries: mode + object id + stage + repo-relative path;
+4. sorted unstaged tracked paths: state marker + **current worktree type/mode** + SHA-256 of current bytes/symlink target, or deletion marker;
+5. sorted **all non-gitignored untracked paths except `.ascout/`**: type/mode + SHA-256 of bytes/symlink target.
 
-Ascout-owned/tool-owned **untracked** artifacts declared as non-source output MAY be excluded. A tracked file is never excluded solely because a tool may rewrite it.
+There is no heuristic “relevant untracked” exclusion list in M1. If a tool writes a non-gitignored untracked file outside `.ascout/`, the conservative result is tree drift. Tracked files are never excluded merely because a tool may rewrite them.
 
-The exact byte framing uses length-prefixed UTF-8 path/metadata fields, not ambiguous delimiter concatenation. The serializer has golden-vector tests.
+Byte framing is length-prefixed and has golden-vector tests.
 
 ### Drift
 
-Compute the same digest before and after verification. A mismatch yields `TREE_DRIFTED`, annotates every receipt format as unstable, and selects drift exit semantics even if tasks otherwise passed.
+Compute the same digest before and after verification.
+
+- both computed and equal → `stability=stable`;
+- both computed and different → `stability=tree_drifted`;
+- an integrity error prevents comparison → `stability=unknown` and exit semantics are dominated by internal error.
+
+Task execution errors do not themselves change source stability if start/end comparison remains valid.
 
 ### Configuration identity
 
-`config_digest_v1` is SHA-256 over the exact tracked `ascout.config.json` bytes (or an explicit `NO_CONFIG` marker) plus the effective Ascout schema version. Discovered repository command/config files remain part of the tree digest and each task's provenance.
+`config_digest_v1` hashes the exact tracked `ascout.config.json` bytes (or `NO_CONFIG`) plus effective schema version. Repo command/config sources remain source-tree inputs and are recorded per task.
 
 ## Changed Scope
 
-Use Git as the only changed-state engine.
+Use Git as the changed-state engine.
 
-- Tracked staged + unstaged comparison: `HEAD` vs current tree.
-- Parse zero-context unified diff to obtain new-file changed line ranges.
-- Relevant untracked text source files are wholly changed.
-- Binary/non-line-oriented changed files are reported at file level and never given fabricated line coverage.
-- Rename metadata is retained where Git provides it; M1 finding fingerprints are still allowed to change across a path rename.
+- staged + unstaged tracked change relative to HEAD;
+- zero-context diff for new-line ranges;
+- all non-gitignored untracked files except `.ascout/` participate in source identity and changed-file accounting;
+- untracked text files can be treated as wholly changed for line ranges;
+- binary/non-line files are file-level only;
+- rename metadata retained when available.
 
-Default comparison is local changes versus HEAD. `--base` is not required in the first implementation slice; the data model reserves an explicit comparison descriptor so a later committed-range mode does not change receipt semantics.
+Default comparison is current local state vs HEAD. Committed `--base` range semantics are deferred.
 
 ## Configuration Contract
 
 Tracked file: `ascout.config.json`.
 
-Minimum v1 shape:
+Config v1 is deliberately **not** a task-runner/workflow DSL. It can only override fixed M1 task categories:
 
 ```json
 {
   "version": 1,
-  "tasks": {},
+  "tasks": {
+    "typecheck": {},
+    "lint": {},
+    "test": {},
+    "pytestBasic": {}
+  },
   "timeouts": {},
   "budgetMs": null,
-  "workspace": {},
   "redactEnv": []
 }
 ```
 
-Rules:
+For each fixed category config may set:
 
-- Unknown top-level keys fail closed as configuration error in v1 unless explicitly reserved.
-- Task disablement requires a non-empty reason.
-- Command overrides are argv arrays (`[executable, ...args]`), never shell strings.
-- Config can narrow/override discovery but cannot suppress the receipt's disclosure that a task was disabled.
-- No arbitrary dependency graph or workflow-expression language.
+- `enabled`;
+- required `disabledReason` when disabled;
+- argv-array `command` override;
+- `timeoutMs`.
 
-`ascout init` creates the minimal config only when requested and ensures `.ascout/` is ignored; it does not install project dependencies.
+Global config may set default timeout/termination grace, overall budget, and extra redaction env names.
+
+M1 config cannot define arbitrary task names, custom prerequisite graphs, arbitrary workspace orchestration, expressions, hooks, or workflow steps. Internal prerequisite ordering among fixed product tasks is Ascout implementation logic and remains visible through task states.
+
+`ascout init` creates only this minimal tracked policy and ensures `.ascout/` is ignored; it never installs project dependencies or host hooks implicitly.
 
 ## Discovery and Concrete Tasks
 
 ### Package manager
 
-Order of evidence:
+Evidence order:
 
 1. valid root `packageManager` declaration;
 2. unambiguous lockfile;
-3. otherwise explicit configuration required.
+3. otherwise explicit task command override or unsupported/ambiguous result.
 
-Multiple conflicting package-manager signals are an `ERROR(config/discovery)` rather than a guess.
+Conflicting signals are an honest config/discovery error.
 
-### TypeScript
+### Typecheck
 
-Prefer an explicit Ascout override; otherwise prefer an existing project `typecheck` script. Direct `tsc` discovery is permitted only when a project TypeScript installation/config makes the invocation unambiguous; otherwise `doctor` reports the gap instead of inventing flags.
+Prefer explicit fixed-task command override; else existing project `typecheck` script; direct project-local `tsc` only when project config/install makes invocation unambiguous.
 
-### ESLint
+### Lint
 
-Prefer explicit override. When a project-local ESLint and recognized configuration are present, lint the changed supported source files directly to avoid executing unrelated work. If only a project `lint` script is safely discoverable, run that script and disclose its scope.
+Prefer explicit override; else project-local ESLint/config. Lint changed supported files directly when safely possible; if only project script is discoverable, run it and disclose broader scope.
 
-### Vitest
+### JavaScript test task
 
-Use the project-local Vitest version/config. For affected verification use native `related`/changed semantics rather than an Ascout graph. Force non-watch run behavior. Request machine-readable test output plus line coverage into the current run's artifact directory. Record the actual runner version and effective selection mode.
+Resolve one supported project test integration per scope (Vitest or Jest) through explicit override/discovery. Ambiguous competing runners fail closed rather than both becoming an implicit workflow.
 
-### Jest
+- Vitest: use project-local native related/changed semantics, force non-watch, request machine-readable results and line coverage into `.ascout/`.
+- Jest: use project-local `--findRelatedTests`, JSON results, and line coverage into `.ascout/`.
 
-Use project-local Jest. Use `--findRelatedTests` with changed source files for affected selection. Request machine-readable test output plus line coverage into the run artifact directory.
+### pytest basic
 
-### pytest basic tier
+Only execute an explicit or clearly discoverable configured pytest task. Pass/fail/error only; no Python affected selection, environment chooser, testmon, or Python exercise-coverage claim.
 
-Only execute an explicitly configured or clearly discoverable pytest task and record pass/fail/error. No M1 Python affected selection, coverage-to-diff claim, virtual-environment chooser, or testmon state.
+## Task Result Contract
+
+A semantic task can exist before a runnable command/tool is resolved. Therefore non-executed states MUST NOT fabricate command details.
+
+- attempted/executed `PASS | FAIL | FLAKY | ERROR` process tasks have resolved tool identity/argv;
+- `BLOCKED | NOT_APPLICABLE | NOT_RUN` may have empty argv and null tool identity when resolution never occurred;
+- every executed task records `authorized_by` and source path when one exists;
+- persisted/rendered argv is redacted; raw argv exists only transiently for launch.
+
+Deselected tests are **SelectionAccount data**, not task-level `NOT_RUN`. An affected test task can be complete while disclosing deselected tests if selection/widening policy was valid.
 
 ## Conservative Widening
 
-Before test execution, widen to the affected package/workspace full test scope when the changed set includes a declared high-risk selection surface such as:
+Before test execution, widen to package/workspace full scope on declared high-risk surfaces such as:
 
-- lockfile;
-- package dependency fields;
-- package-manager configuration;
-- compiler/path-alias configuration;
-- test-runner configuration;
-- root workspace configuration;
-- relevant executable/data/template/config inputs that the native static selector cannot relate safely.
+- lockfile/dependency/package-manager config;
+- compiler/path-alias config;
+- test-runner config;
+- root workspace config;
+- non-source executable/data/template/config input for which the native selector has no safe relation.
 
-After a narrowed run, if changed production code has no usable coverage relationship, perform one bounded second pass widened to that package's full configured test scope. The receipt records both passes and the trigger. No recursive widening loop.
+After a narrowed run, if changed production code has no usable coverage relationship, perform at most one second pass widened to package/workspace full configured test scope. No recursion.
 
-For workspace-root changes whose safe package impact cannot be narrowed without a dependency graph, widen to the entire basic workspace test scope.
+If safe package impact of a workspace-root change cannot be narrowed without a graph, widen to the whole basic workspace scope.
 
-## Coverage Normalization
+## Selection Accounting
 
-Use LCOV line data generated into `.ascout/runs/<run-id>/raw/<task-id>/coverage/`.
+Receipt records:
 
-Normalize only what M1 needs:
+- selection mode;
+- selected/deselected/total counts where runner can establish them;
+- null counts plus explicit limitation where it cannot;
+- widening triggers;
+- at most two passes.
+
+Deselection alone does not make a run incomplete. Unsafe/unexplainable selection must widen or become incomplete.
+
+## Coverage and Changed-Code Exercise
+
+Use line-level LCOV generated into the current `.ascout/runs/<run-id>/raw/<task-id>/coverage/` path.
+
+Normalize only:
 
 ```text
-repo-relative source path
-line number
+repo-relative path
+line
 execution count
-mapping state: resolved | unresolved
+mapping state
 ```
 
-For changed executable source files, configure the runner coverage collection so an untouched changed source can be represented when the runner/provider supports it. A changed line is:
+A changed executable line is considered in the exercise universe when the coverage provider can resolve it as executable/instrumentable. Configure supported providers to include changed production files where possible so untouched executable lines can appear with count zero.
 
-- `EXERCISED` only when resolved line count > 0;
-- `NOT_EXERCISED` when resolved line count = 0;
-- `UNRESOLVED` when coverage/source mapping cannot establish the line reliably.
+States:
 
-Never coerce `UNRESOLVED` to exercised.
+- `EXERCISED`: resolved count > 0;
+- `NOT_EXERCISED`: resolved count = 0;
+- `UNRESOLVED`: executable relationship/source mapping cannot be established reliably.
 
-LCOV parsing is small Ascout-owned code with strict malformed-input handling and golden fixtures; no coverage database or Istanbul API dependency is required.
+Coverage never proves correctness.
 
-## Test Result / Flake Handling
+After the permitted widening pass, **any remaining `NOT_EXERCISED` or `UNRESOLVED` changed executable line is a material verification gap and prevents exit `0`.**
 
-Prefer runner JSON output to identify failing test cases and aggregate outcomes. Raw stdout/stderr remain bounded artifacts.
+## Flake / Reproduction Semantics
 
-Default retry behavior:
+- successful task: no retry;
+- deterministic compiler/lint failure: no automatic retry experiment required;
+- failing test: if safe exact targeted selection exists, run at most two additional observations;
+- no safe targeted rerun: keep one observation and `reproduced=unknown`;
+- consistent repeated failures: `reproduced=true`;
+- contradictory pass/fail observations: `FLAKY`, stable-failure `reproduced=false`;
+- rerun execution error before a valid second observation: `reproduced=unknown`.
 
-- successful tasks: no retry;
-- deterministic compiler/lint failure: no automatic retry;
-- failing test case: if the runner provides a safe exact test/file selector, rerun only the failing unit up to **two** additional observations;
-- if exact targeted rerun cannot be formed safely, keep one observation and `reproduced=false` rather than rerunning the entire suite merely to label confidence.
-
-`FLAKY` requires contradictory pass/fail observations. Preserve `{runs, failures}`.
+Always preserve `{runs, failures}`.
 
 ## Process Control
 
-Use `cross-spawn` without `shell: true` for executable/argv launch. Project scripts are invoked through the detected package-manager executable and argument array.
+Use `cross-spawn` without `shell: true` for executable/argv launch. Project scripts run through detected package-manager executable + argv.
 
-Timeout behavior:
+One wrapper owns bounded stdout/stderr, timeout, termination, and normalized process result.
 
-- one wrapper owns launch, bounded stdout/stderr capture, timeout, termination, and normalized execution result;
-- POSIX: child gets its own process group and timeout termination targets the group with graceful-then-force escalation;
-- Windows: use platform-native tree termination for the spawned process tree; do not assume killing the parent PID kills descendants;
-- termination failure is an Ascout `ERROR`, not repository `FAIL`.
+- POSIX: dedicated process group, graceful then forceful group termination.
+- Windows: platform-native process-tree termination; parent-PID kill is not assumed sufficient.
+- termination failure: Ascout `ERROR`, never repository `FAIL`.
 
-Exact grace constants are implementation constants covered on each OS.
-
-## Run Lock and Artifacts
-
-Runtime root: `.ascout/` (ignored by default).
+## Run Lock, Artifacts, Retention
 
 ```text
 .ascout/
 ├── run.lock
-└── runs/
-    └── <run-id>/
-        ├── manifest.json
-        ├── receipt.json
-        └── raw/
-            └── <task-id>/
+└── runs/<run-id>/
+    ├── manifest.json
+    ├── receipt.json
+    └── raw/<task-id>/
 ```
 
-Acquire `run.lock` atomically. Store PID/start/repo identity. If the owning PID is verifiably dead, replace the stale lock and record that recovery; otherwise refuse the new run.
+Acquire lock atomically. Store PID/start/repository identity. Replace only a verifiably stale dead-owner lock; otherwise refuse concurrent run.
 
-Default retention: keep the **20 most recent completed runs** and never delete the active run. Raw stdout/stderr capture is bounded per stream; truncation is explicit in manifest metadata. Retention limits are configuration-adjustable but cannot become unbounded through a missing value.
+Default retention: 20 most recent completed runs, active run never removed. Captured streams are bounded and truncation explicit.
 
 ## Redaction
 
-Before persisted stdout/stderr or agent output is written, redact exact values of environment variables whose names match a documented secret-bearing pattern (token/key/secret/password/credential/auth/cookie/session families) plus user-specified `redactEnv` names. Ignore empty/very-short values that would destroy output utility. Redaction affects stored/rendered evidence, not the child's environment in M1.
+Before persistence or agent rendering, redact exact values of recognized secret-bearing environment variables plus configured `redactEnv` names from:
 
-The receipt declares that redaction is best-effort and not a guarantee that arbitrary secrets absent from known environment values cannot appear in project logs.
+- stdout/stderr;
+- persisted/rendered argv;
+- other rendered evidence fields where exact matching applies.
+
+Ignore empty/very-short values that would destroy output utility. Redaction is best-effort, not a universal secret detector. Raw argv is not persisted.
+
+Repository identity independently strips raw remote credentials/userinfo/query/fragment before rendering.
 
 ## Receipt Contract
 
-One internal receipt model feeds every output surface.
-
-Required top-level domains:
+One internal model feeds all formats. Required domains:
 
 ```text
 schema_version
@@ -318,126 +344,81 @@ stability
 summary
 ```
 
-### Finding semantics
-
-No proof ladder. A finding records producer/task, rule/test identity when available, message/location, normalized severity if supplied by producer, current-run evidence IDs, `in_changed_lines`, observations, determinism/reproduction fields, `introduced_by_change` (M1 default `unknown`), and optional `fingerprint_v1`.
-
-`fingerprint_v1 = SHA-256(version + task identity + repo-relative path + normalized message)` with length-prefixed fields. It is weak/versioned and never a merge key.
+No proof ladder. Findings carry current-run evidence references, location, severity when safely normalized, observations, `in_changed_lines`, `introduced_by_change` (M1 default unknown), reproduction/determinism fields, and optional weak `fingerprint_v1`.
 
 ### Output surfaces
 
-- Terminal: concise receipt with identity, task matrix, selection accounting, exercise gap, material test changes, findings/errors, stability.
-- JSON: full versioned receipt, deterministic key/value semantics; no raw unbounded logs embedded.
-- Agent: same run truth, hard maximum **16 KiB UTF-8** by default; rank failures/errors/gaps first, include totals for omitted detail, never truncate identity/status semantics.
+- Terminal: concise identity/task/selection/exercise/test-change/finding/stability/completeness receipt.
+- JSON: full v1 contract; no unbounded raw logs inline.
+- Agent: same truth, default hard maximum 16 KiB UTF-8; material errors/findings/gaps first, explicit omitted-detail totals, never omit identity/status semantics.
 
-## Exit Semantics
+## Completeness and Exit Semantics
 
-Exact M1 numeric contract:
+`complete` requires:
 
-- `0` — stable receipt, at least one applicable verification task executed, no repository finding/flake/error, and no material applicable verification left `NOT_RUN`/`BLOCKED`.
-- `1` — current-run repository/test finding or flaky verification outcome exists; source remained stable and no higher-precedence Ascout error occurred.
-- `2` — Ascout usage/config/internal/task-execution error prevents a trustworthy normal receipt; a partial diagnostic receipt MAY still be emitted.
-- `3` — source tree drifted during the run; caller MUST NOT treat results as stable even if tasks otherwise passed or found failures.
-- `4` — stable but materially incomplete verification: no repository finding/internal error, yet applicable verification is `NOT_RUN`/`BLOCKED` or nothing material could execute.
+1. at least one material applicable verification task executed;
+2. every applicable planned semantic task is executed to an outcome or legitimately `NOT_APPLICABLE`;
+3. no task remains `NOT_RUN`/`BLOCKED`;
+4. selection/widening policy is satisfied;
+5. no changed executable line remains `NOT_EXERCISED` or `UNRESOLVED` after permitted widening.
 
-Precedence: `2` internal/usage integrity error > `3` drift > `1` repository finding/flake > `4` incomplete > `0` clean.
+`materially_incomplete` applies when a known applicable task is `NOT_RUN`/`BLOCKED`, nothing material executes, selection cannot be justified, or an exercise gap remains.
 
-This prevents automation from treating omission as a green exit.
+`unknown_due_to_error` applies when an integrity/internal error prevents completeness from being established.
+
+Exit contract:
+
+- `0` — stable + complete + no finding/flake/error.
+- `1` — current-run repository/test finding or flake; no higher-precedence condition.
+- `2` — usage/config/internal/task-execution integrity error prevents trustworthy normal result.
+- `3` — tree drift; no higher-precedence integrity error.
+- `4` — stable but materially incomplete/gapped; no finding/internal error.
+
+Precedence: `2 > 3 > 1 > 4 > 0`.
+
+A run with all selected tests passing but any remaining material exercise gap is therefore exit `4`, never `0`.
 
 ## Test-Change Facts
 
-M1 derives only factual diff-level signals:
+First slice reports only factual Git-derived:
 
-- test file changed/deleted based on runner/common filename conventions plus discovered test files;
-- tracked snapshot file changed/deleted;
-- counts/paths.
+- test file changed/deleted;
+- tracked snapshot changed/deleted.
 
-Skip/disable/assertion weakening analysis is **not required in the first implementation slice**. It may be added only with a detector that can make the claim reliably without a speculative AST subsystem.
+Semantic test weakening/AST assertion analysis is not required.
 
 ## Development Quality Strategy
 
-### Unit tests
+### Unit/contract tests
 
-- canonical tree/config/fingerprint serializers;
-- Git diff hunk parser;
-- LCOV parser and unresolved mapping;
-- status/exit precedence;
-- redaction;
-- config validation;
-- receipt serialization and agent budget.
+Cover tree/config/fingerprint serializers, secret-safe remote normalization, Git diff parsing, LCOV parsing, status/exit/completeness, redaction including argv, config/receipt schemas, and agent budget.
 
 ### Integration tests
 
-Temporary real Git repositories cover:
-
-- staged + unstaged + untracked combinations;
-- tracked deletion/rename;
-- tracked snapshot mutation;
-- command-surface change warning;
-- start/end drift;
-- stale/current run lock;
-- task timeout/tree termination;
-- Vitest affected + full widening fixture;
-- Jest related + full widening fixture;
-- missing dependency/non-run;
-- basic pytest task;
-- secret redaction in captured output.
-
-### Contract tests
-
-Schemas under `specs/001-changed-code-verification-receipt/contracts/` become design contracts. Implementation tests validate emitted config/receipt examples against the canonical v1 contract semantics.
+Temporary real Git repositories cover staged/unstaged/untracked state, mode changes, credentialed origins, tracked/untracked drift, command-surface warning, lock behavior, timeout/process-tree cleanup, Vitest/Jest selection+widening+coverage, missing tools, basic pytest, and redaction.
 
 ### OS matrix
 
-Development CI runs Windows, macOS, Linux across Node 22 and Node 24 where practical. Process-control and path-normalization behavior MUST have native Windows coverage before M1 is considered releasable.
+Development CI covers Windows/macOS/Linux and supported Node LTS lines. Native Windows process cleanup is a release gate.
 
 ## Benchmark Plan
 
-Keep benchmark logic independent from product correctness tests.
-
 ### Selection corpus
 
-Start with 5–6 real JS/TS repositories/commits where a historical fix and regression test provide ground truth. Construct a reverted-fix candidate that the full suite catches. Record:
-
-- full-suite detection;
-- native selector detection;
-- Ascout selection/widening detection;
-- false-PASS;
-- cold/warm time.
+5–6 reviewed JS/TS historical fix+regression-test cases. Compare full suite, plain project test command, native related selector, and Ascout. Measure selection recall, false-PASS, and cold/warm time.
 
 ### Gap corpus
 
-Start with 3–4 real historical fixes. Apply production-code change without its new regression test and compare changed-line exercise against full-run coverage. Record false exercise claims and unresolved mapping explicitly.
+3–4 reviewed historical production fixes with the new regression-test change withheld. Compare Ascout changed-line exercise state against independently established full-run coverage ground truth. Measure false exercise claims and unresolved mapping.
 
-### Absolute gates
+### Absolute integrity gates
 
 - cross-tree evidence leakage = 0;
 - binding-integrity violations = 0.
 
-No pre-data 98% threshold. Publish every selection miss and use evidence to set M2 hardening criteria.
+No invented pre-data 98% threshold. Publish every miss.
 
 ## Project Structure
-
-### Documentation
-
-```text
-specs/001-changed-code-verification-receipt/
-├── spec.md
-├── YAGNI_REVIEW.md
-├── research.md
-├── plan.md
-├── data-model.md
-├── quickstart.md
-├── contracts/
-│   ├── ascout-config-v1.schema.json
-│   └── receipt-v1.schema.json
-├── checklists/
-│   └── requirements.md
-├── tasks.md
-└── analysis.md
-```
-
-### Source Code
 
 ```text
 package.json
@@ -452,43 +433,39 @@ src/
 ├── lock.ts
 ├── redact.ts
 ├── check.ts
-├── coverage/
-│   └── lcov.ts
-├── tools/
-│   ├── typescript.ts
-│   ├── eslint.ts
-│   ├── vitest.ts
-│   ├── jest.ts
-│   └── pytest.ts
-└── receipt/
-    ├── model.ts
-    ├── terminal.ts
-    ├── json.ts
-    └── agent.ts
+├── coverage/lcov.ts
+├── tools/{typescript,eslint,vitest,jest,pytest}.ts
+└── receipt/{model,terminal,json,agent}.ts
 
-tests/
-├── unit/
-├── integration/
-├── contract/
-└── fixtures/
-
-benchmarks/
-├── README.md
-├── manifest.json
-└── harness/
+tests/{unit,integration,contract,fixtures}/
+benchmarks/{README.md,manifest.json,harness/}
 ```
 
-**Structure Decision**: One npm CLI package. Concrete tool modules, no public/generic adapter SDK. The folder structure reflects real M1 responsibilities and may be collapsed during implementation if files remain trivial; adding layers beyond this tree requires a demonstrated need.
+This is an upper bound; adjacent modules SHOULD collapse when trivial.
 
 ## Complexity Tracking
 
-No constitutional violation is accepted by this plan.
-
 | Potential complexity | Decision | Simpler rule |
 |---|---|---|
-| Generic plugin/adapter interface | Rejected for M1 | Keep concrete Vitest/Jest/etc. modules; extract only proven common code |
+| Arbitrary config tasks/prerequisite graph | Rejected | Fixed semantic task categories + internal ordering |
+| Generic adapter/plugin interface | Rejected | Concrete integrations only |
 | Persistent DB | Rejected | Run files only |
 | Semantic dependency graph | Rejected | Native selectors + widening |
-| Full AST test weakening analysis | Rejected | Factual diff signals only |
-| Native executable distribution | Deferred | npm package first |
-| Untrusted sandbox | Deferred | Trusted local repository boundary |
+| Recursive widening | Rejected | One bounded second pass |
+| AST test weakening analyzer | Rejected | Factual Git signals only |
+| Native binary distribution | Deferred | npm first |
+| Untrusted sandbox | Deferred | trusted-local boundary |
+
+## Stop Conditions
+
+Implementation returns to plan review if it requires:
+
+- a second product runtime dependency beyond reviewed `cross-spawn`;
+- a database/daemon;
+- generic plugin SDK;
+- semantic dependency graph/index;
+- arbitrary config-defined tasks/workflow edges;
+- automatic untrusted-repository execution;
+- shell-string repo command execution;
+- recursive widening;
+- any exit/report behavior that can hide material task or exercise gaps behind success.
