@@ -4,21 +4,7 @@
   "title": "Ascout Verification Receipt v1",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "run",
-    "source",
-    "comparison",
-    "selection",
-    "tasks",
-    "changed_code",
-    "exercise",
-    "test_changes",
-    "findings",
-    "artifacts",
-    "stability",
-    "summary"
-  ],
+  "required": ["schema_version", "run", "source", "comparison", "selection", "tasks", "changed_code", "exercise", "test_changes", "findings", "artifacts", "stability", "summary"],
   "properties": {
     "schema_version": {"const": "1.0"},
     "run": {"$ref": "#/$defs/run"},
@@ -35,10 +21,7 @@
     "summary": {"$ref": "#/$defs/summary"}
   },
   "$defs": {
-    "sha256": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "run": {
       "type": "object",
       "additionalProperties": false,
@@ -54,19 +37,7 @@
     "sourceState": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "repository_id",
-        "repository_id_kind",
-        "portable",
-        "head_sha",
-        "detached",
-        "shallow",
-        "tree_digest_version",
-        "tree_digest",
-        "tracked_index_entry_count",
-        "unstaged_changed_count",
-        "included_untracked_count"
-      ],
+      "required": ["repository_id", "repository_id_kind", "portable", "head_sha", "detached", "shallow", "tree_digest_version", "tree_digest", "tracked_index_entry_count", "unstaged_changed_count", "included_untracked_count"],
       "properties": {
         "repository_id": {"type": "string", "minLength": 1},
         "repository_id_kind": {"enum": ["remote", "local_only"]},
@@ -87,26 +58,13 @@
       "required": ["start", "end"],
       "properties": {
         "start": {"$ref": "#/$defs/sourceState"},
-        "end": {
-          "oneOf": [
-            {"$ref": "#/$defs/sourceState"},
-            {"type": "null"}
-          ]
-        }
+        "end": {"oneOf": [{"$ref": "#/$defs/sourceState"}, {"type": "null"}]}
       }
     },
     "changedFile": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "path",
-        "change_kind",
-        "line_semantics",
-        "changed_new_line_ranges",
-        "is_test_file",
-        "is_snapshot",
-        "is_command_surface"
-      ],
+      "required": ["path", "change_kind", "line_semantics", "changed_new_line_ranges", "is_test_file", "is_snapshot", "is_command_surface"],
       "properties": {
         "path": {"type": "string", "minLength": 1},
         "previous_path": {"type": "string", "minLength": 1},
@@ -116,10 +74,7 @@
           "type": "array",
           "items": {
             "type": "array",
-            "prefixItems": [
-              {"type": "integer", "minimum": 1},
-              {"type": "integer", "minimum": 1}
-            ],
+            "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}],
             "items": false,
             "minItems": 2,
             "maxItems": 2
@@ -133,14 +88,7 @@
     "comparison": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "kind",
-        "base_ref",
-        "includes_staged",
-        "includes_unstaged",
-        "includes_untracked_nonignored",
-        "changed_files"
-      ],
+      "required": ["kind", "base_ref", "includes_staged", "includes_unstaged", "includes_untracked_nonignored", "changed_files"],
       "properties": {
         "kind": {"const": "working_tree_vs_head"},
         "base_ref": {"type": "string", "minLength": 1},
@@ -150,29 +98,47 @@
         "changed_files": {"type": "array", "items": {"$ref": "#/$defs/changedFile"}}
       }
     },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": {"enum": ["repository", "package"]},
+        "path": {"type": ["string", "null"]}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "repository"}}, "required": ["kind"]}, "then": {"properties": {"path": {"type": "null"}}}},
+        {"if": {"properties": {"kind": {"const": "package"}}, "required": ["kind"]}, "then": {"properties": {"path": {"type": "string", "minLength": 1}}}}
+      ]
+    },
+    "selectionPass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordinal", "mode", "scope", "trigger", "selected_test_count", "deselected_test_count", "total_test_count"],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 1, "maximum": 2},
+        "mode": {"enum": ["full", "native_related", "native_changed", "configured"]},
+        "scope": {"$ref": "#/$defs/scope"},
+        "trigger": {"type": ["string", "null"]},
+        "selected_test_count": {"type": ["integer", "null"], "minimum": 0},
+        "deselected_test_count": {"type": ["integer", "null"], "minimum": 0},
+        "total_test_count": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
     "selection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["mode", "widened", "widen_triggers", "passes", "limitations"],
+      "required": ["mode", "initial_scope", "selected_test_count", "deselected_test_count", "total_test_count", "widened", "widen_triggers", "passes", "limitations"],
       "properties": {
         "mode": {"enum": ["full", "native_related", "native_changed", "configured", "no_test_task"]},
-        "initial_scope": {},
+        "initial_scope": {"$ref": "#/$defs/scope"},
         "selected_test_count": {"type": ["integer", "null"], "minimum": 0},
         "deselected_test_count": {"type": ["integer", "null"], "minimum": 0},
         "total_test_count": {"type": ["integer", "null"], "minimum": 0},
         "widened": {"type": "boolean"},
-        "widen_triggers": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1},
-          "uniqueItems": true
-        },
-        "passes": {
-          "type": "array",
-          "minItems": 0,
-          "maxItems": 2,
-          "items": {"type": "object"}
-        },
-        "limitations": {"type": "array", "items": {"type": "string"}}
+        "widen_triggers": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "passes": {"type": "array", "minItems": 0, "maxItems": 2, "items": {"$ref": "#/$defs/selectionPass"}},
+        "limitations": {"type": "array", "items": {"type": "string", "minLength": 1}}
       }
     },
     "observations": {
@@ -187,31 +153,10 @@
     "task": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "task_id",
-        "task_type",
-        "authorized_by",
-        "source_path",
-        "argv",
-        "argv_redacted",
-        "tool_name",
-        "tool_version",
-        "status",
-        "reason_code",
-        "reason_text",
-        "exit_code",
-        "started_at",
-        "finished_at",
-        "duration_ms",
-        "observations",
-        "cache_state",
-        "evidence_ids",
-        "artifact_refs",
-        "output_truncated"
-      ],
+      "required": ["task_id", "task_type", "authorized_by", "source_path", "argv", "argv_redacted", "tool_name", "tool_version", "status", "reason_code", "reason_text", "exit_code", "started_at", "finished_at", "duration_ms", "observations", "cache_state", "evidence_ids", "artifact_refs", "output_truncated"],
       "properties": {
         "task_id": {"type": "string", "minLength": 1},
-        "task_type": {"type": "string", "minLength": 1},
+        "task_type": {"enum": ["typecheck", "lint", "test", "pytest_basic"]},
         "authorized_by": {"enum": ["user_config", "repo_config", "discovery"]},
         "source_path": {"type": ["string", "null"]},
         "argv": {"type": "array", "items": {"type": "string"}},
@@ -250,14 +195,7 @@
     "exercise": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "changed_executable_lines",
-        "exercised_lines",
-        "not_exercised_lines",
-        "unresolved_lines",
-        "changed_files_with_zero_exercised_lines",
-        "records"
-      ],
+      "required": ["changed_executable_lines", "exercised_lines", "not_exercised_lines", "unresolved_lines", "changed_files_with_zero_exercised_lines", "records"],
       "properties": {
         "changed_executable_lines": {"type": "integer", "minimum": 0},
         "exercised_lines": {"type": "integer", "minimum": 0},
@@ -287,34 +225,12 @@
         "source": {"const": "git_diff"}
       }
     },
-    "introducedByChange": {
-      "oneOf": [
-        {"type": "boolean"},
-        {"const": "unknown"}
-      ]
-    },
-    "fingerprintVersion": {
-      "oneOf": [
-        {"const": 1},
-        {"type": "null"}
-      ]
-    },
+    "introducedByChange": {"oneOf": [{"type": "boolean"}, {"const": "unknown"}]},
+    "fingerprintVersion": {"oneOf": [{"const": 1}, {"type": "null"}]},
     "finding": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "finding_id",
-        "task_id",
-        "producer",
-        "message",
-        "severity",
-        "in_changed_lines",
-        "introduced_by_change",
-        "determinism_class",
-        "observations",
-        "reproduced",
-        "evidence_ids"
-      ],
+      "required": ["finding_id", "task_id", "producer", "message", "severity", "in_changed_lines", "introduced_by_change", "determinism_class", "observations", "reproduced", "evidence_ids"],
       "properties": {
         "finding_id": {"type": "string", "minLength": 1},
         "task_id": {"type": "string", "minLength": 1},
@@ -331,12 +247,7 @@
         "observations": {"$ref": "#/$defs/observations"},
         "reproduced": {"enum": [true, false, "not_applicable", "unknown"]},
         "fingerprint_version": {"$ref": "#/$defs/fingerprintVersion"},
-        "fingerprint": {
-          "oneOf": [
-            {"$ref": "#/$defs/sha256"},
-            {"type": "null"}
-          ]
-        },
+        "fingerprint": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
         "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
       }
     },
