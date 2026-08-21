@@ -131,9 +131,11 @@ This checklist reviews the **requirements and machine contracts**, not product i
 - [x] CHK082 One Ascout-owned pure semantic receipt validator is required before emission and reused by any internal/future receipt acceptance path to enforce evidence references, stability, task/admission, exercise, aggregate completeness, and exit-code invariants beyond JSON Schema field checks.
 - [x] CHK083 Benchmark/task plan explicitly asserts stable runs with remaining material `NOT_EXERCISED`/`UNRESOLVED` gaps never return exit `0`; absent higher precedence they map to exit `4`.
 - [x] CHK084 Command-admission integration coverage includes the executable `pytestBasic` task and effective pytest configuration sources when used.
+- [x] CHK085 Every persisted path-bearing receipt field uses a canonical relative path in its namespace; schema/semantic validation reject POSIX absolute, Windows drive/UNC, URI-absolute, backslash-canonicalization violations, and `.`/`..` traversal forms after normalization.
+- [x] CHK086 The implementation plan opening summary explicitly includes all four fixed executable task categories, including `pytestBasic`; no scope-bearing summary silently drops the Python basic task.
 
 ## Result
 
-**84/84 requirement, contract, governance, and review-regression checks PASS after internal analysis, independent admission audit, Qodo review, and CodeRabbit review reconciliation.**
+**86/86 requirement, contract, governance, and review-regression checks PASS after internal analysis, independent admission audit, Qodo review, and two CodeRabbit exact-head review rounds.**
 
 This means the repaired planning set is internally ready for a renewed Ponytail/final audit and fresh exact-head external review. It does not authorize implementation or merge by itself.
