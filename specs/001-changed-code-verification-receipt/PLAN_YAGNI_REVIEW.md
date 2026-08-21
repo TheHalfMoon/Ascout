@@ -5,12 +5,12 @@
 
 ## Decision
 
-The repaired technical plan is the minimum credible M1 architecture. Two earlier designs failed the Ponytail test and were deleted before implementation:
+The repaired technical plan is the minimum credible M1 architecture. Earlier designs failed the Ponytail test in two material ways and were deleted before implementation:
 
 1. config v1 briefly behaved like a workflow/task-runner DSL; and
 2. changed command/config surfaces were only warned about before execution, requiring a security fix.
 
-The final design closes both without adding a trust database, sandbox, daemon, or policy engine.
+A subsequent exact-head Qodo review found four machine-contract gaps. Their repair **tightened existing v1 contracts only**: explicit task reasons, rename path identity, exercise state/count/reason invariants, and one canonical pytest task identifier. No new subsystem, dependency, database, policy engine, or abstraction was introduced.
 
 ## Dependency ladder
 
@@ -36,6 +36,7 @@ Boundary: launch normalization only. Ascout owns timeout, bounded capture, proce
 - `process.ts` is justified by launch/timeout/tree-kill safety.
 - `git.ts` is justified by source identity/diff/drift sharing Git semantics.
 - Fixed internal prerequisite ordering is allowed; user-defined task/prerequisite graphs are not.
+- Config and receipt use the same fixed task identifiers; no translation/mapping layer is justified.
 - No repository graph, event bus, DI container, persistence abstraction, workflow engine, sandbox manager, or trust database is permitted.
 
 ## Boundaries locked
@@ -69,7 +70,16 @@ The admission mechanism deliberately does **not** add:
 - approval databases;
 - agent-autonomous escalation.
 
-This is the smallest design that closes the M1 authority gap.
+### B6 — Contract strictness is not architecture
+
+The Qodo repairs remain inside existing receipt/config concepts:
+
+- require reasons where status already semantically needs them;
+- preserve `previous_path` only where rename semantics need it;
+- make the existing three exercise states internally coherent;
+- use `pytestBasic` consistently rather than maintaining a config↔receipt name mapping.
+
+Adding a schema-generation tool, shared type package, adapter layer, or migration framework solely to solve these review findings is rejected for M1.
 
 ## Security/privacy reductions
 
@@ -79,9 +89,10 @@ This is the smallest design that closes the M1 authority gap.
 - All non-gitignored untracked files except `.ascout/` participate in source identity.
 - Unstaged type/mode participates in tree identity.
 - Changed effective command authority is refused by default rather than merely warned about.
+- Omission/error statuses require explicit machine-readable and human-readable reasons.
 
 ## Complexity budget
 
-The source tree remains an upper bound. Adjacent modules SHOULD collapse when trivial. New runtime dependencies, DB/background processes, semantic indexes, generic plugin interfaces, arbitrary config workflow edges, recursive widening, persistent trust state, or automatic admission escalation require a plan amendment and constitution check.
+The source tree remains an upper bound. Adjacent modules SHOULD collapse when trivial. New runtime dependencies, DB/background processes, semantic indexes, generic plugin interfaces, arbitrary config workflow edges, recursive widening, persistent trust state, automatic admission escalation, or task-name translation layers require a plan amendment and constitution check.
 
-**Disposition:** `PASS_AFTER_REPAIR`. The repaired plan is lean enough for final independent audit. No implementation is authorized.
+**Disposition:** `PASS_AFTER_REPAIR`. Qodo reconciliation strengthened existing contracts without expanding M1 architecture. No implementation is authorized.
