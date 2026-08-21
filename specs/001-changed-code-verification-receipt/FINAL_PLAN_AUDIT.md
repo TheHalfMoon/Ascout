@@ -1,75 +1,77 @@
 # 001 — Independent Final Plan Audit
 
 **Date:** 2026-08-21  
-**Audit target exact head:** `b678cc65ba5c18f5d4120109c3d8a9ca001ff3ff`  
+**Audit target exact head:** `033bfc4839fc80e4c639ef71a8c09c80bfd7d4af`  
 **Branch:** `planning/000-ascout-foundation`  
 **Verdict:** `PASS_READY_FOR_FRESH_EXACT_HEAD_PR_REVIEW`  
 **Implementation authorization:** **NO**  
-**Merge authorization:** **NO — fresh external review of the repaired head is still required**
+**Merge authorization:** **NO — a fresh external review of the post-audit PR head is required**
 
-This is a fresh adversarial audit after Qodo's first exact-head review and the resulting contract repairs. It supersedes the earlier pre-PR audit verdict for merge-readiness purposes.
+This is the renewed adversarial final audit after internal analysis, the independent changed-command admission audit, Qodo exact-head review, CodeRabbit exact-head review, and all accepted repairs.
 
-The audited target contains no product implementation. This audit record is intended as a governance-only mutation after the audited target; any later material mutation to constitution/spec/plan/data model/contracts/tasks requires another affected-claim reconciliation.
+It supersedes all earlier final-audit verdicts for merge-readiness purposes.
+
+The audit target contains no product implementation. Writing this audit creates a governance-only successor commit; that successor still requires fresh exact-HEAD external review and branch-purity verification. Any later **material** mutation to constitution/spec/plan/data model/contracts/tasks invalidates affected audit claims and requires reconciliation before merge or implementation authorization.
 
 ## 1. Review History Consumed
 
-The audit consumes three layers of evidence:
+This audit consumes four independent layers:
 
-1. internal cross-artifact analysis and Ponytail/YAGNI reduction;
-2. independent pre-PR audit, which found the changed-command admission blocker; and
-3. Qodo's exact-head PR review, which found four additional receipt/config contract defects.
+1. internal cross-artifact analysis + Ponytail/YAGNI reduction;
+2. independent pre-PR adversarial audit, which found the changed-command warning-only authorization blocker;
+3. Qodo exact-head review, which found four machine-contract defects; and
+4. CodeRabbit exact-head review, which found stale-head governance, evidence-reference integrity, privacy-enforcement, semantic validation, benchmark, pytest-admission, and documentation-integrity defects/confirmations.
 
-No external finding is treated as accepted merely because a bot emitted it; each finding was independently checked against the constitution/product contract before repair.
+External findings are not accepted merely because a bot emitted them. Every finding was checked against the constitution/product contract and either repaired or already independently satisfied.
 
-## 2. Qodo Finding Reconciliation
+## 2. Internal High-Severity Repairs Revalidated
 
-### Q1 — Omission/error reason fields were nullable
+### False-green exercise gap
 
-**Severity:** HIGH / CORRECTNESS  
-**Verdict:** VALID  
-**Disposition:** RESOLVED
+A stable run with material changed executable lines remaining `NOT_EXERCISED` or `UNRESOLVED` after permitted widening cannot return exit `0`; absent higher precedence it is `materially_incomplete`, exit `4`.
 
-Problem: receipt v1 allowed `NOT_RUN`, `BLOCKED`, or `ERROR` with null `reason_code`/`reason_text`, conflicting with the constitutional requirement that non-executed/error states remain explainable.
+**Result:** `PASS`
 
-Final contract:
+### Changed command/config execution authority
 
-- `NOT_RUN`, `BLOCKED`, and `ERROR` require non-empty `reason_code` and `reason_text`;
-- admission-refused `NOT_RUN` additionally fixes `reason_code=command_surface_changed`;
-- implementation tasks explicitly test these invariants.
+If the current diff changes an effective authority/config file the task would execute/load:
 
-### Q2 — Rename could omit previous path
+- ordinary check refuses the affected task before launch/load;
+- task is `NOT_RUN(command_surface_changed)` with non-empty reason text/code;
+- at least one changed authority path is recorded;
+- admission is `refused_changed_surface`;
+- a human may use `--allow-changed-command-surface` only for that invocation;
+- explicit override is receipt-visible and never persisted/auto-added by agent integration.
 
-**Severity:** HIGH / CORRECTNESS  
-**Verdict:** VALID  
-**Disposition:** RESOLVED
+The same generic mechanism covers `pytestBasic` effective configuration.
 
-Final contract:
+**Result:** `PASS_WITH_EXPLICIT_TRUSTED_LOCAL_SCOPE`
 
-- `change_kind=renamed` requires `previous_path`;
-- non-rename change kinds do not carry `previous_path`;
-- data model, plan, schema, and regression tasks agree.
+## 3. Qodo Reconciliation Revalidated
 
-### Q3 — Exercise state/count/reason semantics were underconstrained
+### Q1 — explicit omission/error reasons
 
-**Severity:** MEDIUM / CORRECTNESS  
-**Verdict:** VALID  
-**Disposition:** RESOLVED
+`NOT_RUN`, `BLOCKED`, and `ERROR` require non-empty `reason_code` and `reason_text` in receipt v1 and implementation tests.
 
-Final machine contract:
+**Result:** `PASS`
 
-- `EXERCISED` ⇒ integer `execution_count > 0`;
-- `NOT_EXERCISED` ⇒ `execution_count = 0`;
-- `UNRESOLVED` ⇒ `execution_count = null` + non-empty explanatory `reason`.
+### Q2 — rename identity
 
-This makes mapping uncertainty explicit rather than merely relying on prose.
+`change_kind=renamed` requires `previous_path`; non-renames do not fabricate it.
 
-### Q4 — pytest task identifier mismatch
+**Result:** `PASS`
 
-**Severity:** LOW / MAINTAINABILITY  
-**Verdict:** VALID  
-**Disposition:** RESOLVED
+### Q3 — exercise state/count/reason integrity
 
-Canonical fixed task identifiers are now identical across config v1, receipt v1, data model, plan, and tests:
+- `EXERCISED` requires integer count > 0;
+- `NOT_EXERCISED` requires count 0;
+- `UNRESOLVED` requires null count + non-empty reason.
+
+**Result:** `PASS`
+
+### Q4 — fixed task identifier parity
+
+Canonical config/receipt/model/plan task IDs:
 
 ```text
 typecheck
@@ -78,80 +80,158 @@ test
 pytestBasic
 ```
 
-No config↔receipt translation layer is introduced.
+No name-translation layer exists.
 
-## 3. Additional Reconciliation Hardening
+**Result:** `PASS`
 
-While repairing Qodo findings, the contract was checked for adjacent invalid states. Two were closed without expanding architecture:
+All Qodo review threads were observed resolved after repair.
 
-1. `command_surface_changed=true` can no longer use `execution_admission=normal`;
-2. every changed command surface requires at least one `changed_authority_path`.
+## 4. CodeRabbit Reconciliation Revalidated
 
-These are direct consequences of the already-authorized admission model, not new product scope.
+### CR1 — fresh exact-HEAD authorization gate
 
-## 4. False-Green Audit
+Constitution, `.specify/PROVENANCE.md`, and Master Plan require:
 
-Clean exit `0` still requires all of the following:
+```text
+final audit
+→ fresh exact-HEAD cross-artifact consistency + branch-purity review
+→ explicit implementation authorization
+```
 
-- source stability is `stable`;
+Material post-audit mutation invalidates affected claims until reconciled and re-reviewed.
+
+**Result:** `PASS`
+
+### CR2 — Master Plan command-admission consistency
+
+Master Plan no longer contains warning-only semantics. It matches constitution/spec/plan: default refusal, explicit per-invocation human admission only.
+
+**Result:** `PASS`
+
+### CR3 — Markdown analysis integrity
+
+Malformed analysis-table cells were rewritten without raw separator characters inside cells. Governance evidence remains readable/reviewable.
+
+**Result:** `PASS`
+
+### CR4 — root evidence collection and reference integrity
+
+Receipt v1 contains required root `evidence[]`.
+
+Each evidence entry includes:
+
+- evidence ID;
+- run ID;
+- task ID;
+- sequence;
+- evidence kind;
+- SHA-256 digest;
+- optional artifact ID;
+- redaction/truncation state.
+
+Task/finding `evidence_ids` are references into this collection, not free-floating claims.
+
+**Result:** `PASS`
+
+### CR5 — schema-enforceable repository privacy
+
+Receipt source identity is constrained to:
+
+```text
+remote:<64 lowercase hex>  + repository_id_kind=remote     + portable=true
+local:<64 lowercase hex>   + repository_id_kind=local_only + portable=false
+```
+
+Raw remote origins and raw absolute local paths cannot satisfy the intended schema branches.
+
+**Result:** `PASS`
+
+### CR6 — changed surface cannot be normal admission
+
+`command_surface_changed=true` requires at least one changed authority path and admission `refused_changed_surface` or `explicit_changed_surface_override`; `normal` is not valid.
+
+**Result:** `PASS`
+
+### CR7 — semantic receipt validation
+
+JSON Schema remains field-shape validation. One Ascout-owned **pure semantic validator** is required before receipt emission and reused by any internal/future receipt acceptance path.
+
+It checks:
+
+- unique/resolvable evidence/task/artifact references;
+- evidence run/task linkage;
+- source start/end vs stability;
+- task status/reason/admission consistency;
+- exercise record vs aggregate consistency;
+- task/finding aggregate counts;
+- completeness;
+- exit-code precedence.
+
+This is a pure receipt invariant function, not a service, DB, or alternate receipt interpretation.
+
+**Result:** `PASS`
+
+### CR8 — benchmark gap-to-exit assertion
+
+Benchmark absolute gates now include:
+
+```text
+stable material exercise gap returning exit 0 = 0
+```
+
+T077 requires the same assertion.
+
+**Result:** `PASS`
+
+### CR9 — pytest admission coverage
+
+T028 and plan/spec include `pytestBasic` effective configuration in the admission integration matrix.
+
+**Result:** `PASS`
+
+## 5. False-Green Audit
+
+Clean exit `0` requires:
+
+- source stability `stable`;
+- receipt schema + semantic validation success;
 - no higher-precedence integrity/config/task-execution error;
-- at least one material applicable verification task actually executed;
-- no repository finding or flaky result;
-- no applicable task remains `NOT_RUN` or `BLOCKED`;
-- every omission/error status is explicit and explainable;
-- no changed-command admission refusal remains;
-- affected selection is valid or widened according to finite policy;
-- no material changed executable `NOT_EXERCISED`/`UNRESOLVED` line remains.
+- at least one material applicable task executed;
+- no repository finding/flake;
+- no applicable `NOT_RUN`/`BLOCKED`;
+- no changed-command admission refusal;
+- safe affected selection/widening;
+- no remaining material changed executable exercise gap;
+- current-run evidence references resolve.
 
-### Result
+No reviewed contract path allows opaque omission, dangling evidence, unresolved mapping, or admission refusal to become green.
 
-`PASS`
+**Result:** `PASS`
 
-No reviewed schema state allows an opaque omission or unresolved coverage state to become green.
+## 6. Evidence / Source-Binding Audit
 
-## 5. Trust / Execution-Authority Audit
+Required properties:
 
-v0.x remains explicitly limited to the developer's own trusted local repository.
-
-Within that boundary:
-
-- no implicit dependency installation;
-- task provenance is recorded;
-- changed effective command/config authority is refused before launch/load by default;
-- explicit admission is per invocation only;
-- changed-surface admission is receipt-visible;
-- agent instructions/hooks cannot silently add admission;
-- `command_surface_changed=true` cannot be represented as normal admission;
-- no persistent trust DB/sandbox/policy engine exists.
-
-### Result
-
-`PASS_WITH_EXPLICIT_SCOPE_BOUNDARY`
-
-## 6. Source / Evidence Integrity Audit
-
-Required properties remain explicit:
-
-- secret-safe remote identity;
-- one-way local-only path-derived identity;
+- opaque privacy-safe repository ID;
 - HEAD/index/worktree/all non-gitignored untracked source binding except `.ascout/`;
-- current type/mode changes represented;
+- mode/type changes represented;
 - rename old/new path fidelity;
 - start/end drift;
-- run-bound evidence;
-- weak fingerprints never transfer evidence;
-- locational `in_changed_lines` remains separate from causal attribution.
+- root current-run evidence collection;
+- evidence IDs unique and resolvable;
+- evidence run/task/artifact linkage validated;
+- no evidence transfer across runs/trees;
+- weak fingerprints never substitute for evidence;
+- locational `in_changed_lines` remains distinct from causal attribution.
 
-### Result
-
-`PASS`
-
-Absolute future implementation benchmark gates remain:
+Absolute future implementation benchmark gates:
 
 ```text
 cross-tree evidence leakage = 0
 binding-integrity violations = 0
 ```
+
+**Result:** `PASS`
 
 ## 7. Machine Contract Audit
 
@@ -159,70 +239,87 @@ binding-integrity violations = 0
 
 - versioned non-executable JSON;
 - fixed task identifiers only;
-- canonical `pytestBasic` identifier;
+- canonical `pytestBasic`;
 - no arbitrary task/prerequisite/workflow graph;
 - no persistent trust/admission state.
 
 ### Receipt v1
 
-- same canonical fixed task identifiers as config;
+- same fixed task identifiers as config;
 - strict task/status/selection shapes;
-- `NOT_RUN`/`BLOCKED`/`ERROR` require explicit reasons;
-- rename requires previous path;
-- exercise state/count/reason invariants enforced;
-- changed-command admission invariants enforced;
-- stability and completeness remain separate;
+- explicit omission/error reasons;
+- strict rename identity;
+- strict exercise state/count/reason semantics;
+- strict admission invariants;
+- privacy-safe repository ID discriminator;
+- root current-run evidence collection;
+- separate stability/completeness;
 - non-executed tasks need not fabricate argv/tool identity;
-- persisted argv/privacy semantics preserved.
+- redacted persisted argv.
 
-### Result
+### Semantic validator
 
-`PASS_AFTER_QODO_REPAIR`
+One shared pure validator closes referential/cross-field constraints that JSON Schema draft 2020-12 does not express cleanly.
 
-No known machine-contract contradiction remains.
+**Result:** `PASS_AFTER_QODO_AND_CODERABBIT_REPAIR`
 
-## 8. Windows / Cross-Platform Audit
+## 8. Privacy Audit
 
-The plan still avoids pretending POSIX process semantics apply to Windows:
+- raw credential-bearing origin not persisted;
+- remote receipt identity always opaque hash-derived form;
+- local receipt identity always one-way hash-derived form;
+- portability flag schema-bound to identity kind;
+- raw absolute path not persisted;
+- raw secret argv transient only;
+- persisted/rendered argv + captured output apply exact-value redaction policy;
+- redaction remains accurately described as best-effort.
+
+**Result:** `PASS`
+
+## 9. Windows / Cross-Platform Audit
+
+The plan does not pretend POSIX process semantics apply to Windows:
 
 - `cross-spawn` only for executable/shim launch normalization;
 - Ascout owns timeout/capture/process-tree termination;
-- native Windows cases are release-blocking evidence;
-- project CI planned for Windows/macOS/Linux on Node 22/24.
+- native Windows cases remain release-blocking evidence;
+- development CI planned for Windows/macOS/Linux, Node 22/24.
 
-### Result
+Native proof remains a release gate, not a current claim.
 
-`PASS_AS_PLANNING_CONTRACT`
+**Result:** `PASS_AS_PLANNING_CONTRACT`
 
-Native evidence remains a release gate, not a current claim.
+## 10. Benchmark Audit
 
-## 9. Benchmark Audit
+Selection corpus measures Ascout/native selection vs objective full-suite ground truth. Gap corpus measures changed-code exercise against independent full-run coverage.
 
-The benchmark measures Ascout-specific claims:
+Metrics/gates include:
 
-- selection recall / false-PASS vs full-suite ground truth;
-- native selector vs Ascout vs plain/full baselines;
-- changed-code exercise-gap accuracy vs independent full-run coverage;
-- unresolved mapping rate;
-- cold/warm time-to-signal;
+- selection recall;
+- false-PASS;
+- gap accuracy;
+- unresolved mapping;
+- cold/warm time;
 - drift/determinism/flake;
-- zero evidence leakage/binding violations.
+- cross-tree evidence leakage = 0;
+- binding-integrity violations = 0;
+- stable material exercise gap returning exit 0 = 0.
 
-### Result
+No arbitrary pre-data recall threshold is frozen.
 
-`PASS`
+**Result:** `PASS`
 
-No invented pre-data threshold is introduced.
+## 11. Ponytail / YAGNI Audit
 
-## 10. Ponytail / YAGNI Audit
+The review repairs did **not** introduce:
 
-Qodo repairs did **not** justify or introduce:
-
-- schema-generation infrastructure;
-- shared generated type packages;
-- a task-name mapping layer;
+- database or evidence service;
+- validator service;
+- schema-generation subsystem;
+- shared generated type package;
+- task-name mapping layer;
 - workflow engine;
-- DB/trust state;
+- persistent trust state;
 - daemon/server;
 - plugin SDK;
 - semantic graph;
@@ -230,50 +327,49 @@ Qodo repairs did **not** justify or introduce:
 - AI subsystem;
 - sandbox.
 
-The repair used stricter existing JSON Schema constraints plus matching prose/tasks.
+Root `evidence[]`, opaque IDs, exact-head governance, and one pure semantic receipt validator are direct truth-contract requirements, not speculative architecture.
 
-### Result
+**Result:** `PASS`
 
-`PASS`
-
-## 11. Task Plan Audit
+## 12. Task Plan Audit
 
 Task range remains **T001–T088**.
 
-Existing tasks were strengthened rather than multiplied unnecessarily:
+Existing tasks were strengthened instead of multiplied:
 
-- T008: canonical config task keys;
-- T009: receipt contract parity + reason/rename/exercise/admission invariants;
-- T011: rename old/new fidelity;
-- T031/T032: non-run/error reason contract;
-- T047/T055: exercise state/count/reason contract.
+- T009: schema + semantic receipt invariants, evidence refs, privacy-safe IDs;
+- T012/T018: exact repository ID privacy contract;
+- T020: rename old/new path fidelity;
+- T025/T026: one receipt model + one pure semantic validator before emission/acceptance;
+- T028/T037/T038: pytestBasic admission/config coverage;
+- T033: E2E dangling/cross-run/cross-task evidence rejection;
+- T047/T055: exercise state/count/reason integrity;
+- T077: gap-to-exit absolute benchmark gate;
+- T088: clean-checkout semantic-validation qualification.
 
-### Result
+**Result:** `PASS`
 
-`PASS`
+## 13. Requirements Gate
 
-## 12. Requirements Gate
-
-Repaired checklist result:
+Current repaired checklist:
 
 ```text
-76 / 76 PASS
+84 / 84 PASS
 ```
 
-The four added review-regression checks cover exactly Q1–Q4.
+- CHK073–CHK076: Qodo regressions.
+- CHK077–CHK084: CodeRabbit regressions/governance checks.
 
-### Result
+**Result:** `PASS`
 
-`PASS`
+## 14. Planning-Branch Purity at Audit Target
 
-## 13. Planning-Branch Purity at Audit Target
+Exact comparison of `main` to audited target `033bfc4839fc80e4c639ef71a8c09c80bfd7d4af`:
 
-Exact comparison of `main` to audited head `b678cc65ba5c18f5d4120109c3d8a9ca001ff3ff`:
-
-- ahead by 56 commits;
+- ahead by 70 commits;
 - behind by 0;
 - 18 changed files;
-- only `.specify/`, `docs/founding/`, `specs/001-changed-code-verification-receipt/`, and `LICENSE`;
+- changed paths only under `.specify/`, `docs/founding/`, `specs/001-changed-code-verification-receipt/`, plus `LICENSE`;
 - no `src/`;
 - no `tests/`;
 - no `benchmarks/`;
@@ -281,37 +377,34 @@ Exact comparison of `main` to audited head `b678cc65ba5c18f5d4120109c3d8a9ca001f
 - no workflow;
 - no product implementation.
 
-### Result
+**Result:** `PASS`
 
-`PASS`
-
-## 14. Residual Gates That Do Not Block Planning Review
-
-Still implementation/release evidence:
+## 15. Residual Implementation / Release Gates — Not Planning Blockers
 
 1. exact `cross-spawn` version/transitive provenance;
-2. exact benchmark repositories/commits/licensing;
+2. exact benchmark repositories/commits/licensing/execution terms;
 3. npm package identity/ownership or scoped fallback;
 4. native Windows process-tree behavior;
-5. real Vitest/Jest version variance and selector misses;
+5. real Vitest/Jest/pytest version variance and selector/config misses;
 6. measured time-to-signal.
 
 None requires speculative architecture today.
 
-## 15. Final Verdict
+## 16. Final Verdict
 
 `PASS_READY_FOR_FRESH_EXACT_HEAD_PR_REVIEW`
 
-At audited target head `b678cc65ba5c18f5d4120109c3d8a9ca001ff3ff`:
+At audited target `033bfc4839fc80e4c639ef71a8c09c80bfd7d4af`:
 
 - open internal BLOCKER findings: **0**
 - open internal MAJOR findings: **0**
 - accepted Qodo findings unrepaired: **0**
+- accepted CodeRabbit findings unrepaired in audited artifacts: **0**
 - constitutional violations: **0**
 - known false-green contract paths: **0**
 - known silent changed-command execution paths: **0**
-- known config↔receipt task-name mappings: **0**
-- known opaque `UNRESOLVED` machine states: **0**
+- known dangling-evidence contract paths accepted as valid: **0**
+- known raw repository-location receipt forms accepted by intended contract: **0**
 - product implementation files: **0**
 
 ### Authorization boundary
@@ -319,15 +412,15 @@ At audited target head `b678cc65ba5c18f5d4120109c3d8a9ca001ff3ff`:
 This verdict authorizes only:
 
 - keeping PR #1 Ready for Review;
-- resolving review threads whose fixes are independently verified;
-- triggering/consuming a **fresh external exact-head review** of the repaired PR;
-- final merge consideration only after that review is clean and the head/purity gate is reverified.
+- resolving threads whose fixes are independently verified;
+- consuming a **fresh external exact-head review** of the post-audit PR head;
+- final merge consideration only after that review is clean and head/purity are reverified.
 
 It does **not** authorize:
 
-- merging before the fresh repaired-head review completes;
+- merge before fresh repaired-head review completes;
 - starting T001;
 - writing product implementation;
 - publishing a package.
 
-Any material mutation to constitution/spec/plan/data model/contracts/tasks after the audited target requires reconciliation of affected audit claims before merge.
+Any material mutation to constitution/spec/plan/data model/contracts/tasks after the audited target requires reconciliation of affected audit claims and a new exact-HEAD review before merge or implementation authorization.
