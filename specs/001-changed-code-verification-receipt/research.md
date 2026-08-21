@@ -1,161 +1,170 @@
 # 001 — Phase 0 Research
 
 **Date:** 2026-08-21  
-**Scope:** Only technical questions necessary to plan M1. No implementation is authorized.
+**Scope:** Technical decisions necessary to plan M1 only. No implementation is authorized.
 
 ## R1 — Runtime baseline
 
-**Decision:** Target Node.js `>=22`; develop/test against current supported LTS lines Node 22 and Node 24. Use Node 24 as the primary development/reference environment.
+**Decision:** Node.js `>=22`; develop/test on Node 22 and Node 24 LTS, with Node 24 as primary reference.
 
-**Evidence:** As of 2026-08-21, Node 22 and Node 24 are both LTS; Node 20 is EOL and Node 26 is Current, not yet LTS.
+**Evidence:** Node's release schedule on 2026-08-21 lists v22 and v24 as LTS, v20 EOL, and v26 Current.
 
 Primary source: https://nodejs.org/en/about/previous-releases
 
-**Why:** Supporting the two current LTS lines avoids an unnecessary Node-24-only adoption wall while excluding EOL Node 20. Required CLI primitives such as `util.parseArgs` are stable on both supported lines.
-
 ## R2 — TypeScript baseline
 
-**Decision:** Use TypeScript 6.x for Ascout source and typechecking; keep runtime JavaScript compatible with the Node >=22 contract.
+**Decision:** TypeScript 6.x for Ascout source/typechecking; emitted runtime remains compatible with Node >=22.
 
-**Evidence:** TypeScript 6.0 was released in August 2026 and remains API-compatible with TypeScript 5.9 while preparing for the future native compiler transition.
+**Evidence:** TypeScript 6.0 is the current transition release and documents API compatibility with 5.9 while preparing for TypeScript 7.
 
 Primary source: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html
 
-**Why:** It is the current stable language toolchain at project founding. The plan does not depend on TypeScript 7 preview/native behavior.
-
 ## R3 — CLI parsing
 
-**Decision:** Use Node's stable `node:util.parseArgs` for the M1 command surface. Do not add Commander/yargs/cac solely for three commands.
+**Decision:** Use stable `node:util.parseArgs`; do not add Commander/yargs/cac for three commands.
 
 Primary source: https://nodejs.org/api/util.html
 
-**Why:** `init`, `doctor`, and `check` plus a small flag set do not justify a runtime CLI framework. This is a direct Ponytail/YAGNI application.
-
 ## R4 — Cross-platform child-process launch
 
-**Decision:** Use `cross-spawn` as the single planned runtime dependency for command launch, subject to exact-version license/provenance verification at implementation time. Keep timeout/process-tree termination in a small Ascout-owned platform wrapper.
+**Decision:** Plan one runtime dependency, `cross-spawn`, subject to exact-version license/provenance review at implementation. Keep timeout/process-tree termination in Ascout-owned code.
 
-**Evidence:** Node documents that Windows `.bat`/`.cmd` files require terminal handling and warns about shell-based invocation. `cross-spawn` exists specifically to normalize Windows command shims/PATHEXT/shebang behavior and is MIT-licensed.
+**Why:** Windows command shims/PATHEXT/shebang behavior is security-sensitive plumbing outside Ascout's wedge. Arbitrary `shell: true` execution remains prohibited.
 
 Primary sources:
 - https://nodejs.org/api/child_process.html
 - https://www.npmjs.com/package/cross-spawn
 
-**Why:** Reimplementing Windows command-shim escaping is security-sensitive and not Ascout's product wedge. Ascout must still own bounded termination semantics and MUST avoid arbitrary `shell: true` execution.
-
 ## R5 — Vitest affected selection
 
-**Decision:** Reuse Vitest native related/changed behavior; do not construct an M1 semantic dependency graph.
+**Decision:** Reuse Vitest native `related`/`--changed`; do not build an M1 semantic dependency graph.
 
-**Evidence:** Current Vitest supports `vitest related <files>` and `--changed`; documentation explicitly notes that static relationship analysis does not cover arbitrary dynamic import paths. Vitest also has native full-suite rerun triggers for configuration/package changes.
+**Evidence:** Current Vitest documents related/changed operation, Git-backed changed detection, coverage support, and full-suite force-rerun triggers for selected configuration changes. Static relationship analysis has blind spots, so Ascout still requires widening.
 
 Primary sources:
 - https://vitest.dev/guide/cli
 - https://vitest.dev/config/changed
-
-**Consequence:** Ascout's widen triggers are mandatory. Native selection is an optimization, not a proof that nothing else can be affected.
+- https://vitest.dev/config/coverage
 
 ## R6 — Jest affected selection
 
-**Decision:** Reuse `jest --findRelatedTests <files>` for supported Jest projects.
+**Decision:** Reuse project-local `jest --findRelatedTests <files>` for supported Jest repositories.
 
-**Evidence:** Jest documents `--findRelatedTests` as finding and running tests related to supplied source files and permits coverage collection in the same run.
+**Evidence:** Jest documents related-test selection and use with coverage; current configuration supports LCOV output.
 
-Primary source: https://jestjs.io/docs/cli
+Primary sources:
+- https://jestjs.io/docs/cli
+- https://jestjs.io/docs/30.0/configuration
 
 ## R7 — Coverage interchange
 
-**Decision:** Normalize M1 changed-line execution from **LCOV line coverage** written into an Ascout-owned run directory. Do not introduce a coverage database or bind M1 to one test runner's in-memory API.
+**Decision:** Normalize only line-level LCOV written into an Ascout-owned run directory. No coverage database or runner in-memory API contract.
 
-**Evidence:** Vitest supports configurable coverage reporters and report directories, including LCOV. Jest coverage reporters include LCOV and can direct coverage to a chosen directory.
-
-Primary sources:
-- https://vitest.dev/config/coverage
-- https://vitest.dev/guide/cli
-- https://jestjs.io/docs/configuration
-
-**Why:** LCOV provides a small line-oriented interchange (`source file` + `line,count`) sufficient for the M1 claim: whether a changed executable line was observed executing. Branch/function semantics are deliberately out of scope.
-
-**Caveat:** Coverage/source-map resolution loss is a first-class uncertainty state and benchmark metric. A missing/ambiguous mapping is not silently classified as covered.
+**Why:** M1 only needs to establish observed changed-line execution. Branch/function semantics are out of scope. Missing/ambiguous source mapping is `UNRESOLVED` and is a material verification gap after permitted widening.
 
 ## R8 — Test result interchange
 
-**Decision:** Prefer runner JSON output for current-run test identities/outcomes where available; preserve raw stdout/stderr as bounded artifacts. Do not require JUnit as a mandatory intermediate format in M1.
+**Decision:** Prefer runner JSON output for current-run test identities/outcomes; retain raw stdout/stderr only as bounded/redacted artifacts. JUnit is not mandatory in M1.
 
-**Evidence:** Vitest provides a JSON reporter; Jest provides JSON output. Both can coexist with coverage output.
+## R9 — Configuration format and boundary
 
-**Why:** JSON avoids lossy scraping of human terminal text. Ascout still treats runner output as an external contract and fails closed when it cannot parse it.
+**Decision:** Tracked root `ascout.config.json`, versioned and non-executable. `.ascout/` is ignored runtime state.
 
-## R9 — Configuration format
+Config v1 only overrides fixed semantic task categories:
 
-**Decision:** Use a tracked root `ascout.config.json` with a version field. `.ascout/` is reserved for ignored run artifacts and locks.
+- `typecheck`;
+- `lint`;
+- `test`;
+- `pytestBasic`.
 
-**Why:** JSON is parseable with the Node standard library, avoids executing JavaScript/TypeScript configuration as Ascout code, avoids adding a YAML/TOML parser, and cleanly separates tracked policy from ignored evidence artifacts.
+Allowed override fields are enable/disable with reason, argv command override, task timeout, global timeout/budget, and extra redaction env names.
 
-M1 config remains small: task enable/disable + reason, command overrides, prerequisites, task/global budgets, workspace scope, and explicit repository-specific widening overrides. No workflow DSL.
+**Rejected:** arbitrary task names, user-defined prerequisites, custom workflow edges, workspace orchestration DSL, executable JS/TS config, YAML/TOML parser dependencies.
+
+Internal ordering among fixed product tasks remains product logic, not user-authored workflow.
 
 ## R10 — Repository/source identity
 
-**Decision:** Use Git CLI as the source of repository truth. A run records origin/local-only repo identity, HEAD, detached/shallow flags, a canonical start tree digest, config digest, and an end tree digest.
+**Decision:** Git CLI is canonical source-state input.
 
-**Tree-digest design:**
+A run records credential-safe remote/local-only repo identity, HEAD, detached/shallow flags, start tree digest, config digest, and end tree digest.
 
-- committed unchanged content is anchored by HEAD;
-- staged/index state is represented canonically from Git index entries;
-- unstaged changed tracked files are represented by sorted relative path + file-state/content digest;
-- relevant untracked non-ignored files are represented by sorted relative path + content digest;
-- documented Ascout/tool output paths that are untracked non-source artifacts may be excluded;
-- tracked files are never excluded merely because a test tool may rewrite them.
+### Remote identity safety
 
-**Why:** This avoids hashing every clean tracked file while still binding the complete changed state. Exact serialization is an implementation contract to be locked by tests before release.
+Raw origin text is never persisted. Normalization removes credentials/userinfo/query/fragment material. If safe normalization cannot be established, persist a one-way SHA-256 identifier rather than raw origin text.
+
+### Tree digest
+
+- HEAD anchors committed clean content.
+- Canonical index entries represent staged state.
+- Unstaged tracked state includes current worktree file type/mode plus content/symlink digest or deletion marker.
+- **All non-gitignored untracked files except `.ascout/`** are included; there is no heuristic "relevant untracked" omission list.
+- Tracked files are never excluded because a verification tool may rewrite them.
+
+This is deliberately conservative: a tool writing a non-gitignored untracked file outside `.ascout/` causes drift.
 
 ## R11 — Changed-line calculation
 
-**Decision:** Use Git's unified diff with zero context for tracked changes; treat relevant untracked text source files as wholly changed. Binary/non-line-oriented inputs are accounted for as changed files but are not given fabricated line-coverage semantics.
-
-**Why:** Git is already the canonical changed-state engine and avoids introducing a custom diff library.
+**Decision:** Git zero-context unified diff for tracked changes; non-gitignored untracked text files are wholly changed. Binary/non-line inputs are file-level only.
 
 ## R12 — Workspace scope
 
-**Decision:** M1 is first-class for single-package repositories and **basic** npm/pnpm/yarn workspaces only. It does not build a workspace dependency graph.
+**Decision:** single-package + basic npm/pnpm/yarn workspaces. No workspace dependency graph and no config-driven arbitrary workspace orchestration.
 
-Basic workspace behavior means:
-
-- locate the owning package for changed paths;
-- run package-local applicable verification;
-- widen to package/workspace scope when root dependency/config changes make narrower scope unsafe;
-- treat Nx/Turbo/Bazel specialized affected semantics as M2+ delegation candidates.
+Basic behavior may locate owning package and widen to package/whole-basic-workspace scope when root changes cannot be safely narrowed. Nx/Turbo/Bazel specialization is later delegation territory.
 
 ## R13 — Process timeout and tree termination
 
-**Decision:** Launch each task through one process-control module and terminate the spawned process tree on timeout. On POSIX use a dedicated process group; on Windows use platform-native process-tree termination rather than assuming killing the parent PID kills descendants.
+**Decision:** one process-control module owns launch/capture/timeout/tree termination.
 
-**Why:** Node documents platform differences around Windows command execution. A verification CLI cannot leave child dev/test processes running after it reports a timeout.
+- POSIX: dedicated process group.
+- Windows: platform-native process-tree termination; parent kill alone is not assumed sufficient.
 
-Exact grace periods and termination escalation are implementation constants covered by OS-matrix tests, not product configuration in the first slice.
+Exact grace periods are tested implementation constants.
 
 ## R14 — Development tests and CI
 
-**Decision:** Ascout's own repository uses deterministic unit/contract/integration tests and a GitHub Actions development CI matrix for Linux, macOS, and Windows on supported Node LTS lines. This does **not** make CI/SARIF an M1 user-facing Ascout product surface.
+**Decision:** deterministic unit/contract/integration tests plus GitHub Actions development CI on Linux/macOS/Windows and supported Node LTS lines. This does not make CI/SARIF an M1 Ascout user surface.
 
-Use real temporary Git repositories in integration tests for Git/source-binding behavior. Runner integrations use small fixture repositories and fake/stub executables where a real runner is not necessary for the behavior under test.
+Temporary real Git repositories are required for source-binding/drift tests.
 
 ## R15 — Runtime dependency budget
 
-**Decision:** Planned M1 runtime dependency budget is one justified dependency (`cross-spawn`). Any additional runtime dependency requires a plan delta explaining why Node/platform/project-native capability is insufficient.
+**Decision:** planned M1 product runtime budget is one dependency (`cross-spawn`). Additional runtime dependency requires a plan delta showing why Node/platform/project-native capability is insufficient.
 
-Development dependencies (TypeScript/types/test tooling) do not count as product runtime dependencies but still require exact-version provenance review.
+Development dependencies still require exact-version provenance/license review.
 
 ## R16 — Distribution
 
-**Decision:** M1 distribution target is the npm ecosystem with a `ascout` binary entry. Self-contained platform binaries are deferred until adoption evidence shows Node/npm installation is material friction.
+**Decision:** npm package with `ascout` bin for M1. Native self-contained binaries deferred until adoption evidence shows Node/npm friction is material.
 
-The unscoped npm package name `ascout` was not treated as available merely from search absence; package publication/name ownership is a release gate, not an implementation-plan assumption. A scoped fallback can be chosen later without changing the CLI command.
+Unscoped npm package-name availability is a release gate, not assumed from search absence; a scoped package can still expose the `ascout` binary.
 
-## R17 — Founding Spec Kit provenance
+## R17 — Completeness / no-green semantics
 
-**Decision:** Ascout pins GitHub Spec Kit v0.16.0 for the founding workflow. Spec Kit implementation internals are not vendored.
+**Decision:** clean exit `0` requires stable, materially complete verification and no finding/flake/error.
+
+Material incompleteness includes:
+
+- applicable fixed task `NOT_RUN`/`BLOCKED`;
+- nothing material executed;
+- unsafe selection that cannot be widened safely;
+- remaining changed executable `NOT_EXERCISED` or `UNRESOLVED` lines after the one permitted widening pass.
+
+Valid affected deselection is selection accounting, not task-level `NOT_RUN`, and does not by itself make a run incomplete.
+
+## R18 — Reproduction semantics
+
+**Decision:** one failing test observation means `reproduced=unknown`. Consistent repeated targeted failures may be true; contradictory observations are flaky and disprove a stable-failure reproduction claim. Rerun-unavailable or rerun-error before a valid second observation remains unknown.
+
+## R19 — Persisted command secrecy
+
+**Decision:** process launch may use raw argv transiently, but persisted/rendered argv is redacted using the same recognized/user-specified exact-value redaction policy as captured output. Raw secret-bearing argv is not written to receipt artifacts.
+
+## R20 — Founding Spec Kit provenance
+
+**Decision:** pin GitHub Spec Kit v0.16.0 for the founding workflow; do not vendor its implementation internals.
 
 Upstream: https://github.com/github/spec-kit/releases/tag/v0.16.0
 
-**Why:** The founding environment could inspect the pinned GitHub tag but could not resolve GitHub/PyPI from its shell, so claiming `specify init` executed would be false. Project-specific artifacts follow the pinned template/workflow semantics directly; provenance is recorded in `.specify/PROVENANCE.md`.
+The founding shell could not resolve GitHub/PyPI, so claiming `specify init` executed would be false. Project-specific artifacts follow inspected v0.16.0 workflow/template semantics and `.specify/PROVENANCE.md` records that fact.
