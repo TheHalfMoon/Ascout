@@ -34,6 +34,10 @@ M1 persists only opaque schema-enforceable identifiers:
 
 Raw remote origins, credentials/userinfo/query/fragment material, and raw absolute local paths are never persisted/rendered.
 
+### HEAD identity
+
+M1 `check` requires an existing HEAD; an unborn/no-initial-commit repository is rejected as usage/config error before a normal receipt. `head_sha` is the full lowercase Git object ID resolved at source capture time: 40 hex characters for SHA-1 repositories or 64 for SHA-256 repositories. Abbreviated, malformed, or arbitrary strings are invalid.
+
 ### Tree identity
 
 Includes HEAD, index entries, unstaged current type/mode/content state, and all non-gitignored untracked files except `.ascout/`. Tracked files are never ignored merely because tools may rewrite them.
@@ -49,7 +53,11 @@ includes_unstaged=true
 includes_untracked_nonignored=true
 ```
 
+`comparison.base_ref` is not a free-form symbolic label in receipt v1. It is the **resolved exact HEAD object ID** used for the comparison and MUST equal `source.start.head_sha`. This binds the changed-file scope to the same source-start Git identity. Committed `--base` comparison remains deferred.
+
 ChangedFile records path/previous path, kind, line semantics/ranges, and factual test/snapshot/command-surface classification.
+
+Every `changed_new_line_ranges` element is `[start, end]` with positive integers and semantic invariant `start <= end`. The semantic receipt validator rejects an inverted range such as `[10, 1]` before changed-line counting, coverage intersection, exercise aggregation, or receipt emission.
 
 Rename identity is strict: `change_kind=renamed` requires `previous_path`; non-rename change kinds do not carry `previous_path`.
 
@@ -212,6 +220,8 @@ Artifacts live under current `.ascout/runs/<run-id>/`. Artifact IDs are unique w
 JSON Schema validates field-level shapes. One Ascout-owned pure semantic validator additionally verifies before emission:
 
 - every persisted path candidate is checked in its original receipt spelling before any lossy normalization; invalid absolute/drive/UNC/URI/backslash/dot-segment/duplicate-separator/trailing-separator forms are rejected, never repaired, and namespace containment is checked only after raw-form rejection passes;
+- `source.start.head_sha` is a full Git object ID and `comparison.base_ref` is the resolved exact HEAD object ID used for `working_tree_vs_head` and equals `source.start.head_sha`;
+- every changed new-line range has `start <= end` before any changed-line/coverage/exercise arithmetic;
 - evidence/task/artifact reference integrity and uniqueness;
 - source start/end and `stability` consistency;
 - task status/reason/admission invariants;
