@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ascout:config:v1",
+  "title": "Ascout Config v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/taskConfig"
+      },
+      "default": {}
+    },
+    "timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "defaultTaskMs": {"type": "integer", "minimum": 1},
+        "terminationGraceMs": {"type": "integer", "minimum": 0}
+      }
+    },
+    "budgetMs": {
+      "type": ["integer", "null"],
+      "minimum": 1
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "exclude": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "redactEnv": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true,
+      "default": []
+    }
+  },
+  "$defs": {
+    "taskConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean", "default": true},
+        "disabledReason": {"type": "string", "minLength": 1},
+        "command": {
+          "type": "array",
+          "items": {"type": "string"},
+          "minItems": 1
+        },
+        "timeoutMs": {"type": "integer", "minimum": 1},
+        "prerequisites": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"enabled": {"const": false}},
+            "required": ["enabled"]
+          },
+          "then": {
+            "required": ["disabledReason"]
+          }
+        }
+      ]
+    }
+  }
+}
