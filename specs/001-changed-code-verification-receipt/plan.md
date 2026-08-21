@@ -6,7 +6,7 @@
 
 ## Summary
 
-Build the smallest local CLI that turns an AI coding change into an honest source-bound verification receipt. M1 reuses Git and project-native verification rather than building a semantic index: bind a run to exact local source state, enforce a narrow command-admission boundary, execute fixed typecheck/lint/test categories with bounded process control, use native Vitest/Jest related selection plus conservative widening, normalize line coverage, intersect it with changed executable lines, expose factual test/snapshot changes, detect drift, and render one semantically validated truth model as terminal/JSON/bounded-agent receipts.
+Build the smallest local CLI that turns an AI coding change into an honest source-bound verification receipt. M1 reuses Git and project-native verification rather than building a semantic index: bind a run to exact local source state, enforce a narrow command-admission boundary, execute fixed `typecheck`/`lint`/`test`/`pytestBasic` categories with bounded process control, use native Vitest/Jest related selection plus conservative widening, normalize line coverage, intersect it with changed executable lines, expose factual test/snapshot changes, detect drift, and render one semantically validated truth model as terminal/JSON/bounded-agent receipts.
 
 Reference implementation: TypeScript 6.x on Node.js >=22. Planned product runtime dependency budget: one reviewed `cross-spawn` dependency; all other M1 mechanics use Node/Git/project-native capabilities unless evidence forces a reviewed plan delta.
 
@@ -152,6 +152,18 @@ Rename representation is strict: `change_kind=renamed` requires `previous_path`;
 
 Committed `--base` comparison is deferred.
 
+## Persisted Path Contract
+
+Receipt paths are canonical data, not host-path strings.
+
+- repository-bearing paths (`changedFile.path`, rename `previous_path`, package scope, task `source_path`, `changed_authority_paths`, exercise paths, test-change paths, finding paths) are slash-separated and relative to the repository root;
+- `artifact.relative_run_path` uses the same canonical relative shape but is relative to `.ascout/runs/<run-id>/`;
+- raw absolute paths may exist only transiently while Git/tools are resolved and MUST NOT be persisted/rendered.
+
+Normalization happens before receipt validation. JSON Schema rejects obvious non-relative forms and the semantic validator enforces namespace containment/canonicality. A receipt is invalid if any persisted path is POSIX-absolute, Windows drive-absolute, UNC, URI-absolute, contains backslashes in persisted canonical form, or contains `.` / `..` traversal segments after normalization. A path that would escape its declared repository/run namespace is rejected rather than rewritten into a misleading relative path.
+
+This is one receipt invariant, not a virtual filesystem or path-policy subsystem.
+
 ## Config v1
 
 Tracked non-executable JSON. Fixed task override keys only:
@@ -291,7 +303,7 @@ Atomic lock; verified dead-owner recovery only; otherwise refuse concurrency.
 
 Default retention: 20 completed runs, never active run. Captured streams bounded/truncation explicit.
 
-Before persistence/agent rendering, exact recognized/user-specified secret env values are redacted from stdout/stderr, argv, and matching rendered evidence. Raw origin, raw absolute local path, and raw secret-bearing argv are never persisted. Redaction is best-effort, not universal secret detection.
+Before persistence/agent rendering, exact recognized/user-specified secret env values are redacted from stdout/stderr, argv, and matching rendered evidence. Raw origin, raw absolute local path, noncanonical/escaping persisted path forms, and raw secret-bearing argv are never persisted. Redaction is best-effort, not universal secret detection.
 
 ## Receipt v1
 
@@ -326,6 +338,7 @@ Task and finding `evidence_ids` are references into this collection; they are ne
 
 JSON Schema validates field shapes. Before receipt emission, one Ascout-owned pure semantic validator additionally verifies:
 
+- every persisted path is canonical and relative to its repository/run namespace after normalization; absolute/drive/UNC/URI/backslash/traversal forms are rejected;
 - evidence IDs, task IDs, artifact IDs, and references are unique/resolvable;
 - evidence `run_id` equals receipt `run.run_id`;
 - evidence task links resolve to current receipt tasks;
@@ -339,7 +352,7 @@ JSON Schema validates field shapes. Before receipt emission, one Ascout-owned pu
 
 Any internal/future receipt acceptance path reuses this same validator. This is a pure invariant function, not a service/database/subsystem.
 
-Receipt contract also fixes task types, strict repository/package selection scope, at most two selection passes, changed-file rename identity, exercise state/count/reason invariants, and admission fields. No proof ladder. Weak fingerprint remains optional current-run matching aid only.
+Receipt contract also fixes task types, strict repository/package selection scope, at most two selection passes, changed-file rename identity, exercise state/count/reason invariants, path containment, and admission fields. No proof ladder. Weak fingerprint remains optional current-run matching aid only.
 
 Agent output default max: 16 KiB UTF-8, prioritizing errors/findings/admission refusals/exercise gaps, preserving identity/status/totals.
 
@@ -380,6 +393,7 @@ Required tests cover:
 - config/receipt contracts, including canonical task identifier parity;
 - evidence collection/reference integrity and semantic receipt validation;
 - privacy-safe `remote:<sha256>` / `local:<sha256>` repository IDs;
+- canonical persisted path normalization/containment across repo/run path fields, including POSIX absolute, Windows drive/UNC, URI, backslash, and traversal rejection;
 - rename `previous_path` invariant;
 - task reason invariants for `NOT_RUN`/`BLOCKED`/`ERROR`;
 - exercise state/count/reason invariants;
@@ -427,9 +441,10 @@ Rejected M1 complexity:
 - recursive widening;
 - AST weakening analyzer;
 - schema-generation/type-sharing subsystem solely for contracts;
+- path/virtual-filesystem policy subsystem;
 - native binary distribution;
 - untrusted sandbox.
 
 ## Stop Conditions
 
-Return to planning if implementation requires a second product runtime dependency, DB/daemon, generic plugin SDK, semantic graph, arbitrary config workflow, automatic untrusted execution, shell-string repo commands, recursive widening, persistent changed-surface trust grants, automatic agent admission escalation, or any exit/report behavior hiding material task/exercise/admission/evidence gaps behind success.
+Return to planning if implementation requires a second product runtime dependency, DB/daemon, generic plugin SDK, semantic graph, arbitrary config workflow, automatic untrusted execution, shell-string repo commands, recursive widening, persistent changed-surface trust grants, automatic agent admission escalation, a path-policy/virtual-filesystem subsystem, or any exit/report behavior hiding material task/exercise/admission/evidence gaps behind success.
