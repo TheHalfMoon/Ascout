@@ -53,6 +53,15 @@ ChangedFile records path/previous path, kind, line semantics/ranges, and factual
 
 Rename identity is strict: `change_kind=renamed` requires `previous_path`; non-rename change kinds do not carry `previous_path`.
 
+### Persisted path invariant
+
+Every persisted path-bearing field uses one canonical slash-separated **relative** form in its declared namespace:
+
+- repository paths are relative to the repository root, including changed/current/previous paths, package scope, task source path, changed authority paths, exercise paths, test-change paths, and finding paths;
+- `artifact.relative_run_path` is relative to the current `.ascout/runs/<run-id>/` directory.
+
+Before persistence and semantic validation, path separators are normalized. A machine receipt is invalid if a persisted path is POSIX-absolute, Windows drive-absolute, UNC, URI-absolute, or contains `.` / `..` traversal segments after normalization. Backslash-separated persisted paths are not canonical. Raw host absolute paths may exist transiently while resolving tools/files but are never written to the receipt or run artifacts.
+
 ## 4. VerificationTaskDefinition
 
 Fixed semantic task types:
@@ -196,12 +205,13 @@ No semantic `weakened` inference.
 
 ## 12. ArtifactRef / Privacy
 
-Artifacts live under current `.ascout/runs/<run-id>/`. Artifact IDs are unique within a receipt. Persisted outputs and argv are redacted before storage; raw secret-bearing argv, raw credential-bearing remote, and raw absolute local repo path are not artifacts.
+Artifacts live under current `.ascout/runs/<run-id>/`. Artifact IDs are unique within a receipt. `relative_run_path` is canonical and relative to that run directory; it cannot escape the run directory or encode an absolute/URI path. Persisted outputs and argv are redacted before storage; raw secret-bearing argv, raw credential-bearing remote, and raw absolute local repo path are not artifacts.
 
 ## 13. Semantic Receipt Validation
 
 JSON Schema validates field-level shapes. One Ascout-owned pure semantic validator additionally verifies before emission:
 
+- canonical relative-path invariants for every persisted path-bearing field after normalization;
 - evidence/task/artifact reference integrity and uniqueness;
 - source start/end and `stability` consistency;
 - task status/reason/admission invariants;
