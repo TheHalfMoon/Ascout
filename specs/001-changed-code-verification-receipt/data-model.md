@@ -2,318 +2,186 @@
 
 **Status:** Design contract; implementation not authorized.
 
-The model is deliberately run-centric. There is no persistent domain database, no global finding identity, and no user-defined workflow graph.
+The model is run-centric: no persistent domain DB, no global finding identity, no user-defined workflow graph.
 
 ## 1. Run
 
-Represents one invocation of `ascout check` against one observed source state.
+One `ascout check` invocation against one observed source state.
 
-Required concepts:
+Core concepts:
 
-- `run_id`: unique current-run identifier.
-- `schema_version`: receipt contract version.
-- `started_at`, `finished_at`.
-- `ascout_version`.
-- `source_start`: SourceState.
-- `source_end`: SourceState or null only when an integrity error prevents the end identity from being computed.
-- `config_digest`.
-- `comparison`: ComparisonScope.
-- `selection`: SelectionAccount.
-- `tasks[]`: VerificationTaskResult.
-- `exercise`: ExerciseSummary.
-- `test_changes`: TestChangeSummary.
-- `findings[]`: Finding.
-- `artifacts[]`: ArtifactRef.
-- `stability`: `stable | tree_drifted | unknown`.
-- `summary`: derived aggregate counts and completeness.
+- `run_id`, `schema_version`, `ascout_version`, timing;
+- `source_start`, `source_end`;
+- `config_digest`;
+- comparison/selection;
+- task results;
+- exercise/test-change/findings/artifacts;
+- `stability: stable | tree_drifted | unknown`;
+- derived summary/completeness/exit.
 
-### Invariants
-
-1. Every evidence reference belongs to this `run_id`.
-2. A run never imports evidence from another run.
-3. `stability=stable` only when the canonical start and end tree digests were both computed and match.
-4. `stability=tree_drifted` only when both digests were computed and differ.
-5. `stability=unknown` is reserved for an integrity error that prevents a valid start/end comparison; task errors by themselves do not make a stable tree unstable.
-6. Summary values are derivable from underlying fields and never override them.
+Invariants: evidence belongs only to this run; no cross-run evidence reuse; `stable` requires valid equal start/end digests; `tree_drifted` requires valid unequal digests; `unknown` means integrity failure prevented valid comparison.
 
 ## 2. SourceState
 
-Represents the source identity observed at a point in the run.
+Fields include repository ID/kind/portable, HEAD, detached/shallow, digest version/value, index/unstaged/included-untracked counts.
 
-Fields:
+### Repository identity
 
-- `repository_id`.
-- `repository_id_kind`: `remote | local_only`.
-- `portable`: boolean.
-- `head_sha`: string or null where an integrity error prevents resolution.
-- `detached`: boolean.
-- `shallow`: boolean.
-- `tree_digest_version`: `1`.
-- `tree_digest`.
-- `tracked_index_entry_count`.
-- `unstaged_changed_count`.
-- `included_untracked_count`.
+- Remote: raw origin is never persisted. Strip credentials/userinfo/query/fragment; if safe normalization is not possible, use an opaque one-way ID.
+- Local-only: `repository_id = local:<sha256(canonical-real-repository-path)>`; `portable=false`. Raw absolute path is never persisted/rendered.
 
-### Repository identity safety
+### Tree identity
 
-A persisted remote repository identity MUST NOT contain Git credentials, URL userinfo, query parameters, or fragments. Raw configured origin URLs are never written to receipts. Normalization strips credential-bearing/userinfo material before deriving the stable host/path identity. If a remote cannot be normalized safely, Ascout persists a one-way identifier rather than the raw remote string.
+Includes HEAD, index entries, unstaged current type/mode/content state, and all non-gitignored untracked files except `.ascout/`. Tracked files are never ignored merely because tools may rewrite them.
 
-A `local_only` identity is derived from the canonical local repository path and MUST set `portable=false`.
+## 3. ComparisonScope / ChangedFile
 
-### Tree identity scope
+M1 comparison:
 
-M1 includes all non-gitignored untracked files in source identity and changed-scope accounting, except `.ascout/` itself. There is no heuristic "relevant untracked" omission list in v1. Project/tool outputs that are not ignored and are written during verification therefore cause source drift, which is the conservative behavior.
+```text
+working_tree_vs_head
+includes_staged=true
+includes_unstaged=true
+includes_untracked_nonignored=true
+```
 
-Tracked files are never excluded merely because a tool might rewrite them.
+ChangedFile records path/previous path, kind, line semantics/ranges, and factual test/snapshot/command-surface classification.
 
-For an unstaged tracked path, the digest input includes current file type/mode plus file bytes or symlink target; an executable-bit/type change must not disappear merely because content bytes are unchanged.
+## 4. VerificationTaskDefinition
 
-## 3. ComparisonScope
+Fixed semantic task types:
 
-Describes what "changed" means for M1.
+```text
+typecheck
+lint
+test
+pytest_basic
+```
 
-- `kind`: `working_tree_vs_head`.
-- `base_ref`: HEAD SHA.
-- `includes_staged`: true.
-- `includes_unstaged`: true.
-- `includes_untracked_nonignored`: true.
-- `changed_files[]`: ChangedFile.
+Config cannot add task types or dependency edges.
 
-M1 does not implement committed-range `--base`; a later schema revision may add that comparison kind without changing current semantics.
+Definition fields include task id/type/scope, `authorized_by`, source path, argv when resolved, tool info, timeout, internal prerequisite IDs, selection descriptor.
 
-## 4. ChangedFile
+Task categories are independent by default; internal prerequisites exist only when actual validity requires them.
 
-Fields:
+## 5. CommandSurfaceAdmission
 
-- `path`.
-- `previous_path`: optional rename source.
-- `change_kind`: `added | modified | deleted | renamed | type_changed | untracked`.
-- `line_semantics`: `text | binary_or_non_line | deleted_only`.
-- `changed_new_line_ranges[]` when meaningful.
-- `is_test_file`: factual classifier.
-- `is_snapshot`: factual classifier.
-- `is_command_surface`: factual classifier.
+Each task result records:
 
-No semantic risk score is required in M1.
+- `command_surface_changed: boolean`;
+- `changed_authority_paths[]`;
+- `execution_admission`:
+  - `normal`;
+  - `refused_changed_surface`;
+  - `explicit_changed_surface_override`.
 
-## 5. VerificationTaskDefinition
+### Invariants
 
-A planned semantic M1 verification task.
+1. `command_surface_changed=false` ⇒ `execution_admission=normal`, no changed authority paths.
+2. `refused_changed_surface` ⇒ command surface changed, status `NOT_RUN`, reason `command_surface_changed`, task process did not launch.
+3. `explicit_changed_surface_override` ⇒ command surface changed and a human supplied the per-invocation admission; changed authority paths are recorded.
+4. The admission is never persisted as a future trust grant and cannot be auto-supplied by an agent integration.
 
-M1 task categories are fixed by the product, not invented by config:
-
-- `typecheck`.
-- `lint`.
-- `test` (resolved to concrete Vitest or Jest behavior when supported).
-- `pytest_basic`.
-
-Fields:
-
-- `task_id`.
-- `task_type`.
-- `scope`.
-- `authorized_by`: `user_config | repo_config | discovery`.
-- `source_path`: repo-relative provenance source when one exists.
-- `argv[]`: planned executable and arguments; MAY be empty until a runnable command is resolved.
-- `tool_name`: MAY be null before resolution.
-- `tool_version`: MAY be null before execution.
-- `timeout_ms`.
-- `prerequisite_task_ids[]`: **internal planner ordering only**; M1 config cannot define an arbitrary dependency graph.
-- optional selection descriptor for test tasks.
-
-Persisted/rendered argv is redacted before storage. Raw secret-bearing argv exists only transiently for process launch.
+Effective command surfaces include the repository/config files actually used to determine/load the task command or executable configuration, not every changed config file in the repository.
 
 ## 6. VerificationTaskResult
 
-Execution outcome for one planned task/pass.
+Fields include stable task identity/provenance, redacted persisted argv + redaction flag, nullable tool identity, admission fields, seven-state status, reasons, process exit/timing, observations/cache, selected/deselected counts where meaningful, evidence/artifact refs, truncation.
 
-Fields:
+Status invariants:
 
-- stable task identity/provenance fields.
-- redacted `argv[]` plus `argv_redacted`.
-- `status`:
-  - `PASS`
-  - `FAIL`
-  - `FLAKY`
-  - `BLOCKED`
-  - `ERROR`
-  - `NOT_APPLICABLE`
-  - `NOT_RUN`
-- `reason_code`.
-- `reason_text`.
-- process `exit_code` or null.
-- timing/duration.
-- `observations: {runs, failures}`.
-- `cache_state`.
-- selected/deselected counts when known for an executed test task.
-- current-run evidence/artifact references.
-- truncation metadata.
+- `PASS`: executed successfully.
+- `FAIL`: executed repository/test finding.
+- `FLAKY`: contradictory test observations.
+- `BLOCKED`: actual internal prerequisite prevented valid execution.
+- `ERROR`: Ascout/task execution failure; repository correctness not inferred.
+- `NOT_APPLICABLE`: semantic task category does not apply.
+- `NOT_RUN`: applicable known work did not execute, including missing tool/config, budget, explicit disablement, or changed-command admission refusal.
 
-### Status invariants
+Non-executed tasks do not fabricate argv/tool identity. Valid test deselection is SelectionAccount data, not task `NOT_RUN`.
 
-- `PASS`: task executed and completed successfully.
-- `FAIL`: executed task produced a repository/test finding; not an Ascout execution failure.
-- `FLAKY`: contradictory pass/fail test observations; requires at least two observations and `0 < failures < runs`.
-- `BLOCKED`: task did not execute because an internal prerequisite prevented valid execution.
-- `ERROR`: Ascout/task execution failed such that repository correctness cannot be inferred.
-- `NOT_APPLICABLE`: semantic task category does not apply to current repository/scope.
-- `NOT_RUN`: known applicable task category did not execute (for example missing tool, missing config, explicit disablement, or budget exhaustion).
+## 7. Evidence
 
-For `PASS | FAIL | FLAKY | ERROR` caused by an attempted process launch, runnable argv/tool identity MUST have been resolved. `BLOCKED | NOT_APPLICABLE | NOT_RUN` MUST NOT fabricate argv or tool identity merely to satisfy a schema.
-
-**Deselected tests are not task-level `NOT_RUN` results.** They are accounted for inside SelectionAccount for an executed test task. A valid native affected selection can therefore be complete while still disclosing deselected tests.
-
-## 7. EvidenceRef / Evidence ID
-
-Evidence ID logical form:
+Logical Evidence ID:
 
 ```text
 (run_id, task_id, sequence)
 ```
 
-Fields may include:
-
-- `evidence_id`.
-- `task_id`.
-- `kind`: `process_result | test_result | coverage | diff | warning | other`.
-- artifact reference.
-- SHA-256 digest where bytes are persisted.
-- redaction/truncation flags.
-
-Evidence is current-run only.
+Evidence/artifacts are current-run only and may record digest, redaction, truncation.
 
 ## 8. Finding
 
-A normalized current-run issue.
+Current-run issue fields: producer/task/rule/test, message/location, normalized severity where safe, `in_changed_lines`, `introduced_by_change`, determinism, observations/reproduction, optional weak fingerprint, current-run evidence refs.
 
-Fields:
+`introduced_by_change` defaults `unknown` in M1.
 
-- `finding_id`: current-run identifier.
-- `task_id`.
-- `producer`.
-- optional rule/test id.
-- message/location.
-- normalized severity where supplied without invention.
-- `in_changed_lines`: boolean or null.
-- `introduced_by_change`: `true | false | unknown`; M1 defaults to `unknown` absent comparative proof.
-- `determinism_class`: `deterministic | nondeterministic | unknown`.
-- `observations: {runs, failures}`.
-- `reproduced`: `true | false | not_applicable | unknown`.
-- optional `fingerprint_v1`.
-- current-run evidence references.
+Reproduction:
 
-### Reproduction semantics
+- one valid failing observation → unknown;
+- repeated consistent failures → true;
+- contradictory observations → flaky / stable-failure reproduction false;
+- rerun unavailable/error before valid second observation → unknown;
+- compiler/lint findings may use `not_applicable` for reproduction experiment.
 
-- One failing test observation: `reproduced=unknown`.
-- Two or more consistent failing targeted observations: `reproduced=true`.
-- Contradictory pass/fail observations: task/finding is flaky; `reproduced=false` for a stable failure claim.
-- Rerun unavailable or rerun itself errors before a valid second observation: `reproduced=unknown`.
-- Deterministic compiler/lint findings that are not modeled through retry semantics MAY use `not_applicable` rather than pretending a reproduction experiment occurred.
-
-### Fingerprint v1
-
-Logical input:
-
-```text
-version + task/rule identity + repo-relative path + normalized message
-```
-
-All components use unambiguous length-prefix framing before SHA-256. It excludes line number/tree digest/structural hashing, may change on rename/tool-message changes, is never a global merge key, and never transfers evidence.
+Weak fingerprint v1 hashes version + task/rule identity + relative path + normalized message using length-prefix framing. No line/tree/structural identity and no evidence transfer.
 
 ## 9. SelectionAccount
 
-Explains why a test scope ran.
+Strict fields:
 
-Fields:
+- mode: `full | native_related | native_changed | configured | no_test_task`;
+- initial scope: repository or package;
+- selected/deselected/total counts as integer or null;
+- widening boolean/triggers;
+- at most two SelectionPass records;
+- limitations.
 
-- `mode`: `full | native_related | native_changed | configured | no_test_task`.
-- initial scope.
-- selected/deselected/total test counts where the runner can establish them, otherwise null plus a limitation explaining that exact accounting is unavailable.
-- `widened`.
-- finite `widen_triggers[]`.
-- at most initial pass + one widening pass.
-- `limitations[]`.
+SelectionPass has ordinal 1–2, mode, scope, trigger, and counts. Unknown counts require limitation; never guessed.
 
-No numeric confidence score is required.
+## 10. Exercise
 
-Deselection under a valid declared selection strategy is disclosure, not task non-execution. If the selection itself cannot be justified safely, widening or an incomplete result is required instead.
+For changed executable/instrumentable lines:
 
-## 10. ExerciseRecord / ExerciseSummary
+- `EXERCISED`: resolved count > 0;
+- `NOT_EXERCISED`: resolved count = 0;
+- `UNRESOLVED`: source/executable mapping cannot be established reliably.
 
-Exercise state is defined only for changed executable lines whose mapping can be established by the coverage provider.
+Coverage is execution evidence, not correctness. Any material `NOT_EXERCISED`/`UNRESOLVED` line remaining after permitted widening prevents exit `0`.
 
-Fields:
+## 11. TestChangeFact
 
-- `path`.
-- `line`.
-- `state`: `EXERCISED | NOT_EXERCISED | UNRESOLVED`.
-- `execution_count` or null.
-- source task ids.
-- optional unresolved reason.
+First-slice Git facts only:
 
-Summary fields:
+```text
+test_file_changed
+test_file_deleted
+snapshot_changed
+snapshot_deleted
+```
 
-- changed executable line count.
-- exercised count.
-- not-exercised count.
-- unresolved count.
-- changed file count with zero exercised lines.
+No semantic `weakened` inference.
 
-### Invariants
+## 12. ArtifactRef / Privacy
 
-- `EXERCISED` requires resolved execution count > 0.
-- `NOT_EXERCISED` requires resolved execution count = 0.
-- Missing/ambiguous source mapping is `UNRESOLVED`.
-- Exercise state is not correctness state.
-- A changed executable line that remains `NOT_EXERCISED` or `UNRESOLVED` after the allowed widening pass is a **material verification gap** and prevents exit `0`.
+Artifacts live under current `.ascout/runs/<run-id>/`. Persisted outputs and argv are redacted before storage; raw secret-bearing argv, raw credential-bearing remote, and raw absolute local repo path are not artifacts.
 
-## 11. TestChangeFact / TestChangeSummary
+## 13. Completeness
 
-First-slice kinds:
+- `complete`: at least one material applicable task executed; every applicable task executed or legitimately N/A; no applicable NOT_RUN/BLOCKED; selection safe; no remaining material exercise gap.
+- `materially_incomplete`: applicable omission/block/admission refusal, nothing material executed, unsafe selection, or remaining exercise gap.
+- `unknown_due_to_error`: integrity/internal error prevents reliable completeness determination.
 
-- `test_file_changed`.
-- `test_file_deleted`.
-- `snapshot_changed`.
-- `snapshot_deleted`.
-
-Each fact records path, optional previous path, and `source=git_diff`. Future reliable detectors require a schema revision; M1 does not infer `weakened`.
-
-## 12. ArtifactRef
-
-Fields:
-
-- `artifact_id`.
-- optional `task_id`.
-- `relative_run_path`.
-- kind.
-- SHA-256.
-- byte length.
-- redacted/truncated flags.
-
-Artifact paths are inside the current run directory.
-
-## 13. Receipt Summary and Completeness
-
-Summary includes task status counts, finding count, stability, exercise counts, selection/test-change counts where available, completeness, and derived exit code.
-
-`completeness` is one of:
-
-- `complete`: every applicable planned task category executed to an outcome or was legitimately `NOT_APPLICABLE`, and no changed executable line remains `NOT_EXERCISED` or `UNRESOLVED` after the permitted widening policy.
-- `materially_incomplete`: at least one applicable task is `NOT_RUN`/`BLOCKED`, nothing material executed, or a changed executable line remains `NOT_EXERCISED`/`UNRESOLVED`.
-- `unknown_due_to_error`: an integrity/internal error prevents completeness from being established reliably.
-
-A repository finding/flake does not by itself make verification incomplete; it is an executed outcome and is represented by exit `1` unless a higher-precedence condition exists.
+Finding/flake is an executed outcome and does not itself mean incomplete.
 
 ## 14. Exit Decision
 
-Derived from the run:
+```text
+2 integrity/internal/config/task-execution error
+> 3 tree drift
+> 1 repository finding or flake
+> 4 stable materially incomplete/gapped
+> 0 stable complete no finding/flake/error
+```
 
-1. `2` — usage/config/internal/task-execution integrity error prevents a trustworthy normal result.
-2. `3` — source tree drifted (when no higher-precedence integrity error applies).
-3. `1` — repository/test finding or flaky outcome.
-4. `4` — stable but materially incomplete/gapped verification.
-5. `0` — stable, materially complete, at least one material verification task executed, and no finding/flake/error.
-
-This means an affected run may legitimately deselect tests and still return `0` only when selection/widening policy is satisfied **and** every changed executable line has resolved exercised coverage. Any remaining exercise gap is exit `4`, never green.
-
-Tests lock these semantics and precedence.
+A changed-command task refused by default is an applicable `NOT_RUN` and therefore prevents exit `0`. Explicit per-run admission may permit that task to execute, but the receipt still records that override.
