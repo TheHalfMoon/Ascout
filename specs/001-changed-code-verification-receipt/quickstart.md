@@ -31,7 +31,7 @@ Planned effect:
 ascout doctor
 ```
 
-`doctor` explains secret-safe repository identity, package/tool discovery, command authority/config sources, missing tools, selection/coverage capability, and unsupported M1 traits. Limitations are output.
+`doctor` explains privacy-safe repository identity, package/tool discovery, command authority/config sources, missing tools, selection/coverage capability, and unsupported M1 traits. Limitations are output.
 
 ## 3. Run normal verification
 
@@ -44,7 +44,7 @@ If command surfaces are unchanged, Ascout may run applicable tasks.
 Illustrative receipt where selected tests pass but changed executable gaps remain:
 
 ```text
-SOURCE  repo=github.com/example/repo  HEAD=abc123  tree=4f8...
+SOURCE  repo=remote:9d3f...  portable=true  HEAD=abc123  tree=4f8...
 SCOPE   staged + unstaged + all non-gitignored untracked vs HEAD
 
 TASKS
@@ -65,6 +65,8 @@ EXIT      4
 
 All selected tests passing is not green while material changed executable lines remain unexercised/unresolved.
 
+Each `UNRESOLVED` line in the machine receipt carries a non-empty mapping reason.
+
 ## 4. Changed command surface: default refusal
 
 Suppose the AI also changed a command/config source Ascout would load:
@@ -78,6 +80,7 @@ Ordinary check MUST NOT merely print a warning and continue. The affected task i
 
 ```text
 UNIT  NOT_RUN(command_surface_changed)
+REASON effective test command/config changed in current diff
 AUTHORITY_CHANGED
   package.json
   vitest.config.ts
@@ -103,6 +106,8 @@ AUTHORITY_CHANGED package.json, vitest.config.ts
 
 This flag is **per invocation**. It is not written to config, remembered across runs, or silently supplied by agent instructions/hooks.
 
+The same rule applies to effective pytest configuration when the `pytestBasic` task is used.
+
 ## 5. Exit semantics
 
 ```text
@@ -122,12 +127,14 @@ ascout check --format json
 ascout check --format agent
 ```
 
-JSON follows receipt v1. Agent output uses the same truth and stays within the default 16 KiB UTF-8 budget. Both preserve admission state and changed authority paths.
+JSON follows receipt v1 and includes a root `evidence[]` collection. Every task/finding `evidence_id` resolves to current-run evidence before emission. Schema validation plus semantic receipt validation rejects dangling/cross-run/cross-task evidence references and inconsistent stability/completeness/exit summaries.
+
+Agent output uses the same validated truth and stays within the default 16 KiB UTF-8 budget. Both preserve admission state and changed authority paths.
 
 ## 7. Identity/privacy
 
-- Credential-bearing raw Git origin is never persisted.
-- No-remote local identity is a one-way hash derived from canonical path with `portable=false`; raw absolute path is never persisted.
+- Remote identity is `remote:<sha256(normalized-credential-free-remote)>` with `portable=true`; raw origin is never persisted.
+- No-remote local identity is `local:<sha256(canonical-real-path)>` with `portable=false`; raw absolute path is never persisted.
 - Persisted/rendered argv and captured output redact recognized secret-bearing environment values.
 - Raw secret-bearing argv exists transiently for launch only.
 
@@ -137,7 +144,7 @@ JSON follows receipt v1. Agent output uses the same truth and stays within the d
 UNIT  NOT_RUN(tool_missing)  Project Vitest is not installed.
 ```
 
-A non-executed task may have empty persisted argv/null tool identity if no safe runnable command was resolved. Installation suggestions may be printed but never executed implicitly.
+`NOT_RUN`, `BLOCKED`, and `ERROR` always carry non-empty reason code/text. A non-executed task may have empty persisted argv/null tool identity if no safe runnable command was resolved. Installation suggestions may be printed but never executed implicitly.
 
 ## 9. Drift
 
@@ -168,4 +175,4 @@ UNIT FLAKY  runs=3 failures=1 reproduced=false
 
 No code/test generation, arbitrary config workflow graph, browser/security/adversarial suite, untrusted PR sandbox, semantic graph, required AI, cloud upload, or correctness claim from coverage.
 
-M1 proves what it actually verified, refuses changed execution authority by default, and refuses green while material changed code remains unchecked.
+M1 proves what it actually verified, refuses changed execution authority by default, requires resolvable current-run evidence, and refuses green while material changed code remains unchecked.
