@@ -148,7 +148,7 @@
       "required": ["task_id", "task_type", "authorized_by", "source_path", "argv", "argv_redacted", "tool_name", "tool_version", "command_surface_changed", "changed_authority_paths", "execution_admission", "status", "reason_code", "reason_text", "exit_code", "started_at", "finished_at", "duration_ms", "observations", "cache_state", "evidence_ids", "artifact_refs", "output_truncated"],
       "properties": {
         "task_id": {"type": "string", "minLength": 1},
-        "task_type": {"enum": ["typecheck", "lint", "test", "pytest_basic"]},
+        "task_type": {"enum": ["typecheck", "lint", "test", "pytestBasic"]},
         "authorized_by": {"enum": ["user_config", "repo_config", "discovery"]},
         "source_path": {"type": ["string", "null"]},
         "argv": {"type": "array", "items": {"type": "string"}},
