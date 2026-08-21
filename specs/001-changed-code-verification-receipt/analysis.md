@@ -4,64 +4,70 @@
 **Scope:** Constitution → Master Plan v1 → spec/clarifications → research → plan → data model → config/receipt contracts → quickstart → tasks → requirements checklist → YAGNI gates.  
 **Method:** Spec Kit-style consistency/coverage analysis plus Ponytail/YAGNI and trust-boundary review.  
 **Result:** `PASS_AFTER_REPAIR`  
-**Implementation authorization:** **NO** — this artifact closes the analyze gate only; independent final plan audit is still required.
+**Implementation authorization:** **NO** — independent final plan audit is still required.
 
 ## 1. Executive Result
 
-The initial planning set was directionally coherent but was **not** ready to merge unchanged. Cross-artifact analysis found 11 material issues, including one direct product-honesty failure: the earlier quickstart/exit contract could return a clean result while material changed executable lines remained unexercised/unresolved. The analysis also found an accidental configuration workflow DSL, credential-bearing repository-identity risk, persisted-argv secret risk, under-specified untracked source identity, and schema contracts that could force fabricated or unstable machine fields.
+The initial planning set was directionally coherent but was **not** ready to merge unchanged. Cross-artifact analysis found material contract, security, YAGNI, and product-honesty defects. The most important was a direct contradiction of the wedge: earlier exit/quickstart semantics could describe a run as clean while material changed executable lines remained unexercised/unresolved.
 
-All 11 findings were repaired on the planning branch before this report was written. The repaired artifacts are mutually consistent on the M1 wedge, trust boundary, source identity, selection/widening, task/result semantics, exercise gaps, reproduction semantics, privacy, and exit codes.
+All analyze findings were repaired before this report was finalized. A subsequent pre-final-audit hygiene pass also tightened local-path privacy, exact upstream provenance, strict receipt selection shape, and task atomicity. No product implementation exists in the branch.
 
-No product source/test/benchmark implementation exists in this planning branch.
-
-## 2. Findings and Reconciliation
+## 2. Analyze Findings and Reconciliation
 
 | ID | Severity | Finding | Resolution | Status |
 |---|---|---|---|---|
-| A1 | MAJOR | Config v1 allowed arbitrary task names + user-defined `prerequisites[]`, effectively a workflow/task-runner DSL despite M1 explicitly rejecting one. | Config v1 now allows only fixed `typecheck`, `lint`, `test`, `pytestBasic` overrides; no arbitrary tasks/prerequisite graph/workflow expressions/hooks. Internal ordering remains product logic. | RESOLVED |
-| A2 | MAJOR | Receipt task schema required non-empty argv/tool identity even for `NOT_RUN`/`BLOCKED`/`NOT_APPLICABLE`, encouraging fabricated executor data. | Non-executed tasks may have empty argv/null tool identity; attempted process tasks require resolved execution identity by model invariant. | RESOLVED |
-| A3 | MAJOR | `stability=incomplete_due_to_error` conflated source-tree stability with verification completeness/execution failure. | Source stability is now `stable | tree_drifted | unknown`; completeness is separate: `complete | materially_incomplete | unknown_due_to_error`. | RESOLVED |
-| A4 | MAJOR | “Relevant untracked files” was undefined and could silently omit source state from the trust digest. | M1 includes all non-gitignored untracked files except `.ascout/`; no hidden relevance heuristic. Nonignored tool output outside `.ascout/` conservatively causes drift. | RESOLVED |
-| A5 | MAJOR | Unstaged tracked executable-bit/type changes could be lost if tree identity only hashed file bytes. | `tree_digest_v1` includes current unstaged worktree type/mode plus content/symlink/deletion state; golden tests are tasked. | RESOLVED |
-| A6 | MAJOR / SECURITY | Persisting normalized “origin URL” without an explicit sanitization contract could leak Git credentials/userinfo/tokens. | Raw origin is never persisted/rendered. Credential/userinfo/query/fragment material is removed; unsafe-to-normalize forms use a one-way identifier. | RESOLVED |
-| A7 | MAJOR / SECURITY | Evidence redaction covered output but not persisted command argv, where tokens/passwords may be passed as arguments. | Persisted/rendered argv uses the same exact-value secret redaction policy; raw argv is transient launch input only; schema records redaction state. | RESOLVED |
-| A8 | BLOCKER / PRODUCT HONESTY | Earlier exit/quickstart semantics permitted exit `0` with `NOT_EXERCISED`/`UNRESOLVED` changed executable lines. This contradicted the core wedge and “no green by omission.” | Any remaining material changed executable exercise gap after permitted widening makes the stable run `materially_incomplete` and exit `4`. Constitution/spec/plan/data model/tasks/quickstart/checklist now lock this rule. | RESOLVED |
-| A9 | MAJOR | One failing observation with unavailable retry was labeled `reproduced=false`, confusing “not reproduced” with “not enough evidence.” | One observation or inconclusive rerun → `unknown`; consistent repeated failures → true; contradictory observations → `FLAKY` and false for a stable-failure reproduction claim. | RESOLVED |
-| A10 | MINOR / CONTRACT | Receipt schema combined nullable `fingerprint_version` with `const: 1`, effectively making null invalid despite the data model calling fingerprints optional. | `fingerprint_version` explicitly accepts `1 | null`; fingerprint accepts SHA-256 or null. | RESOLVED |
-| A11 | MAJOR / CONTRACT | Versioned receipt schema left `selection.initial_scope`, `passes[]`, and `task_type` structurally open, undermining a stable machine contract and reintroducing implicit extensibility. | Receipt v1 now has fixed task types, explicit repository/package scope, and explicit bounded selection-pass shape with at most two passes. | RESOLVED |
+| A1 | MAJOR | Config v1 allowed arbitrary task names + user-defined prerequisites, effectively a workflow/task-runner DSL. | Fixed task overrides only: `typecheck`, `lint`, `test`, `pytestBasic`; no user prerequisite/workflow graph. | RESOLVED |
+| A2 | MAJOR | Receipt schema required non-empty argv/tool identity for non-executed tasks, encouraging fabricated executor data. | Non-executed tasks may carry empty argv/null tool identity; attempted process tasks require real resolved execution identity by invariant. | RESOLVED |
+| A3 | MAJOR | Source `stability` conflated drift with verification completeness/execution error. | Stability is `stable | tree_drifted | unknown`; completeness is separate `complete | materially_incomplete | unknown_due_to_error`. | RESOLVED |
+| A4 | MAJOR | “Relevant untracked files” was undefined and could silently omit source state. | M1 source identity includes all non-gitignored untracked files except `.ascout/`; no hidden relevance heuristic. | RESOLVED |
+| A5 | MAJOR | Unstaged executable-bit/type changes could disappear if only file bytes were hashed. | Tree digest includes current unstaged type/mode plus content/symlink/deletion state. | RESOLVED |
+| A6 | MAJOR / SECURITY | Persisted Git origin could expose credentials/userinfo/token-bearing URL material. | Raw origin is never persisted/rendered; unsafe material is stripped or replaced by a one-way ID. | RESOLVED |
+| A7 | MAJOR / SECURITY | Redaction covered captured output but not persisted command argv. | Persisted/rendered argv is exact-value redacted; raw argv is transient launch input only. | RESOLVED |
+| A8 | BLOCKER / PRODUCT HONESTY | Earlier semantics permitted exit `0` with changed executable `NOT_EXERCISED`/`UNRESOLVED` lines. | Remaining material exercise gap after permitted widening => `materially_incomplete`, stable exit `4`, never `0`. Constitution/spec/plan/model/tasks/quickstart lock this. | RESOLVED |
+| A9 | MAJOR | One failing observation with unavailable retry was `reproduced=false`, confusing insufficient evidence with disproven reproduction. | One/inconclusive observation => unknown; repeated consistent failures => true; contradictory valid observations => flaky / false stable-failure reproduction. | RESOLVED |
+| A10 | MINOR / CONTRACT | Nullable fingerprint version plus `const: 1` made optional fingerprint semantics schema-inconsistent. | Explicit `1 | null`; fingerprint SHA-256 or null. | RESOLVED |
+| A11 | MAJOR / CONTRACT | Receipt v1 left `task_type`, selection scope, and selection passes structurally open despite claiming a stable fixed M1 contract. | Fixed task types plus explicit repository/package scope and bounded selection-pass schema (max two passes). | RESOLVED |
 
-## 3. Constitution Compliance Re-check
+## 3. Pre-Final-Audit Hygiene Corrections
+
+| ID | Severity | Finding | Resolution | Status |
+|---|---|---|---|---|
+| H1 | MAJOR / PRIVACY | A local-only repo identity “derived from canonical path” could be implemented by persisting the raw absolute path, leaking workstation usernames/directories into shared receipts. | Constitution now requires a **one-way identifier** derived from canonical local path, `portable=false`; raw absolute path is forbidden in receipts/artifacts. T012/T017 explicitly test/implement this. | RESOLVED |
+| H2 | MINOR / PROVENANCE | Spec Kit provenance recorded only short release SHA `5dce710`. | Pinned full upstream v0.16.0 commit `5dce710ce099067c7d3f2ef47a37b9a1c300b327`, independently resolved from upstream. | RESOLVED |
+| H3 | MINOR / TASK QUALITY | Final release task combined dependency-license review, npm ownership, and clean-checkout qualification into one oversized task. | Split into atomic T083 license/provenance, T084 package identity, T085 clean-checkout qualification. | RESOLVED |
+
+## 4. Constitution Compliance Re-check
 
 | Constitutional rule | Repaired evidence | Result |
 |---|---|---|
-| Evidence before claims | Current-run evidence refs; no confidence ladder; reproduction states distinguish unknown from observed/reproduced | PASS |
-| No green by omission | Task omissions visible; valid deselection separately disclosed; remaining exercise gaps force exit `4` | PASS |
-| Source-bound truth | Secret-safe repo identity; HEAD/index/worktree/all-nonignored-untracked digest; start/end drift; no evidence transfer | PASS |
+| Evidence before claims | Current-run evidence refs; no confidence ladder; reproduction states distinguish unknown/observed/reproduced | PASS |
+| No green by omission | Task omissions visible; valid deselection separately disclosed; material exercise gaps force exit `4` | PASS |
+| Source-bound truth | Secret-safe remote/local identity; HEAD/index/worktree/all-nonignored-untracked digest; start/end drift; no evidence transfer | PASS |
 | Trusted local / explicit authority | Own trusted repo only; provenance; changed-command warning; no implicit installs; no config workflow DSL | PASS |
 | Native capability first | Git/Vitest/Jest/LCOV; no semantic impact graph | PASS |
-| Conservative affected verification | Declared widen triggers + one bounded post-run widening pass; unsafe unresolved scope is incomplete | PASS |
+| Conservative affected verification | Declared widen triggers + one bounded post-run widening pass; unresolved unsafe scope is incomplete | PASS |
 | Minimal core | No DB/daemon/server/Rust/plugin SDK/LLM/cloud; one planned runtime dependency | PASS |
-| Bounded/read-only/private | timeout/tree-kill/lock/retention; tracked/nonignored drift; output+argv redaction | PASS |
-| Provenance/licensing | Apache-2.0 project license; Spec Kit v0.16.0 provenance; exact dependency/donor review gates | PASS |
+| Bounded/read-only/private | timeout/tree-kill/lock/retention; tracked/nonignored drift; origin/output/argv/path privacy rules | PASS |
+| Provenance/licensing | Apache-2.0; full Spec Kit v0.16.0 upstream commit; exact dependency/donor review gates | PASS |
 | Benchmark-gated growth | Real-history selection/gap corpora; false-PASS/gap/timing metrics; zero binding-leak absolute gates | PASS |
 
-No constitutional exception or Complexity Tracking violation is accepted by the repaired plan.
+No constitutional exception is accepted.
 
-## 4. Requirement Coverage / Traceability
+## 5. Requirement Coverage / Traceability
 
-Every functional requirement in repaired `spec.md` has a plan mechanism and an implementation/validation task or an explicit architectural absence that is itself testable/reviewable.
+Every functional requirement in repaired `spec.md` has a plan mechanism and implementation/validation task or an explicit architectural absence that is reviewable/testable.
 
 ### Source, trust, task honesty — FR-001…FR-014
 
-- Plan: Trust Boundary; Source Identity; Task Result Contract; Config Contract; Process Control.
+- Plan: Trust Boundary; Source Identity; Task Result Contract; Config; Process Control.
 - Primary tasks: T008–T040.
 - Critical tests: T008–T015, T026–T030.
 
 ### Affected selection / exercise gaps — FR-015…FR-023
 
 - Plan: Conservative Widening; Selection Accounting; Coverage and Changed-Code Exercise; Completeness.
-- Primary tasks: T041–T053 plus T054 selection accounting.
-- Critical gate: T046 proves remaining exercise gaps cannot return exit `0`.
+- Primary tasks: T041–T061.
+- Critical gate: T046 proves remaining material exercise gaps cannot return exit `0`.
 
 ### Test-change / flake / bounded execution / privacy — FR-024…FR-030
 
@@ -70,119 +76,80 @@ Every functional requirement in repaired `spec.md` has a plan mechanism and an i
 
 ### Local-core / output contract — FR-031…FR-034
 
-- Plan: Technical Context/Constraints; Receipt Contract; output surfaces.
+- Plan: Technical Constraints; Receipt Contract; output surfaces.
 - Primary tasks: T007, T024–T025, T037–T040, T063–T067, T080–T082.
-- No network/cloud/AI subsystem is introduced by the plan.
 
-### Fixed configuration / causation / secret-safe identity — FR-035…FR-039
+### Fixed config / authority / source-identity privacy — FR-035…FR-039
 
 - Plan: Config Contract; Source Identity; Finding semantics.
 - Primary tasks: T008, T010, T012, T016–T018, T035, T056/T061.
-- `introduced_by_change` remains unknown absent future comparative proof.
 
-**Coverage result:** no orphan functional requirement found; no implementation task requires an out-of-scope product subsystem.
+**Coverage result:** no orphan functional requirement identified.
 
-## 5. Task-to-Requirement Sanity
+## 6. Task-to-Scope Sanity
 
-Tasks T001–T067 implement/test the feature contract; T068–T075 establish benchmark evidence; T076–T083 are release-hardening/governance work.
+Tasks T001–T067 implement/test M1 product behavior; T068–T075 establish benchmark evidence; T076–T085 perform cross-platform/release/governance hardening.
 
-No task requires:
+No task requires DB/daemon/server, semantic dependency graph, generic plugin SDK, AI reasoning, untrusted execution, browser/security/adversarial suites, recursive widening, arbitrary config workflow graph, or a second planned product runtime dependency.
 
-- a DB/daemon/server;
-- a semantic dependency graph;
-- a generic plugin SDK;
-- AI reasoning;
-- untrusted-repository execution;
-- browser/security/adversarial suites;
-- recursive widening;
-- arbitrary config-defined tasks/workflows;
-- a second planned product runtime dependency.
+Any implementation discovery requiring one is a stop condition and returns to planning.
 
-Any implementation discovery that requires one of those is a stop condition and must return to planning.
+## 7. Semantics Matrix After Repair
 
-## 6. Semantics Matrix After Repair
+Source stability, task outcomes, selection disclosure, and completeness are orthogonal:
 
-### Task state vs source stability vs completeness
+- task `ERROR` does not itself imply source drift;
+- `tree_drifted` does not erase task observations;
+- valid affected deselection is disclosed selection, not a task omission;
+- applicable task `NOT_RUN`/`BLOCKED` makes verification incomplete;
+- material `NOT_EXERCISED`/`UNRESOLVED` changed executable lines make verification incomplete;
+- repository finding/flake is an executed result and maps to exit `1` absent higher-precedence integrity/drift state.
 
-These dimensions are orthogonal:
-
-- task `ERROR` does not itself mean source drift;
-- source `tree_drifted` does not erase task observations;
-- valid affected deselection is disclosed selection scope, not a task omission;
-- `NOT_RUN`/`BLOCKED` applicable tasks make verification incomplete;
-- remaining `NOT_EXERCISED`/`UNRESOLVED` changed executable lines make verification incomplete;
-- repository finding/flake is an executed result and maps to exit `1` unless a higher-precedence integrity/drift condition exists.
-
-### Exit precedence
+Exit precedence:
 
 ```text
-2 internal/usage/config/task-execution integrity error
+2 integrity/internal/config/task-execution error
 > 3 tree drift
 > 1 repository finding or flake
-> 4 stable but materially incomplete/gapped
-> 0 stable, complete, no finding/flake/error
+> 4 stable materially incomplete/gapped
+> 0 stable complete no finding/flake/error
 ```
 
-This rule is now consistent across spec, plan, data model, quickstart, receipt schema, tasks, and checklist.
-
-## 7. Machine Contract Re-check
+## 8. Machine Contract Re-check
 
 ### Config v1
 
-- strict top-level keys;
-- fixed task categories only;
-- no executable config;
-- no arbitrary prerequisites/workflow DSL;
-- disablement requires visible reason;
-- command overrides are argv arrays.
+Strict top-level keys; fixed semantic tasks; no executable config; no arbitrary prerequisites/workflow DSL; disablement reason required; argv-array overrides only.
 
 ### Receipt v1
 
-- strict top-level receipt domains;
-- fixed task types;
-- non-executed task identity can remain honestly unresolved;
-- explicit source stability and completeness;
-- strict selection scope/pass schema, max two passes;
-- task status counts fixed to the seven constitutional statuses;
-- fingerprint optionality is schema-correct;
-- secret-redaction state is representable.
+Strict top-level domains; fixed task types; honest empty/null unresolved command/tool fields; separate stability/completeness; strict repository/package SelectionScope and bounded SelectionPass schema; fixed seven-key status-count object; optional fingerprint is schema-correct; persisted argv redaction is representable.
 
 **Contract disposition:** no known schema/design contradiction remains.
 
-## 8. Benchmark Validity Re-check
+## 9. Benchmark Validity Re-check
 
-The benchmark measures Ascout's claims rather than donor scanners:
+Selection corpus measures selected-scope detection against full-suite ground truth; gap corpus measures changed executable exercise against independent full-run coverage. Baselines include full suite/plain project test/native related selection. Metrics include false-PASS, selection recall, gap accuracy, unresolved mapping, and cold/warm time. Binding leakage/integrity violations have absolute acceptable count zero. No pre-corpus 98% threshold is fabricated.
 
-- selection corpus asks whether Ascout/native selected scope catches failures the full suite catches;
-- gap corpus asks whether Ascout correctly reports changed-code exercise against independent full-run coverage ground truth;
-- baselines include full suite, plain project test, and native related selection;
-- headline risk metrics include false-PASS and unresolved mapping;
-- binding leakage/integrity violations have absolute acceptable count zero;
-- no pre-corpus 98% selection threshold is fabricated.
+## 10. Residual Implementation / Release Gates — Not Planning Blockers
 
-Residual benchmark repository selection is an implementation/release evidence task, not an architecture blocker.
+1. exact `cross-spawn` version/dependency-chain license/provenance;
+2. exact benchmark repositories/commits and licensing/execution terms;
+3. npm package ownership or scoped fallback;
+4. Windows process-tree termination mechanics/constants proven on native Windows CI;
+5. real Vitest/Jest version variance and benchmark-discovered selector misses;
+6. measured performance/time-to-signal.
 
-## 9. Residual Risks / Gates — Not Planning Blockers
+Each has an explicit task/release gate.
 
-These remain intentionally unresolved until implementation/release evidence exists:
-
-1. exact `cross-spawn` version and dependency-chain license/provenance;
-2. exact benchmark repositories/commits and their redistribution/execution terms;
-3. unscoped npm package-name ownership or scoped fallback;
-4. exact Windows process-tree termination constants/mechanics, which must be proven on native Windows CI;
-5. actual Vitest/Jest version variance in user repositories and any benchmark-discovered selector blind spots;
-6. actual performance/time-to-signal numbers.
-
-Each has a concrete implementation/release task and none requires speculative architecture today.
-
-## 10. Analyze Gate Verdict
+## 11. Analyze Gate Verdict
 
 `PASS_AFTER_REPAIR`
 
-- BLOCKER findings open: **0**
-- MAJOR findings open: **0**
+- open BLOCKER findings: **0**
+- open MAJOR findings: **0**
 - unresolved constitutional violations: **0**
-- orphan functional requirements identified: **0**
-- product implementation present on planning branch: **0**
+- orphan functional requirements: **0**
+- product implementation files on planning branch: **0**
 
-Proceed to an **independent final plan audit on the repaired exact head**. Do not authorize implementation merely from this analysis.
+Proceed to an independent final plan audit on the repaired exact head. Do not authorize implementation merely from this analysis.
