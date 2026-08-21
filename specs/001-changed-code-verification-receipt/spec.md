@@ -14,7 +14,7 @@ A developer has an AI coding agent make local changes in a repository. Before ac
 
 **Why this priority**: Without an honest source-bound receipt and a defensible command-execution boundary, Ascout is only another task runner that may execute whatever the agent just rewrote.
 
-**Independent Test**: On a supported local repository with uncommitted changes and configured verification tasks, verify source binding, complete task accounting, evidence-reference integrity, and refusal of repo-derived tasks whose effective command surface changed until the human explicitly admits that surface for this invocation.
+**Independent Test**: On a supported local repository with uncommitted changes and configured verification tasks, verify source binding, complete task accounting, evidence-reference integrity, canonical relative persisted paths, and refusal of repo-derived tasks whose effective command surface changed until the human explicitly admits that surface for this invocation.
 
 **Acceptance Scenarios**:
 
@@ -29,6 +29,7 @@ A developer has an AI coding agent make local changes in a repository. Before ac
 9. **Given** an agent instruction/hook invokes Ascout, **When** command surface changed, **Then** the integration MUST NOT silently add the admission override on the user's behalf.
 10. **Given** a task or finding exposes an `evidence_id`, **When** the receipt is emitted, **Then** the ID resolves to exactly one current-run evidence entry linked to the receipt run and a task in that receipt.
 11. **Given** a changed file classified as a rename, **When** the receipt is emitted, **Then** both current `path` and `previous_path` are present.
+12. **Given** any receipt path field receives an absolute POSIX path, Windows drive/UNC path, URI-absolute value, backslash-canonicalization violation, or `.`/`..` traversal after normalization, **When** receipt validation runs, **Then** emission is rejected rather than persisting host-local or escaping path material.
 
 ---
 
@@ -82,6 +83,7 @@ A developer wants factual test/snapshot changes and a bounded agent-readable rep
 
 - No Git remote: persisted identity is `local:<sha256(canonical-real-path)>`, `portable=false`; raw absolute path is not persisted.
 - Remote origin has credentials/userinfo/query/fragment: persisted identity is `remote:<sha256(normalized-credential-free-remote)>`; raw origin is never persisted.
+- Any persisted repository path must be slash-separated and repository-relative; `artifact.relative_run_path` must be relative to the current run directory. Absolute POSIX, Windows drive/UNC, URI-absolute, backslash-canonicalization violations, and `.`/`..` traversal are invalid after normalization.
 - Detached/shallow repo: state explicit; unsupported comparison mode fails with guidance.
 - All non-gitignored untracked files except `.ascout/` participate in source identity.
 - No changed executable lines: exercise coverage is not applicable.
@@ -121,6 +123,8 @@ A developer wants factual test/snapshot changes and a bounded agent-readable rep
   A: No. Affected task execution is refused by default and requires explicit human per-invocation admission. The admission cannot be persisted as a trust grant or silently supplied by agents/hooks.
 - Q: Are JSON Schema field checks alone sufficient for a valid receipt?  
   A: No. M1 also requires semantic receipt validation for run/evidence/task/artifact references and cross-field stability/completeness/exit invariants before emission.
+- Q: May receipt paths preserve arbitrary host-native absolute or traversal forms?  
+  A: No. Persisted paths use canonical slash-separated relative forms in their repository/run namespace; absolute, drive/UNC, URI-absolute, backslash-canonicalization violations, and traversal forms are rejected after normalization.
 
 No unresolved product-level clarification remains.
 
@@ -169,6 +173,7 @@ No unresolved product-level clarification remains.
 - **FR-039**: Receipt v1 MUST contain a root current-run `evidence[]` collection; every task/finding evidence reference MUST resolve to exactly one evidence entry whose run/task linkage is valid, and any referenced artifact MUST resolve.
 - **FR-040**: Before machine receipt emission, one Ascout-owned semantic validator MUST verify reference integrity plus cross-field source stability, task/admission, exercise, completeness, and exit-code invariants in addition to JSON Schema validation.
 - **FR-041**: `change_kind=renamed` MUST include `previous_path`; non-rename changes MUST NOT fabricate a previous path.
+- **FR-042**: Every persisted path-bearing receipt field MUST use a canonical slash-separated relative path in its declared namespace (repository-relative for repository paths; current-run-relative for `artifact.relative_run_path`). Validation MUST reject POSIX absolute, Windows drive/UNC, URI-absolute, backslash-canonicalization violations, and `.`/`..` traversal forms after normalization.
 
 ### Key Entities
 
@@ -180,7 +185,7 @@ No unresolved product-level clarification remains.
 - **Selection Account**: Native/full selection, explicit counts/unknowns, limitations, widening.
 - **Exercise Gap**: Changed executable line not observed executing or not reliably resolved.
 - **Test-Change Fact**: Factual Git-derived verification-asset change.
-- **Receipt**: Human/machine representation of same run truth.
+- **Receipt**: Human/machine representation of same run truth with privacy-safe IDs and canonical relative persisted paths.
 
 ## Success Criteria
 
@@ -198,6 +203,7 @@ No unresolved product-level clarification remains.
 - **SC-012**: No case with remaining material exercise gap returns exit `0`, including the benchmark gap corpus.
 - **SC-013**: Every changed-command-surface test case, including configured/discovered pytest authority, is refused by default; execution only occurs when explicit per-run admission is supplied and recorded.
 - **SC-014**: Machine receipt emission rejects dangling, duplicate, cross-run, cross-task, or unresolved evidence/artifact references and rejects cross-field summary/exit inconsistencies.
+- **SC-015**: Machine receipt emission rejects every persisted absolute, drive/UNC, URI-absolute, backslash-noncanonical, or traversal path; valid persisted repository/run paths are canonical and relative to their declared namespace.
 
 ## Assumptions
 
