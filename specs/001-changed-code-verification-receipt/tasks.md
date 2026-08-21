@@ -20,10 +20,10 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 
 ### Tests first
 
-- [ ] T008 [P] Config v1 contract test: fixed task keys only, arbitrary-key/prerequisite/workflow rejection, disable reason, argv override, timeout/budget/redaction; no persistent admission/trust setting.
-- [ ] T009 [P] Receipt v1 contract test: fixed task/status/selection shapes, source stability/completeness, admission fields/conditional invariants, exit precedence.
+- [ ] T008 [P] Config v1 contract test: canonical fixed task keys exactly `typecheck`, `lint`, `test`, `pytestBasic`; arbitrary-key/prerequisite/workflow rejection, disable reason, argv override, timeout/budget/redaction; no persistent admission/trust setting.
+- [ ] T009 [P] Receipt v1 contract test: config/receipt task identifier parity; fixed task/status/selection shapes; rename requires `previous_path`; `NOT_RUN`/`BLOCKED`/`ERROR` require non-empty reason code/text; exercise state/count/reason invariants; source stability/completeness; admission conditional invariants; exit precedence.
 - [ ] T010 [P] Tree-digest golden tests: clean/staged/unstaged/deletion/symlink/mode/type, all nonignored untracked, `.ascout/` exclusion, tracked snapshot mutation.
-- [ ] T011 [P] Git diff tests: add/modify/delete/rename/type/binary/untracked line semantics.
+- [ ] T011 [P] Git diff tests: add/modify/delete/rename/type/binary/untracked line semantics, including rename old/new path fidelity.
 - [ ] T012 [P] Repository identity tests: HTTPS credentials, SSH/scp userinfo, query/fragment, fallback hash, local-only one-way canonical-path ID; raw origin/path never persisted.
 - [ ] T013 [P] Process-control tests: argv preservation, no shell-string launch, capture caps, timeout/tree cleanup, Windows-native cases.
 - [ ] T014 [P] Run-lock tests: live-owner refusal, verified dead-owner recovery.
@@ -40,7 +40,7 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 - [ ] T022 Implement atomic `.ascout/run.lock` in `src/lock.ts`.
 - [ ] T023 Implement output/argv redaction/truncation in `src/redact.ts`; raw secret argv transient only.
 - [ ] T024 Implement run directory lifecycle + bounded retention (20 completed by default, active never removed).
-- [ ] T025 Implement receipt model/exit decision in `src/receipt/model.ts`: run-bound evidence, weak fingerprints, admission state, strict task/selection shape, separate stability/completeness.
+- [ ] T025 Implement receipt model/exit decision in `src/receipt/model.ts`: run-bound evidence, weak fingerprints, admission state, strict task/selection/rename/exercise/reason invariants, separate stability/completeness.
 - [ ] T026 Implement JSON renderer and validate emitted receipts against receipt v1.
 
 ## Phase 3 — US1 Source-Bound Receipt + Admission
@@ -51,8 +51,8 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 - [ ] T028 [P] Command-provenance/admission integration test proving effective changed package/Ascout/TypeScript/ESLint/Vitest/Jest authority paths cause `NOT_RUN(command_surface_changed)` before process launch.
 - [ ] T029 [P] Explicit admission test proving `--allow-changed-command-surface` permits only that invocation, receipt records override + paths, and next ordinary invocation refuses again.
 - [ ] T030 [P] Agent-integration test proving generated instructions/hooks never append the admission override automatically.
-- [ ] T031 [P] Missing-tool/config test proving honest `NOT_RUN` without invented argv/tool and no install execution.
-- [ ] T032 [P] Task-status test distinguishing FAIL/ERROR/BLOCKED/N/A/NOT_RUN and valid deselection accounting.
+- [ ] T031 [P] Missing-tool/config test proving honest `NOT_RUN` with non-empty reason code/text, without invented argv/tool, and no install execution.
+- [ ] T032 [P] Task-status test distinguishing FAIL/ERROR/BLOCKED/N/A/NOT_RUN, requiring reasons for ERROR/BLOCKED/NOT_RUN, and preserving valid deselection accounting.
 - [ ] T033 End-to-end check receipt test: secret-safe source, admission, comparison, config digest, tasks, artifacts, stability/completeness; incomplete cannot green.
 
 ### Implementation
@@ -75,7 +75,7 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 - [ ] T044 [P] LCOV tests for zero/nonzero/repeated/malformed/path/executable/unresolved semantics.
 - [ ] T045 [P] Vitest fixture/integration: native related selection, config widening, JSON results, LCOV in `.ascout/`.
 - [ ] T046 [P] Jest fixture/integration: `--findRelatedTests`, JSON results, LCOV, widening.
-- [ ] T047 [P] Exercise tests: EXERCISED/NOT_EXERCISED/UNRESOLVED, changed ranges, non-line exclusions.
+- [ ] T047 [P] Exercise tests: `EXERCISED` count > 0, `NOT_EXERCISED` count = 0, `UNRESOLVED` count = null + non-empty reason, changed ranges, non-line exclusions.
 - [ ] T048 Widening integration test: at most one post-run pass, unresolved gap if wider pass still insufficient.
 - [ ] T049 Exercise-exit test: remaining material gap => stable exit 4, never 0, even when selected tests pass.
 
@@ -86,7 +86,7 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 - [ ] T052 Implement concrete Jest integration: project-local related selection, machine result, LCOV.
 - [ ] T053 Implement pre-run conservative widening triggers.
 - [ ] T054 Implement one bounded post-run widening pass; no recursion.
-- [ ] T055 Implement changed executable exercise intersection; remaining gaps materially incomplete.
+- [ ] T055 Implement changed executable exercise intersection with strict state/count/reason semantics; remaining gaps materially incomplete.
 - [ ] T056 Extend terminal/JSON with exercise/widening/completeness exit 4.
 
 ## Phase 5 — US3 Selection, Drift, Flake
