@@ -21,7 +21,7 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 ### Tests first
 
 - [ ] T008 [P] Config v1 contract test: canonical fixed task keys exactly `typecheck`, `lint`, `test`, `pytestBasic`; arbitrary-key/prerequisite/workflow rejection, disable reason, argv override, timeout/budget/redaction; no persistent admission/trust setting.
-- [ ] T009 [P] Receipt v1 contract + semantic-invariant tests: config/receipt task identifier parity; privacy-safe `remote:<sha256>`/`local:<sha256>` source IDs; root `evidence[]`; unique/resolvable run/task/artifact evidence references; fixed task/status/selection shapes; rename requires `previous_path`; `NOT_RUN`/`BLOCKED`/`ERROR` require non-empty reasons; exercise state/count/reason invariants; source stability/completeness; admission invariants; aggregate counts and exit precedence.
+- [ ] T009 [P] Receipt v1 contract + semantic-invariant tests: config/receipt task identifier parity; privacy-safe `remote:<sha256>`/`local:<sha256>` source IDs; canonical relative-path validation for every persisted path-bearing field (reject POSIX absolute, Windows drive/UNC, URI-absolute, backslash-canonicalization violations, and `.`/`..` traversal); root `evidence[]`; unique/resolvable run/task/artifact evidence references; fixed task/status/selection shapes; rename requires `previous_path`; `NOT_RUN`/`BLOCKED`/`ERROR` require non-empty reasons; exercise state/count/reason invariants; source stability/completeness; admission invariants; aggregate counts and exit precedence.
 - [ ] T010 [P] Tree-digest golden tests: clean/staged/unstaged/deletion/symlink/mode/type, all nonignored untracked, `.ascout/` exclusion, tracked snapshot mutation.
 - [ ] T011 [P] Git diff tests: add/modify/delete/rename/type/binary/untracked line semantics, including rename old/new path fidelity.
 - [ ] T012 [P] Repository identity tests: HTTPS credentials, SSH/scp userinfo, query/fragment, remote normalization hash, local canonical-path hash, exact `remote:<sha256>`/`local:<sha256>` schema shapes and portability flags; raw origin/path never persisted.
@@ -40,8 +40,8 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 - [ ] T022 Implement atomic `.ascout/run.lock` in `src/lock.ts`.
 - [ ] T023 Implement output/argv redaction/truncation in `src/redact.ts`; raw secret argv transient only.
 - [ ] T024 Implement run directory lifecycle + bounded retention (20 completed by default, active never removed).
-- [ ] T025 Implement receipt model/exit decision plus one pure semantic validator in `src/receipt/model.ts`: root evidence collection, unique/resolvable evidence/task/artifact links, run-bound evidence, weak fingerprints, admission state, strict task/selection/rename/exercise/reason invariants, aggregate counts, separate stability/completeness, exit precedence.
-- [ ] T026 Implement JSON renderer; require JSON Schema validation and semantic receipt validation before emission. Any internal/future receipt acceptance path must reuse the same semantic validator.
+- [ ] T025 Implement receipt model/exit decision plus one pure semantic validator in `src/receipt/model.ts`: canonical relative-path normalization/validation for all persisted repository/run paths; root evidence collection; unique/resolvable evidence/task/artifact links; run-bound evidence; weak fingerprints; admission state; strict task/selection/rename/exercise/reason invariants; aggregate counts; separate stability/completeness; exit precedence.
+- [ ] T026 Implement JSON renderer; require JSON Schema validation and semantic receipt validation before emission, including path-namespace containment. Any internal/future receipt acceptance path must reuse the same semantic validator.
 
 ## Phase 3 — US1 Source-Bound Receipt + Admission
 
@@ -53,7 +53,7 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 - [ ] T030 [P] Agent-integration test proving generated instructions/hooks never append the admission override automatically.
 - [ ] T031 [P] Missing-tool/config test proving honest `NOT_RUN` with non-empty reason code/text, without invented argv/tool, and no install execution.
 - [ ] T032 [P] Task-status test distinguishing FAIL/ERROR/BLOCKED/N/A/NOT_RUN, requiring reasons for ERROR/BLOCKED/NOT_RUN, and preserving valid deselection accounting.
-- [ ] T033 End-to-end check receipt test: privacy-safe source ID, admission, comparison, config digest, tasks, resolvable evidence/artifacts, stability/completeness; semantic validation rejects dangling/cross-run/cross-task references and incomplete cannot green.
+- [ ] T033 End-to-end check receipt test: privacy-safe source ID, only canonical relative persisted paths, admission, comparison, config digest, tasks, resolvable evidence/artifacts, stability/completeness; semantic validation rejects absolute/drive/UNC/URI/traversal paths, dangling/cross-run/cross-task references, and incomplete cannot green.
 
 ### Implementation
 
@@ -134,7 +134,7 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 
 - [ ] T079 Add project CI Windows/macOS/Linux, Node 22/24; not an Ascout CI/SARIF user surface.
 - [ ] T080 Add native Windows command-shim/process-tree timeout cases; release blocked without Windows proof.
-- [ ] T081 Add deterministic receipt/golden checks across OS path normalization.
+- [ ] T081 Add deterministic receipt/golden checks across OS path normalization, including canonical slash-separated persisted relative paths and rejection of absolute/drive/UNC/URI/traversal forms.
 - [ ] T082 Add npm package-content test excluding `.ascout/`, unintended fixtures/logs/secrets.
 - [ ] T083 Add `SECURITY.md` documenting trusted-local scope, command admission, repo-command risk, local-first vs offline, artifact sensitivity.
 - [ ] T084 Add `CONTRIBUTING.md` for constitution/Spec Kit/Ponytail/provenance/test gates.
