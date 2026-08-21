@@ -3,25 +3,38 @@
 **Status:** T003 direct-dependency provenance ledger  
 **Scope:** direct dependencies intentionally selected for Ascout M1.
 
-This file records the exact direct third-party packages selected by Ascout and the evidence used to bind those selections to the committed lockfile. Exact transitive versions, registry locations, integrity digests, and license metadata are recorded in `package-lock.json`.
+This file records the exact direct third-party packages selected by Ascout and the evidence used to bind those selections to the committed lockfile. Exact transitive versions, registry locations, integrity digests, and license metadata are recorded in `package-lock.json` where npm provides those fields.
 
 ## Lock generation evidence
 
-- Evidence branch: `evidence/t003-lockgen-2026-08-22`
+- Evidence branch: `evidence/t003-lockgen-2026-08-22` (the date component is the Asia/Riyadh local date; the corresponding GitHub Actions timestamps are on 2026-08-21 UTC).
 - Evidence commit containing the generated lockfile: `81e2850e06a097abed5a7566aded39fceb330800`
 - `package-lock.json` blob: `751fdf89c10d26a1875844626ad6c336b28d051b`
-- GitHub Actions run: `32535056565`
+- GitHub Actions generation run: `32535056565`
 - Runner OS: Ubuntu 24.04
 - Node: `22.0.0`
 - npm resolver: `10.9.4`
 - Generation command: `npm install --package-lock-only --ignore-scripts --audit=false --fund=false`
 - Reproduction check: `npm ci --ignore-scripts --audit=false --fund=false` — PASS
 - Exact direct-resolution check — PASS
-- `npm ls --all` — PASS
+- `npm ls --all` — exited successfully; its tree truthfully reports platform-, peer-, and engine-inapplicable optional dependencies as `UNMET OPTIONAL DEPENDENCY` rather than treating them as required install failures.
 - Tool execution on Node 22.0.0: TypeScript `6.0.3`, Vite `6.4.3`, Vitest `4.1.10` — PASS
 - Generation-time security check: `npm audit --package-lock-only --audit-level=high` reported `found 0 vulnerabilities`.
 
-The audit result is evidence for that specific resolved graph at that run; it is not a permanent security claim.
+### Node 22.0.0 engine-strict verification
+
+A follow-up evidence run `32535678363` used the same package manifest and unchanged lockfile blob on Node `22.0.0` with npm `10.9.4` and added an engine-strict installation gate:
+
+- `npm ci --engine-strict --ignore-scripts --audit=false --fund=false` — PASS
+- `@napi-rs/lzma-linux-x64-gnu@1.5.1`, an optional dependency of `rollup@4.62.5` whose own engine range starts at Node 22.20, was omitted by npm on Node 22.0.0 as an inapplicable optional dependency.
+- The workflow asserted that this optional package was absent after the engine-strict install.
+- Vite `6.4.3` executed on Node `22.0.0` after that install — PASS.
+- Vitest `4.1.10` executed on Node `22.0.0` after that install — PASS.
+- The follow-up audit again reported `found 0 vulnerabilities` for the resolved lockfile graph.
+
+The stricter engine range of an omitted optional package therefore does not redefine Ascout's Node `>=22` support floor. The evidence above is deliberately scoped to the tested Ubuntu x64 environment and does not claim an untested platform result.
+
+Security/audit results are evidence for the specific resolved graph at the cited runs; they are not permanent security claims.
 
 ## Direct dependencies
 
@@ -67,4 +80,4 @@ The audit result is evidence for that specific resolved graph at that run; it is
 
 ## Transitive dependencies
 
-`package-lock.json` is the canonical machine-readable record for the exact resolved transitive graph used by this revision, including registry `resolved` URLs, SRI `integrity` values, and license metadata where npm records it. This file does not replace any license text or attribution that a future packaged distribution is legally required to carry.
+`package-lock.json` is the canonical machine-readable record for the exact resolved transitive graph used by this revision, including registry `resolved` URLs, SRI `integrity` values, and license metadata where npm records it. Optional entries can legitimately remain recorded even when npm omits them on a particular platform or Node version. This file does not replace any license text or attribution that a future packaged distribution is legally required to carry.
