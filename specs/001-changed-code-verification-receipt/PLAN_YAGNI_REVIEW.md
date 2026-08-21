@@ -1,49 +1,65 @@
 # 001 — Post-Plan Ponytail/YAGNI Review
 
-**Gate:** PASS WITH TWO BOUNDARIES LOCKED  
+**Gate:** PASS AFTER CROSS-ARTIFACT REDUCTION  
 **Date:** 2026-08-21
 
 ## Decision
 
-The technical plan remains the minimum credible architecture for the feature. It does not need a redesign before task generation.
+The repaired technical plan is the minimum credible M1 architecture. Cross-artifact analysis found one genuine Ponytail failure in the earlier candidate: config v1 allowed arbitrary task names plus user-defined prerequisites, which was functionally a small workflow/task-runner DSL despite the plan saying no DSL. That surface has been deleted before implementation.
 
 ## Dependency ladder
 
 ### `cross-spawn` — KEEP
 
-Node itself documents special Windows handling for `.cmd`/`.bat` and warns about shell invocation. Correct escaping of package-manager/node_modules shims is security-sensitive and unrelated to Ascout's product wedge. Reusing the mature cross-platform launcher is smaller and safer than reproducing it.
+Windows command-shim/PATHEXT/shebang launch behavior is security-sensitive plumbing outside Ascout's wedge. Reuse is smaller than reimplementing it.
 
-Boundary: `cross-spawn` normalizes launch only. Ascout still owns timeout, bounded capture, process-tree termination, normalized result semantics, and tests.
+Boundary: launch normalization only. Ascout owns timeout, bounded capture, process-tree termination, result semantics, and tests.
 
-### All other proposed runtime libraries — REJECT FOR M1
+### All other product runtime libraries — REJECT FOR M1
 
-- No CLI framework: Node `util.parseArgs` is enough for three commands.
-- No config parser: tracked JSON is enough.
-- No coverage library/database: line-level LCOV parser is enough.
+- No CLI framework: `node:util.parseArgs` is enough.
+- No executable config framework/parser: JSON is enough.
+- No coverage database/library: strict line-level LCOV parser is enough.
 - No Git library: Git CLI is canonical.
-- No logging framework: terminal/receipt writers own bounded output.
-- No schema-validation runtime dependency unless implementation demonstrates that a small strict validator cannot safely uphold the v1 config contract.
+- No logging framework: bounded receipt/artifact writers are enough.
+- No schema-validation runtime dependency unless implementation evidence proves a small strict validator cannot uphold the fixed v1 contracts.
 
 ## Abstraction audit
 
 - `src/tools/*` are concrete integrations, not a plugin hierarchy.
-- `receipt/model.ts` is justified because three output surfaces must share one truth model.
-- `process.ts` is justified because launch/timeout/tree-kill/redaction capture is a safety boundary.
-- `git.ts` is justified because source identity, diff ranges, and drift share canonical Git semantics.
-- No repository graph, service layer, repository pattern, event bus, dependency injection container, or persistence abstraction is permitted by the plan.
+- `receipt/model.ts` is justified because three renderers share one truth model.
+- `process.ts` is justified by launch/timeout/tree-kill safety.
+- `git.ts` is justified by source identity/diff/drift sharing Git semantics.
+- Fixed internal prerequisite ordering is allowed; **user-defined task/prerequisite graphs are not**.
+- No repository graph, service layer, event bus, DI container, persistence abstraction, or workflow engine is permitted.
 
-## Two boundaries locked
+## Boundaries locked
 
 ### B1 — No recursive widening engine
 
-A narrowed test run may trigger at most one post-run widening pass for the affected package/workspace. If that wider pass still cannot establish a usable execution relationship, Ascout reports the unresolved gap. M1 does not invent recursive impact analysis.
+A narrowed test run may trigger at most one post-run widening pass. If the wider pass still leaves a material changed executable line unexercised/unresolved, Ascout reports incomplete exit `4`; it does not recursively invent impact analysis.
 
 ### B2 — No semantic test-weakening analyzer
 
-M1 reports factual changed/deleted test/snapshot paths. Skip/disable/assertion analysis is optional only when a reliable detector can be added without introducing a speculative AST subsystem. The first slice does not need it.
+M1 reports factual changed/deleted test/snapshot paths only. Semantic weakening inference waits for a reliable future detector with benchmark evidence.
+
+### B3 — No config workflow DSL
+
+Config v1 can only override fixed semantic tasks (`typecheck`, `lint`, `test`, `pytestBasic`) plus timeout/budget/redaction. Arbitrary task names, user-authored prerequisites, workspace orchestration, expressions, and hooks are deleted from M1.
+
+### B4 — No green exercise gap
+
+An exercise gap is the product's core signal. Allowing selected tests to pass and then returning clean exit `0` while changed executable lines remain `NOT_EXERCISED`/`UNRESOLVED` would make Ascout a misleading task runner. The repaired plan uses exit `4` for this stable-but-incomplete state.
+
+## Security reductions from analyze
+
+- Raw credential-bearing Git origin strings are never persisted; repository identity is credential-safe.
+- Persisted/rendered argv is redacted using the evidence redaction policy; raw argv is transient launch input only.
+- All non-gitignored untracked files except `.ascout/` participate in source identity, eliminating an undefined "relevant untracked" omission heuristic.
+- Unstaged worktree mode/type participates in tree identity so executable-bit/type changes cannot disappear when bytes are unchanged.
 
 ## Complexity budget
 
-The plan's concrete source tree is an upper bound, not a mandate. During implementation, adjacent modules SHOULD be collapsed when behavior remains trivial. New top-level runtime dependencies, databases, background processes, or semantic indexes require a plan amendment and constitution check.
+The source tree remains an upper bound. Adjacent modules SHOULD collapse when trivial. New runtime dependencies, DB/background processes, semantic indexes, generic plugin interfaces, arbitrary config workflow edges, or recursive widening require a plan amendment and constitution check.
 
-**Disposition:** proceed to contracts, tasks, checklist, and cross-artifact analysis.
+**Disposition:** repaired plan is lean enough for final cross-artifact analysis and independent final audit. No implementation is authorized.
