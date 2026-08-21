@@ -8,7 +8,7 @@
 
 Ascout is an evidence-first verification tool. Its own code provenance must therefore be inspectable, reproducible where practical, and conservative when ownership or licensing is uncertain.
 
-This policy defines what source material may influence Ascout implementation, what must be recorded, and what is prohibited. It does not replace third-party license texts or legal obligations.
+This policy defines what source material may influence Ascout implementation, what must be recorded, and what is prohibited. It does not replace third-party license texts or legal obligations and is an engineering-governance policy, not legal advice. Rights or licensing questions that remain unresolved must be escalated to an authorized project decision-maker or qualified legal counsel rather than guessed away.
 
 ## 2. Canonical project license
 
@@ -47,8 +47,9 @@ This class is **not allowed implicitly**.
 
 Before commit, record at minimum:
 - upstream repository URL;
-- immutable commit or release identifier;
-- exact upstream path(s);
+- for repository source, the exact immutable commit object ID; a branch name, release name, or tag alone is insufficient because it may be moved or replaced;
+- for a standalone release artifact that is the source of the imported material, a versioned artifact URL plus a cryptographic checksum of the exact artifact used;
+- exact upstream path(s), or exact paths within the checked artifact;
 - upstream license and applicable copyright notice;
 - whether the material is copied, translated, generated from, or materially adapted;
 - Ascout destination path(s);
@@ -56,7 +57,7 @@ Before commit, record at minimum:
 - license-compatibility review;
 - required attribution or notice text.
 
-If any of those fields cannot be established, do not import the code.
+If any required provenance field cannot be established, do not import the code.
 
 ### D. Public design/reference material
 
@@ -87,7 +88,7 @@ Do not use as an Ascout implementation source:
 - source copied from a product or service merely because its behavior can be observed;
 - material that would require relicensing Ascout incompatibly with the repository's Apache-2.0 distribution intent.
 
-When exposure to non-public material may have occurred, do not make unsupported claims that contributors have "never seen" it. Instead, keep the Ascout implementation independently reviewable from permitted public/canonical sources and exclude the non-public material from the implementation process.
+When exposure to non-public or gated material may have occurred, do not make unsupported claims that contributors have "never seen" it and do not continue using the exposed material. Apply the clean-room exposure procedure in Section 5 before affected implementation proceeds.
 
 ## 5. Clean-room boundary for competitive references
 
@@ -100,6 +101,19 @@ In particular:
 - no TestSprite source import is authorized by this policy;
 - public documentation or a public repository may be cited as a design reference only under its actual terms;
 - the same rule applies to any other proprietary or gated competitor.
+
+### Exposure procedure
+
+If a contributor has accessed non-public, gated, proprietary, leaked, or otherwise non-permitted material that could influence an Ascout implementation:
+
+1. **Document the exposure fact without reproducing protected content.** Record who or which role was exposed, the material category/source, the approximate time, and the potentially affected Ascout work. Do not copy the protected material into issues, PRs, prompts, logs, or provenance records.
+2. **Stop using the exposed material.** Do not quote, summarize for implementation, transform, or continue supplying it to people or AI systems working on the affected Ascout code.
+3. **Quarantine potentially influenced implementation.** Treat code, notes, prompts, or generated output materially influenced by the exposure as provenance-unresolved until the clean-room path is decided; passing tests do not clear this status.
+4. **Prefer independent reimplementation.** Assign the affected implementation to a contributor who was not exposed to the restricted material, using only canonical Ascout requirements and other permitted public sources. The PR should record the clean-room basis and permitted inputs without revealing the protected material.
+5. **Alternative handling requires documented authorization.** If independent reimplementation is not the chosen path, do not proceed merely on an informal assumption. Record a project-approved rights/legal determination that identifies why the alternative process is permitted and any conditions or attribution it requires.
+6. **Review before merge.** The affected PR remains blocked until reviewers can determine from permitted records that provenance is resolved. If that cannot be established, remove or independently replace the affected material.
+
+This procedure is intentionally about provenance isolation, not about asserting that exposure itself creates or does not create any particular legal consequence.
 
 ## 6. Research does not authorize adoption
 
@@ -150,9 +164,11 @@ A passing test does not prove lawful provenance. A valid license does not prove 
 
 ```text
 SOURCE_PROVENANCE_RECORD:
-- upstream_repository: <url>
-- upstream_commit_or_release: <immutable id>
-- upstream_paths: <paths>
+- upstream_repository: <url or N/A for standalone artifact>
+- upstream_commit_sha: <full immutable commit object ID or N/A for standalone artifact>
+- upstream_artifact_url: <versioned artifact URL or N/A for repository source>
+- upstream_artifact_checksum: <algorithm:digest or N/A for repository source>
+- upstream_paths: <repository paths or paths within artifact>
 - upstream_license: <SPDX/license name>
 - upstream_copyright: <notice or reference>
 - use_type: copied|adapted|translated|generated_from
@@ -162,5 +178,7 @@ SOURCE_PROVENANCE_RECORD:
 - required_attribution: <text/reference>
 - reviewer: <identity or review record>
 ```
+
+For repository source, `upstream_commit_sha` is required and the artifact fields may be `N/A`. For a standalone release artifact, `upstream_artifact_url` and `upstream_artifact_checksum` are required; a release or tag name alone is not sufficient immutable provenance.
 
 No `UNRESOLVED` record authorizes merge of the affected imported source.
