@@ -96,7 +96,10 @@ ascout check --allow-changed-command-surface
 
 This is a **per-invocation** admission only. It is not stored in `ascout.config.json`, not remembered between runs, and agent instructions/hooks MUST NOT add it automatically. When used, each affected task records `execution_admission=explicit_changed_surface_override` plus changed authority paths.
 
-Unchanged command surfaces use `execution_admission=normal`.
+Admission invariants are strict:
+
+- `command_surface_changed=false` ⇒ `execution_admission=normal` and no changed authority paths;
+- `command_surface_changed=true` ⇒ at least one changed authority path and admission is either `refused_changed_surface` or `explicit_changed_surface_override`; it can never remain `normal`.
 
 This is the smallest defensible admission boundary for M1; no trust database, VM/container sandbox, or untrusted mode is added.
 
@@ -139,6 +142,8 @@ Git is the changed-state engine:
 - untracked text files may be treated wholly changed for line ranges;
 - binary/non-line inputs are file-level only;
 - rename/type metadata retained.
+
+Rename representation is strict: `change_kind=renamed` requires `previous_path`; other change kinds do not carry `previous_path`.
 
 Committed `--base` comparison is deferred.
 
@@ -194,13 +199,13 @@ Explicit/clearly discoverable pytest only; no Python environment chooser, affect
 
 ## Task Contract
 
-Fixed task types:
+Fixed task types use the same canonical identifiers in config v1, receipt v1, data model, and implementation:
 
 ```text
 typecheck
 lint
 test
-pytest_basic
+pytestBasic
 ```
 
 Task categories are independent by default. `BLOCKED` is used only where a real validity dependency exists; typecheck/lint failure does not automatically block independent tests.
@@ -216,7 +221,7 @@ Receipt task records include:
 - `changed_authority_paths[]`;
 - `execution_admission: normal | refused_changed_surface | explicit_changed_surface_override`.
 
-Non-executed tasks may have empty argv/null tool identity if resolution never occurred. Raw argv is transient launch input only.
+`NOT_RUN`, `BLOCKED`, and `ERROR` MUST carry non-empty `reason_code` and `reason_text`. Non-executed tasks may have empty argv/null tool identity if resolution never occurred. Raw argv is transient launch input only.
 
 Deselected tests are SelectionAccount data, not task-level `NOT_RUN`.
 
@@ -239,9 +244,9 @@ mapping state
 
 For changed executable/instrumentable lines:
 
-- `EXERCISED`: resolved count > 0;
-- `NOT_EXERCISED`: resolved count = 0;
-- `UNRESOLVED`: executable/source relation cannot be established reliably.
+- `EXERCISED`: resolved integer execution count > 0;
+- `NOT_EXERCISED`: resolved execution count = 0;
+- `UNRESOLVED`: execution count is null and a non-empty reason explains why executable/source relation cannot be established reliably.
 
 Coverage is observed execution, not correctness.
 
@@ -305,7 +310,7 @@ stability
 summary
 ```
 
-Receipt contract fixes task types, strict repository/package selection scope, at most two selection passes, source stability, completeness, and admission fields. No proof ladder. Weak fingerprint remains optional current-run matching aid only.
+Receipt contract fixes task types, strict repository/package selection scope, at most two selection passes, source stability, completeness, changed-file rename identity, task reason requirements, exercise state/count/reason invariants, and admission fields. No proof ladder. Weak fingerprint remains optional current-run matching aid only.
 
 Agent output default max: 16 KiB UTF-8, prioritizing errors/findings/admission refusals/exercise gaps, preserving identity/status/totals.
 
@@ -343,7 +348,10 @@ Git-derived changed/deleted test files and tracked snapshots only. No semantic w
 
 Required tests cover:
 
-- config/receipt contracts;
+- config/receipt contracts, including canonical task identifier parity;
+- rename `previous_path` invariant;
+- task reason invariants for `NOT_RUN`/`BLOCKED`/`ERROR`;
+- exercise state/count/reason invariants;
 - secret-safe remote and local identity;
 - tree digest including mode/untracked state;
 - changed-command default refusal + explicit per-run admission + agent non-escalation;
