@@ -7,9 +7,9 @@
 
 ## 1. Executive Result
 
-Ascout's founding planning set has been repeatedly challenged rather than accepted at face value. Internal analysis, independent adversarial audit, Qodo, and CodeRabbit exposed defects in execution authority, no-green semantics, source/evidence identity, receipt integrity, persisted-path privacy and canonical serialization, executable regression coverage, path-validation ordering, benchmark truthfulness, exact-head governance, and canonical-document authority.
+Ascout's founding planning set has been repeatedly challenged rather than accepted at face value. Internal analysis, independent adversarial audit, Qodo, and CodeRabbit exposed defects in execution authority, no-green semantics, source/evidence identity, receipt integrity, persisted-path privacy and canonical serialization, executable regression coverage, path-validation ordering, exact HEAD comparison binding, changed-line range validity, benchmark truthfulness, exact-head governance, and canonical-document authority.
 
-Every accepted finding through CodeRabbit CR15 is repaired in the current planning set.
+Every accepted finding through CodeRabbit CR17 is repaired in the current planning set.
 
 No product implementation is authorized or present.
 
@@ -59,12 +59,14 @@ Later Qodo repetitions of Q1–Q4 were checked against exact linked SHAs and con
 | CR9 | MINOR / AUTHORITY | `pytestBasic` absent from admission test matrix. | Effective pytest config participates in the same admission mechanism. | RESOLVED |
 | CR10 | MAJOR / PRIVACY | Persisted path fields accepted absolute/traversal/host-native forms. | Shared canonical relative path contract + semantic namespace containment; POSIX/drive/UNC/URI/backslash/traversal forms rejected. | RESOLVED |
 | CR11 | MINOR / PLAN | Opening plan summary omitted `pytestBasic`. | Summary explicitly names all four fixed task categories. | RESOLVED |
-| CR12 | BLOCKER / GOVERNANCE | Two live `Master Plan v1` files both looked authoritative and differed materially. | `docs/founding/ASCOUT_MASTER_PLAN_V1.md` is now an explicit `SUPERSEDED / NON-AUTHORITATIVE` tombstone. The sole canonical plan is `docs/founding/MASTER_PLAN_V1.md`; the old path MUST NOT be used for implementation authorization, Spec Kit derivation, requirement interpretation, task planning, review, or release decisions. | RESOLVED |
-| CR13 | MAJOR / DATA INTEGRITY | The shared path regex still accepted noncanonical serialized forms such as `src//file.ts` and `src/`. | `canonicalRelativePath` requires non-empty slash-delimited segments with no trailing separator while preserving prior absolute/drive/URI/backslash/dot-segment exclusions. CHK088 locks the contract regression. | RESOLVED |
-| CR14 | MAJOR / TESTABILITY | CR13's exact regression forms were locked in checklist prose but not explicitly required by implementation-test tasks. | T009, T033, and T081 explicitly require duplicate-separator and trailing-separator regression cases, including `src//file.ts` and `src/`. CHK089 locks task-plan executability. | RESOLVED |
-| CR15 | MAJOR / DATA INTEGRITY | Planning prose allowed lossy normalization before validation, which could collapse `src//file.ts` to `src/file.ts`, strip `src/`, or resolve traversal before the validator saw the forbidden original spelling. | `plan.md`, `data-model.md`, `spec.md`, T009/T025/T033/T081 now require fail-closed validation of the original receipt candidate spelling before any lossy normalization/collapse/resolution; invalid spellings are rejected and never repaired. CHK090 locks the ordering invariant. | RESOLVED |
+| CR12 | BLOCKER / GOVERNANCE | Two live `Master Plan v1` files both looked authoritative and differed materially. | `docs/founding/ASCOUT_MASTER_PLAN_V1.md` is an explicit `SUPERSEDED / NON-AUTHORITATIVE` tombstone; sole canonical plan is `docs/founding/MASTER_PLAN_V1.md`. | RESOLVED |
+| CR13 | MAJOR / DATA INTEGRITY | Shared path regex accepted noncanonical serialized forms such as `src//file.ts` and `src/`. | `canonicalRelativePath` requires non-empty slash-delimited segments with no trailing separator while preserving prior exclusions. | RESOLVED |
+| CR14 | MAJOR / TESTABILITY | CR13 exact regression forms were not explicitly required by implementation-test tasks. | T009, T033, and T081 explicitly require `src//file.ts` and `src/` regressions. | RESOLVED |
+| CR15 | MAJOR / DATA INTEGRITY | Planning prose allowed lossy normalization before validation, potentially repairing forbidden spelling before rejection. | Plan/data model/spec/tasks require original-candidate fail-closed rejection before lossy normalization/collapse/resolution; invalid spellings are never repaired. | RESOLVED |
+| CR16 | MAJOR / SOURCE BINDING | `sourceState.head_sha` and `comparison.base_ref` were weak/free-form enough for a receipt to claim `working_tree_vs_head` without binding comparison identity to source-start HEAD. | Receipt schema defines full 40/64-hex Git object IDs; `comparison.base_ref` is the resolved exact HEAD object ID, and semantic validation requires exact equality with `source.start.head_sha`. Unborn HEAD is unsupported for M1 normal check. T009/T011/T018/T020/T025/T026/T033/T081 lock the contract. | RESOLVED |
+| CR17 | MAJOR / DATA INTEGRITY | `changed_new_line_ranges` allowed inverted ranges such as `[10, 1]`, which could corrupt changed-line/exercise arithmetic. | JSON Schema factors the two-positive-integer shape; semantic validation requires `start <= end` before changed-line, coverage, or exercise arithmetic. T009/T011/T020/T025/T026/T033/T081 require the negative regression. | RESOLVED |
 
-CR12 is governance-only. CR13 strengthens the existing path predicate. CR14 strengthens existing test tasks. CR15 fixes ordering inside the same path-validation invariant. None adds an architecture subsystem, runtime capability, dependency, or task ID.
+CR12 is governance-only. CR13–CR15 strengthen one path invariant. CR16 binds the existing M1 HEAD comparison rather than adding a new comparison mode. CR17 strengthens the existing changed-line range invariant. None adds an architecture subsystem, runtime dependency, or task ID.
 
 ## 5. Canonical Planning Authority
 
@@ -74,15 +76,7 @@ There is exactly one live normative Master Plan v1:
 docs/founding/MASTER_PLAN_V1.md
 ```
 
-Legacy path:
-
-```text
-docs/founding/ASCOUT_MASTER_PLAN_V1.md
-```
-
-is a tombstone only. It contains no alternate normative requirements and explicitly prohibits use for implementation authorization or Spec Kit derivation.
-
-Historical text remains available through Git history, not as a second live specification.
+Legacy `docs/founding/ASCOUT_MASTER_PLAN_V1.md` is a tombstone only and cannot authorize implementation or drive Spec Kit derivation.
 
 ## 6. Constitution / Product Truth Re-check
 
@@ -91,11 +85,12 @@ Historical text remains available through Git history, not as a second live spec
 | Evidence before claims; current-run evidence refs resolve | PASS |
 | No green by omission or changed-code exercise gap | PASS |
 | Exact source binding + drift + no evidence reuse | PASS |
+| `working_tree_vs_head` comparison base equals source-start full HEAD object ID | PASS |
+| Changed new-line ranges reject `start > end` before exercise arithmetic | PASS |
 | Changed command/config authority defaults to refusal | PASS |
 | Opaque remote/local repository identity | PASS |
 | Canonical relative persisted paths only, with unique slash-segment serialization | PASS |
 | Invalid receipt path spellings are rejected before lossy normalization and never repaired | PASS |
-| CR13 exact path regressions are executable test requirements | PASS |
 | Native capability before custom infrastructure | PASS |
 | Bounded widening and execution | PASS |
 | Minimal core; no DB/daemon/graph/plugin/AI/path subsystem | PASS |
@@ -108,32 +103,32 @@ No constitutional exception is accepted.
 ## 7. Requirement / Task Traceability
 
 - Source/evidence/task/admission/privacy invariants: T008–T043.
-- Persisted path containment and canonical serialization (FR-042 / SC-015): T009, T025, T026, T033, T081.
-- CR13/CR14/CR15 executable regressions: T009 contract/semantic negatives, T025 validator ordering, T033 end-to-end rejection, and T081 cross-platform golden checks explicitly prove raw invalid spellings — including duplicate/trailing separators and concrete `src//file.ts` / `src/` cases — are rejected before lossy normalization and never repaired.
+- Exact HEAD/comparison binding (FR-043 / SC-016): T009, T011, T018, T020, T025, T026, T033, T081.
+- Changed-line range validity (FR-044 / SC-017): T009, T011, T020, T025, T026, T033, T081.
+- Persisted path containment/canonical serialization (FR-042 / SC-015): T009, T025, T026, T033, T081.
 - Affected selection/exercise: T044–T056.
 - Drift/flake: T057–T064.
 - Test facts/agent receipt: T065–T070.
-- Benchmark integrity: T071–T078, especially T077.
+- Benchmark integrity: T071–T078.
 - Cross-platform/release/governance: T079–T088.
 
-Task range remains exactly **T001–T088**. No new task ID is added for CR12–CR15 because the repairs strengthen existing governance, contract, validator-ordering, and test invariants.
+Task range remains exactly **T001–T088**.
 
 ## 8. Machine Contract Re-check
 
-Receipt v1 has:
+Receipt v1 now has:
 
-- fixed task IDs;
+- fixed task IDs and seven task states;
 - explicit omission/error reasons;
-- strict rename and exercise invariants;
-- admission invariants;
 - opaque repository IDs;
-- root `evidence[]`;
-- canonical persisted path schema with one serialized slash-separated representation per accepted segment sequence;
-- original-spelling fail-closed rejection before any lossy normalization or path repair;
+- full Git object ID shape for source/comparison identity;
+- semantic equality `comparison.base_ref == source.start.head_sha` for M1 `working_tree_vs_head`;
+- positive changed-line range endpoints plus semantic `start <= end` before arithmetic;
+- strict rename/exercise/admission invariants;
+- root current-run `evidence[]` with resolvable references;
+- canonical persisted path schema and original-spelling fail-closed rejection before lossy normalization;
 - separate stability/completeness;
-- one pure semantic validator for referential/cross-field/path containment/exit consistency.
-
-The implementation plan requires exact regression tests for duplicate/trailing separators and verifies the validator cannot normalize those failures away.
+- one pure semantic validator for cross-object/cross-field/path/range/source-binding/exit consistency.
 
 No known machine-contract or testability contradiction remains.
 
@@ -152,10 +147,10 @@ No invented pre-data recall threshold is frozen.
 Current checklist:
 
 ```text
-90 / 90 PASS
+92 / 92 PASS
 ```
 
-CHK087 locks the single canonical Master Plan authority. CHK088 locks canonical path serialization. CHK089 locks explicit implementation-test coverage for the exact CR13 regression forms. CHK090 locks raw-form rejection before lossy normalization/repair.
+CHK091 locks exact HEAD/comparison identity binding. CHK092 locks non-inverted changed new-line ranges.
 
 ## 11. Analyze Verdict
 
@@ -164,8 +159,8 @@ CHK087 locks the single canonical Master Plan authority. CHK088 locks canonical 
 - open internal BLOCKER findings: **0**
 - open internal MAJOR findings: **0**
 - accepted Qodo findings unrepaired: **0**
-- accepted CodeRabbit findings CR1–CR15 unrepaired: **0**
-- requirements/contract/governance checks: **90/90 PASS**
+- accepted CodeRabbit findings CR1–CR17 unrepaired: **0**
+- requirements/contract/governance checks: **92/92 PASS**
 - unresolved constitutional violations: **0**
 - orphan product requirements: **0**
 - product implementation files: **0**
