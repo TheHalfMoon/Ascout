@@ -48,7 +48,7 @@ Core verification requires no Ascout account, repository upload, SaaS backend, c
 
 ### FD-ASCOUT-004 — Evidence identity
 
-Evidence is run-bound and never transfers between source trees. Finding fingerprints are weak/versioned matching aids, not evidence/global identity.
+Evidence is run-bound and never transfers between source trees. Finding fingerprints are weak/versioned matching aids, not evidence/global identity. Receipt evidence references must resolve to current-run evidence entries.
 
 ### FD-ASCOUT-005 — Result honesty
 
@@ -64,11 +64,11 @@ NOT_APPLICABLE
 NOT_RUN(reason_code, reason_text)
 ```
 
-No universal proof ladder. `in_changed_lines` is locational; `introduced_by_change` is causal and defaults `unknown` in M1.
+`NOT_RUN`, `BLOCKED`, and `ERROR` require non-empty reason code/text. No universal proof ladder. `in_changed_lines` is locational; `introduced_by_change` is causal and defaults `unknown` in M1.
 
 ## 4. Constitutional Product Rules
 
-1. **Evidence before claims.** Tool/model assertions do not outrank current-run evidence.
+1. **Evidence before claims.** Tool/model assertions do not outrank current-run evidence; exposed evidence references must resolve to current-run evidence entries.
 2. **No green by omission.** Unexecuted applicable work and material exercise gaps remain visible and cannot hide behind clean success.
 3. **Source-bound truth.** Evidence is tied to exact run/source/config state; start/end drift is explicit.
 4. **Local-first, not fake-offline.** No required cloud/account/upload; no unproven child-process network-isolation claim.
@@ -76,12 +76,13 @@ No universal proof ladder. `in_changed_lines` is locational; `introduced_by_chan
 6. **Conservative affected verification.** When narrowing is unsafe, widen; speed loses to honesty.
 7. **Minimal core.** No daemon/server/DB/Rust/public plugin SDK/required LLM/cloud control plane in M1.
 8. **No implicit installs.** Missing dependencies become visible non-execution.
-9. **Command provenance.** Every executed task records authority/source; changed command surfaces warn before execution.
+9. **Command provenance and admission.** Every executed task records authority/source. If the current diff changes an effective command/config surface Ascout would execute/load, the task is refused by default as `NOT_RUN(command_surface_changed)`; only explicit, receipt-visible, per-invocation human admission may allow execution.
 10. **Read-only by default.** No silent product-source rewriting; tracked/non-gitignored mutation during verification remains drift.
 11. **Bounded execution.** Timeouts, process-tree cleanup, run lock, bounded retention/output.
-12. **Evidence privacy.** `.ascout/` ignored; persisted output/argv redacts recognized secret-bearing env values; raw credential-bearing remote URLs are never persisted.
+12. **Evidence privacy.** `.ascout/` ignored; persisted output/argv redacts recognized secret-bearing env values; raw remote/local repository location material is never persisted.
 13. **License/provenance integrity.** Code/rules/data/use restrictions are separate concerns; process isolation does not cure every license obligation.
 14. **Benchmark-driven expansion.** Future architecture needs measured evidence.
+15. **Fresh-head governance.** A stale plan audit never authorizes implementation; exact-HEAD cross-artifact consistency and branch purity must be reverified after material mutation and before authorization/merge consideration.
 
 ## 5. M1 Scope
 
@@ -134,19 +135,24 @@ Tracked `ascout.config.json` may override only fixed M1 task categories:
 
 Per category it may enable/disable with required visible reason, override argv command, and bound timeout. Global config may set timeout/termination grace, check budget, and extra redaction env names.
 
-M1 config does **not** define arbitrary task names, user-authored prerequisite graphs, workspace orchestration, expressions, hooks, or workflow steps. Ordering among fixed product tasks is internal product logic.
+M1 config does **not** define arbitrary task names, user-authored prerequisite graphs, workspace orchestration, expressions, hooks, trust grants, or workflow steps. Ordering among fixed product tasks is internal product logic.
 
 ## 8. Task / Result Model
 
 Every executed task records semantic identity/type, command provenance/source, redacted persisted argv, tool/version, timing, status, exit/result metadata, observations, and current-run evidence/artifact references.
 
-Non-executed tasks MUST NOT fabricate argv/tool identity if command resolution never occurred.
+`NOT_RUN`, `BLOCKED`, and `ERROR` require non-empty reason code/text. Non-executed tasks MUST NOT fabricate argv/tool identity if command resolution never occurred.
 
 Deselected tests are SelectionAccount disclosure, not task-level `NOT_RUN`.
 
 ## 9. Source Identity
 
-Persisted remote identity is credential-safe: raw origin strings are never written; userinfo/credentials/query/fragment material is removed or replaced by a one-way identifier. Without a remote, use clearly local-only canonical-path identity with `portable=false`.
+M1 stores only schema-enforceable opaque repository identities:
+
+- remote present: `remote:<sha256(normalized-credential-free-remote-identity)>`, `portable=true`;
+- no remote: `local:<sha256(canonical-real-repository-path)>`, `portable=false`.
+
+Raw remote origins, credentials/userinfo/query/fragment material, and raw absolute local paths are never written to receipts/run artifacts.
 
 Tree identity covers:
 
@@ -155,13 +161,21 @@ Tree identity covers:
 - unstaged tracked current type/mode/content state;
 - all non-gitignored untracked files except `.ascout/`.
 
-There is no heuristic hidden untracked-source omission list. Tracked files are never excluded merely because a tool may rewrite them.
+There is no heuristic hidden untracked-source omission list. Tracked files are never excluded merely because a tool may rewrite them. A rename carries both current path and previous path.
 
 Hash at run start and end. Stability is `stable | tree_drifted | unknown` when integrity failure prevents comparison.
 
 ## 10. Evidence / Finding Identity
 
 Evidence IDs are run-bound `(run_id, task_id, sequence)`.
+
+Receipt v1 contains a root current-run `evidence[]` collection. Each evidence entry records its evidence ID, run ID, task linkage, kind, content digest, optional artifact linkage, and redaction/truncation state. Before emission/acceptance, semantic receipt validation must prove:
+
+- evidence IDs are unique;
+- each evidence entry belongs to the receipt run;
+- each evidence task link resolves to a task in the receipt;
+- every task/finding `evidence_id` resolves to a current-run evidence entry;
+- referenced artifact IDs resolve when present.
 
 Weak `fingerprint_v1` may hash version + task/rule identity + relative path + normalized message using unambiguous framing. It excludes line/tree identity, may fail across moves/tool-message changes, and never carries evidence.
 
@@ -191,9 +205,9 @@ Intersect changed executable lines with coverage from tests that actually ran.
 States:
 
 ```text
-EXERCISED
-NOT_EXERCISED
-UNRESOLVED
+EXERCISED        execution_count > 0
+NOT_EXERCISED    execution_count = 0
+UNRESOLVED       execution_count = null + non-empty reason
 ```
 
 Coverage is observed execution, never correctness proof. After permitted widening, any remaining `NOT_EXERCISED` or `UNRESOLVED` changed executable line is a **material verification gap** and prevents clean exit `0`.
@@ -208,6 +222,8 @@ Every task has bounded execution. Concurrent checks are refused, not queued. `.a
 
 Persisted stdout/stderr and persisted/rendered argv redact recognized/user-specified exact secret-bearing environment values. Raw argv exists transiently only for process launch. Redaction is best-effort, not a universal secret detector.
 
+Changed effective package/Ascout/TypeScript/ESLint/Vitest/Jest/pytest authority is refused by default before launch/load. A human may admit it only for the current invocation; that admission is visible in the receipt and is never remembered or auto-added by agent integration.
+
 ## 16. Reporting / Completeness
 
 One internal receipt truth feeds:
@@ -216,7 +232,9 @@ One internal receipt truth feeds:
 - versioned JSON;
 - bounded agent output.
 
-Clean `0` requires stable + materially complete + no finding/flake/error. Material incompleteness includes task `NOT_RUN`/`BLOCKED`, nothing material executing, unsafe selection that cannot be resolved, or remaining changed executable exercise gaps.
+Schema validation is necessary but not sufficient. One Ascout-owned semantic receipt validator checks cross-field invariants before emission/acceptance, including evidence-reference integrity, source stability, task status/reasons, admission, exercise state, completeness, and exit-code consistency.
+
+Clean `0` requires stable + materially complete + no finding/flake/error. Material incompleteness includes task `NOT_RUN`/`BLOCKED`, nothing material executing, unsafe selection that cannot be resolved, admission refusal, or remaining changed executable exercise gaps.
 
 Exit semantics:
 
@@ -255,6 +273,7 @@ Absolute M1 integrity gates:
 ```text
 cross-tree evidence leakage = 0
 binding-integrity violations = 0
+stable material exercise gap returning exit 0 = 0
 ```
 
 No invented pre-data 98% threshold.
@@ -263,7 +282,7 @@ No invented pre-data 98% threshold.
 
 ### M0 — Canonical specification
 
-Constitution, feature spec, trust/evidence/config/benchmark contracts, plan, tasks, analysis, independent final audit.
+Constitution, feature spec, trust/evidence/config/benchmark contracts, plan, tasks, analysis, independent final audit, fresh exact-HEAD review.
 
 ### M1 — Changed-code verification receipt
 
@@ -283,7 +302,7 @@ Mutation, property testing, fuzz/stateful API testing, richer code intelligence,
 
 ## 20. M1 Exit Condition
 
-A developer runs `ascout check` and receives a fast source-bound receipt that identifies exact source state; accounts for applicable verification; exposes selection/widening; distinguishes task states; reports changed executable exercise/unexercise/unresolved lines; reports factual verification-asset changes; detects drift; emits consistent terminal/JSON/agent truth; and passes binding-integrity benchmark gates.
+A developer runs `ascout check` and receives a fast source-bound receipt that identifies exact source state; accounts for applicable verification; exposes selection/widening; distinguishes task states; reports changed executable exercise/unexercise/unresolved lines; reports factual verification-asset changes; contains resolvable current-run evidence; detects drift; emits consistent terminal/JSON/agent truth; and passes binding-integrity benchmark gates.
 
 M1 does not prove universal correctness. It proves what it actually verified and refuses green while material changed executable code remains unchecked.
 
@@ -294,7 +313,7 @@ M1 does not prove universal correctness. It proves what it actually verified and
 
 The headline is the mission. The receipt is the technical contract.
 
-Ascout never reports fully verified when material work/gaps remain, deselected as passed, execution `ERROR` as repository `FAIL`, old evidence as new evidence, changed-line location as causation, network isolation it did not enforce, or untrusted-repository safety it does not provide.
+Ascout never reports fully verified when material work/gaps remain, deselected as passed, execution `ERROR` as repository `FAIL`, old evidence as new evidence, dangling evidence IDs as proof, changed-line location as causation, network isolation it did not enforce, or untrusted-repository safety it does not provide.
 
 ## 22. Spec Kit Handoff
 
@@ -310,7 +329,8 @@ Master Plan v1
   → checklist
   → analyze
   → independent final plan audit
+  → fresh exact-HEAD cross-artifact + branch-purity review
   → explicit implementation authorization
 ```
 
-Ponytail is a complexity gate, not an architecture generator. No implementation begins before all gates pass.
+Ponytail is a complexity gate, not an architecture generator. A stale audit never authorizes implementation. No implementation begins before all gates pass.
