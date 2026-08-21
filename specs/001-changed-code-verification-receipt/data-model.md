@@ -15,7 +15,7 @@ Core concepts:
 - `config_digest`;
 - comparison/selection;
 - task results;
-- exercise/test-change/findings/artifacts;
+- exercise/test-change/findings/evidence/artifacts;
 - `stability: stable | tree_drifted | unknown`;
 - derived summary/completeness/exit.
 
@@ -27,8 +27,12 @@ Fields include repository ID/kind/portable, HEAD, detached/shallow, digest versi
 
 ### Repository identity
 
-- Remote: raw origin is never persisted. Strip credentials/userinfo/query/fragment; if safe normalization is not possible, use an opaque one-way ID.
-- Local-only: `repository_id = local:<sha256(canonical-real-repository-path)>`; `portable=false`. Raw absolute path is never persisted/rendered.
+M1 persists only opaque schema-enforceable identifiers:
+
+- remote: `repository_id = remote:<sha256(normalized-credential-free-remote-identity)>`; `repository_id_kind=remote`; `portable=true`;
+- local-only: `repository_id = local:<sha256(canonical-real-repository-path)>`; `repository_id_kind=local_only`; `portable=false`.
+
+Raw remote origins, credentials/userinfo/query/fragment material, and raw absolute local paths are never persisted/rendered.
 
 ### Tree identity
 
@@ -85,7 +89,7 @@ Each task result records:
 4. `explicit_changed_surface_override` ⇒ a human supplied the per-invocation admission; changed authority paths are recorded.
 5. The admission is never persisted as a future trust grant and cannot be auto-supplied by an agent integration.
 
-Effective command surfaces include the repository/config files actually used to determine/load the task command or executable configuration, not every changed config file in the repository.
+Effective command surfaces include repository/config files actually used to determine/load the task command or executable configuration, including effective pytest configuration when `pytestBasic` is applicable.
 
 ## 6. VerificationTaskResult
 
@@ -105,13 +109,38 @@ Status invariants:
 
 ## 7. Evidence
 
+Receipt v1 contains a root current-run `evidence[]` collection.
+
 Logical Evidence ID:
 
 ```text
 (run_id, task_id, sequence)
 ```
 
-Evidence/artifacts are current-run only and may record digest, redaction, truncation.
+Each evidence entry records:
+
+- `evidence_id`;
+- `run_id`;
+- `task_id`;
+- positive integer `sequence`;
+- kind (`process_result | test_result | coverage | admission | warning | other`);
+- SHA-256 digest;
+- optional `artifact_id`;
+- redaction/truncation flags.
+
+### Semantic reference invariants
+
+Before a receipt is emitted or otherwise accepted as valid:
+
+1. evidence IDs are unique;
+2. each evidence entry `run_id` equals receipt `run.run_id`;
+3. each evidence entry `task_id` resolves to one receipt task;
+4. every task/finding `evidence_id` resolves to exactly one evidence entry;
+5. every non-null evidence `artifact_id` resolves to one receipt artifact;
+6. task/finding evidence references may not cross task/run boundaries contrary to their declared linkage;
+7. artifact IDs and evidence IDs used for references are unique.
+
+JSON Schema constrains entry shape; an Ascout-owned pure semantic validator enforces these cross-object relations.
 
 ## 8. Finding
 
@@ -167,9 +196,25 @@ No semantic `weakened` inference.
 
 ## 12. ArtifactRef / Privacy
 
-Artifacts live under current `.ascout/runs/<run-id>/`. Persisted outputs and argv are redacted before storage; raw secret-bearing argv, raw credential-bearing remote, and raw absolute local repo path are not artifacts.
+Artifacts live under current `.ascout/runs/<run-id>/`. Artifact IDs are unique within a receipt. Persisted outputs and argv are redacted before storage; raw secret-bearing argv, raw credential-bearing remote, and raw absolute local repo path are not artifacts.
 
-## 13. Completeness
+## 13. Semantic Receipt Validation
+
+JSON Schema validates field-level shapes. One Ascout-owned pure semantic validator additionally verifies before emission:
+
+- evidence/task/artifact reference integrity and uniqueness;
+- source start/end and `stability` consistency;
+- task status/reason/admission invariants;
+- exercise summary/record consistency;
+- aggregate task counts/finding count;
+- completeness rules;
+- exit precedence and summary exit code.
+
+Any internal/future receipt acceptance path MUST reuse the same semantic validator rather than inventing a second interpretation.
+
+This is a pure validation function, not a service, persistence layer, or workflow engine.
+
+## 14. Completeness
 
 - `complete`: at least one material applicable task executed; every applicable task executed or legitimately N/A; no applicable NOT_RUN/BLOCKED; selection safe; no remaining material exercise gap.
 - `materially_incomplete`: applicable omission/block/admission refusal, nothing material executed, unsafe selection, or remaining exercise gap.
@@ -177,7 +222,7 @@ Artifacts live under current `.ascout/runs/<run-id>/`. Persisted outputs and arg
 
 Finding/flake is an executed outcome and does not itself mean incomplete.
 
-## 14. Exit Decision
+## 15. Exit Decision
 
 ```text
 2 integrity/internal/config/task-execution error
