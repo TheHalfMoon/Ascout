@@ -27,10 +27,10 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 ### Tests first
 
 - [ ] T008 [P] Add `tests/contract/config-v1.test.ts` covering fixed task keys only (`typecheck`, `lint`, `test`, `pytestBasic`), arbitrary-key rejection, disable reason, argv-array override, timeout/budget/redaction bounds, and absence of user-defined prerequisites/workflow edges.
-- [ ] T009 [P] Add `tests/contract/receipt-v1.test.ts` covering seven task statuses, non-executed task records with empty argv/null tool identity, source stability states, completeness states, and exit precedence `2 > 3 > 1 > 4 > 0`.
+- [ ] T009 [P] Add `tests/contract/receipt-v1.test.ts` covering seven task statuses, non-executed task records with empty argv/null tool identity, strict fixed task types/selection-pass schema, source stability states, completeness states, and exit precedence `2 > 3 > 1 > 4 > 0`.
 - [ ] T010 [P] Add `tests/unit/tree-digest.test.ts` golden vectors for clean/staged/unstaged/deletion/symlink/executable-bit/type changes, all non-gitignored untracked files, `.ascout/` exclusion, and tracked snapshot mutation.
 - [ ] T011 [P] Add `tests/unit/git-diff.test.ts` for add/modify/delete/rename/type-change/binary/untracked whole-file line semantics.
-- [ ] T012 [P] Add `tests/unit/repository-identity.test.ts` covering HTTPS credentials, SSH/scp userinfo, query/fragment removal, safe fallback hash, and local-only identity; raw secret-bearing origin MUST never appear in persisted identity.
+- [ ] T012 [P] Add `tests/unit/repository-identity.test.ts` covering HTTPS credentials, SSH/scp userinfo, query/fragment removal, safe fallback hash, and local-only identity as a one-way canonical-path-derived ID; raw credential-bearing origins and raw absolute local paths MUST never appear in persisted/rendered identity.
 - [ ] T013 [P] Add `tests/integration/process-control.test.ts` for argv preservation, no shell-string launch, capture caps, timeout, child-tree cleanup, and Windows-native cases.
 - [ ] T014 [P] Add `tests/integration/run-lock.test.ts` for live-owner refusal and verified dead-owner recovery.
 - [ ] T015 [P] Add `tests/unit/redact.test.ts` covering secret-bearing env values in stdout/stderr **and persisted/rendered argv**, user redaction names, empty/short-value protection, and truncation metadata.
@@ -38,14 +38,14 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 ### Implementation
 
 - [ ] T016 Implement strict config parsing/validation and config digest in `src/config.ts`; fixed M1 task keys only, no prerequisite/workflow DSL.
-- [ ] T017 Implement secret-safe repository identity plus HEAD/detached/shallow discovery in `src/git.ts`; never persist raw remote origin.
+- [ ] T017 Implement secret-safe repository identity plus HEAD/detached/shallow discovery in `src/git.ts`; remote identity strips unsafe material and local-only identity persists a one-way hash of canonical path, never the raw absolute path.
 - [ ] T018 Implement canonical `tree_digest_v1` in `src/git.ts`, including index state, current unstaged type/mode/content, all non-gitignored untracked files except `.ascout/`, and length-prefixed framing.
 - [ ] T019 Implement zero-context tracked diff + all non-gitignored untracked changed-file scope in `src/git.ts`; do not fabricate line semantics for binary/deleted-only inputs.
 - [ ] T020 Implement cross-platform argv launch/capture/timeout/process-tree termination in `src/process.ts` with reviewed `cross-spawn` and no arbitrary `shell: true`.
 - [ ] T021 Implement atomic `.ascout/run.lock` in `src/lock.ts`; refuse live concurrent runs, recover only verified dead-owner stale lock.
 - [ ] T022 Implement redaction/truncation in `src/redact.ts`; raw secret-bearing argv may be used transiently for launch but MUST NOT be persisted/rendered.
 - [ ] T023 Implement run directory lifecycle and bounded retention in the smallest appropriate module; keep 20 completed runs by default and never delete active run.
-- [ ] T024 Implement single internal receipt model/exit decision in `src/receipt/model.ts`, including run-bound Evidence IDs, weak fingerprints, separate stability/completeness, and no fabricated fields for non-executed tasks.
+- [ ] T024 Implement single internal receipt model/exit decision in `src/receipt/model.ts`, including run-bound Evidence IDs, weak fingerprints, strict fixed task/selection contract, separate stability/completeness, and no fabricated fields for non-executed tasks.
 - [ ] T025 Implement JSON renderer in `src/receipt/json.ts`; contract tests validate `receipt-v1.schema.json`.
 
 **Checkpoint**: source/evidence primitives exist; no verification task is yet claimed successful.
@@ -66,7 +66,7 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 - [ ] T032 [US1] Implement TypeScript task in `src/tools/typescript.ts`, preferring fixed-task override then project script then unambiguous local `tsc`.
 - [ ] T033 [US1] Implement ESLint task in `src/tools/eslint.ts`; disclose changed-file vs project-script scope.
 - [ ] T034 [US1] Implement basic pytest task in `src/tools/pytest.ts`; pass/fail/error only, no Python environment/affected/coverage system.
-- [ ] T035 [US1] Implement internal prerequisite ordering/status propagation in `src/check.ts`; ordering is product logic, never config-defined graph.
+- [ ] T035 [US1] Implement internal prerequisite ordering/status propagation in `src/check.ts`; fixed task categories are independent by default and `BLOCKED` is used only for an actual validity dependency, never merely because typecheck/lint failed first.
 - [ ] T036 [US1] Implement command-surface classification/warning in `src/discovery.ts` for Ascout/package/compiler/lint/test config sources.
 - [ ] T037 [US1] Implement terminal receipt in `src/receipt/terminal.ts` with source identity, task matrix, omissions, stability, and completeness.
 - [ ] T038 [US1] Wire `ascout check` in `src/cli.ts`; until exercise verification exists, changed executable code without resolved exercise proof MUST remain incomplete rather than return clean success.
@@ -102,14 +102,14 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 
 ### Tests first
 
-- [ ] T054 [P] [US3] Add `tests/unit/selection.test.ts` for full/native modes, known/null counts, explicit limitations, and valid deselection accounting without task-level `NOT_RUN`.
+- [ ] T054 [P] [US3] Add `tests/unit/selection.test.ts` for full/native modes, known/null counts, explicit limitations, strict scope/pass contract, and valid deselection accounting without task-level `NOT_RUN`.
 - [ ] T055 [P] [US3] Add `tests/integration/drift.test.ts` for tracked mutation, included-untracked mutation, `.ascout/` artifact exclusion, and exit `3` when no higher-precedence integrity error exists.
 - [ ] T056 [P] [US3] Add `tests/integration/flaky.test.ts` for one failure → `reproduced=unknown`, repeated failures → true, contradictory observations → `FLAKY`/false stable-failure reproduction, and rerun-error → unknown.
 - [ ] T057 [US3] Add `tests/integration/exit-precedence.test.ts` covering simultaneous finding/gap/drift/internal-error conditions.
 
 ### Implementation
 
-- [ ] T058 [US3] Finalize SelectionAccount in `src/check.ts` with counts/null limitations, widening triggers, and at most two passes.
+- [ ] T058 [US3] Finalize SelectionAccount in `src/check.ts` with strict repository/package scopes, count/null limitations, widening triggers, and at most two passes.
 - [ ] T059 [US3] Add end-source rehash and stability finalization in `src/check.ts`; source stability remains orthogonal to task completeness.
 - [ ] T060 [US3] Implement exact failing-test extraction/targeted rerun helpers inside concrete Vitest/Jest modules; at most two extra observations, no whole-suite retry just to label reproduction.
 - [ ] T061 [US3] Normalize observation/reproduction/flake semantics in `src/receipt/model.ts`; keep `introduced_by_change=unknown` absent future comparative proof.
@@ -152,7 +152,9 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 - [ ] T080 Add `SECURITY.md` documenting trusted-local scope, repo-command risk, local-first vs offline, and artifact sensitivity.
 - [ ] T081 Add `CONTRIBUTING.md` documenting constitution/Spec Kit/Ponytail/provenance/test gates.
 - [ ] T082 Update `README.md` with locked identity, exact M1 claims, installation once package identity resolves, and visible non-claims.
-- [ ] T083 Perform exact-version dependency license/provenance review, resolve npm package ownership/scoped fallback, run quickstart + all contract/integration/benchmark gates from clean checkout, and record release-candidate evidence without publishing.
+- [ ] T083 Perform exact-version license/provenance review for every runtime/dev dependency and update `THIRD_PARTY_NOTICES.md`; unresolved license/use restrictions block release.
+- [ ] T084 Verify npm package-name ownership/availability or choose a scoped package fallback without changing the `ascout` binary command.
+- [ ] T085 Run the feature quickstart and all contract/integration/benchmark gates from a clean checkout; record release-candidate evidence without publishing a package.
 
 ## Execution Order
 
@@ -164,7 +166,7 @@ T001–T007 setup
   → T054–T061 US3
   → T062–T067 US4
   → T068–T075 benchmark
-  → T076–T083 release hardening
+  → T076–T085 release hardening
 ```
 
 Pure parser/contract tests may run in parallel where paths do not conflict. Concrete Vitest/Jest work may run in parallel after the foundation is stable. Corpus curation may begin before harness completion but cannot define product architecture.
