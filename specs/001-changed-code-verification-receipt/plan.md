@@ -160,7 +160,9 @@ Receipt paths are canonical data, not host-path strings.
 - `artifact.relative_run_path` uses the same canonical relative shape but is relative to `.ascout/runs/<run-id>/`;
 - raw absolute paths may exist only transiently while Git/tools are resolved and MUST NOT be persisted/rendered.
 
-Normalization happens before receipt validation. JSON Schema rejects obvious non-relative forms and the semantic validator enforces namespace containment/canonicality. A receipt is invalid if any persisted path is POSIX-absolute, Windows drive-absolute, UNC, URI-absolute, contains backslashes in persisted canonical form, or contains `.` / `..` traversal segments after normalization. A path that would escape its declared repository/run namespace is rejected rather than rewritten into a misleading relative path.
+Host/tool paths may be resolved transiently into a repository-relative or run-relative **receipt candidate**. Once that candidate string exists, validation is fail-closed on the candidate's **original spelling before any lossy normalization, separator collapse, trailing-separator removal, or dot-segment resolution**. JSON Schema rejects noncanonical raw spellings, and the semantic validator MUST apply the same raw-form rejection before any operation that could erase evidence of invalid syntax. It MUST NOT repair, collapse, or rewrite an invalid receipt candidate into a valid-looking path.
+
+The original candidate is rejected if it is POSIX-absolute, Windows drive-absolute, UNC, URI-absolute, contains a backslash, contains `.` / `..` path segments, contains an empty path segment such as `src//file.ts`, or has a trailing separator such as `src/`. Only after raw-form rejection passes may internal non-lossy comparison/containment logic operate on the already-canonical candidate. Namespace containment/canonicality is then verified; any candidate that would escape its declared repository/run namespace is rejected rather than rewritten.
 
 This is one receipt invariant, not a virtual filesystem or path-policy subsystem.
 
@@ -338,7 +340,8 @@ Task and finding `evidence_ids` are references into this collection; they are ne
 
 JSON Schema validates field shapes. Before receipt emission, one Ascout-owned pure semantic validator additionally verifies:
 
-- every persisted path is canonical and relative to its repository/run namespace after normalization; absolute/drive/UNC/URI/backslash/traversal forms are rejected;
+- every persisted path candidate is first checked **as originally spelled** and rejected before any lossy normalization/collapse if it is absolute/drive/UNC/URI, contains backslashes, dot segments, duplicate separators, or a trailing separator; the validator never repairs an invalid spelling;
+- after raw-form rejection passes, every persisted path is verified canonical and contained in its declared repository/run namespace;
 - evidence IDs, task IDs, artifact IDs, and references are unique/resolvable;
 - evidence `run_id` equals receipt `run.run_id`;
 - evidence task links resolve to current receipt tasks;
@@ -393,7 +396,7 @@ Required tests cover:
 - config/receipt contracts, including canonical task identifier parity;
 - evidence collection/reference integrity and semantic receipt validation;
 - privacy-safe `remote:<sha256>` / `local:<sha256>` repository IDs;
-- canonical persisted path normalization/containment across repo/run path fields, including POSIX absolute, Windows drive/UNC, URI, backslash, and traversal rejection;
+- raw persisted-path spelling rejection **before any lossy normalization**, plus canonical path containment across repo/run path fields, including POSIX absolute, Windows drive/UNC, URI, backslash, dot-segment, duplicate-separator (`src//file.ts`), and trailing-separator (`src/`) cases;
 - rename `previous_path` invariant;
 - task reason invariants for `NOT_RUN`/`BLOCKED`/`ERROR`;
 - exercise state/count/reason invariants;
