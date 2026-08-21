@@ -10,22 +10,25 @@
 
 ### User Story 1 — Know whether the agent's change was actually checked (Priority: P1)
 
-A developer has an AI coding agent make local changes in a repository. Before accepting the agent's claim that the work is done, the developer runs one Ascout check and receives a concise receipt that identifies changed scope, verification that ran, outcomes, omissions, admission decisions, and exact source state observed.
+A developer has an AI coding agent make local changes in a repository. Before accepting the agent's claim that the work is done, the developer runs one Ascout check and receives a concise receipt that identifies changed scope, verification that ran, outcomes, omissions, admission decisions, resolvable current-run evidence, and exact source state observed.
 
 **Why this priority**: Without an honest source-bound receipt and a defensible command-execution boundary, Ascout is only another task runner that may execute whatever the agent just rewrote.
 
-**Independent Test**: On a supported local repository with uncommitted changes and configured verification tasks, verify source binding, complete task accounting, and refusal of repo-derived tasks whose effective command surface changed until the human explicitly admits that surface for this invocation.
+**Independent Test**: On a supported local repository with uncommitted changes and configured verification tasks, verify source binding, complete task accounting, evidence-reference integrity, and refusal of repo-derived tasks whose effective command surface changed until the human explicitly admits that surface for this invocation.
 
 **Acceptance Scenarios**:
 
 1. **Given** a trusted local repository with changed code and unchanged effective command surfaces, **When** the developer runs a check, **Then** the receipt identifies source state, changed scope, tasks that ran, outcomes, and tasks that did not run with reasons.
-2. **Given** an applicable task whose tool/configuration cannot be resolved, **When** the check completes, **Then** the task is visibly `NOT_RUN` with an actionable reason and no fabricated executable/tool identity.
-3. **Given** an internal prerequisite that genuinely prevents valid downstream execution, **When** the prerequisite fails, **Then** dependent work is `BLOCKED` rather than silently omitted.
-4. **Given** Ascout cannot execute or interpret a task reliably, **When** the check completes, **Then** `ERROR` is distinct from repository failure.
-5. **Given** a configured remote origin containing credentials/userinfo, **When** source identity is persisted/rendered, **Then** raw credential-bearing origin is never written.
-6. **Given** the current diff changes an effective command/config source a task would load or execute, **When** the developer runs ordinary `ascout check`, **Then** that task is refused as `NOT_RUN(command_surface_changed)`, changed authority paths are named, and the run cannot return clean success because of that omitted applicable task.
-7. **Given** the same changed command surface, **When** the human explicitly supplies the per-invocation changed-surface admission, **Then** the task may execute and the receipt records that explicit admission and the changed authority paths.
-8. **Given** an agent instruction/hook invokes Ascout, **When** command surface changed, **Then** the integration MUST NOT silently add the admission override on the user's behalf.
+2. **Given** an applicable task whose tool/configuration cannot be resolved, **When** the check completes, **Then** the task is visibly `NOT_RUN` with non-empty reason code/text and no fabricated executable/tool identity.
+3. **Given** an internal prerequisite that genuinely prevents valid downstream execution, **When** the prerequisite fails, **Then** dependent work is `BLOCKED` with explicit reason code/text rather than silently omitted.
+4. **Given** Ascout cannot execute or interpret a task reliably, **When** the check completes, **Then** `ERROR` is distinct from repository failure and carries explicit reason code/text.
+5. **Given** a repository with a remote, **When** source identity is persisted/rendered, **Then** receipt identity uses `remote:<sha256>` derived from normalized credential-free remote identity and no raw origin/credentials/userinfo/query/fragment is written.
+6. **Given** a repository without a remote, **When** source identity is persisted/rendered, **Then** receipt identity uses `local:<sha256>` derived from canonical real path, `portable=false`, and the raw absolute path is never written.
+7. **Given** the current diff changes an effective command/config source a task would load or execute, **When** the developer runs ordinary `ascout check`, **Then** that task is refused as `NOT_RUN(command_surface_changed)`, changed authority paths are named, and the run cannot return clean success because of that omitted applicable task.
+8. **Given** the same changed command surface, **When** the human explicitly supplies the per-invocation changed-surface admission, **Then** the task may execute and the receipt records that explicit admission and the changed authority paths.
+9. **Given** an agent instruction/hook invokes Ascout, **When** command surface changed, **Then** the integration MUST NOT silently add the admission override on the user's behalf.
+10. **Given** a task or finding exposes an `evidence_id`, **When** the receipt is emitted, **Then** the ID resolves to exactly one current-run evidence entry linked to the receipt run and a task in that receipt.
+11. **Given** a changed file classified as a rename, **When** the receipt is emitted, **Then** both current `path` and `previous_path` are present.
 
 ---
 
@@ -39,9 +42,9 @@ A developer wants to know whether the tests that actually ran touched the change
 
 **Acceptance Scenarios**:
 
-1. Changed executable lines reached by executed tests are `EXERCISED` when usable coverage proves execution.
-2. Lines not reached after permitted widening are `NOT_EXERCISED` and prevent exit `0`.
-3. Unreliable coverage/source mapping yields `UNRESOLVED` and prevents exit `0`.
+1. Changed executable lines reached by executed tests are `EXERCISED` only with integer execution count > 0.
+2. Lines not reached after permitted widening are `NOT_EXERCISED` with count 0 and prevent exit `0`.
+3. Unreliable coverage/source mapping yields `UNRESOLVED` with null count + non-empty reason and prevents exit `0`.
 4. Narrowed verification with no usable relationship may perform at most one declared widening pass; unresolved gaps remain visible.
 5. All selected tests passing while material exercise gaps remain yields stable-but-incomplete semantics, not green.
 
@@ -72,13 +75,13 @@ A developer wants factual test/snapshot changes and a bounded agent-readable rep
 
 1. Changed/deleted test files or tracked snapshots are reported factually.
 2. No semantic weakening is inferred merely from syntactic counts.
-3. Agent output preserves source identity, task states, exercise gaps, material test changes, current-run finding references, and changed-command admission state within its budget.
+3. Agent output preserves source identity, task states, exercise gaps, material test changes, current-run finding/evidence references, and changed-command admission state within its budget.
 4. Persisted/rendered command argv redacts recognized secret-bearing environment values; raw argv is transient launch input only.
 
 ## Edge Cases
 
-- No Git remote: persisted local-only identity is a one-way canonical-path-derived ID with `portable=false`; raw absolute path is not persisted.
-- Remote origin has credentials/userinfo/query/fragment: raw origin is never persisted.
+- No Git remote: persisted identity is `local:<sha256(canonical-real-path)>`, `portable=false`; raw absolute path is not persisted.
+- Remote origin has credentials/userinfo/query/fragment: persisted identity is `remote:<sha256(normalized-credential-free-remote)>`; raw origin is never persisted.
 - Detached/shallow repo: state explicit; unsupported comparison mode fails with guidance.
 - All non-gitignored untracked files except `.ascout/` participate in source identity.
 - No changed executable lines: exercise coverage is not applicable.
@@ -86,13 +89,15 @@ A developer wants factual test/snapshot changes and a bounded agent-readable rep
 - `.ascout/` artifacts do not create source drift; other nonignored untracked files written during verification do.
 - Tracked source/config/snapshot mutation creates drift.
 - Executable-bit/type change with identical bytes still changes source identity.
-- Changed `package.json` scripts, Ascout command override, or effective compiler/lint/test config refuses affected task by default until explicit per-run admission.
+- Rename requires both old and new path in the machine receipt.
+- Changed `package.json` scripts, Ascout command override, or effective compiler/lint/Vitest/Jest/pytest config refuses affected task by default until explicit per-run admission.
 - Missing dependencies are never installed implicitly.
 - Task timeout is execution error/blocking, not repository failure by inference.
 - Concurrent run is refused, not queued.
 - Persisted output/argv redacts recognized secret-bearing env values.
-- Ambiguous coverage remains `UNRESOLVED`.
+- Ambiguous coverage remains `UNRESOLVED` with a reason.
 - Weak fingerprint match never reuses old evidence.
+- Dangling, duplicate, cross-run, cross-task, or unresolved evidence references invalidate the machine receipt before emission.
 
 ## Clarifications
 
@@ -114,6 +119,8 @@ A developer wants factual test/snapshot changes and a bounded agent-readable rep
   A: No.
 - Q: Is a warning enough when the AI changed a command surface?  
   A: No. Affected task execution is refused by default and requires explicit human per-invocation admission. The admission cannot be persisted as a trust grant or silently supplied by agents/hooks.
+- Q: Are JSON Schema field checks alone sufficient for a valid receipt?  
+  A: No. M1 also requires semantic receipt validation for run/evidence/task/artifact references and cross-field stability/completeness/exit invariants before emission.
 
 No unresolved product-level clarification remains.
 
@@ -122,7 +129,7 @@ No unresolved product-level clarification remains.
 ### Functional Requirements
 
 - **FR-001**: Provide one local `check` workflow producing a receipt for current changed source state.
-- **FR-002**: Every normal/partial receipt MUST identify repository/source state without persisting raw credential-bearing remote URLs or raw absolute local repository paths.
+- **FR-002**: Every normal/partial receipt MUST identify repository/source state using only schema-enforceable privacy-safe IDs: remote as `remote:<sha256(normalized-credential-free-remote)>` with `portable=true`, local-only as `local:<sha256(canonical-real-path)>` with `portable=false`; raw origin credentials/location material and raw absolute local paths MUST NOT be persisted.
 - **FR-003**: Default changed scope MUST account for staged, unstaged, and all non-gitignored untracked files except `.ascout/`, relative to HEAD.
 - **FR-004**: Detect source change during verification and expose `stable | tree_drifted | unknown` honestly.
 - **FR-005**: Evidence from one run MUST NOT become evidence for another source state/run.
@@ -130,7 +137,7 @@ No unresolved product-level clarification remains.
 - **FR-007**: Every executed task MUST record command provenance and effective authority/config source paths when known.
 - **FR-008**: If current diff changes an effective command/config source a task would execute/load, ordinary check MUST refuse that task as `NOT_RUN(command_surface_changed)` and disclose changed authority paths. Execution MAY occur only after explicit human per-invocation admission, which MUST be recorded and MUST NOT be persisted/silently supplied by agent automation.
 - **FR-009**: Project dependencies MUST NOT be installed implicitly.
-- **FR-010**: Known applicable task categories that do not execute MUST remain visible with reasons; unresolved command/tool identity MUST NOT be fabricated.
+- **FR-010**: Known applicable task categories that do not execute MUST remain visible with non-empty machine/human reasons; unresolved command/tool identity MUST NOT be fabricated. `BLOCKED` and `ERROR` also require explicit non-empty reasons.
 - **FR-011**: Task semantics MUST distinguish `PASS`, `FAIL`, `FLAKY`, `BLOCKED`, `ERROR`, `NOT_APPLICABLE`, `NOT_RUN`.
 - **FR-012**: `ERROR` MUST NOT be represented as repository/test `FAIL`.
 - **FR-013**: Genuine failed internal prerequisites MUST cause dependent tasks that cannot validly execute to become `BLOCKED`; fixed task categories are otherwise independent by default.
@@ -140,8 +147,8 @@ No unresolved product-level clarification remains.
 - **FR-017**: Declared uncertainty MUST widen scope rather than silently preserve unsafe narrowing.
 - **FR-018**: Deselected tests MUST never be represented as passed; valid deselection is SelectionAccount data, not task `NOT_RUN`.
 - **FR-019**: Usable execution coverage MUST be intersected with changed executable source lines.
-- **FR-020**: Exercise state MUST distinguish `EXERCISED`, `NOT_EXERCISED`, `UNRESOLVED`.
-- **FR-021**: Coverage/source uncertainty MUST remain `UNRESOLVED`.
+- **FR-020**: Exercise state MUST distinguish and enforce: `EXERCISED` with integer count > 0; `NOT_EXERCISED` with count 0; `UNRESOLVED` with null count + non-empty reason.
+- **FR-021**: Coverage/source uncertainty MUST remain `UNRESOLVED` and explain why mapping failed.
 - **FR-022**: Exercise coverage MUST NOT be described as correctness proof.
 - **FR-023**: Remaining material `NOT_EXERCISED`/`UNRESOLVED` changed executable lines after permitted widening MUST prevent exit `0`.
 - **FR-024**: Report factual test-file/tracked-snapshot changes without inferring semantic weakening.
@@ -154,20 +161,22 @@ No unresolved product-level clarification remains.
 - **FR-031**: Core path MUST require no account, repository upload, SaaS backend, cloud service, or model/API key.
 - **FR-032**: Do not claim child-process/test network isolation unless enforced/verified.
 - **FR-033**: Human, versioned JSON, and bounded agent representations MUST derive from the same run truth.
-- **FR-034**: Agent output MUST preserve identity, task states, exercise gaps, material test changes, admission state, and current-run finding references within documented budget.
+- **FR-034**: Agent output MUST preserve identity, task states, exercise gaps, material test changes, admission state, and current-run finding/evidence references within documented budget.
 - **FR-035**: Config v1 MUST be tracked non-executable JSON and only override fixed M1 task categories (`typecheck`, `lint`, `test`, `pytestBasic`), enable/disable reason, argv command, timeout/budget, and redaction names; no arbitrary task/prerequisite/workflow graph.
 - **FR-036**: Internal prerequisites MAY order fixed product tasks only when actual validity requires it; they are not user-authored orchestration and typecheck/lint failure does not automatically block independent tests.
-- **FR-037**: Persisted remote identity MUST strip unsafe URL material or use a non-reversible ID; local-only identity MUST be a one-way canonical-path-derived ID; raw remote credentials and raw absolute local paths MUST NOT be persisted.
-- **FR-038**: Source digest MUST include current worktree type/mode for unstaged tracked paths.
-- **FR-039**: Feature MUST remain usable without AI reasoning; future AI hypotheses remain distinguishable from execution evidence.
+- **FR-037**: Source digest MUST include current worktree type/mode for unstaged tracked paths.
+- **FR-038**: Feature MUST remain usable without AI reasoning; future AI hypotheses remain distinguishable from execution evidence.
+- **FR-039**: Receipt v1 MUST contain a root current-run `evidence[]` collection; every task/finding evidence reference MUST resolve to exactly one evidence entry whose run/task linkage is valid, and any referenced artifact MUST resolve.
+- **FR-040**: Before machine receipt emission, one Ascout-owned semantic validator MUST verify reference integrity plus cross-field source stability, task/admission, exercise, completeness, and exit-code invariants in addition to JSON Schema validation.
+- **FR-041**: `change_kind=renamed` MUST include `previous_path`; non-rename changes MUST NOT fabricate a previous path.
 
 ### Key Entities
 
 - **Run**: One source-bound verification attempt.
-- **Source State**: Secret-safe repository identity, HEAD metadata, source-tree identity, drift state.
+- **Source State**: Privacy-safe repository ID, HEAD metadata, source-tree identity, drift state.
 - **Verification Task**: One fixed semantic M1 task with provenance, changed-command admission state, and honest execution/non-execution state.
-- **Evidence**: Current-run observation/artifact only.
-- **Finding**: Current-run issue with optional weak fingerprint.
+- **Evidence**: Current-run, digest-addressed observation linked to the receipt run/task and optionally an artifact.
+- **Finding**: Current-run issue with optional weak fingerprint and resolvable evidence refs.
 - **Selection Account**: Native/full selection, explicit counts/unknowns, limitations, widening.
 - **Exercise Gap**: Changed executable line not observed executing or not reliably resolved.
 - **Test-Change Fact**: Factual Git-derived verification-asset change.
@@ -175,9 +184,9 @@ No unresolved product-level clarification remains.
 
 ## Success Criteria
 
-- **SC-001**: 100% of receipts identify source/run without persisting raw credential-bearing origin URLs or raw absolute local repository paths.
+- **SC-001**: 100% of receipts use only `remote:<sha256>` or `local:<sha256>` repository IDs with correct portability flag; no raw credential-bearing origin or absolute local path is persisted.
 - **SC-002**: Founding benchmark records zero cross-tree evidence leakage and zero source-binding integrity violations.
-- **SC-003**: 100% of known applicable task categories appear as executed outcomes or visible non-execution/block/error states.
+- **SC-003**: 100% of known applicable task categories appear as executed outcomes or visible non-execution/block/error states with required reasons.
 - **SC-004**: Benchmark gap reporting never claims `EXERCISED` where full-run ground truth shows no execution.
 - **SC-005**: Every affected-mode benchmark run exposes selection mode/widening and counts or explicit unknown limitations.
 - **SC-006**: Deliberate tracked/included-untracked source mutation is detected as drift.
@@ -186,8 +195,9 @@ No unresolved product-level clarification remains.
 - **SC-009**: Human/JSON/agent formats preserve same source identity/material semantics.
 - **SC-010**: Agent output remains within documented byte budget.
 - **SC-011**: M1 publishes selection recall, false-PASS, gap accuracy, unresolved mapping, cold/warm time against declared baselines without fabricated pre-data threshold.
-- **SC-012**: No case with remaining material exercise gap returns exit `0`.
-- **SC-013**: Every changed-command-surface test case is refused by default; execution only occurs when explicit per-run admission is supplied and recorded.
+- **SC-012**: No case with remaining material exercise gap returns exit `0`, including the benchmark gap corpus.
+- **SC-013**: Every changed-command-surface test case, including configured/discovered pytest authority, is refused by default; execution only occurs when explicit per-run admission is supplied and recorded.
+- **SC-014**: Machine receipt emission rejects dangling, duplicate, cross-run, cross-task, or unresolved evidence/artifact references and rejects cross-field summary/exit inconsistencies.
 
 ## Assumptions
 
