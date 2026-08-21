@@ -14,7 +14,7 @@ A developer has an AI coding agent make local changes in a repository. Before ac
 
 **Why this priority**: Without an honest source-bound receipt and a defensible command-execution boundary, Ascout is only another task runner that may execute whatever the agent just rewrote.
 
-**Independent Test**: On a supported local repository with uncommitted changes and configured verification tasks, verify source binding, complete task accounting, evidence-reference integrity, canonical relative persisted paths, and refusal of repo-derived tasks whose effective command surface changed until the human explicitly admits that surface for this invocation.
+**Independent Test**: On a supported local repository with uncommitted changes and configured verification tasks, verify source binding, complete task accounting, evidence-reference integrity, canonical relative persisted paths, exact HEAD comparison binding, valid changed-line ranges, and refusal of repo-derived tasks whose effective command surface changed until the human explicitly admits that surface for this invocation.
 
 **Acceptance Scenarios**:
 
@@ -30,6 +30,8 @@ A developer has an AI coding agent make local changes in a repository. Before ac
 10. **Given** a task or finding exposes an `evidence_id`, **When** the receipt is emitted, **Then** the ID resolves to exactly one current-run evidence entry linked to the receipt run and a task in that receipt.
 11. **Given** a changed file classified as a rename, **When** the receipt is emitted, **Then** both current `path` and `previous_path` are present.
 12. **Given** any receipt path candidate is spelled as an absolute POSIX path, Windows drive/UNC path, URI-absolute value, contains a backslash, `.`/`..` segment, duplicate separator such as `src//file.ts`, or trailing separator such as `src/`, **When** receipt validation runs, **Then** the original candidate spelling is rejected before any lossy normalization/collapse/resolution and MUST NOT be repaired into a valid-looking path.
+13. **Given** `comparison.kind=working_tree_vs_head`, **When** the receipt is emitted, **Then** `source.start.head_sha` and `comparison.base_ref` are full lowercase Git object IDs (40 hex for SHA-1 or 64 for SHA-256) and are exactly equal, proving the changed scope is bound to the same HEAD captured at run start.
+14. **Given** changed new-line ranges include an inverted pair such as `[10, 1]`, **When** semantic receipt validation runs, **Then** the receipt is rejected before changed-line counting, coverage intersection, exercise aggregation, or emission.
 
 ---
 
@@ -83,6 +85,9 @@ A developer wants factual test/snapshot changes and a bounded agent-readable rep
 
 - No Git remote: persisted identity is `local:<sha256(canonical-real-path)>`, `portable=false`; raw absolute path is not persisted.
 - Remote origin has credentials/userinfo/query/fragment: persisted identity is `remote:<sha256(normalized-credential-free-remote)>`; raw origin is never persisted.
+- No initial commit/unborn HEAD: M1 `check` is unsupported and returns usage/config error before a normal receipt; receipt v1 does not invent a nullable or arbitrary HEAD identity for `working_tree_vs_head`.
+- `source.start.head_sha` and `comparison.base_ref` must be the same resolved full Git object ID; abbreviated, malformed, symbolic, or mismatched comparison identities are invalid.
+- A changed new-line range with `start > end`, including `[10, 1]`, is invalid before coverage/exercise arithmetic.
 - Any persisted repository path must be slash-separated and repository-relative; `artifact.relative_run_path` must be relative to the current run directory. Validation rejects the original candidate spelling before any lossy normalization: absolute POSIX, Windows drive/UNC, URI-absolute, backslash, `.`/`..` segments, duplicate separators such as `src//file.ts`, and trailing separators such as `src/` are invalid and are never repaired into canonical output.
 - Detached/shallow repo: state explicit; unsupported comparison mode fails with guidance.
 - All non-gitignored untracked files except `.ascout/` participate in source identity.
@@ -125,6 +130,10 @@ A developer wants factual test/snapshot changes and a bounded agent-readable rep
   A: No. M1 also requires semantic receipt validation for run/evidence/task/artifact references and cross-field stability/completeness/exit invariants before emission.
 - Q: May receipt paths preserve arbitrary host-native absolute, traversal, duplicate-separator, or trailing-separator forms?  
   A: No. Persisted paths use one canonical slash-separated relative spelling in their repository/run namespace. The original receipt candidate is rejected before any lossy normalization if it is absolute, drive/UNC, URI-absolute, contains backslashes, `.`/`..` segments, duplicate separators, or a trailing separator; validation never repairs those spellings into canonical output.
+- Q: What does `comparison.base_ref` contain in M1?  
+  A: The resolved full object ID of the HEAD used for `working_tree_vs_head`, not a free-form label; it must equal `source.start.head_sha`.
+- Q: Can changed-line ranges be inverted?  
+  A: No. Each `[start, end]` must satisfy `start <= end`; semantic validation occurs before any coverage/exercise arithmetic.
 
 No unresolved product-level clarification remains.
 
@@ -174,18 +183,20 @@ No unresolved product-level clarification remains.
 - **FR-040**: Before machine receipt emission, one Ascout-owned semantic validator MUST verify reference integrity plus cross-field source stability, task/admission, exercise, completeness, and exit-code invariants in addition to JSON Schema validation.
 - **FR-041**: `change_kind=renamed` MUST include `previous_path`; non-rename changes MUST NOT fabricate a previous path.
 - **FR-042**: Every persisted path-bearing receipt field MUST use exactly one canonical slash-separated relative spelling in its declared namespace (repository-relative for repository paths; current-run-relative for `artifact.relative_run_path`). Validation MUST inspect and reject the original receipt candidate before any lossy normalization, separator collapse, trailing-separator removal, or dot-segment resolution. POSIX absolute, Windows drive/UNC, URI-absolute, backslash, `.`/`..` segments, duplicate separators, and trailing separators MUST be rejected, never repaired into a canonical-looking path; namespace containment is checked only after raw-form rejection succeeds.
+- **FR-043**: For M1 `working_tree_vs_head`, `source.start.head_sha` and `comparison.base_ref` MUST each be a full lowercase Git object ID (40-hex SHA-1 or 64-hex SHA-256) and MUST be exactly equal. Unborn HEAD, malformed/abbreviated object IDs, symbolic/free-form base refs, and mismatched source/comparison identities MUST fail closed before a normal receipt.
+- **FR-044**: Every `changed_new_line_ranges` pair MUST satisfy positive integer `start <= end`; semantic receipt validation MUST reject an inverted range before changed-line counts, coverage mapping/intersection, exercise aggregation, or emission.
 
 ### Key Entities
 
 - **Run**: One source-bound verification attempt.
-- **Source State**: Privacy-safe repository ID, HEAD metadata, source-tree identity, drift state.
+- **Source State**: Privacy-safe repository ID, exact HEAD object ID, source-tree identity, drift state.
 - **Verification Task**: One fixed semantic M1 task with provenance, changed-command admission state, and honest execution/non-execution state.
 - **Evidence**: Current-run, digest-addressed observation linked to the receipt run/task and optionally an artifact.
 - **Finding**: Current-run issue with optional weak fingerprint and resolvable evidence refs.
 - **Selection Account**: Native/full selection, explicit counts/unknowns, limitations, widening.
 - **Exercise Gap**: Changed executable line not observed executing or not reliably resolved.
 - **Test-Change Fact**: Factual Git-derived verification-asset change.
-- **Receipt**: Human/machine representation of same run truth with privacy-safe IDs and canonical relative persisted paths.
+- **Receipt**: Human/machine representation of same run truth with privacy-safe IDs, exact source/comparison binding, valid changed-line ranges, and canonical relative persisted paths.
 
 ## Success Criteria
 
@@ -204,6 +215,8 @@ No unresolved product-level clarification remains.
 - **SC-013**: Every changed-command-surface test case, including configured/discovered pytest authority, is refused by default; execution only occurs when explicit per-run admission is supplied and recorded.
 - **SC-014**: Machine receipt emission rejects dangling, duplicate, cross-run, cross-task, or unresolved evidence/artifact references and rejects cross-field summary/exit inconsistencies.
 - **SC-015**: Machine receipt emission rejects every persisted noncanonical path spelling before lossy normalization can erase it, including absolute, drive/UNC, URI-absolute, backslash, traversal, duplicate-separator, and trailing-separator forms; valid repository/run paths are already canonical and relative before containment checks.
+- **SC-016**: Machine receipt validation accepts only full Git object IDs for HEAD comparison identity and records `comparison.base_ref == source.start.head_sha` for every M1 `working_tree_vs_head` receipt.
+- **SC-017**: Machine receipt validation rejects every inverted changed new-line range, including `[10, 1]`, before any exercise/coverage metric can consume it.
 
 ## Assumptions
 
