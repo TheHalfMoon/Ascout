@@ -70,16 +70,7 @@
         "previous_path": {"type": "string", "minLength": 1},
         "change_kind": {"enum": ["added", "modified", "deleted", "renamed", "type_changed", "untracked"]},
         "line_semantics": {"enum": ["text", "binary_or_non_line", "deleted_only"]},
-        "changed_new_line_ranges": {
-          "type": "array",
-          "items": {
-            "type": "array",
-            "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}],
-            "items": false,
-            "minItems": 2,
-            "maxItems": 2
-          }
-        },
+        "changed_new_line_ranges": {"type": "array", "items": {"type": "array", "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}], "items": false, "minItems": 2, "maxItems": 2}},
         "is_test_file": {"type": "boolean"},
         "is_snapshot": {"type": "boolean"},
         "is_command_surface": {"type": "boolean"}
@@ -102,10 +93,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["kind", "path"],
-      "properties": {
-        "kind": {"enum": ["repository", "package"]},
-        "path": {"type": ["string", "null"]}
-      },
+      "properties": {"kind": {"enum": ["repository", "package"]}, "path": {"type": ["string", "null"]}},
       "allOf": [
         {"if": {"properties": {"kind": {"const": "repository"}}, "required": ["kind"]}, "then": {"properties": {"path": {"type": "null"}}}},
         {"if": {"properties": {"kind": {"const": "package"}}, "required": ["kind"]}, "then": {"properties": {"path": {"type": "string", "minLength": 1}}}}
@@ -145,15 +133,12 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["runs", "failures"],
-      "properties": {
-        "runs": {"type": "integer", "minimum": 0},
-        "failures": {"type": "integer", "minimum": 0}
-      }
+      "properties": {"runs": {"type": "integer", "minimum": 0}, "failures": {"type": "integer", "minimum": 0}}
     },
     "task": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["task_id", "task_type", "authorized_by", "source_path", "argv", "argv_redacted", "tool_name", "tool_version", "status", "reason_code", "reason_text", "exit_code", "started_at", "finished_at", "duration_ms", "observations", "cache_state", "evidence_ids", "artifact_refs", "output_truncated"],
+      "required": ["task_id", "task_type", "authorized_by", "source_path", "argv", "argv_redacted", "tool_name", "tool_version", "command_surface_changed", "changed_authority_paths", "execution_admission", "status", "reason_code", "reason_text", "exit_code", "started_at", "finished_at", "duration_ms", "observations", "cache_state", "evidence_ids", "artifact_refs", "output_truncated"],
       "properties": {
         "task_id": {"type": "string", "minLength": 1},
         "task_type": {"enum": ["typecheck", "lint", "test", "pytest_basic"]},
@@ -163,6 +148,9 @@
         "argv_redacted": {"type": "boolean"},
         "tool_name": {"type": ["string", "null"]},
         "tool_version": {"type": ["string", "null"]},
+        "command_surface_changed": {"type": "boolean"},
+        "changed_authority_paths": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "execution_admission": {"enum": ["normal", "refused_changed_surface", "explicit_changed_surface_override"]},
         "status": {"enum": ["PASS", "FAIL", "FLAKY", "BLOCKED", "ERROR", "NOT_APPLICABLE", "NOT_RUN"]},
         "reason_code": {"type": ["string", "null"]},
         "reason_text": {"type": ["string", "null"]},
@@ -177,119 +165,46 @@
         "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "artifact_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "output_truncated": {"type": "boolean"}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"execution_admission": {"const": "refused_changed_surface"}}, "required": ["execution_admission"]},
+          "then": {"properties": {"command_surface_changed": {"const": true}, "status": {"const": "NOT_RUN"}, "reason_code": {"const": "command_surface_changed"}}, "required": ["reason_code"]}
+        },
+        {
+          "if": {"properties": {"execution_admission": {"const": "explicit_changed_surface_override"}}, "required": ["execution_admission"]},
+          "then": {"properties": {"command_surface_changed": {"const": true}}, "required": ["changed_authority_paths"]}
+        },
+        {
+          "if": {"properties": {"command_surface_changed": {"const": false}}, "required": ["command_surface_changed"]},
+          "then": {"properties": {"execution_admission": {"const": "normal"}, "changed_authority_paths": {"maxItems": 0}}}
+        }
+      ]
     },
     "exerciseRecord": {
       "type": "object",
       "additionalProperties": false,
       "required": ["path", "line", "state", "execution_count", "source_task_ids"],
-      "properties": {
-        "path": {"type": "string", "minLength": 1},
-        "line": {"type": "integer", "minimum": 1},
-        "state": {"enum": ["EXERCISED", "NOT_EXERCISED", "UNRESOLVED"]},
-        "execution_count": {"type": ["integer", "null"], "minimum": 0},
-        "source_task_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
-        "reason": {"type": "string"}
-      }
+      "properties": {"path": {"type": "string", "minLength": 1}, "line": {"type": "integer", "minimum": 1}, "state": {"enum": ["EXERCISED", "NOT_EXERCISED", "UNRESOLVED"]}, "execution_count": {"type": ["integer", "null"], "minimum": 0}, "source_task_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}, "reason": {"type": "string"}}
     },
     "exercise": {
       "type": "object",
       "additionalProperties": false,
       "required": ["changed_executable_lines", "exercised_lines", "not_exercised_lines", "unresolved_lines", "changed_files_with_zero_exercised_lines", "records"],
-      "properties": {
-        "changed_executable_lines": {"type": "integer", "minimum": 0},
-        "exercised_lines": {"type": "integer", "minimum": 0},
-        "not_exercised_lines": {"type": "integer", "minimum": 0},
-        "unresolved_lines": {"type": "integer", "minimum": 0},
-        "changed_files_with_zero_exercised_lines": {"type": "integer", "minimum": 0},
-        "records": {"type": "array", "items": {"$ref": "#/$defs/exerciseRecord"}}
-      }
+      "properties": {"changed_executable_lines": {"type": "integer", "minimum": 0}, "exercised_lines": {"type": "integer", "minimum": 0}, "not_exercised_lines": {"type": "integer", "minimum": 0}, "unresolved_lines": {"type": "integer", "minimum": 0}, "changed_files_with_zero_exercised_lines": {"type": "integer", "minimum": 0}, "records": {"type": "array", "items": {"$ref": "#/$defs/exerciseRecord"}}}
     },
-    "changedCode": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["changed_file_count", "changed_text_line_count"],
-      "properties": {
-        "changed_file_count": {"type": "integer", "minimum": 0},
-        "changed_text_line_count": {"type": "integer", "minimum": 0}
-      }
-    },
-    "testChange": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "path", "source"],
-      "properties": {
-        "kind": {"enum": ["test_file_changed", "test_file_deleted", "snapshot_changed", "snapshot_deleted"]},
-        "path": {"type": "string", "minLength": 1},
-        "previous_path": {"type": "string", "minLength": 1},
-        "source": {"const": "git_diff"}
-      }
-    },
+    "changedCode": {"type": "object", "additionalProperties": false, "required": ["changed_file_count", "changed_text_line_count"], "properties": {"changed_file_count": {"type": "integer", "minimum": 0}, "changed_text_line_count": {"type": "integer", "minimum": 0}}},
+    "testChange": {"type": "object", "additionalProperties": false, "required": ["kind", "path", "source"], "properties": {"kind": {"enum": ["test_file_changed", "test_file_deleted", "snapshot_changed", "snapshot_deleted"]}, "path": {"type": "string", "minLength": 1}, "previous_path": {"type": "string", "minLength": 1}, "source": {"const": "git_diff"}}},
     "introducedByChange": {"oneOf": [{"type": "boolean"}, {"const": "unknown"}]},
     "fingerprintVersion": {"oneOf": [{"const": 1}, {"type": "null"}]},
     "finding": {
       "type": "object",
       "additionalProperties": false,
       "required": ["finding_id", "task_id", "producer", "message", "severity", "in_changed_lines", "introduced_by_change", "determinism_class", "observations", "reproduced", "evidence_ids"],
-      "properties": {
-        "finding_id": {"type": "string", "minLength": 1},
-        "task_id": {"type": "string", "minLength": 1},
-        "producer": {"type": "string", "minLength": 1},
-        "rule_or_test_id": {"type": ["string", "null"]},
-        "message": {"type": "string"},
-        "path": {"type": ["string", "null"]},
-        "line_start": {"type": ["integer", "null"], "minimum": 1},
-        "line_end": {"type": ["integer", "null"], "minimum": 1},
-        "severity": {"enum": ["info", "low", "medium", "high", "critical", "unknown"]},
-        "in_changed_lines": {"type": ["boolean", "null"]},
-        "introduced_by_change": {"$ref": "#/$defs/introducedByChange"},
-        "determinism_class": {"enum": ["deterministic", "nondeterministic", "unknown"]},
-        "observations": {"$ref": "#/$defs/observations"},
-        "reproduced": {"enum": [true, false, "not_applicable", "unknown"]},
-        "fingerprint_version": {"$ref": "#/$defs/fingerprintVersion"},
-        "fingerprint": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
-        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
-      }
+      "properties": {"finding_id": {"type": "string", "minLength": 1}, "task_id": {"type": "string", "minLength": 1}, "producer": {"type": "string", "minLength": 1}, "rule_or_test_id": {"type": ["string", "null"]}, "message": {"type": "string"}, "path": {"type": ["string", "null"]}, "line_start": {"type": ["integer", "null"], "minimum": 1}, "line_end": {"type": ["integer", "null"], "minimum": 1}, "severity": {"enum": ["info", "low", "medium", "high", "critical", "unknown"]}, "in_changed_lines": {"type": ["boolean", "null"]}, "introduced_by_change": {"$ref": "#/$defs/introducedByChange"}, "determinism_class": {"enum": ["deterministic", "nondeterministic", "unknown"]}, "observations": {"$ref": "#/$defs/observations"}, "reproduced": {"enum": [true, false, "not_applicable", "unknown"]}, "fingerprint_version": {"$ref": "#/$defs/fingerprintVersion"}, "fingerprint": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}, "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}}
     },
-    "artifact": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["artifact_id", "relative_run_path", "kind", "sha256", "byte_length", "redacted", "truncated"],
-      "properties": {
-        "artifact_id": {"type": "string", "minLength": 1},
-        "task_id": {"type": ["string", "null"]},
-        "relative_run_path": {"type": "string", "minLength": 1},
-        "kind": {"type": "string", "minLength": 1},
-        "sha256": {"$ref": "#/$defs/sha256"},
-        "byte_length": {"type": "integer", "minimum": 0},
-        "redacted": {"type": "boolean"},
-        "truncated": {"type": "boolean"}
-      }
-    },
-    "taskStatusCounts": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["PASS", "FAIL", "FLAKY", "BLOCKED", "ERROR", "NOT_APPLICABLE", "NOT_RUN"],
-      "properties": {
-        "PASS": {"type": "integer", "minimum": 0},
-        "FAIL": {"type": "integer", "minimum": 0},
-        "FLAKY": {"type": "integer", "minimum": 0},
-        "BLOCKED": {"type": "integer", "minimum": 0},
-        "ERROR": {"type": "integer", "minimum": 0},
-        "NOT_APPLICABLE": {"type": "integer", "minimum": 0},
-        "NOT_RUN": {"type": "integer", "minimum": 0}
-      }
-    },
-    "summary": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["task_status_counts", "finding_count", "completeness", "exit_code"],
-      "properties": {
-        "task_status_counts": {"$ref": "#/$defs/taskStatusCounts"},
-        "finding_count": {"type": "integer", "minimum": 0},
-        "completeness": {"enum": ["complete", "materially_incomplete", "unknown_due_to_error"]},
-        "exit_code": {"enum": [0, 1, 2, 3, 4]}
-      }
-    }
+    "artifact": {"type": "object", "additionalProperties": false, "required": ["artifact_id", "relative_run_path", "kind", "sha256", "byte_length", "redacted", "truncated"], "properties": {"artifact_id": {"type": "string", "minLength": 1}, "task_id": {"type": ["string", "null"]}, "relative_run_path": {"type": "string", "minLength": 1}, "kind": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}, "byte_length": {"type": "integer", "minimum": 0}, "redacted": {"type": "boolean"}, "truncated": {"type": "boolean"}}},
+    "taskStatusCounts": {"type": "object", "additionalProperties": false, "required": ["PASS", "FAIL", "FLAKY", "BLOCKED", "ERROR", "NOT_APPLICABLE", "NOT_RUN"], "properties": {"PASS": {"type": "integer", "minimum": 0}, "FAIL": {"type": "integer", "minimum": 0}, "FLAKY": {"type": "integer", "minimum": 0}, "BLOCKED": {"type": "integer", "minimum": 0}, "ERROR": {"type": "integer", "minimum": 0}, "NOT_APPLICABLE": {"type": "integer", "minimum": 0}, "NOT_RUN": {"type": "integer", "minimum": 0}}},
+    "summary": {"type": "object", "additionalProperties": false, "required": ["task_status_counts", "finding_count", "completeness", "exit_code"], "properties": {"task_status_counts": {"$ref": "#/$defs/taskStatusCounts"}, "finding_count": {"type": "integer", "minimum": 0}, "completeness": {"enum": ["complete", "materially_incomplete", "unknown_due_to_error"]}, "exit_code": {"enum": [0, 1, 2, 3, 4]}}}
   }
 }
