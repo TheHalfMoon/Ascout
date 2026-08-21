@@ -1,48 +1,41 @@
 # 001 — Planned M1 Quickstart
 
-**Status:** Design example only. The commands below describe the intended M1 user contract; product implementation is not yet authorized or present.
+**Status:** Design example only. Product implementation is not authorized or present.
 
 ## Prerequisites
 
 - Your own trusted local Git repository.
-- Node.js 22 or 24 LTS for the first M1 distribution target.
-- Project dependencies already installed by you.
-- A supported JS/TS project for first-class changed-code exercise reporting (Vitest or Jest where configured).
+- Node.js 22 or 24 LTS for the first distribution target.
+- Project dependencies already installed explicitly by you.
+- Supported JS/TS project for first-class changed-code exercise reporting (Vitest or Jest where configured).
 
-Ascout does not silently install project dependencies.
+Ascout never installs project dependencies implicitly.
 
-## 1. Initialize Ascout policy
+## 1. Initialize minimal policy
 
 ```bash
 ascout init
 ```
 
-Expected effect, after implementation:
+Planned effect:
 
-- create a minimal tracked `ascout.config.json` if it does not exist;
-- ensure `.ascout/` run artifacts are ignored by Git;
-- do not alter product source code;
+- create minimal tracked `ascout.config.json` if absent;
+- config only overrides fixed M1 task categories (`typecheck`, `lint`, `test`, `pytestBasic`);
+- ensure `.ascout/` is ignored;
 - do not install project packages;
 - do not enable host-level automatic hooks without explicit opt-in.
 
-## 2. Inspect discovery before executing checks
+Config v1 is not a workflow/task graph language.
+
+## 2. Inspect discovery without executing verification
 
 ```bash
 ascout doctor
 ```
 
-Expected output explains:
+Planned output explains repository/source state, detected package manager/basic workspace scope, fixed task capabilities, command provenance, missing tools/config, affected-selection/coverage capability, and unsupported M1 traits.
 
-- repository/source state;
-- detected package manager/workspace scope;
-- discovered typecheck/lint/test capabilities;
-- command provenance;
-- missing tools/config;
-- affected-selection capability;
-- coverage capability;
-- unsupported M1 characteristics.
-
-`doctor` is a trust-building command: limitations are part of the result.
+`doctor` is a trust-building command: limitations are output.
 
 ## 3. Let the coding agent change code
 
@@ -56,18 +49,20 @@ tests/auth/session.test.ts    modified
 
 No commit is required for the default interactive check.
 
+All non-gitignored untracked files except `.ascout/` participate in M1 source identity; Ascout does not maintain a heuristic hidden list of "relevant" untracked source.
+
 ## 4. Run the verification receipt
 
 ```bash
 ascout check
 ```
 
-Illustrative terminal receipt:
+Illustrative receipt when selected tests pass but gaps remain:
 
 ```text
 ASCOUT  run 01...
-SOURCE  origin=https://github.com/example/repo  HEAD=abc123  tree=4f8...
-SCOPE   working tree + staged + relevant untracked vs HEAD
+SOURCE  repo=github.com/example/repo  HEAD=abc123  tree=4f8...
+SCOPE   working tree + staged + all non-gitignored untracked vs HEAD
 
 TASKS
 TYPECHECK     PASS
@@ -88,90 +83,108 @@ M tests/auth/session.test.ts
 
 SELECTION native_related; widened=false
 TREE      STABLE
-RESULT    materially complete; no repository finding
+RESULT    materially incomplete: exercise gaps remain
+EXIT      4
 ```
 
-The exact visual layout may evolve; the semantics above are contractual.
+The exact visual layout may evolve; these semantics are contractual.
 
-## 5. Interpret exit semantics
+**Important:** all selected tests passing does not make this run green while material changed executable lines remain unexercised or unresolved.
+
+## 5. Exit semantics
 
 ```text
-0 = stable, materially complete planned verification, no finding/flake/error
+0 = stable + materially complete + no finding/flake/error
 1 = repository/test finding or flaky outcome
 2 = Ascout usage/config/internal/task-execution integrity error
-3 = source tree drifted during verification
-4 = stable but materially incomplete verification
+3 = source tree drifted (unless a higher-precedence integrity error exists)
+4 = stable but materially incomplete/gapped verification
 ```
 
-An exit code `0` must never mean “nothing ran.”
+Exit `0` requires at least one material verification task to execute and no applicable task or changed executable exercise gap to remain incomplete.
+
+Valid affected selection may still disclose deselected tests; deselection is SelectionAccount data, not task-level `NOT_RUN`. Unsafe selection must widen or become incomplete.
 
 ## 6. Machine receipt
-
-Planned machine output:
 
 ```bash
 ascout check --format json
 ```
 
-The JSON conforms to the feature's versioned receipt contract and contains no unbounded raw logs inline. Evidence artifacts remain under the current `.ascout/runs/<run-id>/` directory.
+JSON conforms to receipt v1 and embeds no unbounded raw logs. Evidence artifacts remain under `.ascout/runs/<run-id>/`.
+
+Non-executed tasks do not fabricate argv/tool identity just to satisfy the schema.
 
 ## 7. Agent receipt
-
-Planned bounded agent output:
 
 ```bash
 ascout check --format agent
 ```
 
-The agent representation uses the same run truth as human/JSON output, with failures/errors/gaps first and explicit totals when details are omitted to honor the output budget.
+Agent output uses the same run truth, stays within the default 16 KiB UTF-8 budget, prioritizes errors/findings/exercise gaps, and preserves omitted-detail totals.
 
-## 8. Changed command surface
+## 8. Repository identity and secrets
 
-If the agent changed a file that defines a command/config Ascout is about to execute, such as `package.json` scripts or relevant test/compiler configuration, Ascout must warn **before** launching the repo-derived task and name the changed source of authority.
+A configured remote such as a credential-bearing HTTPS URL or `user@host:path` SSH/scp form is never persisted raw. Receipt identity strips credential/userinfo/query/fragment material or uses a one-way identifier if safe normalization fails.
 
-v0.x assumes this is still your own trusted local repository. It does not claim arbitrary untrusted-PR safety.
+Likewise, persisted/rendered command argv and captured output redact exact recognized secret-bearing environment values. Raw argv is transient launch input only.
 
-## 9. Missing dependency
+## 9. Changed command surface
 
-If Vitest/Jest/TypeScript/other configured project tooling is missing:
+If the change modifies `package.json` scripts or relevant Ascout/compiler/lint/test configuration that defines a command Ascout is about to run, Ascout warns **before** launch and names the changed authority source.
+
+v0.x still assumes the developer's own trusted local repository; this is not arbitrary untrusted-PR sandboxing.
+
+## 10. Missing dependency/config
+
+Example:
 
 ```text
 UNIT  NOT_RUN(tool_missing)  Project Vitest is not installed.
 ```
 
-Ascout may print an actionable install command, but it does not execute installation implicitly.
+The task may have empty persisted argv/null tool identity if a runnable command was never safely resolved. Ascout may print an install suggestion but never executes installation implicitly.
 
-## 10. Drift during the run
+## 11. Drift during the run
 
-If a developer/agent/tool modifies tracked source while Ascout is running:
+If tracked source or any included non-gitignored untracked file outside `.ascout/` changes during verification:
 
 ```text
 TREE  DRIFTED
 EXIT  3
 ```
 
-The task observations may still be preserved for debugging, but the caller is explicitly told not to treat the receipt as stable evidence for an unchanged source tree.
+Task observations may remain for debugging, but the run is not stable evidence for an unchanged source tree.
 
-## 11. Flaky failure
+If an integrity error prevents the end digest from being computed, stability is `unknown` and exit `2` dominates.
 
-If a failing test supports a safe targeted retry and observations disagree:
+## 12. Flaky/reproduction semantics
+
+One failure with no safe targeted rerun:
 
 ```text
-UNIT  FLAKY  runs=3 failures=1
+UNIT  FAIL   runs=1 failures=1 reproduced=unknown
 ```
 
-A one-off failure is not silently promoted to “reproduced.”
+Contradictory bounded observations:
 
-## 12. What M1 deliberately does not do
+```text
+UNIT  FLAKY  runs=3 failures=1 reproduced=false
+```
+
+A single observation is never mislabeled as reproduced or as disproven reproduction.
+
+## 13. What M1 deliberately does not do
 
 Do not expect the first feature to:
 
-- generate or fix tests/code;
-- run a browser/DAST/fuzz/load suite;
+- generate/fix tests or code;
+- accept arbitrary custom task/workflow graphs in config;
+- run browser/DAST/fuzz/load/security suites;
 - inspect untrusted PR branches safely;
 - provide a semantic repository graph;
 - require an AI model;
 - upload the repository to an Ascout cloud service;
-- prove that executed coverage means the changed behavior is correct.
+- prove that execution coverage means behavior is correct.
 
-The first release proves what it actually verified and exposes what it did not.
+The first release proves what it actually verified and refuses green when material changed executable code remains unchecked.
