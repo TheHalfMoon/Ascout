@@ -1,13 +1,13 @@
 # 001 — Independent Final Plan Audit
 
 **Date:** 2026-08-21  
-**Audit target exact head:** `033bfc4839fc80e4c639ef71a8c09c80bfd7d4af`  
+**Audit target exact head:** `3cdcdd7b938606f5c4a9c907421ba9f7d69564d0`  
 **Branch:** `planning/000-ascout-foundation`  
 **Verdict:** `PASS_READY_FOR_FRESH_EXACT_HEAD_PR_REVIEW`  
 **Implementation authorization:** **NO**  
 **Merge authorization:** **NO — a fresh external review of the post-audit PR head is required**
 
-This is the renewed adversarial final audit after internal analysis, the independent changed-command admission audit, Qodo exact-head review, CodeRabbit exact-head review, and all accepted repairs.
+This is the renewed adversarial final audit after internal analysis, the independent changed-command admission audit, Qodo review, and **two CodeRabbit exact-head review rounds** with all accepted findings reconciled.
 
 It supersedes all earlier final-audit verdicts for merge-readiness purposes.
 
@@ -15,14 +15,15 @@ The audit target contains no product implementation. Writing this audit creates 
 
 ## 1. Review History Consumed
 
-This audit consumes four independent layers:
+This audit consumes five evidence layers:
 
 1. internal cross-artifact analysis + Ponytail/YAGNI reduction;
-2. independent pre-PR adversarial audit, which found the changed-command warning-only authorization blocker;
-3. Qodo exact-head review, which found four machine-contract defects; and
-4. CodeRabbit exact-head review, which found stale-head governance, evidence-reference integrity, privacy-enforcement, semantic validation, benchmark, pytest-admission, and documentation-integrity defects/confirmations.
+2. independent pre-PR adversarial audit, which found the changed-command warning-only blocker;
+3. Qodo review, which found four machine-contract defects;
+4. CodeRabbit round 1, which found governance freshness, evidence-reference, repository-ID privacy, semantic-validation, benchmark, pytest-admission, and document-integrity defects/confirmations; and
+5. CodeRabbit round 2, explicitly anchored to `15f590efcff6814ea5c203f96e3513c9ba0d2a08`, which found persisted-path privacy/containment and a `pytestBasic` scope-summary inconsistency.
 
-External findings are not accepted merely because a bot emitted them. Every finding was checked against the constitution/product contract and either repaired or already independently satisfied.
+External findings are not accepted merely because a bot emitted them. Each finding was checked against the live exact source and product contract. Repeated stale Qodo findings were rejected only after direct inspection of the exact SHA proved the relevant repaired constraints were already present.
 
 ## 2. Internal High-Severity Repairs Revalidated
 
@@ -49,29 +50,70 @@ The same generic mechanism covers `pytestBasic` effective configuration.
 
 ## 3. Qodo Reconciliation Revalidated
 
-### Q1 — explicit omission/error reasons
+- **Q1 — reasons:** `NOT_RUN`, `BLOCKED`, and `ERROR` require non-empty `reason_code` and `reason_text`.
+- **Q2 — rename:** `change_kind=renamed` requires `previous_path`; non-renames do not fabricate it.
+- **Q3 — exercise:** `EXERCISED` count > 0; `NOT_EXERCISED` count = 0; `UNRESOLVED` count = null + non-empty reason.
+- **Q4 — task IDs:** `typecheck`, `lint`, `test`, `pytestBasic` are canonical across config/receipt/model/plan.
 
-`NOT_RUN`, `BLOCKED`, and `ERROR` require non-empty `reason_code` and `reason_text` in receipt v1 and implementation tests.
-
-**Result:** `PASS`
-
-### Q2 — rename identity
-
-`change_kind=renamed` requires `previous_path`; non-renames do not fabricate it.
+The later repeated Qodo text pointing at a newer SHA was directly checked against that exact file and contradicted the live schema; those repetitions were treated as stale/cached evidence, not new defects.
 
 **Result:** `PASS`
 
-### Q3 — exercise state/count/reason integrity
+## 4. CodeRabbit Round 1 Reconciliation Revalidated
 
-- `EXERCISED` requires integer count > 0;
-- `NOT_EXERCISED` requires count 0;
-- `UNRESOLVED` requires null count + non-empty reason.
+- **CR1 — governance:** fresh exact-HEAD cross-artifact + branch-purity review is mandatory after final audit/material mutation.
+- **CR2 — command admission:** Master Plan matches default-refusal semantics.
+- **CR3 — Markdown integrity:** malformed analysis table repaired.
+- **CR4 — evidence:** receipt has root current-run `evidence[]` with resolvable references.
+- **CR5 — repository identity:** schema enforces `remote:<sha256>` / `local:<sha256>` with portability discriminator.
+- **CR6 — admission:** changed command surface cannot be `normal` admission.
+- **CR7 — semantic receipt validation:** one pure validator closes cross-object/cross-field invariants before emission and future internal acceptance.
+- **CR8 — benchmark:** stable material exercise gap returning exit `0` has absolute acceptable count zero.
+- **CR9 — pytest admission:** `pytestBasic` effective config is covered by command-admission integration.
 
 **Result:** `PASS`
 
-### Q4 — fixed task identifier parity
+## 5. CodeRabbit Round 2 Reconciliation Revalidated
 
-Canonical config/receipt/model/plan task IDs:
+### CR10 — persisted path privacy / containment
+
+**Severity:** MAJOR / SECURITY & PRIVACY  
+**Verdict:** VALID  
+**Disposition:** RESOLVED
+
+Problem: existing path-bearing receipt fields could accept workstation absolute paths or namespace-escaping forms even though repository identity itself had been hardened.
+
+Final contract:
+
+- repository-bearing persisted fields are slash-separated and relative to repository root;
+- `artifact.relative_run_path` is relative to the current `.ascout/runs/<run-id>/` directory;
+- schema defines/reuses `canonicalRelativePath` and nullable variant;
+- schema rejects obvious POSIX absolute, Windows drive, URI-scheme, `.`/`..` segment, and backslash-canonicalization violations;
+- UNC/backslash forms fail the shared schema rule;
+- the pure semantic receipt validator additionally enforces normalization and declared-namespace containment;
+- invalid escaping paths are rejected, not silently rewritten into misleading safe-looking paths;
+- raw host absolute paths may exist transiently for tool resolution but are never persisted/rendered.
+
+Traceability:
+
+- **FR-042 / SC-015**;
+- T009 negative contract cases;
+- T025 pure receipt path invariant;
+- T026 validation before emission;
+- T033 end-to-end rejection;
+- T081 cross-platform/golden path normalization.
+
+No VFS, mount abstraction, path registry, sandbox, path-policy service, dependency, or new task range was introduced.
+
+**Result:** `PASS`
+
+### CR11 — plan opening scope omitted `pytestBasic`
+
+**Severity:** MINOR / PLAN CONSISTENCY  
+**Verdict:** VALID  
+**Disposition:** RESOLVED
+
+The opening Summary now names exactly all four fixed categories:
 
 ```text
 typecheck
@@ -80,116 +122,11 @@ test
 pytestBasic
 ```
 
-No name-translation layer exists.
+No behavioral expansion was introduced; the summary now matches the already-canonical config/receipt/task contract.
 
 **Result:** `PASS`
 
-All Qodo review threads were observed resolved after repair.
-
-## 4. CodeRabbit Reconciliation Revalidated
-
-### CR1 — fresh exact-HEAD authorization gate
-
-Constitution, `.specify/PROVENANCE.md`, and Master Plan require:
-
-```text
-final audit
-→ fresh exact-HEAD cross-artifact consistency + branch-purity review
-→ explicit implementation authorization
-```
-
-Material post-audit mutation invalidates affected claims until reconciled and re-reviewed.
-
-**Result:** `PASS`
-
-### CR2 — Master Plan command-admission consistency
-
-Master Plan no longer contains warning-only semantics. It matches constitution/spec/plan: default refusal, explicit per-invocation human admission only.
-
-**Result:** `PASS`
-
-### CR3 — Markdown analysis integrity
-
-Malformed analysis-table cells were rewritten without raw separator characters inside cells. Governance evidence remains readable/reviewable.
-
-**Result:** `PASS`
-
-### CR4 — root evidence collection and reference integrity
-
-Receipt v1 contains required root `evidence[]`.
-
-Each evidence entry includes:
-
-- evidence ID;
-- run ID;
-- task ID;
-- sequence;
-- evidence kind;
-- SHA-256 digest;
-- optional artifact ID;
-- redaction/truncation state.
-
-Task/finding `evidence_ids` are references into this collection, not free-floating claims.
-
-**Result:** `PASS`
-
-### CR5 — schema-enforceable repository privacy
-
-Receipt source identity is constrained to:
-
-```text
-remote:<64 lowercase hex>  + repository_id_kind=remote     + portable=true
-local:<64 lowercase hex>   + repository_id_kind=local_only + portable=false
-```
-
-Raw remote origins and raw absolute local paths cannot satisfy the intended schema branches.
-
-**Result:** `PASS`
-
-### CR6 — changed surface cannot be normal admission
-
-`command_surface_changed=true` requires at least one changed authority path and admission `refused_changed_surface` or `explicit_changed_surface_override`; `normal` is not valid.
-
-**Result:** `PASS`
-
-### CR7 — semantic receipt validation
-
-JSON Schema remains field-shape validation. One Ascout-owned **pure semantic validator** is required before receipt emission and reused by any internal/future receipt acceptance path.
-
-It checks:
-
-- unique/resolvable evidence/task/artifact references;
-- evidence run/task linkage;
-- source start/end vs stability;
-- task status/reason/admission consistency;
-- exercise record vs aggregate consistency;
-- task/finding aggregate counts;
-- completeness;
-- exit-code precedence.
-
-This is a pure receipt invariant function, not a service, DB, or alternate receipt interpretation.
-
-**Result:** `PASS`
-
-### CR8 — benchmark gap-to-exit assertion
-
-Benchmark absolute gates now include:
-
-```text
-stable material exercise gap returning exit 0 = 0
-```
-
-T077 requires the same assertion.
-
-**Result:** `PASS`
-
-### CR9 — pytest admission coverage
-
-T028 and plan/spec include `pytestBasic` effective configuration in the admission integration matrix.
-
-**Result:** `PASS`
-
-## 5. False-Green Audit
+## 6. False-Green Audit
 
 Clean exit `0` requires:
 
@@ -202,13 +139,14 @@ Clean exit `0` requires:
 - no changed-command admission refusal;
 - safe affected selection/widening;
 - no remaining material changed executable exercise gap;
-- current-run evidence references resolve.
+- current-run evidence references resolve;
+- persisted path invariants are valid.
 
-No reviewed contract path allows opaque omission, dangling evidence, unresolved mapping, or admission refusal to become green.
+Invalid receipt paths are integrity errors, not evidence that may be silently accepted or greened.
 
 **Result:** `PASS`
 
-## 6. Evidence / Source-Binding Audit
+## 7. Evidence / Source-Binding Audit
 
 Required properties:
 
@@ -218,7 +156,7 @@ Required properties:
 - rename old/new path fidelity;
 - start/end drift;
 - root current-run evidence collection;
-- evidence IDs unique and resolvable;
+- evidence IDs unique/resolvable;
 - evidence run/task/artifact linkage validated;
 - no evidence transfer across runs/trees;
 - weak fingerprints never substitute for evidence;
@@ -233,7 +171,40 @@ binding-integrity violations = 0
 
 **Result:** `PASS`
 
-## 7. Machine Contract Audit
+## 8. Persisted Path / Privacy Audit
+
+The final model separates opaque repository identity from path-bearing receipt fields.
+
+Persisted repository paths include changed/current/previous paths, package scope, task source path, changed authority paths, exercise paths, test-change paths, and finding paths. These must be canonical repository-relative paths. Artifact paths are canonical run-relative paths.
+
+Rejected after normalization/validation:
+
+```text
+/etc/passwd
+C:/Users/name/file
+C:\Users\name\file
+\\server\share\file
+file:///tmp/file
+https://host/path
+../secret
+a/../secret
+./src/file
+src\file
+```
+
+Accepted representative forms include:
+
+```text
+src/file.ts
+packages/app
+raw/task/output.txt
+```
+
+The shared schema predicate was independently exercised against representative POSIX, Windows, UNC, URI, traversal, backslash, and valid-relative cases and behaved as intended. The semantic validator remains authoritative for full canonicality and namespace containment beyond the coarse JSON Schema predicate.
+
+**Result:** `PASS`
+
+## 9. Machine Contract Audit
 
 ### Config v1
 
@@ -253,43 +224,44 @@ binding-integrity violations = 0
 - strict admission invariants;
 - privacy-safe repository ID discriminator;
 - root current-run evidence collection;
+- shared canonical relative path schema across persisted path-bearing fields;
 - separate stability/completeness;
 - non-executed tasks need not fabricate argv/tool identity;
 - redacted persisted argv.
 
 ### Semantic validator
 
-One shared pure validator closes referential/cross-field constraints that JSON Schema draft 2020-12 does not express cleanly.
+One shared pure validator closes referential, cross-field, normalization, and namespace-containment constraints that JSON Schema draft 2020-12 does not express cleanly.
 
-**Result:** `PASS_AFTER_QODO_AND_CODERABBIT_REPAIR`
+It rejects:
 
-## 8. Privacy Audit
+- noncanonical/escaping persisted paths;
+- dangling/duplicate/cross-run/cross-task evidence references;
+- unresolved artifact references;
+- source stability mismatch;
+- task reason/admission inconsistency;
+- exercise record/aggregate inconsistency;
+- aggregate task/finding mismatch;
+- completeness/exit mismatch.
 
-- raw credential-bearing origin not persisted;
-- remote receipt identity always opaque hash-derived form;
-- local receipt identity always one-way hash-derived form;
-- portability flag schema-bound to identity kind;
-- raw absolute path not persisted;
-- raw secret argv transient only;
-- persisted/rendered argv + captured output apply exact-value redaction policy;
-- redaction remains accurately described as best-effort.
+**Result:** `PASS_AFTER_QODO_AND_TWO_CODERABBIT_ROUNDS`
 
-**Result:** `PASS`
+## 10. Windows / Cross-Platform Audit
 
-## 9. Windows / Cross-Platform Audit
-
-The plan does not pretend POSIX process semantics apply to Windows:
+The plan does not pretend POSIX process/path semantics apply to Windows:
 
 - `cross-spawn` only for executable/shim launch normalization;
 - Ascout owns timeout/capture/process-tree termination;
-- native Windows cases remain release-blocking evidence;
+- persisted paths normalize to one slash-separated relative form rather than leaking host-native absolute syntax;
+- T081 covers deterministic path/receipt normalization across OS boundaries;
+- native Windows process-tree cases remain release-blocking evidence;
 - development CI planned for Windows/macOS/Linux, Node 22/24.
 
 Native proof remains a release gate, not a current claim.
 
 **Result:** `PASS_AS_PLANNING_CONTRACT`
 
-## 10. Benchmark Audit
+## 11. Benchmark Audit
 
 Selection corpus measures Ascout/native selection vs objective full-suite ground truth. Gap corpus measures changed-code exercise against independent full-run coverage.
 
@@ -309,12 +281,13 @@ No arbitrary pre-data recall threshold is frozen.
 
 **Result:** `PASS`
 
-## 11. Ponytail / YAGNI Audit
+## 12. Ponytail / YAGNI Audit
 
 The review repairs did **not** introduce:
 
-- database or evidence service;
+- database/evidence service;
 - validator service;
+- path/VFS policy subsystem;
 - schema-generation subsystem;
 - shared generated type package;
 - task-name mapping layer;
@@ -327,46 +300,50 @@ The review repairs did **not** introduce:
 - AI subsystem;
 - sandbox.
 
-Root `evidence[]`, opaque IDs, exact-head governance, and one pure semantic receipt validator are direct truth-contract requirements, not speculative architecture.
+Root `evidence[]`, opaque IDs, exact-head governance, one pure semantic validator, and one shared persisted-path predicate are direct truth/privacy contract requirements, not speculative architecture.
 
 **Result:** `PASS`
 
-## 12. Task Plan Audit
+## 13. Task Plan Audit
 
 Task range remains **T001–T088**.
 
 Existing tasks were strengthened instead of multiplied:
 
-- T009: schema + semantic receipt invariants, evidence refs, privacy-safe IDs;
-- T012/T018: exact repository ID privacy contract;
+- T009: schema + semantic invariants, evidence refs, privacy-safe IDs, persisted path rejection;
+- T012/T018: repository ID privacy contract;
 - T020: rename old/new path fidelity;
-- T025/T026: one receipt model + one pure semantic validator before emission/acceptance;
+- T025/T026: one receipt model + semantic validator + path containment before emission/acceptance;
 - T028/T037/T038: pytestBasic admission/config coverage;
-- T033: E2E dangling/cross-run/cross-task evidence rejection;
+- T033: E2E evidence/path rejection and no-green behavior;
 - T047/T055: exercise state/count/reason integrity;
 - T077: gap-to-exit absolute benchmark gate;
+- T081: cross-OS canonical persisted path goldens;
 - T088: clean-checkout semantic-validation qualification.
 
 **Result:** `PASS`
 
-## 13. Requirements Gate
+## 14. Requirements Gate
 
 Current repaired checklist:
 
 ```text
-84 / 84 PASS
+86 / 86 PASS
 ```
 
 - CHK073–CHK076: Qodo regressions.
-- CHK077–CHK084: CodeRabbit regressions/governance checks.
+- CHK077–CHK084: CodeRabbit round-1 regressions/governance checks.
+- CHK085: canonical persisted path contract.
+- CHK086: plan opening scope includes `pytestBasic`.
 
 **Result:** `PASS`
 
-## 14. Planning-Branch Purity at Audit Target
+## 15. Planning-Branch Purity at Audit Target
 
-Exact comparison of `main` to audited target `033bfc4839fc80e4c639ef71a8c09c80bfd7d4af`:
+Exact comparison of `main` to audited target `3cdcdd7b938606f5c4a9c907421ba9f7d69564d0`:
 
-- ahead by 70 commits;
+- base main SHA: `6735fe500c8408081a9950ac33abc69c3f272ce3`;
+- ahead by 83 commits;
 - behind by 0;
 - 18 changed files;
 - changed paths only under `.specify/`, `docs/founding/`, `specs/001-changed-code-verification-receipt/`, plus `LICENSE`;
@@ -379,7 +356,7 @@ Exact comparison of `main` to audited target `033bfc4839fc80e4c639ef71a8c09c80bf
 
 **Result:** `PASS`
 
-## 15. Residual Implementation / Release Gates — Not Planning Blockers
+## 16. Residual Implementation / Release Gates — Not Planning Blockers
 
 1. exact `cross-spawn` version/transitive provenance;
 2. exact benchmark repositories/commits/licensing/execution terms;
@@ -390,21 +367,24 @@ Exact comparison of `main` to audited target `033bfc4839fc80e4c639ef71a8c09c80bf
 
 None requires speculative architecture today.
 
-## 16. Final Verdict
+## 17. Final Verdict
 
 `PASS_READY_FOR_FRESH_EXACT_HEAD_PR_REVIEW`
 
-At audited target `033bfc4839fc80e4c639ef71a8c09c80bfd7d4af`:
+At audited target `3cdcdd7b938606f5c4a9c907421ba9f7d69564d0`:
 
 - open internal BLOCKER findings: **0**
 - open internal MAJOR findings: **0**
 - accepted Qodo findings unrepaired: **0**
-- accepted CodeRabbit findings unrepaired in audited artifacts: **0**
+- accepted CodeRabbit round-1 findings unrepaired: **0**
+- accepted CodeRabbit round-2 findings unrepaired: **0**
+- requirements/contract/governance checks: **86/86 PASS**
 - constitutional violations: **0**
 - known false-green contract paths: **0**
 - known silent changed-command execution paths: **0**
 - known dangling-evidence contract paths accepted as valid: **0**
-- known raw repository-location receipt forms accepted by intended contract: **0**
+- known raw repository-location identity forms accepted by intended contract: **0**
+- known absolute/traversal persisted receipt-path forms accepted by intended contract: **0**
 - product implementation files: **0**
 
 ### Authorization boundary
@@ -412,7 +392,7 @@ At audited target `033bfc4839fc80e4c639ef71a8c09c80bfd7d4af`:
 This verdict authorizes only:
 
 - keeping PR #1 Ready for Review;
-- resolving threads whose fixes are independently verified;
+- resolving review threads whose fixes are independently verified;
 - consuming a **fresh external exact-head review** of the post-audit PR head;
 - final merge consideration only after that review is clean and head/purity are reverified.
 
