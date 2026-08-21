@@ -1,11 +1,11 @@
 # 001 — Independent Final Plan Audit
 
 **Date:** 2026-08-22  
-**Audit target exact head:** `4b830c65ba285f1fac3824a2558485eb6f8c9274`  
+**Audit target exact head:** `b300549c64e084203a29fb254f35cb24e966558a`  
 **Branch:** `planning/000-ascout-foundation`  
 **Verdict:** `PASS_READY_FOR_FRESH_EXACT_HEAD_PR_REVIEW`  
 **Implementation authorization:** **NO**  
-**Merge authorization:** **NO — clean CodeRabbit + Qodo evidence on the post-audit successor and final purity verification are required**
+**Merge authorization:** **NO — clean CodeRabbit + Qodo evidence on the post-audit successor and final exact-head purity/thread/mergeability verification are required**
 
 This audit supersedes all earlier Ascout founding-plan audits for merge-readiness purposes.
 
@@ -14,42 +14,57 @@ This audit supersedes all earlier Ascout founding-plan audits for merge-readines
 Accepted external-review findings are reconciled:
 
 - Qodo Q1–Q4: **RESOLVED**.
-- CodeRabbit CR1–CR15: **RESOLVED**.
+- CodeRabbit CR1–CR17: **RESOLVED**.
 
-Latest CodeRabbit finding CR15 was valid. The planning prose previously allowed normalization before validation, which could erase the forbidden original spelling by collapsing `src//file.ts`, removing the trailing separator in `src/`, or resolving traversal before the validator observed it.
+The latest reconciliation includes three related but distinct data-integrity repairs:
 
-The repair is deliberately narrow:
+- CR15: invalid persisted path spellings are rejected on their original receipt-candidate spelling before any lossy normalization can repair them;
+- CR16: M1 `working_tree_vs_head` comparison identity is bound to the same exact full Git object ID captured as source-start HEAD;
+- CR17: changed new-line ranges require `start <= end` and are rejected before changed-line, coverage, or exercise arithmetic.
 
-- `plan.md` now requires fail-closed validation of the original repository/run-relative receipt candidate before any lossy normalization, separator collapse, trailing-separator removal, or dot-segment resolution;
-- `data-model.md` carries the same ordering invariant and states invalid spellings are rejected rather than repaired;
-- `spec.md` acceptance scenario 12, edge cases, clarification, FR-042, and SC-015 use the same raw-form rejection semantics;
-- T009, T025, T033, and T081 make the ordering executable and require proof that invalid forms, including `src//file.ts` and `src/`, are never normalized into valid-looking receipt paths;
-- CHK090 locks this cross-artifact ordering invariant.
-
-No new task ID, dependency, runtime component, validator subsystem, or product capability was added.
+No new task ID, dependency, runtime component, comparison mode, database, graph, or validation service was added.
 
 ## 2. Product / Authority / Evidence Truth
 
-The audited planning set still requires:
+The audited planning set requires:
 
 - evidence before claims;
 - no green by omission;
 - stable material exercise gaps cannot return exit `0`;
 - changed effective command/config authority is refused before launch/load by default;
-- any override is explicit, per invocation, receipt-visible, never remembered or auto-added;
+- override is explicit, per invocation, receipt-visible, never remembered or auto-added;
 - exact source/run binding and explicit drift;
+- `source.start.head_sha` and `comparison.base_ref` are full 40/64-hex Git object IDs and are exactly equal for M1 `working_tree_vs_head`;
+- unborn HEAD is unsupported for M1 normal check;
+- changed new-line ranges reject `start > end` before any derived arithmetic;
 - run-bound evidence with no cross-tree transfer;
 - opaque privacy-safe repository identity;
 - canonical relative persisted paths only;
-- original invalid receipt path spellings are rejected before lossy normalization and are never repaired;
+- original invalid receipt path spellings are rejected before lossy normalization and never repaired;
 - one pure semantic receipt validator in addition to JSON Schema;
 - fixed M1 task surface (`typecheck`, `lint`, `test`, `pytestBasic`);
-- no universal proof ladder;
 - trusted developer-owned local repository scope for v0.x.
 
 **Result:** `PASS`
 
-## 3. Canonical Path Contract
+## 3. Source / Comparison / Range Integrity
+
+Receipt v1 now constrains source/comparison identity as follows:
+
+```text
+source.start.head_sha = full Git object ID
+comparison.kind       = working_tree_vs_head
+comparison.base_ref   = full resolved Git object ID
+comparison.base_ref   = source.start.head_sha   (semantic invariant)
+```
+
+Accepted Git object formats are full lowercase SHA-1 (40 hex) and SHA-256 (64 hex). Abbreviated, malformed, symbolic/free-form, unborn, or mismatched M1 comparison identities fail closed.
+
+Each `changed_new_line_ranges` item is a two-positive-integer `[start, end]` pair and semantic validation requires `start <= end`. `[10, 1]` is a required negative regression and cannot reach changed-line counting, coverage intersection, exercise aggregation, or receipt emission.
+
+**Result:** `PASS`
+
+## 4. Canonical Path Contract
 
 A persisted receipt path candidate is validated on its **original candidate spelling** before any operation can collapse or erase invalid syntax.
 
@@ -63,13 +78,11 @@ Rejected before lossy normalization:
 - duplicate separators such as `src//file.ts`;
 - trailing separators such as `src/`.
 
-The validator never repairs these into canonical output. Only after raw-form rejection succeeds may non-lossy namespace-containment/canonicality logic operate on the already-canonical relative candidate.
-
-The implementation task plan tests this at contract/semantic, implementation-validator, end-to-end, and cross-platform golden layers.
+The validator never repairs these into canonical output. Only after raw-form rejection succeeds may non-lossy namespace-containment/canonicality logic operate.
 
 **Result:** `PASS`
 
-## 4. Canonical Document Authority
+## 5. Canonical Document Authority
 
 There is one live normative Master Plan v1:
 
@@ -77,13 +90,13 @@ There is one live normative Master Plan v1:
 docs/founding/MASTER_PLAN_V1.md
 ```
 
-`docs/founding/ASCOUT_MASTER_PLAN_V1.md` is only a `SUPERSEDED / NON-AUTHORITATIVE` tombstone and explicitly prohibits use for Spec Kit derivation, implementation authorization, requirements interpretation, task planning, review, or release decisions.
+`docs/founding/ASCOUT_MASTER_PLAN_V1.md` is only a `SUPERSEDED / NON-AUTHORITATIVE` tombstone and cannot drive implementation, Spec Kit derivation, review, or release decisions.
 
 **Result:** `PASS`
 
-## 5. Machine Contract / Benchmark / YAGNI
+## 6. Machine Contract / Benchmark / YAGNI
 
-Receipt/config contracts remain versioned and strict. Evidence references, task statuses/reasons, rename fidelity, exercise states/counts/reasons, command admission, aggregate completeness, source stability, exit precedence, and path raw-form/canonical/containment invariants remain explicitly validated.
+Receipt/config contracts remain versioned and strict. Evidence references, task statuses/reasons, rename fidelity, exercise states/counts/reasons, command admission, aggregate completeness, source stability, exact HEAD comparison binding, changed-line range validity, exit precedence, and path raw-form/canonical/containment invariants are explicitly validated.
 
 Absolute benchmark gates remain:
 
@@ -93,11 +106,11 @@ binding-integrity violations = 0
 stable material exercise gap returning exit 0 = 0
 ```
 
-M1 still introduces no DB, daemon/server, semantic graph, public plugin SDK, persistent trust store, VFS/path-policy subsystem, required AI, browser/security suite, mutation/fuzzing stack, or arbitrary workflow DSL.
+M1 still introduces no DB, daemon/server, semantic graph, public plugin SDK, persistent trust store, VFS/path-policy subsystem, required AI, browser/security suite, mutation/fuzzing stack, arbitrary workflow DSL, or committed `--base` comparison mode.
 
 **Result:** `PASS`
 
-## 6. Task / Checklist Audit
+## 7. Task / Checklist Audit
 
 Task range remains exactly:
 
@@ -108,19 +121,19 @@ T001–T088
 Current checklist:
 
 ```text
-90 / 90 PASS
+92 / 92 PASS
 ```
 
-CR15 only strengthens path-validation ordering and existing test obligations in T009/T025/T033/T081; it does not expand product scope.
+CR16/CR17 strengthen existing source/diff/receipt tasks T009/T011/T018/T020/T025/T026/T033/T081; no task ID or M1 scope is added.
 
 **Result:** `PASS`
 
-## 7. Planning-Branch Purity at Audit Target
+## 8. Planning-Branch Purity at Audit Target
 
-Exact comparison `main` → `4b830c65ba285f1fac3824a2558485eb6f8c9274`:
+Exact comparison `main` → `b300549c64e084203a29fb254f35cb24e966558a`:
 
 - main/base: `6735fe500c8408081a9950ac33abc69c3f272ce3`;
-- ahead: 106;
+- ahead: 114;
 - behind: 0;
 - changed files: 19;
 - paths remain only `.specify/`, `docs/founding/`, `specs/001-changed-code-verification-receipt/`, and `LICENSE`;
@@ -133,7 +146,7 @@ Exact comparison `main` → `4b830c65ba285f1fac3824a2558485eb6f8c9274`:
 
 **Result:** `PASS`
 
-## 8. Connected Review Inventory
+## 9. Connected Review Inventory
 
 Actual code-review integrations evidenced on PR #1:
 
@@ -144,17 +157,17 @@ No additional code-review bot or GitHub Actions review workflow is evidenced on 
 
 The post-audit successor must be frozen and receive clean exact-head evidence from both integrations before merge consideration.
 
-## 9. Final Verdict
+## 10. Final Verdict
 
 `PASS_READY_FOR_FRESH_EXACT_HEAD_PR_REVIEW`
 
-At audit target `4b830c65ba285f1fac3824a2558485eb6f8c9274`:
+At audit target `b300549c64e084203a29fb254f35cb24e966558a`:
 
 - open accepted BLOCKER findings: **0**;
 - open accepted MAJOR findings: **0**;
 - accepted Qodo findings unrepaired: **0**;
-- accepted CodeRabbit CR1–CR15 findings unrepaired: **0**;
-- checklist: **90/90 PASS**;
+- accepted CodeRabbit CR1–CR17 findings unrepaired: **0**;
+- checklist: **92/92 PASS**;
 - product implementation files: **0**;
 - task range: **T001–T088**;
 - behind main: **0**.
