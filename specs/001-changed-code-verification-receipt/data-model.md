@@ -60,7 +60,7 @@ Every persisted path-bearing field uses one canonical slash-separated **relative
 - repository paths are relative to the repository root, including changed/current/previous paths, package scope, task source path, changed authority paths, exercise paths, test-change paths, and finding paths;
 - `artifact.relative_run_path` is relative to the current `.ascout/runs/<run-id>/` directory.
 
-Before persistence and semantic validation, path separators are normalized. A machine receipt is invalid if a persisted path is POSIX-absolute, Windows drive-absolute, UNC, URI-absolute, or contains `.` / `..` traversal segments after normalization. Backslash-separated persisted paths are not canonical. Raw host absolute paths may exist transiently while resolving tools/files but are never written to the receipt or run artifacts.
+Host/tool paths may be resolved transiently into a repository-relative or run-relative **receipt candidate**. The candidate's **original spelling is validated before any lossy normalization, separator collapse, trailing-separator removal, or dot-segment resolution**. A machine receipt is invalid if that original candidate is POSIX-absolute, Windows drive-absolute, UNC, URI-absolute, contains a backslash, contains `.` / `..` segments, contains an empty segment such as `src//file.ts`, or has a trailing separator such as `src/`. Validation MUST reject rather than repair, collapse, or rewrite those spellings. Only after raw-form rejection passes may non-lossy comparison/namespace-containment logic operate on the already-canonical candidate. Raw host absolute paths may exist transiently while resolving tools/files but are never written to the receipt or run artifacts.
 
 ## 4. VerificationTaskDefinition
 
@@ -211,7 +211,7 @@ Artifacts live under current `.ascout/runs/<run-id>/`. Artifact IDs are unique w
 
 JSON Schema validates field-level shapes. One Ascout-owned pure semantic validator additionally verifies before emission:
 
-- canonical relative-path invariants for every persisted path-bearing field after normalization;
+- every persisted path candidate is checked in its original receipt spelling before any lossy normalization; invalid absolute/drive/UNC/URI/backslash/dot-segment/duplicate-separator/trailing-separator forms are rejected, never repaired, and namespace containment is checked only after raw-form rejection passes;
 - evidence/task/artifact reference integrity and uniqueness;
 - source start/end and `stability` consistency;
 - task status/reason/admission invariants;
