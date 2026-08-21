@@ -6,7 +6,7 @@
 
 ## Summary
 
-Build the smallest local CLI that turns an AI coding change into an honest source-bound verification receipt. M1 reuses Git and project-native verification rather than building a semantic index: bind a run to exact local source state, enforce a narrow command-admission boundary, execute fixed typecheck/lint/test categories with bounded process control, use native Vitest/Jest related selection plus conservative widening, normalize line coverage, intersect it with changed executable lines, expose factual test/snapshot changes, detect drift, and render one truth model as terminal/JSON/bounded-agent receipts.
+Build the smallest local CLI that turns an AI coding change into an honest source-bound verification receipt. M1 reuses Git and project-native verification rather than building a semantic index: bind a run to exact local source state, enforce a narrow command-admission boundary, execute fixed typecheck/lint/test categories with bounded process control, use native Vitest/Jest related selection plus conservative widening, normalize line coverage, intersect it with changed executable lines, expose factual test/snapshot changes, detect drift, and render one semantically validated truth model as terminal/JSON/bounded-agent receipts.
 
 Reference implementation: TypeScript 6.x on Node.js >=22. Planned product runtime dependency budget: one reviewed `cross-spawn` dependency; all other M1 mechanics use Node/Git/project-native capabilities unless evidence forces a reviewed plan delta.
 
@@ -24,9 +24,9 @@ Reference implementation: TypeScript 6.x on Node.js >=22. Planned product runtim
 
 | Gate | Result |
 |---|---|
-| Evidence before claims | PASS — current-run evidence only, no confidence ladder |
+| Evidence before claims | PASS — current-run evidence collection + resolvable evidence refs; no confidence ladder |
 | No green by omission | PASS — task omissions + exercise gaps block clean success |
-| Source-bound truth | PASS — secret-safe identity, canonical start/end digest, no evidence transfer |
+| Source-bound truth | PASS — privacy-safe hashed repository identity, canonical start/end digest, no evidence transfer |
 | Explicit authority | PASS — changed effective command surfaces are refused by default and require per-run human admission |
 | Native capability first | PASS — Git/Vitest/Jest/LCOV, no custom impact graph |
 | Conservative affected verification | PASS — finite pre-run triggers + one bounded post-run widening |
@@ -60,7 +60,7 @@ test/snapshot facts
   ↓
 source identity END / drift
   ↓
-one receipt model
+one receipt model + semantic invariant validation
   ├─ terminal
   ├─ JSON
   └─ bounded agent
@@ -78,7 +78,8 @@ For each planned task, compute its effective authority/config sources, for examp
 - `package.json` script used to launch it;
 - effective TypeScript configuration/extends sources loaded by `tsc` where discoverable;
 - ESLint config selected for the task;
-- Vitest/Jest config selected for the test task.
+- Vitest/Jest config selected for the JS test task;
+- effective pytest configuration used by `pytestBasic`, including applicable `pytest.ini`, `pyproject.toml`, `setup.cfg`, or `tox.ini` when that source is actually loaded.
 
 If the current changed scope touches an effective command/config source that would be evaluated/loaded for a task:
 
@@ -107,8 +108,12 @@ This is the smallest defensible admission boundary for M1; no trust database, VM
 
 ### Repository identity
 
-- Remote present: never persist raw origin. Normalize credential-free host/path by stripping URL/scp userinfo, credentials, query and fragment. If safe normalization cannot be established, persist a SHA-256-derived opaque identifier instead.
-- No remote: `repository_id = local:<sha256(canonical-real-repository-path)>`, `portable=false`; never persist raw absolute local path.
+M1 persists only opaque schema-enforceable repository IDs:
+
+- remote present: `repository_id = remote:<sha256(normalized-credential-free-remote-identity)>`, `portable=true`;
+- no remote: `repository_id = local:<sha256(canonical-real-repository-path)>`, `portable=false`.
+
+Raw origins, URL/scp userinfo/credentials/query/fragment material, and raw absolute local paths are never persisted/rendered.
 
 ### HEAD
 
@@ -195,7 +200,7 @@ Resolve one supported runner per scope. Ambiguous Vitest/Jest discovery fails cl
 
 ### pytest basic
 
-Explicit/clearly discoverable pytest only; no Python environment chooser, affected selection, testmon, or exercise-coverage claim.
+Explicit/clearly discoverable pytest only; no Python environment chooser, affected selection, testmon, or exercise-coverage claim. Effective pytest config used by the invocation participates in command-surface admission.
 
 ## Task Contract
 
@@ -305,12 +310,36 @@ changed_code
 exercise
 test_changes
 findings
+evidence
 artifacts
 stability
 summary
 ```
 
-Receipt contract fixes task types, strict repository/package selection scope, at most two selection passes, source stability, completeness, changed-file rename identity, task reason requirements, exercise state/count/reason invariants, and admission fields. No proof ladder. Weak fingerprint remains optional current-run matching aid only.
+### Evidence collection
+
+Each `evidence[]` entry contains current-run evidence ID, run ID, task ID, sequence, kind, SHA-256 digest, optional artifact link, and redaction/truncation flags.
+
+Task and finding `evidence_ids` are references into this collection; they are never free-floating claims.
+
+### Semantic receipt validator
+
+JSON Schema validates field shapes. Before receipt emission, one Ascout-owned pure semantic validator additionally verifies:
+
+- evidence IDs, task IDs, artifact IDs, and references are unique/resolvable;
+- evidence `run_id` equals receipt `run.run_id`;
+- evidence task links resolve to current receipt tasks;
+- task/finding evidence refs resolve to current-run evidence;
+- non-null evidence artifact refs resolve;
+- source start/end and `stability` agree;
+- task status/reason/admission invariants agree;
+- exercise records and aggregate counts agree;
+- task-status/finding summary counts agree;
+- completeness and exit-code precedence agree with underlying state.
+
+Any internal/future receipt acceptance path reuses this same validator. This is a pure invariant function, not a service/database/subsystem.
+
+Receipt contract also fixes task types, strict repository/package selection scope, at most two selection passes, changed-file rename identity, exercise state/count/reason invariants, and admission fields. No proof ladder. Weak fingerprint remains optional current-run matching aid only.
 
 Agent output default max: 16 KiB UTF-8, prioritizing errors/findings/admission refusals/exercise gaps, preserving identity/status/totals.
 
@@ -349,12 +378,13 @@ Git-derived changed/deleted test files and tracked snapshots only. No semantic w
 Required tests cover:
 
 - config/receipt contracts, including canonical task identifier parity;
+- evidence collection/reference integrity and semantic receipt validation;
+- privacy-safe `remote:<sha256>` / `local:<sha256>` repository IDs;
 - rename `previous_path` invariant;
 - task reason invariants for `NOT_RUN`/`BLOCKED`/`ERROR`;
 - exercise state/count/reason invariants;
-- secret-safe remote and local identity;
 - tree digest including mode/untracked state;
-- changed-command default refusal + explicit per-run admission + agent non-escalation;
+- changed-command default refusal + explicit per-run admission + agent non-escalation, including `pytestBasic` authority/config fixtures;
 - Git diff/LCOV/exercise states;
 - selection/widening;
 - task/error/completeness/exit precedence;
@@ -377,7 +407,10 @@ Measure false-PASS, selection recall, gap accuracy, unresolved rate, cold/warm t
 ```text
 cross-tree evidence leakage = 0
 binding-integrity violations = 0
+stable material exercise gap returning exit 0 = 0
 ```
+
+The benchmark harness explicitly asserts that a stable run with remaining material `NOT_EXERCISED` or `UNRESOLVED` lines returns exit `4` absent a higher-precedence condition.
 
 No invented pre-data 98% threshold.
 
@@ -393,9 +426,10 @@ Rejected M1 complexity:
 - semantic dependency index;
 - recursive widening;
 - AST weakening analyzer;
+- schema-generation/type-sharing subsystem solely for contracts;
 - native binary distribution;
 - untrusted sandbox.
 
 ## Stop Conditions
 
-Return to planning if implementation requires a second product runtime dependency, DB/daemon, generic plugin SDK, semantic graph, arbitrary config workflow, automatic untrusted execution, shell-string repo commands, recursive widening, persistent changed-surface trust grants, automatic agent admission escalation, or any exit/report behavior hiding material task/exercise/admission gaps behind success.
+Return to planning if implementation requires a second product runtime dependency, DB/daemon, generic plugin SDK, semantic graph, arbitrary config workflow, automatic untrusted execution, shell-string repo commands, recursive widening, persistent changed-surface trust grants, automatic agent admission escalation, or any exit/report behavior hiding material task/exercise/admission/evidence gaps behind success.
