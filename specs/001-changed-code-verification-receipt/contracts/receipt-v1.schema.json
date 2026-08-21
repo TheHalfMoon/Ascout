@@ -25,27 +25,13 @@
     "source": {"$ref": "#/$defs/source"},
     "comparison": {"$ref": "#/$defs/comparison"},
     "selection": {"$ref": "#/$defs/selection"},
-    "tasks": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/task"}
-    },
+    "tasks": {"type": "array", "items": {"$ref": "#/$defs/task"}},
     "changed_code": {"$ref": "#/$defs/changedCode"},
     "exercise": {"$ref": "#/$defs/exercise"},
-    "test_changes": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/testChange"}
-    },
-    "findings": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/finding"}
-    },
-    "artifacts": {
-      "type": "array",
-      "items": {"$ref": "#/$defs/artifact"}
-    },
-    "stability": {
-      "enum": ["stable", "tree_drifted", "incomplete_due_to_error"]
-    },
+    "test_changes": {"type": "array", "items": {"$ref": "#/$defs/testChange"}},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "artifacts": {"type": "array", "items": {"$ref": "#/$defs/artifact"}},
+    "stability": {"enum": ["stable", "tree_drifted", "unknown"]},
     "summary": {"$ref": "#/$defs/summary"}
   },
   "$defs": {
@@ -76,7 +62,10 @@
         "detached",
         "shallow",
         "tree_digest_version",
-        "tree_digest"
+        "tree_digest",
+        "tracked_index_entry_count",
+        "unstaged_changed_count",
+        "included_untracked_count"
       ],
       "properties": {
         "repository_id": {"type": "string", "minLength": 1},
@@ -89,7 +78,7 @@
         "tree_digest": {"$ref": "#/$defs/sha256"},
         "tracked_index_entry_count": {"type": "integer", "minimum": 0},
         "unstaged_changed_count": {"type": "integer", "minimum": 0},
-        "relevant_untracked_count": {"type": "integer", "minimum": 0}
+        "included_untracked_count": {"type": "integer", "minimum": 0}
       }
     },
     "source": {
@@ -98,13 +87,26 @@
       "required": ["start", "end"],
       "properties": {
         "start": {"$ref": "#/$defs/sourceState"},
-        "end": {"$ref": "#/$defs/sourceState"}
+        "end": {
+          "oneOf": [
+            {"$ref": "#/$defs/sourceState"},
+            {"type": "null"}
+          ]
+        }
       }
     },
     "changedFile": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "change_kind", "line_semantics", "changed_new_line_ranges", "is_test_file", "is_snapshot", "is_command_surface"],
+      "required": [
+        "path",
+        "change_kind",
+        "line_semantics",
+        "changed_new_line_ranges",
+        "is_test_file",
+        "is_snapshot",
+        "is_command_surface"
+      ],
       "properties": {
         "path": {"type": "string", "minLength": 1},
         "previous_path": {"type": "string", "minLength": 1},
@@ -131,17 +133,21 @@
     "comparison": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "base_ref", "includes_staged", "includes_unstaged", "includes_relevant_untracked", "changed_files"],
+      "required": [
+        "kind",
+        "base_ref",
+        "includes_staged",
+        "includes_unstaged",
+        "includes_untracked_nonignored",
+        "changed_files"
+      ],
       "properties": {
         "kind": {"const": "working_tree_vs_head"},
         "base_ref": {"type": "string", "minLength": 1},
         "includes_staged": {"const": true},
         "includes_unstaged": {"const": true},
-        "includes_relevant_untracked": {"const": true},
-        "changed_files": {
-          "type": "array",
-          "items": {"$ref": "#/$defs/changedFile"}
-        }
+        "includes_untracked_nonignored": {"const": true},
+        "changed_files": {"type": "array", "items": {"$ref": "#/$defs/changedFile"}}
       }
     },
     "selection": {
@@ -166,10 +172,7 @@
           "maxItems": 2,
           "items": {"type": "object"}
         },
-        "limitations": {
-          "type": "array",
-          "items": {"type": "string"}
-        }
+        "limitations": {"type": "array", "items": {"type": "string"}}
       }
     },
     "observations": {
@@ -190,6 +193,7 @@
         "authorized_by",
         "source_path",
         "argv",
+        "argv_redacted",
         "tool_name",
         "tool_version",
         "status",
@@ -210,12 +214,9 @@
         "task_type": {"type": "string", "minLength": 1},
         "authorized_by": {"enum": ["user_config", "repo_config", "discovery"]},
         "source_path": {"type": ["string", "null"]},
-        "argv": {
-          "type": "array",
-          "minItems": 1,
-          "items": {"type": "string"}
-        },
-        "tool_name": {"type": "string", "minLength": 1},
+        "argv": {"type": "array", "items": {"type": "string"}},
+        "argv_redacted": {"type": "boolean"},
+        "tool_name": {"type": ["string", "null"]},
         "tool_version": {"type": ["string", "null"]},
         "status": {"enum": ["PASS", "FAIL", "FLAKY", "BLOCKED", "ERROR", "NOT_APPLICABLE", "NOT_RUN"]},
         "reason_code": {"type": ["string", "null"]},
@@ -228,14 +229,8 @@
         "cache_state": {"enum": ["cold", "warm", "reused", "unknown", "not_applicable"]},
         "selected_test_count": {"type": ["integer", "null"], "minimum": 0},
         "deselected_test_count": {"type": ["integer", "null"], "minimum": 0},
-        "evidence_ids": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1}
-        },
-        "artifact_refs": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1}
-        },
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "artifact_refs": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "output_truncated": {"type": "boolean"}
       }
     },
@@ -248,27 +243,28 @@
         "line": {"type": "integer", "minimum": 1},
         "state": {"enum": ["EXERCISED", "NOT_EXERCISED", "UNRESOLVED"]},
         "execution_count": {"type": ["integer", "null"], "minimum": 0},
-        "source_task_ids": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1}
-        },
+        "source_task_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
         "reason": {"type": "string"}
       }
     },
     "exercise": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["changed_executable_lines", "exercised_lines", "not_exercised_lines", "unresolved_lines", "changed_files_with_zero_exercised_lines", "records"],
+      "required": [
+        "changed_executable_lines",
+        "exercised_lines",
+        "not_exercised_lines",
+        "unresolved_lines",
+        "changed_files_with_zero_exercised_lines",
+        "records"
+      ],
       "properties": {
         "changed_executable_lines": {"type": "integer", "minimum": 0},
         "exercised_lines": {"type": "integer", "minimum": 0},
         "not_exercised_lines": {"type": "integer", "minimum": 0},
         "unresolved_lines": {"type": "integer", "minimum": 0},
         "changed_files_with_zero_exercised_lines": {"type": "integer", "minimum": 0},
-        "records": {
-          "type": "array",
-          "items": {"$ref": "#/$defs/exerciseRecord"}
-        }
+        "records": {"type": "array", "items": {"$ref": "#/$defs/exerciseRecord"}}
       }
     },
     "changedCode": {
@@ -297,10 +293,28 @@
         {"const": "unknown"}
       ]
     },
+    "fingerprintVersion": {
+      "oneOf": [
+        {"const": 1},
+        {"type": "null"}
+      ]
+    },
     "finding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["finding_id", "task_id", "producer", "message", "severity", "in_changed_lines", "introduced_by_change", "determinism_class", "observations", "reproduced", "evidence_ids"],
+      "required": [
+        "finding_id",
+        "task_id",
+        "producer",
+        "message",
+        "severity",
+        "in_changed_lines",
+        "introduced_by_change",
+        "determinism_class",
+        "observations",
+        "reproduced",
+        "evidence_ids"
+      ],
       "properties": {
         "finding_id": {"type": "string", "minLength": 1},
         "task_id": {"type": "string", "minLength": 1},
@@ -316,12 +330,14 @@
         "determinism_class": {"enum": ["deterministic", "nondeterministic", "unknown"]},
         "observations": {"$ref": "#/$defs/observations"},
         "reproduced": {"enum": [true, false, "not_applicable", "unknown"]},
-        "fingerprint_version": {"type": ["integer", "null"], "const": 1},
-        "fingerprint": {"type": ["string", "null"]},
-        "evidence_ids": {
-          "type": "array",
-          "items": {"type": "string", "minLength": 1}
-        }
+        "fingerprint_version": {"$ref": "#/$defs/fingerprintVersion"},
+        "fingerprint": {
+          "oneOf": [
+            {"$ref": "#/$defs/sha256"},
+            {"type": "null"}
+          ]
+        },
+        "evidence_ids": {"type": "array", "items": {"type": "string", "minLength": 1}}
       }
     },
     "artifact": {
@@ -339,17 +355,28 @@
         "truncated": {"type": "boolean"}
       }
     },
+    "taskStatusCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["PASS", "FAIL", "FLAKY", "BLOCKED", "ERROR", "NOT_APPLICABLE", "NOT_RUN"],
+      "properties": {
+        "PASS": {"type": "integer", "minimum": 0},
+        "FAIL": {"type": "integer", "minimum": 0},
+        "FLAKY": {"type": "integer", "minimum": 0},
+        "BLOCKED": {"type": "integer", "minimum": 0},
+        "ERROR": {"type": "integer", "minimum": 0},
+        "NOT_APPLICABLE": {"type": "integer", "minimum": 0},
+        "NOT_RUN": {"type": "integer", "minimum": 0}
+      }
+    },
     "summary": {
       "type": "object",
       "additionalProperties": false,
       "required": ["task_status_counts", "finding_count", "completeness", "exit_code"],
       "properties": {
-        "task_status_counts": {
-          "type": "object",
-          "additionalProperties": {"type": "integer", "minimum": 0}
-        },
+        "task_status_counts": {"$ref": "#/$defs/taskStatusCounts"},
         "finding_count": {"type": "integer", "minimum": 0},
-        "completeness": {"enum": ["complete", "materially_incomplete"]},
+        "completeness": {"enum": ["complete", "materially_incomplete", "unknown_due_to_error"]},
         "exit_code": {"enum": [0, 1, 2, 3, 4]}
       }
     }
