@@ -54,6 +54,7 @@ export class GitIdentityError extends Error {
 const GIT_METADATA_TIMEOUT_MS = 10_000;
 const GIT_METADATA_MAX_BUFFER_BYTES = 1024 * 1024;
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
+const SYMBOLIC_HEAD_REF = /^refs\/.+$/;
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
@@ -97,11 +98,12 @@ function normalizeRemoteIdentity(rawRemote: string): string {
   }
 
   // Windows drive-qualified paths are local-path syntax, not portable scp-like remotes.
-  // Fail closed here rather than fabricating an ssh:// identity from the drive letter.
   if (/^[A-Za-z]:/.test(rawRemote)) {
     throw new GitIdentityError("unsupported_remote", "unsupported drive-qualified remote path");
   }
 
+  // T012 does not define a canonical bracketed-IPv6 scp grammar. Reject rather than split on an
+  // IPv6 colon and fabricate a portable remote identity.
   if (/^(?:[^@/:]+@)?\[/.test(rawRemote)) {
     throw new GitIdentityError("unsupported_remote", "unsupported bracketed scp-like remote host");
   }
@@ -113,8 +115,8 @@ function normalizeRemoteIdentity(rawRemote: string): string {
 
   const host = scpLike[1];
   const path = scpLike[2];
-  if (host === undefined || path === undefined) {
-    throw new GitIdentityError("unsupported_remote", "unsupported remote identity form");
+  if (host === undefined || path === undefined || path.startsWith("/")) {
+    throw new GitIdentityError("unsupported_remote", "unsupported scp-like remote path form");
   }
   return `ssh://${host.toLowerCase()}/${path}`;
 }
@@ -182,6 +184,30 @@ function parseExactBoolean(stdout: string, context: string): boolean {
   throw new GitIdentityError("git_metadata_error", `${context} returned an invalid boolean`);
 }
 
+function proveUnbornHead(repositoryRoot: string, runGit: GitCommandRunner): boolean {
+  const symbolicHead = runGit(repositoryRoot, ["symbolic-ref", "-q", "HEAD"]);
+  if (symbolicHead.error !== undefined || symbolicHead.status !== 0) {
+    return false;
+  }
+
+  const symbolicRef = stripOneTerminalNewline(symbolicHead.stdout);
+  if (
+    !SYMBOLIC_HEAD_REF.test(symbolicRef) ||
+    symbolicRef.includes("\n") ||
+    symbolicRef.includes("\r")
+  ) {
+    throw new GitIdentityError("git_metadata_error", "Git returned an invalid symbolic HEAD ref");
+  }
+
+  const refResult = runGit(repositoryRoot, ["show-ref", "--verify", "--quiet", symbolicRef]);
+  if (refResult.error !== undefined) {
+    throw new GitIdentityError("git_metadata_error", "unable to verify symbolic HEAD ref");
+  }
+  if (refResult.status === 1) return true;
+  if (refResult.status === 0) return false;
+  throw new GitIdentityError("git_metadata_error", "unable to verify symbolic HEAD ref");
+}
+
 export function readGitHeadState(
   repositoryRoot: string,
   runGit: GitCommandRunner = defaultGitCommandRunner,
@@ -197,9 +223,16 @@ export function readGitHeadState(
   }
 
   const headResult = runGit(repositoryRoot, ["rev-parse", "--verify", "HEAD^{commit}"]);
-  if (headResult.error !== undefined || headResult.status !== 0) {
-    throw new GitIdentityError("unborn_head", "M1 check requires an existing Git HEAD commit");
+  if (headResult.error !== undefined) {
+    throw new GitIdentityError("git_metadata_error", "unable to resolve Git HEAD commit");
   }
+  if (headResult.status !== 0) {
+    if (proveUnbornHead(repositoryRoot, runGit)) {
+      throw new GitIdentityError("unborn_head", "M1 check requires an existing Git HEAD commit");
+    }
+    throw new GitIdentityError("git_metadata_error", "unable to resolve Git HEAD commit");
+  }
+
   const headSha = stripOneTerminalNewline(headResult.stdout);
   if (!FULL_GIT_OBJECT_ID.test(headSha)) {
     throw new GitIdentityError(
