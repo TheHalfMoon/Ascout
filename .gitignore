@@ -1,0 +1,11 @@
+# Ascout runtime evidence and locks
+.ascout/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Local coverage output
+coverage/
