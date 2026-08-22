@@ -182,6 +182,26 @@ describe("T022 run lock", () => {
     expect(readFileSync(lockPath(repositoryRoot), "utf8")).toBe(malformed);
   });
 
+  it("does not release while another live owner holds the lock-mutation guard", async () => {
+    const repositoryRoot = temporaryRepository();
+    const handle = await acquireRunLock(repositoryRoot);
+    const before = readFileSync(lockPath(repositoryRoot), "utf8");
+    writeFileSync(
+      recoveryPath(repositoryRoot),
+      ownerRecord(process.pid, "e".repeat(32)),
+      "utf8",
+    );
+
+    await expect(handle.release()).rejects.toMatchObject({
+      code: "run_lock_recovery_busy",
+    });
+    expect(readFileSync(lockPath(repositoryRoot), "utf8")).toBe(before);
+
+    rmSync(recoveryPath(repositoryRoot));
+    await handle.release();
+    expect(existsSync(lockPath(repositoryRoot))).toBe(false);
+  });
+
   it("refuses to release a lock whose ownership token changed", async () => {
     const repositoryRoot = temporaryRepository();
     const handle = await acquireRunLock(repositoryRoot);
