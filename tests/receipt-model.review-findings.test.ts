@@ -243,4 +243,34 @@ describe("T025 exact-head review finding repairs", () => {
     expect(codes).toContain("exercise_source_task_missing_coverage_evidence");
   });
 
+  it("reports missing coverage evidence once per offending source task", () => {
+    const receipt = structuredClone(receiptFixture()) as ReceiptV1;
+    (receipt.tasks[0] as unknown as { evidence_ids: string[] }).evidence_ids = ["e1"];
+    const exercise = receipt.exercise as unknown as {
+      changed_executable_lines: number;
+      exercised_lines: number;
+      records: Array<{
+        path: string;
+        line: number;
+        state: "EXERCISED";
+        execution_count: number;
+        source_task_ids: string[];
+      }>;
+    };
+    exercise.changed_executable_lines = 2;
+    exercise.exercised_lines = 2;
+    exercise.records.push({
+      path: "src/a.ts",
+      line: 2,
+      state: "EXERCISED",
+      execution_count: 1,
+      source_task_ids: ["test-1"],
+    });
+
+    const issues = validateReceiptSemantics(receipt).issues.filter(
+      (issue) => issue.code === "exercise_source_task_missing_coverage_evidence",
+    );
+    expect(issues).toHaveLength(1);
+  });
+
 });
