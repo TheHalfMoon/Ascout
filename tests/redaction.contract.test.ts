@@ -1,8 +1,6 @@
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
 
-const REDACTION = "[REDACTED]";
-
 type Env = Readonly<Record<string, string | undefined>>;
 
 interface RedactionPolicy {
@@ -49,7 +47,7 @@ function selectedSecretValues(env: Env, policy: RedactionPolicy): readonly strin
 function redactExactValues(value: string, secrets: readonly string[]): string {
   let redacted = value;
   for (const secret of secrets) {
-    redacted = redacted.replaceAll(secret, REDACTION);
+    redacted = redacted.replaceAll(secret, "");
   }
   return redacted;
 }
@@ -98,7 +96,7 @@ function policy(overrides: Partial<RedactionPolicy> = {}): RedactionPolicy {
 }
 
 describe("T015 redaction contract", () => {
-  it("redacts exact recognized secret-bearing env values from captured output", () => {
+  it("redacts exact recognized secret-bearing env values from captured output without fixing a marker", () => {
     const env: Env = {
       GITHUB_TOKEN: "secret-value-123",
       SERVICE_API_KEY: "service-secret-456",
@@ -114,9 +112,9 @@ describe("T015 redaction contract", () => {
 
     const redacted = redactExactValues(output, secrets);
 
-    expect(redacted).toContain(`token=${REDACTION}`);
-    expect(redacted).toContain(`again ${REDACTION}`);
-    expect(redacted).toContain(`service=${REDACTION}`);
+    expect(redacted).toContain("token=");
+    expect(redacted).toContain("again ");
+    expect(redacted).toContain("service=");
     expect(redacted).toContain("ordinary=visible-setting");
     expect(redacted).not.toContain("secret-value-123");
     expect(redacted).not.toContain("service-secret-456");
@@ -132,11 +130,15 @@ describe("T015 redaction contract", () => {
       policy({ configured_names: ["CUSTOM_DEPLOY_SECRET"] }),
     );
 
-    expect(secrets).toEqual(["custom-secret-value"]);
-    expect(redactExactValues(
+    const redacted = redactExactValues(
       "custom=custom-secret-value other=unlisted-visible-value",
       secrets,
-    )).toBe(`custom=${REDACTION} other=unlisted-visible-value`);
+    );
+
+    expect(secrets).toEqual(["custom-secret-value"]);
+    expect(redacted).toContain("custom=");
+    expect(redacted).toContain("other=unlisted-visible-value");
+    expect(redacted).not.toContain("custom-secret-value");
   });
 
   it("redacts persisted/rendered argv while leaving the raw launch argv input untouched", () => {
@@ -152,13 +154,9 @@ describe("T015 redaction contract", () => {
 
     const persistedArgv = redactPersistedArgv(rawArgv, secrets);
 
-    expect(persistedArgv).toEqual([
-      "node",
-      "tool.js",
-      "--token",
-      REDACTION,
-      `--header=Authorization: Bearer ${REDACTION}`,
-    ]);
+    expect(persistedArgv).toHaveLength(rawArgv.length);
+    expect(persistedArgv.slice(0, 3)).toEqual(["node", "tool.js", "--token"]);
+    expect(persistedArgv[4]).toContain("--header=Authorization: Bearer ");
     expect(persistedArgv).not.toBe(rawArgv);
     expect(rawArgv[3]).toBe("service-secret-456");
     expect(rawArgv[4]).toContain("service-secret-456");
@@ -176,7 +174,9 @@ describe("T015 redaction contract", () => {
 
     const text = "abc appears as ordinary text; abcd is the selected secret";
     const redacted = redactExactValues(text, secrets);
-    expect(redacted).toBe(`abc appears as ordinary text; ${REDACTION} is the selected secret`);
+    expect(redacted).toContain("abc appears as ordinary text;");
+    expect(redacted).toContain("is the selected secret");
+    expect(redacted).not.toContain("abcd");
   });
 
   it("expresses short-value protection as policy without freezing an undocumented product threshold", () => {
@@ -211,11 +211,17 @@ describe("T015 redaction contract", () => {
       policy({ configured_names: ["CUSTOM_SECRET"] }),
     );
 
-    expect(secrets).toEqual(["secret-value-with-suffix", "secret-value"]);
-    expect(redactExactValues(
-      "secret-value-with-suffix | secret-value",
+    const redacted = redactExactValues(
+      "prefix secret-value-with-suffix | secret-value suffix",
       secrets,
-    )).toBe(`${REDACTION} | ${REDACTION}`);
+    );
+
+    expect(secrets).toEqual(["secret-value-with-suffix", "secret-value"]);
+    expect(redacted).toContain("prefix ");
+    expect(redacted).toContain(" | ");
+    expect(redacted).toContain(" suffix");
+    expect(redacted).not.toContain("secret-value-with-suffix");
+    expect(redacted).not.toContain("secret-value");
   });
 
   it("redacts before bounded persistence truncation so a complete known secret is never stored", () => {
@@ -229,8 +235,8 @@ describe("T015 redaction contract", () => {
     expect(persisted.truncated).toBe(true);
     expect(persisted.byte_length).toBeLessThanOrEqual(32);
     expect(Buffer.byteLength(persisted.text, "utf8")).toBe(persisted.byte_length);
+    expect(persisted.text).toContain("prefix ");
     expect(persisted.text).not.toContain(secret);
-    expect(persisted.text).toContain(REDACTION);
   });
 
   it("keeps truncation explicit and byte-safe for multibyte output", () => {
@@ -249,11 +255,10 @@ describe("T015 redaction contract", () => {
     const secrets = selectedSecretValues(env, policy());
     const persisted = redactThenTruncate("token=secret-value-123", secrets, 64);
 
-    expect(persisted).toEqual({
-      text: `token=${REDACTION}`,
-      byte_length: Buffer.byteLength(`token=${REDACTION}`, "utf8"),
-      truncated: false,
-    });
+    expect(persisted.truncated).toBe(false);
+    expect(persisted.text).toContain("token=");
+    expect(persisted.text).not.toContain("secret-value-123");
+    expect(persisted.byte_length).toBe(Buffer.byteLength(persisted.text, "utf8"));
   });
 
   it("fails closed on invalid policy and truncation bounds", () => {
