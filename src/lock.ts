@@ -3,7 +3,6 @@ import {
   link,
   mkdir,
   open,
-  readFile,
   stat,
   unlink,
   type FileHandle,
@@ -177,15 +176,35 @@ async function publishOwner(lockPath: string, owner: RunLockOwner): Promise<bool
 }
 
 async function readLockState(lockPath: string): Promise<LockState> {
-  let raw: string;
+  let handle: FileHandle;
   try {
-    raw = await readFile(lockPath, { encoding: "utf8" });
+    handle = await open(lockPath, "r");
   } catch (error) {
     if (nodeErrorCode(error) === "ENOENT") return { kind: "missing" };
-    throw lockError("run_lock_io", "failed to read lock owner", error);
+    throw lockError("run_lock_io", "failed to open lock owner", error);
   }
 
-  const owner = parseOwner(raw);
+  const buffer = Buffer.allocUnsafe(MAX_LOCK_BYTES + 1);
+  let totalBytes = 0;
+  try {
+    while (totalBytes < buffer.length) {
+      const { bytesRead } = await handle.read(
+        buffer,
+        totalBytes,
+        buffer.length - totalBytes,
+        totalBytes,
+      );
+      if (bytesRead === 0) break;
+      totalBytes += bytesRead;
+    }
+  } catch (error) {
+    throw lockError("run_lock_io", "failed to read lock owner", error);
+  } finally {
+    await closeHandle(handle);
+  }
+
+  if (totalBytes > MAX_LOCK_BYTES) return { kind: "invalid" };
+  const owner = parseOwner(buffer.toString("utf8", 0, totalBytes));
   return owner === null
     ? { kind: "invalid" }
     : { kind: "owner", owner };
