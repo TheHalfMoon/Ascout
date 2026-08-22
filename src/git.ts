@@ -8,7 +8,7 @@ import {
   readlinkSync,
   realpathSync,
 } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { TextDecoder } from "node:util";
 import { URL } from "node:url";
 
@@ -580,15 +580,80 @@ function worktreeTypeFromMode(mode: string, path: string): WorktreeEntryType {
   );
 }
 
+function isContainedPath(root: string, candidate: string): boolean {
+  const relativePath = relative(root, candidate);
+  return relativePath === "" || (
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${sep}`) &&
+    !isAbsolute(relativePath)
+  );
+}
+
+function canonicalTreeDigestRepositoryRoot(repositoryRoot: string): string {
+  try {
+    return realpathSync.native(repositoryRoot);
+  } catch {
+    throw new GitIdentityError("git_metadata_error", "unable to resolve repository root for tree digest");
+  }
+}
+
 function repositoryPath(repositoryRoot: string, path: string): string {
   const canonicalPath = requireCanonicalRepositoryPath(path);
-  const root = resolve(repositoryRoot);
-  const absolutePath = resolve(root, ...canonicalPath.split("/"));
-  const relativePath = relative(root, absolutePath);
-  if (relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+  const root = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+  const logicalPath = resolve(root, ...canonicalPath.split("/"));
+  if (!isContainedPath(root, logicalPath)) {
     throw new GitIdentityError("git_metadata_error", `tree-digest path escapes repository root: ${path}`);
   }
-  return absolutePath;
+
+  const logicalParent = dirname(logicalPath);
+  let realParent: string;
+  try {
+    realParent = realpathSync.native(logicalParent);
+  } catch {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      `unable to resolve tree-digest parent path inside repository: ${path}`,
+    );
+  }
+  if (!isContainedPath(root, realParent)) {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      `tree-digest intermediate path resolves outside repository root: ${path}`,
+    );
+  }
+
+  // Access the entry through the already-resolved in-repository parent, not through the original
+  // Git path. Retargeting an intermediate symlink after this check therefore cannot redirect the
+  // subsequent file/symlink operation through that Git-path component.
+  return resolve(realParent, basename(logicalPath));
+}
+
+function containedRegularFilePath(repositoryRoot: string, path: string): string {
+  const candidate = repositoryPath(repositoryRoot, path);
+  let stat;
+  try {
+    stat = lstatSync(candidate);
+  } catch {
+    throw new GitIdentityError("git_metadata_error", `unable to inspect regular worktree entry: ${path}`);
+  }
+  if (!stat.isFile()) {
+    throw new GitIdentityError("git_metadata_error", `tree-digest expected a regular file at ${path}`);
+  }
+
+  let realFile: string;
+  try {
+    realFile = realpathSync.native(candidate);
+  } catch {
+    throw new GitIdentityError("git_metadata_error", `unable to resolve regular worktree entry: ${path}`);
+  }
+  const root = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+  if (!isContainedPath(root, realFile)) {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      `tree-digest regular file resolves outside repository root: ${path}`,
+    );
+  }
+  return realFile;
 }
 
 function readSymlinkTarget(repositoryRoot: string, path: string): Buffer {
@@ -610,16 +675,11 @@ function digestWorktreeEntry(
   path: string,
   expectedType: WorktreeEntryType,
 ): string {
-  const absolutePath = repositoryPath(repositoryRoot, path);
   try {
     if (expectedType === "symlink") {
       return sha256Bytes(readSymlinkTarget(repositoryRoot, path));
     }
-    const stat = lstatSync(absolutePath);
-    if (!stat.isFile()) {
-      throw new GitIdentityError("git_metadata_error", `tree-digest expected a regular file at ${path}`);
-    }
-    return sha256File(absolutePath);
+    return sha256File(containedRegularFilePath(repositoryRoot, path));
   } catch (error) {
     if (error instanceof GitIdentityError) throw error;
     throw new GitIdentityError("git_metadata_error", `unable to read worktree entry for tree digest: ${path}`);
@@ -641,7 +701,7 @@ function worktreeGitObjectId(
       "hash-object",
       `--path=${path}`,
       "--",
-      repositoryPath(repositoryRoot, path),
+      containedRegularFilePath(repositoryRoot, path),
     ]),
     `unable to compute Git worktree object ID for ${path}`,
   );
@@ -733,7 +793,7 @@ function untrackedWorktreeEntry(repositoryRoot: string, path: string): TreeDiges
         path,
         type: "file",
         mode: (stat.mode & 0o100) === 0 ? "100644" : "100755",
-        digest: sha256File(absolutePath),
+        digest: sha256File(containedRegularFilePath(repositoryRoot, path)),
         ignored: false,
       };
     }
@@ -758,7 +818,7 @@ function parseUntrackedEntries(repositoryRoot: string, buffer: Buffer): TreeDige
   return entries;
 }
 
-export function readTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
+function collectTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
   const head = readGitHeadState(repositoryRoot).head_sha;
   const index = parseIndexEntries(requireSuccessfulGitBuffer(
     runGitTreeMetadata(repositoryRoot, ["ls-files", "--stage", "-z"]),
@@ -782,4 +842,26 @@ export function readTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
   ));
 
   return treeDigestV1FromState({ head, index, unstaged, untracked });
+}
+
+function sameTreeDigestObservation(left: TreeDigestV1, right: TreeDigestV1): boolean {
+  return left.tree_digest === right.tree_digest &&
+    left.tracked_index_entry_count === right.tracked_index_entry_count &&
+    left.unstaged_changed_count === right.unstaged_changed_count &&
+    left.included_untracked_count === right.included_untracked_count;
+}
+
+export function readTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
+  // Resolve the repository root once so a caller-provided symlink cannot retarget the Git cwd
+  // between the two complete observations.
+  const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+  const first = collectTreeDigestV1(canonicalRoot);
+  const second = collectTreeDigestV1(canonicalRoot);
+  if (!sameTreeDigestObservation(first, second)) {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      "source changed during tree-digest collection; refusing a mixed-state digest",
+    );
+  }
+  return second;
 }
