@@ -101,7 +101,11 @@ function validateGitBindingAndStability(receipt: ReceiptV1, issues: ReceiptSeman
   else if (startValid && !comparisonBindingValid) addIssue(issues, "comparison_source_mismatch", "comparison.base_ref", "working_tree_vs_head comparison base must equal source.start.head_sha exactly");
   if (receipt.source.end === null) { if (receipt.stability !== "unknown") addIssue(issues, "stability_mismatch", "stability", "missing source.end requires stability=unknown"); return; }
   if (!startValid || !endValid || !comparisonBindingValid) { if (receipt.stability !== "unknown") addIssue(issues, "stability_mismatch", "stability", "invalid source/comparison binding requires stability=unknown"); return; }
-  if (receipt.source.start.repository_id !== receipt.source.end.repository_id || receipt.source.start.repository_id_kind !== receipt.source.end.repository_id_kind) addIssue(issues, "source_repository_changed", "source.end", "source.end must describe the same repository identity as source.start");
+  if (receipt.source.start.repository_id !== receipt.source.end.repository_id || receipt.source.start.repository_id_kind !== receipt.source.end.repository_id_kind) {
+    addIssue(issues, "source_repository_changed", "source.end", "source.end must describe the same repository identity as source.start");
+    if (receipt.stability !== "unknown") addIssue(issues, "stability_mismatch", "stability", "repository identity change requires stability=unknown");
+    return;
+  }
   const expected: Stability = receipt.source.start.tree_digest === receipt.source.end.tree_digest ? "stable" : "tree_drifted";
   if (receipt.stability !== expected) addIssue(issues, "stability_mismatch", "stability", `stability must be ${expected} for the observed tree digests`);
 }

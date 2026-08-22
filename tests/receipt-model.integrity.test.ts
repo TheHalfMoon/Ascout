@@ -181,4 +181,23 @@ describe("T025 selection and comparison integrity repair", () => {
     expect(deriveReceiptCompleteness(receipt)).toBe("unknown_due_to_error");
     expect(decideReceiptExitCode(receipt)).toBe(2);
   });
+
+  it("requires stability unknown when repository identity changes", () => {
+    const receipt = structuredClone(receiptFixture()) as ReceiptV1;
+    (receipt.source.end as { repository_id: string }).repository_id = `remote:${"9".repeat(64)}`;
+
+    const stableCodes = validateReceiptSemantics(receipt).issues.map((issue) => issue.code);
+    expect(stableCodes).toContain("source_repository_changed");
+    expect(stableCodes).toContain("stability_mismatch");
+
+    (receipt as { stability: "unknown" }).stability = "unknown";
+    (receipt.summary as { completeness: "unknown_due_to_error"; exit_code: 2 }).completeness = "unknown_due_to_error";
+    (receipt.summary as { exit_code: 2 }).exit_code = 2;
+
+    const unknownCodes = validateReceiptSemantics(receipt).issues.map((issue) => issue.code);
+    expect(unknownCodes).toContain("source_repository_changed");
+    expect(unknownCodes).not.toContain("stability_mismatch");
+    expect(deriveReceiptCompleteness(receipt)).toBe("unknown_due_to_error");
+    expect(decideReceiptExitCode(receipt)).toBe(2);
+  });
 });
