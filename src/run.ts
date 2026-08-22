@@ -281,12 +281,20 @@ async function existingRunsRoot(canonicalRoot: string): Promise<string | null> {
 
 async function writeExclusiveFile(path: string, content: string): Promise<void> {
   let handle: FileHandle | undefined;
+  let operationFailed = false;
   try {
     handle = await open(path, "wx", 0o600);
     await handle.writeFile(content, "utf8");
     await handle.sync();
+  } catch (error) {
+    operationFailed = true;
+    throw error;
   } finally {
-    await handle?.close();
+    try {
+      await handle?.close();
+    } catch (error) {
+      if (!operationFailed) throw error;
+    }
   }
 }
 
@@ -332,6 +340,7 @@ async function replaceManifestPortably(path: string, content: string): Promise<v
 
 async function readBoundedText(path: string): Promise<string | null> {
   let handle: FileHandle | undefined;
+  let operationFailed = false;
   try {
     handle = await open(path, "r");
     const buffer = Buffer.alloc(MAX_MANIFEST_BYTES + 1);
@@ -345,13 +354,17 @@ async function readBoundedText(path: string): Promise<string | null> {
 
     if (offset > MAX_MANIFEST_BYTES) return null;
     return buffer.subarray(0, offset).toString("utf8");
-  } catch {
-    return null;
+  } catch (error) {
+    operationFailed = true;
+    if (errorCode(error) === "ENOENT") return null;
+    throw new RunDirectoryError("run_directory_io", `failed to read ${path}`);
   } finally {
     try {
       await handle?.close();
     } catch {
-      // A later lifecycle operation will treat unreadable state as unverifiable.
+      if (!operationFailed) {
+        throw new RunDirectoryError("run_directory_io", `failed to close ${path}`);
+      }
     }
   }
 }
@@ -359,6 +372,17 @@ async function readBoundedText(path: string): Promise<string | null> {
 async function readManifest(runPath: string): Promise<RunManifestV1 | null> {
   const text = await readBoundedText(join(runPath, MANIFEST_FILENAME));
   return text === null ? null : parseManifest(text);
+}
+
+async function readManifestForRetention(runPath: string): Promise<RunManifestV1 | null> {
+  try {
+    return await readManifest(runPath);
+  } catch (error) {
+    if (error instanceof RunDirectoryError && error.code === "run_directory_io") {
+      return null;
+    }
+    throw error;
+  }
 }
 
 async function markerState(runPath: string): Promise<"present" | "absent" | "unknown"> {
@@ -381,12 +405,20 @@ async function markRunCompleted(runPath: string, runId: string): Promise<void> {
   }
 
   if (current.state === "active") {
+    const startedMilliseconds = canonicalTimestampMilliseconds(current.started_at);
+    if (startedMilliseconds === null) {
+      throw new RunDirectoryError(
+        "run_directory_unverifiable",
+        "run manifest contains a non-canonical start timestamp",
+      );
+    }
+    const completedMilliseconds = Math.max(Date.now(), startedMilliseconds);
     const completed: RunManifestV1 = {
       version: 1,
       run_id: runId,
       state: "completed",
       started_at: current.started_at,
-      completed_at: new Date().toISOString(),
+      completed_at: new Date(completedMilliseconds).toISOString(),
     };
     await replaceManifestPortably(join(runPath, MANIFEST_FILENAME), serializeManifest(completed));
   }
@@ -418,7 +450,7 @@ async function deleteCompletedCandidateSafely(
 ): Promise<"removed" | "preserved"> {
   const freshIdentity = await physicalDirectoryIdentity(candidate.run_path);
   const freshMarker = await markerState(candidate.run_path);
-  const freshManifest = await readManifest(candidate.run_path);
+  const freshManifest = await readManifestForRetention(candidate.run_path);
 
   if (
     freshIdentity === null ||
@@ -443,7 +475,7 @@ async function deleteCompletedCandidateSafely(
 
   const quarantinedIdentity = await physicalDirectoryIdentity(quarantinePath);
   const quarantinedMarker = await markerState(quarantinePath);
-  const quarantinedManifest = await readManifest(quarantinePath);
+  const quarantinedManifest = await readManifestForRetention(quarantinePath);
 
   if (
     quarantinedIdentity === null ||
@@ -508,7 +540,7 @@ async function pruneCompletedRunsFromRoot(
     const runPath = join(runsPath, entry.name);
     const identity = await physicalDirectoryIdentity(runPath);
     const marker = await markerState(runPath);
-    const manifest = await readManifest(runPath);
+    const manifest = await readManifestForRetention(runPath);
 
     if (
       identity === null ||

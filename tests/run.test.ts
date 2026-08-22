@@ -109,6 +109,26 @@ describe("T024 run directory lifecycle", () => {
     expect(retention.retained_completed_run_ids).toEqual(["run-002"]);
   });
 
+  it("keeps completion lifecycle valid if the system clock moves backwards", async () => {
+    const root = await temporaryDirectory();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-22T19:10:00.000Z"));
+    const handle = await createRunDirectory(root, "clock-regression");
+
+    vi.setSystemTime(new Date("2026-08-22T19:09:00.000Z"));
+    const retention = await handle.complete();
+
+    expect(await readManifest(handle.manifest_path)).toEqual({
+      version: 1,
+      run_id: "clock-regression",
+      state: "completed",
+      started_at: "2026-08-22T19:10:00.000Z",
+      completed_at: "2026-08-22T19:10:00.000Z",
+    });
+    expect(await exists(join(handle.run_path, ".active"))).toBe(false);
+    expect(retention.retained_completed_run_ids).toContain("clock-regression");
+  });
+
   it("shares concurrent completion and permits safe sequential completion retry", async () => {
     const root = await temporaryDirectory();
     const handle = await createRunDirectory(root, "run-idempotent");
@@ -268,6 +288,24 @@ describe("T024 run directory lifecycle", () => {
     expect(result.preserved_run_ids).toEqual(["malformed", "oversized"]);
     expect(await exists(join(runs, "malformed"))).toBe(true);
     expect(await exists(join(runs, "oversized"))).toBe(true);
+  });
+
+  it("reports manifest I/O failures during completion while retention still preserves them", async () => {
+    const root = await temporaryDirectory();
+    const handle = await createRunDirectory(root, "manifest-io");
+    await rm(handle.manifest_path);
+    await mkdir(handle.manifest_path);
+
+    await expect(handle.complete()).rejects.toMatchObject({
+      code: "run_directory_io",
+    });
+    expect(await exists(join(handle.run_path, ".active"))).toBe(true);
+
+    await rm(join(handle.run_path, ".active"));
+    const retention = await pruneCompletedRuns(root, 0);
+    expect(retention.removed_run_ids).toEqual([]);
+    expect(retention.preserved_run_ids).toContain("manifest-io");
+    expect(await exists(handle.run_path)).toBe(true);
   });
 
   it("preserves completed manifests whose completion precedes their start", async () => {
