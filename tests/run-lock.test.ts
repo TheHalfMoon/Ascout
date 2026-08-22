@@ -111,7 +111,7 @@ describe("T022 run lock", () => {
     await first.release();
   });
 
-  it("recovers only after the persisted owner is definitely dead", async () => {
+  it("recovers only after the persisted main owner is definitely dead", async () => {
     const repositoryRoot = temporaryRepository();
     const deadPid = await definitelyExitedPid();
     writeOwner(repositoryRoot, deadPid, "1".repeat(32));
@@ -131,30 +131,23 @@ describe("T022 run lock", () => {
     await recovered.release();
   });
 
-  it("recovers a recovery guard only when that guard owner is also definitely dead", async () => {
+  it("fails closed instead of automatically taking over a stale mutation guard", async () => {
     const repositoryRoot = temporaryRepository();
     const deadPid = await definitelyExitedPid();
     writeOwner(repositoryRoot, deadPid, "2".repeat(32));
-    writeFileSync(
-      recoveryPath(repositoryRoot),
-      ownerRecord(deadPid, "3".repeat(32)),
-      "utf8",
+    const staleGuard = ownerRecord(deadPid, "3".repeat(32));
+    writeFileSync(recoveryPath(repositoryRoot), staleGuard, "utf8");
+
+    await expect(acquireRunLock(repositoryRoot)).rejects.toMatchObject({
+      code: "run_lock_recovery_busy",
+    });
+    expect(readFileSync(lockPath(repositoryRoot), "utf8")).toBe(
+      ownerRecord(deadPid, "2".repeat(32)),
     );
-
-    const recovered = await acquireRunLock(repositoryRoot);
-
-    expect(existsSync(recoveryPath(repositoryRoot))).toBe(false);
-    const persisted = JSON.parse(readFileSync(lockPath(repositoryRoot), "utf8")) as {
-      pid: number;
-      token: string;
-    };
-    expect(persisted.pid).toBe(process.pid);
-    expect(persisted.token).not.toBe("2".repeat(32));
-
-    await recovered.release();
+    expect(readFileSync(recoveryPath(repositoryRoot), "utf8")).toBe(staleGuard);
   });
 
-  it("does not steal dead-owner recovery from a live recovery-guard owner", async () => {
+  it("does not steal dead-owner recovery from a live mutation-guard owner", async () => {
     const repositoryRoot = temporaryRepository();
     const deadPid = await definitelyExitedPid();
     writeOwner(repositoryRoot, deadPid, "4".repeat(32));
