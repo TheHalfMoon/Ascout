@@ -96,6 +96,12 @@ function normalizeRemoteIdentity(rawRemote: string): string {
     throw new GitIdentityError("unsupported_remote", `unsupported remote protocol: ${protocol}`);
   }
 
+  // Windows drive-qualified paths are local-path syntax, not portable scp-like remotes.
+  // Fail closed here rather than fabricating an ssh:// identity from the drive letter.
+  if (/^[A-Za-z]:/.test(rawRemote)) {
+    throw new GitIdentityError("unsupported_remote", "unsupported drive-qualified remote path");
+  }
+
   if (/^(?:[^@/:]+@)?\[/.test(rawRemote)) {
     throw new GitIdentityError("unsupported_remote", "unsupported bracketed scp-like remote host");
   }
