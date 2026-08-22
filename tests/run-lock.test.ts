@@ -84,7 +84,9 @@ describe("T022 run lock", () => {
     expect(handles).toHaveLength(1);
     expect(rejections).toHaveLength(1);
     expect(rejections[0]?.reason).toBeInstanceOf(RunLockError);
-    expect((rejections[0]?.reason as RunLockError).code).toBe("run_lock_held");
+    expect(["run_lock_held", "run_lock_recovery_busy"]).toContain(
+      (rejections[0]?.reason as RunLockError).code,
+    );
 
     const persisted = JSON.parse(readFileSync(lockPath(repositoryRoot), "utf8")) as {
       version: number;
@@ -94,6 +96,7 @@ describe("T022 run lock", () => {
     expect(persisted.version).toBe(1);
     expect(persisted.pid).toBe(process.pid);
     expect(persisted.token).toMatch(/^[0-9a-f]{32}$/);
+    expect(existsSync(recoveryPath(repositoryRoot))).toBe(false);
 
     await handles[0]?.release();
     expect(existsSync(lockPath(repositoryRoot))).toBe(false);
@@ -159,6 +162,19 @@ describe("T022 run lock", () => {
     });
     expect(existsSync(lockPath(repositoryRoot))).toBe(false);
     expect(readFileSync(recoveryPath(repositoryRoot), "utf8")).toBe(staleGuard);
+  });
+
+  it("blocks fresh publication while a live mutation guard owns the lane", async () => {
+    const repositoryRoot = temporaryRepository();
+    mkdirSync(join(repositoryRoot, ".ascout"), { recursive: true });
+    const liveGuard = ownerRecord(process.pid, "7".repeat(32));
+    writeFileSync(recoveryPath(repositoryRoot), liveGuard, "utf8");
+
+    await expect(acquireRunLock(repositoryRoot)).rejects.toMatchObject({
+      code: "run_lock_recovery_busy",
+    });
+    expect(existsSync(lockPath(repositoryRoot))).toBe(false);
+    expect(readFileSync(recoveryPath(repositoryRoot), "utf8")).toBe(liveGuard);
   });
 
   it("does not steal dead-owner recovery from a live mutation-guard owner", async () => {
