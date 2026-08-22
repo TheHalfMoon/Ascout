@@ -82,7 +82,34 @@ function localRepositoryIdentity(rawPath: string): RepositoryIdentity {
   return localRepositoryIdentityFromCanonicalPath(realpathSync.native(rawPath));
 }
 
+function persistedStringValues(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap((entry) => persistedStringValues(entry));
+  if (typeof value === "object" && value !== null) {
+    return Object.values(value).flatMap((entry) => persistedStringValues(entry));
+  }
+  return [];
+}
+
+function expectNoPersistedLocationMaterial(
+  identity: RepositoryIdentity,
+  forbidden: readonly string[],
+): void {
+  const persistedStrings = persistedStringValues(identity);
+  for (const material of forbidden) {
+    for (const persisted of persistedStrings) {
+      expect(persisted).not.toContain(material);
+    }
+  }
+}
+
 function expectOpaqueIdentity(identity: RepositoryIdentity): void {
+  expect(Object.keys(identity).sort()).toEqual([
+    "portable",
+    "repository_id",
+    "repository_id_kind",
+  ]);
+
   if (identity.repository_id_kind === "remote") {
     expect(identity.repository_id).toMatch(/^remote:[a-f0-9]{64}$/);
     expect(identity.portable).toBe(true);
@@ -95,8 +122,8 @@ function expectOpaqueIdentity(identity: RepositoryIdentity): void {
 
 describe("T012 repository identity contract", () => {
   it("removes HTTPS credentials, query, and fragment before hashing", () => {
-    const rawA = "https://alice:ghp_SUPER_SECRET@example.COM/org/repo.git?token=QUERY_SECRET#private-fragment";
-    const rawB = "https://bob:DIFFERENT_SECRET@example.com/org/repo.git?auth=OTHER_SECRET#other-fragment";
+    const rawA = "https://alice:FAKE_PASSWORD_A@example.COM/org/repo.git?token=QUERY_SECRET#private-fragment";
+    const rawB = "https://bob:FAKE_PASSWORD_B@example.com/org/repo.git?auth=OTHER_SECRET#other-fragment";
 
     expect(normalizeRemoteIdentity(rawA)).toBe(HTTPS_NORMALIZED);
     expect(normalizeRemoteIdentity(rawB)).toBe(HTTPS_NORMALIZED);
@@ -112,17 +139,14 @@ describe("T012 repository identity contract", () => {
     expect(identityB).toEqual(identityA);
     expectOpaqueIdentity(identityA);
 
-    const persisted = JSON.stringify(identityA);
-    for (const forbidden of [
+    expectNoPersistedLocationMaterial(identityA, [
       rawA,
       "alice",
-      "ghp_SUPER_SECRET",
+      "FAKE_PASSWORD_A",
       "QUERY_SECRET",
       "private-fragment",
       HTTPS_NORMALIZED,
-    ]) {
-      expect(persisted).not.toContain(forbidden);
-    }
+    ]);
   });
 
   it("removes SSH URL userinfo/query/fragment and normalizes host before hashing", () => {
@@ -139,10 +163,14 @@ describe("T012 repository identity contract", () => {
     });
     expectOpaqueIdentity(identity);
 
-    const persisted = JSON.stringify(identity);
-    for (const forbidden of [raw, "git", "SSH_SECRET", "QUERY_SECRET", "private-fragment", SSH_NORMALIZED]) {
-      expect(persisted).not.toContain(forbidden);
-    }
+    expectNoPersistedLocationMaterial(identity, [
+      raw,
+      "git",
+      "SSH_SECRET",
+      "QUERY_SECRET",
+      "private-fragment",
+      SSH_NORMALIZED,
+    ]);
   });
 
   it("removes scp-like userinfo and gives equivalent SSH/scp repository identity", () => {
@@ -160,11 +188,12 @@ describe("T012 repository identity contract", () => {
     expect(remoteRepositoryIdentity(sshUrl)).toEqual(identity);
     expectOpaqueIdentity(identity);
 
-    const persisted = JSON.stringify(identity);
-    expect(persisted).not.toContain(scpGitUser);
-    expect(persisted).not.toContain("git@");
-    expect(persisted).not.toContain("deploy@");
-    expect(persisted).not.toContain(SSH_NORMALIZED);
+    expectNoPersistedLocationMaterial(identity, [
+      scpGitUser,
+      "git@",
+      "deploy@",
+      SSH_NORMALIZED,
+    ]);
   });
 
   it("keeps meaningful remote path and non-default port identity while discarding secrets", () => {
@@ -188,7 +217,7 @@ describe("T012 repository identity contract", () => {
       portable: false,
     });
     expectOpaqueIdentity(identity);
-    expect(JSON.stringify(identity)).not.toContain(LOCAL_CANONICAL_GOLDEN);
+    expectNoPersistedLocationMaterial(identity, [LOCAL_CANONICAL_GOLDEN]);
   });
 
   it("hashes the real canonical local path so lexical aliases collapse without persisting raw paths", () => {
@@ -206,12 +235,7 @@ describe("T012 repository identity contract", () => {
       expect(fromAlias).toEqual(fromCanonical);
       expect(fromAlias.repository_id).toBe(`local:${sha256(canonical)}`);
       expectOpaqueIdentity(fromAlias);
-
-      const persisted = JSON.stringify(fromAlias);
-      expect(persisted).not.toContain(root);
-      expect(persisted).not.toContain(repo);
-      expect(persisted).not.toContain(alias);
-      expect(persisted).not.toContain(canonical);
+      expectNoPersistedLocationMaterial(fromAlias, [root, repo, alias, canonical]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
