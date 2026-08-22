@@ -199,7 +199,7 @@ function normalizeRemoteIdentity(rawRemote: string): string {
     throw new GitIdentityError("unsupported_remote", "unsupported bracketed scp-like remote host");
   }
 
-  const scpLike = /^(?:[^@/:]+@)?([^:/?#]+):([^?#]+)$/.exec(rawRemote);
+  const scpLike = /^(?:[^@/:]+@)?([^:/?#]+):([^?#]+)$/i.exec(rawRemote);
   if (scpLike === null) {
     throw new GitIdentityError("unsupported_remote", "unsupported remote identity form");
   }
@@ -864,4 +864,419 @@ export function readTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
     );
   }
   return second;
+}
+
+export type ChangedFileKind =
+  | "added"
+  | "modified"
+  | "deleted"
+  | "renamed"
+  | "type_changed"
+  | "untracked";
+export type ChangedLineSemantics = "text" | "binary_or_non_line" | "deleted_only";
+export type ChangedNewLineRange = readonly [number, number];
+
+export interface GitChangedFile {
+  readonly path: string;
+  readonly previous_path?: string;
+  readonly change_kind: ChangedFileKind;
+  readonly line_semantics: ChangedLineSemantics;
+  readonly changed_new_line_ranges: readonly ChangedNewLineRange[];
+}
+
+export interface WorkingTreeComparison {
+  readonly kind: "working_tree_vs_head";
+  readonly base_ref: string;
+  readonly includes_staged: true;
+  readonly includes_unstaged: true;
+  readonly includes_untracked_nonignored: true;
+  readonly changed_files: readonly GitChangedFile[];
+}
+
+interface TrackedDiffEntry {
+  readonly path: string;
+  readonly previous_path?: string;
+  readonly status: "A" | "M" | "D" | "R" | "T";
+  readonly old_mode: string;
+  readonly new_mode: string;
+  readonly old_oid: string;
+  readonly new_oid: string;
+  readonly similarity?: number;
+}
+
+const WORKING_TREE_RAW_DIFF_METADATA =
+  /^:([0-7]{6}) ([0-7]{6}) ([a-f0-9]{40}|[a-f0-9]{64}) ([a-f0-9]{40}|[a-f0-9]{64}) ([A-Z])(\d{0,3})$/;
+
+function changedNewLineRangesFromZeroContextPatch(
+  patch: Buffer,
+): readonly ChangedNewLineRange[] {
+  const ranges: ChangedNewLineRange[] = [];
+  const patchText = patch.toString("latin1");
+  const hunkHeader = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@(?: .*)?$/gm;
+
+  for (const match of patchText.matchAll(hunkHeader)) {
+    const startText = match[1];
+    const countText = match[2];
+    if (startText === undefined) {
+      throw new GitIdentityError("git_metadata_error", "Git returned an incomplete zero-context hunk");
+    }
+    const start = Number(startText);
+    const count = countText === undefined ? 1 : Number(countText);
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(count) || count < 0) {
+      throw new GitIdentityError("git_metadata_error", "Git returned an invalid zero-context hunk");
+    }
+    if (count === 0) continue;
+    if (start < 1) {
+      throw new GitIdentityError(
+        "git_metadata_error",
+        "Git returned a nonpositive changed new-line range",
+      );
+    }
+    const end = start + count - 1;
+    if (!Number.isSafeInteger(end) || start > end) {
+      throw new GitIdentityError("git_metadata_error", "Git returned an invalid changed new-line range");
+    }
+    ranges.push([start, end]);
+  }
+  return ranges;
+}
+
+function parseWorkingTreeRawDiff(buffer: Buffer): TrackedDiffEntry[] {
+  const records = splitNullTerminated(buffer, "git working-tree raw diff output");
+  const entries: TrackedDiffEntry[] = [];
+
+  for (let index = 0; index < records.length;) {
+    const metadataRecord = records[index];
+    if (metadataRecord === undefined) {
+      throw new GitIdentityError("git_metadata_error", "Git returned an incomplete raw diff record");
+    }
+    const metadata = decodeUtf8(metadataRecord, "git working-tree raw diff metadata");
+    const match = WORKING_TREE_RAW_DIFF_METADATA.exec(metadata);
+    if (match === null) {
+      throw new GitIdentityError("git_metadata_error", "Git returned malformed working-tree raw diff metadata");
+    }
+
+    const oldMode = match[1];
+    const newMode = match[2];
+    const oldOid = match[3];
+    const newOid = match[4];
+    const status = match[5];
+    const scoreText = match[6] ?? "";
+    if (
+      oldMode === undefined ||
+      newMode === undefined ||
+      oldOid === undefined ||
+      newOid === undefined ||
+      status === undefined
+    ) {
+      throw new GitIdentityError("git_metadata_error", "Git returned incomplete working-tree raw diff metadata");
+    }
+    if (status === "U") {
+      throw new GitIdentityError("git_metadata_error", "working-tree diff does not support unmerged state");
+    }
+    if (status !== "A" && status !== "M" && status !== "D" && status !== "R" && status !== "T") {
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `unsupported working-tree Git status: ${status}`,
+      );
+    }
+
+    if (status === "R") {
+      if (!/^\d{1,3}$/.test(scoreText)) {
+        throw new GitIdentityError("git_metadata_error", "Git rename record is missing similarity score");
+      }
+      const similarity = Number(scoreText);
+      if (!Number.isInteger(similarity) || similarity < 0 || similarity > 100) {
+        throw new GitIdentityError("git_metadata_error", "Git returned an invalid rename similarity score");
+      }
+      const previousRecord = records[index + 1];
+      const pathRecord = records[index + 2];
+      if (previousRecord === undefined || pathRecord === undefined) {
+        throw new GitIdentityError("git_metadata_error", "Git returned incomplete rename path identity");
+      }
+      const previousPath = requireCanonicalRepositoryPath(
+        decodeUtf8(previousRecord, "git rename previous path"),
+      );
+      const path = requireCanonicalRepositoryPath(decodeUtf8(pathRecord, "git rename current path"));
+      entries.push({
+        path,
+        previous_path: previousPath,
+        status,
+        old_mode: oldMode,
+        new_mode: newMode,
+        old_oid: oldOid,
+        new_oid: newOid,
+        similarity,
+      });
+      index += 3;
+      continue;
+    }
+
+    if (scoreText !== "") {
+      throw new GitIdentityError("git_metadata_error", "non-rename Git status carried a similarity score");
+    }
+    const pathRecord = records[index + 1];
+    if (pathRecord === undefined) {
+      throw new GitIdentityError("git_metadata_error", "Git returned incomplete working-tree path identity");
+    }
+    const path = requireCanonicalRepositoryPath(decodeUtf8(pathRecord, "git working-tree diff path"));
+    entries.push({
+      path,
+      status,
+      old_mode: oldMode,
+      new_mode: newMode,
+      old_oid: oldOid,
+      new_oid: newOid,
+    });
+    index += 2;
+  }
+
+  return entries;
+}
+
+function trackedDiffPathspec(entry: TrackedDiffEntry): readonly string[] {
+  return entry.previous_path === undefined ? [entry.path] : [entry.previous_path, entry.path];
+}
+
+function trackedPatch(
+  repositoryRoot: string,
+  baseRef: string,
+  entry: TrackedDiffEntry,
+): Buffer {
+  return requireSuccessfulGitBuffer(
+    runGitTreeMetadata(repositoryRoot, [
+      "diff",
+      "--unified=0",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--no-color",
+      "--find-renames",
+      baseRef,
+      "--",
+      ...trackedDiffPathspec(entry),
+    ]),
+    `unable to read zero-context Git diff for ${entry.path}`,
+  );
+}
+
+function trackedDiffIsBinary(patch: Buffer): boolean {
+  return patch.includes(Buffer.from("GIT binary patch", "ascii")) ||
+    patch.includes(Buffer.from("Binary files ", "ascii"));
+}
+
+function trackedEntryIsNonLineType(entry: TrackedDiffEntry): boolean {
+  return entry.status === "T" ||
+    entry.old_mode === "120000" ||
+    entry.new_mode === "120000" ||
+    entry.old_mode === "160000" ||
+    entry.new_mode === "160000";
+}
+
+function trackedEntryToChangedFile(
+  repositoryRoot: string,
+  baseRef: string,
+  entry: TrackedDiffEntry,
+): GitChangedFile {
+  const changeKind: Exclude<ChangedFileKind, "untracked"> =
+    entry.status === "A"
+      ? "added"
+      : entry.status === "M"
+        ? "modified"
+        : entry.status === "D"
+          ? "deleted"
+          : entry.status === "R"
+            ? "renamed"
+            : "type_changed";
+
+  if (entry.status === "D") {
+    return {
+      path: entry.path,
+      change_kind: "deleted",
+      line_semantics: "deleted_only",
+      changed_new_line_ranges: [],
+    };
+  }
+
+  if (trackedEntryIsNonLineType(entry)) {
+    const base = {
+      path: entry.path,
+      change_kind: changeKind,
+      line_semantics: "binary_or_non_line" as const,
+      changed_new_line_ranges: [] as const,
+    };
+    return entry.previous_path === undefined
+      ? base
+      : { ...base, previous_path: entry.previous_path };
+  }
+
+  const patch = trackedPatch(repositoryRoot, baseRef, entry);
+  const binary = trackedDiffIsBinary(patch);
+  const ranges = binary ? [] : changedNewLineRangesFromZeroContextPatch(patch);
+  const base = {
+    path: entry.path,
+    change_kind: changeKind,
+    line_semantics: binary ? "binary_or_non_line" as const : "text" as const,
+    changed_new_line_ranges: ranges,
+  };
+  return entry.previous_path === undefined
+    ? base
+    : { ...base, previous_path: entry.previous_path };
+}
+
+function filterStaleTrackedModification(
+  repositoryRoot: string,
+  entry: TrackedDiffEntry,
+): boolean {
+  if (entry.status !== "M" || entry.old_mode !== entry.new_mode) return false;
+  if (entry.new_mode !== "100644" && entry.new_mode !== "100755" && entry.new_mode !== "120000") {
+    return false;
+  }
+  const type = entry.new_mode === "120000" ? "symlink" : "file";
+  return worktreeGitObjectId(repositoryRoot, entry.path, type, entry.old_oid) === entry.old_oid;
+}
+
+interface UntrackedLineAnalysis {
+  readonly binary: boolean;
+  readonly line_count: number;
+}
+
+function analyzeUntrackedRegularFile(repositoryRoot: string, path: string): UntrackedLineAnalysis {
+  const absolutePath = containedRegularFilePath(repositoryRoot, path);
+  const buffer = Buffer.allocUnsafe(FILE_HASH_BUFFER_BYTES);
+  let descriptor: number | undefined;
+  let totalBytes = 0;
+  let newlineCount = 0;
+  let lastByte = -1;
+  let binary = false;
+
+  try {
+    descriptor = openSync(absolutePath, "r");
+    while (true) {
+      const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
+      if (bytesRead === 0) break;
+      totalBytes += bytesRead;
+      if (!Number.isSafeInteger(totalBytes)) {
+        throw new GitIdentityError("git_metadata_error", `untracked file is too large to count lines safely: ${path}`);
+      }
+      for (let index = 0; index < bytesRead; index += 1) {
+        const byte = buffer[index];
+        if (byte === undefined) continue;
+        if (byte === 0) binary = true;
+        if (byte === 0x0a) newlineCount += 1;
+        lastByte = byte;
+      }
+    }
+  } catch (error) {
+    if (error instanceof GitIdentityError) throw error;
+    throw new GitIdentityError("git_metadata_error", `unable to inspect untracked file lines: ${path}`);
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+
+  const lineCount = totalBytes === 0 ? 0 : newlineCount + (lastByte === 0x0a ? 0 : 1);
+  if (!Number.isSafeInteger(lineCount)) {
+    throw new GitIdentityError("git_metadata_error", `untracked file line count is not safe: ${path}`);
+  }
+  return { binary, line_count: lineCount };
+}
+
+function untrackedPathToChangedFile(repositoryRoot: string, path: string): GitChangedFile {
+  const absolutePath = repositoryPath(repositoryRoot, path);
+  let stat;
+  try {
+    stat = lstatSync(absolutePath);
+  } catch {
+    throw new GitIdentityError("git_metadata_error", `unable to inspect untracked diff entry: ${path}`);
+  }
+
+  if (stat.isSymbolicLink() || !stat.isFile()) {
+    return {
+      path,
+      change_kind: "untracked",
+      line_semantics: "binary_or_non_line",
+      changed_new_line_ranges: [],
+    };
+  }
+
+  const analysis = analyzeUntrackedRegularFile(repositoryRoot, path);
+  return {
+    path,
+    change_kind: "untracked",
+    line_semantics: analysis.binary ? "binary_or_non_line" : "text",
+    changed_new_line_ranges:
+      analysis.binary || analysis.line_count === 0
+        ? []
+        : [[1, analysis.line_count]],
+  };
+}
+
+function readNonignoredUntrackedPaths(repositoryRoot: string): string[] {
+  const records = splitNullTerminated(
+    requireSuccessfulGitBuffer(
+      runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
+      "unable to read nonignored untracked paths for working-tree comparison",
+    ),
+    "git untracked comparison output",
+  );
+  return records
+    .map((record) => requireCanonicalRepositoryPath(
+      decodeUtf8(record, "git untracked comparison path"),
+    ))
+    .filter((path) => !isAscoutRuntimePath(path));
+}
+
+function compareChangedFiles(left: GitChangedFile, right: GitChangedFile): number {
+  return compareUtf8(left.path, right.path) ||
+    compareUtf8(left.previous_path ?? "", right.previous_path ?? "") ||
+    compareUtf8(left.change_kind, right.change_kind);
+}
+
+export function readWorkingTreeComparison(
+  repositoryRoot: string,
+  sourceStartHeadSha: string,
+): WorkingTreeComparison {
+  if (!FULL_GIT_OBJECT_ID.test(sourceStartHeadSha)) {
+    throw new GitIdentityError(
+      "invalid_head_identity",
+      "working-tree comparison requires a full lowercase source-start Git object ID",
+    );
+  }
+
+  const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+  const observedHead = readGitHeadState(canonicalRoot).head_sha;
+  if (observedHead !== sourceStartHeadSha) {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      "working-tree comparison base does not equal the resolved source-start HEAD",
+    );
+  }
+
+  const rawTracked = requireSuccessfulGitBuffer(
+    runGitTreeMetadata(canonicalRoot, [
+      "diff",
+      "--raw",
+      "--no-abbrev",
+      "--find-renames",
+      "--no-ext-diff",
+      "--no-textconv",
+      "-z",
+      sourceStartHeadSha,
+      "--",
+    ]),
+    "unable to read tracked working-tree comparison",
+  );
+  const tracked = parseWorkingTreeRawDiff(rawTracked)
+    .filter((entry) => !filterStaleTrackedModification(canonicalRoot, entry))
+    .map((entry) => trackedEntryToChangedFile(canonicalRoot, sourceStartHeadSha, entry));
+  const untracked = readNonignoredUntrackedPaths(canonicalRoot)
+    .map((path) => untrackedPathToChangedFile(canonicalRoot, path));
+
+  return {
+    kind: "working_tree_vs_head",
+    base_ref: sourceStartHeadSha,
+    includes_staged: true,
+    includes_unstaged: true,
+    includes_untracked_nonignored: true,
+    changed_files: [...tracked, ...untracked].sort(compareChangedFiles),
+  };
 }
