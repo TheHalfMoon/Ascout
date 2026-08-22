@@ -387,14 +387,12 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
     });
   });
 
-  let timeoutHandle: NodeJS.Timeout | null = null;
-  const timeoutPromise = new Promise<{ readonly kind: "timeout" }>((resolve) => {
-    timeoutHandle = setTimeout(() => resolve({ kind: "timeout" }), request.timeout_ms);
-  });
-
-  const launch = await Promise.race([launchPromise, timeoutPromise]);
+  // Establish process ownership before the task timeout begins. Node guarantees a successful
+  // spawn emits `spawn` before other process lifecycle events; a failed launch emits `error`.
+  // This removes the unsafe state where a timeout could fire before a PID exists and a process
+  // could appear after runProcess had already returned without tree cleanup.
+  const launch = await launchPromise;
   if (launch.kind === "error") {
-    if (timeoutHandle !== null) clearTimeout(timeoutHandle);
     return errorResult(
       target,
       launch.error,
@@ -405,34 +403,22 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
     );
   }
 
-  if (launch.kind === "timeout") {
-    const pid = child.pid;
-    const cleanupComplete = pid === undefined
-      ? false
-      : await terminateProcessTree(pid, request.termination_grace_ms);
-    const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
-    if (!cleanupComplete || close === null) {
-      return errorResult(
-        target,
-        new Error("process timeout cleanup did not complete"),
-        finalizeCapture(stdoutCapture),
-        finalizeCapture(stderrCapture),
-        true,
-        false,
-        close,
-      );
-    }
-    return {
-      outcome: "timed_out",
-      exit_code: close.exit_code,
-      signal: close.signal,
-      timed_out: true,
-      cleanup_complete: true,
-      termination_target: target,
-      stdout: finalizeCapture(stdoutCapture),
-      stderr: finalizeCapture(stderrCapture),
-    };
+  const rootPid = child.pid;
+  if (rootPid === undefined || !Number.isSafeInteger(rootPid) || rootPid <= 0) {
+    return errorResult(
+      target,
+      new Error("spawned process did not expose a valid PID for tree control"),
+      finalizeCapture(stdoutCapture),
+      finalizeCapture(stderrCapture),
+      false,
+      false,
+    );
   }
+
+  let timeoutHandle: NodeJS.Timeout | null = null;
+  const timeoutPromise = new Promise<{ readonly kind: "timeout" }>((resolve) => {
+    timeoutHandle = setTimeout(() => resolve({ kind: "timeout" }), request.timeout_ms);
+  });
 
   const completion = await Promise.race([
     closePromise.then((close): TimedObservation => ({ kind: "closed", close })),
@@ -464,10 +450,7 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
     };
   }
 
-  const pid = child.pid;
-  const cleanupComplete = pid === undefined
-    ? false
-    : await terminateProcessTree(pid, request.termination_grace_ms);
+  const cleanupComplete = await terminateProcessTree(rootPid, request.termination_grace_ms);
   const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
 
   if (!cleanupComplete || close === null || runtimeError !== null) {
