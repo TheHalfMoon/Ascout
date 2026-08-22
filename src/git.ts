@@ -1,7 +1,14 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
-import { join } from "node:path";
+import {
+  closeSync,
+  lstatSync,
+  openSync,
+  readSync,
+  readlinkSync,
+  realpathSync,
+} from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { TextDecoder } from "node:util";
 import { URL } from "node:url";
 
@@ -97,11 +104,13 @@ export class GitIdentityError extends Error {
 const GIT_METADATA_TIMEOUT_MS = 10_000;
 const GIT_METADATA_MAX_BUFFER_BYTES = 1024 * 1024;
 const GIT_TREE_METADATA_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
+const FILE_HASH_BUFFER_BYTES = 64 * 1024;
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const SYMBOLIC_HEAD_REF = /^refs\/.+$/;
 const INDEX_MODE = /^[0-7]{6}$/;
 const INDEX_RECORD = /^([0-7]{6}) ([a-f0-9]{40}|[a-f0-9]{64}) ([0-3])\t(.+)$/s;
 const RAW_DIFF_METADATA = /^:([0-7]{6}) ([0-7]{6}) ([a-f0-9]{40}|[a-f0-9]{64}) ([a-f0-9]{40}|[a-f0-9]{64}) ([A-Z])$/;
+const CANONICAL_REPOSITORY_PATH = /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.*/[.]{1,2}(?:\/|$))(?!.*\\)[^/]+(?:\/[^/]+)*$/;
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
@@ -109,6 +118,23 @@ function sha256(value: string): string {
 
 function sha256Bytes(value: Buffer): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function sha256File(path: string): string {
+  const hash = createHash("sha256");
+  const buffer = Buffer.allocUnsafe(FILE_HASH_BUFFER_BYTES);
+  let descriptor: number | undefined;
+  try {
+    descriptor = openSync(path, "r");
+    while (true) {
+      const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
+      if (bytesRead === 0) break;
+      hash.update(buffer.subarray(0, bytesRead));
+    }
+    return hash.digest("hex");
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
 }
 
 function stripOneTerminalNewline(value: string): string {
@@ -325,6 +351,13 @@ function isAscoutRuntimePath(path: string): boolean {
   return path === ".ascout" || path.startsWith(".ascout/");
 }
 
+function requireCanonicalRepositoryPath(path: string): string {
+  if (!CANONICAL_REPOSITORY_PATH.test(path)) {
+    throw new GitIdentityError("git_metadata_error", `Git returned a non-canonical repository path: ${path}`);
+  }
+  return path;
+}
+
 function updateFramedTreeField(hash: ReturnType<typeof createHash>, value: string): void {
   const bytes = Buffer.from(value, "utf8");
   hash.update(Buffer.from(`${bytes.length}:`, "ascii"));
@@ -332,6 +365,10 @@ function updateFramedTreeField(hash: ReturnType<typeof createHash>, value: strin
 }
 
 export function treeDigestV1FromState(state: TreeDigestState): TreeDigestV1 {
+  for (const entry of state.index) requireCanonicalRepositoryPath(entry.path);
+  for (const entry of state.unstaged) requireCanonicalRepositoryPath(entry.path);
+  for (const entry of state.untracked) requireCanonicalRepositoryPath(entry.path);
+
   const index = [...state.index].sort((left, right) =>
     compareUtf8(left.path, right.path) ||
     left.stage - right.stage ||
@@ -343,16 +380,29 @@ export function treeDigestV1FromState(state: TreeDigestState): TreeDigestV1 {
     .filter((entry) => !entry.ignored && !isAscoutRuntimePath(entry.path))
     .sort((left, right) => compareUtf8(left.path, right.path));
 
-  const fields: string[] = ["ascout-tree-v1", state.head, "index", String(index.length)];
+  const hash = createHash("sha256");
+  const field = (value: string): void => updateFramedTreeField(hash, value);
+
+  field("ascout-tree-v1");
+  field(state.head);
+  field("index");
+  field(String(index.length));
   for (const entry of index) {
-    fields.push("index-entry", entry.mode, entry.oid, String(entry.stage), entry.path);
+    field("index-entry");
+    field(entry.mode);
+    field(entry.oid);
+    field(String(entry.stage));
+    field(entry.path);
   }
 
-  fields.push("unstaged", String(unstaged.length));
+  field("unstaged");
+  field(String(unstaged.length));
   for (const entry of unstaged) {
-    fields.push("unstaged-entry", entry.path, entry.state);
+    field("unstaged-entry");
+    field(entry.path);
+    field(entry.state);
     if (entry.state === "deleted") {
-      fields.push("deleted");
+      field("deleted");
       continue;
     }
     if (entry.type === undefined || entry.mode === undefined || entry.digest === undefined) {
@@ -361,16 +411,20 @@ export function treeDigestV1FromState(state: TreeDigestState): TreeDigestV1 {
         `incomplete unstaged tree-digest entry: ${entry.path}`,
       );
     }
-    fields.push(entry.type, entry.mode, entry.digest);
+    field(entry.type);
+    field(entry.mode);
+    field(entry.digest);
   }
 
-  fields.push("untracked", String(untracked.length));
+  field("untracked");
+  field(String(untracked.length));
   for (const entry of untracked) {
-    fields.push("untracked-entry", entry.path, entry.type, entry.mode, entry.digest);
+    field("untracked-entry");
+    field(entry.path);
+    field(entry.type);
+    field(entry.mode);
+    field(entry.digest);
   }
-
-  const hash = createHash("sha256");
-  for (const field of fields) updateFramedTreeField(hash, field);
 
   return {
     tree_digest_version: 1,
@@ -461,7 +515,7 @@ function parseIndexEntries(buffer: Buffer): TreeDigestIndexEntry[] {
       throw new GitIdentityError("git_metadata_error", "Git returned an invalid index entry");
     }
 
-    return { path, mode, oid, stage: Number(stageText) };
+    return { path: requireCanonicalRepositoryPath(path), mode, oid, stage: Number(stageText) };
   });
 }
 
@@ -483,10 +537,7 @@ function assertTreeDigestIndexVisibility(repositoryRoot: string): void {
       throw new GitIdentityError("git_metadata_error", "Git returned an incomplete index visibility record");
     }
     const tag = String.fromCharCode(tagByte);
-    const path = decodeUtf8(record.subarray(2), "git index visibility path");
-    if (path.length === 0) {
-      throw new GitIdentityError("git_metadata_error", "Git returned an empty index visibility path");
-    }
+    const path = requireCanonicalRepositoryPath(decodeUtf8(record.subarray(2), "git index visibility path"));
 
     if (tag === "S" || tag === "s") {
       throw new GitIdentityError(
@@ -513,7 +564,14 @@ function worktreeTypeFromMode(mode: string, path: string): WorktreeEntryType {
 }
 
 function repositoryPath(repositoryRoot: string, path: string): string {
-  return join(repositoryRoot, ...path.split("/"));
+  const canonicalPath = requireCanonicalRepositoryPath(path);
+  const root = resolve(repositoryRoot);
+  const absolutePath = resolve(root, ...canonicalPath.split("/"));
+  const relativePath = relative(root, absolutePath);
+  if (relativePath === ".." || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+    throw new GitIdentityError("git_metadata_error", `tree-digest path escapes repository root: ${path}`);
+  }
+  return absolutePath;
 }
 
 function digestWorktreeEntry(
@@ -533,7 +591,7 @@ function digestWorktreeEntry(
     if (!stat.isFile()) {
       throw new GitIdentityError("git_metadata_error", `tree-digest expected a regular file at ${path}`);
     }
-    return sha256Bytes(readFileSync(absolutePath));
+    return sha256File(absolutePath);
   } catch (error) {
     if (error instanceof GitIdentityError) throw error;
     throw new GitIdentityError("git_metadata_error", `unable to read worktree entry for tree digest: ${path}`);
@@ -555,9 +613,9 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
     }
 
     const metadata = decodeUtf8(metadataRecord, "git unstaged metadata");
-    const path = decodeUtf8(pathRecord, "git unstaged path");
+    const path = requireCanonicalRepositoryPath(decodeUtf8(pathRecord, "git unstaged path"));
     const match = RAW_DIFF_METADATA.exec(metadata);
-    if (match === null || path.length === 0) {
+    if (match === null) {
       throw new GitIdentityError("git_metadata_error", "Git returned a malformed unstaged diff record");
     }
 
@@ -608,7 +666,7 @@ function untrackedWorktreeEntry(repositoryRoot: string, path: string): TreeDiges
         path,
         type: "file",
         mode: (stat.mode & 0o111) === 0 ? "100644" : "100755",
-        digest: sha256Bytes(readFileSync(absolutePath)),
+        digest: sha256File(absolutePath),
         ignored: false,
       };
     }
@@ -626,10 +684,7 @@ function parseUntrackedEntries(repositoryRoot: string, buffer: Buffer): TreeDige
   const records = splitNullTerminated(buffer, "git ls-files --others output");
   const entries: TreeDigestUntrackedEntry[] = [];
   for (const record of records) {
-    const path = decodeUtf8(record, "git untracked path");
-    if (path.length === 0) {
-      throw new GitIdentityError("git_metadata_error", "Git returned an empty untracked path");
-    }
+    const path = requireCanonicalRepositoryPath(decodeUtf8(record, "git untracked path"));
     if (isAscoutRuntimePath(path)) continue;
     entries.push(untrackedWorktreeEntry(repositoryRoot, path));
   }
