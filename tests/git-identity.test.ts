@@ -126,6 +126,9 @@ describe("T018 repository identity implementation", () => {
       "not a remote",
       "example.com/path/without-scp-colon",
       "git@[2001:db8::1]:org/repo.git",
+      "C:/work/repo",
+      "C:\\work\\repo",
+      "C:work/repo",
     ]) {
       expect(() => repositoryIdentityFromRemote(unsupported)).toThrow(GitIdentityError);
     }
