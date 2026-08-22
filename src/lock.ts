@@ -46,6 +46,7 @@ const LOCK_DIRECTORY = ".ascout";
 const LOCK_FILENAME = "run.lock";
 const RECOVERY_FILENAME = "run.lock.recovery";
 const OWNER_TOKEN_BYTES = 16;
+const TEMP_TOKEN_BYTES = 8;
 const MAX_LOCK_BYTES = 4 * 1024;
 const MAX_ACQUIRE_ATTEMPTS = 4;
 
@@ -146,7 +147,8 @@ async function removeBestEffort(path: string): Promise<void> {
 }
 
 async function publishOwner(lockPath: string, owner: RunLockOwner): Promise<boolean> {
-  const temporaryPath = `${lockPath}.${owner.token}.tmp`;
+  const temporaryToken = randomBytes(TEMP_TOKEN_BYTES).toString("hex");
+  const temporaryPath = `${lockPath}.${owner.token}.${temporaryToken}.tmp`;
   let handle: FileHandle | null = null;
   try {
     handle = await open(temporaryPath, "wx", 0o600);
