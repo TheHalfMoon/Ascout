@@ -1,3 +1,5 @@
+import { relative, sep } from "node:path";
+
 export type TaskType = "typecheck" | "lint" | "test" | "pytestBasic";
 export type TaskStatus =
   | "PASS"
@@ -26,6 +28,16 @@ export function constructReceiptPathCandidate(
   originalSpelling: string,
 ): ReceiptPathCandidate {
   return { namespace, original_spelling: originalSpelling };
+}
+
+export function constructReceiptPathCandidateFromHostPath(
+  namespace: ReceiptPathNamespace,
+  namespaceRoot: string,
+  hostOrToolPath: string,
+): ReceiptPathCandidate {
+  const nativeRelative = relative(namespaceRoot, hostOrToolPath);
+  const candidateSpelling = sep === "/" ? nativeRelative : nativeRelative.split(sep).join("/");
+  return constructReceiptPathCandidate(namespace, candidateSpelling);
 }
 
 export interface RunReceiptV1 {
@@ -612,6 +624,24 @@ function validateRenameInvariants(receipt: ReceiptV1, issues: ReceiptSemanticIss
   }
 }
 
+function validateChangedFileSemantics(receipt: ReceiptV1, issues: ReceiptSemanticIssue[]): void {
+  for (const [index, changed] of receipt.comparison.changed_files.entries()) {
+    const base = `comparison.changed_files[${index}]`;
+    if (changed.change_kind === "deleted" && changed.line_semantics !== "deleted_only") {
+      addIssue(issues, "deleted_line_semantics", `${base}.line_semantics`, "deleted changes require deleted_only line semantics");
+    }
+    if (changed.change_kind !== "deleted" && changed.line_semantics === "deleted_only") {
+      addIssue(issues, "deleted_line_semantics", `${base}.line_semantics`, "deleted_only line semantics require a deleted change");
+    }
+    if (changed.change_kind === "type_changed" && changed.line_semantics !== "binary_or_non_line") {
+      addIssue(issues, "type_change_line_semantics", `${base}.line_semantics`, "type changes are file-level binary_or_non_line changes");
+    }
+    if (changed.line_semantics !== "text" && changed.changed_new_line_ranges.length !== 0) {
+      addIssue(issues, "nontext_changed_ranges", `${base}.changed_new_line_ranges`, "non-text changes cannot carry changed new-line ranges");
+    }
+  }
+}
+
 function validateObservations(
   observations: ObservationsV1,
   issues: ReceiptSemanticIssue[],
@@ -630,6 +660,22 @@ function validateTaskInvariants(receipt: ReceiptV1, issues: ReceiptSemanticIssue
   for (const [index, task] of receipt.tasks.entries()) {
     const base = `tasks[${index}]`;
     validateObservations(task.observations, issues, `${base}.observations`);
+
+    if (EXECUTED_OUTCOME_STATUSES.has(task.status) && task.observations.runs < 1) {
+      addIssue(issues, "executed_status_without_observation", `${base}.observations`, `${task.status} requires at least one executed observation`);
+    }
+    if (task.status === "PASS" && task.observations.failures !== 0) {
+      addIssue(issues, "pass_with_failure_observation", `${base}.observations`, "PASS cannot contain failing observations");
+    }
+    if (task.status === "FAIL" && task.observations.failures < 1) {
+      addIssue(issues, "fail_without_failure_observation", `${base}.observations`, "FAIL requires at least one failing observation");
+    }
+    if (task.status === "FLAKY" && (task.observations.runs < 2 || task.observations.failures < 1 || task.observations.failures >= task.observations.runs)) {
+      addIssue(issues, "flake_observation_invariant", `${base}.observations`, "FLAKY requires contradictory valid observations with both failure and non-failure outcomes");
+    }
+    if (["NOT_RUN", "BLOCKED", "NOT_APPLICABLE"].includes(task.status) && task.observations.runs !== 0) {
+      addIssue(issues, "nonexecuted_status_has_observations", `${base}.observations`, `${task.status} cannot record executed observations`);
+    }
 
     if (["NOT_RUN", "BLOCKED", "ERROR"].includes(task.status)) {
       if (!isNonEmpty(task.reason_code)) {
@@ -655,7 +701,8 @@ function validateTaskInvariants(receipt: ReceiptV1, issues: ReceiptSemanticIssue
         task.command_surface_changed !== true ||
         task.changed_authority_paths.length === 0 ||
         task.status !== "NOT_RUN" ||
-        task.reason_code !== "command_surface_changed"
+        task.reason_code !== "command_surface_changed" ||
+        task.observations.runs !== 0
       ) {
         addIssue(issues, "admission_refusal_invariant", base, "changed-surface refusal must be a NOT_RUN command_surface_changed result");
       }
@@ -676,6 +723,7 @@ function validateTaskInvariants(receipt: ReceiptV1, issues: ReceiptSemanticIssue
     if (hasDuplicates(task.artifact_refs)) {
       addIssue(issues, "duplicate_task_artifact_ref", `${base}.artifact_refs`, "task artifact references must be unique");
     }
+
   }
 }
 
@@ -703,8 +751,8 @@ function validateSelection(receipt: ReceiptV1, issues: ReceiptSemanticIssue[]): 
   }
 
   if (selection.widened) {
-    if (selection.passes.length !== 2 || selection.widen_triggers.length === 0) {
-      addIssue(issues, "selection_widening_invariant", "selection", "widened selection requires exactly two passes and at least one widen trigger");
+    if (selection.passes.length === 0 || selection.widen_triggers.length === 0) {
+      addIssue(issues, "selection_widening_invariant", "selection", "widened selection requires at least one pass and at least one widen trigger");
     }
   } else if (selection.widen_triggers.length !== 0 || selection.passes.length > 1) {
     addIssue(issues, "selection_widening_invariant", "selection", "non-widened selection cannot record widening triggers or a second pass");
@@ -719,17 +767,41 @@ function validateSelection(receipt: ReceiptV1, issues: ReceiptSemanticIssue[]): 
   }
 }
 
-function validateExercise(receipt: ReceiptV1, issues: ReceiptSemanticIssue[], taskIds: Set<string>): void {
+function validateExercise(
+  receipt: ReceiptV1,
+  issues: ReceiptSemanticIssue[],
+  taskIds: Set<string>,
+  rangesValid: boolean,
+): void {
   let exercised = 0;
   let notExercised = 0;
   let unresolved = 0;
   const byPath = new Map<string, ExerciseRecordV1[]>();
+  const exerciseLineIds = new Set<string>();
+  const changedRanges = new Map(
+    receipt.comparison.changed_files.map((changed) => [changed.path, changed.changed_new_line_ranges] as const),
+  );
 
   for (const [index, record] of receipt.exercise.records.entries()) {
     const base = `exercise.records[${index}]`;
     const records = byPath.get(record.path) ?? [];
     records.push(record);
     byPath.set(record.path, records);
+
+    const lineId = `${record.path}\u0000${record.line}`;
+    if (exerciseLineIds.has(lineId)) {
+      addIssue(issues, "duplicate_exercise_line", base, "each changed executable line may have only one exercise record");
+    }
+    exerciseLineIds.add(lineId);
+
+    if (!isPositiveInteger(record.line)) {
+      addIssue(issues, "invalid_exercise_line", `${base}.line`, "exercise line must be a positive integer");
+    } else if (rangesValid) {
+      const ranges = changedRanges.get(record.path);
+      if (ranges === undefined || !ranges.some(([start, end]) => start <= record.line && record.line <= end)) {
+        addIssue(issues, "exercise_line_outside_changed_scope", base, "exercise record must identify a line in the changed new-line scope");
+      }
+    }
 
     if (hasDuplicates(record.source_task_ids)) {
       addIssue(issues, "duplicate_exercise_task_ref", `${base}.source_task_ids`, "exercise source task IDs must be unique");
@@ -921,10 +993,11 @@ export function validateReceiptSemantics(receipt: ReceiptV1): ReceiptSemanticVal
 
   validateGitBindingAndStability(receipt, issues);
   validateRenameInvariants(receipt, issues);
+  validateChangedFileSemantics(receipt, issues);
   validateTaskInvariants(receipt, issues);
   validateSelection(receipt, issues);
   const taskIds = validateReferences(receipt, issues);
-  validateExercise(receipt, issues, taskIds);
+  validateExercise(receipt, issues, taskIds, rangesValid);
 
   if (receipt.changed_code.changed_file_count !== receipt.comparison.changed_files.length) {
     addIssue(issues, "changed_file_count_mismatch", "changed_code.changed_file_count", "changed_file_count must equal comparison.changed_files.length");

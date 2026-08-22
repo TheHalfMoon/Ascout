@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  constructReceiptPathCandidateFromHostPath,
   decideReceiptExitCode,
   deriveReceiptCompleteness,
   validateReceiptSemantics,
@@ -161,6 +162,7 @@ function replaceTaskStatus(receipt: ReceiptV1, status: TaskStatus): void {
     started_at: string | null;
     finished_at: string | null;
     duration_ms: number | null;
+    observations: { runs: number; failures: number };
   };
   task.status = status;
   if (status === "NOT_RUN" || status === "BLOCKED") {
@@ -173,6 +175,7 @@ function replaceTaskStatus(receipt: ReceiptV1, status: TaskStatus): void {
     task.started_at = null;
     task.finished_at = null;
     task.duration_ms = null;
+    task.observations = { runs: 0, failures: 0 };
   }
 }
 
@@ -180,6 +183,76 @@ describe("T025 receipt semantic model", () => {
   it("accepts one internally consistent receipt", () => {
     const result = validateReceiptSemantics(validReceipt());
     expect(result).toEqual({ valid: true, issues: [] });
+  });
+
+
+  it("constructs repository/run candidates from transient host paths without repairing invalid receipt spellings", () => {
+    const candidate = constructReceiptPathCandidateFromHostPath(
+      "repository",
+      "/workspace/repo",
+      "/workspace/repo/src/a.ts",
+    );
+    expect(candidate).toEqual({ namespace: "repository", original_spelling: "src/a.ts" });
+
+    const escaping = constructReceiptPathCandidateFromHostPath(
+      "run",
+      "/workspace/repo/.ascout/runs/r1",
+      "/workspace/repo/.ascout/outside.txt",
+    );
+    expect(escaping.original_spelling).toContain("..");
+  });
+
+  it("allows one-pass pre-run widening and two-pass post-run widening", () => {
+    const preRun = structuredClone(validReceipt()) as ReceiptV1;
+    (preRun.selection as unknown as {
+      mode: "full";
+      widened: boolean;
+      widen_triggers: string[];
+      passes: Array<ReceiptV1["selection"]["passes"][number]>;
+      selected_test_count: number;
+      deselected_test_count: number;
+      total_test_count: number;
+      limitations: string[];
+    }).mode = "full";
+    (preRun.selection as unknown as { widened: boolean }).widened = true;
+    (preRun.selection as unknown as { widen_triggers: string[] }).widen_triggers = ["command_relation_risk"];
+    (preRun.selection as unknown as { selected_test_count: number }).selected_test_count = 10;
+    (preRun.selection as unknown as { deselected_test_count: number }).deselected_test_count = 0;
+    (preRun.selection as unknown as { total_test_count: number }).total_test_count = 10;
+    (preRun.selection as unknown as { limitations: string[] }).limitations = [];
+    (preRun.selection as unknown as { passes: Array<ReceiptV1["selection"]["passes"][number]> }).passes = [{
+      ordinal: 1,
+      mode: "full",
+      scope: { kind: "repository", path: null },
+      trigger: "command_relation_risk",
+      selected_test_count: 10,
+      deselected_test_count: 0,
+      total_test_count: 10,
+    }];
+    expect(issueCodes(preRun)).not.toContain("selection_widening_invariant");
+
+    const postRun = structuredClone(preRun) as ReceiptV1;
+    (postRun.selection as unknown as { passes: Array<ReceiptV1["selection"]["passes"][number]> }).passes = [
+      {
+        ordinal: 1,
+        mode: "native_related",
+        scope: { kind: "repository", path: null },
+        trigger: null,
+        selected_test_count: 2,
+        deselected_test_count: 8,
+        total_test_count: 10,
+      },
+      {
+        ordinal: 2,
+        mode: "full",
+        scope: { kind: "repository", path: null },
+        trigger: "no_usable_coverage_relation",
+        selected_test_count: 10,
+        deselected_test_count: 0,
+        total_test_count: 10,
+      },
+    ];
+    expect(issueCodes(postRun)).not.toContain("selection_widening_invariant");
   });
 
   it("requires full exact source/comparison Git identity", () => {
@@ -241,6 +314,7 @@ describe("T025 receipt semantic model", () => {
       started_at: string | null;
       finished_at: string | null;
       duration_ms: number | null;
+      observations: { runs: number; failures: number };
     };
     task.command_surface_changed = true;
     task.changed_authority_paths = ["package.json"];
@@ -255,11 +329,30 @@ describe("T025 receipt semantic model", () => {
     task.started_at = null;
     task.finished_at = null;
     task.duration_ms = null;
+    task.observations = { runs: 0, failures: 0 };
     (admission.summary as { completeness: "materially_incomplete"; exit_code: 4 }).completeness = "materially_incomplete";
     (admission.summary as { exit_code: 4 }).exit_code = 4;
     (admission.summary.task_status_counts as { PASS: number; NOT_RUN: number }).PASS = 0;
     (admission.summary.task_status_counts as { PASS: number; NOT_RUN: number }).NOT_RUN = 1;
     expect(validateReceiptSemantics(admission).valid).toBe(true);
+  });
+
+  it("keeps non-text changes file-level and requires executed observations for executed outcomes", () => {
+    const nonText = structuredClone(validReceipt()) as ReceiptV1;
+    const changed = nonText.comparison.changed_files[0] as unknown as {
+      line_semantics: "binary_or_non_line";
+      changed_new_line_ranges: [number, number][];
+    };
+    changed.line_semantics = "binary_or_non_line";
+    changed.changed_new_line_ranges = [[10, 12]];
+    expect(issueCodes(nonText)).toContain("nontext_changed_ranges");
+
+    const noObservation = structuredClone(validReceipt()) as ReceiptV1;
+    (noObservation.tasks[0] as unknown as { observations: { runs: number; failures: number } }).observations = {
+      runs: 0,
+      failures: 0,
+    };
+    expect(issueCodes(noObservation)).toContain("executed_status_without_observation");
   });
 
   it("requires unique current-run task/evidence/artifact references", () => {
