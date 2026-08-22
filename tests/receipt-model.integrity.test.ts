@@ -154,50 +154,61 @@ function receiptFixture(): ReceiptV1 {
 describe("T025 selection and comparison integrity repair", () => {
   it("makes explicitly unsafe selection materially incomplete instead of green", () => {
     const receipt = structuredClone(receiptFixture()) as ReceiptV1;
-    (receipt.selection as { limitations: string[] }).limitations = [UNSAFE_SELECTION_LIMITATION];
-    (receipt.summary as { completeness: "materially_incomplete"; exit_code: 4 }).completeness = "materially_incomplete";
-    (receipt.summary as { exit_code: 4 }).exit_code = 4;
+    (receipt.selection as unknown as { limitations: string[] }).limitations = [UNSAFE_SELECTION_LIMITATION];
+    (receipt.summary as unknown as { completeness: "materially_incomplete" }).completeness = "materially_incomplete";
+    (receipt.summary as unknown as { exit_code: 4 }).exit_code = 4;
 
     expect(deriveReceiptCompleteness(receipt)).toBe("materially_incomplete");
     expect(decideReceiptExitCode(receipt)).toBe(4);
     expect(validateReceiptSemantics(receipt)).toEqual({ valid: true, issues: [] });
   });
 
-  it("requires stability unknown when comparison binding is invalid", () => {
+  it("requires stability unknown when comparison binding is invalid without conflating completeness", () => {
     const receipt = structuredClone(receiptFixture()) as ReceiptV1;
-    (receipt.comparison as { base_ref: string }).base_ref = "9".repeat(40);
+    (receipt.comparison as unknown as { base_ref: string }).base_ref = "9".repeat(40);
 
     const stableCodes = validateReceiptSemantics(receipt).issues.map((issue) => issue.code);
     expect(stableCodes).toContain("comparison_source_mismatch");
     expect(stableCodes).toContain("stability_mismatch");
 
-    (receipt as { stability: "unknown" }).stability = "unknown";
-    (receipt.summary as { completeness: "unknown_due_to_error"; exit_code: 2 }).completeness = "unknown_due_to_error";
-    (receipt.summary as { exit_code: 2 }).exit_code = 2;
+    (receipt as unknown as { stability: "unknown" }).stability = "unknown";
+    (receipt.summary as unknown as { completeness: "complete" }).completeness = "complete";
+    (receipt.summary as unknown as { exit_code: 2 }).exit_code = 2;
 
     const unknownCodes = validateReceiptSemantics(receipt).issues.map((issue) => issue.code);
     expect(unknownCodes).toContain("comparison_source_mismatch");
     expect(unknownCodes).not.toContain("stability_mismatch");
-    expect(deriveReceiptCompleteness(receipt)).toBe("unknown_due_to_error");
+    expect(unknownCodes).not.toContain("completeness_mismatch");
+    expect(deriveReceiptCompleteness(receipt)).toBe("complete");
     expect(decideReceiptExitCode(receipt)).toBe(2);
   });
 
-  it("requires stability unknown when repository identity changes", () => {
+  it("requires stability unknown when repository identity changes without conflating completeness", () => {
     const receipt = structuredClone(receiptFixture()) as ReceiptV1;
-    (receipt.source.end as { repository_id: string }).repository_id = `remote:${"9".repeat(64)}`;
+    (receipt.source.end as unknown as { repository_id: string }).repository_id = `remote:${"9".repeat(64)}`;
 
     const stableCodes = validateReceiptSemantics(receipt).issues.map((issue) => issue.code);
     expect(stableCodes).toContain("source_repository_changed");
     expect(stableCodes).toContain("stability_mismatch");
 
-    (receipt as { stability: "unknown" }).stability = "unknown";
-    (receipt.summary as { completeness: "unknown_due_to_error"; exit_code: 2 }).completeness = "unknown_due_to_error";
-    (receipt.summary as { exit_code: 2 }).exit_code = 2;
+    (receipt as unknown as { stability: "unknown" }).stability = "unknown";
+    (receipt.summary as unknown as { completeness: "complete" }).completeness = "complete";
+    (receipt.summary as unknown as { exit_code: 2 }).exit_code = 2;
 
     const unknownCodes = validateReceiptSemantics(receipt).issues.map((issue) => issue.code);
     expect(unknownCodes).toContain("source_repository_changed");
     expect(unknownCodes).not.toContain("stability_mismatch");
-    expect(deriveReceiptCompleteness(receipt)).toBe("unknown_due_to_error");
+    expect(unknownCodes).not.toContain("completeness_mismatch");
+    expect(deriveReceiptCompleteness(receipt)).toBe("complete");
     expect(decideReceiptExitCode(receipt)).toBe(2);
   });
+  it("rejects negative and fractional selection counts", () => {
+    const receipt = structuredClone(receiptFixture()) as ReceiptV1;
+    (receipt.selection as unknown as { selected_test_count: number }).selected_test_count = -1;
+    (receipt.selection.passes[0] as unknown as { deselected_test_count: number }).deselected_test_count = 0.5;
+
+    const codes = validateReceiptSemantics(receipt).issues.map((issue) => issue.code);
+    expect(codes.filter((code) => code === "selection_count_shape")).toHaveLength(2);
+  });
+
 });

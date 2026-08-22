@@ -324,7 +324,7 @@ function exerciseHasMaterialGap(exercise: ExerciseV1): boolean {
 }
 
 export function deriveReceiptCompleteness(receipt: ReceiptV1): Completeness {
-  if (receipt.stability === "unknown" || receipt.tasks.some((task) => task.status === "ERROR")) {
+  if (receipt.tasks.some((task) => task.status === "ERROR")) {
     return "unknown_due_to_error";
   }
   const applicable = receipt.tasks.filter((task) => task.status !== "NOT_APPLICABLE");
@@ -341,7 +341,13 @@ export function deriveReceiptCompleteness(receipt: ReceiptV1): Completeness {
 
 export function decideReceiptExitCode(receipt: ReceiptV1): ReceiptExitCode {
   const completeness = deriveReceiptCompleteness(receipt);
-  if (receipt.tasks.some((task) => task.status === "ERROR") || completeness === "unknown_due_to_error") return 2;
+  if (
+    receipt.tasks.some((task) => task.status === "ERROR") ||
+    completeness === "unknown_due_to_error" ||
+    receipt.stability === "unknown"
+  ) {
+    return 2;
+  }
   if (receipt.stability === "tree_drifted") return 3;
   if (receipt.findings.length > 0 || receipt.tasks.some((task) => task.status === "FAIL" || task.status === "FLAKY")) return 1;
   if (completeness !== "complete") return 4;
@@ -635,16 +641,56 @@ function validateTaskInvariants(receipt: ReceiptV1, issues: ReceiptSemanticIssue
   }
 }
 
+function validateSelectionCounts(
+  issues: ReceiptSemanticIssue[],
+  path: string,
+  selected: number | null,
+  deselected: number | null,
+  total: number | null,
+): boolean {
+  let valid = true;
+  for (const [name, value] of [
+    ["selected_test_count", selected],
+    ["deselected_test_count", deselected],
+    ["total_test_count", total],
+  ] as const) {
+    if (value !== null && !isNonNegativeInteger(value)) {
+      addIssue(
+        issues,
+        "selection_count_shape",
+        `${path}.${name}`,
+        "selection counts must be non-negative integers or null",
+      );
+      valid = false;
+    }
+  }
+  return valid;
+}
+
 function validateSelection(receipt: ReceiptV1, issues: ReceiptSemanticIssue[]): void {
   const selection = receipt.selection;
   if (selection.passes.length > 2) addIssue(issues, "selection_pass_limit", "selection.passes", "selection permits at most two passes");
   for (const [i, pass] of selection.passes.entries()) {
     if (pass.ordinal !== i + 1) addIssue(issues, "selection_pass_ordinal", `selection.passes[${i}].ordinal`, "selection pass ordinals must be contiguous starting at 1");
-    if (!selectionCountsConsistent(pass.selected_test_count, pass.deselected_test_count, pass.total_test_count)) {
+    const countsValid = validateSelectionCounts(
+      issues,
+      `selection.passes[${i}]`,
+      pass.selected_test_count,
+      pass.deselected_test_count,
+      pass.total_test_count,
+    );
+    if (countsValid && !selectionCountsConsistent(pass.selected_test_count, pass.deselected_test_count, pass.total_test_count)) {
       addIssue(issues, "selection_count_mismatch", `selection.passes[${i}]`, "selected + deselected must equal total when all counts are known");
     }
   }
-  if (!selectionCountsConsistent(selection.selected_test_count, selection.deselected_test_count, selection.total_test_count)) {
+  const rootCountsValid = validateSelectionCounts(
+    issues,
+    "selection",
+    selection.selected_test_count,
+    selection.deselected_test_count,
+    selection.total_test_count,
+  );
+  if (rootCountsValid && !selectionCountsConsistent(selection.selected_test_count, selection.deselected_test_count, selection.total_test_count)) {
     addIssue(issues, "selection_count_mismatch", "selection", "selected + deselected must equal total when all counts are known");
   }
   if (selectionHasUnknownCounts(selection) && selection.limitations.length === 0) {
