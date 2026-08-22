@@ -4,6 +4,7 @@ import {
   mkdir,
   open,
   readFile,
+  stat,
   unlink,
   type FileHandle,
 } from "node:fs/promises";
@@ -331,6 +332,20 @@ export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHan
   const lockPath = join(lockDirectory, LOCK_FILENAME);
   const recoveryPath = join(lockDirectory, RECOVERY_FILENAME);
   const owner = newOwner();
+
+  try {
+    const rootStats = await stat(canonicalRoot);
+    if (!rootStats.isDirectory()) {
+      throw lockError("run_lock_unverifiable", "repository root is not a directory");
+    }
+  } catch (error) {
+    if (error instanceof RunLockError) throw error;
+    throw lockError(
+      "run_lock_unverifiable",
+      "repository root is not an existing directory",
+      error,
+    );
+  }
 
   try {
     await mkdir(lockDirectory, { recursive: true });
