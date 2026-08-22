@@ -17,7 +17,7 @@ import {
   DEFAULT_COMPLETED_RUN_RETENTION,
   createRunDirectory,
   pruneCompletedRuns,
-} from "../src/run.ts";
+} from "../src/run.js";
 
 const cleanupRoots = new Set<string>();
 
