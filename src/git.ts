@@ -911,7 +911,7 @@ interface WorkingTreeTrackedDiff {
 
 interface UntrackedLineAnalysis {
   readonly binary: boolean;
-  readonly line_count: number | null;
+  readonly line_count: number;
 }
 
 const WORKING_TREE_RAW_DIFF_METADATA =
@@ -919,7 +919,6 @@ const WORKING_TREE_RAW_DIFF_METADATA =
 const COMBINED_DIFF_BOUNDARY = Buffer.from("\0\0diff --git ", "ascii");
 const PATCH_BLOCK_HEADER = Buffer.from("diff --git ", "ascii");
 const PATCH_BLOCK_SEPARATOR = Buffer.from("\ndiff --git ", "ascii");
-const MAX_UNTRACKED_LINE_SCAN_BYTES = 1024 * 1024;
 
 function changedNewLineRangesFromZeroContextPatch(
   patch: Buffer,
@@ -1068,6 +1067,53 @@ function splitTrackedPatchBlocks(patch: Buffer): Buffer[] {
   return blocks;
 }
 
+function alignTrackedPatchBlocks(
+  entries: readonly TrackedDiffEntry[],
+  rawPatchBlocks: readonly Buffer[],
+): Buffer[] {
+  const aligned: Buffer[] = [];
+  let blockIndex = 0;
+
+  for (const entry of entries) {
+    const first = rawPatchBlocks[blockIndex];
+    if (first === undefined) {
+      throw new GitIdentityError("git_metadata_error", "Git tracked patch block is missing");
+    }
+
+    if (entry.status !== "T") {
+      aligned.push(first);
+      blockIndex += 1;
+      continue;
+    }
+
+    const second = rawPatchBlocks[blockIndex + 1];
+    if (second === undefined) {
+      throw new GitIdentityError("git_metadata_error", "Git type-change patch pair is incomplete");
+    }
+    const firstText = first.toString("latin1");
+    const secondText = second.toString("latin1");
+    if (
+      !firstText.split("\n").includes(`deleted file mode ${entry.old_mode}`) ||
+      !secondText.split("\n").includes(`new file mode ${entry.new_mode}`)
+    ) {
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `Git type-change patch pair does not match raw modes for ${entry.path}`,
+      );
+    }
+    aligned.push(Buffer.concat([first, second]));
+    blockIndex += 2;
+  }
+
+  if (blockIndex !== rawPatchBlocks.length) {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      "Git raw and patch working-tree diff entries do not align",
+    );
+  }
+  return aligned;
+}
+
 function parseWorkingTreeTrackedDiff(output: Buffer): WorkingTreeTrackedDiff {
   if (output.length === 0) return { entries: [], patch_blocks: [] };
 
@@ -1081,13 +1127,7 @@ function parseWorkingTreeTrackedDiff(output: Buffer): WorkingTreeTrackedDiff {
   const raw = output.subarray(0, boundary + 1);
   const patch = output.subarray(boundary + 2);
   const entries = parseWorkingTreeRawDiff(raw);
-  const patchBlocks = splitTrackedPatchBlocks(patch);
-  if (entries.length !== patchBlocks.length) {
-    throw new GitIdentityError(
-      "git_metadata_error",
-      "Git raw and patch working-tree diff entry counts disagree",
-    );
-  }
+  const patchBlocks = alignTrackedPatchBlocks(entries, splitTrackedPatchBlocks(patch));
   return { entries, patch_blocks: patchBlocks };
 }
 
@@ -1164,18 +1204,16 @@ function analyzeUntrackedRegularFile(repositoryRoot: string, path: string): Untr
   try {
     descriptor = openSync(absolutePath, "r");
     while (true) {
-      const remaining = MAX_UNTRACKED_LINE_SCAN_BYTES - totalBytes;
-      const requested = Math.min(buffer.length, remaining + 1);
-      const bytesRead = readSync(descriptor, buffer, 0, requested, null);
+      const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
       if (bytesRead === 0) break;
-      if (totalBytes + bytesRead > MAX_UNTRACKED_LINE_SCAN_BYTES) {
-        return { binary: false, line_count: null };
-      }
       totalBytes += bytesRead;
+      if (!Number.isSafeInteger(totalBytes)) {
+        throw new GitIdentityError("git_metadata_error", `untracked file is too large to count lines safely: ${path}`);
+      }
       for (let index = 0; index < bytesRead; index += 1) {
         const byte = buffer[index];
         if (byte === undefined) continue;
-        if (byte === 0) return { binary: true, line_count: null };
+        if (byte === 0) return { binary: true, line_count: 0 };
         if (byte === 0x0a) newlineCount += 1;
         lastByte = byte;
       }
@@ -1211,22 +1249,14 @@ function untrackedPathToChangedFile(repositoryRoot: string, path: string): GitCh
       changed_new_line_ranges: [],
     };
   }
-  if (stat.size > MAX_UNTRACKED_LINE_SCAN_BYTES) {
-    return {
-      path,
-      change_kind: "untracked",
-      line_semantics: "binary_or_non_line",
-      changed_new_line_ranges: [],
-    };
-  }
 
   const analysis = analyzeUntrackedRegularFile(repositoryRoot, path);
   return {
     path,
     change_kind: "untracked",
-    line_semantics: analysis.binary || analysis.line_count === null ? "binary_or_non_line" : "text",
+    line_semantics: analysis.binary ? "binary_or_non_line" : "text",
     changed_new_line_ranges:
-      analysis.binary || analysis.line_count === null || analysis.line_count === 0
+      analysis.binary || analysis.line_count === 0
         ? []
         : [[1, analysis.line_count]],
   };
