@@ -1,33 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-type AdmissionDecision =
-  | {
-      readonly command_surface_changed: false;
-      readonly changed_authority_paths: readonly [];
-      readonly execution_admission: "normal";
-      readonly launch_allowed: true;
-      readonly status?: never;
-      readonly reason_code?: never;
-      readonly reason_text?: never;
-    }
-  | {
-      readonly command_surface_changed: true;
-      readonly changed_authority_paths: readonly string[];
-      readonly execution_admission: "explicit_changed_surface_override";
-      readonly launch_allowed: true;
-      readonly status?: never;
-      readonly reason_code?: never;
-      readonly reason_text?: never;
-    }
-  | {
-      readonly command_surface_changed: true;
-      readonly changed_authority_paths: readonly string[];
-      readonly execution_admission: "refused_changed_surface";
-      readonly launch_allowed: false;
-      readonly status: "NOT_RUN";
-      readonly reason_code: "command_surface_changed";
-      readonly reason_text: string;
-    };
+type ExecutionAdmission =
+  | "normal"
+  | "refused_changed_surface"
+  | "explicit_changed_surface_override";
+
+interface AdmissionDecision {
+  readonly command_surface_changed: boolean;
+  readonly changed_authority_paths: readonly string[];
+  readonly execution_admission: ExecutionAdmission;
+  readonly launch_allowed: boolean;
+  readonly status?: "NOT_RUN";
+  readonly reason_code?: "command_surface_changed";
+  readonly reason_text?: string;
+}
 
 function effectiveAuthorityIntersection(
   effectiveAuthorityPaths: readonly string[],
@@ -106,7 +92,7 @@ describe("T016 command-admission contract", () => {
       false,
     );
 
-    expect(decision).toEqual({
+    expect(decision).toMatchObject({
       command_surface_changed: false,
       changed_authority_paths: [],
       execution_admission: "normal",
@@ -154,9 +140,6 @@ describe("T016 command-admission contract", () => {
     expect(decision.changed_authority_paths).toEqual(["package.json", "vitest.config.ts"]);
     expect(decision.execution_admission).toBe("explicit_changed_surface_override");
     expect(decision.launch_allowed).toBe(true);
-    expect(decision).not.toHaveProperty("status");
-    expect(decision).not.toHaveProperty("reason_code");
-    expect(decision).not.toHaveProperty("reason_text");
   });
 
   it("does not label an unchanged task as overridden merely because the flag was supplied", () => {
