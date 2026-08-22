@@ -58,6 +58,7 @@ describe("T008 config v1 contract", () => {
     expect(schema.$id).toBe("urn:ascout:config:v1");
     expect(schema.type).toBe("object");
     expect(schema.additionalProperties).toBe(false);
+    expect(schema.patternProperties).toBeUndefined();
     expect(schema.required).toEqual(["version"]);
     expect(schema.properties.version).toEqual({ const: 1 });
     expect(propertyKeys(schema.properties)).toEqual([
@@ -70,6 +71,7 @@ describe("T008 config v1 contract", () => {
 
     expect(schema.properties.tasks.type).toBe("object");
     expect(schema.properties.tasks.additionalProperties).toBe(false);
+    expect(schema.properties.tasks.patternProperties).toBeUndefined();
     expect(schema.properties.tasks.default).toEqual({});
     expect(propertyKeys(schema.properties.tasks.properties)).toEqual([
       "lint",
@@ -91,6 +93,7 @@ describe("T008 config v1 contract", () => {
 
     expect(override.type).toBe("object");
     expect(override.additionalProperties).toBe(false);
+    expect(override.patternProperties).toBeUndefined();
     expect(propertyKeys(override.properties)).toEqual([
       "command",
       "disabledReason",
