@@ -182,6 +182,18 @@ describe("T022 run lock", () => {
     expect(readFileSync(lockPath(repositoryRoot), "utf8")).toBe(malformed);
   });
 
+  it("bounds oversized lock-state reads and fails closed", async () => {
+    const repositoryRoot = temporaryRepository();
+    mkdirSync(join(repositoryRoot, ".ascout"), { recursive: true });
+    const oversized = "x".repeat(1024 * 1024);
+    writeFileSync(lockPath(repositoryRoot), oversized, "utf8");
+
+    await expect(acquireRunLock(repositoryRoot)).rejects.toMatchObject({
+      code: "run_lock_unverifiable",
+    });
+    expect(readFileSync(lockPath(repositoryRoot), "utf8")).toBe(oversized);
+  });
+
   it("does not release while another live owner holds the lock-mutation guard", async () => {
     const repositoryRoot = temporaryRepository();
     const handle = await acquireRunLock(repositoryRoot);
