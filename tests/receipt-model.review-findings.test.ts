@@ -85,7 +85,7 @@ function receiptFixture(): ReceiptV1 {
       duration_ms: 1000,
       observations: { runs: 1, failures: 0 },
       cache_state: "cold",
-      evidence_ids: ["e1"],
+      evidence_ids: ["e1", "coverage-1"],
       artifact_refs: ["a1"],
       output_truncated: false,
     }],
@@ -114,6 +114,16 @@ function receiptFixture(): ReceiptV1 {
       kind: "test_result",
       sha256: "e".repeat(64),
       artifact_id: "a1",
+      redacted: false,
+      truncated: false,
+    }, {
+      evidence_id: "coverage-1",
+      run_id: "run-review-findings",
+      task_id: "test-1",
+      sequence: 2,
+      kind: "coverage",
+      sha256: "a".repeat(64),
+      artifact_id: null,
       redacted: false,
       truncated: false,
     }],
@@ -197,4 +207,40 @@ describe("T025 exact-head review finding repairs", () => {
     (noSource.exercise.records[0] as unknown as { source_task_ids: string[] }).source_task_ids = [];
     expect(issueCodes(noSource)).toContain("exercise_source_task_required");
   });
+
+  it("keeps completeness independent from unknown stability while preserving integrity exit 2", () => {
+    const receipt = structuredClone(receiptFixture()) as ReceiptV1;
+    (receipt.source as unknown as { end: null }).end = null;
+    (receipt as unknown as { stability: "unknown" }).stability = "unknown";
+    (receipt.summary as unknown as { completeness: "complete"; exit_code: 2 }).completeness = "complete";
+    (receipt.summary as unknown as { exit_code: 2 }).exit_code = 2;
+
+    expect(validateReceiptSemantics(receipt)).toEqual({ valid: true, issues: [] });
+  });
+
+  it("rejects negative and fractional selection counts", () => {
+    const receipt = structuredClone(receiptFixture()) as ReceiptV1;
+    (receipt.selection as unknown as { selected_test_count: number }).selected_test_count = -1;
+    (receipt.selection.passes[0] as unknown as { deselected_test_count: number }).deselected_test_count = 0.5;
+
+    const codes = issueCodes(receipt);
+    expect(codes.filter((code) => code === "selection_count_shape")).toHaveLength(2);
+  });
+
+  it("requires owned current-run coverage evidence for every EXERCISED source task", () => {
+    const missing = structuredClone(receiptFixture()) as ReceiptV1;
+    (missing.tasks[0] as unknown as { evidence_ids: string[] }).evidence_ids = ["e1"];
+    expect(issueCodes(missing)).toContain("exercise_source_task_missing_coverage_evidence");
+
+    const nonCoverage = structuredClone(receiptFixture()) as ReceiptV1;
+    (nonCoverage.evidence[1] as unknown as { kind: "test_result" }).kind = "test_result";
+    expect(issueCodes(nonCoverage)).toContain("exercise_source_task_missing_coverage_evidence");
+
+    const crossRun = structuredClone(receiptFixture()) as ReceiptV1;
+    (crossRun.evidence[1] as unknown as { run_id: string }).run_id = "other-run";
+    const codes = issueCodes(crossRun);
+    expect(codes).toContain("cross_run_evidence");
+    expect(codes).toContain("exercise_source_task_missing_coverage_evidence");
+  });
+
 });

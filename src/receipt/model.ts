@@ -805,6 +805,7 @@ function validateExercise(
   const byPath = new Map<string, ExerciseRecordV1[]>();
   const lineIds = new Set<string>();
   const changedRanges = new Map(receipt.comparison.changed_files.map((x) => [x.path, x.changed_new_line_ranges] as const));
+  const evidence = new Map(receipt.evidence.map((item) => [item.evidence_id, item]));
 
   for (const [i, record] of receipt.exercise.records.entries()) {
     const base = `exercise.records[${i}]`;
@@ -852,6 +853,25 @@ function validateExercise(
             `${base}.source_task_ids[${j}]`,
             "EXERCISED source tasks must be executed test or pytestBasic tasks",
           );
+        }
+        if (task !== undefined) {
+          const hasOwnedCoverageEvidence = task.evidence_ids.some((evidenceId) => {
+            const item = evidence.get(evidenceId);
+            return (
+              item !== undefined &&
+              item.kind === "coverage" &&
+              item.run_id === receipt.run.run_id &&
+              item.task_id === task.task_id
+            );
+          });
+          if (!hasOwnedCoverageEvidence) {
+            addIssue(
+              issues,
+              "exercise_source_task_missing_coverage_evidence",
+              `${base}.source_task_ids[${j}]`,
+              "EXERCISED source tasks must own current-run coverage evidence",
+            );
+          }
         }
       }
     } else if (record.state === "NOT_EXERCISED") {
