@@ -3,6 +3,7 @@ import {
   link,
   mkdir,
   open,
+  realpath,
   stat,
   unlink,
   type FileHandle,
@@ -158,7 +159,6 @@ async function publishOwner(lockPath: string, owner: RunLockOwner): Promise<bool
     handle = null;
 
     try {
-      // Publish only an already-complete inode. Destination existence is the atomic gate.
       await link(temporaryPath, lockPath);
       return true;
     } catch (error) {
@@ -225,8 +225,6 @@ async function acquireMutationGuard(recoveryPath: string): Promise<RunLockOwner>
     }
 
     if (ownerIsDefinitelyDead(state.owner.pid)) {
-      // Unlike the canonical main lock, the internal guard has no portable compare-and-unlink
-      // primitive. Automatic stale-guard takeover would admit an ABA deletion race, so fail closed.
       throw lockError(
         "run_lock_recovery_busy",
         "stale run-lock mutation guard blocks automatic mutation; refusing unsafe takeover",
@@ -269,8 +267,6 @@ async function cleanupGuardAfterOperationFailure(
   recoveryOwner: RunLockOwner,
   operationError: unknown,
 ): Promise<never> {
-  // Cleanup integrity is stronger than the original operation classification: if the guard cannot
-  // be removed, later runs must see a control-integrity failure rather than a misleading task error.
   await removeMutationGuard(recoveryPath, recoveryOwner);
   throw operationError;
 }
@@ -408,13 +404,9 @@ export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHan
     throw lockError("run_lock_unverifiable", "repository root must be a non-empty path without NUL");
   }
 
-  const canonicalRoot = resolve(repositoryRoot);
-  const lockDirectory = join(canonicalRoot, LOCK_DIRECTORY);
-  const lockPath = join(lockDirectory, LOCK_FILENAME);
-  const recoveryPath = join(lockDirectory, RECOVERY_FILENAME);
-  const owner = newOwner();
-
+  let canonicalRoot: string;
   try {
+    canonicalRoot = await realpath(resolve(repositoryRoot));
     const rootStats = await stat(canonicalRoot);
     if (!rootStats.isDirectory()) {
       throw lockError("run_lock_unverifiable", "repository root is not a directory");
@@ -423,10 +415,15 @@ export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHan
     if (error instanceof RunLockError) throw error;
     throw lockError(
       "run_lock_unverifiable",
-      "repository root is not an existing directory",
+      "repository root is not an existing resolvable directory",
       error,
     );
   }
+
+  const lockDirectory = join(canonicalRoot, LOCK_DIRECTORY);
+  const lockPath = join(lockDirectory, LOCK_FILENAME);
+  const recoveryPath = join(lockDirectory, RECOVERY_FILENAME);
+  const owner = newOwner();
 
   try {
     await mkdir(lockDirectory, { recursive: true });
