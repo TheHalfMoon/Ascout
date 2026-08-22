@@ -147,6 +147,20 @@ describe("T022 run lock", () => {
     expect(readFileSync(recoveryPath(repositoryRoot), "utf8")).toBe(staleGuard);
   });
 
+  it("blocks new acquisition when a stale mutation guard exists even without run.lock", async () => {
+    const repositoryRoot = temporaryRepository();
+    const deadPid = await definitelyExitedPid();
+    mkdirSync(join(repositoryRoot, ".ascout"), { recursive: true });
+    const staleGuard = ownerRecord(deadPid, "6".repeat(32));
+    writeFileSync(recoveryPath(repositoryRoot), staleGuard, "utf8");
+
+    await expect(acquireRunLock(repositoryRoot)).rejects.toMatchObject({
+      code: "run_lock_recovery_busy",
+    });
+    expect(existsSync(lockPath(repositoryRoot))).toBe(false);
+    expect(readFileSync(recoveryPath(repositoryRoot), "utf8")).toBe(staleGuard);
+  });
+
   it("does not steal dead-owner recovery from a live mutation-guard owner", async () => {
     const repositoryRoot = temporaryRepository();
     const deadPid = await definitelyExitedPid();
@@ -219,14 +233,15 @@ describe("T022 run lock", () => {
     expect(readFileSync(lockPath(repositoryRoot), "utf8")).toBe(replacement);
   });
 
-  it("makes release idempotent after successful ownership release", async () => {
+  it("makes sequential and concurrent release idempotent after success", async () => {
     const repositoryRoot = temporaryRepository();
     const handle = await acquireRunLock(repositoryRoot);
 
-    await handle.release();
+    await Promise.all([handle.release(), handle.release()]);
     await handle.release();
 
     expect(existsSync(lockPath(repositoryRoot))).toBe(false);
+    expect(existsSync(recoveryPath(repositoryRoot))).toBe(false);
   });
 
   it("rejects invalid repository-root input before touching runtime state", async () => {
