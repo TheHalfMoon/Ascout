@@ -480,7 +480,7 @@ function requireSuccessfulGitBuffer(result: GitBufferCommandResult, message: str
 
 function decodeUtf8(buffer: Buffer, context: string): string {
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buffer);
   } catch {
     throw new GitIdentityError("git_metadata_error", `${context} is not valid UTF-8`);
   }
