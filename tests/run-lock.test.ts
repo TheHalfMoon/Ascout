@@ -231,5 +231,12 @@ describe("T022 run lock", () => {
     await expect(acquireRunLock("bad\0root")).rejects.toMatchObject({
       code: "run_lock_unverifiable",
     });
+
+    const parent = temporaryRepository();
+    const missingRoot = join(parent, "missing", "repository");
+    await expect(acquireRunLock(missingRoot)).rejects.toMatchObject({
+      code: "run_lock_unverifiable",
+    });
+    expect(existsSync(missingRoot)).toBe(false);
   });
 });
