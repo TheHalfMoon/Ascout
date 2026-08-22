@@ -205,7 +205,7 @@ async function acquireRecoveryGuard(recoveryPath: string): Promise<RunLockOwner>
     if (!ownerIsDefinitelyDead(state.owner.pid)) {
       throw lockError(
         "run_lock_recovery_busy",
-        "another live process is recovering the run lock",
+        "another live process is mutating or recovering the run lock",
       );
     }
 
@@ -283,19 +283,39 @@ async function recoverDeadOwner(
   }
 }
 
-async function releaseOwnedLock(lockPath: string, owner: RunLockOwner): Promise<void> {
-  const state = await readLockState(lockPath);
-  if (state.kind !== "owner" || !sameOwner(state.owner, owner)) {
-    throw lockError(
-      "run_lock_ownership_lost",
-      "run lock no longer belongs to this handle; refusing to remove it",
-    );
-  }
-
+async function releaseOwnedLock(
+  lockPath: string,
+  recoveryPath: string,
+  owner: RunLockOwner,
+): Promise<void> {
+  // Recovery and release share one mutation lane. Under the supported Ascout protocol no other
+  // Ascout process can replace run.lock between this ownership check and unlink. Arbitrary
+  // out-of-protocol filesystem tampering remains outside the trusted-local T022 contract.
+  const mutationOwner = await acquireRecoveryGuard(recoveryPath);
+  let releaseError: unknown;
   try {
-    await unlink(lockPath);
+    const state = await readLockState(lockPath);
+    if (state.kind !== "owner" || !sameOwner(state.owner, owner)) {
+      throw lockError(
+        "run_lock_ownership_lost",
+        "run lock no longer belongs to this handle; refusing to remove it",
+      );
+    }
+
+    try {
+      await unlink(lockPath);
+    } catch (error) {
+      throw lockError("run_lock_io", "failed to release run lock", error);
+    }
   } catch (error) {
-    throw lockError("run_lock_io", "failed to release run lock", error);
+    releaseError = error;
+    throw error;
+  } finally {
+    try {
+      await removeRecoveryGuard(recoveryPath, mutationOwner);
+    } catch (error) {
+      if (releaseError === undefined) throw error;
+    }
   }
 }
 
@@ -323,7 +343,7 @@ export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHan
         owner_pid: owner.pid,
         async release(): Promise<void> {
           if (released) return;
-          await releaseOwnedLock(lockPath, owner);
+          await releaseOwnedLock(lockPath, recoveryPath, owner);
           released = true;
         },
       };
