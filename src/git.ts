@@ -904,8 +904,22 @@ interface TrackedDiffEntry {
   readonly similarity?: number;
 }
 
+interface WorkingTreeTrackedDiff {
+  readonly entries: readonly TrackedDiffEntry[];
+  readonly patch_blocks: readonly Buffer[];
+}
+
+interface UntrackedLineAnalysis {
+  readonly binary: boolean;
+  readonly line_count: number | null;
+}
+
 const WORKING_TREE_RAW_DIFF_METADATA =
   /^:([0-7]{6}) ([0-7]{6}) ([a-f0-9]{40}|[a-f0-9]{64}) ([a-f0-9]{40}|[a-f0-9]{64}) ([A-Z])(\d{0,3})$/;
+const COMBINED_DIFF_BOUNDARY = Buffer.from("\0\0diff --git ", "ascii");
+const PATCH_BLOCK_HEADER = Buffer.from("diff --git ", "ascii");
+const PATCH_BLOCK_SEPARATOR = Buffer.from("\ndiff --git ", "ascii");
+const MAX_UNTRACKED_LINE_SCAN_BYTES = 1024 * 1024;
 
 function changedNewLineRangesFromZeroContextPatch(
   patch: Buffer,
@@ -1034,34 +1048,52 @@ function parseWorkingTreeRawDiff(buffer: Buffer): TrackedDiffEntry[] {
   return entries;
 }
 
-function trackedDiffPathspec(entry: TrackedDiffEntry): readonly string[] {
-  return entry.previous_path === undefined ? [entry.path] : [entry.previous_path, entry.path];
+function splitTrackedPatchBlocks(patch: Buffer): Buffer[] {
+  if (patch.length === 0) return [];
+  if (!patch.subarray(0, PATCH_BLOCK_HEADER.length).equals(PATCH_BLOCK_HEADER)) {
+    throw new GitIdentityError("git_metadata_error", "Git tracked patch is missing its first diff block header");
+  }
+
+  const blocks: Buffer[] = [];
+  let start = 0;
+  while (start < patch.length) {
+    const separator = patch.indexOf(PATCH_BLOCK_SEPARATOR, start + PATCH_BLOCK_HEADER.length);
+    if (separator < 0) {
+      blocks.push(patch.subarray(start));
+      break;
+    }
+    blocks.push(patch.subarray(start, separator + 1));
+    start = separator + 1;
+  }
+  return blocks;
 }
 
-function trackedPatch(
-  repositoryRoot: string,
-  baseRef: string,
-  entry: TrackedDiffEntry,
-): Buffer {
-  return requireSuccessfulGitBuffer(
-    runGitTreeMetadata(repositoryRoot, [
-      "diff",
-      "--unified=0",
-      "--no-ext-diff",
-      "--no-textconv",
-      "--no-color",
-      "--find-renames",
-      baseRef,
-      "--",
-      ...trackedDiffPathspec(entry),
-    ]),
-    `unable to read zero-context Git diff for ${entry.path}`,
-  );
+function parseWorkingTreeTrackedDiff(output: Buffer): WorkingTreeTrackedDiff {
+  if (output.length === 0) return { entries: [], patch_blocks: [] };
+
+  const boundary = output.indexOf(COMBINED_DIFF_BOUNDARY);
+  if (boundary < 0) {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      "Git combined working-tree diff is missing its raw/patch boundary",
+    );
+  }
+  const raw = output.subarray(0, boundary + 1);
+  const patch = output.subarray(boundary + 2);
+  const entries = parseWorkingTreeRawDiff(raw);
+  const patchBlocks = splitTrackedPatchBlocks(patch);
+  if (entries.length !== patchBlocks.length) {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      "Git raw and patch working-tree diff entry counts disagree",
+    );
+  }
+  return { entries, patch_blocks: patchBlocks };
 }
 
 function trackedDiffIsBinary(patch: Buffer): boolean {
-  return patch.includes(Buffer.from("GIT binary patch", "ascii")) ||
-    patch.includes(Buffer.from("Binary files ", "ascii"));
+  const patchText = patch.toString("latin1");
+  return /^GIT binary patch$/m.test(patchText) || /^Binary files .* differ$/m.test(patchText);
 }
 
 function trackedEntryIsNonLineType(entry: TrackedDiffEntry): boolean {
@@ -1073,9 +1105,8 @@ function trackedEntryIsNonLineType(entry: TrackedDiffEntry): boolean {
 }
 
 function trackedEntryToChangedFile(
-  repositoryRoot: string,
-  baseRef: string,
   entry: TrackedDiffEntry,
+  patch: Buffer,
 ): GitChangedFile {
   const changeKind: Exclude<ChangedFileKind, "untracked"> =
     entry.status === "A"
@@ -1109,7 +1140,6 @@ function trackedEntryToChangedFile(
       : { ...base, previous_path: entry.previous_path };
   }
 
-  const patch = trackedPatch(repositoryRoot, baseRef, entry);
   const binary = trackedDiffIsBinary(patch);
   const ranges = binary ? [] : changedNewLineRangesFromZeroContextPatch(patch);
   const base = {
@@ -1123,23 +1153,6 @@ function trackedEntryToChangedFile(
     : { ...base, previous_path: entry.previous_path };
 }
 
-function filterStaleTrackedModification(
-  repositoryRoot: string,
-  entry: TrackedDiffEntry,
-): boolean {
-  if (entry.status !== "M" || entry.old_mode !== entry.new_mode) return false;
-  if (entry.new_mode !== "100644" && entry.new_mode !== "100755" && entry.new_mode !== "120000") {
-    return false;
-  }
-  const type = entry.new_mode === "120000" ? "symlink" : "file";
-  return worktreeGitObjectId(repositoryRoot, entry.path, type, entry.old_oid) === entry.old_oid;
-}
-
-interface UntrackedLineAnalysis {
-  readonly binary: boolean;
-  readonly line_count: number;
-}
-
 function analyzeUntrackedRegularFile(repositoryRoot: string, path: string): UntrackedLineAnalysis {
   const absolutePath = containedRegularFilePath(repositoryRoot, path);
   const buffer = Buffer.allocUnsafe(FILE_HASH_BUFFER_BYTES);
@@ -1147,21 +1160,22 @@ function analyzeUntrackedRegularFile(repositoryRoot: string, path: string): Untr
   let totalBytes = 0;
   let newlineCount = 0;
   let lastByte = -1;
-  let binary = false;
 
   try {
     descriptor = openSync(absolutePath, "r");
     while (true) {
-      const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
+      const remaining = MAX_UNTRACKED_LINE_SCAN_BYTES - totalBytes;
+      const requested = Math.min(buffer.length, remaining + 1);
+      const bytesRead = readSync(descriptor, buffer, 0, requested, null);
       if (bytesRead === 0) break;
-      totalBytes += bytesRead;
-      if (!Number.isSafeInteger(totalBytes)) {
-        throw new GitIdentityError("git_metadata_error", `untracked file is too large to count lines safely: ${path}`);
+      if (totalBytes + bytesRead > MAX_UNTRACKED_LINE_SCAN_BYTES) {
+        return { binary: false, line_count: null };
       }
+      totalBytes += bytesRead;
       for (let index = 0; index < bytesRead; index += 1) {
         const byte = buffer[index];
         if (byte === undefined) continue;
-        if (byte === 0) binary = true;
+        if (byte === 0) return { binary: true, line_count: null };
         if (byte === 0x0a) newlineCount += 1;
         lastByte = byte;
       }
@@ -1177,7 +1191,7 @@ function analyzeUntrackedRegularFile(repositoryRoot: string, path: string): Untr
   if (!Number.isSafeInteger(lineCount)) {
     throw new GitIdentityError("git_metadata_error", `untracked file line count is not safe: ${path}`);
   }
-  return { binary, line_count: lineCount };
+  return { binary: false, line_count: lineCount };
 }
 
 function untrackedPathToChangedFile(repositoryRoot: string, path: string): GitChangedFile {
@@ -1197,14 +1211,22 @@ function untrackedPathToChangedFile(repositoryRoot: string, path: string): GitCh
       changed_new_line_ranges: [],
     };
   }
+  if (stat.size > MAX_UNTRACKED_LINE_SCAN_BYTES) {
+    return {
+      path,
+      change_kind: "untracked",
+      line_semantics: "binary_or_non_line",
+      changed_new_line_ranges: [],
+    };
+  }
 
   const analysis = analyzeUntrackedRegularFile(repositoryRoot, path);
   return {
     path,
     change_kind: "untracked",
-    line_semantics: analysis.binary ? "binary_or_non_line" : "text",
+    line_semantics: analysis.binary || analysis.line_count === null ? "binary_or_non_line" : "text",
     changed_new_line_ranges:
-      analysis.binary || analysis.line_count === 0
+      analysis.binary || analysis.line_count === null || analysis.line_count === 0
         ? []
         : [[1, analysis.line_count]],
   };
@@ -1251,23 +1273,31 @@ export function readWorkingTreeComparison(
     );
   }
 
-  const rawTracked = requireSuccessfulGitBuffer(
+  const combinedTracked = requireSuccessfulGitBuffer(
     runGitTreeMetadata(canonicalRoot, [
       "diff",
       "--raw",
       "--no-abbrev",
-      "--find-renames",
+      "-z",
+      "--patch",
+      "--unified=0",
       "--no-ext-diff",
       "--no-textconv",
-      "-z",
+      "--no-color",
+      "--find-renames",
       sourceStartHeadSha,
       "--",
     ]),
     "unable to read tracked working-tree comparison",
   );
-  const tracked = parseWorkingTreeRawDiff(rawTracked)
-    .filter((entry) => !filterStaleTrackedModification(canonicalRoot, entry))
-    .map((entry) => trackedEntryToChangedFile(canonicalRoot, sourceStartHeadSha, entry));
+  const trackedDiff = parseWorkingTreeTrackedDiff(combinedTracked);
+  const tracked = trackedDiff.entries.map((entry, index) => {
+    const patch = trackedDiff.patch_blocks[index];
+    if (patch === undefined) {
+      throw new GitIdentityError("git_metadata_error", "Git tracked patch block is missing");
+    }
+    return trackedEntryToChangedFile(entry, patch);
+  });
   const untracked = readNonignoredUntrackedPaths(canonicalRoot)
     .map((path) => untrackedPathToChangedFile(canonicalRoot, path));
 
