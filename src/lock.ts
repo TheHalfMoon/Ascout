@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import {
+  link,
   mkdir,
   open,
   readFile,
@@ -136,32 +137,39 @@ async function closeHandle(handle: FileHandle | null): Promise<void> {
   }
 }
 
-async function publishOwner(lockPath: string, owner: RunLockOwner): Promise<boolean> {
-  let handle: FileHandle | null = null;
-  let created = false;
+async function removeBestEffort(path: string): Promise<void> {
   try {
-    handle = await open(lockPath, "wx", 0o600);
-    created = true;
+    await unlink(path);
+  } catch {
+    // Temporary publication debris is ignored here. It is never treated as lock ownership.
+  }
+}
+
+async function publishOwner(lockPath: string, owner: RunLockOwner): Promise<boolean> {
+  const temporaryPath = `${lockPath}.${owner.token}.tmp`;
+  let handle: FileHandle | null = null;
+  try {
+    handle = await open(temporaryPath, "wx", 0o600);
     await handle.writeFile(encodeOwner(owner), { encoding: "utf8" });
     await handle.sync();
     await handle.close();
     handle = null;
-    return true;
-  } catch (error) {
-    if (!created && nodeErrorCode(error) === "EEXIST") return false;
 
-    await closeHandle(handle);
-    handle = null;
-    if (created) {
-      try {
-        await unlink(lockPath);
-      } catch {
-        // A failed publication that cannot be cleaned up remains fail-closed.
-      }
+    try {
+      // link() publishes the already-complete inode at run.lock and fails atomically if another
+      // owner already published the path. Readers never observe a partially-written run.lock.
+      await link(temporaryPath, lockPath);
+      return true;
+    } catch (error) {
+      if (nodeErrorCode(error) === "EEXIST") return false;
+      throw lockError("run_lock_io", "failed to publish run lock atomically", error);
     }
-    throw lockError("run_lock_io", "failed to publish run lock", error);
+  } catch (error) {
+    if (error instanceof RunLockError) throw error;
+    throw lockError("run_lock_io", "failed to prepare run-lock owner record", error);
   } finally {
     await closeHandle(handle);
+    await removeBestEffort(temporaryPath);
   }
 }
 
