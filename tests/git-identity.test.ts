@@ -13,6 +13,7 @@ import {
 
 const HTTPS_HASH = "e9497c38e4fa38f1fa5c4be8b0c9af80f65802497625efe8628a0c210f05ff16";
 const SSH_HASH = "396165d0807ee9ac398f21e22a1adfd912664fe71924c4551b9ef2919ebeaca4";
+const IPV6_SSH_HASH = "6f0c0d33f2a51bb994542be183462dbea3e60527cd2644fb3cde387a4772f823";
 const SHA256_HEAD = "0123456789abcdef".repeat(4);
 const temporaryDirectories: string[] = [];
 
@@ -67,6 +68,16 @@ function expectNoPersistedMaterial(value: unknown, forbidden: readonly string[])
   }
 }
 
+function expectGitIdentityErrorCode(operation: () => unknown, code: string): void {
+  try {
+    operation();
+    throw new Error(`expected GitIdentityError(${code})`);
+  } catch (error) {
+    expect(error).toBeInstanceOf(GitIdentityError);
+    expect((error as GitIdentityError).code).toBe(code);
+  }
+}
+
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
@@ -110,7 +121,20 @@ describe("T018 repository identity implementation", () => {
     expectNoPersistedMaterial(ssh, ["git", "SSH_SECRET", "QUERY_SECRET", "fragment"]);
   });
 
-  it("preserves meaningful remote port/path distinctions and rejects unsupported grammars", () => {
+  it("keeps bracketed IPv6 canonical for scheme-based SSH URLs", () => {
+    const identity = repositoryIdentityFromRemote(
+      "ssh://git:SECRET@[2001:DB8::1]/org/repo.git?token=QUERY#fragment",
+    );
+
+    expect(identity).toEqual({
+      repository_id: `remote:${IPV6_SSH_HASH}`,
+      repository_id_kind: "remote",
+      portable: true,
+    });
+    expectNoPersistedMaterial(identity, ["git", "SECRET", "QUERY", "fragment"]);
+  });
+
+  it("preserves meaningful remote port/path distinctions and rejects unsupported or ambiguous grammars", () => {
     const one = repositoryIdentityFromRemote("ssh://alice:one@example.com:2222/Org/Repo.git?x=1#one");
     const same = repositoryIdentityFromRemote("ssh://bob:two@EXAMPLE.COM:2222/Org/Repo.git?x=2#two");
     const differentPort = repositoryIdentityFromRemote("ssh://alice:one@example.com:2200/Org/Repo.git");
@@ -126,6 +150,8 @@ describe("T018 repository identity implementation", () => {
       "not a remote",
       "example.com/path/without-scp-colon",
       "git@[2001:db8::1]:org/repo.git",
+      "git@example.com:/org/repo.git",
+      "example.com:/org/repo.git",
       "C:/work/repo",
       "C:\\work\\repo",
       "C:work/repo",
@@ -154,14 +180,7 @@ describe("T018 repository identity implementation", () => {
 
   it("rejects a local repository path that cannot resolve to a real path", () => {
     const missing = join(makeTemporaryDirectory(), "missing");
-
-    try {
-      repositoryIdentityFromLocalPath(missing);
-      throw new Error("expected repositoryIdentityFromLocalPath to reject");
-    } catch (error) {
-      expect(error).toBeInstanceOf(GitIdentityError);
-      expect((error as GitIdentityError).code).toBe("invalid_repository_path");
-    }
+    expectGitIdentityErrorCode(() => repositoryIdentityFromLocalPath(missing), "invalid_repository_path");
   });
 });
 
@@ -170,13 +189,7 @@ describe("T018 HEAD identity implementation", () => {
     const repositoryRoot = join(makeTemporaryDirectory(), "repo");
     initRepository(repositoryRoot);
 
-    try {
-      readGitHeadState(repositoryRoot);
-      throw new Error("expected readGitHeadState to reject unborn HEAD");
-    } catch (error) {
-      expect(error).toBeInstanceOf(GitIdentityError);
-      expect((error as GitIdentityError).code).toBe("unborn_head");
-    }
+    expectGitIdentityErrorCode(() => readGitHeadState(repositoryRoot), "unborn_head");
   });
 
   it("returns the exact full HEAD object ID and attached/detached state from a real repository", () => {
@@ -253,14 +266,46 @@ describe("T018 HEAD identity implementation", () => {
         throw new Error(`unexpected Git argv after invalid HEAD: ${command}`);
       };
 
-      try {
-        readGitHeadState("/fixture/repo", runner);
-        throw new Error("expected malformed HEAD identity to reject");
-      } catch (error) {
-        expect(error).toBeInstanceOf(GitIdentityError);
-        expect((error as GitIdentityError).code).toBe("invalid_head_identity");
-      }
+      expectGitIdentityErrorCode(() => readGitHeadState("/fixture/repo", runner), "invalid_head_identity");
     }
+  });
+
+  it("does not misclassify runner failure or an existing-but-unresolvable HEAD ref as unborn", () => {
+    const runnerFailure: GitCommandRunner = (_repositoryRoot, argv) => {
+      const command = argv.join(" ");
+      if (command === "rev-parse --is-inside-work-tree") {
+        return { status: 0, stdout: "true\n", stderr: "" };
+      }
+      if (command === "rev-parse --verify HEAD^{commit}") {
+        return { status: null, stdout: "", stderr: "", error: new Error("timeout") };
+      }
+      throw new Error(`unexpected Git argv after runner failure: ${command}`);
+    };
+    expectGitIdentityErrorCode(
+      () => readGitHeadState("/fixture/repo", runnerFailure),
+      "git_metadata_error",
+    );
+
+    const existingBrokenRef: GitCommandRunner = (_repositoryRoot, argv) => {
+      const command = argv.join(" ");
+      if (command === "rev-parse --is-inside-work-tree") {
+        return { status: 0, stdout: "true\n", stderr: "" };
+      }
+      if (command === "rev-parse --verify HEAD^{commit}") {
+        return { status: 128, stdout: "", stderr: "fatal" };
+      }
+      if (command === "symbolic-ref -q HEAD") {
+        return { status: 0, stdout: "refs/heads/main\n", stderr: "" };
+      }
+      if (command === "show-ref --verify --quiet refs/heads/main") {
+        return { status: 0, stdout: "", stderr: "" };
+      }
+      throw new Error(`unexpected Git argv for broken ref: ${command}`);
+    };
+    expectGitIdentityErrorCode(
+      () => readGitHeadState("/fixture/repo", existingBrokenRef),
+      "git_metadata_error",
+    );
   });
 
   it("fails closed when Git metadata cannot establish repository, detached, or shallow state", () => {
