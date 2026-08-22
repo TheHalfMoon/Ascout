@@ -27,11 +27,11 @@ type LockDecision =
     };
 
 interface LockSnapshot {
-  readonly owner_pid: number;
+  readonly owner_pid?: number;
 }
 
-function validPid(pid: number): boolean {
-  return Number.isSafeInteger(pid) && pid > 0;
+function validPid(pid: number | undefined): pid is number {
+  return pid !== undefined && Number.isSafeInteger(pid) && pid > 0;
 }
 
 function decideRunLock(
@@ -178,6 +178,10 @@ describe("T014 run-lock contract", () => {
 
   it("does not recover from missing or invalid owner evidence", () => {
     const missingProbe = decideRunLock({ owner_pid: 4242 }, null);
+    const missingLockOwner = decideRunLock(
+      {},
+      { state: "dead", pid: 4242 },
+    );
     const invalidLockPid = decideRunLock(
       { owner_pid: 0 },
       { state: "dead", pid: 0 },
@@ -187,7 +191,7 @@ describe("T014 run-lock contract", () => {
       { state: "dead", pid: -1 },
     );
 
-    for (const decision of [missingProbe, invalidLockPid, invalidProbePid]) {
+    for (const decision of [missingProbe, missingLockOwner, invalidLockPid, invalidProbePid]) {
       expect(decision).toEqual({
         action: "refuse",
         reason: "owner_state_unverified",
