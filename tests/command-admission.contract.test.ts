@@ -1,23 +1,33 @@
 import { describe, expect, it } from "vitest";
 
-type ExecutionAdmission =
-  | "normal"
-  | "refused_changed_surface"
-  | "explicit_changed_surface_override";
-
-interface AdmissionDecision {
-  readonly command_surface_changed: boolean;
-  readonly changed_authority_paths: readonly string[];
-  readonly execution_admission: ExecutionAdmission;
-  readonly launch_allowed: boolean;
-  readonly refusal:
-    | {
-        readonly status: "NOT_RUN";
-        readonly reason_code: "command_surface_changed";
-        readonly reason_text: string;
-      }
-    | null;
-}
+type AdmissionDecision =
+  | {
+      readonly command_surface_changed: false;
+      readonly changed_authority_paths: readonly [];
+      readonly execution_admission: "normal";
+      readonly launch_allowed: true;
+      readonly status?: never;
+      readonly reason_code?: never;
+      readonly reason_text?: never;
+    }
+  | {
+      readonly command_surface_changed: true;
+      readonly changed_authority_paths: readonly string[];
+      readonly execution_admission: "explicit_changed_surface_override";
+      readonly launch_allowed: true;
+      readonly status?: never;
+      readonly reason_code?: never;
+      readonly reason_text?: never;
+    }
+  | {
+      readonly command_surface_changed: true;
+      readonly changed_authority_paths: readonly string[];
+      readonly execution_admission: "refused_changed_surface";
+      readonly launch_allowed: false;
+      readonly status: "NOT_RUN";
+      readonly reason_code: "command_surface_changed";
+      readonly reason_text: string;
+    };
 
 function effectiveAuthorityIntersection(
   effectiveAuthorityPaths: readonly string[],
@@ -52,7 +62,6 @@ function decideAdmission(
       changed_authority_paths: [],
       execution_admission: "normal",
       launch_allowed: true,
-      refusal: null,
     };
   }
 
@@ -62,7 +71,6 @@ function decideAdmission(
       changed_authority_paths: changedAuthorityPaths,
       execution_admission: "explicit_changed_surface_override",
       launch_allowed: true,
-      refusal: null,
     };
   }
 
@@ -71,11 +79,9 @@ function decideAdmission(
     changed_authority_paths: changedAuthorityPaths,
     execution_admission: "refused_changed_surface",
     launch_allowed: false,
-    refusal: {
-      status: "NOT_RUN",
-      reason_code: "command_surface_changed",
-      reason_text: "effective command or configuration authority changed in this invocation",
-    },
+    status: "NOT_RUN",
+    reason_code: "command_surface_changed",
+    reason_text: "effective command or configuration authority changed in this invocation",
   };
 }
 
@@ -105,7 +111,6 @@ describe("T016 command-admission contract", () => {
       changed_authority_paths: [],
       execution_admission: "normal",
       launch_allowed: true,
-      refusal: null,
     });
   });
 
@@ -122,7 +127,7 @@ describe("T016 command-admission contract", () => {
     expect(decision.launch_allowed).toBe(true);
   });
 
-  it("refuses an affected task by default before process launch", () => {
+  it("refuses an affected task by default before process launch with canonical task-level fields", () => {
     const decision = decideAdmission(
       ["package.json", "vitest.config.ts"],
       ["vitest.config.ts"],
@@ -133,9 +138,9 @@ describe("T016 command-admission contract", () => {
     expect(decision.changed_authority_paths).toEqual(["vitest.config.ts"]);
     expect(decision.execution_admission).toBe("refused_changed_surface");
     expect(decision.launch_allowed).toBe(false);
-    expect(decision.refusal?.status).toBe("NOT_RUN");
-    expect(decision.refusal?.reason_code).toBe("command_surface_changed");
-    expect(decision.refusal?.reason_text.length).toBeGreaterThan(0);
+    expect(decision.status).toBe("NOT_RUN");
+    expect(decision.reason_code).toBe("command_surface_changed");
+    expect(decision.reason_text?.length).toBeGreaterThan(0);
   });
 
   it("allows an affected task only when the current invocation supplies the explicit override", () => {
@@ -149,7 +154,9 @@ describe("T016 command-admission contract", () => {
     expect(decision.changed_authority_paths).toEqual(["package.json", "vitest.config.ts"]);
     expect(decision.execution_admission).toBe("explicit_changed_surface_override");
     expect(decision.launch_allowed).toBe(true);
-    expect(decision.refusal).toBeNull();
+    expect(decision).not.toHaveProperty("status");
+    expect(decision).not.toHaveProperty("reason_code");
+    expect(decision).not.toHaveProperty("reason_text");
   });
 
   it("does not label an unchanged task as overridden merely because the flag was supplied", () => {
@@ -184,6 +191,8 @@ describe("T016 command-admission contract", () => {
     expect(ordinaryAfter).toEqual(ordinaryBefore);
     expect(ordinaryAfter.execution_admission).toBe("refused_changed_surface");
     expect(ordinaryAfter.launch_allowed).toBe(false);
+    expect(ordinaryAfter.status).toBe("NOT_RUN");
+    expect(ordinaryAfter.reason_code).toBe("command_surface_changed");
   });
 
   it("keeps fixed task categories independent when their effective authority paths do not intersect", () => {
