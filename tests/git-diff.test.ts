@@ -95,11 +95,14 @@ describe("T020 working-tree changed scope", () => {
   it("covers tracked add/modify/delete/rename plus nonignored untracked scope", () => {
     const repositoryRoot = makeRepository();
     mkdirSync(join(repositoryRoot, "src"));
+    mkdirSync(join(repositoryRoot, ".ascout"));
     writeFileSync(join(repositoryRoot, ".gitignore"), "ignored.txt\n");
     writeFileSync(join(repositoryRoot, "src", "modified.txt"), "one\ntwo\nthree\n");
     writeFileSync(join(repositoryRoot, "deleted.txt"), "gone\n");
     writeFileSync(join(repositoryRoot, "rename-old.txt"), "alpha\nbeta\n");
     writeFileSync(join(repositoryRoot, "binary.dat"), Buffer.from([1, 0, 2, 3]));
+    writeFileSync(join(repositoryRoot, ".ascout", "tracked.txt"), "tracked-base\n");
+    writeFileSync(join(repositoryRoot, "marker.txt"), "before\n");
     const head = commitAll(repositoryRoot);
 
     writeFileSync(join(repositoryRoot, "src", "modified.txt"), "one\nTWO\nTHREE\n");
@@ -108,12 +111,17 @@ describe("T020 working-tree changed scope", () => {
     rmSync(join(repositoryRoot, "deleted.txt"));
     git(repositoryRoot, ["mv", "rename-old.txt", "rename-new.txt"]);
     writeFileSync(join(repositoryRoot, "binary.dat"), Buffer.from([1, 0, 8, 9]));
+    writeFileSync(
+      join(repositoryRoot, "marker.txt"),
+      "GIT binary patch\nBinary files a/x and b/y differ\n",
+    );
+    writeFileSync(join(repositoryRoot, ".ascout", "tracked.txt"), "tracked-change\n");
     mkdirSync(join(repositoryRoot, "notes"));
     writeFileSync(join(repositoryRoot, "notes", "new.txt"), "alpha\nbeta\ngamma");
     writeFileSync(join(repositoryRoot, "notes", "empty.txt"), "");
     writeFileSync(join(repositoryRoot, "notes", "binary.bin"), Buffer.from([9, 0, 8]));
+    writeFileSync(join(repositoryRoot, "notes", "large.txt"), "x".repeat(1024 * 1024 + 1));
     writeFileSync(join(repositoryRoot, "ignored.txt"), "ignored\n");
-    mkdirSync(join(repositoryRoot, ".ascout"));
     writeFileSync(join(repositoryRoot, ".ascout", "runtime.json"), "{}\n");
 
     const comparison = readWorkingTreeComparison(repositoryRoot, head);
@@ -142,11 +150,20 @@ describe("T020 working-tree changed scope", () => {
     });
     expect(changed.get("binary.dat")?.line_semantics).toBe("binary_or_non_line");
     expect(changed.get("binary.dat")?.changed_new_line_ranges).toEqual([]);
+    expect(changed.get("marker.txt")?.line_semantics).toBe("text");
+    expect(changed.get("marker.txt")?.changed_new_line_ranges).toEqual([[1, 2]]);
     expect(changed.get("notes/new.txt")?.changed_new_line_ranges).toEqual([[1, 3]]);
     expect(changed.get("notes/empty.txt")?.changed_new_line_ranges).toEqual([]);
     expect(changed.get("notes/binary.bin")?.line_semantics).toBe("binary_or_non_line");
+    expect(changed.get("notes/large.txt")).toEqual({
+      path: "notes/large.txt",
+      change_kind: "untracked",
+      line_semantics: "binary_or_non_line",
+      changed_new_line_ranges: [],
+    });
+    expect(changed.get(".ascout/tracked.txt")?.change_kind).toBe("modified");
     expect(changed.has("ignored.txt")).toBe(false);
-    expect([...changed.keys()].some((path) => path === ".ascout" || path.startsWith(".ascout/"))).toBe(false);
+    expect(changed.has(".ascout/runtime.json")).toBe(false);
 
     for (const entry of comparison.changed_files) expectPositiveOrderedRanges(entry);
   });
@@ -165,6 +182,19 @@ describe("T020 working-tree changed scope", () => {
     expect(changed.has(plainName)).toBe(true);
     expect(changed.has(bomName)).toBe(true);
     expect(changed.size).toBe(2);
+  });
+
+  it("uses net working-tree state when staged content is canceled back to HEAD", () => {
+    const repositoryRoot = makeRepository();
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "base\n");
+    const head = commitAll(repositoryRoot);
+
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "staged\n");
+    git(repositoryRoot, ["add", "tracked.txt"]);
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "base\n");
+
+    expect(git(repositoryRoot, ["status", "--short", "tracked.txt"]).trim()).toBe("MM tracked.txt");
+    expect(readWorkingTreeComparison(repositoryRoot, head).changed_files).toEqual([]);
   });
 
   it("rejects a comparison base that is not the exact source-start HEAD", () => {
