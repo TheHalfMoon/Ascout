@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
 import {
+  type FileHandle,
   lstat,
   mkdir,
   open,
@@ -220,7 +221,7 @@ async function existingRunsRoot(canonicalRoot: string): Promise<string | null> {
 }
 
 async function writeExclusiveFile(path: string, content: string): Promise<void> {
-  let handle;
+  let handle: FileHandle | undefined;
   try {
     handle = await open(path, "wx", 0o600);
     await handle.writeFile(content, "utf8");
@@ -240,7 +241,7 @@ async function replaceFileAtomically(path: string, content: string): Promise<voi
   try {
     await writeExclusiveFile(temporaryPath, content);
     await rename(temporaryPath, path);
-  } catch (error) {
+  } catch {
     throw new RunDirectoryError("run_directory_io", `failed to update ${path}`);
   } finally {
     try {
@@ -252,7 +253,7 @@ async function replaceFileAtomically(path: string, content: string): Promise<voi
 }
 
 async function readBoundedText(path: string): Promise<string | null> {
-  let handle;
+  let handle: FileHandle | undefined;
   try {
     handle = await open(path, "r");
     const buffer = Buffer.alloc(MAX_MANIFEST_BYTES + 1);
@@ -353,12 +354,13 @@ async function pruneCompletedRunsFromRoot(
     };
   }
 
-  let entries;
-  try {
-    entries = await readdir(runsPath, { withFileTypes: true });
-  } catch {
-    throw new RunDirectoryError("run_directory_io", "failed to enumerate run directories");
-  }
+  const entries = await (async () => {
+    try {
+      return await readdir(runsPath, { withFileTypes: true });
+    } catch {
+      throw new RunDirectoryError("run_directory_io", "failed to enumerate run directories");
+    }
+  })();
 
   const candidates: CompletedCandidate[] = [];
   const preserved = new Set<string>();

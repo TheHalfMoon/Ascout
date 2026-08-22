@@ -4,6 +4,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rm,
   symlink,
   writeFile,
@@ -60,13 +61,14 @@ afterEach(async () => {
 describe("T024 run directory lifecycle", () => {
   it("creates one active run directory with manifest, active marker, and raw directory", async () => {
     const root = await temporaryDirectory();
+    const canonicalRoot = await realpath(root);
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-22T19:10:00.000Z"));
 
     const handle = await createRunDirectory(root, "run-001");
 
     expect(handle.run_id).toBe("run-001");
-    expect(handle.run_path).toBe(join(root, ".ascout", "runs", "run-001"));
+    expect(handle.run_path).toBe(join(canonicalRoot, ".ascout", "runs", "run-001"));
     expect(handle.raw_path).toBe(join(handle.run_path, "raw"));
     expect(handle.manifest_path).toBe(join(handle.run_path, "manifest.json"));
 
@@ -135,7 +137,7 @@ describe("T024 run directory lifecycle", () => {
     vi.setSystemTime(new Date("2026-08-22T20:00:00.000Z"));
     const active = await createRunDirectory(root, "active-current");
     const result = await pruneCompletedRuns(root);
-    const entries = (await readdir(join(root, ".ascout", "runs"))).sort();
+    const entries = (await readdir(join(await realpath(root), ".ascout", "runs"))).sort();
 
     expect(entries).toHaveLength(DEFAULT_COMPLETED_RUN_RETENTION + 1);
     expect(entries).toContain("active-current");
