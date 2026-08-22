@@ -58,6 +58,18 @@ export interface RunDirectoryHandle {
   complete(): Promise<RunRetentionResult>;
 }
 
+interface DirectoryIdentity {
+  readonly dev: bigint;
+  readonly ino: bigint;
+}
+
+interface CompletedCandidate {
+  readonly run_id: string;
+  readonly run_path: string;
+  readonly manifest: RunManifestV1;
+  readonly identity: DirectoryIdentity;
+}
+
 function errorCode(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
   return typeof error.code === "string" ? error.code : undefined;
@@ -137,6 +149,21 @@ function serializeManifest(manifest: RunManifestV1): string {
   return `${JSON.stringify(manifest)}\n`;
 }
 
+function sameIdentity(left: DirectoryIdentity, right: DirectoryIdentity): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+function sameCompletedManifest(left: RunManifestV1, right: RunManifestV1): boolean {
+  return (
+    left.state === "completed" &&
+    right.state === "completed" &&
+    left.version === right.version &&
+    left.run_id === right.run_id &&
+    left.started_at === right.started_at &&
+    left.completed_at === right.completed_at
+  );
+}
+
 async function canonicalRepositoryRoot(repositoryRoot: string): Promise<string> {
   if (repositoryRoot.length === 0 || repositoryRoot.includes("\0")) {
     throw new RunDirectoryError(
@@ -164,6 +191,16 @@ async function canonicalRepositoryRoot(repositoryRoot: string): Promise<string> 
   }
 }
 
+async function physicalDirectoryIdentity(path: string): Promise<DirectoryIdentity | null> {
+  try {
+    const pathStat = await lstat(path, { bigint: true });
+    if (!pathStat.isDirectory() || pathStat.isSymbolicLink()) return null;
+    return { dev: pathStat.dev, ino: pathStat.ino };
+  } catch {
+    return null;
+  }
+}
+
 async function ensureManagedDirectory(path: string): Promise<void> {
   try {
     await mkdir(path);
@@ -173,19 +210,11 @@ async function ensureManagedDirectory(path: string): Promise<void> {
     }
   }
 
-  try {
-    const pathStat = await lstat(path);
-    if (!pathStat.isDirectory() || pathStat.isSymbolicLink()) {
-      throw new RunDirectoryError(
-        "run_directory_unverifiable",
-        `managed run path is not a physical directory: ${path}`,
-      );
-    }
-  } catch (error) {
-    if (error instanceof RunDirectoryError) throw error;
+  const identity = await physicalDirectoryIdentity(path);
+  if (identity === null) {
     throw new RunDirectoryError(
       "run_directory_unverifiable",
-      `cannot verify managed run directory: ${path}`,
+      `managed run path is not a physical directory: ${path}`,
     );
   }
 }
@@ -204,7 +233,7 @@ async function existingRunsRoot(canonicalRoot: string): Promise<string | null> {
 
   for (const path of [ascoutPath, runsPath]) {
     try {
-      const pathStat = await lstat(path);
+      const pathStat = await lstat(path, { bigint: true });
       if (!pathStat.isDirectory() || pathStat.isSymbolicLink()) {
         throw new RunDirectoryError(
           "run_directory_unverifiable",
@@ -247,7 +276,6 @@ async function replaceManifestPortably(path: string, content: string): Promise<v
     await rename(path, backupPath);
 
     try {
-      // Destination is now absent, avoiding rename-over-existing portability differences.
       await rename(temporaryPath, path);
       published = true;
     } catch (error) {
@@ -297,7 +325,7 @@ async function readBoundedText(path: string): Promise<string | null> {
     try {
       await handle?.close();
     } catch {
-      // Treat close failures as unverifiable on the next lifecycle operation.
+      // A later lifecycle operation will treat unreadable state as unverifiable.
     }
   }
 }
@@ -315,17 +343,6 @@ async function markerState(runPath: string): Promise<"present" | "absent" | "unk
     if (errorCode(error) === "ENOENT") return "absent";
     return "unknown";
   }
-}
-
-function sameCompletedManifest(left: RunManifestV1, right: RunManifestV1): boolean {
-  return (
-    left.state === "completed" &&
-    right.state === "completed" &&
-    left.version === right.version &&
-    left.run_id === right.run_id &&
-    left.started_at === right.started_at &&
-    left.completed_at === right.completed_at
-  );
 }
 
 async function markRunCompleted(runPath: string, runId: string): Promise<void> {
@@ -358,10 +375,80 @@ async function markRunCompleted(runPath: string, runId: string): Promise<void> {
   }
 }
 
-interface CompletedCandidate {
-  readonly run_id: string;
-  readonly run_path: string;
-  readonly manifest: RunManifestV1;
+async function rollbackQuarantine(quarantinePath: string, runPath: string): Promise<void> {
+  try {
+    await rename(quarantinePath, runPath);
+  } catch {
+    throw new RunDirectoryError(
+      "run_directory_io",
+      "retention identity check failed and quarantined run could not be restored",
+    );
+  }
+}
+
+async function deleteCompletedCandidateSafely(
+  runsPath: string,
+  candidate: CompletedCandidate,
+): Promise<"removed" | "preserved"> {
+  const freshIdentity = await physicalDirectoryIdentity(candidate.run_path);
+  const freshMarker = await markerState(candidate.run_path);
+  const freshManifest = await readManifest(candidate.run_path);
+
+  if (
+    freshIdentity === null ||
+    !sameIdentity(candidate.identity, freshIdentity) ||
+    freshMarker !== "absent" ||
+    freshManifest === null ||
+    !sameCompletedManifest(candidate.manifest, freshManifest)
+  ) {
+    return "preserved";
+  }
+
+  const quarantinePath = join(
+    runsPath,
+    `.retention.${process.pid}.${randomBytes(16).toString("hex")}.trash`,
+  );
+
+  try {
+    await rename(candidate.run_path, quarantinePath);
+  } catch {
+    return "preserved";
+  }
+
+  const quarantinedIdentity = await physicalDirectoryIdentity(quarantinePath);
+  const quarantinedMarker = await markerState(quarantinePath);
+  const quarantinedManifest = await readManifest(quarantinePath);
+
+  if (
+    quarantinedIdentity === null ||
+    !sameIdentity(candidate.identity, quarantinedIdentity) ||
+    quarantinedMarker !== "absent" ||
+    quarantinedManifest === null ||
+    !sameCompletedManifest(candidate.manifest, quarantinedManifest)
+  ) {
+    await rollbackQuarantine(quarantinePath, candidate.run_path);
+    return "preserved";
+  }
+
+  // The candidate is now detached from its public run-id path at an unpredictable
+  // same-directory quarantine name. Recheck identity once more immediately before
+  // recursive deletion so a replaced quarantine target is never intentionally removed.
+  const finalIdentity = await physicalDirectoryIdentity(quarantinePath);
+  if (finalIdentity === null || !sameIdentity(candidate.identity, finalIdentity)) {
+    await rollbackQuarantine(quarantinePath, candidate.run_path);
+    return "preserved";
+  }
+
+  try {
+    await rm(quarantinePath, { recursive: true, force: false });
+  } catch {
+    throw new RunDirectoryError(
+      "run_directory_io",
+      `failed to remove completed run ${candidate.run_id}`,
+    );
+  }
+
+  return "removed";
 }
 
 async function pruneCompletedRunsFromRoot(
@@ -396,10 +483,12 @@ async function pruneCompletedRunsFromRoot(
     }
 
     const runPath = join(runsPath, entry.name);
+    const identity = await physicalDirectoryIdentity(runPath);
     const marker = await markerState(runPath);
     const manifest = await readManifest(runPath);
 
     if (
+      identity === null ||
       marker !== "absent" ||
       manifest === null ||
       manifest.run_id !== entry.name ||
@@ -409,7 +498,12 @@ async function pruneCompletedRunsFromRoot(
       continue;
     }
 
-    candidates.push({ run_id: entry.name, run_path: runPath, manifest });
+    candidates.push({
+      run_id: entry.name,
+      run_path: runPath,
+      manifest,
+      identity,
+    });
   }
 
   candidates.sort((left, right) => {
@@ -429,26 +523,11 @@ async function pruneCompletedRunsFromRoot(
   const removed: string[] = [];
 
   for (const candidate of removalCandidates) {
-    const marker = await markerState(candidate.run_path);
-    const freshManifest = await readManifest(candidate.run_path);
-
-    if (
-      marker !== "absent" ||
-      freshManifest === null ||
-      !sameCompletedManifest(candidate.manifest, freshManifest)
-    ) {
-      preserved.add(candidate.run_id);
-      continue;
-    }
-
-    try {
-      await rm(candidate.run_path, { recursive: true, force: false });
+    const outcome = await deleteCompletedCandidateSafely(runsPath, candidate);
+    if (outcome === "removed") {
       removed.push(candidate.run_id);
-    } catch {
-      throw new RunDirectoryError(
-        "run_directory_io",
-        `failed to remove completed run ${candidate.run_id}`,
-      );
+    } else {
+      preserved.add(candidate.run_id);
     }
   }
 
