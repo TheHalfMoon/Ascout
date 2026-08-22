@@ -88,6 +88,9 @@ function normalizeRemoteIdentity(rawRemote: string): string {
     const host = parsed.hostname.toLowerCase();
     const port = parsed.port === "" ? "" : `:${parsed.port}`;
 
+    if (host === "") {
+      throw new GitIdentityError("unsupported_remote", "scheme-based remote requires a host");
+    }
     if (protocol === "https:") {
       return `https://${host}${port}${parsed.pathname}`;
     }
