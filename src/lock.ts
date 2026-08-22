@@ -158,8 +158,7 @@ async function publishOwner(lockPath: string, owner: RunLockOwner): Promise<bool
     handle = null;
 
     try {
-      // Publish only the already-complete inode. link() fails atomically if the destination
-      // already exists, so readers never observe a partially-written owner record at run.lock.
+      // Publish only an already-complete inode. Destination existence is the atomic gate.
       await link(temporaryPath, lockPath);
       return true;
     } catch (error) {
@@ -210,25 +209,7 @@ async function readLockState(lockPath: string): Promise<LockState> {
     : { kind: "owner", owner };
 }
 
-async function assertMutationGuardClear(recoveryPath: string): Promise<void> {
-  const state = await readLockState(recoveryPath);
-  if (state.kind === "missing") return;
-  if (state.kind === "invalid") {
-    throw lockError(
-      "run_lock_unverifiable",
-      "run-lock mutation guard has no verifiable owner; refusing acquisition",
-    );
-  }
-
-  throw lockError(
-    "run_lock_recovery_busy",
-    ownerIsDefinitelyDead(state.owner.pid)
-      ? "stale run-lock mutation guard blocks automatic acquisition; refusing unsafe takeover"
-      : "another live process is mutating or recovering the run lock",
-  );
-}
-
-async function acquireRecoveryGuard(recoveryPath: string): Promise<RunLockOwner> {
+async function acquireMutationGuard(recoveryPath: string): Promise<RunLockOwner> {
   const owner = newOwner();
 
   for (let attempt = 0; attempt < MAX_ACQUIRE_ATTEMPTS; attempt += 1) {
@@ -244,25 +225,24 @@ async function acquireRecoveryGuard(recoveryPath: string): Promise<RunLockOwner>
     }
 
     if (ownerIsDefinitelyDead(state.owner.pid)) {
-      // The main run lock has a canonical dead-owner recovery contract. This internal guard does
-      // not: deleting and republishing the same guard path after a stale observation has an ABA
-      // race that can remove a newly-live guard. Fail closed rather than claim unsafe recovery.
+      // Unlike the canonical main lock, the internal guard has no portable compare-and-unlink
+      // primitive. Automatic stale-guard takeover would admit an ABA deletion race, so fail closed.
       throw lockError(
         "run_lock_recovery_busy",
-        "stale run-lock mutation guard blocks automatic recovery; refusing unsafe guard takeover",
+        "stale run-lock mutation guard blocks automatic mutation; refusing unsafe takeover",
       );
     }
 
     throw lockError(
       "run_lock_recovery_busy",
-      "another live process is mutating or recovering the run lock",
+      "another live process owns the run-lock mutation guard",
     );
   }
 
   throw lockError("run_lock_recovery_busy", "could not acquire run-lock mutation guard");
 }
 
-async function removeRecoveryGuard(
+async function removeMutationGuard(
   recoveryPath: string,
   recoveryOwner: RunLockOwner,
 ): Promise<void> {
@@ -284,15 +264,15 @@ async function removeRecoveryGuard(
   }
 }
 
-async function removeRecoveryGuardBestEffort(
+async function cleanupGuardAfterOperationFailure(
   recoveryPath: string,
   recoveryOwner: RunLockOwner,
-): Promise<void> {
-  try {
-    await removeRecoveryGuard(recoveryPath, recoveryOwner);
-  } catch {
-    // Preserve the primary operation failure. Any surviving guard keeps later mutation fail-closed.
-  }
+  operationError: unknown,
+): Promise<never> {
+  // Cleanup integrity is stronger than the original operation classification: if the guard cannot
+  // be removed, later runs must see a control-integrity failure rather than a misleading task error.
+  await removeMutationGuard(recoveryPath, recoveryOwner);
+  throw operationError;
 }
 
 async function recoverDeadOwnerUnderGuard(
@@ -321,22 +301,71 @@ async function recoverDeadOwnerUnderGuard(
   return "recovered";
 }
 
-async function recoverDeadOwner(
+async function acquireMainLockUnderGuard(
   lockPath: string,
-  recoveryPath: string,
-  observedOwner: RunLockOwner,
-): Promise<"retry" | "recovered"> {
-  const recoveryOwner = await acquireRecoveryGuard(recoveryPath);
+  owner: RunLockOwner,
+): Promise<"acquired" | "retry"> {
+  const state = await readLockState(lockPath);
 
-  let outcome: "retry" | "recovered";
-  try {
-    outcome = await recoverDeadOwnerUnderGuard(lockPath, observedOwner);
-  } catch (error) {
-    await removeRecoveryGuardBestEffort(recoveryPath, recoveryOwner);
-    throw error;
+  if (state.kind === "missing") {
+    return (await publishOwner(lockPath, owner)) ? "acquired" : "retry";
+  }
+  if (state.kind === "invalid") {
+    throw lockError(
+      "run_lock_unverifiable",
+      "existing .ascout/run.lock has no verifiable owner; refusing recovery",
+    );
+  }
+  if (!ownerIsDefinitelyDead(state.owner.pid)) {
+    throw lockError("run_lock_held", "another Ascout run owns .ascout/run.lock");
   }
 
-  await removeRecoveryGuard(recoveryPath, recoveryOwner);
+  const recovery = await recoverDeadOwnerUnderGuard(lockPath, state.owner);
+  if (recovery !== "recovered") return "retry";
+  return (await publishOwner(lockPath, owner)) ? "acquired" : "retry";
+}
+
+async function removeOwnedMainLockBestEffort(
+  lockPath: string,
+  owner: RunLockOwner,
+): Promise<void> {
+  try {
+    const state = await readLockState(lockPath);
+    if (state.kind !== "owner" || !sameOwner(state.owner, owner)) return;
+    await unlink(lockPath);
+  } catch {
+    // A failed rollback leaves the repository fail-closed behind a live or unverifiable lock.
+  }
+}
+
+async function acquireMainLockAttempt(
+  lockPath: string,
+  recoveryPath: string,
+  owner: RunLockOwner,
+): Promise<"acquired" | "retry"> {
+  const mutationOwner = await acquireMutationGuard(recoveryPath);
+
+  let outcome: "acquired" | "retry";
+  try {
+    outcome = await acquireMainLockUnderGuard(lockPath, owner);
+  } catch (error) {
+    return cleanupGuardAfterOperationFailure(recoveryPath, mutationOwner, error);
+  }
+
+  try {
+    await removeMutationGuard(recoveryPath, mutationOwner);
+  } catch (cleanupError) {
+    if (outcome === "acquired") {
+      await removeOwnedMainLockBestEffort(lockPath, owner);
+    }
+    try {
+      await removeMutationGuard(recoveryPath, mutationOwner);
+    } catch {
+      // Preserve the first cleanup failure; a surviving guard keeps later mutation fail-closed.
+    }
+    throw cleanupError;
+  }
+
   return outcome;
 }
 
@@ -364,18 +393,14 @@ async function releaseOwnedLock(
   recoveryPath: string,
   owner: RunLockOwner,
 ): Promise<void> {
-  // Recovery and release share one mutation lane. Under the supported Ascout protocol no other
-  // Ascout process can replace run.lock between this ownership check and unlink. Arbitrary
-  // out-of-protocol filesystem tampering remains outside the trusted-local T022 contract.
-  const mutationOwner = await acquireRecoveryGuard(recoveryPath);
+  const mutationOwner = await acquireMutationGuard(recoveryPath);
   try {
     await releaseOwnedLockUnderGuard(lockPath, owner);
   } catch (error) {
-    await removeRecoveryGuardBestEffort(recoveryPath, mutationOwner);
-    throw error;
+    return cleanupGuardAfterOperationFailure(recoveryPath, mutationOwner, error);
   }
 
-  await removeRecoveryGuard(recoveryPath, mutationOwner);
+  await removeMutationGuard(recoveryPath, mutationOwner);
 }
 
 export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHandle> {
@@ -413,42 +438,26 @@ export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHan
   let releaseInFlight: Promise<void> | null = null;
 
   for (let attempt = 0; attempt < MAX_ACQUIRE_ATTEMPTS; attempt += 1) {
-    await assertMutationGuardClear(recoveryPath);
+    const outcome = await acquireMainLockAttempt(lockPath, recoveryPath, owner);
+    if (outcome !== "acquired") continue;
 
-    if (await publishOwner(lockPath, owner)) {
-      return {
-        owner_pid: owner.pid,
-        async release(): Promise<void> {
-          if (released) return;
-          if (releaseInFlight === null) {
-            releaseInFlight = releaseOwnedLock(lockPath, recoveryPath, owner)
-              .then(() => {
-                released = true;
-              })
-              .finally(() => {
-                releaseInFlight = null;
-              });
-          }
-          await releaseInFlight;
-        },
-      };
-    }
-
-    const state = await readLockState(lockPath);
-    if (state.kind === "missing") continue;
-    if (state.kind === "invalid") {
-      throw lockError(
-        "run_lock_unverifiable",
-        "existing .ascout/run.lock has no verifiable owner; refusing recovery",
-      );
-    }
-    if (!ownerIsDefinitelyDead(state.owner.pid)) {
-      throw lockError("run_lock_held", "another Ascout run owns .ascout/run.lock");
-    }
-
-    const recovery = await recoverDeadOwner(lockPath, recoveryPath, state.owner);
-    if (recovery === "recovered") continue;
+    return {
+      owner_pid: owner.pid,
+      async release(): Promise<void> {
+        if (released) return;
+        if (releaseInFlight === null) {
+          releaseInFlight = releaseOwnedLock(lockPath, recoveryPath, owner)
+            .then(() => {
+              released = true;
+            })
+            .finally(() => {
+              releaseInFlight = null;
+            });
+        }
+        await releaseInFlight;
+      },
+    };
   }
 
-  throw lockError("run_lock_held", "could not acquire run lock after bounded recovery retries");
+  throw lockError("run_lock_held", "could not acquire run lock after bounded retries");
 }
