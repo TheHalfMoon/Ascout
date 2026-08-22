@@ -1,4 +1,5 @@
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const COMMANDS = ["init", "doctor", "check"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
@@ -85,7 +86,19 @@ export function runCli(argv: readonly string[]): number {
   }
 }
 
-const entryPath = process.argv[1];
-if (entryPath !== undefined && import.meta.url === pathToFileURL(entryPath).href) {
+function isDirectEntry(): boolean {
+  const entryPath = process.argv[1];
+  if (entryPath === undefined) {
+    return false;
+  }
+
+  try {
+    return realpathSync(entryPath) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectEntry()) {
   process.exitCode = runCli(process.argv.slice(2));
 }
