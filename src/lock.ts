@@ -221,25 +221,27 @@ async function acquireRecoveryGuard(recoveryPath: string): Promise<RunLockOwner>
     if (state.kind === "invalid") {
       throw lockError(
         "run_lock_unverifiable",
-        "run-lock recovery guard has no verifiable owner; refusing recovery",
+        "run-lock mutation guard has no verifiable owner; refusing mutation",
       );
     }
-    if (!ownerIsDefinitelyDead(state.owner.pid)) {
+
+    if (ownerIsDefinitelyDead(state.owner.pid)) {
+      // The main run lock has a canonical dead-owner recovery contract. This internal guard does
+      // not: deleting and republishing the same guard path after a stale observation has an ABA
+      // race that can remove a newly-live guard. Fail closed rather than claim unsafe recovery.
       throw lockError(
         "run_lock_recovery_busy",
-        "another live process is mutating or recovering the run lock",
+        "stale run-lock mutation guard blocks automatic recovery; refusing unsafe guard takeover",
       );
     }
 
-    try {
-      await unlink(recoveryPath);
-    } catch (error) {
-      if (nodeErrorCode(error) === "ENOENT") continue;
-      throw lockError("run_lock_io", "failed to remove verified dead recovery guard", error);
-    }
+    throw lockError(
+      "run_lock_recovery_busy",
+      "another live process is mutating or recovering the run lock",
+    );
   }
 
-  throw lockError("run_lock_recovery_busy", "could not acquire run-lock recovery guard");
+  throw lockError("run_lock_recovery_busy", "could not acquire run-lock mutation guard");
 }
 
 async function removeRecoveryGuard(
@@ -251,7 +253,7 @@ async function removeRecoveryGuard(
   if (state.kind !== "owner" || !sameOwner(state.owner, recoveryOwner)) {
     throw lockError(
       "run_lock_io",
-      "run-lock recovery guard ownership changed; refusing to remove it",
+      "run-lock mutation guard ownership changed; refusing to remove it",
     );
   }
 
@@ -259,9 +261,46 @@ async function removeRecoveryGuard(
     await unlink(recoveryPath);
   } catch (error) {
     if (nodeErrorCode(error) !== "ENOENT") {
-      throw lockError("run_lock_io", "failed to remove run-lock recovery guard", error);
+      throw lockError("run_lock_io", "failed to remove run-lock mutation guard", error);
     }
   }
+}
+
+async function removeRecoveryGuardBestEffort(
+  recoveryPath: string,
+  recoveryOwner: RunLockOwner,
+): Promise<void> {
+  try {
+    await removeRecoveryGuard(recoveryPath, recoveryOwner);
+  } catch {
+    // Preserve the primary operation failure. Any surviving guard keeps later mutation fail-closed.
+  }
+}
+
+async function recoverDeadOwnerUnderGuard(
+  lockPath: string,
+  observedOwner: RunLockOwner,
+): Promise<"retry" | "recovered"> {
+  const state = await readLockState(lockPath);
+  if (state.kind === "missing") return "retry";
+  if (state.kind === "invalid") {
+    throw lockError(
+      "run_lock_unverifiable",
+      "run lock changed to an unverifiable owner during recovery",
+    );
+  }
+  if (!sameOwner(state.owner, observedOwner)) return "retry";
+  if (!ownerIsDefinitelyDead(state.owner.pid)) {
+    throw lockError("run_lock_held", "run lock owner is still alive or cannot be proven dead");
+  }
+
+  try {
+    await unlink(lockPath);
+  } catch (error) {
+    if (nodeErrorCode(error) === "ENOENT") return "retry";
+    throw lockError("run_lock_io", "failed to remove verified dead-owner run lock", error);
+  }
+  return "recovered";
 }
 
 async function recoverDeadOwner(
@@ -271,37 +310,34 @@ async function recoverDeadOwner(
 ): Promise<"retry" | "recovered"> {
   const recoveryOwner = await acquireRecoveryGuard(recoveryPath);
 
-  let recoveryError: unknown;
+  let outcome: "retry" | "recovered";
   try {
-    const state = await readLockState(lockPath);
-    if (state.kind === "missing") return "retry";
-    if (state.kind === "invalid") {
-      throw lockError(
-        "run_lock_unverifiable",
-        "run lock changed to an unverifiable owner during recovery",
-      );
-    }
-    if (!sameOwner(state.owner, observedOwner)) return "retry";
-    if (!ownerIsDefinitelyDead(state.owner.pid)) {
-      throw lockError("run_lock_held", "run lock owner is still alive or cannot be proven dead");
-    }
-
-    try {
-      await unlink(lockPath);
-    } catch (error) {
-      if (nodeErrorCode(error) === "ENOENT") return "retry";
-      throw lockError("run_lock_io", "failed to remove verified dead-owner run lock", error);
-    }
-    return "recovered";
+    outcome = await recoverDeadOwnerUnderGuard(lockPath, observedOwner);
   } catch (error) {
-    recoveryError = error;
+    await removeRecoveryGuardBestEffort(recoveryPath, recoveryOwner);
     throw error;
-  } finally {
-    try {
-      await removeRecoveryGuard(recoveryPath, recoveryOwner);
-    } catch (error) {
-      if (recoveryError === undefined) throw error;
-    }
+  }
+
+  await removeRecoveryGuard(recoveryPath, recoveryOwner);
+  return outcome;
+}
+
+async function releaseOwnedLockUnderGuard(
+  lockPath: string,
+  owner: RunLockOwner,
+): Promise<void> {
+  const state = await readLockState(lockPath);
+  if (state.kind !== "owner" || !sameOwner(state.owner, owner)) {
+    throw lockError(
+      "run_lock_ownership_lost",
+      "run lock no longer belongs to this handle; refusing to remove it",
+    );
+  }
+
+  try {
+    await unlink(lockPath);
+  } catch (error) {
+    throw lockError("run_lock_io", "failed to release run lock", error);
   }
 }
 
@@ -314,31 +350,14 @@ async function releaseOwnedLock(
   // Ascout process can replace run.lock between this ownership check and unlink. Arbitrary
   // out-of-protocol filesystem tampering remains outside the trusted-local T022 contract.
   const mutationOwner = await acquireRecoveryGuard(recoveryPath);
-  let releaseError: unknown;
   try {
-    const state = await readLockState(lockPath);
-    if (state.kind !== "owner" || !sameOwner(state.owner, owner)) {
-      throw lockError(
-        "run_lock_ownership_lost",
-        "run lock no longer belongs to this handle; refusing to remove it",
-      );
-    }
-
-    try {
-      await unlink(lockPath);
-    } catch (error) {
-      throw lockError("run_lock_io", "failed to release run lock", error);
-    }
+    await releaseOwnedLockUnderGuard(lockPath, owner);
   } catch (error) {
-    releaseError = error;
+    await removeRecoveryGuardBestEffort(recoveryPath, mutationOwner);
     throw error;
-  } finally {
-    try {
-      await removeRecoveryGuard(recoveryPath, mutationOwner);
-    } catch (error) {
-      if (releaseError === undefined) throw error;
-    }
   }
+
+  await removeRecoveryGuard(recoveryPath, mutationOwner);
 }
 
 export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHandle> {
