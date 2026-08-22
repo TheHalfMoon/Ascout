@@ -147,6 +147,7 @@ describe("T018 repository identity implementation", () => {
     for (const unsupported of [
       "file:///tmp/repo",
       "ftp://user:pass@example.com/repo.git",
+      "ssh:///repo.git",
       "not a remote",
       "example.com/path/without-scp-colon",
       "git@[2001:db8::1]:org/repo.git",
