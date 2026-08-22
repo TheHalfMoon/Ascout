@@ -185,6 +185,46 @@ describe("T024 run directory lifecycle", () => {
     expect(await exists(join(runs, "run-Ω"))).toBe(false);
   });
 
+  it("orders accepted extended-year timestamps by time value rather than string spelling", async () => {
+    const root = await temporaryDirectory();
+    const runs = join(root, ".ascout", "runs");
+    const cases = [
+      {
+        runId: "year-9999",
+        startedAt: "9999-01-01T00:00:00.000Z",
+        completedAt: "9999-01-02T00:00:00.000Z",
+      },
+      {
+        runId: "year-10000",
+        startedAt: "+010000-01-01T00:00:00.000Z",
+        completedAt: "+010000-01-02T00:00:00.000Z",
+      },
+    ] as const;
+
+    for (const item of cases) {
+      const runPath = join(runs, item.runId);
+      await mkdir(runPath, { recursive: true });
+      await writeFile(
+        join(runPath, "manifest.json"),
+        `${JSON.stringify({
+          version: 1,
+          run_id: item.runId,
+          state: "completed",
+          started_at: item.startedAt,
+          completed_at: item.completedAt,
+        })}\n`,
+        "utf8",
+      );
+    }
+
+    const result = await pruneCompletedRuns(root, 1);
+
+    expect(result.retained_completed_run_ids).toEqual(["year-10000"]);
+    expect(result.removed_run_ids).toEqual(["year-9999"]);
+    expect(await exists(join(runs, "year-10000"))).toBe(true);
+    expect(await exists(join(runs, "year-9999"))).toBe(false);
+  });
+
   it("never removes a run carrying an active marker even if its manifest is forged completed", async () => {
     const root = await temporaryDirectory();
     const handle = await createRunDirectory(root, "marker-wins");

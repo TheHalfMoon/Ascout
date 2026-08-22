@@ -79,6 +79,29 @@ function compareOrdinal(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+function canonicalTimestampMilliseconds(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const milliseconds = Date.parse(value);
+  if (!Number.isFinite(milliseconds)) return null;
+  return new Date(milliseconds).toISOString() === value ? milliseconds : null;
+}
+
+function compareTimestampsDescending(left: string, right: string): number {
+  const leftMilliseconds = canonicalTimestampMilliseconds(left);
+  const rightMilliseconds = canonicalTimestampMilliseconds(right);
+  if (leftMilliseconds === null || rightMilliseconds === null) {
+    throw new RunDirectoryError(
+      "run_directory_unverifiable",
+      "retention encountered a non-canonical timestamp after manifest validation",
+    );
+  }
+  return leftMilliseconds > rightMilliseconds
+    ? -1
+    : leftMilliseconds < rightMilliseconds
+      ? 1
+      : 0;
+}
+
 function invalid(message: string): never {
   throw new RunDirectoryError("run_directory_invalid", message);
 }
@@ -95,13 +118,6 @@ function validateRetentionCount(value: number): void {
   if (!Number.isSafeInteger(value) || value < 0) {
     invalid("completed run retention must be a non-negative safe integer");
   }
-}
-
-function isCanonicalTimestamp(value: unknown): value is string {
-  if (typeof value !== "string") return false;
-  const milliseconds = Date.parse(value);
-  if (!Number.isFinite(milliseconds)) return false;
-  return new Date(milliseconds).toISOString() === value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -121,7 +137,8 @@ function parseManifest(text: string): RunManifestV1 | null {
   }
 
   const startedAt = value.started_at;
-  if (!isCanonicalTimestamp(startedAt)) return null;
+  const startedMilliseconds = canonicalTimestampMilliseconds(startedAt);
+  if (typeof startedAt !== "string" || startedMilliseconds === null) return null;
 
   if (value.state === "active") {
     if (value.completed_at !== null) return null;
@@ -135,8 +152,13 @@ function parseManifest(text: string): RunManifestV1 | null {
   }
 
   const completedAt = value.completed_at;
-  if (value.state === "completed" && isCanonicalTimestamp(completedAt)) {
-    if (completedAt < startedAt) return null;
+  const completedMilliseconds = canonicalTimestampMilliseconds(completedAt);
+  if (
+    value.state === "completed" &&
+    typeof completedAt === "string" &&
+    completedMilliseconds !== null
+  ) {
+    if (completedMilliseconds < startedMilliseconds) return null;
     return {
       version: 1,
       run_id: value.run_id,
@@ -508,13 +530,16 @@ async function pruneCompletedRunsFromRoot(
   }
 
   candidates.sort((left, right) => {
-    const completedOrder = compareOrdinal(
-      right.manifest.completed_at!,
+    const completedOrder = compareTimestampsDescending(
       left.manifest.completed_at!,
+      right.manifest.completed_at!,
     );
     if (completedOrder !== 0) return completedOrder;
 
-    const startedOrder = compareOrdinal(right.manifest.started_at, left.manifest.started_at);
+    const startedOrder = compareTimestampsDescending(
+      left.manifest.started_at,
+      right.manifest.started_at,
+    );
     if (startedOrder !== 0) return startedOrder;
     return compareOrdinal(left.run_id, right.run_id);
   });
