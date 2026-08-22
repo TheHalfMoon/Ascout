@@ -133,7 +133,7 @@ async function closeHandle(handle: FileHandle | null): Promise<void> {
   try {
     await handle.close();
   } catch {
-    // Cleanup is best-effort here; the caller still fails closed on publication/recovery errors.
+    // Cleanup is best-effort here; callers still fail closed on lock-integrity errors.
   }
 }
 
@@ -141,7 +141,7 @@ async function removeBestEffort(path: string): Promise<void> {
   try {
     await unlink(path);
   } catch {
-    // Temporary publication debris is ignored here. It is never treated as lock ownership.
+    // Temporary publication debris never represents active lock ownership.
   }
 }
 
@@ -156,17 +156,17 @@ async function publishOwner(lockPath: string, owner: RunLockOwner): Promise<bool
     handle = null;
 
     try {
-      // link() publishes the already-complete inode at run.lock and fails atomically if another
-      // owner already published the path. Readers never observe a partially-written run.lock.
+      // Publish only the already-complete inode. link() fails atomically if the destination
+      // already exists, so readers never observe a partially-written owner record at run.lock.
       await link(temporaryPath, lockPath);
       return true;
     } catch (error) {
       if (nodeErrorCode(error) === "EEXIST") return false;
-      throw lockError("run_lock_io", "failed to publish run lock atomically", error);
+      throw lockError("run_lock_io", "failed to publish lock owner atomically", error);
     }
   } catch (error) {
     if (error instanceof RunLockError) throw error;
-    throw lockError("run_lock_io", "failed to prepare run-lock owner record", error);
+    throw lockError("run_lock_io", "failed to prepare lock owner record", error);
   } finally {
     await closeHandle(handle);
     await removeBestEffort(temporaryPath);
@@ -179,7 +179,7 @@ async function readLockState(lockPath: string): Promise<LockState> {
     raw = await readFile(lockPath, { encoding: "utf8" });
   } catch (error) {
     if (nodeErrorCode(error) === "ENOENT") return { kind: "missing" };
-    throw lockError("run_lock_io", "failed to read run lock", error);
+    throw lockError("run_lock_io", "failed to read lock owner", error);
   }
 
   const owner = parseOwner(raw);
@@ -188,17 +188,51 @@ async function readLockState(lockPath: string): Promise<LockState> {
     : { kind: "owner", owner };
 }
 
-async function acquireRecoveryGuard(recoveryPath: string): Promise<FileHandle | null> {
-  try {
-    return await open(recoveryPath, "wx", 0o600);
-  } catch (error) {
-    if (nodeErrorCode(error) === "EEXIST") return null;
-    throw lockError("run_lock_io", "failed to acquire run-lock recovery guard", error);
+async function acquireRecoveryGuard(recoveryPath: string): Promise<RunLockOwner> {
+  const owner = newOwner();
+
+  for (let attempt = 0; attempt < MAX_ACQUIRE_ATTEMPTS; attempt += 1) {
+    if (await publishOwner(recoveryPath, owner)) return owner;
+
+    const state = await readLockState(recoveryPath);
+    if (state.kind === "missing") continue;
+    if (state.kind === "invalid") {
+      throw lockError(
+        "run_lock_unverifiable",
+        "run-lock recovery guard has no verifiable owner; refusing recovery",
+      );
+    }
+    if (!ownerIsDefinitelyDead(state.owner.pid)) {
+      throw lockError(
+        "run_lock_recovery_busy",
+        "another live process is recovering the run lock",
+      );
+    }
+
+    try {
+      await unlink(recoveryPath);
+    } catch (error) {
+      if (nodeErrorCode(error) === "ENOENT") continue;
+      throw lockError("run_lock_io", "failed to remove verified dead recovery guard", error);
+    }
   }
+
+  throw lockError("run_lock_recovery_busy", "could not acquire run-lock recovery guard");
 }
 
-async function removeRecoveryGuard(recoveryPath: string, handle: FileHandle): Promise<void> {
-  await closeHandle(handle);
+async function removeRecoveryGuard(
+  recoveryPath: string,
+  recoveryOwner: RunLockOwner,
+): Promise<void> {
+  const state = await readLockState(recoveryPath);
+  if (state.kind === "missing") return;
+  if (state.kind !== "owner" || !sameOwner(state.owner, recoveryOwner)) {
+    throw lockError(
+      "run_lock_io",
+      "run-lock recovery guard ownership changed; refusing to remove it",
+    );
+  }
+
   try {
     await unlink(recoveryPath);
   } catch (error) {
@@ -213,13 +247,7 @@ async function recoverDeadOwner(
   recoveryPath: string,
   observedOwner: RunLockOwner,
 ): Promise<"retry" | "recovered"> {
-  const recoveryHandle = await acquireRecoveryGuard(recoveryPath);
-  if (recoveryHandle === null) {
-    throw lockError(
-      "run_lock_recovery_busy",
-      "run lock has a dead owner but another recovery is already in progress",
-    );
-  }
+  const recoveryOwner = await acquireRecoveryGuard(recoveryPath);
 
   let recoveryError: unknown;
   try {
@@ -248,7 +276,7 @@ async function recoverDeadOwner(
     throw error;
   } finally {
     try {
-      await removeRecoveryGuard(recoveryPath, recoveryHandle);
+      await removeRecoveryGuard(recoveryPath, recoveryOwner);
     } catch (error) {
       if (recoveryError === undefined) throw error;
     }
