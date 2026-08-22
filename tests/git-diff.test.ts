@@ -158,8 +158,8 @@ describe("T020 working-tree changed scope", () => {
     expect(changed.get("notes/large.txt")).toEqual({
       path: "notes/large.txt",
       change_kind: "untracked",
-      line_semantics: "binary_or_non_line",
-      changed_new_line_ranges: [],
+      line_semantics: "text",
+      changed_new_line_ranges: [[1, 1]],
     });
     expect(changed.get(".ascout/tracked.txt")?.change_kind).toBe("modified");
     expect(changed.has("ignored.txt")).toBe(false);
@@ -234,6 +234,30 @@ describe("T020 working-tree changed scope", () => {
         line_semantics: "binary_or_non_line",
         changed_new_line_ranges: [],
       });
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "keeps symlink-to-regular type changes file-level without parser drift",
+    () => {
+      const repositoryRoot = makeRepository();
+      symlinkSync("target", join(repositoryRoot, "kind"));
+      writeFileSync(join(repositoryRoot, "zz-after.txt"), "before\n");
+      const head = commitAll(repositoryRoot);
+
+      rmSync(join(repositoryRoot, "kind"));
+      writeFileSync(join(repositoryRoot, "kind"), "regular\n");
+      writeFileSync(join(repositoryRoot, "zz-after.txt"), "after\n");
+
+      const changed = byPath(readWorkingTreeComparison(repositoryRoot, head).changed_files);
+      expect(changed.get("kind")).toEqual({
+        path: "kind",
+        change_kind: "type_changed",
+        line_semantics: "binary_or_non_line",
+        changed_new_line_ranges: [],
+      });
+      expect(changed.get("zz-after.txt")?.change_kind).toBe("modified");
+      expect(changed.get("zz-after.txt")?.changed_new_line_ranges).toEqual([[1, 1]]);
     },
   );
 });
