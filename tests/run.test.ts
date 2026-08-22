@@ -84,7 +84,7 @@ describe("T024 run directory lifecycle", () => {
     });
   });
 
-  it("completes a run before retention and removes only its active marker", async () => {
+  it("completes a pre-existing manifest through the portable swap and clears swap artifacts", async () => {
     const root = await temporaryDirectory();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-22T19:10:00.000Z"));
@@ -102,6 +102,9 @@ describe("T024 run directory lifecycle", () => {
       started_at: "2026-08-22T19:10:00.000Z",
       completed_at: "2026-08-22T19:11:00.000Z",
     });
+    expect(
+      (await readdir(handle.run_path)).filter((name) => name.startsWith(".manifest.")),
+    ).toEqual([]);
     expect(retention.removed_run_ids).toEqual([]);
     expect(retention.retained_completed_run_ids).toEqual(["run-002"]);
   });

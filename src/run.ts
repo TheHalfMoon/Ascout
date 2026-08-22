@@ -11,7 +11,7 @@ import {
   rm,
   stat,
 } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 export const DEFAULT_COMPLETED_RUN_RETENTION = 20;
 
@@ -231,23 +231,43 @@ async function writeExclusiveFile(path: string, content: string): Promise<void> 
   }
 }
 
-async function replaceFileAtomically(path: string, content: string): Promise<void> {
-  const directory = resolve(path, "..");
-  const temporaryPath = join(
-    directory,
-    `.manifest.${process.pid}.${randomBytes(8).toString("hex")}.tmp`,
-  );
+async function replaceManifestPortably(path: string, content: string): Promise<void> {
+  const directory = dirname(path);
+  const suffix = `${process.pid}.${randomBytes(8).toString("hex")}`;
+  const temporaryPath = join(directory, `.manifest.${suffix}.tmp`);
+  const backupPath = join(directory, `.manifest.${suffix}.bak`);
+  let published = false;
 
   try {
     await writeExclusiveFile(temporaryPath, content);
-    await rename(temporaryPath, path);
+    await rename(path, backupPath);
+
+    try {
+      // Destination is now absent, avoiding rename-over-existing portability differences.
+      await rename(temporaryPath, path);
+      published = true;
+    } catch (error) {
+      try {
+        await rename(backupPath, path);
+      } catch {
+        // The active marker remains present, so retention still preserves this run.
+      }
+      throw error;
+    }
   } catch {
     throw new RunDirectoryError("run_directory_io", `failed to update ${path}`);
   } finally {
     try {
       await rm(temporaryPath, { force: true });
     } catch {
-      // A failed temporary-file cleanup must not alter lifecycle state.
+      // Temporary cleanup does not change lifecycle eligibility.
+    }
+    if (published) {
+      try {
+        await rm(backupPath, { force: true });
+      } catch {
+        // A leftover backup is inert; the completed manifest remains authoritative.
+      }
     }
   }
 }
@@ -321,7 +341,7 @@ async function markRunCompleted(runPath: string, runId: string): Promise<void> {
       started_at: current.started_at,
       completed_at: new Date().toISOString(),
     };
-    await replaceFileAtomically(join(runPath, MANIFEST_FILENAME), serializeManifest(completed));
+    await replaceManifestPortably(join(runPath, MANIFEST_FILENAME), serializeManifest(completed));
   }
 
   try {
