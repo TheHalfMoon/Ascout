@@ -273,4 +273,13 @@ describe("T025 exact-head review finding repairs", () => {
     expect(issues).toHaveLength(1);
   });
 
+  it("rejects pytestBasic as EXERCISED provenance even with owned current-run coverage", () => {
+    const receipt = structuredClone(receiptFixture()) as ReceiptV1;
+    (receipt.tasks[0] as unknown as { task_type: "pytestBasic" }).task_type = "pytestBasic";
+
+    const codes = issueCodes(receipt);
+    expect(codes).toContain("exercise_source_task_not_executed_test");
+    expect(codes).not.toContain("exercise_source_task_missing_coverage_evidence");
+  });
+
 });
