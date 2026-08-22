@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -110,6 +111,28 @@ describe("T022 run lock", () => {
       code: "run_lock_held",
     });
     expect(existsSync(lockPath(repositoryRoot))).toBe(true);
+
+    await first.release();
+  });
+
+  it("binds symlink aliases to the same physical repository lock", async () => {
+    const parent = temporaryRepository();
+    const physicalRoot = join(parent, "physical-repository");
+    const aliasRoot = join(parent, "repository-alias");
+    mkdirSync(physicalRoot);
+    symlinkSync(
+      physicalRoot,
+      aliasRoot,
+      process.platform === "win32" ? "junction" : "dir",
+    );
+
+    const first = await acquireRunLock(physicalRoot);
+
+    await expect(acquireRunLock(aliasRoot)).rejects.toMatchObject({
+      code: "run_lock_held",
+    });
+    expect(existsSync(lockPath(physicalRoot))).toBe(true);
+    expect(existsSync(lockPath(aliasRoot))).toBe(true);
 
     await first.release();
   });
