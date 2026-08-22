@@ -131,6 +131,28 @@ describe("T021 process control", () => {
     );
   });
 
+  it("retains process-tree ownership even with a one-millisecond task timeout", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "ascout-t021-fast-timeout-"));
+    temporaryDirectories.push(directory);
+    const marker = join(directory, "escaped-after-timeout.txt");
+    const script = [
+      "const fs = require('node:fs');",
+      `setTimeout(() => fs.writeFileSync(${JSON.stringify(marker)}, 'leaked'), 800);`,
+      "setInterval(() => {}, 1000);",
+    ].join("");
+
+    const result = await runProcess(request(
+      ["-e", script],
+      { cwd: directory, timeout_ms: 1, termination_grace_ms: 0 },
+    ));
+
+    expect(result.outcome).toBe("timed_out");
+    expect(result.timed_out).toBe(true);
+    expect(result.cleanup_complete).toBe(true);
+    await sleep(1_000);
+    expect(existsSync(marker)).toBe(false);
+  });
+
   it.skipIf(process.platform === "win32")(
     "kills descendants in the dedicated POSIX process group on timeout",
     async () => {
