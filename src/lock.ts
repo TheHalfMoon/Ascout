@@ -31,6 +31,11 @@ interface RunLockOwner {
   readonly token: string;
 }
 
+type LockState =
+  | { readonly kind: "missing" }
+  | { readonly kind: "invalid" }
+  | { readonly kind: "owner"; readonly owner: RunLockOwner };
+
 export interface RunLockHandle {
   readonly owner_pid: number;
   release(): Promise<void>;
@@ -127,8 +132,7 @@ async function closeHandle(handle: FileHandle | null): Promise<void> {
   try {
     await handle.close();
   } catch {
-    // The acquisition result is determined before cleanup. A close error cannot make a
-    // successfully published lock safe to republish or silently transferable.
+    // Cleanup is best-effort here; the caller still fails closed on publication/recovery errors.
   }
 }
 
@@ -140,15 +144,19 @@ async function publishOwner(lockPath: string, owner: RunLockOwner): Promise<bool
     created = true;
     await handle.writeFile(encodeOwner(owner), { encoding: "utf8" });
     await handle.sync();
+    await handle.close();
+    handle = null;
     return true;
   } catch (error) {
     if (!created && nodeErrorCode(error) === "EEXIST") return false;
 
+    await closeHandle(handle);
+    handle = null;
     if (created) {
       try {
         await unlink(lockPath);
       } catch {
-        // Leave a failed publication fail-closed if cleanup itself cannot be proven.
+        // A failed publication that cannot be cleaned up remains fail-closed.
       }
     }
     throw lockError("run_lock_io", "failed to publish run lock", error);
@@ -157,15 +165,19 @@ async function publishOwner(lockPath: string, owner: RunLockOwner): Promise<bool
   }
 }
 
-async function readOwner(lockPath: string): Promise<RunLockOwner | null> {
+async function readLockState(lockPath: string): Promise<LockState> {
   let raw: string;
   try {
     raw = await readFile(lockPath, { encoding: "utf8" });
   } catch (error) {
-    if (nodeErrorCode(error) === "ENOENT") return null;
+    if (nodeErrorCode(error) === "ENOENT") return { kind: "missing" };
     throw lockError("run_lock_io", "failed to read run lock", error);
   }
-  return parseOwner(raw);
+
+  const owner = parseOwner(raw);
+  return owner === null
+    ? { kind: "invalid" }
+    : { kind: "owner", owner };
 }
 
 async function acquireRecoveryGuard(recoveryPath: string): Promise<FileHandle | null> {
@@ -203,10 +215,16 @@ async function recoverDeadOwner(
 
   let recoveryError: unknown;
   try {
-    const currentOwner = await readOwner(lockPath);
-    if (currentOwner === null) return "retry";
-    if (!sameOwner(currentOwner, observedOwner)) return "retry";
-    if (!ownerIsDefinitelyDead(currentOwner.pid)) {
+    const state = await readLockState(lockPath);
+    if (state.kind === "missing") return "retry";
+    if (state.kind === "invalid") {
+      throw lockError(
+        "run_lock_unverifiable",
+        "run lock changed to an unverifiable owner during recovery",
+      );
+    }
+    if (!sameOwner(state.owner, observedOwner)) return "retry";
+    if (!ownerIsDefinitelyDead(state.owner.pid)) {
       throw lockError("run_lock_held", "run lock owner is still alive or cannot be proven dead");
     }
 
@@ -230,8 +248,8 @@ async function recoverDeadOwner(
 }
 
 async function releaseOwnedLock(lockPath: string, owner: RunLockOwner): Promise<void> {
-  const currentOwner = await readOwner(lockPath);
-  if (currentOwner === null || !sameOwner(currentOwner, owner)) {
+  const state = await readLockState(lockPath);
+  if (state.kind !== "owner" || !sameOwner(state.owner, owner)) {
     throw lockError(
       "run_lock_ownership_lost",
       "run lock no longer belongs to this handle; refusing to remove it",
@@ -275,13 +293,19 @@ export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHan
       };
     }
 
-    const existingOwner = await readOwner(lockPath);
-    if (existingOwner === null) continue;
-    if (!ownerIsDefinitelyDead(existingOwner.pid)) {
+    const state = await readLockState(lockPath);
+    if (state.kind === "missing") continue;
+    if (state.kind === "invalid") {
+      throw lockError(
+        "run_lock_unverifiable",
+        "existing .ascout/run.lock has no verifiable owner; refusing recovery",
+      );
+    }
+    if (!ownerIsDefinitelyDead(state.owner.pid)) {
       throw lockError("run_lock_held", "another Ascout run owns .ascout/run.lock");
     }
 
-    const recovery = await recoverDeadOwner(lockPath, recoveryPath, existingOwner);
+    const recovery = await recoverDeadOwner(lockPath, recoveryPath, state.owner);
     if (recovery === "recovered") continue;
   }
 
