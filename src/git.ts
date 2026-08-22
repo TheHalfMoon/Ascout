@@ -199,7 +199,7 @@ function normalizeRemoteIdentity(rawRemote: string): string {
     throw new GitIdentityError("unsupported_remote", "unsupported bracketed scp-like remote host");
   }
 
-  const scpLike = /^(?:[^@/:]+@)?([^:/?#]+):([^?#]+)$/i.exec(rawRemote);
+  const scpLike = /^(?:[^@/:]+@)?([^:/?#]+):([^?#]+)$/.exec(rawRemote);
   if (scpLike === null) {
     throw new GitIdentityError("unsupported_remote", "unsupported remote identity form");
   }
