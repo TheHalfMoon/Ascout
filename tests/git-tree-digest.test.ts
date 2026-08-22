@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  GitIdentityError,
   readTreeDigestV1,
   treeDigestV1FromState,
   type TreeDigestState,
@@ -241,6 +242,22 @@ describe("T019 live Git tree-digest collection", () => {
     rmSync(join(repositoryRoot, "ignored.log"));
     rmSync(join(repositoryRoot, ".ascout"), { recursive: true, force: true });
     expect(readTreeDigestV1(repositoryRoot)).toEqual(withUntracked);
+  });
+
+  it("fails closed when index visibility flags can hide tracked worktree state", () => {
+    const repositoryRoot = makeRepository();
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "base\n");
+    commitAll(repositoryRoot, "base");
+
+    git(repositoryRoot, ["update-index", "--assume-unchanged", "tracked.txt"]);
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "hidden change\n");
+    expect(() => readTreeDigestV1(repositoryRoot)).toThrow(GitIdentityError);
+
+    git(repositoryRoot, ["update-index", "--no-assume-unchanged", "tracked.txt"]);
+    git(repositoryRoot, ["checkout", "--", "tracked.txt"]);
+    git(repositoryRoot, ["update-index", "--skip-worktree", "tracked.txt"]);
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "hidden skip-worktree change\n");
+    expect(() => readTreeDigestV1(repositoryRoot)).toThrow(GitIdentityError);
   });
 
   it("binds executable mode and symlink target/type where the platform exposes them", () => {
