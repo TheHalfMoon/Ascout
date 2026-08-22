@@ -4,6 +4,7 @@ import {
   type SpawnSyncOptions,
 } from "node:child_process";
 import { createRequire } from "node:module";
+import { win32 as pathWin32 } from "node:path";
 
 export type ProcessOutcome = "exited" | "timed_out" | "error";
 export type ProcessTerminationTarget = "process_group" | "native_process_tree";
@@ -85,7 +86,8 @@ type LaunchObservation =
 
 type TimedObservation =
   | { readonly kind: "timeout" }
-  | { readonly kind: "closed"; readonly close: CloseObservation };
+  | { readonly kind: "closed"; readonly close: CloseObservation }
+  | { readonly kind: "control_error"; readonly error: Error };
 
 type GroupSignalResult = "sent" | "gone" | "error";
 
@@ -256,9 +258,26 @@ async function terminatePosixProcessGroup(
   return waitForProcessGroupGone(processGroupId, FORCEFUL_PROCESS_GROUP_WAIT_MS);
 }
 
+function windowsTaskkillPath(): string | null {
+  const systemRoot = process.env.SystemRoot;
+  if (
+    systemRoot === undefined ||
+    systemRoot.length === 0 ||
+    systemRoot.includes("\0") ||
+    !pathWin32.isAbsolute(systemRoot) ||
+    systemRoot.startsWith("\\\\")
+  ) {
+    return null;
+  }
+  return pathWin32.join(systemRoot, "System32", "taskkill.exe");
+}
+
 function terminateWindowsProcessTree(rootPid: number): boolean {
+  const taskkillPath = windowsTaskkillPath();
+  if (taskkillPath === null) return false;
+
   const result = crossSpawn.sync(
-    "taskkill.exe",
+    taskkillPath,
     ["/PID", String(rootPid), "/T", "/F"],
     {
       shell: false,
@@ -355,14 +374,26 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
     return errorResult(target, error, emptyCapture(), emptyCapture(), false, cleanupComplete);
   }
 
+  let runtimeError: Error | null = null;
+  let resolveRuntimeError: ((observation: TimedObservation) => void) | null = null;
+  const runtimeErrorPromise = new Promise<TimedObservation>((resolve) => {
+    resolveRuntimeError = resolve;
+  });
+  const recordRuntimeError = (error: Error): void => {
+    if (runtimeError !== null) return;
+    runtimeError = error;
+    resolveRuntimeError?.({ kind: "control_error", error });
+  };
+
   child.stdout.on("data", (chunk: Buffer) => {
     observeCapture(stdoutCapture, chunk, request.capture_cap_bytes);
   });
+  child.stdout.on("error", recordRuntimeError);
   child.stderr.on("data", (chunk: Buffer) => {
     observeCapture(stderrCapture, chunk, request.capture_cap_bytes);
   });
+  child.stderr.on("error", recordRuntimeError);
 
-  let runtimeError: Error | null = null;
   let launchResolved = false;
   const launchPromise = new Promise<LaunchObservation>((resolve) => {
     child.once("spawn", () => {
@@ -371,7 +402,7 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
       resolve({ kind: "spawned" });
     });
     child.on("error", (error: Error) => {
-      runtimeError = error;
+      recordRuntimeError(error);
       if (launchResolved) return;
       launchResolved = true;
       resolve({ kind: "error", error });
@@ -416,13 +447,14 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   }
 
   let timeoutHandle: NodeJS.Timeout | null = null;
-  const timeoutPromise = new Promise<{ readonly kind: "timeout" }>((resolve) => {
+  const timeoutPromise = new Promise<TimedObservation>((resolve) => {
     timeoutHandle = setTimeout(() => resolve({ kind: "timeout" }), request.timeout_ms);
   });
 
   const completion = await Promise.race([
     closePromise.then((close): TimedObservation => ({ kind: "closed", close })),
     timeoutPromise,
+    runtimeErrorPromise,
   ]);
   if (timeoutHandle !== null) clearTimeout(timeoutHandle);
 
@@ -448,6 +480,20 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
       stdout: finalizeCapture(stdoutCapture),
       stderr: finalizeCapture(stderrCapture),
     };
+  }
+
+  if (completion.kind === "control_error") {
+    const cleanupComplete = await terminateProcessTree(rootPid, request.termination_grace_ms);
+    const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
+    return errorResult(
+      target,
+      completion.error,
+      finalizeCapture(stdoutCapture),
+      finalizeCapture(stderrCapture),
+      false,
+      cleanupComplete && close !== null,
+      close,
+    );
   }
 
   const cleanupComplete = await terminateProcessTree(rootPid, request.termination_grace_ms);
