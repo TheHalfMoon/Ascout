@@ -49,24 +49,28 @@ function frame(value: string): Buffer {
   return Buffer.concat([Buffer.from(`${bytes.length}:`, "ascii"), bytes]);
 }
 
+function compareUtf8(left: string, right: string): number {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
+}
+
 function isAscoutRuntimePath(path: string): boolean {
   return path === ".ascout" || path.startsWith(".ascout/");
 }
 
 // T010 executable design oracle only. T019 adds the production implementation.
 // Each canonical UTF-8 field is encoded as <decimal-byte-length>:<field-bytes>.
-// Variable-length sections are explicitly tagged and counted before sorted records.
+// Variable-length sections are explicitly tagged and counted before records sorted by UTF-8 bytes.
 function canonicalTreeFields(state: TreeState): string[] {
   const index = [...state.index].sort((a, b) =>
-    a.path.localeCompare(b.path) ||
+    compareUtf8(a.path, b.path) ||
     a.stage - b.stage ||
-    a.mode.localeCompare(b.mode) ||
-    a.oid.localeCompare(b.oid),
+    compareUtf8(a.mode, b.mode) ||
+    compareUtf8(a.oid, b.oid),
   );
-  const unstaged = [...state.unstaged].sort((a, b) => a.path.localeCompare(b.path));
+  const unstaged = [...state.unstaged].sort((a, b) => compareUtf8(a.path, b.path));
   const untracked = state.untracked
     .filter((entry) => !entry.ignored && !isAscoutRuntimePath(entry.path))
-    .sort((a, b) => a.path.localeCompare(b.path));
+    .sort((a, b) => compareUtf8(a.path, b.path));
 
   const fields = ["ascout-tree-v1", state.head, "index", String(index.length)];
 
@@ -115,6 +119,7 @@ const GOLDEN = {
   mode: "42be8e0497be224db269b0f2da0f1a945b14f26661cdddfe82595cd3a48adb03",
   type: "018630f3aa90b43a1f0c9a6926dfbc2a1ce1e725754f57d49ea732f6c257c44d",
   untracked: "b1aab29b5e465e44224145254caa51b3f9f371f7e1414e3799a1f13ad9be6cc7",
+  unicodeUntracked: "7955d13f9e3bf356f2a34c5e3180e2e0c71b4c26001ccd4024ffccbbff3c0925",
   snapshot: "08ed4832503efb7087fc38de9558a20409fc692085eb694475abffa89ff7c59d",
 } as const;
 
@@ -242,6 +247,25 @@ describe("T010 tree_digest_v1 golden contract", () => {
       ...state,
       untracked: untracked.filter((entry) => !isAscoutRuntimePath(entry.path)),
     })).toBe(GOLDEN.untracked);
+  });
+
+  it("uses locale-independent UTF-8 byte ordering for non-ASCII paths", () => {
+    const untracked: readonly UntrackedEntry[] = [
+      { path: "é.txt", type: "file", mode: "100644", digest: sha256Text("e-acute"), ignored: false },
+      { path: "z.txt", type: "file", mode: "100644", digest: sha256Text("z"), ignored: false },
+      { path: "ä.txt", type: "file", mode: "100644", digest: sha256Text("a-umlaut"), ignored: false },
+      { path: "a.txt", type: "file", mode: "100644", digest: sha256Text("a"), ignored: false },
+    ];
+    const state: TreeState = { ...cleanState(), untracked };
+
+    expect([...untracked].sort((a, b) => compareUtf8(a.path, b.path)).map((entry) => entry.path)).toEqual([
+      "a.txt",
+      "z.txt",
+      "ä.txt",
+      "é.txt",
+    ]);
+    expect(treeDigestV1(state)).toBe(GOLDEN.unicodeUntracked);
+    expect(treeDigestV1({ ...state, untracked: [...untracked].reverse() })).toBe(GOLDEN.unicodeUntracked);
   });
 
   it("never omits a tracked snapshot mutation", () => {
