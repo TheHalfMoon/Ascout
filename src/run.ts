@@ -63,6 +63,10 @@ function errorCode(error: unknown): string | undefined {
   return typeof error.code === "string" ? error.code : undefined;
 }
 
+function compareOrdinal(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 function invalid(message: string): never {
   throw new RunDirectoryError("run_directory_invalid", message);
 }
@@ -409,14 +413,15 @@ async function pruneCompletedRunsFromRoot(
   }
 
   candidates.sort((left, right) => {
-    const completedOrder = right.manifest.completed_at!.localeCompare(
+    const completedOrder = compareOrdinal(
+      right.manifest.completed_at!,
       left.manifest.completed_at!,
     );
     if (completedOrder !== 0) return completedOrder;
 
-    const startedOrder = right.manifest.started_at.localeCompare(left.manifest.started_at);
+    const startedOrder = compareOrdinal(right.manifest.started_at, left.manifest.started_at);
     if (startedOrder !== 0) return startedOrder;
-    return left.run_id.localeCompare(right.run_id);
+    return compareOrdinal(left.run_id, right.run_id);
   });
 
   const retained = candidates.slice(0, completedRetention);
@@ -450,7 +455,7 @@ async function pruneCompletedRunsFromRoot(
   return {
     removed_run_ids: removed,
     retained_completed_run_ids: retained.map((candidate) => candidate.run_id),
-    preserved_run_ids: [...preserved].sort(),
+    preserved_run_ids: [...preserved].sort(compareOrdinal),
   };
 }
 

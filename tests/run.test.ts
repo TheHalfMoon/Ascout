@@ -153,6 +153,38 @@ describe("T024 run directory lifecycle", () => {
     expect((await readManifest(active.manifest_path)).state).toBe("active");
   });
 
+  it("uses locale-independent ordinal run-id tie-breaking for identical timestamps", async () => {
+    const root = await temporaryDirectory();
+    const runs = join(root, ".ascout", "runs");
+    const startedAt = "2026-08-22T19:00:00.000Z";
+    const completedAt = "2026-08-22T19:01:00.000Z";
+    const runIds = ["run-z", "run-ä", "run-Ω"] as const;
+
+    for (const runId of runIds) {
+      const runPath = join(runs, runId);
+      await mkdir(runPath, { recursive: true });
+      await writeFile(
+        join(runPath, "manifest.json"),
+        `${JSON.stringify({
+          version: 1,
+          run_id: runId,
+          state: "completed",
+          started_at: startedAt,
+          completed_at: completedAt,
+        })}\n`,
+        "utf8",
+      );
+    }
+
+    const result = await pruneCompletedRuns(root, 2);
+
+    expect(result.retained_completed_run_ids).toEqual(["run-z", "run-ä"]);
+    expect(result.removed_run_ids).toEqual(["run-Ω"]);
+    expect(await exists(join(runs, "run-z"))).toBe(true);
+    expect(await exists(join(runs, "run-ä"))).toBe(true);
+    expect(await exists(join(runs, "run-Ω"))).toBe(false);
+  });
+
   it("never removes a run carrying an active marker even if its manifest is forged completed", async () => {
     const root = await temporaryDirectory();
     const handle = await createRunDirectory(root, "marker-wins");
