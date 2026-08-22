@@ -195,6 +195,23 @@ describe("T019 tree_digest_v1 canonicalization", () => {
       treeDigestV1FromState({ ...cleanState(), untracked: unicodeUntracked }).tree_digest,
     );
   });
+
+  it("rejects non-canonical repository paths before hashing", () => {
+    expect(() => treeDigestV1FromState({
+      ...cleanState(),
+      index: [{ ...BASE_INDEX[0], path: "../escape.txt" }],
+    })).toThrow(GitIdentityError);
+    expect(() => treeDigestV1FromState({
+      ...cleanState(),
+      untracked: [{
+        path: "bad\\name.txt",
+        type: "file",
+        mode: "100644",
+        digest: sha256Text("bad"),
+        ignored: false,
+      }],
+    })).toThrow(GitIdentityError);
+  });
 });
 
 describe("T019 live Git tree-digest collection", () => {
@@ -258,6 +275,18 @@ describe("T019 live Git tree-digest collection", () => {
     git(repositoryRoot, ["update-index", "--skip-worktree", "tracked.txt"]);
     writeFileSync(join(repositoryRoot, "tracked.txt"), "hidden skip-worktree change\n");
     expect(() => readTreeDigestV1(repositoryRoot)).toThrow(GitIdentityError);
+  });
+
+  it("hashes regular files larger than one internal hash chunk", () => {
+    const repositoryRoot = makeRepository();
+    writeFileSync(join(repositoryRoot, "base.txt"), "base\n");
+    commitAll(repositoryRoot, "base");
+    const clean = readTreeDigestV1(repositoryRoot);
+
+    writeFileSync(join(repositoryRoot, "large.bin"), Buffer.alloc(256 * 1024, 0x61));
+    const withLargeFile = readTreeDigestV1(repositoryRoot);
+    expect(withLargeFile.included_untracked_count).toBe(1);
+    expect(withLargeFile.tree_digest).not.toBe(clean.tree_digest);
   });
 
   it("binds executable mode and symlink target/type where the platform exposes them", () => {
