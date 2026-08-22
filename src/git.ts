@@ -465,6 +465,44 @@ function parseIndexEntries(buffer: Buffer): TreeDigestIndexEntry[] {
   });
 }
 
+function assertTreeDigestIndexVisibility(repositoryRoot: string): void {
+  const records = splitNullTerminated(
+    requireSuccessfulGitBuffer(
+      runGitTreeMetadata(repositoryRoot, ["ls-files", "-v", "-z"]),
+      "unable to inspect Git index visibility flags for tree digest",
+    ),
+    "git ls-files -v output",
+  );
+
+  for (const record of records) {
+    if (record.length < 3 || record[1] !== 0x20) {
+      throw new GitIdentityError("git_metadata_error", "Git returned a malformed index visibility record");
+    }
+    const tagByte = record[0];
+    if (tagByte === undefined) {
+      throw new GitIdentityError("git_metadata_error", "Git returned an incomplete index visibility record");
+    }
+    const tag = String.fromCharCode(tagByte);
+    const path = decodeUtf8(record.subarray(2), "git index visibility path");
+    if (path.length === 0) {
+      throw new GitIdentityError("git_metadata_error", "Git returned an empty index visibility path");
+    }
+
+    if (tag === "S" || tag === "s") {
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `tree digest cannot safely inspect skip-worktree index entry: ${path}`,
+      );
+    }
+    if (tag >= "a" && tag <= "z") {
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `tree digest cannot safely inspect assume-unchanged index entry: ${path}`,
+      );
+    }
+  }
+}
+
 function worktreeTypeFromMode(mode: string, path: string): WorktreeEntryType {
   if (mode === "120000") return "symlink";
   if (mode === "100644" || mode === "100755") return "file";
@@ -604,6 +642,7 @@ export function readTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
     runGitTreeMetadata(repositoryRoot, ["ls-files", "--stage", "-z"]),
     "unable to read Git index for tree digest",
   ));
+  assertTreeDigestIndexVisibility(repositoryRoot);
   const unstaged = parseUnstagedEntries(repositoryRoot, requireSuccessfulGitBuffer(
     runGitTreeMetadata(repositoryRoot, [
       "diff-files",
