@@ -230,6 +230,31 @@ describe("T024 run directory lifecycle", () => {
     expect(await exists(join(runs, "oversized"))).toBe(true);
   });
 
+  it("preserves completed manifests whose completion precedes their start", async () => {
+    const root = await temporaryDirectory();
+    const runs = join(root, ".ascout", "runs");
+    const runPath = join(runs, "impossible-lifecycle");
+    await mkdir(runPath, { recursive: true });
+    await writeFile(
+      join(runPath, "manifest.json"),
+      `${JSON.stringify({
+        version: 1,
+        run_id: "impossible-lifecycle",
+        state: "completed",
+        started_at: "2026-08-22T19:10:00.000Z",
+        completed_at: "2026-08-22T19:09:59.999Z",
+      })}\n`,
+      "utf8",
+    );
+
+    const result = await pruneCompletedRuns(root, 0);
+
+    expect(result.removed_run_ids).toEqual([]);
+    expect(result.retained_completed_run_ids).toEqual([]);
+    expect(result.preserved_run_ids).toContain("impossible-lifecycle");
+    expect(await exists(runPath)).toBe(true);
+  });
+
   it("rejects duplicate and path-escaping run identifiers without modifying the existing run", async () => {
     const root = await temporaryDirectory();
     const first = await createRunDirectory(root, "same-run");

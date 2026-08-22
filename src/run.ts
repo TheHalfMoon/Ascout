@@ -119,7 +119,9 @@ function parseManifest(text: string): RunManifestV1 | null {
   if (!isRecord(value) || value.version !== 1 || typeof value.run_id !== "string") {
     return null;
   }
-  if (!isCanonicalTimestamp(value.started_at)) return null;
+
+  const startedAt = value.started_at;
+  if (!isCanonicalTimestamp(startedAt)) return null;
 
   if (value.state === "active") {
     if (value.completed_at !== null) return null;
@@ -127,18 +129,20 @@ function parseManifest(text: string): RunManifestV1 | null {
       version: 1,
       run_id: value.run_id,
       state: "active",
-      started_at: value.started_at,
+      started_at: startedAt,
       completed_at: null,
     };
   }
 
-  if (value.state === "completed" && isCanonicalTimestamp(value.completed_at)) {
+  const completedAt = value.completed_at;
+  if (value.state === "completed" && isCanonicalTimestamp(completedAt)) {
+    if (completedAt < startedAt) return null;
     return {
       version: 1,
       run_id: value.run_id,
       state: "completed",
-      started_at: value.started_at,
-      completed_at: value.completed_at,
+      started_at: startedAt,
+      completed_at: completedAt,
     };
   }
 
@@ -430,9 +434,6 @@ async function deleteCompletedCandidateSafely(
     return "preserved";
   }
 
-  // The candidate is now detached from its public run-id path at an unpredictable
-  // same-directory quarantine name. Recheck identity once more immediately before
-  // recursive deletion so a replaced quarantine target is never intentionally removed.
   const finalIdentity = await physicalDirectoryIdentity(quarantinePath);
   if (finalIdentity === null || !sameIdentity(candidate.identity, finalIdentity)) {
     await rollbackQuarantine(quarantinePath, candidate.run_path);
