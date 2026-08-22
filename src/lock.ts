@@ -210,6 +210,24 @@ async function readLockState(lockPath: string): Promise<LockState> {
     : { kind: "owner", owner };
 }
 
+async function assertMutationGuardClear(recoveryPath: string): Promise<void> {
+  const state = await readLockState(recoveryPath);
+  if (state.kind === "missing") return;
+  if (state.kind === "invalid") {
+    throw lockError(
+      "run_lock_unverifiable",
+      "run-lock mutation guard has no verifiable owner; refusing acquisition",
+    );
+  }
+
+  throw lockError(
+    "run_lock_recovery_busy",
+    ownerIsDefinitelyDead(state.owner.pid)
+      ? "stale run-lock mutation guard blocks automatic acquisition; refusing unsafe takeover"
+      : "another live process is mutating or recovering the run lock",
+  );
+}
+
 async function acquireRecoveryGuard(recoveryPath: string): Promise<RunLockOwner> {
   const owner = newOwner();
 
@@ -391,15 +409,27 @@ export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHan
     throw lockError("run_lock_io", "failed to create Ascout runtime directory", error);
   }
 
+  let released = false;
+  let releaseInFlight: Promise<void> | null = null;
+
   for (let attempt = 0; attempt < MAX_ACQUIRE_ATTEMPTS; attempt += 1) {
+    await assertMutationGuardClear(recoveryPath);
+
     if (await publishOwner(lockPath, owner)) {
-      let released = false;
       return {
         owner_pid: owner.pid,
         async release(): Promise<void> {
           if (released) return;
-          await releaseOwnedLock(lockPath, recoveryPath, owner);
-          released = true;
+          if (releaseInFlight === null) {
+            releaseInFlight = releaseOwnedLock(lockPath, recoveryPath, owner)
+              .then(() => {
+                released = true;
+              })
+              .finally(() => {
+                releaseInFlight = null;
+              });
+          }
+          await releaseInFlight;
         },
       };
     }
