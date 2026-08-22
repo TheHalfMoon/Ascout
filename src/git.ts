@@ -137,6 +137,17 @@ function sha256File(path: string): string {
   }
 }
 
+function gitBlobOidForBytes(value: Buffer, expectedOid: string): string {
+  const algorithm = expectedOid.length === 40 ? "sha1" : expectedOid.length === 64 ? "sha256" : null;
+  if (algorithm === null) {
+    throw new GitIdentityError("git_metadata_error", "unsupported Git object ID length");
+  }
+  const hash = createHash(algorithm);
+  hash.update(Buffer.from(`blob ${value.length}\0`, "utf8"));
+  hash.update(value);
+  return hash.digest("hex");
+}
+
 function stripOneTerminalNewline(value: string): string {
   if (value.endsWith("\r\n")) return value.slice(0, -2);
   if (value.endsWith("\n")) return value.slice(0, -1);
@@ -557,6 +568,12 @@ function assertTreeDigestIndexVisibility(repositoryRoot: string): void {
 function worktreeTypeFromMode(mode: string, path: string): WorktreeEntryType {
   if (mode === "120000") return "symlink";
   if (mode === "100644" || mode === "100755") return "file";
+  if (mode === "160000") {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      `tree digest does not support gitlink/submodule worktree state at ${path}`,
+    );
+  }
   throw new GitIdentityError(
     "git_metadata_error",
     `unsupported worktree mode for tree digest at ${path}: ${mode}`,
@@ -574,6 +591,20 @@ function repositoryPath(repositoryRoot: string, path: string): string {
   return absolutePath;
 }
 
+function readSymlinkTarget(repositoryRoot: string, path: string): Buffer {
+  const absolutePath = repositoryPath(repositoryRoot, path);
+  try {
+    const stat = lstatSync(absolutePath);
+    if (!stat.isSymbolicLink()) {
+      throw new GitIdentityError("git_metadata_error", `tree-digest expected a symlink at ${path}`);
+    }
+    return readlinkSync(absolutePath, { encoding: "buffer" });
+  } catch (error) {
+    if (error instanceof GitIdentityError) throw error;
+    throw new GitIdentityError("git_metadata_error", `unable to read symlink target for tree digest: ${path}`);
+  }
+}
+
 function digestWorktreeEntry(
   repositoryRoot: string,
   path: string,
@@ -581,13 +612,10 @@ function digestWorktreeEntry(
 ): string {
   const absolutePath = repositoryPath(repositoryRoot, path);
   try {
-    const stat = lstatSync(absolutePath);
     if (expectedType === "symlink") {
-      if (!stat.isSymbolicLink()) {
-        throw new GitIdentityError("git_metadata_error", `tree-digest type changed while reading ${path}`);
-      }
-      return sha256Bytes(readlinkSync(absolutePath, { encoding: "buffer" }));
+      return sha256Bytes(readSymlinkTarget(repositoryRoot, path));
     }
+    const stat = lstatSync(absolutePath);
     if (!stat.isFile()) {
       throw new GitIdentityError("git_metadata_error", `tree-digest expected a regular file at ${path}`);
     }
@@ -596,6 +624,32 @@ function digestWorktreeEntry(
     if (error instanceof GitIdentityError) throw error;
     throw new GitIdentityError("git_metadata_error", `unable to read worktree entry for tree digest: ${path}`);
   }
+}
+
+function worktreeGitObjectId(
+  repositoryRoot: string,
+  path: string,
+  type: WorktreeEntryType,
+  expectedOid: string,
+): string {
+  if (type === "symlink") {
+    return gitBlobOidForBytes(readSymlinkTarget(repositoryRoot, path), expectedOid);
+  }
+
+  const output = requireSuccessfulGitBuffer(
+    runGitTreeMetadata(repositoryRoot, [
+      "hash-object",
+      `--path=${path}`,
+      "--",
+      repositoryPath(repositoryRoot, path),
+    ]),
+    `unable to compute Git worktree object ID for ${path}`,
+  );
+  const oid = stripOneTerminalNewline(decodeUtf8(output, "git hash-object output"));
+  if (!FULL_GIT_OBJECT_ID.test(oid) || oid.length !== expectedOid.length) {
+    throw new GitIdentityError("git_metadata_error", `Git returned an invalid worktree object ID for ${path}`);
+  }
+  return oid;
 }
 
 function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDigestUnstagedEntry[] {
@@ -619,12 +673,20 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
       throw new GitIdentityError("git_metadata_error", "Git returned a malformed unstaged diff record");
     }
 
+    const oldMode = match[1];
     const newMode = match[2];
+    const oldOid = match[3];
     const status = match[5];
-    if (newMode === undefined || status === undefined) {
+    if (oldMode === undefined || newMode === undefined || oldOid === undefined || status === undefined) {
       throw new GitIdentityError("git_metadata_error", "Git returned incomplete unstaged metadata");
     }
 
+    if (status === "U") {
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `tree digest does not support unmerged tracked state at ${path}`,
+      );
+    }
     if (status === "D") {
       entries.push({ path, state: "deleted" });
       continue;
@@ -637,6 +699,11 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
     }
 
     const type = worktreeTypeFromMode(newMode, path);
+    if (status === "M" && oldMode === newMode) {
+      const currentOid = worktreeGitObjectId(repositoryRoot, path, type, oldOid);
+      if (currentOid === oldOid) continue;
+    }
+
     entries.push({
       path,
       state: status === "T" ? "type_changed" : "modified",
@@ -657,7 +724,7 @@ function untrackedWorktreeEntry(repositoryRoot: string, path: string): TreeDiges
         path,
         type: "symlink",
         mode: "120000",
-        digest: sha256Bytes(readlinkSync(absolutePath, { encoding: "buffer" })),
+        digest: sha256Bytes(readSymlinkTarget(repositoryRoot, path)),
         ignored: false,
       };
     }
@@ -665,7 +732,7 @@ function untrackedWorktreeEntry(repositoryRoot: string, path: string): TreeDiges
       return {
         path,
         type: "file",
-        mode: (stat.mode & 0o111) === 0 ? "100644" : "100755",
+        mode: (stat.mode & 0o100) === 0 ? "100644" : "100755",
         digest: sha256File(absolutePath),
         ignored: false,
       };
