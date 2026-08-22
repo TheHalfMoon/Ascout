@@ -70,6 +70,7 @@ describe("T008 config v1 contract", () => {
 
     expect(schema.properties.tasks.type).toBe("object");
     expect(schema.properties.tasks.additionalProperties).toBe(false);
+    expect(schema.properties.tasks.default).toEqual({});
     expect(propertyKeys(schema.properties.tasks.properties)).toEqual([
       "lint",
       "pytestBasic",
