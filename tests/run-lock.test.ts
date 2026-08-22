@@ -33,13 +33,13 @@ function recoveryPath(repositoryRoot: string): string {
   return join(repositoryRoot, ".ascout", "run.lock.recovery");
 }
 
+function ownerRecord(pid: number, token: string): string {
+  return `${JSON.stringify({ version: 1, pid, token })}\n`;
+}
+
 function writeOwner(repositoryRoot: string, pid: number, token = "0".repeat(32)): void {
   mkdirSync(join(repositoryRoot, ".ascout"), { recursive: true });
-  writeFileSync(
-    lockPath(repositoryRoot),
-    `${JSON.stringify({ version: 1, pid, token })}\n`,
-    "utf8",
-  );
+  writeFileSync(lockPath(repositoryRoot), ownerRecord(pid, token), "utf8");
 }
 
 async function definitelyExitedPid(): Promise<number> {
@@ -66,7 +66,7 @@ afterEach(() => {
 });
 
 describe("T022 run lock", () => {
-  it("publishes one atomic owner when acquisitions race", async () => {
+  it("publishes one complete atomic owner when acquisitions race", async () => {
     const repositoryRoot = temporaryRepository();
 
     const results = await Promise.allSettled([
@@ -131,6 +131,45 @@ describe("T022 run lock", () => {
     await recovered.release();
   });
 
+  it("recovers a recovery guard only when that guard owner is also definitely dead", async () => {
+    const repositoryRoot = temporaryRepository();
+    const deadPid = await definitelyExitedPid();
+    writeOwner(repositoryRoot, deadPid, "2".repeat(32));
+    writeFileSync(
+      recoveryPath(repositoryRoot),
+      ownerRecord(deadPid, "3".repeat(32)),
+      "utf8",
+    );
+
+    const recovered = await acquireRunLock(repositoryRoot);
+
+    expect(existsSync(recoveryPath(repositoryRoot))).toBe(false);
+    const persisted = JSON.parse(readFileSync(lockPath(repositoryRoot), "utf8")) as {
+      pid: number;
+      token: string;
+    };
+    expect(persisted.pid).toBe(process.pid);
+    expect(persisted.token).not.toBe("2".repeat(32));
+
+    await recovered.release();
+  });
+
+  it("does not steal dead-owner recovery from a live recovery-guard owner", async () => {
+    const repositoryRoot = temporaryRepository();
+    const deadPid = await definitelyExitedPid();
+    writeOwner(repositoryRoot, deadPid, "4".repeat(32));
+    const liveGuard = ownerRecord(process.pid, "5".repeat(32));
+    writeFileSync(recoveryPath(repositoryRoot), liveGuard, "utf8");
+
+    await expect(acquireRunLock(repositoryRoot)).rejects.toMatchObject({
+      code: "run_lock_recovery_busy",
+    });
+    expect(readFileSync(lockPath(repositoryRoot), "utf8")).toBe(
+      ownerRecord(deadPid, "4".repeat(32)),
+    );
+    expect(readFileSync(recoveryPath(repositoryRoot), "utf8")).toBe(liveGuard);
+  });
+
   it("fails closed on an unverifiable existing lock without deleting it", async () => {
     const repositoryRoot = temporaryRepository();
     mkdirSync(join(repositoryRoot, ".ascout"), { recursive: true });
@@ -146,11 +185,7 @@ describe("T022 run lock", () => {
   it("refuses to release a lock whose ownership token changed", async () => {
     const repositoryRoot = temporaryRepository();
     const handle = await acquireRunLock(repositoryRoot);
-    const replacement = `${JSON.stringify({
-      version: 1,
-      pid: process.pid,
-      token: "f".repeat(32),
-    })}\n`;
+    const replacement = ownerRecord(process.pid, "f".repeat(32));
     writeFileSync(lockPath(repositoryRoot), replacement, "utf8");
 
     await expect(handle.release()).rejects.toMatchObject({
