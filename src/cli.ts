@@ -8,6 +8,8 @@ const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 
 export type CliCommand = (typeof COMMANDS)[number];
 
+type EntryDisposition = "direct" | "not_direct" | "resolution_error";
+
 export interface CliInvocation {
   command: CliCommand;
   allowChangedCommandSurface: boolean;
@@ -88,19 +90,25 @@ export function runCli(argv: readonly string[]): number {
   }
 }
 
-function isDirectEntry(): boolean {
+function classifyEntry(): EntryDisposition {
   const entryPath = process.argv[1];
   if (entryPath === undefined) {
-    return false;
+    return "not_direct";
   }
 
   try {
-    return realpathSync(entryPath) === realpathSync(fileURLToPath(import.meta.url));
+    return realpathSync(entryPath) === realpathSync(fileURLToPath(import.meta.url))
+      ? "direct"
+      : "not_direct";
   } catch {
-    return false;
+    return "resolution_error";
   }
 }
 
-if (isDirectEntry()) {
+const entryDisposition = classifyEntry();
+if (entryDisposition === "direct") {
   process.exitCode = runCli(process.argv.slice(2));
+} else if (entryDisposition === "resolution_error") {
+  console.error("ascout: unable to resolve CLI entry path. No project task was executed.");
+  process.exitCode = 2;
 }
