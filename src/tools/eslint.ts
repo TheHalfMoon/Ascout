@@ -383,6 +383,16 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
     );
   }
 
+  const configPath = tool.configPaths[0]!;
+  if (!DIRECT_FLAT_ESLINT_CONFIG.test(basename(configPath))) {
+    return notRun(
+      "config_unsupported",
+      "Direct changed-file ESLint planning requires directly loadable eslint.config.js/.mjs/.cjs; legacy .eslintrc* and TypeScript flat configs require a repository lint script or explicit override.",
+      "repo_config",
+      configPath,
+    );
+  }
+
   const groups = groupLocalESLint(tool.localExecutablePaths);
   if (groups.length === 0) {
     return notRun("tool_missing", "Project ESLint is not installed.");
@@ -400,16 +410,6 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
     return notRun(
       "tool_unsupported",
       "The discovered ESLint installation exposes no directly launchable local eslint shim.",
-    );
-  }
-
-  const configPath = tool.configPaths[0]!;
-  if (!DIRECT_FLAT_ESLINT_CONFIG.test(basename(configPath))) {
-    return notRun(
-      "config_unsupported",
-      "Direct changed-file ESLint planning requires directly loadable eslint.config.js/.mjs/.cjs; legacy .eslintrc* and TypeScript flat configs require a repository lint script or explicit override.",
-      "repo_config",
-      configPath,
     );
   }
 
