@@ -222,6 +222,30 @@ describe("T026 receipt JSON renderer", () => {
     }
   });
 
+  it("rejects impossible RFC 3339 calendar dates and invalid time fields", () => {
+    const invalidDateTimes = [
+      "2023-02-29T00:00:00Z",
+      "2024-02-30T00:00:00Z",
+      "2024-04-31T00:00:00Z",
+      "2024-01-01T24:00:00Z",
+      "2024-01-01T23:60:00Z",
+      "2024-01-01T23:59:00+24:00",
+      "2024-01-01T23:59:00+00:60",
+    ];
+
+    for (const dateTime of invalidDateTimes) {
+      const receipt = structuredClone(receiptFixture()) as ReceiptV1;
+      (receipt.run as unknown as { started_at: string }).started_at = dateTime;
+      const result = validateReceiptJsonSchema(receipt);
+      expect(result.valid).toBe(false);
+      expect(result.issues.some((issue) => issue.path === "$.run.started_at" && issue.keyword === "format")).toBe(true);
+    }
+
+    const leapDay = structuredClone(receiptFixture()) as ReceiptV1;
+    (leapDay.run as unknown as { started_at: string }).started_at = "2024-02-29T23:59:59.123Z";
+    expect(validateReceiptJsonSchema(leapDay).valid).toBe(true);
+  });
+
   it("rejects inverted changed-line ranges before emission", () => {
     const receipt = structuredClone(receiptFixture()) as ReceiptV1;
     (receipt.comparison.changed_files[0] as unknown as { changed_new_line_ranges: Array<[number, number]> })

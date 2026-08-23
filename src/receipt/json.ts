@@ -49,7 +49,33 @@ const RECEIPT_SCHEMA_URL = new URL(
 );
 const DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema";
 const RECEIPT_SCHEMA_ID = "urn:ascout:receipt:v1";
-const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+const DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-](\d{2}):(\d{2}))$/;
+
+
+function isLeapYear(year: number): boolean {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+}
+
+function isValidRfc3339DateTime(value: string): boolean {
+  const match = DATE_TIME.exec(value);
+  if (match === null) return false;
+
+  const year = Number(match[1]!);
+  const month = Number(match[2]!);
+  const day = Number(match[3]!);
+  const hour = Number(match[4]!);
+  const minute = Number(match[5]!);
+  const second = Number(match[6]!);
+  const offsetHour = match[8] === undefined ? 0 : Number(match[8]);
+  const offsetMinute = match[9] === undefined ? 0 : Number(match[9]);
+
+  if (month < 1 || month > 12 || hour > 23 || minute > 59 || second > 60) return false;
+  if (offsetHour > 23 || offsetMinute > 59) return false;
+
+  const monthLengths = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
+  const maxDay = monthLengths[month - 1]!;
+  return day >= 1 && day <= maxDay;
+}
 
 const SUPPORTED_SCHEMA_KEYWORDS = new Set([
   "$comment",
@@ -304,7 +330,7 @@ function validateAgainstSchema(
     if (typeof schema.pattern === "string" && !new RegExp(schema.pattern).test(value)) {
       addSchemaIssue(issues, path, "pattern", "must match the required pattern");
     }
-    if (schema.format === "date-time" && (!DATE_TIME.test(value) || !Number.isFinite(Date.parse(value)))) {
+    if (schema.format === "date-time" && !isValidRfc3339DateTime(value)) {
       addSchemaIssue(issues, path, "format", "must be a valid RFC 3339 date-time");
     }
   }
