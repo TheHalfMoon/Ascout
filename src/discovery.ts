@@ -359,12 +359,28 @@ function basename(path: string): string {
   return index < 0 ? path : path.slice(index + 1);
 }
 
+function dirname(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index < 0 ? "" : path.slice(0, index);
+}
+
+function scopeRoots(workspace: WorkspaceDiscovery): readonly string[] {
+  if (workspace.packageJsonPaths.length === 0) return [""];
+  return sortedUnique(
+    workspace.packageJsonPaths.map((path) =>
+      path === "package.json" ? "" : path.slice(0, -"/package.json".length),
+    ),
+  );
+}
+
 function configPaths(
   files: Readonly<Record<string, string>>,
   tool: keyof typeof TOOL_METADATA,
   allManifests: readonly PackageManifest[],
+  roots: readonly string[],
 ): readonly string[] {
   const result = Object.keys(files).filter((path) => {
+    if (!roots.includes(dirname(path))) return false;
     const name = basename(path);
     if (tool === "typescript") return /^tsconfig(?:\.[^/]+)?\.json$/u.test(name);
     if (tool === "eslint") {
@@ -382,21 +398,27 @@ function configPaths(
   return sortedUnique(result);
 }
 
-function executablePaths(files: Readonly<Record<string, string>>, binName: string): readonly string[] {
-  const names = EXECUTABLE_SUFFIXES.map((suffix) => `${binName}${suffix}`);
-  return Object.keys(files)
-    .filter((path) => {
-      const marker = "node_modules/.bin/";
-      const index = path.lastIndexOf(marker);
-      return index >= 0 && names.includes(path.slice(index + marker.length));
-    })
-    .sort();
+function executablePaths(
+  files: Readonly<Record<string, string>>,
+  binName: string,
+  roots: readonly string[],
+): readonly string[] {
+  const result: string[] = [];
+  for (const root of roots) {
+    const prefix = root === "" ? "" : `${root}/`;
+    for (const suffix of EXECUTABLE_SUFFIXES) {
+      const path = `${prefix}node_modules/.bin/${binName}${suffix}`;
+      if (files[path] !== undefined) result.push(path);
+    }
+  }
+  return sortedUnique(result);
 }
 
 function discoverNodeTool(
   files: Readonly<Record<string, string>>,
   allManifests: readonly PackageManifest[],
   tool: keyof typeof TOOL_METADATA,
+  roots: readonly string[],
 ): LocalNodeToolDiscovery {
   const metadata = TOOL_METADATA[tool];
   return {
@@ -406,15 +428,19 @@ function discoverNodeTool(
       .filter((manifest) => dependencyNames(manifest).has(metadata.packageName))
       .map(({ path }) => path)
       .sort(),
-    localExecutablePaths: executablePaths(files, metadata.binName),
-    configPaths: configPaths(files, tool, allManifests),
+    localExecutablePaths: executablePaths(files, metadata.binName, roots),
+    configPaths: configPaths(files, tool, allManifests, roots),
   };
 }
 
-function discoverPytest(files: Readonly<Record<string, string>>): DiscoveryResolution<"pytestBasic"> {
+function discoverPytest(
+  files: Readonly<Record<string, string>>,
+  roots: readonly string[],
+): DiscoveryResolution<"pytestBasic"> {
   const sourcePaths = sortedUnique(
     Object.entries(files)
       .filter(([path, content]) => {
+        if (!roots.includes(dirname(path))) return false;
         const name = basename(path);
         return (
           name === "pytest.ini" ||
@@ -449,17 +475,22 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
   const normalized = normalizeFiles(files);
   const allManifests = manifests(normalized);
   const root = allManifests.find(({ path }) => path === "package.json");
+  const workspace = discoverWorkspace(normalized, allManifests, root);
+  const packageJsonPaths = new Set(workspace.packageJsonPaths);
+  const scopedManifests = allManifests.filter(({ path }) => packageJsonPaths.has(path));
+  const roots = scopeRoots(workspace);
+
   return {
     semanticTasks: FIXED_SEMANTIC_TASKS,
     packageManager: discoverPackageManager(normalized, root),
-    workspace: discoverWorkspace(normalized, allManifests, root),
-    jsTestRunner: discoverRunner(allManifests),
-    pytestBasic: discoverPytest(normalized),
+    workspace,
+    jsTestRunner: discoverRunner(scopedManifests),
+    pytestBasic: discoverPytest(normalized, roots),
     tools: {
-      typescript: discoverNodeTool(normalized, allManifests, "typescript"),
-      eslint: discoverNodeTool(normalized, allManifests, "eslint"),
-      vitest: discoverNodeTool(normalized, allManifests, "vitest"),
-      jest: discoverNodeTool(normalized, allManifests, "jest"),
+      typescript: discoverNodeTool(normalized, scopedManifests, "typescript", roots),
+      eslint: discoverNodeTool(normalized, scopedManifests, "eslint", roots),
+      vitest: discoverNodeTool(normalized, scopedManifests, "vitest", roots),
+      jest: discoverNodeTool(normalized, scopedManifests, "jest", roots),
     },
   };
 }

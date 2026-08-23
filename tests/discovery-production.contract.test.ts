@@ -245,6 +245,32 @@ describe("T034 production discovery", () => {
     });
   });
 
+  it("ignores undeclared nested packages outside the declared project/workspace scope", () => {
+    const discovery = discoverProjectFromFiles({
+      "package.json": JSON.stringify({
+        name: "root",
+        private: true,
+        devDependencies: { vitest: "4.1.10" },
+      }),
+      "examples/demo/package.json": JSON.stringify({
+        name: "demo",
+        private: true,
+        devDependencies: { jest: "30.0.0" },
+      }),
+      "examples/demo/jest.config.js": "export default {};\n",
+      "examples/demo/node_modules/.bin/jest": "",
+    });
+
+    expect(discovery.jsTestRunner).toEqual({
+      state: "resolved",
+      value: "vitest",
+      sourcePaths: ["package.json"],
+    });
+    expect(discovery.tools.jest.declarationPaths).toEqual([]);
+    expect(discovery.tools.jest.localExecutablePaths).toEqual([]);
+    expect(discovery.tools.jest.configPaths).toEqual([]);
+  });
+
   it("treats unsupported JS runners as absent rather than relabeling them", () => {
     const discovery = discoverProjectFromFiles({
       "package.json": JSON.stringify({
