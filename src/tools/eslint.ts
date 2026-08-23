@@ -100,6 +100,15 @@ function basename(path: string): string {
   return index < 0 ? path : path.slice(index + 1);
 }
 
+function relativeFromRoot(root: string, path: string): string {
+  if (root === "") return path;
+  const from = root.split("/");
+  const to = path.split("/");
+  let common = 0;
+  while (common < from.length && common < to.length && from[common] === to[common]) common += 1;
+  return [...from.slice(common).map(() => ".."), ...to.slice(common)].join("/") || ".";
+}
+
 function packageDirectory(manifestPath: string): string | null {
   return manifestPath === "package.json" ? null : dirname(manifestPath);
 }
@@ -394,6 +403,13 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
   }
 
   const configRoot = dirname(configPath);
+  if (group.root !== "" && group.root !== configRoot) {
+    return notRun(
+      "tool_scope_ambiguous",
+      "The only project-local ESLint executable is outside both the repository root and the selected config root.",
+    );
+  }
+
   const selectedPaths = changedPaths.filter((path) => pathWithinRoot(path, configRoot));
   if (selectedPaths.length === 0) return null;
   if (selectedPaths.length !== changedPaths.length) {
@@ -403,17 +419,23 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
     );
   }
 
+  const workingDirectory = configRoot === "" ? null : configRoot;
+  const argvRoot = configRoot;
+  const executableArg = relativeFromRoot(argvRoot, executable);
+  const configArg = relativeFromRoot(argvRoot, configPath);
+  const selectedArgs = selectedPaths.map((path) => relativeFromRoot(argvRoot, path));
+
   return planned(
     "discovery",
     configPath,
-    [executable, "--config", configPath, "--", ...selectedPaths],
+    [executableArg, "--config", configArg, "--", ...selectedArgs],
     "local_eslint",
-    null,
+    workingDirectory,
     configPath,
     "changed_files",
     configRoot === "" ? null : configRoot,
     selectedPaths,
-    "T036 narrowed ESLint to the changed supported JavaScript/TypeScript files listed in selectedPaths.",
+    "T036 narrowed ESLint to the changed supported JavaScript/TypeScript files listed in selectedPaths; workspace config execution is rooted at scopeRoot so relative config patterns retain repository semantics.",
   );
 }
 
