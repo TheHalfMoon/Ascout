@@ -72,6 +72,7 @@ const LINT_SCRIPT = "lint";
 const ESLINT_DISCOVERY_SUFFIXES = ["", ".cmd", ".exe", ".ps1"] as const;
 const ESLINT_LAUNCH_SUFFIX_PRIORITY = ["", ".cmd", ".exe"] as const;
 const LINTABLE_SOURCE = /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$/u;
+const FLAT_ESLINT_CONFIG = /^eslint\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u;
 const CANONICAL_REPOSITORY_PATH =
   /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
@@ -92,6 +93,11 @@ function sortedUnique(values: readonly string[]): readonly string[] {
 function dirname(path: string): string {
   const index = path.lastIndexOf("/");
   return index < 0 ? "" : path.slice(0, index);
+}
+
+function basename(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index < 0 ? path : path.slice(index + 1);
 }
 
 function packageDirectory(manifestPath: string): string | null {
@@ -378,6 +384,15 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
   }
 
   const configPath = tool.configPaths[0]!;
+  if (!FLAT_ESLINT_CONFIG.test(basename(configPath))) {
+    return notRun(
+      "config_unsupported",
+      "Direct changed-file ESLint planning requires eslint.config.* flat config; legacy .eslintrc* requires a repository lint script or explicit override.",
+      "repo_config",
+      configPath,
+    );
+  }
+
   const configRoot = dirname(configPath);
   const selectedPaths = changedPaths.filter((path) => pathWithinRoot(path, configRoot));
   if (selectedPaths.length === 0) return null;
