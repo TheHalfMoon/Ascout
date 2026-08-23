@@ -101,11 +101,32 @@ function schemaArray(value: unknown, path: string): readonly unknown[] {
   return value;
 }
 
+function isJsonSchemaType(value: unknown): value is JsonSchemaType {
+  return value === "array" || value === "boolean" || value === "integer" || value === "null" ||
+    value === "number" || value === "object" || value === "string";
+}
+
+function parseTypes(value: unknown, path = "type"): readonly JsonSchemaType[] {
+  const raw = Array.isArray(value) ? value : [value];
+  if (raw.length === 0 || raw.some((item) => !isJsonSchemaType(item))) {
+    throw new Error(`${path}: unsupported JSON Schema type ${JSON.stringify(value)}`);
+  }
+  if (new Set(raw).size !== raw.length) {
+    throw new Error(`${path}: JSON Schema type entries must be unique`);
+  }
+  return raw;
+}
+
 function assertSupportedSchema(schema: JsonSchema, path: string): void {
   for (const key of Object.keys(schema)) {
     if (!SUPPORTED_SCHEMA_KEYWORDS.has(key)) {
       throw new Error(`${path}: unsupported JSON Schema keyword ${JSON.stringify(key)}`);
     }
+  }
+
+  if (schema.type !== undefined) parseTypes(schema.type, `${path}.type`);
+  if (schema.additionalProperties !== undefined && typeof schema.additionalProperties !== "boolean") {
+    throw new Error(`${path}.additionalProperties: only boolean additionalProperties is supported`);
   }
 
   if (schema.properties !== undefined) {
@@ -195,13 +216,6 @@ function matchesType(value: unknown, type: JsonSchemaType): boolean {
   }
 }
 
-function parseTypes(value: unknown): readonly JsonSchemaType[] {
-  const raw = Array.isArray(value) ? value : [value];
-  return raw.filter((item): item is JsonSchemaType =>
-    item === "array" || item === "boolean" || item === "integer" || item === "null" ||
-    item === "number" || item === "object" || item === "string");
-}
-
 function resolveLocalRef(root: JsonSchema, ref: string): JsonSchema {
   if (!ref.startsWith("#/")) throw new Error(`unsupported non-local JSON Schema ref: ${ref}`);
   let current: unknown = root;
@@ -234,7 +248,7 @@ function validateAgainstSchema(
 
   if (schema.type !== undefined) {
     const types = parseTypes(schema.type);
-    if (types.length === 0 || !types.some((type) => matchesType(value, type))) {
+    if (!types.some((type) => matchesType(value, type))) {
       addSchemaIssue(issues, path, "type", `must match JSON Schema type ${JSON.stringify(schema.type)}`);
       return;
     }
