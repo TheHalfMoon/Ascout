@@ -38,9 +38,9 @@ interface AdmissionDecision {
   readonly changed_authority_paths: readonly string[];
   readonly execution_admission: ExecutionAdmission;
   readonly launch_allowed: boolean;
-  readonly status: TaskStatus;
-  readonly reason_code: ReasonCode;
-  readonly reason_text: string | null;
+  readonly status?: "NOT_RUN";
+  readonly reason_code?: "command_surface_changed";
+  readonly reason_text?: string;
 }
 
 interface ExecutionProbes {
@@ -101,9 +101,6 @@ function runAdmissionGate(
     changed_authority_paths: [],
     execution_admission: "normal",
     launch_allowed: true,
-    status: null,
-    reason_code: null,
-    reason_text: null,
   };
 }
 
@@ -125,6 +122,24 @@ function pytestMarker(path: (typeof PYTEST_CONFIG_FORMS)[number]): string {
     : path === "setup.cfg"
       ? "[tool:pytest]"
       : "[pytest]";
+}
+
+function expectedAdmissionFields(
+  expected: AdmissionExpectation,
+): Omit<AdmissionDecision, "reason_text"> {
+  const {
+    effective_pytest_config: _effectivePytestConfig,
+    status,
+    reason_code: reasonCode,
+    ...base
+  } = expected;
+
+  if (status === null && reasonCode === null) return base;
+  if (status === "NOT_RUN" && reasonCode === "command_surface_changed") {
+    return { ...base, status, reason_code: reasonCode };
+  }
+
+  throw new Error("fixture refusal fields must both be present or both be null");
 }
 
 describe("T028 command-provenance/admission integration matrix", () => {
@@ -241,8 +256,7 @@ describe("T028 command-provenance/admission integration matrix", () => {
         },
       });
 
-      const { effective_pytest_config: _effectivePytestConfig, ...expectedAdmission } = fixture.expected;
-      expect(decision).toMatchObject(expectedAdmission);
+      expect(decision).toMatchObject(expectedAdmissionFields(fixture.expected));
       expect(decision.reason_text?.length).toBeGreaterThan(0);
       expect(authorityLoads).toBe(0);
       expect(processLaunches).toBe(0);
@@ -264,9 +278,10 @@ describe("T028 command-provenance/admission integration matrix", () => {
         },
       });
 
-      const { effective_pytest_config: _effectivePytestConfig, ...expectedAdmission } = fixture.expected;
-      expect(decision).toMatchObject(expectedAdmission);
-      expect(decision.reason_text).toBeNull();
+      expect(decision).toMatchObject(expectedAdmissionFields(fixture.expected));
+      expect("status" in decision).toBe(false);
+      expect("reason_code" in decision).toBe(false);
+      expect("reason_text" in decision).toBe(false);
       expect(loaded).toEqual(fixture.executionLoadPaths);
       expect(processLaunches).toBe(1);
     }
