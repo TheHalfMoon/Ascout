@@ -30,6 +30,20 @@
       }
     },
     {
+      "id": "explicit-pnpm-conflicting-npm-lockfile",
+      "purpose": "valid root packageManager declaration takes precedence over a conflicting npm lockfile",
+      "files": {
+        "package.json": "{\n  \"name\": \"fixture-explicit-pnpm-conflict\",\n  \"private\": true,\n  \"packageManager\": \"pnpm@10.15.0\"\n}\n",
+        "package-lock.json": "{\n  \"name\": \"fixture-explicit-pnpm-conflict\",\n  \"lockfileVersion\": 3,\n  \"requires\": true,\n  \"packages\": {}\n}\n"
+      },
+      "expected": {
+        "packageManager": "pnpm",
+        "workspace": "single",
+        "jsTestRunner": null,
+        "pytestBasic": false
+      }
+    },
+    {
       "id": "explicit-yarn",
       "purpose": "valid root packageManager declaration selects yarn",
       "files": {

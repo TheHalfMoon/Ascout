@@ -69,8 +69,25 @@ describe("T027 discovery fixture contract", () => {
       const fixture = catalog.cases.find((candidate) => candidate.id === `explicit-${manager}`);
       expect(fixture).toBeDefined();
       expect(fixture?.expected.packageManager).toBe(manager);
-      expect(packageJson(fixture!)?.packageManager).toMatch(new RegExp(`^${manager}@[0-9]+\\.[0-9]+\\.[0-9]+`));
+      const declaration = packageJson(fixture!)?.packageManager;
+      const exactDeclaration = new RegExp(`^${manager}@[0-9]+\\.[0-9]+\\.[0-9]+$`);
+      expect(declaration).toMatch(exactDeclaration);
+      expect(exactDeclaration.test(`${String(declaration)}garbage`)).toBe(false);
     }
+  });
+
+  it("gives a valid root packageManager declaration precedence over a conflicting lockfile", () => {
+    const catalog = loadCatalog();
+    const fixture = catalog.cases.find(
+      (candidate) => candidate.id === "explicit-pnpm-conflicting-npm-lockfile",
+    );
+
+    expect(fixture).toBeDefined();
+    expect(packageJson(fixture!)?.packageManager).toBe("pnpm@10.15.0");
+    expect(RECOGNIZED_LOCKFILES.filter((path) => path in fixture!.files)).toEqual([
+      "package-lock.json",
+    ]);
+    expect(fixture?.expected.packageManager).toBe("pnpm");
   });
 
   it("covers unambiguous lockfile fallback and multiple-lockfile ambiguity", () => {
