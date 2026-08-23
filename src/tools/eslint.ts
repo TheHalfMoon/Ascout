@@ -342,7 +342,7 @@ function pathWithinRoot(path: string, root: string): boolean {
 
 function changedLintablePaths(changedFiles: readonly GitChangedFile[]): readonly string[] | UnresolvedESLintTask {
   for (const file of changedFiles) {
-    if (!CANONICAL_REPOSITORY_PATH.test(file.path)) {
+    if (file.path.includes("\0") || !CANONICAL_REPOSITORY_PATH.test(file.path)) {
       return notRun(
         "changed_path_invalid",
         "Changed-file paths supplied to ESLint planning must already be canonical repository-relative paths.",
