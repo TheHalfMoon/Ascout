@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -32,6 +32,11 @@ interface MissingCapabilityFixtureCase {
 
 interface MissingCapabilityFixtureCatalog {
   readonly version: 1;
+  readonly production_binding: {
+    readonly state: "deferred";
+    readonly task: "T034";
+    readonly entry_point: "src/discovery.ts";
+  };
   readonly cases: readonly MissingCapabilityFixtureCase[];
 }
 
@@ -44,6 +49,7 @@ const RECEIPT_SCHEMA_URL = new URL(
   "../specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json",
   import.meta.url,
 );
+const DEFERRED_PRODUCTION_ENTRY_URL = new URL("../src/discovery.ts", import.meta.url);
 const SUPPORTED_TASK_TYPES = ["typecheck", "lint", "test", "pytestBasic"] as const;
 const SUPPORTED_BLOCKER_KINDS = ["missing_tool", "missing_config"] as const;
 const TASK_SCRIPT_NAME: Readonly<Partial<Record<TaskType, string>>> = {
@@ -101,6 +107,16 @@ function stringMap(value: unknown, label: string): Readonly<Record<string, strin
 function parseCatalog(value: unknown): MissingCapabilityFixtureCatalog {
   const root = record(value, "catalog");
   if (root.version !== 1) throw new Error("catalog.version must be 1");
+  const productionBinding = record(root.production_binding, "catalog.production_binding");
+  if (productionBinding.state !== "deferred") {
+    throw new Error("catalog.production_binding.state must be deferred");
+  }
+  if (productionBinding.task !== "T034") {
+    throw new Error("catalog.production_binding.task must be T034");
+  }
+  if (productionBinding.entry_point !== "src/discovery.ts") {
+    throw new Error("catalog.production_binding.entry_point must be src/discovery.ts");
+  }
   if (!Array.isArray(root.cases)) throw new Error("catalog.cases must be an array");
 
   const cases = root.cases.map((rawCase, index): MissingCapabilityFixtureCase => {
@@ -139,7 +155,15 @@ function parseCatalog(value: unknown): MissingCapabilityFixtureCatalog {
     };
   });
 
-  return { version: 1, cases };
+  return {
+    version: 1,
+    production_binding: {
+      state: "deferred",
+      task: "T034",
+      entry_point: "src/discovery.ts",
+    },
+    cases,
+  };
 }
 
 function loadCatalog(): MissingCapabilityFixtureCatalog {
@@ -227,7 +251,7 @@ function missingTaskResult(fixture: MissingCapabilityFixtureCase): TaskResultV1 
   };
 }
 
-function resolveMissingCapabilityContract(
+function modelMissingCapabilityContract(
   fixture: MissingCapabilityFixtureCase,
   probe: LaunchProbe,
 ): TaskResultV1 {
@@ -263,6 +287,17 @@ function assertHonestNotRun(task: TaskResultV1): void {
 }
 
 describe("T031 missing tool/config contract", () => {
+  it("enforces the deferred production binding to T034 before modeling missing capabilities", () => {
+    const catalog = loadCatalog();
+    expect(catalog.production_binding).toEqual({
+      state: "deferred",
+      task: "T034",
+      entry_point: "src/discovery.ts",
+    });
+    expect(fileURLToPath(DEFERRED_PRODUCTION_ENTRY_URL).endsWith("src/discovery.ts")).toBe(true);
+    expect(existsSync(fileURLToPath(DEFERRED_PRODUCTION_ENTRY_URL))).toBe(false);
+  });
+
   it("uses a runtime-validated, versioned corpus with concrete missing-capability evidence", () => {
     const catalog = loadCatalog();
     expect(catalog.version).toBe(1);
@@ -299,13 +334,19 @@ describe("T031 missing tool/config contract", () => {
     expect(observedKinds).toEqual(new Set<BlockerKind>(["missing_tool", "missing_config"]));
   });
 
-  it("rejects malformed fixture task and capability metadata before contract evaluation", () => {
+  it("rejects malformed fixture task, capability, or production-binding metadata before contract evaluation", () => {
     const valid = JSON.parse(readFileSync(FIXTURE_CATALOG_URL, "utf8")) as {
       version: number;
+      production_binding: Record<string, unknown>;
       cases: Array<Record<string, unknown>>;
     };
     const first = valid.cases[0];
     expect(first).toBeDefined();
+
+    expect(() => parseCatalog({
+      ...valid,
+      production_binding: { ...valid.production_binding, task: "T035" },
+    })).toThrow("catalog.production_binding.task must be T034");
 
     expect(() => parseCatalog({
       ...valid,
@@ -339,7 +380,7 @@ describe("T031 missing tool/config contract", () => {
       expect(Object.keys(probe)).toEqual(["launchProcess"]);
       expect("installDependency" in probe).toBe(false);
 
-      const task = resolveMissingCapabilityContract(fixture, probe);
+      const task = modelMissingCapabilityContract(fixture, probe);
       assertHonestNotRun(task);
       expect(task).toMatchObject(fixture.expected);
       expect(Object.keys(task).sort()).toEqual(requiredFields);
@@ -370,7 +411,7 @@ describe("T031 missing tool/config contract", () => {
       },
     };
 
-    expect(() => resolveMissingCapabilityContract(runnableControl, probe)).toThrow("live launch probe reached");
+    expect(() => modelMissingCapabilityContract(runnableControl, probe)).toThrow("live launch probe reached");
     expect(launchCalls).toBe(1);
     expect("installDependency" in probe).toBe(false);
   });
@@ -379,7 +420,7 @@ describe("T031 missing tool/config contract", () => {
     const fixture = loadCatalog().cases[0];
     expect(fixture).toBeDefined();
 
-    const task = resolveMissingCapabilityContract(fixture!, {
+    const task = modelMissingCapabilityContract(fixture!, {
       launchProcess: () => {
         throw new Error("unexpected launch");
       },
