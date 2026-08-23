@@ -89,6 +89,32 @@ describe("T035 TypeScript task planning", () => {
     });
   });
 
+  it("rejects TypeScript command overrides that process control cannot safely accept", () => {
+    const files = {
+      "package.json": packageJson({ name: "fixture", private: true }),
+    };
+    const invalidCommands = [
+      [""],
+      ["custom-typecheck\0", "--strict"],
+    ] as const;
+
+    for (const command of invalidCommands) {
+      const config = parseConfigV1({
+        version: 1,
+        tasks: { typecheck: { command } },
+      });
+
+      expect(plan(files, config)).toMatchObject({
+        state: "not_run",
+        authorizedBy: "user_config",
+        sourcePath: "ascout.config.json",
+        argv: [],
+        commandSource: null,
+        reasonCode: "override_command_invalid",
+      });
+    }
+  });
+
   it("treats an explicit disable as stronger than every command source", () => {
     const files = {
       "package.json": packageJson(configuredPackage({
