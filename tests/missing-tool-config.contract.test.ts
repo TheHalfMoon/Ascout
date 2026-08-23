@@ -314,7 +314,7 @@ describe("T031 missing tool/config contract after T034 production binding", () =
       task: "T034",
       entry_point: "src/discovery.ts",
     });
-    expect(fileURLToPath(PRODUCTION_ENTRY_URL).endsWith("src/discovery.ts")).toBe(true);
+    expect(PRODUCTION_ENTRY_URL.pathname.endsWith("src/discovery.ts")).toBe(true);
     expect(existsSync(fileURLToPath(PRODUCTION_ENTRY_URL))).toBe(true);
 
     const discovery = discoverProjectFromFiles(catalog.cases[0]!.files);

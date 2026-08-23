@@ -1,6 +1,12 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import type { Dirent } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 export const FIXED_SEMANTIC_TASKS = ["typecheck", "lint", "test", "pytestBasic"] as const;
 
@@ -104,10 +110,23 @@ const TOOL_METADATA = {
 const EXECUTABLE_SUFFIXES = ["", ".cmd", ".exe", ".ps1"] as const;
 const SIMPLE_WORKSPACE_STAR = /^([^*?\[\]{}]+)\/\*$/;
 const CANONICAL_PATH =
-  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/]+(?:\/[^/]+)*$/;
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/;
+const MAX_DISCOVERY_FILE_BYTES = 1024 * 1024;
+const MAX_DISCOVERY_ENTRIES = 20_000;
+const CONTENT_REQUIRED_NAMES = new Set([
+  "package.json",
+  "pnpm-workspace.yaml",
+  "pyproject.toml",
+  "setup.cfg",
+  "tox.ini",
+]);
+
+function compareStrings(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
 
 function sortedUnique(values: readonly string[]): readonly string[] {
-  return [...new Set(values)].sort();
+  return [...new Set(values)].sort(compareStrings);
 }
 
 function isRecord(value: unknown): value is JsonRecord {
@@ -154,7 +173,7 @@ function manifests(files: Readonly<Record<string, string>>): readonly PackageMan
       }
       return { path, value, invalid: false };
     })
-    .sort((left, right) => left.path.localeCompare(right.path));
+    .sort((left, right) => compareStrings(left.path, right.path));
 }
 
 function dependencyNames(manifest: PackageManifest): ReadonlySet<string> {
@@ -235,6 +254,7 @@ function pnpmWorkspacePatterns(raw: string): readonly string[] | null {
   const result: string[] = [];
   let packagesSeen = false;
   for (const line of raw.split(/\r?\n/u)) {
+    if (line.trimStart().startsWith("#")) continue;
     const cleaned = line.replace(/\s+#.*$/u, "").trimEnd();
     if (cleaned.trim().length === 0) continue;
     if (!packagesSeen) {
@@ -251,10 +271,11 @@ function pnpmWorkspacePatterns(raw: string): readonly string[] | null {
 }
 
 function workspacePatternSupported(pattern: string): boolean {
-  return (
-    (!pattern.includes("*") && !/[?\[\]{}]/u.test(pattern)) ||
-    SIMPLE_WORKSPACE_STAR.test(pattern)
-  );
+  if (!pattern.includes("*") && !/[?\[\]{}]/u.test(pattern)) {
+    return CANONICAL_PATH.test(pattern);
+  }
+  const prefix = SIMPLE_WORKSPACE_STAR.exec(pattern)?.[1];
+  return prefix !== undefined && CANONICAL_PATH.test(prefix);
 }
 
 function workspacePatternMatches(path: string, pattern: string): boolean {
@@ -311,7 +332,7 @@ function discoverWorkspace(
       packageJsonPaths: root === undefined ? [] : ["package.json"],
       sourcePaths,
       reasonCode: "workspace_declaration_unsupported",
-      reasonText: "Basic workspace discovery supports literal paths and one-segment trailing /* patterns only.",
+      reasonText: "Basic workspace discovery supports canonical literal paths and one-segment trailing /* patterns only.",
     };
   }
 
@@ -351,7 +372,7 @@ function discoverRunner(allManifests: readonly PackageManifest[]): DiscoveryReso
   if (candidates.length > 1) {
     return {
       state: "ambiguous",
-      candidates: [...candidates].sort(),
+      candidates: [...candidates].sort(compareStrings),
       reasonCode: "js_test_runner_ambiguous",
       reasonText: "Both Vitest and Jest are declared in the discovered project scope.",
       sourcePaths: sortedUnique(candidates.flatMap((runner) => sources[runner])),
@@ -434,7 +455,7 @@ function discoverNodeTool(
     declarationPaths: allManifests
       .filter((manifest) => dependencyNames(manifest).has(metadata.packageName))
       .map(({ path }) => path)
-      .sort(),
+      .sort(compareStrings),
     localExecutablePaths: executablePaths(files, metadata.binName, roots),
     configPaths: configPaths(files, tool, allManifests, roots),
   };
@@ -517,6 +538,50 @@ function repositoryPath(root: string, absolutePath: string): string {
   return path;
 }
 
+function containedByRoot(root: string, realPath: string): boolean {
+  const candidate = relative(root, realPath);
+  return candidate === "" || (!isAbsolute(candidate) && candidate !== ".." && !candidate.startsWith(`..${sep}`));
+}
+
+function realPathWithinRoot(root: string, absolutePath: string, sourcePath: string): string {
+  let realPath: string;
+  try {
+    realPath = realpathSync(absolutePath);
+  } catch {
+    throw new DiscoveryError("repository_read_error", `unable to resolve ${sourcePath}`, sourcePath);
+  }
+  if (!containedByRoot(root, realPath)) {
+    throw new DiscoveryError(
+      "repository_read_error",
+      `discovery path resolves outside the repository: ${sourcePath}`,
+      sourcePath,
+    );
+  }
+  return realPath;
+}
+
+function readBoundedText(root: string, absolutePath: string, sourcePath: string): string {
+  const realPath = realPathWithinRoot(root, absolutePath, sourcePath);
+  let size: number;
+  try {
+    size = statSync(realPath).size;
+  } catch {
+    throw new DiscoveryError("repository_read_error", `unable to inspect ${sourcePath}`, sourcePath);
+  }
+  if (size > MAX_DISCOVERY_FILE_BYTES) {
+    throw new DiscoveryError(
+      "repository_read_error",
+      `discovery metadata exceeds ${MAX_DISCOVERY_FILE_BYTES} bytes: ${sourcePath}`,
+      sourcePath,
+    );
+  }
+  try {
+    return readFileSync(realPath, "utf8");
+  } catch {
+    throw new DiscoveryError("repository_read_error", `unable to read ${sourcePath}`, sourcePath);
+  }
+}
+
 function collectFiles(root: string): DiscoveryFileMap {
   const result: Record<string, string> = {};
   const ignoredDirectories = new Set([".git", ".ascout"]);
@@ -531,6 +596,40 @@ function collectFiles(root: string): DiscoveryFileMap {
     "setup.cfg",
     "tox.ini",
   ]);
+  let seenEntries = 0;
+
+  function noteEntry(): void {
+    seenEntries += 1;
+    if (seenEntries > MAX_DISCOVERY_ENTRIES) {
+      throw new DiscoveryError(
+        "repository_read_error",
+        `discovery entry limit exceeded (${MAX_DISCOVERY_ENTRIES})`,
+      );
+    }
+  }
+
+  function relevantName(name: string): boolean {
+    return (
+      knownNames.has(name) ||
+      /^tsconfig(?:\.[^/]+)?\.json$/u.test(name) ||
+      /^eslint\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name) ||
+      /^\.eslintrc(?:\.(?:js|cjs|json|yaml|yml))?$/u.test(name) ||
+      /^vitest\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name) ||
+      /^jest\.config\.(?:js|mjs|cjs|ts|json)$/u.test(name)
+    );
+  }
+
+  function addExecutable(absolute: string): void {
+    if (!existsSync(absolute)) return;
+    const sourcePath = repositoryPath(root, absolute);
+    const realPath = realPathWithinRoot(root, absolute, sourcePath);
+    try {
+      if (!statSync(realPath).isFile()) return;
+    } catch {
+      throw new DiscoveryError("repository_read_error", `unable to inspect ${sourcePath}`, sourcePath);
+    }
+    result[sourcePath] = "";
+  }
 
   function visit(directory: string): void {
     let entries: readonly Dirent[];
@@ -541,6 +640,7 @@ function collectFiles(root: string): DiscoveryFileMap {
     }
 
     for (const entry of entries) {
+      noteEntry();
       if (entry.isDirectory()) {
         if (ignoredDirectories.has(entry.name)) continue;
         if (entry.name === "node_modules") {
@@ -548,8 +648,7 @@ function collectFiles(root: string): DiscoveryFileMap {
           if (!existsSync(bin)) continue;
           for (const metadata of Object.values(TOOL_METADATA)) {
             for (const suffix of EXECUTABLE_SUFFIXES) {
-              const absolute = join(bin, `${metadata.binName}${suffix}`);
-              if (existsSync(absolute)) result[repositoryPath(root, absolute)] = "";
+              addExecutable(join(bin, `${metadata.binName}${suffix}`));
             }
           }
           continue;
@@ -558,24 +657,16 @@ function collectFiles(root: string): DiscoveryFileMap {
         continue;
       }
       if (!entry.isFile() && !entry.isSymbolicLink()) continue;
+      if (!relevantName(entry.name)) continue;
 
-      const name = entry.name;
-      const relevant =
-        knownNames.has(name) ||
-        /^tsconfig(?:\.[^/]+)?\.json$/u.test(name) ||
-        /^eslint\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name) ||
-        /^\.eslintrc(?:\.(?:js|cjs|json|yaml|yml))?$/u.test(name) ||
-        /^vitest\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name) ||
-        /^jest\.config\.(?:js|mjs|cjs|ts|json)$/u.test(name);
-      if (!relevant) continue;
-
-      const absolute = join(directory, name);
-      const path = repositoryPath(root, absolute);
-      try {
-        result[path] = readFileSync(absolute, "utf8");
-      } catch {
-        throw new DiscoveryError("repository_read_error", `unable to read ${path}`, path);
+      const absolute = join(directory, entry.name);
+      const sourcePath = repositoryPath(root, absolute);
+      if (entry.isSymbolicLink()) {
+        realPathWithinRoot(root, absolute, sourcePath);
       }
+      result[sourcePath] = CONTENT_REQUIRED_NAMES.has(entry.name)
+        ? readBoundedText(root, absolute, sourcePath)
+        : "";
     }
   }
 
@@ -584,8 +675,10 @@ function collectFiles(root: string): DiscoveryFileMap {
 }
 
 export function discoverProject(repositoryRoot: string): ProjectDiscovery {
-  const root = resolve(repositoryRoot);
+  const requestedRoot = resolve(repositoryRoot);
+  let root: string;
   try {
+    root = realpathSync(requestedRoot);
     if (!statSync(root).isDirectory()) {
       throw new DiscoveryError("invalid_repository_root", "repository root must be an existing directory");
     }
