@@ -448,6 +448,7 @@ export function planESLintTask(input: ESLintTaskPlanningInput): ESLintTaskPlan {
 
   const local = planLocalChangedFiles(input);
   if (local?.state === "planned") return local;
+  if (local?.state === "not_run" && local.reasonCode === "changed_path_invalid") return local;
 
   const script = resolveScriptCandidate(input);
   if (script !== null) {
