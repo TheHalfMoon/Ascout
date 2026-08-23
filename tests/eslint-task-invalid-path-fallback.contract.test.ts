@@ -15,21 +15,35 @@ function changed(path: string): GitChangedFile {
 }
 
 describe("T036 invalid changed-path fallback", () => {
-  it("does not let a package lint script bypass a noncanonical changed-file path", () => {
-    const files = {
-      "package.json": JSON.stringify({
-        name: "fixture",
-        private: true,
-        packageManager: "npm@11.0.0",
-        scripts: { lint: "eslint ." },
-      }),
-    };
+  const files = {
+    "package.json": JSON.stringify({
+      name: "fixture",
+      private: true,
+      packageManager: "npm@11.0.0",
+      scripts: { lint: "eslint ." },
+    }),
+  };
 
+  it("does not let a package lint script bypass a noncanonical changed-file path", () => {
     expect(planESLintTask({
       config: parseConfigV1({ version: 1 }),
       discovery: discoverProjectFromFiles(files),
       files,
       changedFiles: [changed("src//app.ts")],
+    })).toMatchObject({
+      state: "not_run",
+      argv: [],
+      commandSource: null,
+      reasonCode: "changed_path_invalid",
+    });
+  });
+
+  it("rejects NUL bytes before they can reach local or package-script argv", () => {
+    expect(planESLintTask({
+      config: parseConfigV1({ version: 1 }),
+      discovery: discoverProjectFromFiles(files),
+      files,
+      changedFiles: [changed("src/app\0.ts")],
     })).toMatchObject({
       state: "not_run",
       argv: [],
