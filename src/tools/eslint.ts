@@ -422,7 +422,12 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
   }
 
   const selectedPaths = changedPaths.filter((path) => pathWithinRoot(path, configRoot));
-  if (selectedPaths.length === 0) return null;
+  if (selectedPaths.length === 0) {
+    return notRun(
+      "lint_scope_ambiguous",
+      "The only discovered ESLint config does not cover the changed supported JavaScript/TypeScript files.",
+    );
+  }
   if (selectedPaths.length !== changedPaths.length) {
     return notRun(
       "lint_scope_ambiguous",
