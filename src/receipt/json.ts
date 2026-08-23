@@ -10,6 +10,11 @@ import {
 type JsonRecord = Record<string, unknown>;
 type JsonSchema = Record<string, unknown>;
 type JsonSchemaType = "array" | "boolean" | "integer" | "null" | "number" | "object" | "string";
+type LocalSchemaRef = {
+  readonly path: string;
+  readonly ref: string;
+};
+
 
 export interface ReceiptSchemaIssue {
   readonly path: string;
@@ -202,7 +207,13 @@ function parseTypes(value: unknown, path = "type"): readonly JsonSchemaType[] {
   return raw;
 }
 
-function assertSupportedSchema(schema: JsonSchema, path: string, root: JsonSchema): void {
+function assertSupportedSchema(
+  schema: JsonSchema,
+  path: string,
+  schemaNodes: Set<JsonSchema>,
+  localRefs: LocalSchemaRef[],
+): void {
+  schemaNodes.add(schema);
   for (const key of Object.keys(schema)) {
     if (!SUPPORTED_SCHEMA_KEYWORDS.has(key)) {
       throw new Error(`${path}: unsupported JSON Schema keyword ${JSON.stringify(key)}`);
@@ -219,7 +230,7 @@ function assertSupportedSchema(schema: JsonSchema, path: string, root: JsonSchem
     if (typeof schema.$ref !== "string" || !schema.$ref.startsWith("#/")) {
       throw new Error(`${path}.$ref: only local string refs are supported`);
     }
-    resolveLocalRef(root, schema.$ref);
+    localRefs.push({ path: `${path}.$ref`, ref: schema.$ref });
   }
   for (const keyword of ["$comment", "title"] as const) {
     if (schema[keyword] !== undefined && typeof schema[keyword] !== "string") {
@@ -288,19 +299,19 @@ function assertSupportedSchema(schema: JsonSchema, path: string, root: JsonSchem
   if (schema.properties !== undefined) {
     const properties = schemaRecord(schema.properties, `${path}.properties`);
     for (const [name, child] of Object.entries(properties)) {
-      assertSupportedSchema(schemaRecord(child, `${path}.properties.${name}`), `${path}.properties.${name}`, root);
+      assertSupportedSchema(schemaRecord(child, `${path}.properties.${name}`), `${path}.properties.${name}`, schemaNodes, localRefs);
     }
   }
 
   if (schema.$defs !== undefined) {
     const definitions = schemaRecord(schema.$defs, `${path}.$defs`);
     for (const [name, child] of Object.entries(definitions)) {
-      assertSupportedSchema(schemaRecord(child, `${path}.$defs.${name}`), `${path}.$defs.${name}`, root);
+      assertSupportedSchema(schemaRecord(child, `${path}.$defs.${name}`), `${path}.$defs.${name}`, schemaNodes, localRefs);
     }
   }
 
   if (schema.items !== undefined && typeof schema.items !== "boolean") {
-    assertSupportedSchema(schemaRecord(schema.items, `${path}.items`), `${path}.items`, root);
+    assertSupportedSchema(schemaRecord(schema.items, `${path}.items`), `${path}.items`, schemaNodes, localRefs);
   }
 
   if (schema.prefixItems !== undefined) {
@@ -309,7 +320,7 @@ function assertSupportedSchema(schema: JsonSchema, path: string, root: JsonSchem
       throw new Error(`${path}.prefixItems: JSON Schema keyword must contain at least one schema`);
     }
     for (const [index, child] of prefixItems.entries()) {
-      assertSupportedSchema(schemaRecord(child, `${path}.prefixItems[${index}]`), `${path}.prefixItems[${index}]`, root);
+      assertSupportedSchema(schemaRecord(child, `${path}.prefixItems[${index}]`), `${path}.prefixItems[${index}]`, schemaNodes, localRefs);
     }
   }
 
@@ -320,13 +331,13 @@ function assertSupportedSchema(schema: JsonSchema, path: string, root: JsonSchem
       throw new Error(`${path}.${keyword}: JSON Schema keyword must contain at least one schema`);
     }
     for (const [index, child] of children.entries()) {
-      assertSupportedSchema(schemaRecord(child, `${path}.${keyword}[${index}]`), `${path}.${keyword}[${index}]`, root);
+      assertSupportedSchema(schemaRecord(child, `${path}.${keyword}[${index}]`), `${path}.${keyword}[${index}]`, schemaNodes, localRefs);
     }
   }
 
   for (const keyword of ["if", "then", "else", "not"] as const) {
     if (schema[keyword] !== undefined) {
-      assertSupportedSchema(schemaRecord(schema[keyword], `${path}.${keyword}`), `${path}.${keyword}`, root);
+      assertSupportedSchema(schemaRecord(schema[keyword], `${path}.${keyword}`), `${path}.${keyword}`, schemaNodes, localRefs);
     }
   }
 }
@@ -348,7 +359,15 @@ function loadReceiptSchema(): JsonSchema {
   if (schema.$id !== RECEIPT_SCHEMA_ID) {
     throw new Error(`receipt schema id must equal ${RECEIPT_SCHEMA_ID}`);
   }
-  assertSupportedSchema(schema, "$schema", schema);
+  const schemaNodes = new Set<JsonSchema>();
+  const localRefs: LocalSchemaRef[] = [];
+  assertSupportedSchema(schema, "$schema", schemaNodes, localRefs);
+  for (const localRef of localRefs) {
+    const target = resolveLocalRef(schema, localRef.ref);
+    if (!schemaNodes.has(target)) {
+      throw new Error(`${localRef.path}: local ref must target a schema node`);
+    }
+  }
   cachedSchema = schema;
   return schema;
 }
