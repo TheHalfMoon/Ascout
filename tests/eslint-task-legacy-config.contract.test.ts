@@ -41,6 +41,31 @@ describe("T036 legacy ESLint config handling", () => {
     });
   });
 
+  it("reports legacy config unsupported before a missing local executable", () => {
+    const files = {
+      "package.json": JSON.stringify({
+        name: "fixture",
+        private: true,
+        devDependencies: { eslint: "9.0.0" },
+      }),
+      ".eslintrc.json": "",
+    };
+
+    expect(planESLintTask({
+      config: parseConfigV1({ version: 1 }),
+      discovery: discoverProjectFromFiles(files),
+      files,
+      changedFiles: [changed("src/app.ts")],
+    })).toMatchObject({
+      state: "not_run",
+      authorizedBy: "repo_config",
+      sourcePath: ".eslintrc.json",
+      argv: [],
+      commandSource: null,
+      reasonCode: "config_unsupported",
+    });
+  });
+
   it("allows a repository lint script to own legacy-config execution semantics", () => {
     const files = {
       "package.json": JSON.stringify({
