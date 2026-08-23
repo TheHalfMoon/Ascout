@@ -86,6 +86,7 @@ type JsonRecord = Record<string, unknown>;
 interface PackageManifest {
   readonly path: string;
   readonly value: JsonRecord;
+  readonly invalid: boolean;
 }
 
 const PACKAGE_MANAGER = /^(npm|pnpm|yarn)@[0-9]+\.[0-9]+\.[0-9]+$/;
@@ -140,12 +141,18 @@ function manifests(files: Readonly<Record<string, string>>): readonly PackageMan
       try {
         value = JSON.parse(raw) as unknown;
       } catch {
-        throw new DiscoveryError("invalid_package_json", `invalid JSON in ${path}`, path);
+        if (path === "package.json") {
+          throw new DiscoveryError("invalid_package_json", `invalid JSON in ${path}`, path);
+        }
+        return { path, value: {}, invalid: true };
       }
       if (!isRecord(value)) {
-        throw new DiscoveryError("invalid_package_json", `${path} must contain a JSON object`, path);
+        if (path === "package.json") {
+          throw new DiscoveryError("invalid_package_json", `${path} must contain a JSON object`, path);
+        }
+        return { path, value: {}, invalid: true };
       }
-      return { path, value };
+      return { path, value, invalid: false };
     })
     .sort((left, right) => left.path.localeCompare(right.path));
 }
@@ -478,6 +485,14 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
   const workspace = discoverWorkspace(normalized, allManifests, root);
   const packageJsonPaths = new Set(workspace.packageJsonPaths);
   const scopedManifests = allManifests.filter(({ path }) => packageJsonPaths.has(path));
+  const invalidScopedManifest = scopedManifests.find(({ invalid }) => invalid);
+  if (invalidScopedManifest !== undefined) {
+    throw new DiscoveryError(
+      "invalid_package_json",
+      `invalid JSON in ${invalidScopedManifest.path}`,
+      invalidScopedManifest.path,
+    );
+  }
   const roots = scopeRoots(workspace);
 
   return {
