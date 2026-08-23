@@ -1,0 +1,287 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "package-script-typecheck-changed",
+      "purpose": "A changed package.json script used for typecheck is command authority and must refuse before launch.",
+      "task": "typecheck",
+      "files": {
+        "package.json": "{\"name\":\"fixture\",\"scripts\":{\"typecheck\":\"tsc -p tsconfig.json --noEmit\"}}",
+        "tsconfig.json": "{\"compilerOptions\":{\"strict\":true}}\n",
+        "src/index.ts": "export const value = 1;\n"
+      },
+      "effectiveAuthorityPaths": ["package.json"],
+      "changedPaths": ["package.json"],
+      "executionLoadPaths": [],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["package.json"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": null
+      }
+    },
+    {
+      "id": "ascout-override-lint-changed",
+      "purpose": "A changed tracked Ascout argv override is command authority and must refuse before launch.",
+      "task": "lint",
+      "files": {
+        "ascout.config.json": "{\"version\":1,\"tasks\":{\"lint\":{\"argv\":[\"eslint\",\"src\"]}}}",
+        "src/index.ts": "export const value = 1;\n"
+      },
+      "effectiveAuthorityPaths": ["ascout.config.json"],
+      "changedPaths": ["ascout.config.json"],
+      "executionLoadPaths": [],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["ascout.config.json"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": null
+      }
+    },
+    {
+      "id": "typescript-root-config-changed",
+      "purpose": "The effective root TypeScript config is changed and must be refused before config evaluation or tsc launch.",
+      "task": "typecheck",
+      "files": {
+        "package.json": "{\"name\":\"fixture\",\"scripts\":{\"typecheck\":\"tsc -p tsconfig.json --noEmit\"}}",
+        "tsconfig.json": "{\"compilerOptions\":{\"strict\":true}}\n",
+        "src/index.ts": "export const value: number = 1;\n"
+      },
+      "effectiveAuthorityPaths": ["package.json", "tsconfig.json"],
+      "changedPaths": ["tsconfig.json"],
+      "executionLoadPaths": ["tsconfig.json"],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["tsconfig.json"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": null
+      }
+    },
+    {
+      "id": "typescript-extends-config-changed",
+      "purpose": "A changed TypeScript extends source participating in effective config authority must refuse before config evaluation or tsc launch.",
+      "task": "typecheck",
+      "files": {
+        "package.json": "{\"name\":\"fixture\",\"scripts\":{\"typecheck\":\"tsc -p tsconfig.json --noEmit\"}}",
+        "tsconfig.json": "{\"extends\":\"./config/tsconfig.base.json\",\"include\":[\"src\"]}\n",
+        "config/tsconfig.base.json": "{\"compilerOptions\":{\"strict\":true}}\n",
+        "src/index.ts": "export const value: number = 1;\n"
+      },
+      "effectiveAuthorityPaths": ["package.json", "tsconfig.json", "config/tsconfig.base.json"],
+      "changedPaths": ["config/tsconfig.base.json"],
+      "executionLoadPaths": ["tsconfig.json", "config/tsconfig.base.json"],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["config/tsconfig.base.json"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": null
+      }
+    },
+    {
+      "id": "eslint-config-changed",
+      "purpose": "The selected ESLint config is changed and must refuse before config module load or eslint launch.",
+      "task": "lint",
+      "files": {
+        "package.json": "{\"name\":\"fixture\",\"devDependencies\":{\"eslint\":\"9.0.0\"}}",
+        "eslint.config.js": "export default [{ files: [\"**/*.ts\"] }];\n",
+        "src/index.ts": "export const value = 1;\n"
+      },
+      "effectiveAuthorityPaths": ["package.json", "eslint.config.js"],
+      "changedPaths": ["eslint.config.js"],
+      "executionLoadPaths": ["eslint.config.js"],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["eslint.config.js"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": null
+      }
+    },
+    {
+      "id": "vitest-config-changed",
+      "purpose": "The selected Vitest config is changed and must refuse before config module load or vitest launch.",
+      "task": "test",
+      "files": {
+        "package.json": "{\"name\":\"fixture\",\"devDependencies\":{\"vitest\":\"4.1.10\"}}",
+        "vitest.config.ts": "export default { test: { environment: \"node\" } };\n",
+        "tests/example.test.ts": "export {};\n"
+      },
+      "effectiveAuthorityPaths": ["package.json", "vitest.config.ts"],
+      "changedPaths": ["vitest.config.ts"],
+      "executionLoadPaths": ["vitest.config.ts"],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["vitest.config.ts"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": null
+      }
+    },
+    {
+      "id": "jest-config-changed",
+      "purpose": "The selected Jest config is changed and must refuse before config module load or jest launch.",
+      "task": "test",
+      "files": {
+        "package.json": "{\"name\":\"fixture\",\"devDependencies\":{\"jest\":\"30.0.0\"}}",
+        "jest.config.ts": "export default { testEnvironment: \"node\" };\n",
+        "tests/example.test.ts": "export {};\n"
+      },
+      "effectiveAuthorityPaths": ["package.json", "jest.config.ts"],
+      "changedPaths": ["jest.config.ts"],
+      "executionLoadPaths": ["jest.config.ts"],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["jest.config.ts"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": null
+      }
+    },
+    {
+      "id": "pytest-pytest-ini-changed",
+      "purpose": "The effective pytestBasic config pytest.ini is changed and must refuse before pytest loads it or launches.",
+      "task": "pytestBasic",
+      "files": {
+        "pytest.ini": "[pytest]\naddopts = -q\n",
+        "tests/test_example.py": "def test_example():\n    assert True\n"
+      },
+      "effectiveAuthorityPaths": ["pytest.ini"],
+      "changedPaths": ["pytest.ini"],
+      "executionLoadPaths": ["pytest.ini"],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["pytest.ini"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": "pytest.ini"
+      }
+    },
+    {
+      "id": "pytest-pyproject-toml-changed",
+      "purpose": "The effective pytestBasic config pyproject.toml is changed and must refuse before pytest loads it or launches.",
+      "task": "pytestBasic",
+      "files": {
+        "pyproject.toml": "[tool.pytest.ini_options]\naddopts = \"-q\"\n",
+        "tests/test_example.py": "def test_example():\n    assert True\n"
+      },
+      "effectiveAuthorityPaths": ["pyproject.toml"],
+      "changedPaths": ["pyproject.toml"],
+      "executionLoadPaths": ["pyproject.toml"],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["pyproject.toml"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": "pyproject.toml"
+      }
+    },
+    {
+      "id": "pytest-setup-cfg-changed",
+      "purpose": "The effective pytestBasic config setup.cfg is changed and must refuse before pytest loads it or launches.",
+      "task": "pytestBasic",
+      "files": {
+        "setup.cfg": "[tool:pytest]\naddopts = -q\n",
+        "tests/test_example.py": "def test_example():\n    assert True\n"
+      },
+      "effectiveAuthorityPaths": ["setup.cfg"],
+      "changedPaths": ["setup.cfg"],
+      "executionLoadPaths": ["setup.cfg"],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["setup.cfg"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": "setup.cfg"
+      }
+    },
+    {
+      "id": "pytest-tox-ini-changed",
+      "purpose": "The effective pytestBasic config tox.ini is changed and must refuse before pytest loads it or launches.",
+      "task": "pytestBasic",
+      "files": {
+        "tox.ini": "[pytest]\naddopts = -q\n",
+        "tests/test_example.py": "def test_example():\n    assert True\n"
+      },
+      "effectiveAuthorityPaths": ["tox.ini"],
+      "changedPaths": ["tox.ini"],
+      "executionLoadPaths": ["tox.ini"],
+      "expected": {
+        "command_surface_changed": true,
+        "changed_authority_paths": ["tox.ini"],
+        "execution_admission": "refused_changed_surface",
+        "launch_allowed": false,
+        "status": "NOT_RUN",
+        "reason_code": "command_surface_changed",
+        "effective_pytest_config": "tox.ini"
+      }
+    },
+    {
+      "id": "pytest-non-effective-config-changed",
+      "purpose": "A changed pytest-looking file outside the effective invocation config must not create a false command-surface refusal.",
+      "task": "pytestBasic",
+      "files": {
+        "pyproject.toml": "[tool.pytest.ini_options]\naddopts = \"-q\"\n",
+        "examples/pytest.ini": "[pytest]\naddopts = -q\n",
+        "tests/test_example.py": "def test_example():\n    assert True\n"
+      },
+      "effectiveAuthorityPaths": ["pyproject.toml"],
+      "changedPaths": ["examples/pytest.ini"],
+      "executionLoadPaths": ["pyproject.toml"],
+      "expected": {
+        "command_surface_changed": false,
+        "changed_authority_paths": [],
+        "execution_admission": "normal",
+        "launch_allowed": true,
+        "status": null,
+        "reason_code": null,
+        "effective_pytest_config": "pyproject.toml"
+      }
+    },
+    {
+      "id": "unrelated-source-change",
+      "purpose": "A normal source-only change must not be confused with the selected Vitest command authority.",
+      "task": "test",
+      "files": {
+        "package.json": "{\"name\":\"fixture\",\"devDependencies\":{\"vitest\":\"4.1.10\"}}",
+        "vitest.config.ts": "export default { test: { environment: \"node\" } };\n",
+        "src/index.ts": "export const changed = true;\n"
+      },
+      "effectiveAuthorityPaths": ["package.json", "vitest.config.ts"],
+      "changedPaths": ["src/index.ts"],
+      "executionLoadPaths": ["vitest.config.ts"],
+      "expected": {
+        "command_surface_changed": false,
+        "changed_authority_paths": [],
+        "execution_admission": "normal",
+        "launch_allowed": true,
+        "status": null,
+        "reason_code": null,
+        "effective_pytest_config": null
+      }
+    }
+  ]
+}
