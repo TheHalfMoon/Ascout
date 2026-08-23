@@ -284,7 +284,7 @@ function preferredExecutable(paths: readonly string[]): string | null {
 
 function configPathsForTsc(discovery: ProjectDiscovery, root: string): readonly string[] {
   const sameRoot = discovery.tools.typescript.configPaths.filter((path) => dirname(path) === root);
-  if (sameRoot.length > 0 || root !== "") return sameRoot;
+  if (root !== "") return sameRoot;
   return discovery.tools.typescript.configPaths;
 }
 
