@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "generated-agent-instruction",
+      "kind": "instruction",
+      "instruction": "After making changes, run `ascout check` and report the resulting receipt without changing its admission policy.",
+      "argv": ["ascout", "check"]
+    },
+    {
+      "id": "generated-agent-hook",
+      "kind": "hook",
+      "instruction": "Run Ascout verification after the agent finishes editing the trusted local repository.",
+      "argv": ["ascout", "check"]
+    }
+  ]
+}
