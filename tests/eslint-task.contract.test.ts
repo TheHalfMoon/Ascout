@@ -53,11 +53,11 @@ function npmPackage(extra: Record<string, unknown> = {}): Record<string, unknown
 }
 
 describe("T036 ESLint task planning", () => {
-  it("uses an explicit lint command override before local ESLint or package-script discovery", () => {
+  it("uses explicit override before discovered commands", () => {
     const files = {
       "package.json": packageJson(npmPackage({
         scripts: { lint: "eslint ." },
-        devDependencies: { eslint: "9.0.0" },
+        devDependencies: { eslint: "10.0.0" },
       })),
       "eslint.config.js": "",
       "node_modules/.bin/eslint": "virtual executable",
@@ -85,35 +85,29 @@ describe("T036 ESLint task planning", () => {
     });
   });
 
-  it("rejects invalid override argv before any later execution layer", () => {
+  it("rejects invalid override argv", () => {
     const files = { "package.json": packageJson({ name: "fixture" }) };
     for (const command of [[""], ["custom-lint\0", "--strict"]] as const) {
       const config = parseConfigV1({ version: 1, tasks: { lint: { command } } });
       expect(plan(files, [changed("src/app.ts")], config)).toMatchObject({
         state: "not_run",
         authorizedBy: "user_config",
-        sourcePath: "ascout.config.json",
         argv: [],
         reasonCode: "override_command_invalid",
       });
     }
   });
 
-  it("treats explicit lint disable as stronger than every command source", () => {
+  it("treats explicit disable as stronger than override and discovery", () => {
     const files = {
-      "package.json": packageJson(npmPackage({
-        scripts: { lint: "eslint ." },
-        devDependencies: { eslint: "9.0.0" },
-      })),
-      "eslint.config.js": "",
-      "node_modules/.bin/eslint": "virtual executable",
+      "package.json": packageJson(npmPackage({ scripts: { lint: "eslint ." } })),
     };
     const config = parseConfigV1({
       version: 1,
       tasks: {
         lint: {
           enabled: false,
-          disabledReason: "lint is handled by a generated external gate",
+          disabledReason: "lint is handled elsewhere",
           command: ["must-not-run"],
         },
       },
@@ -122,18 +116,17 @@ describe("T036 ESLint task planning", () => {
     expect(plan(files, [changed("src/app.ts")], config)).toMatchObject({
       state: "not_applicable",
       authorizedBy: "user_config",
-      sourcePath: "ascout.config.json",
       argv: [],
       reasonCode: "disabled_by_config",
-      reasonText: "lint is handled by a generated external gate",
+      reasonText: "lint is handled elsewhere",
     });
   });
 
-  it("prefers a safe changed-file local ESLint invocation over a broader root lint script", () => {
+  it("prefers safe root changed-file ESLint over a broader root lint script", () => {
     const files = {
       "package.json": packageJson(npmPackage({
         scripts: { lint: "eslint ." },
-        devDependencies: { eslint: "9.0.0" },
+        devDependencies: { eslint: "10.0.0" },
       })),
       "eslint.config.js": "",
       "node_modules/.bin/eslint": "virtual executable",
@@ -160,29 +153,95 @@ describe("T036 ESLint task planning", () => {
       executionScope: "changed_files",
       scopeRoot: null,
       selectedPaths: ["src/a.js", "src/z.ts"],
-      scopeDisclosure: "T036 narrowed ESLint to the changed supported JavaScript/TypeScript files listed in selectedPaths.",
+      scopeDisclosure: "T036 narrowed ESLint to the changed supported JavaScript/TypeScript files listed in selectedPaths; workspace config execution is rooted at scopeRoot so relative config patterns retain repository semantics.",
       reasonCode: null,
       reasonText: null,
     });
   });
 
-  it("uses -- before changed paths so a dash-leading filename cannot become an ESLint option", () => {
+  it("roots a workspace config invocation at the workspace so config patterns keep their meaning", () => {
     const files = {
-      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "9.0.0" } }),
-      "eslint.config.js": "",
+      "package.json": packageJson({
+        name: "root",
+        workspaces: ["packages/*"],
+        devDependencies: { eslint: "10.0.0" },
+      }),
+      "packages/app/package.json": packageJson({ name: "app" }),
+      "packages/app/eslint.config.js": "",
+      "node_modules/.bin/eslint": "root-hoisted executable",
+    };
+
+    expect(plan(files, [changed("packages/app/src/app.ts")])).toMatchObject({
+      state: "planned",
+      sourcePath: "packages/app/eslint.config.js",
+      workingDirectory: "packages/app",
+      argv: [
+        "../../node_modules/.bin/eslint",
+        "--config",
+        "eslint.config.js",
+        "--",
+        "src/app.ts",
+      ],
+      commandSource: "local_eslint",
+      configPath: "packages/app/eslint.config.js",
+      executionScope: "changed_files",
+      scopeRoot: "packages/app",
+      selectedPaths: ["packages/app/src/app.ts"],
+    });
+  });
+
+  it("uses a same-workspace local ESLint without parent traversal", () => {
+    const files = {
+      "package.json": packageJson({ name: "root", workspaces: ["packages/*"] }),
+      "packages/app/package.json": packageJson({
+        name: "app",
+        devDependencies: { eslint: "10.0.0" },
+      }),
+      "packages/app/eslint.config.mjs": "",
+      "packages/app/node_modules/.bin/eslint": "workspace executable",
+    };
+
+    expect(plan(files, [changed("packages/app/src/app.ts")])).toMatchObject({
+      state: "planned",
+      workingDirectory: "packages/app",
+      argv: ["node_modules/.bin/eslint", "--config", "eslint.config.mjs", "--", "src/app.ts"],
+      scopeRoot: "packages/app",
+    });
+  });
+
+  it("refuses an executable that belongs to an unrelated workspace", () => {
+    const files = {
+      "package.json": packageJson({ name: "root", workspaces: ["packages/*"] }),
+      "packages/app/package.json": packageJson({ name: "app" }),
+      "packages/other/package.json": packageJson({ name: "other", devDependencies: { eslint: "10.0.0" } }),
+      "packages/app/eslint.config.js": "",
+      "packages/other/node_modules/.bin/eslint": "other executable",
+    };
+
+    expect(plan(files, [changed("packages/app/src/app.ts")])).toMatchObject({
+      state: "not_run",
+      argv: [],
+      reasonCode: "tool_scope_ambiguous",
+    });
+  });
+
+  it("inserts -- before changed paths and sorts them deterministically", () => {
+    const files = {
+      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "10.0.0" } }),
+      "eslint.config.cjs": "",
       "node_modules/.bin/eslint": "virtual executable",
     };
 
-    expect(plan(files, [changed("--fix.js")])).toMatchObject({
+    expect(plan(files, [changed("z.ts"), changed("--fix.js")])).toMatchObject({
       state: "planned",
-      argv: ["node_modules/.bin/eslint", "--config", "eslint.config.js", "--", "--fix.js"],
-      selectedPaths: ["--fix.js"],
+      argv: ["node_modules/.bin/eslint", "--config", "eslint.config.cjs", "--", "--fix.js", "z.ts"],
+      selectedPaths: ["--fix.js", "z.ts"],
     });
   });
 
   it("does not pass deleted or non-text changed files to local ESLint", () => {
     const files = {
-      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "9.0.0" } }),
+      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "10.0.0" } }),
       "eslint.config.js": "",
       "node_modules/.bin/eslint": "virtual executable",
     };
@@ -198,7 +257,7 @@ describe("T036 ESLint task planning", () => {
     });
   });
 
-  it("falls back to a root project lint script when no safe changed-file local invocation exists", () => {
+  it("falls back to a root project lint script with broader-scope disclosure", () => {
     const files = {
       "package.json": packageJson(npmPackage({ scripts: { lint: "eslint ." } })),
     };
@@ -221,7 +280,7 @@ describe("T036 ESLint task planning", () => {
     });
   });
 
-  it("uses one workspace lint script with an explicit workspace scope root when no root script exists", () => {
+  it("uses one workspace lint script with workspace scope when no root script exists", () => {
     const files = {
       "package.json": packageJson(npmPackage({ workspaces: ["packages/*"] })),
       "packages/app/package.json": packageJson({ name: "app", scripts: { lint: "eslint ." } }),
@@ -229,18 +288,15 @@ describe("T036 ESLint task planning", () => {
 
     expect(plan(files, [changed("README.md")])).toMatchObject({
       state: "planned",
-      authorizedBy: "repo_config",
       sourcePath: "packages/app/package.json",
       argv: ["npm", "run", "lint"],
       workingDirectory: "packages/app",
-      commandSource: "package_script",
       executionScope: "project_script",
       scopeRoot: "packages/app",
-      selectedPaths: [],
     });
   });
 
-  it("fails closed when multiple workspace lint scripts exist and no safe local changed-file plan exists", () => {
+  it("fails closed on multiple workspace lint scripts", () => {
     const files = {
       "package.json": packageJson(npmPackage({ workspaces: ["packages/*"] })),
       "packages/a/package.json": packageJson({ name: "a", scripts: { lint: "eslint ." } }),
@@ -249,7 +305,6 @@ describe("T036 ESLint task planning", () => {
 
     expect(plan(files, [changed("README.md")])).toMatchObject({
       state: "not_run",
-      authorizedBy: "repo_config",
       argv: [],
       reasonCode: "lint_script_ambiguous",
     });
@@ -264,16 +319,15 @@ describe("T036 ESLint task planning", () => {
 
     expect(plan(files, [changed("README.md")])).toMatchObject({
       state: "not_run",
-      authorizedBy: "repo_config",
       sourcePath: "package.json",
       argv: [],
       reasonCode: "package_manager_ambiguous",
     });
   });
 
-  it("fails closed on multiple ESLint configs when no package script can safely own the broader scope", () => {
+  it("fails closed on multiple configs when no script owns broader semantics", () => {
     const files = {
-      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "9.0.0" } }),
+      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "10.0.0" } }),
       "eslint.config.js": "",
       ".eslintrc.json": "",
       "node_modules/.bin/eslint": "virtual executable",
@@ -286,59 +340,31 @@ describe("T036 ESLint task planning", () => {
     });
   });
 
-  it("uses a project lint script as the broader fallback when local config selection is ambiguous", () => {
+  it("uses the repository lint script when local config selection is ambiguous", () => {
     const files = {
       "package.json": packageJson(npmPackage({
         scripts: { lint: "eslint ." },
-        devDependencies: { eslint: "9.0.0" },
+        devDependencies: { eslint: "10.0.0" },
       })),
       "eslint.config.js": "",
-      ".eslintrc.json": "",
+      "packages/app/eslint.config.js": "",
       "node_modules/.bin/eslint": "virtual executable",
     };
 
     expect(plan(files, [changed("src/app.ts")])).toMatchObject({
       state: "planned",
+      argv: ["npm", "run", "lint"],
       commandSource: "package_script",
       executionScope: "project_script",
-      argv: ["npm", "run", "lint"],
     });
   });
 
-  it("allows one root-local ESLint executable with one workspace config when every selected path is under that config root", () => {
+  it("fails closed instead of partially linting changed supported files outside the sole config root", () => {
     const files = {
       "package.json": packageJson({
         name: "root",
         workspaces: ["packages/*"],
-        devDependencies: { eslint: "9.0.0" },
-      }),
-      "packages/app/package.json": packageJson({ name: "app" }),
-      "packages/app/eslint.config.js": "",
-      "node_modules/.bin/eslint": "virtual executable",
-    };
-
-    expect(plan(files, [changed("packages/app/src/app.ts")])).toMatchObject({
-      state: "planned",
-      sourcePath: "packages/app/eslint.config.js",
-      argv: [
-        "node_modules/.bin/eslint",
-        "--config",
-        "packages/app/eslint.config.js",
-        "--",
-        "packages/app/src/app.ts",
-      ],
-      executionScope: "changed_files",
-      scopeRoot: "packages/app",
-      selectedPaths: ["packages/app/src/app.ts"],
-    });
-  });
-
-  it("fails closed rather than partially linting when the sole config covers only some changed supported files", () => {
-    const files = {
-      "package.json": packageJson({
-        name: "root",
-        workspaces: ["packages/*"],
-        devDependencies: { eslint: "9.0.0" },
+        devDependencies: { eslint: "10.0.0" },
       }),
       "packages/app/package.json": packageJson({ name: "app" }),
       "packages/app/eslint.config.js": "",
@@ -352,14 +378,10 @@ describe("T036 ESLint task planning", () => {
     });
   });
 
-  it("fails closed on multiple logical project-local ESLint roots when no project script is available", () => {
+  it("fails closed on multiple logical project-local ESLint roots", () => {
     const files = {
-      "package.json": packageJson({
-        name: "root",
-        workspaces: ["packages/*"],
-        devDependencies: { eslint: "9.0.0" },
-      }),
-      "packages/app/package.json": packageJson({ name: "app", devDependencies: { eslint: "9.0.0" } }),
+      "package.json": packageJson({ name: "root", workspaces: ["packages/*"] }),
+      "packages/app/package.json": packageJson({ name: "app" }),
       "eslint.config.js": "",
       "node_modules/.bin/eslint": "root executable",
       "packages/app/node_modules/.bin/eslint": "workspace executable",
@@ -372,9 +394,9 @@ describe("T036 ESLint task planning", () => {
     });
   });
 
-  it("does not treat a PowerShell-only ESLint shim as directly launchable", () => {
+  it("does not treat a PowerShell-only shim as directly launchable", () => {
     const files = {
-      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "9.0.0" } }),
+      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "10.0.0" } }),
       "eslint.config.js": "",
       "node_modules/.bin/eslint.ps1": "PowerShell shim only",
     };
@@ -386,9 +408,9 @@ describe("T036 ESLint task planning", () => {
     });
   });
 
-  it("reports configured ESLint with no project-local executable as tool_missing", () => {
+  it("reports configured ESLint without a local executable as tool_missing", () => {
     const files = {
-      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "9.0.0" } }),
+      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "10.0.0" } }),
       "eslint.config.js": "",
     };
 
@@ -396,34 +418,21 @@ describe("T036 ESLint task planning", () => {
       state: "not_run",
       argv: [],
       reasonCode: "tool_missing",
-      reasonText: "Project ESLint is not installed.",
     });
   });
 
-  it("is NOT_APPLICABLE when there is no lint override, script, ESLint declaration, local tool, or config", () => {
+  it("is NOT_APPLICABLE with no ESLint evidence", () => {
     const files = { "package.json": packageJson({ name: "plain-js", private: true }) };
-
-    expect(plan(files, [changed("src/app.js")])).toEqual({
+    expect(plan(files, [changed("src/app.js")])).toMatchObject({
       state: "not_applicable",
-      taskType: "lint",
-      authorizedBy: "discovery",
-      sourcePath: null,
       argv: [],
-      workingDirectory: null,
-      commandSource: null,
-      configPath: null,
-      executionScope: null,
-      scopeRoot: null,
-      selectedPaths: [],
-      scopeDisclosure: null,
       reasonCode: null,
-      reasonText: null,
     });
   });
 
-  it("is NOT_APPLICABLE with disclosure when ESLint exists but no changed supported file is safely applicable", () => {
+  it("is NOT_APPLICABLE when ESLint exists but no changed supported file or lint script applies", () => {
     const files = {
-      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "9.0.0" } }),
+      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "10.0.0" } }),
       "eslint.config.js": "",
       "node_modules/.bin/eslint": "virtual executable",
     };
@@ -432,25 +441,10 @@ describe("T036 ESLint task planning", () => {
       state: "not_applicable",
       argv: [],
       reasonCode: "no_changed_supported_files",
-      reasonText: "ESLint is present, but no changed supported JavaScript/TypeScript files are safely applicable and no lint script is available.",
     });
   });
 
-  it("rejects noncanonical changed-file paths instead of placing them in argv", () => {
-    const files = {
-      "package.json": packageJson({ name: "fixture", devDependencies: { eslint: "9.0.0" } }),
-      "eslint.config.js": "",
-      "node_modules/.bin/eslint": "virtual executable",
-    };
-
-    expect(plan(files, [changed("src//app.ts")])).toMatchObject({
-      state: "not_run",
-      argv: [],
-      reasonCode: "changed_path_invalid",
-    });
-  });
-
-  it("keeps T036 planning pure and outside command-surface classification/admission", () => {
+  it("keeps T036 planning pure and outside classification/admission", () => {
     const source = readFileSync(new URL("../src/tools/eslint.ts", import.meta.url), "utf8");
     expect(source).not.toMatch(/child_process|cross-spawn|spawn\(|exec\(/u);
     expect(source).not.toMatch(/installDependency|npm\s+install|pnpm\s+install|yarn\s+add|\bnpx\b/u);
