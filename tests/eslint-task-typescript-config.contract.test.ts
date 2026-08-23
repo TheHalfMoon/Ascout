@@ -41,6 +41,31 @@ describe("T036 TypeScript ESLint config handling", () => {
     });
   });
 
+  it("reports TypeScript config unsupported before a missing local executable", () => {
+    const files = {
+      "package.json": JSON.stringify({
+        name: "fixture",
+        private: true,
+        devDependencies: { eslint: "10.0.0" },
+      }),
+      "eslint.config.ts": "",
+    };
+
+    expect(planESLintTask({
+      config: parseConfigV1({ version: 1 }),
+      discovery: discoverProjectFromFiles(files),
+      files,
+      changedFiles: [changed("src/app.ts")],
+    })).toMatchObject({
+      state: "not_run",
+      authorizedBy: "repo_config",
+      sourcePath: "eslint.config.ts",
+      argv: [],
+      commandSource: null,
+      reasonCode: "config_unsupported",
+    });
+  });
+
   it("allows a repository lint script to own TypeScript-config runtime setup", () => {
     const files = {
       "package.json": JSON.stringify({
