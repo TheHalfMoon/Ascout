@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -6,28 +7,9 @@ import type { TaskResultV1, TaskType } from "../src/receipt/model.js";
 
 type BlockerKind = "missing_tool" | "missing_config";
 
-type MissingTaskDecision = Pick<
-  TaskResultV1,
-  | "task_type"
-  | "argv"
-  | "tool_name"
-  | "tool_version"
-  | "status"
-  | "reason_code"
-  | "reason_text"
-  | "exit_code"
-  | "started_at"
-  | "finished_at"
-  | "duration_ms"
-  | "observations"
-> & {
-  readonly launch_allowed: false;
-  readonly install_allowed: false;
-};
-
 interface CapabilityState {
   readonly tool_name: string;
-  readonly tool_present: boolean;
+  readonly local_executable_path: string | null;
   readonly required_config_path: string | null;
 }
 
@@ -53,45 +35,95 @@ interface MissingCapabilityFixtureCatalog {
   readonly cases: readonly MissingCapabilityFixtureCase[];
 }
 
-interface SideEffectProbes {
+interface LaunchProbe {
   launchProcess(argv: readonly string[]): void;
-  installDependency(toolName: string): void;
 }
 
 const FIXTURE_CATALOG_URL = new URL("./fixtures/missing-capability/cases.json", import.meta.url);
+const RECEIPT_SCHEMA_URL = new URL(
+  "../specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json",
+  import.meta.url,
+);
+const TASK_SCRIPT_NAME: Readonly<Partial<Record<TaskType, string>>> = {
+  typecheck: "typecheck",
+  lint: "lint",
+  test: "test",
+};
 
 function loadCatalog(): MissingCapabilityFixtureCatalog {
   return JSON.parse(readFileSync(FIXTURE_CATALOG_URL, "utf8")) as MissingCapabilityFixtureCatalog;
+}
+
+function loadReceiptTaskRequiredFields(): readonly string[] {
+  const schema = JSON.parse(readFileSync(fileURLToPath(RECEIPT_SCHEMA_URL), "utf8")) as {
+    readonly $defs?: {
+      readonly task?: {
+        readonly required?: readonly string[];
+      };
+    };
+  };
+  const required = schema.$defs?.task?.required;
+  if (required === undefined) throw new Error("receipt task schema required fields are unavailable");
+  return required;
+}
+
+function packageJson(fixture: MissingCapabilityFixtureCase): Record<string, unknown> {
+  const raw = fixture.files["package.json"];
+  if (raw === undefined) throw new Error(`fixture ${fixture.id} is missing package.json`);
+  return JSON.parse(raw) as Record<string, unknown>;
+}
+
+function packageScript(fixture: MissingCapabilityFixtureCase): string | undefined {
+  const scriptName = TASK_SCRIPT_NAME[fixture.task_type];
+  if (scriptName === undefined) return undefined;
+  const scripts = packageJson(fixture).scripts;
+  if (typeof scripts !== "object" || scripts === null || Array.isArray(scripts)) return undefined;
+  const value = (scripts as Record<string, unknown>)[scriptName];
+  return typeof value === "string" ? value : undefined;
+}
+
+function hasAscoutOverride(fixture: MissingCapabilityFixtureCase): boolean {
+  const raw = fixture.files["ascout.config.json"];
+  if (raw === undefined) return false;
+  const config = JSON.parse(raw) as {
+    readonly tasks?: Readonly<Record<string, { readonly command?: readonly string[] }>>;
+  };
+  return config.tasks?.[fixture.task_type]?.command !== undefined;
+}
+
+function hasLocalExecutable(fixture: MissingCapabilityFixtureCase): boolean {
+  const path = fixture.capability.local_executable_path;
+  return path !== null && fixture.files[path] !== undefined;
+}
+
+function hasRequiredConfig(fixture: MissingCapabilityFixtureCase): boolean {
+  const path = fixture.capability.required_config_path;
+  return path === null || fixture.files[path] !== undefined;
+}
+
+function deriveBlocker(fixture: MissingCapabilityFixtureCase): BlockerKind | null {
+  if (!hasLocalExecutable(fixture)) return "missing_tool";
+  if (!hasRequiredConfig(fixture)) return "missing_config";
+  return null;
 }
 
 function expectedReasonCode(kind: BlockerKind): "tool_missing" | "config_missing" {
   return kind === "missing_tool" ? "tool_missing" : "config_missing";
 }
 
-function resolveUnavailableTask(
-  fixture: MissingCapabilityFixtureCase,
-  probes: SideEffectProbes,
-): MissingTaskDecision {
-  const configMissing =
-    fixture.capability.required_config_path !== null
-    && !(fixture.capability.required_config_path in fixture.files);
-
-  const blockerIsReal = fixture.blocker.kind === "missing_tool"
-    ? !fixture.capability.tool_present
-    : configMissing;
-
-  if (!blockerIsReal) {
-    const inventedArgv = [fixture.capability.tool_name];
-    probes.launchProcess(inventedArgv);
-    probes.installDependency(fixture.capability.tool_name);
-    throw new Error("fixture does not describe a real missing capability");
-  }
-
+function missingTaskResult(fixture: MissingCapabilityFixtureCase): TaskResultV1 {
   return {
+    task_id: fixture.id,
     task_type: fixture.task_type,
+    authorized_by: "discovery",
+    source_path: null,
     argv: [],
+    argv_redacted: false,
     tool_name: null,
     tool_version: null,
+    command_surface_changed: false,
+    changed_authority_paths: [],
+    execution_admission: "normal",
     status: "NOT_RUN",
     reason_code: expectedReasonCode(fixture.blocker.kind),
     reason_text: fixture.blocker.message,
@@ -100,31 +132,50 @@ function resolveUnavailableTask(
     finished_at: null,
     duration_ms: null,
     observations: { runs: 0, failures: 0 },
-    launch_allowed: false,
-    install_allowed: false,
+    cache_state: "not_applicable",
+    evidence_ids: [],
+    artifact_refs: [],
+    output_truncated: false,
   };
 }
 
-function assertHonestNotRun(decision: MissingTaskDecision): void {
-  expect(decision.status).toBe("NOT_RUN");
-  expect(decision.reason_code).toEqual(expect.any(String));
-  expect(decision.reason_code?.length).toBeGreaterThan(0);
-  expect(decision.reason_text).toEqual(expect.any(String));
-  expect(decision.reason_text?.length).toBeGreaterThan(0);
-  expect(decision.argv).toEqual([]);
-  expect(decision.tool_name).toBeNull();
-  expect(decision.tool_version).toBeNull();
-  expect(decision.exit_code).toBeNull();
-  expect(decision.started_at).toBeNull();
-  expect(decision.finished_at).toBeNull();
-  expect(decision.duration_ms).toBeNull();
-  expect(decision.observations).toEqual({ runs: 0, failures: 0 });
-  expect(decision.launch_allowed).toBe(false);
-  expect(decision.install_allowed).toBe(false);
+function resolveMissingCapabilityContract(
+  fixture: MissingCapabilityFixtureCase,
+  probe: LaunchProbe,
+): TaskResultV1 {
+  const blocker = deriveBlocker(fixture);
+  if (blocker === null) {
+    probe.launchProcess([fixture.capability.local_executable_path!]);
+    throw new Error("fixture is runnable and does not belong in the missing-capability corpus");
+  }
+  if (blocker !== fixture.blocker.kind) {
+    throw new Error(`fixture blocker mismatch: derived ${blocker}, declared ${fixture.blocker.kind}`);
+  }
+  return missingTaskResult(fixture);
+}
+
+function assertHonestNotRun(task: TaskResultV1): void {
+  expect(task.status).toBe("NOT_RUN");
+  expect(task.reason_code).toEqual(expect.any(String));
+  expect(task.reason_code?.length).toBeGreaterThan(0);
+  expect(task.reason_text).toEqual(expect.any(String));
+  expect(task.reason_text?.length).toBeGreaterThan(0);
+  expect(task.argv).toEqual([]);
+  expect(task.tool_name).toBeNull();
+  expect(task.tool_version).toBeNull();
+  expect(task.exit_code).toBeNull();
+  expect(task.started_at).toBeNull();
+  expect(task.finished_at).toBeNull();
+  expect(task.duration_ms).toBeNull();
+  expect(task.observations).toEqual({ runs: 0, failures: 0 });
+  expect(task.cache_state).toBe("not_applicable");
+  expect(task.evidence_ids).toEqual([]);
+  expect(task.artifact_refs).toEqual([]);
+  expect(task.output_truncated).toBe(false);
 }
 
 describe("T031 missing tool/config contract", () => {
-  it("uses a versioned non-vacuous fixture corpus for both missing-tool and missing-config blockers", () => {
+  it("uses a versioned non-vacuous corpus with concrete missing-tool and missing-config evidence", () => {
     const catalog = loadCatalog();
     expect(catalog.version).toBe(1);
     expect(catalog.cases.length).toBeGreaterThan(0);
@@ -137,70 +188,98 @@ describe("T031 missing tool/config contract", () => {
       expect(fixture.id).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
       expect(fixture.purpose.length).toBeGreaterThan(0);
       expect(Object.keys(fixture.files).length).toBeGreaterThan(0);
+      expect(hasAscoutOverride(fixture)).toBe(false);
+      expect(packageScript(fixture)).toBeUndefined();
       expect(fixture.blocker.message.length).toBeGreaterThan(0);
-      expect(fixture.expected.reason_text.length).toBeGreaterThan(0);
       expect(fixture.expected.reason_code).toBe(expectedReasonCode(fixture.blocker.kind));
       expect(fixture.expected.reason_text).toBe(fixture.blocker.message);
+      expect(deriveBlocker(fixture)).toBe(fixture.blocker.kind);
       observedKinds.add(fixture.blocker.kind);
 
       if (fixture.blocker.kind === "missing_tool") {
-        expect(fixture.capability.tool_present).toBe(false);
+        expect(hasLocalExecutable(fixture)).toBe(false);
+        expect(hasRequiredConfig(fixture)).toBe(true);
       } else {
-        expect(fixture.capability.tool_present).toBe(true);
+        expect(hasLocalExecutable(fixture)).toBe(true);
+        expect(fixture.capability.local_executable_path).not.toBeNull();
+        expect(fixture.files[fixture.capability.local_executable_path!]).toBeDefined();
         expect(fixture.capability.required_config_path).not.toBeNull();
-        expect(fixture.files[fixture.capability.required_config_path!]).toBeUndefined();
+        expect(hasRequiredConfig(fixture)).toBe(false);
       }
     }
 
     expect(observedKinds).toEqual(new Set<BlockerKind>(["missing_tool", "missing_config"]));
   });
 
-  it("returns honest NOT_RUN before any launch or implicit install side effect", () => {
-    const catalog = loadCatalog();
+  it("returns the full receipt-task shape as honest NOT_RUN before launch", () => {
+    const requiredFields = [...loadReceiptTaskRequiredFields()].sort();
 
-    for (const fixture of catalog.cases) {
+    for (const fixture of loadCatalog().cases) {
       let launchCalls = 0;
-      let installCalls = 0;
-      const probes: SideEffectProbes = {
+      const probe: LaunchProbe = {
         launchProcess: () => {
           launchCalls += 1;
           throw new Error("process launch must not occur for a missing capability");
         },
-        installDependency: () => {
-          installCalls += 1;
-          throw new Error("implicit dependency installation must never occur");
-        },
       };
 
-      const decision = resolveUnavailableTask(fixture, probes);
-      assertHonestNotRun(decision);
-      expect(decision).toMatchObject(fixture.expected);
+      expect(Object.keys(probe)).toEqual(["launchProcess"]);
+      expect("installDependency" in probe).toBe(false);
+
+      const task = resolveMissingCapabilityContract(fixture, probe);
+      assertHonestNotRun(task);
+      expect(task).toMatchObject(fixture.expected);
+      expect(Object.keys(task).sort()).toEqual(requiredFields);
       expect(launchCalls).toBe(0);
-      expect(installCalls).toBe(0);
     }
+  });
+
+  it("keeps the launch probe live while exposing no implicit-install capability", () => {
+    const fixture = loadCatalog().cases.find((candidate) => candidate.blocker.kind === "missing_config");
+    expect(fixture).toBeDefined();
+
+    const configPath = fixture!.capability.required_config_path;
+    expect(configPath).not.toBeNull();
+    const runnableControl: MissingCapabilityFixtureCase = {
+      ...fixture!,
+      files: {
+        ...fixture!.files,
+        [configPath!]: "{}",
+      },
+    };
+    expect(deriveBlocker(runnableControl)).toBeNull();
+
+    let launchCalls = 0;
+    const probe: LaunchProbe = {
+      launchProcess: () => {
+        launchCalls += 1;
+        throw new Error("live launch probe reached");
+      },
+    };
+
+    expect(() => resolveMissingCapabilityContract(runnableControl, probe)).toThrow("live launch probe reached");
+    expect(launchCalls).toBe(1);
+    expect("installDependency" in probe).toBe(false);
   });
 
   it("rejects invented argv/tool identity or empty refusal reasons", () => {
     const fixture = loadCatalog().cases[0];
     expect(fixture).toBeDefined();
 
-    const decision = resolveUnavailableTask(fixture!, {
+    const task = resolveMissingCapabilityContract(fixture!, {
       launchProcess: () => {
         throw new Error("unexpected launch");
-      },
-      installDependency: () => {
-        throw new Error("unexpected install");
       },
     });
 
     expect(() => assertHonestNotRun({
-      ...decision,
+      ...task,
       argv: ["npx", fixture!.capability.tool_name],
       tool_name: fixture!.capability.tool_name,
     })).toThrow();
 
     expect(() => assertHonestNotRun({
-      ...decision,
+      ...task,
       reason_code: "",
       reason_text: "",
     })).toThrow();
