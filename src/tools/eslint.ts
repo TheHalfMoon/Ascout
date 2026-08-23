@@ -72,7 +72,7 @@ const LINT_SCRIPT = "lint";
 const ESLINT_DISCOVERY_SUFFIXES = ["", ".cmd", ".exe", ".ps1"] as const;
 const ESLINT_LAUNCH_SUFFIX_PRIORITY = ["", ".cmd", ".exe"] as const;
 const LINTABLE_SOURCE = /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$/u;
-const FLAT_ESLINT_CONFIG = /^eslint\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u;
+const DIRECT_FLAT_ESLINT_CONFIG = /^eslint\.config\.(?:js|mjs|cjs)$/u;
 const CANONICAL_REPOSITORY_PATH =
   /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
@@ -384,10 +384,10 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
   }
 
   const configPath = tool.configPaths[0]!;
-  if (!FLAT_ESLINT_CONFIG.test(basename(configPath))) {
+  if (!DIRECT_FLAT_ESLINT_CONFIG.test(basename(configPath))) {
     return notRun(
       "config_unsupported",
-      "Direct changed-file ESLint planning requires eslint.config.* flat config; legacy .eslintrc* requires a repository lint script or explicit override.",
+      "Direct changed-file ESLint planning requires directly loadable eslint.config.js/.mjs/.cjs; legacy .eslintrc* and TypeScript flat configs require a repository lint script or explicit override.",
       "repo_config",
       configPath,
     );
