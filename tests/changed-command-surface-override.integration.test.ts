@@ -26,9 +26,16 @@ function changedAuthorityIntersection(
   changedPaths: readonly string[],
 ): readonly string[] {
   const changed = new Set(changedPaths);
-  return effectiveAuthorityPaths.filter(
-    (path, index) => changed.has(path) && effectiveAuthorityPaths.indexOf(path) === index,
-  );
+  const seen = new Set<string>();
+  const intersection: string[] = [];
+
+  for (const path of effectiveAuthorityPaths) {
+    if (!changed.has(path) || seen.has(path)) continue;
+    seen.add(path);
+    intersection.push(path);
+  }
+
+  return intersection;
 }
 
 function decideAdmission(
