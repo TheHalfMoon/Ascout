@@ -6,12 +6,12 @@
       "purpose": "A test task with no project-local Vitest must remain NOT_RUN without inventing an npx/global command or installing anything.",
       "task_type": "test",
       "files": {
-        "package.json": "{\"name\":\"fixture-app\",\"private\":true,\"devDependencies\":{}}",
+        "package.json": "{\"name\":\"fixture-app\",\"private\":true,\"scripts\":{},\"devDependencies\":{}}",
         "vitest.config.ts": "export default {};"
       },
       "capability": {
         "tool_name": "vitest",
-        "tool_present": false,
+        "local_executable_path": null,
         "required_config_path": "vitest.config.ts"
       },
       "blocker": {
@@ -26,14 +26,15 @@
     },
     {
       "id": "typecheck-missing-project-config",
-      "purpose": "A locally available TypeScript tool with no override, script, or project config must remain NOT_RUN rather than inventing a tsc invocation.",
+      "purpose": "A project-local TypeScript executable with no override, script, or project config must remain NOT_RUN rather than inventing a tsc invocation.",
       "task_type": "typecheck",
       "files": {
-        "package.json": "{\"name\":\"fixture-app\",\"private\":true,\"devDependencies\":{\"typescript\":\"6.0.0\"}}"
+        "package.json": "{\"name\":\"fixture-app\",\"private\":true,\"scripts\":{},\"devDependencies\":{\"typescript\":\"6.0.0\"}}",
+        "node_modules/.bin/tsc": "virtual project-local executable"
       },
       "capability": {
         "tool_name": "tsc",
-        "tool_present": true,
+        "local_executable_path": "node_modules/.bin/tsc",
         "required_config_path": "tsconfig.json"
       },
       "blocker": {
