@@ -93,7 +93,9 @@ describe("T027 discovery fixture contract", () => {
       expect(fixture).toBeDefined();
       expect(packageJson(fixture!)?.packageManager).toBeUndefined();
       expect(fixture?.expected.packageManager).toBe(manager);
-      expect(RECOGNIZED_LOCKFILES.filter((path) => path in fixture!.files)).toHaveLength(1);
+      const lockfiles = RECOGNIZED_LOCKFILES.filter((path) => path in fixture!.files);
+      expect(lockfiles).toHaveLength(1);
+      expect(LOCKFILE_MANAGER[lockfiles[0]!]).toBe(manager);
     }
 
     const ambiguous = catalog.cases.find((candidate) => candidate.id === "ambiguous-lockfiles");
