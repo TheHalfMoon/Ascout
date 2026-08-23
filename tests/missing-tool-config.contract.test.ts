@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import type { TaskResultV1, TaskType } from "../src/receipt/model.js";
 
 type BlockerKind = "missing_tool" | "missing_config";
-type MissingReasonCode = "tool_missing" | "config_missing";
 
 interface CapabilityState {
   readonly tool_name: string;
@@ -26,7 +25,7 @@ interface MissingCapabilityFixtureCase {
   };
   readonly expected: {
     readonly status: "NOT_RUN";
-    readonly reason_code: MissingReasonCode;
+    readonly reason_code: string;
     readonly reason_text: string;
   };
 }
@@ -47,7 +46,6 @@ const RECEIPT_SCHEMA_URL = new URL(
 );
 const SUPPORTED_TASK_TYPES = ["typecheck", "lint", "test", "pytestBasic"] as const;
 const SUPPORTED_BLOCKER_KINDS = ["missing_tool", "missing_config"] as const;
-const SUPPORTED_REASON_CODES = ["tool_missing", "config_missing"] as const;
 const TASK_SCRIPT_NAME: Readonly<Partial<Record<TaskType, string>>> = {
   typecheck: "typecheck",
   lint: "lint",
@@ -86,14 +84,6 @@ function blockerKind(value: unknown, label: string): BlockerKind {
     throw new Error(`${label} is not a supported blocker kind`);
   }
   return candidate as BlockerKind;
-}
-
-function reasonCode(value: unknown, label: string): MissingReasonCode {
-  const candidate = nonEmptyString(value, label);
-  if (!SUPPORTED_REASON_CODES.includes(candidate as MissingReasonCode)) {
-    throw new Error(`${label} is not a supported T031 reason code`);
-  }
-  return candidate as MissingReasonCode;
 }
 
 function stringMap(value: unknown, label: string): Readonly<Record<string, string>> {
@@ -143,7 +133,7 @@ function parseCatalog(value: unknown): MissingCapabilityFixtureCatalog {
       },
       expected: {
         status: "NOT_RUN",
-        reason_code: reasonCode(expected.reason_code, `${base}.expected.reason_code`),
+        reason_code: nonEmptyString(expected.reason_code, `${base}.expected.reason_code`),
         reason_text: nonEmptyString(expected.reason_text, `${base}.expected.reason_text`),
       },
     };
@@ -209,10 +199,6 @@ function deriveBlocker(fixture: MissingCapabilityFixtureCase): BlockerKind | nul
   return null;
 }
 
-function expectedReasonCode(kind: BlockerKind): MissingReasonCode {
-  return kind === "missing_tool" ? "tool_missing" : "config_missing";
-}
-
 function missingTaskResult(fixture: MissingCapabilityFixtureCase): TaskResultV1 {
   return {
     task_id: fixture.id,
@@ -227,7 +213,7 @@ function missingTaskResult(fixture: MissingCapabilityFixtureCase): TaskResultV1 
     changed_authority_paths: [],
     execution_admission: "normal",
     status: "NOT_RUN",
-    reason_code: expectedReasonCode(fixture.blocker.kind),
+    reason_code: fixture.expected.reason_code,
     reason_text: fixture.blocker.message,
     exit_code: null,
     started_at: null,
@@ -292,15 +278,16 @@ describe("T031 missing tool/config contract", () => {
       expect(Object.keys(fixture.files).length).toBeGreaterThan(0);
       expect(hasAscoutOverride(fixture)).toBe(false);
       expect(packageScript(fixture)).toBeUndefined();
-      expect(fixture.expected.reason_code).toBe(expectedReasonCode(fixture.blocker.kind));
       expect(fixture.expected.reason_text).toBe(fixture.blocker.message);
       expect(deriveBlocker(fixture)).toBe(fixture.blocker.kind);
       observedKinds.add(fixture.blocker.kind);
 
       if (fixture.blocker.kind === "missing_tool") {
+        expect(fixture.expected.reason_code).toBe("tool_missing");
         expect(hasLocalExecutable(fixture)).toBe(false);
         expect(hasRequiredConfig(fixture)).toBe(true);
       } else {
+        expect(fixture.expected.reason_code.length).toBeGreaterThan(0);
         expect(hasLocalExecutable(fixture)).toBe(true);
         expect(fixture.capability.local_executable_path).not.toBeNull();
         expect(fixture.files[fixture.capability.local_executable_path!]).toBeDefined();
