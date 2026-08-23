@@ -202,7 +202,7 @@ function parseTypes(value: unknown, path = "type"): readonly JsonSchemaType[] {
   return raw;
 }
 
-function assertSupportedSchema(schema: JsonSchema, path: string): void {
+function assertSupportedSchema(schema: JsonSchema, path: string, root: JsonSchema): void {
   for (const key of Object.keys(schema)) {
     if (!SUPPORTED_SCHEMA_KEYWORDS.has(key)) {
       throw new Error(`${path}: unsupported JSON Schema keyword ${JSON.stringify(key)}`);
@@ -215,8 +215,11 @@ function assertSupportedSchema(schema: JsonSchema, path: string): void {
   if (schema.$id !== undefined && (path !== "$schema" || schema.$id !== RECEIPT_SCHEMA_ID)) {
     throw new Error(`${path}.$id: nested or unsupported schema ids are not supported`);
   }
-  if (schema.$ref !== undefined && (typeof schema.$ref !== "string" || !schema.$ref.startsWith("#/"))) {
-    throw new Error(`${path}.$ref: only local string refs are supported`);
+  if (schema.$ref !== undefined) {
+    if (typeof schema.$ref !== "string" || !schema.$ref.startsWith("#/")) {
+      throw new Error(`${path}.$ref: only local string refs are supported`);
+    }
+    resolveLocalRef(root, schema.$ref);
   }
   for (const keyword of ["$comment", "title"] as const) {
     if (schema[keyword] !== undefined && typeof schema[keyword] !== "string") {
@@ -285,19 +288,19 @@ function assertSupportedSchema(schema: JsonSchema, path: string): void {
   if (schema.properties !== undefined) {
     const properties = schemaRecord(schema.properties, `${path}.properties`);
     for (const [name, child] of Object.entries(properties)) {
-      assertSupportedSchema(schemaRecord(child, `${path}.properties.${name}`), `${path}.properties.${name}`);
+      assertSupportedSchema(schemaRecord(child, `${path}.properties.${name}`), `${path}.properties.${name}`, root);
     }
   }
 
   if (schema.$defs !== undefined) {
     const definitions = schemaRecord(schema.$defs, `${path}.$defs`);
     for (const [name, child] of Object.entries(definitions)) {
-      assertSupportedSchema(schemaRecord(child, `${path}.$defs.${name}`), `${path}.$defs.${name}`);
+      assertSupportedSchema(schemaRecord(child, `${path}.$defs.${name}`), `${path}.$defs.${name}`, root);
     }
   }
 
   if (schema.items !== undefined && typeof schema.items !== "boolean") {
-    assertSupportedSchema(schemaRecord(schema.items, `${path}.items`), `${path}.items`);
+    assertSupportedSchema(schemaRecord(schema.items, `${path}.items`), `${path}.items`, root);
   }
 
   if (schema.prefixItems !== undefined) {
@@ -306,7 +309,7 @@ function assertSupportedSchema(schema: JsonSchema, path: string): void {
       throw new Error(`${path}.prefixItems: JSON Schema keyword must contain at least one schema`);
     }
     for (const [index, child] of prefixItems.entries()) {
-      assertSupportedSchema(schemaRecord(child, `${path}.prefixItems[${index}]`), `${path}.prefixItems[${index}]`);
+      assertSupportedSchema(schemaRecord(child, `${path}.prefixItems[${index}]`), `${path}.prefixItems[${index}]`, root);
     }
   }
 
@@ -317,13 +320,13 @@ function assertSupportedSchema(schema: JsonSchema, path: string): void {
       throw new Error(`${path}.${keyword}: JSON Schema keyword must contain at least one schema`);
     }
     for (const [index, child] of children.entries()) {
-      assertSupportedSchema(schemaRecord(child, `${path}.${keyword}[${index}]`), `${path}.${keyword}[${index}]`);
+      assertSupportedSchema(schemaRecord(child, `${path}.${keyword}[${index}]`), `${path}.${keyword}[${index}]`, root);
     }
   }
 
   for (const keyword of ["if", "then", "else", "not"] as const) {
     if (schema[keyword] !== undefined) {
-      assertSupportedSchema(schemaRecord(schema[keyword], `${path}.${keyword}`), `${path}.${keyword}`);
+      assertSupportedSchema(schemaRecord(schema[keyword], `${path}.${keyword}`), `${path}.${keyword}`, root);
     }
   }
 }
@@ -345,7 +348,7 @@ function loadReceiptSchema(): JsonSchema {
   if (schema.$id !== RECEIPT_SCHEMA_ID) {
     throw new Error(`receipt schema id must equal ${RECEIPT_SCHEMA_ID}`);
   }
-  assertSupportedSchema(schema, "$schema");
+  assertSupportedSchema(schema, "$schema", schema);
   cachedSchema = schema;
   return schema;
 }

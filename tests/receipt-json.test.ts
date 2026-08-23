@@ -314,6 +314,32 @@ describe("T026 receipt JSON renderer", () => {
     }
   });
 
+  it("fails closed on unresolved local JSON Schema refs during schema loading", async () => {
+    vi.resetModules();
+    vi.doMock("node:fs", () => ({
+      readFileSync: () => JSON.stringify({
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        $id: "urn:ascout:receipt:v1",
+        type: "object",
+        properties: {
+          optional: { $ref: "#/$defs/missing" },
+        },
+        $defs: {
+          present: { type: "string" },
+        },
+      }),
+    }));
+
+    try {
+      const { validateReceiptJsonSchema: validateWithMockedSchema } = await import("../src/receipt/json.js");
+      expect(() => validateWithMockedSchema({}))
+        .toThrow("unresolvable JSON Schema ref: #/$defs/missing");
+    } finally {
+      vi.doUnmock("node:fs");
+      vi.resetModules();
+    }
+  });
+
   it("counts JSON Schema string lengths in Unicode code points", async () => {
     vi.resetModules();
     vi.doMock("node:fs", () => ({
