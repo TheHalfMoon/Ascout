@@ -234,6 +234,8 @@ describe("T026 receipt JSON renderer", () => {
       "2024-01-01T12:00:60Z",
       "2024-06-30T23:58:60Z",
       "2024-01-30T23:59:60Z",
+      "2024-01-31T23:59:60Z",
+      "2024-06-30T23:59:60Z",
     ];
 
     for (const dateTime of invalidDateTimes) {

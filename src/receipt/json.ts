@@ -60,6 +60,14 @@ function monthLength(year: number, month: number): number {
   return [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]!;
 }
 
+// Keep synchronized with announced IERS/NIST positive leap-second insertion dates.
+// Unknown or future second=60 timestamps fail closed until an insertion is announced and added here.
+const KNOWN_POSITIVE_LEAP_SECOND_UTC_DATES = new Set<number>([
+  19720630, 19721231, 19731231, 19741231, 19751231, 19761231, 19771231, 19781231, 19791231,
+  19810630, 19820630, 19830630, 19850630, 19871231, 19891231, 19901231, 19920630, 19930630,
+  19940630, 19951231, 19970630, 19981231, 20051231, 20081231, 20120630, 20150630, 20161231,
+]);
+
 function shiftDateByOneDay(
   year: number,
   month: number,
@@ -99,7 +107,8 @@ function isValidLeapSecondInstant(
   if (utcMinute !== 23 * 60 + 59) return false;
 
   const [utcYear, utcMonth, utcDay] = shiftDateByOneDay(year, month, day, dayShift);
-  return utcDay === monthLength(utcYear, utcMonth);
+  const utcDate = utcYear * 10_000 + utcMonth * 100 + utcDay;
+  return KNOWN_POSITIVE_LEAP_SECOND_UTC_DATES.has(utcDate);
 }
 
 function isValidRfc3339DateTime(value: string): boolean {
