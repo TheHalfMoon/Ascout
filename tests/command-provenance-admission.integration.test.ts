@@ -174,6 +174,10 @@ describe("T028 command-provenance/admission integration matrix", () => {
       );
       expect(intersection).toEqual(fixture.expected.changed_authority_paths);
       expect(intersection.length > 0).toBe(fixture.expected.command_surface_changed);
+      if (intersection.length > 0) {
+        expect(fixture.executionLoadPaths.length).toBeGreaterThan(0);
+        for (const path of intersection) expect(fixture.executionLoadPaths).toContain(path);
+      }
     }
   });
 
