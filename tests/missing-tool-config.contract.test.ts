@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { TaskResultV1, TaskType } from "../src/receipt/model.js";
 
 type BlockerKind = "missing_tool" | "missing_config";
+type MissingReasonCode = "tool_missing" | "config_missing";
 
 interface CapabilityState {
   readonly tool_name: string;
@@ -25,7 +26,7 @@ interface MissingCapabilityFixtureCase {
   };
   readonly expected: {
     readonly status: "NOT_RUN";
-    readonly reason_code: "tool_missing" | "config_missing";
+    readonly reason_code: MissingReasonCode;
     readonly reason_text: string;
   };
 }
@@ -44,14 +45,115 @@ const RECEIPT_SCHEMA_URL = new URL(
   "../specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json",
   import.meta.url,
 );
+const SUPPORTED_TASK_TYPES = ["typecheck", "lint", "test", "pytestBasic"] as const;
+const SUPPORTED_BLOCKER_KINDS = ["missing_tool", "missing_config"] as const;
+const SUPPORTED_REASON_CODES = ["tool_missing", "config_missing"] as const;
 const TASK_SCRIPT_NAME: Readonly<Partial<Record<TaskType, string>>> = {
   typecheck: "typecheck",
   lint: "lint",
   test: "test",
 };
 
+function record(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function nonEmptyString(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  return value;
+}
+
+function nullableString(value: unknown, label: string): string | null {
+  return value === null ? null : nonEmptyString(value, label);
+}
+
+function taskType(value: unknown, label: string): TaskType {
+  const candidate = nonEmptyString(value, label);
+  if (!SUPPORTED_TASK_TYPES.includes(candidate as TaskType)) {
+    throw new Error(`${label} is not a supported task type`);
+  }
+  return candidate as TaskType;
+}
+
+function blockerKind(value: unknown, label: string): BlockerKind {
+  const candidate = nonEmptyString(value, label);
+  if (!SUPPORTED_BLOCKER_KINDS.includes(candidate as BlockerKind)) {
+    throw new Error(`${label} is not a supported blocker kind`);
+  }
+  return candidate as BlockerKind;
+}
+
+function reasonCode(value: unknown, label: string): MissingReasonCode {
+  const candidate = nonEmptyString(value, label);
+  if (!SUPPORTED_REASON_CODES.includes(candidate as MissingReasonCode)) {
+    throw new Error(`${label} is not a supported T031 reason code`);
+  }
+  return candidate as MissingReasonCode;
+}
+
+function stringMap(value: unknown, label: string): Readonly<Record<string, string>> {
+  const source = record(value, label);
+  const result: Record<string, string> = {};
+  for (const [path, content] of Object.entries(source)) {
+    if (path.length === 0 || typeof content !== "string") {
+      throw new Error(`${label} must map non-empty paths to string contents`);
+    }
+    result[path] = content;
+  }
+  return result;
+}
+
+function parseCatalog(value: unknown): MissingCapabilityFixtureCatalog {
+  const root = record(value, "catalog");
+  if (root.version !== 1) throw new Error("catalog.version must be 1");
+  if (!Array.isArray(root.cases)) throw new Error("catalog.cases must be an array");
+
+  const cases = root.cases.map((rawCase, index): MissingCapabilityFixtureCase => {
+    const base = `catalog.cases[${index}]`;
+    const candidate = record(rawCase, base);
+    const capability = record(candidate.capability, `${base}.capability`);
+    const blocker = record(candidate.blocker, `${base}.blocker`);
+    const expected = record(candidate.expected, `${base}.expected`);
+    if (expected.status !== "NOT_RUN") throw new Error(`${base}.expected.status must be NOT_RUN`);
+
+    return {
+      id: nonEmptyString(candidate.id, `${base}.id`),
+      purpose: nonEmptyString(candidate.purpose, `${base}.purpose`),
+      task_type: taskType(candidate.task_type, `${base}.task_type`),
+      files: stringMap(candidate.files, `${base}.files`),
+      capability: {
+        tool_name: nonEmptyString(capability.tool_name, `${base}.capability.tool_name`),
+        local_executable_path: nullableString(
+          capability.local_executable_path,
+          `${base}.capability.local_executable_path`,
+        ),
+        required_config_path: nullableString(
+          capability.required_config_path,
+          `${base}.capability.required_config_path`,
+        ),
+      },
+      blocker: {
+        kind: blockerKind(blocker.kind, `${base}.blocker.kind`),
+        message: nonEmptyString(blocker.message, `${base}.blocker.message`),
+      },
+      expected: {
+        status: "NOT_RUN",
+        reason_code: reasonCode(expected.reason_code, `${base}.expected.reason_code`),
+        reason_text: nonEmptyString(expected.reason_text, `${base}.expected.reason_text`),
+      },
+    };
+  });
+
+  return { version: 1, cases };
+}
+
 function loadCatalog(): MissingCapabilityFixtureCatalog {
-  return JSON.parse(readFileSync(FIXTURE_CATALOG_URL, "utf8")) as MissingCapabilityFixtureCatalog;
+  return parseCatalog(JSON.parse(readFileSync(FIXTURE_CATALOG_URL, "utf8")) as unknown);
 }
 
 function loadReceiptTaskRequiredFields(): readonly string[] {
@@ -107,7 +209,7 @@ function deriveBlocker(fixture: MissingCapabilityFixtureCase): BlockerKind | nul
   return null;
 }
 
-function expectedReasonCode(kind: BlockerKind): "tool_missing" | "config_missing" {
+function expectedReasonCode(kind: BlockerKind): MissingReasonCode {
   return kind === "missing_tool" ? "tool_missing" : "config_missing";
 }
 
@@ -175,7 +277,7 @@ function assertHonestNotRun(task: TaskResultV1): void {
 }
 
 describe("T031 missing tool/config contract", () => {
-  it("uses a versioned non-vacuous corpus with concrete missing-tool and missing-config evidence", () => {
+  it("uses a runtime-validated, versioned corpus with concrete missing-capability evidence", () => {
     const catalog = loadCatalog();
     expect(catalog.version).toBe(1);
     expect(catalog.cases.length).toBeGreaterThan(0);
@@ -190,7 +292,6 @@ describe("T031 missing tool/config contract", () => {
       expect(Object.keys(fixture.files).length).toBeGreaterThan(0);
       expect(hasAscoutOverride(fixture)).toBe(false);
       expect(packageScript(fixture)).toBeUndefined();
-      expect(fixture.blocker.message.length).toBeGreaterThan(0);
       expect(fixture.expected.reason_code).toBe(expectedReasonCode(fixture.blocker.kind));
       expect(fixture.expected.reason_text).toBe(fixture.blocker.message);
       expect(deriveBlocker(fixture)).toBe(fixture.blocker.kind);
@@ -209,6 +310,31 @@ describe("T031 missing tool/config contract", () => {
     }
 
     expect(observedKinds).toEqual(new Set<BlockerKind>(["missing_tool", "missing_config"]));
+  });
+
+  it("rejects malformed fixture task and capability metadata before contract evaluation", () => {
+    const valid = JSON.parse(readFileSync(FIXTURE_CATALOG_URL, "utf8")) as {
+      version: number;
+      cases: Array<Record<string, unknown>>;
+    };
+    const first = valid.cases[0];
+    expect(first).toBeDefined();
+
+    expect(() => parseCatalog({
+      ...valid,
+      cases: [{ ...first!, task_type: "build" }],
+    })).toThrow("is not a supported task type");
+
+    expect(() => parseCatalog({
+      ...valid,
+      cases: [{
+        ...first!,
+        capability: {
+          ...(first!.capability as Record<string, unknown>),
+          tool_name: "",
+        },
+      }],
+    })).toThrow("must be a non-empty string");
   });
 
   it("returns the full receipt-task shape as honest NOT_RUN before launch", () => {
