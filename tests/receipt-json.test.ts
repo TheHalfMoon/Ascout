@@ -284,6 +284,62 @@ describe("T026 receipt JSON renderer", () => {
     }
   });
 
+  it.each([
+    ["minimum", { type: "number", minimum: "0" }],
+    ["maximum", { type: "number", maximum: null }],
+    ["minLength", { type: "string", minLength: -1 }],
+    ["maxItems", { type: "array", maxItems: 1.5 }],
+    ["pattern", { type: "string", pattern: "[" }],
+    ["uniqueItems", { type: "array", uniqueItems: "true" }],
+    ["$ref", { $ref: 1 }],
+    ["required entry", { type: "object", required: ["ok", 1] }],
+    ["required duplicate", { type: "object", required: ["ok", "ok"] }],
+  ])("fails closed on malformed %s JSON Schema keyword values", async (_label: string, childSchema: unknown) => {
+    vi.resetModules();
+    vi.doMock("node:fs", () => ({
+      readFileSync: () => JSON.stringify({
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        $id: "urn:ascout:receipt:v1",
+        type: "object",
+        properties: { value: childSchema },
+      }),
+    }));
+
+    try {
+      const { validateReceiptJsonSchema: validateWithMockedSchema } = await import("../src/receipt/json.js");
+      expect(() => validateWithMockedSchema({ value: 1 })).toThrow();
+    } finally {
+      vi.doUnmock("node:fs");
+      vi.resetModules();
+    }
+  });
+
+  it("counts JSON Schema string lengths in Unicode code points", async () => {
+    vi.resetModules();
+    vi.doMock("node:fs", () => ({
+      readFileSync: () => JSON.stringify({
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        $id: "urn:ascout:receipt:v1",
+        type: "object",
+        required: ["value"],
+        properties: {
+          value: { type: "string", minLength: 2, maxLength: 2 },
+        },
+      }),
+    }));
+
+    try {
+      const { validateReceiptJsonSchema: validateWithMockedSchema } = await import("../src/receipt/json.js");
+      const tooShort = validateWithMockedSchema({ value: "😀" });
+      expect(tooShort.valid).toBe(false);
+      expect(tooShort.issues.some((issue) => issue.path === "$.value" && issue.keyword === "minLength")).toBe(true);
+      expect(validateWithMockedSchema({ value: "😀😀" })).toEqual({ valid: true, issues: [] });
+    } finally {
+      vi.doUnmock("node:fs");
+      vi.resetModules();
+    }
+  });
+
   it("rejects inverted changed-line ranges before emission", () => {
     const receipt = structuredClone(receiptFixture()) as ReceiptV1;
     (receipt.comparison.changed_files[0] as unknown as { changed_new_line_ranges: Array<[number, number]> })

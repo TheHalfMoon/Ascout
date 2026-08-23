@@ -209,12 +209,77 @@ function assertSupportedSchema(schema: JsonSchema, path: string): void {
     }
   }
 
+  if (schema.$schema !== undefined && (path !== "$schema" || schema.$schema !== DRAFT_2020_12)) {
+    throw new Error(`${path}.$schema: nested or unsupported schema declarations are not supported`);
+  }
+  if (schema.$id !== undefined && (path !== "$schema" || schema.$id !== RECEIPT_SCHEMA_ID)) {
+    throw new Error(`${path}.$id: nested or unsupported schema ids are not supported`);
+  }
+  if (schema.$ref !== undefined && (typeof schema.$ref !== "string" || !schema.$ref.startsWith("#/"))) {
+    throw new Error(`${path}.$ref: only local string refs are supported`);
+  }
+  for (const keyword of ["$comment", "title"] as const) {
+    if (schema[keyword] !== undefined && typeof schema[keyword] !== "string") {
+      throw new Error(`${path}.${keyword}: JSON Schema keyword must be a string`);
+    }
+  }
+
   if (schema.type !== undefined) parseTypes(schema.type, `${path}.type`);
   if (schema.format !== undefined && schema.format !== "date-time") {
     throw new Error(`${path}.format: only "date-time" format is supported`);
   }
   if (schema.additionalProperties !== undefined && typeof schema.additionalProperties !== "boolean") {
     throw new Error(`${path}.additionalProperties: only boolean additionalProperties is supported`);
+  }
+
+  for (const keyword of ["minimum", "maximum"] as const) {
+    if (schema[keyword] !== undefined &&
+        (typeof schema[keyword] !== "number" || !Number.isFinite(schema[keyword]))) {
+      throw new Error(`${path}.${keyword}: JSON Schema keyword must be a finite number`);
+    }
+  }
+  for (const keyword of ["minLength", "maxLength", "minItems", "maxItems"] as const) {
+    const value = schema[keyword];
+    if (value !== undefined &&
+        (typeof value !== "number" || !Number.isInteger(value) || value < 0)) {
+      throw new Error(`${path}.${keyword}: JSON Schema keyword must be a non-negative integer`);
+    }
+  }
+  if (schema.uniqueItems !== undefined && typeof schema.uniqueItems !== "boolean") {
+    throw new Error(`${path}.uniqueItems: JSON Schema keyword must be a boolean`);
+  }
+  if (schema.pattern !== undefined) {
+    if (typeof schema.pattern !== "string") {
+      throw new Error(`${path}.pattern: JSON Schema keyword must be a string`);
+    }
+    try {
+      new RegExp(schema.pattern);
+    } catch {
+      throw new Error(`${path}.pattern: JSON Schema pattern must be a valid regular expression`);
+    }
+  }
+
+  if (schema.required !== undefined) {
+    const required = schemaArray(schema.required, `${path}.required`);
+    if (required.some((item) => typeof item !== "string")) {
+      throw new Error(`${path}.required: entries must be strings`);
+    }
+    if (new Set(required).size !== required.length) {
+      throw new Error(`${path}.required: entries must be unique`);
+    }
+  }
+  if (schema.enum !== undefined) {
+    const values = schemaArray(schema.enum, `${path}.enum`);
+    if (values.length === 0) {
+      throw new Error(`${path}.enum: JSON Schema enum must contain at least one value`);
+    }
+    for (let left = 0; left < values.length; left += 1) {
+      for (let right = left + 1; right < values.length; right += 1) {
+        if (isDeepStrictEqual(values[left], values[right])) {
+          throw new Error(`${path}.enum: entries must be unique`);
+        }
+      }
+    }
   }
 
   if (schema.properties !== undefined) {
@@ -236,14 +301,22 @@ function assertSupportedSchema(schema: JsonSchema, path: string): void {
   }
 
   if (schema.prefixItems !== undefined) {
-    for (const [index, child] of schemaArray(schema.prefixItems, `${path}.prefixItems`).entries()) {
+    const prefixItems = schemaArray(schema.prefixItems, `${path}.prefixItems`);
+    if (prefixItems.length === 0) {
+      throw new Error(`${path}.prefixItems: JSON Schema keyword must contain at least one schema`);
+    }
+    for (const [index, child] of prefixItems.entries()) {
       assertSupportedSchema(schemaRecord(child, `${path}.prefixItems[${index}]`), `${path}.prefixItems[${index}]`);
     }
   }
 
   for (const keyword of ["allOf", "oneOf"] as const) {
     if (schema[keyword] === undefined) continue;
-    for (const [index, child] of schemaArray(schema[keyword], `${path}.${keyword}`).entries()) {
+    const children = schemaArray(schema[keyword], `${path}.${keyword}`);
+    if (children.length === 0) {
+      throw new Error(`${path}.${keyword}: JSON Schema keyword must contain at least one schema`);
+    }
+    for (const [index, child] of children.entries()) {
       assertSupportedSchema(schemaRecord(child, `${path}.${keyword}[${index}]`), `${path}.${keyword}[${index}]`);
     }
   }
@@ -383,10 +456,11 @@ function validateAgainstSchema(
   }
 
   if (typeof value === "string") {
-    if (typeof schema.minLength === "number" && value.length < schema.minLength) {
+    const codePointLength = [...value].length;
+    if (typeof schema.minLength === "number" && codePointLength < schema.minLength) {
       addSchemaIssue(issues, path, "minLength", `must contain at least ${schema.minLength} characters`);
     }
-    if (typeof schema.maxLength === "number" && value.length > schema.maxLength) {
+    if (typeof schema.maxLength === "number" && codePointLength > schema.maxLength) {
       addSchemaIssue(issues, path, "maxLength", `must contain at most ${schema.maxLength} characters`);
     }
     if (typeof schema.pattern === "string" && !new RegExp(schema.pattern).test(value)) {
