@@ -56,6 +56,52 @@ function isLeapYear(year: number): boolean {
   return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 }
 
+function monthLength(year: number, month: number): number {
+  return [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]!;
+}
+
+function shiftDateByOneDay(
+  year: number,
+  month: number,
+  day: number,
+  direction: -1 | 0 | 1,
+): readonly [number, number, number] {
+  if (direction === 0) return [year, month, day];
+  if (direction === 1) {
+    if (day < monthLength(year, month)) return [year, month, day + 1];
+    if (month < 12) return [year, month + 1, 1];
+    return [year + 1, 1, 1];
+  }
+  if (day > 1) return [year, month, day - 1];
+  if (month > 1) {
+    const previousMonth = month - 1;
+    return [year, previousMonth, monthLength(year, previousMonth)];
+  }
+  return [year - 1, 12, 31];
+}
+
+function isValidLeapSecondInstant(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  offset: string,
+  offsetHour: number,
+  offsetMinute: number,
+): boolean {
+  const signedOffsetMinutes = offset === "Z"
+    ? 0
+    : (offset.startsWith("+") ? 1 : -1) * (offsetHour * 60 + offsetMinute);
+  const unnormalizedUtcMinute = hour * 60 + minute - signedOffsetMinutes;
+  const dayShift = unnormalizedUtcMinute < 0 ? -1 : unnormalizedUtcMinute >= 24 * 60 ? 1 : 0;
+  const utcMinute = ((unnormalizedUtcMinute % (24 * 60)) + 24 * 60) % (24 * 60);
+  if (utcMinute !== 23 * 60 + 59) return false;
+
+  const [utcYear, utcMonth, utcDay] = shiftDateByOneDay(year, month, day, dayShift);
+  return utcDay === monthLength(utcYear, utcMonth);
+}
+
 function isValidRfc3339DateTime(value: string): boolean {
   const match = DATE_TIME.exec(value);
   if (match === null) return false;
@@ -66,15 +112,19 @@ function isValidRfc3339DateTime(value: string): boolean {
   const hour = Number(match[4]!);
   const minute = Number(match[5]!);
   const second = Number(match[6]!);
+  const offset = match[7]!;
   const offsetHour = match[8] === undefined ? 0 : Number(match[8]);
   const offsetMinute = match[9] === undefined ? 0 : Number(match[9]);
 
   if (month < 1 || month > 12 || hour > 23 || minute > 59 || second > 60) return false;
   if (offsetHour > 23 || offsetMinute > 59) return false;
 
-  const monthLengths = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const;
-  const maxDay = monthLengths[month - 1]!;
-  return day >= 1 && day <= maxDay;
+  const maxDay = monthLength(year, month);
+  if (day < 1 || day > maxDay) return false;
+  if (second === 60) {
+    return isValidLeapSecondInstant(year, month, day, hour, minute, offset, offsetHour, offsetMinute);
+  }
+  return true;
 }
 
 const SUPPORTED_SCHEMA_KEYWORDS = new Set([

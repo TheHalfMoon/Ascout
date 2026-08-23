@@ -231,6 +231,9 @@ describe("T026 receipt JSON renderer", () => {
       "2024-01-01T23:60:00Z",
       "2024-01-01T23:59:00+24:00",
       "2024-01-01T23:59:00+00:60",
+      "2024-01-01T12:00:60Z",
+      "2024-06-30T23:58:60Z",
+      "2024-01-30T23:59:60Z",
     ];
 
     for (const dateTime of invalidDateTimes) {
@@ -241,9 +244,16 @@ describe("T026 receipt JSON renderer", () => {
       expect(result.issues.some((issue) => issue.path === "$.run.started_at" && issue.keyword === "format")).toBe(true);
     }
 
-    const leapDay = structuredClone(receiptFixture()) as ReceiptV1;
-    (leapDay.run as unknown as { started_at: string }).started_at = "2024-02-29T23:59:59.123Z";
-    expect(validateReceiptJsonSchema(leapDay).valid).toBe(true);
+    for (const dateTime of [
+      "2024-02-29T23:59:59.123Z",
+      "1990-12-31T23:59:60Z",
+      "1990-12-31T15:59:60-08:00",
+      "1991-01-01T00:59:60+01:00",
+    ]) {
+      const receipt = structuredClone(receiptFixture()) as ReceiptV1;
+      (receipt.run as unknown as { started_at: string }).started_at = dateTime;
+      expect(validateReceiptJsonSchema(receipt).valid).toBe(true);
+    }
   });
 
   it.each([
