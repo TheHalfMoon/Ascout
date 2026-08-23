@@ -28,6 +28,12 @@ interface DiscoveryFixtureCatalog {
 
 const FIXTURE_CATALOG_URL = new URL("./fixtures/discovery/cases.json", import.meta.url);
 const RECOGNIZED_LOCKFILES = ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"] as const;
+const LOCKFILE_MANAGER: Readonly<Record<(typeof RECOGNIZED_LOCKFILES)[number], "npm" | "pnpm" | "yarn">> = {
+  "package-lock.json": "npm",
+  "pnpm-lock.yaml": "pnpm",
+  "yarn.lock": "yarn",
+};
+const PACKAGE_MANAGER_DECLARATION = /^(npm|pnpm|yarn)@[0-9]+\.[0-9]+\.[0-9]+$/;
 const SUPPORTED_JS_RUNNERS = new Set(["vitest", "jest"]);
 
 function loadCatalog(): DiscoveryFixtureCatalog {
@@ -70,24 +76,14 @@ describe("T027 discovery fixture contract", () => {
       expect(fixture).toBeDefined();
       expect(fixture?.expected.packageManager).toBe(manager);
       const declaration = packageJson(fixture!)?.packageManager;
-      const exactDeclaration = new RegExp(`^${manager}@[0-9]+\\.[0-9]+\\.[0-9]+$`);
-      expect(declaration).toMatch(exactDeclaration);
-      expect(exactDeclaration.test(`${String(declaration)}garbage`)).toBe(false);
+      expect(declaration).toMatch(PACKAGE_MANAGER_DECLARATION);
+      expect(PACKAGE_MANAGER_DECLARATION.exec(String(declaration))?.[1]).toBe(manager);
+      expect(PACKAGE_MANAGER_DECLARATION.test(`${String(declaration)}garbage`)).toBe(false);
+
+      const lockfiles = RECOGNIZED_LOCKFILES.filter((path) => path in fixture!.files);
+      expect(lockfiles).toHaveLength(1);
+      expect(LOCKFILE_MANAGER[lockfiles[0]!]).not.toBe(manager);
     }
-  });
-
-  it("gives a valid root packageManager declaration precedence over a conflicting lockfile", () => {
-    const catalog = loadCatalog();
-    const fixture = catalog.cases.find(
-      (candidate) => candidate.id === "explicit-pnpm-conflicting-npm-lockfile",
-    );
-
-    expect(fixture).toBeDefined();
-    expect(packageJson(fixture!)?.packageManager).toBe("pnpm@10.15.0");
-    expect(RECOGNIZED_LOCKFILES.filter((path) => path in fixture!.files)).toEqual([
-      "package-lock.json",
-    ]);
-    expect(fixture?.expected.packageManager).toBe("pnpm");
   });
 
   it("covers unambiguous lockfile fallback and multiple-lockfile ambiguity", () => {
