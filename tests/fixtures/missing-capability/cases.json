@@ -1,7 +1,7 @@
 {
   "version": 1,
   "production_binding": {
-    "state": "deferred",
+    "state": "active",
     "task": "T034",
     "entry_point": "src/discovery.ts"
   },

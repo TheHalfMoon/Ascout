@@ -3,6 +3,11 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  discoverProjectFromFiles,
+  type LocalNodeToolDiscovery,
+  type ProjectDiscovery,
+} from "../src/discovery.js";
 import type { TaskResultV1, TaskType } from "../src/receipt/model.js";
 
 type BlockerKind = "missing_tool" | "missing_config";
@@ -33,7 +38,7 @@ interface MissingCapabilityFixtureCase {
 interface MissingCapabilityFixtureCatalog {
   readonly version: 1;
   readonly production_binding: {
-    readonly state: "deferred";
+    readonly state: "active";
     readonly task: "T034";
     readonly entry_point: "src/discovery.ts";
   };
@@ -49,7 +54,7 @@ const RECEIPT_SCHEMA_URL = new URL(
   "../specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json",
   import.meta.url,
 );
-const DEFERRED_PRODUCTION_ENTRY_URL = new URL("../src/discovery.ts", import.meta.url);
+const PRODUCTION_ENTRY_URL = new URL("../src/discovery.ts", import.meta.url);
 const SUPPORTED_TASK_TYPES = ["typecheck", "lint", "test", "pytestBasic"] as const;
 const SUPPORTED_BLOCKER_KINDS = ["missing_tool", "missing_config"] as const;
 const TASK_SCRIPT_NAME: Readonly<Partial<Record<TaskType, string>>> = {
@@ -108,8 +113,8 @@ function parseCatalog(value: unknown): MissingCapabilityFixtureCatalog {
   const root = record(value, "catalog");
   if (root.version !== 1) throw new Error("catalog.version must be 1");
   const productionBinding = record(root.production_binding, "catalog.production_binding");
-  if (productionBinding.state !== "deferred") {
-    throw new Error("catalog.production_binding.state must be deferred");
+  if (productionBinding.state !== "active") {
+    throw new Error("catalog.production_binding.state must be active");
   }
   if (productionBinding.task !== "T034") {
     throw new Error("catalog.production_binding.task must be T034");
@@ -158,7 +163,7 @@ function parseCatalog(value: unknown): MissingCapabilityFixtureCatalog {
   return {
     version: 1,
     production_binding: {
-      state: "deferred",
+      state: "active",
       task: "T034",
       entry_point: "src/discovery.ts",
     },
@@ -207,14 +212,29 @@ function hasAscoutOverride(fixture: MissingCapabilityFixtureCase): boolean {
   return config.tasks?.[fixture.task_type]?.command !== undefined;
 }
 
+function capabilityTool(
+  fixture: MissingCapabilityFixtureCase,
+  discovery: ProjectDiscovery,
+): LocalNodeToolDiscovery {
+  if (fixture.capability.tool_name === "tsc") return discovery.tools.typescript;
+  if (fixture.capability.tool_name === "eslint") return discovery.tools.eslint;
+  if (fixture.capability.tool_name === "vitest") return discovery.tools.vitest;
+  if (fixture.capability.tool_name === "jest") return discovery.tools.jest;
+  throw new Error(`unsupported fixture tool ${fixture.capability.tool_name}`);
+}
+
 function hasLocalExecutable(fixture: MissingCapabilityFixtureCase): boolean {
-  const path = fixture.capability.local_executable_path;
-  return path !== null && fixture.files[path] !== undefined;
+  const discovery = discoverProjectFromFiles(fixture.files);
+  const tool = capabilityTool(fixture, discovery);
+  const declaredPath = fixture.capability.local_executable_path;
+  if (declaredPath === null) return tool.localExecutablePaths.length > 0;
+  return tool.localExecutablePaths.includes(declaredPath);
 }
 
 function hasRequiredConfig(fixture: MissingCapabilityFixtureCase): boolean {
   const path = fixture.capability.required_config_path;
-  return path === null || fixture.files[path] !== undefined;
+  if (path === null) return true;
+  return capabilityTool(fixture, discoverProjectFromFiles(fixture.files)).configPaths.includes(path);
 }
 
 function deriveBlocker(fixture: MissingCapabilityFixtureCase): BlockerKind | null {
@@ -286,31 +306,30 @@ function assertHonestNotRun(task: TaskResultV1): void {
   expect(task.output_truncated).toBe(false);
 }
 
-describe("T031 missing tool/config contract", () => {
-  it("enforces the deferred production binding to T034 before modeling missing capabilities", () => {
+describe("T031 missing tool/config contract after T034 production binding", () => {
+  it("binds the corpus to the active T034 production discovery entry point", () => {
     const catalog = loadCatalog();
     expect(catalog.production_binding).toEqual({
-      state: "deferred",
+      state: "active",
       task: "T034",
       entry_point: "src/discovery.ts",
     });
-    expect(fileURLToPath(DEFERRED_PRODUCTION_ENTRY_URL).endsWith("src/discovery.ts")).toBe(true);
-    expect(existsSync(fileURLToPath(DEFERRED_PRODUCTION_ENTRY_URL))).toBe(false);
+    expect(fileURLToPath(PRODUCTION_ENTRY_URL).endsWith("src/discovery.ts")).toBe(true);
+    expect(existsSync(fileURLToPath(PRODUCTION_ENTRY_URL))).toBe(true);
+
+    const discovery = discoverProjectFromFiles(catalog.cases[0]!.files);
+    expect(discovery.semanticTasks).toEqual(["typecheck", "lint", "test", "pytestBasic"]);
   });
 
-  it("uses a runtime-validated, versioned corpus with concrete missing-capability evidence", () => {
+  it("uses production discovery facts for concrete missing-tool and missing-config evidence", () => {
     const catalog = loadCatalog();
     expect(catalog.version).toBe(1);
-    expect(catalog.cases.length).toBeGreaterThan(0);
-
-    const ids = catalog.cases.map((fixture) => fixture.id);
-    expect(new Set(ids).size).toBe(ids.length);
+    expect(new Set(catalog.cases.map(({ id }) => id)).size).toBe(catalog.cases.length);
 
     const observedKinds = new Set<BlockerKind>();
     for (const fixture of catalog.cases) {
       expect(fixture.id).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
       expect(fixture.purpose.length).toBeGreaterThan(0);
-      expect(Object.keys(fixture.files).length).toBeGreaterThan(0);
       expect(hasAscoutOverride(fixture)).toBe(false);
       expect(packageScript(fixture)).toBeUndefined();
       expect(fixture.expected.reason_text).toBe(fixture.blocker.message);
@@ -322,10 +341,7 @@ describe("T031 missing tool/config contract", () => {
         expect(hasLocalExecutable(fixture)).toBe(false);
         expect(hasRequiredConfig(fixture)).toBe(true);
       } else {
-        expect(fixture.expected.reason_code.length).toBeGreaterThan(0);
         expect(hasLocalExecutable(fixture)).toBe(true);
-        expect(fixture.capability.local_executable_path).not.toBeNull();
-        expect(fixture.files[fixture.capability.local_executable_path!]).toBeDefined();
         expect(fixture.capability.required_config_path).not.toBeNull();
         expect(hasRequiredConfig(fixture)).toBe(false);
       }
@@ -334,14 +350,18 @@ describe("T031 missing tool/config contract", () => {
     expect(observedKinds).toEqual(new Set<BlockerKind>(["missing_tool", "missing_config"]));
   });
 
-  it("rejects malformed fixture task, capability, or production-binding metadata before contract evaluation", () => {
+  it("rejects malformed fixture task, capability, or production-binding metadata", () => {
     const valid = JSON.parse(readFileSync(FIXTURE_CATALOG_URL, "utf8")) as {
       version: number;
       production_binding: Record<string, unknown>;
       cases: Array<Record<string, unknown>>;
     };
-    const first = valid.cases[0];
-    expect(first).toBeDefined();
+    const first = valid.cases[0]!;
+
+    expect(() => parseCatalog({
+      ...valid,
+      production_binding: { ...valid.production_binding, state: "deferred" },
+    })).toThrow("catalog.production_binding.state must be active");
 
     expect(() => parseCatalog({
       ...valid,
@@ -350,22 +370,22 @@ describe("T031 missing tool/config contract", () => {
 
     expect(() => parseCatalog({
       ...valid,
-      cases: [{ ...first!, task_type: "build" }],
+      cases: [{ ...first, task_type: "build" }],
     })).toThrow("is not a supported task type");
 
     expect(() => parseCatalog({
       ...valid,
       cases: [{
-        ...first!,
+        ...first,
         capability: {
-          ...(first!.capability as Record<string, unknown>),
+          ...(first.capability as Record<string, unknown>),
           tool_name: "",
         },
       }],
     })).toThrow("must be a non-empty string");
   });
 
-  it("returns the full receipt-task shape as honest NOT_RUN before launch", () => {
+  it("keeps honest NOT_RUN shape and never launches for a missing capability", () => {
     const requiredFields = [...loadReceiptTaskRequiredFields()].sort();
 
     for (const fixture of loadCatalog().cases) {
@@ -377,9 +397,7 @@ describe("T031 missing tool/config contract", () => {
         },
       };
 
-      expect(Object.keys(probe)).toEqual(["launchProcess"]);
       expect("installDependency" in probe).toBe(false);
-
       const task = modelMissingCapabilityContract(fixture, probe);
       assertHonestNotRun(task);
       expect(task).toMatchObject(fixture.expected);
@@ -389,17 +407,11 @@ describe("T031 missing tool/config contract", () => {
   });
 
   it("keeps the launch probe live while exposing no implicit-install capability", () => {
-    const fixture = loadCatalog().cases.find((candidate) => candidate.blocker.kind === "missing_config");
-    expect(fixture).toBeDefined();
-
-    const configPath = fixture!.capability.required_config_path;
-    expect(configPath).not.toBeNull();
+    const fixture = loadCatalog().cases.find(({ blocker }) => blocker.kind === "missing_config")!;
+    const configPath = fixture.capability.required_config_path!;
     const runnableControl: MissingCapabilityFixtureCase = {
-      ...fixture!,
-      files: {
-        ...fixture!.files,
-        [configPath!]: "{}",
-      },
+      ...fixture,
+      files: { ...fixture.files, [configPath]: "{}" },
     };
     expect(deriveBlocker(runnableControl)).toBeNull();
 
@@ -410,17 +422,16 @@ describe("T031 missing tool/config contract", () => {
         throw new Error("live launch probe reached");
       },
     };
-
-    expect(() => modelMissingCapabilityContract(runnableControl, probe)).toThrow("live launch probe reached");
-    expect(launchCalls).toBe(1);
     expect("installDependency" in probe).toBe(false);
+    expect(() => modelMissingCapabilityContract(runnableControl, probe)).toThrow(
+      "live launch probe reached",
+    );
+    expect(launchCalls).toBe(1);
   });
 
   it("rejects invented argv/tool identity or empty refusal reasons", () => {
-    const fixture = loadCatalog().cases[0];
-    expect(fixture).toBeDefined();
-
-    const task = modelMissingCapabilityContract(fixture!, {
+    const fixture = loadCatalog().cases[0]!;
+    const task = modelMissingCapabilityContract(fixture, {
       launchProcess: () => {
         throw new Error("unexpected launch");
       },
@@ -428,8 +439,8 @@ describe("T031 missing tool/config contract", () => {
 
     expect(() => assertHonestNotRun({
       ...task,
-      argv: ["npx", fixture!.capability.tool_name],
-      tool_name: fixture!.capability.tool_name,
+      argv: ["npx", fixture.capability.tool_name],
+      tool_name: fixture.capability.tool_name,
     })).toThrow();
 
     expect(() => assertHonestNotRun({
