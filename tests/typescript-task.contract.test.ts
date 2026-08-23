@@ -58,12 +58,15 @@ function configuredPackage(
 }
 
 describe("T035 TypeScript task planning", () => {
-  it("uses explicit Ascout command override before package script and local tsc discovery", () => {
+  it("uses explicit Ascout command override before ambiguous package-manager/script/local-tsc discovery", () => {
     const files = {
-      "package.json": packageJson(configuredPackage({
+      "package.json": packageJson({
+        name: "fixture",
         scripts: { typecheck: "tsc -p tsconfig.json --noEmit" },
         devDependencies: { typescript: "6.0.0" },
-      })),
+      }),
+      "package-lock.json": "",
+      "yarn.lock": "",
       "tsconfig.json": "{}",
       "node_modules/.bin/tsc": "virtual executable",
     };
@@ -263,6 +266,43 @@ describe("T035 TypeScript task planning", () => {
       ],
       commandSource: "local_tsc",
       configPath: "packages/app/tsconfig.json",
+    });
+  });
+
+  it("allows one root-hoisted local tsc to use the only discovered workspace TypeScript config", () => {
+    const files = {
+      "package.json": packageJson({
+        name: "root",
+        workspaces: ["packages/*"],
+        devDependencies: { typescript: "6.0.0" },
+      }),
+      "node_modules/.bin/tsc": "hoisted executable",
+      "packages/app/package.json": packageJson({ name: "app" }),
+      "packages/app/tsconfig.json": "{}",
+    };
+
+    expect(plan(files)).toMatchObject({
+      state: "planned",
+      sourcePath: "packages/app/tsconfig.json",
+      argv: ["node_modules/.bin/tsc", "-p", "packages/app/tsconfig.json", "--noEmit"],
+      commandSource: "local_tsc",
+    });
+  });
+
+  it("does not treat a PowerShell-only shim as directly launchable local tsc", () => {
+    const files = {
+      "package.json": packageJson({
+        name: "fixture",
+        devDependencies: { typescript: "6.0.0" },
+      }),
+      "tsconfig.json": "{}",
+      "node_modules/.bin/tsc.ps1": "PowerShell shim only",
+    };
+
+    expect(plan(files)).toMatchObject({
+      state: "not_run",
+      argv: [],
+      reasonCode: "tool_unsupported",
     });
   });
 

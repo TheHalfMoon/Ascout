@@ -65,7 +65,8 @@ interface LocalTscGroup {
 
 const ASCOUT_CONFIG_PATH = "ascout.config.json";
 const TYPECHECK_SCRIPT = "typecheck";
-const TSC_SUFFIX_PRIORITY = ["", ".cmd", ".exe", ".ps1"] as const;
+const TSC_DISCOVERY_SUFFIXES = ["", ".cmd", ".exe", ".ps1"] as const;
+const TSC_LAUNCH_SUFFIX_PRIORITY = ["", ".cmd", ".exe"] as const;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -146,9 +147,7 @@ function planned(
 
 function inspectTypecheckScript(files: DiscoveryFileMap, manifestPath: string): ScriptInspection {
   const raw = files[manifestPath];
-  if (raw === undefined) {
-    return { state: "invalid", manifestPath };
-  }
+  if (raw === undefined) return { state: "invalid", manifestPath };
 
   let value: unknown;
   try {
@@ -243,7 +242,7 @@ function planScript(
 }
 
 function logicalTscRoot(path: string): string | null {
-  for (const suffix of TSC_SUFFIX_PRIORITY) {
+  for (const suffix of TSC_DISCOVERY_SUFFIXES) {
     const marker = `node_modules/.bin/tsc${suffix}`;
     if (!path.endsWith(marker)) continue;
     const prefix = path.slice(0, -marker.length);
@@ -268,23 +267,25 @@ function groupLocalTsc(paths: readonly string[]): readonly LocalTscGroup[] {
     .map(([root, executablePaths]) => ({ root, executablePaths }));
 }
 
-function executableSuffix(path: string): (typeof TSC_SUFFIX_PRIORITY)[number] | null {
-  for (const suffix of TSC_SUFFIX_PRIORITY) {
+function executableSuffix(path: string): (typeof TSC_DISCOVERY_SUFFIXES)[number] | null {
+  for (const suffix of TSC_DISCOVERY_SUFFIXES) {
     if (path.endsWith(`node_modules/.bin/tsc${suffix}`)) return suffix;
   }
   return null;
 }
 
-function preferredExecutable(paths: readonly string[]): string {
-  for (const suffix of TSC_SUFFIX_PRIORITY) {
+function preferredExecutable(paths: readonly string[]): string | null {
+  for (const suffix of TSC_LAUNCH_SUFFIX_PRIORITY) {
     const candidate = paths.find((path) => executableSuffix(path) === suffix);
     if (candidate !== undefined) return candidate;
   }
-  return paths[0]!;
+  return null;
 }
 
-function sameRootConfigPaths(discovery: ProjectDiscovery, root: string): readonly string[] {
-  return discovery.tools.typescript.configPaths.filter((path) => dirname(path) === root);
+function configPathsForTsc(discovery: ProjectDiscovery, root: string): readonly string[] {
+  const sameRoot = discovery.tools.typescript.configPaths.filter((path) => dirname(path) === root);
+  if (sameRoot.length > 0 || root !== "") return sameRoot;
+  return discovery.tools.typescript.configPaths;
 }
 
 function hasTypeScriptEvidence(input: TypeScriptTaskPlanningInput): boolean {
@@ -311,7 +312,15 @@ function planLocalTsc(input: TypeScriptTaskPlanningInput): TypeScriptTaskPlan {
   }
 
   const group = groups[0]!;
-  const configPaths = sameRootConfigPaths(input.discovery, group.root);
+  const executable = preferredExecutable(group.executablePaths);
+  if (executable === null) {
+    return notRun(
+      "tool_unsupported",
+      "The discovered TypeScript installation exposes no directly launchable local tsc shim.",
+    );
+  }
+
+  const configPaths = configPathsForTsc(input.discovery, group.root);
   if (configPaths.length === 0) {
     return notRun(
       "config_missing",
@@ -325,7 +334,6 @@ function planLocalTsc(input: TypeScriptTaskPlanningInput): TypeScriptTaskPlan {
     );
   }
 
-  const executable = preferredExecutable(group.executablePaths);
   const configPath = configPaths[0]!;
   return planned(
     "discovery",
