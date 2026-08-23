@@ -264,7 +264,7 @@ const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const SHA256 = /^[a-f0-9]{64}$/;
 const CANONICAL_RELATIVE_PATH = /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/]+(?:\/[^/]+)*$/;
 const EXECUTED_OUTCOME_STATUSES = new Set<TaskStatus>(["PASS", "FAIL", "FLAKY"]);
-const EXERCISE_TEST_TASK_TYPES = new Set<TaskType>(["test", "pytestBasic"]);
+const EXERCISE_TEST_TASK_TYPES = new Set<TaskType>(["test"]);
 
 function isNonEmpty(value: string | null | undefined): value is string {
   return typeof value === "string" && value.length > 0;
@@ -866,7 +866,7 @@ function validateExercise(
             issues,
             "exercise_source_task_not_executed_test",
             `${base}.source_task_ids[${j}]`,
-            "EXERCISED source tasks must be executed test or pytestBasic tasks",
+            "EXERCISED source tasks must be executed test tasks with at least one recorded run",
           );
         }
         if (
