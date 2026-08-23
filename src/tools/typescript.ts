@@ -345,6 +345,10 @@ function planLocalTsc(input: TypeScriptTaskPlanningInput): TypeScriptTaskPlan {
   );
 }
 
+function invalidOverrideCommand(command: readonly string[]): boolean {
+  return command.length === 0 || command[0]!.length === 0 || command.some((value) => value.includes("\0"));
+}
+
 export function planTypeScriptTask(input: TypeScriptTaskPlanningInput): TypeScriptTaskPlan {
   const override = input.config.tasks?.typecheck;
   if (override?.enabled === false) {
@@ -357,6 +361,14 @@ export function planTypeScriptTask(input: TypeScriptTaskPlanningInput): TypeScri
   }
 
   if (override?.command !== undefined) {
+    if (invalidOverrideCommand(override.command)) {
+      return notRun(
+        "override_command_invalid",
+        "The configured TypeScript typecheck command must have a non-empty executable and contain no NUL bytes.",
+        "user_config",
+        ASCOUT_CONFIG_PATH,
+      );
+    }
     return planned(
       "user_config",
       ASCOUT_CONFIG_PATH,
