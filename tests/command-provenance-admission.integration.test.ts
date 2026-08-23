@@ -241,14 +241,8 @@ describe("T028 command-provenance/admission integration matrix", () => {
         },
       });
 
-      expect(decision).toMatchObject({
-        command_surface_changed: true,
-        changed_authority_paths: fixture.expected.changed_authority_paths,
-        execution_admission: "refused_changed_surface",
-        launch_allowed: false,
-        status: "NOT_RUN",
-        reason_code: "command_surface_changed",
-      });
+      const { effective_pytest_config: _effectivePytestConfig, ...expectedAdmission } = fixture.expected;
+      expect(decision).toMatchObject(expectedAdmission);
       expect(decision.reason_text?.length).toBeGreaterThan(0);
       expect(authorityLoads).toBe(0);
       expect(processLaunches).toBe(0);
@@ -270,15 +264,9 @@ describe("T028 command-provenance/admission integration matrix", () => {
         },
       });
 
-      expect(decision).toMatchObject({
-        command_surface_changed: false,
-        changed_authority_paths: [],
-        execution_admission: "normal",
-        launch_allowed: true,
-        status: null,
-        reason_code: null,
-        reason_text: null,
-      });
+      const { effective_pytest_config: _effectivePytestConfig, ...expectedAdmission } = fixture.expected;
+      expect(decision).toMatchObject(expectedAdmission);
+      expect(decision.reason_text).toBeNull();
       expect(loaded).toEqual(fixture.executionLoadPaths);
       expect(processLaunches).toBe(1);
     }
