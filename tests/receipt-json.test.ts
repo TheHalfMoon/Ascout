@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   ReceiptContractValidationError,
@@ -244,6 +244,32 @@ describe("T026 receipt JSON renderer", () => {
     const leapDay = structuredClone(receiptFixture()) as ReceiptV1;
     (leapDay.run as unknown as { started_at: string }).started_at = "2024-02-29T23:59:59.123Z";
     expect(validateReceiptJsonSchema(leapDay).valid).toBe(true);
+  });
+
+  it.each([
+    ["numeric", 1],
+    ["unsupported string", "email"],
+  ])("fails closed on %s JSON Schema format declarations", async (_label: string, format: unknown) => {
+    vi.resetModules();
+    vi.doMock("node:fs", () => ({
+      readFileSync: () => JSON.stringify({
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        $id: "urn:ascout:receipt:v1",
+        type: "object",
+        properties: {
+          started_at: { type: "string", format },
+        },
+      }),
+    }));
+
+    try {
+      const { validateReceiptJsonSchema: validateWithMockedSchema } = await import("../src/receipt/json.js");
+      expect(() => validateWithMockedSchema({ started_at: "2024-02-29T23:59:59Z" }))
+        .toThrow('$schema.properties.started_at.format: only "date-time" format is supported');
+    } finally {
+      vi.doUnmock("node:fs");
+      vi.resetModules();
+    }
   });
 
   it("rejects inverted changed-line ranges before emission", () => {

@@ -151,6 +151,9 @@ function assertSupportedSchema(schema: JsonSchema, path: string): void {
   }
 
   if (schema.type !== undefined) parseTypes(schema.type, `${path}.type`);
+  if (schema.format !== undefined && schema.format !== "date-time") {
+    throw new Error(`${path}.format: only "date-time" format is supported`);
+  }
   if (schema.additionalProperties !== undefined && typeof schema.additionalProperties !== "boolean") {
     throw new Error(`${path}.additionalProperties: only boolean additionalProperties is supported`);
   }

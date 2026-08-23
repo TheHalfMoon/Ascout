@@ -866,7 +866,7 @@ function validateExercise(
             issues,
             "exercise_source_task_not_executed_test",
             `${base}.source_task_ids[${j}]`,
-            "EXERCISED source tasks must be executed coverage-producing test tasks",
+            "EXERCISED source tasks must be executed test tasks with at least one recorded run",
           );
         }
         if (
