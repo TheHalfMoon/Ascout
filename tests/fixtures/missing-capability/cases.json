@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "test-missing-local-vitest",
+      "purpose": "A test task with no project-local Vitest must remain NOT_RUN without inventing an npx/global command or installing anything.",
+      "task_type": "test",
+      "files": {
+        "package.json": "{\"name\":\"fixture-app\",\"private\":true,\"devDependencies\":{}}",
+        "vitest.config.ts": "export default {};"
+      },
+      "capability": {
+        "tool_name": "vitest",
+        "tool_present": false,
+        "required_config_path": "vitest.config.ts"
+      },
+      "blocker": {
+        "kind": "missing_tool",
+        "message": "Project Vitest is not installed."
+      },
+      "expected": {
+        "status": "NOT_RUN",
+        "reason_code": "tool_missing",
+        "reason_text": "Project Vitest is not installed."
+      }
+    },
+    {
+      "id": "typecheck-missing-project-config",
+      "purpose": "A locally available TypeScript tool with no override, script, or project config must remain NOT_RUN rather than inventing a tsc invocation.",
+      "task_type": "typecheck",
+      "files": {
+        "package.json": "{\"name\":\"fixture-app\",\"private\":true,\"devDependencies\":{\"typescript\":\"6.0.0\"}}"
+      },
+      "capability": {
+        "tool_name": "tsc",
+        "tool_present": true,
+        "required_config_path": "tsconfig.json"
+      },
+      "blocker": {
+        "kind": "missing_config",
+        "message": "No TypeScript project configuration was found for safe typecheck discovery."
+      },
+      "expected": {
+        "status": "NOT_RUN",
+        "reason_code": "config_missing",
+        "reason_text": "No TypeScript project configuration was found for safe typecheck discovery."
+      }
+    }
+  ]
+}
