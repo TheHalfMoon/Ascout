@@ -12,7 +12,7 @@
       },
       "effectiveAuthorityPaths": ["package.json"],
       "changedPaths": ["package.json"],
-      "executionLoadPaths": [],
+      "executionLoadPaths": ["package.json"],
       "expected": {
         "command_surface_changed": true,
         "changed_authority_paths": ["package.json"],
@@ -33,7 +33,7 @@
       },
       "effectiveAuthorityPaths": ["ascout.config.json"],
       "changedPaths": ["ascout.config.json"],
-      "executionLoadPaths": [],
+      "executionLoadPaths": ["ascout.config.json"],
       "expected": {
         "command_surface_changed": true,
         "changed_authority_paths": ["ascout.config.json"],
