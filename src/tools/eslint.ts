@@ -363,8 +363,19 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
   const tool = input.discovery.tools.eslint;
   const changedPaths = changedLintablePaths(input.changedFiles);
   if (!Array.isArray(changedPaths)) return changedPaths;
+  if (changedPaths.length === 0) return null;
 
-  if (tool.configPaths.length === 0 || changedPaths.length === 0) return null;
+  if (tool.configPaths.length === 0) {
+    const localEvidence =
+      input.config.tasks?.lint?.enabled === true ||
+      tool.declarationPaths.length > 0 ||
+      tool.localExecutablePaths.length > 0;
+    if (!localEvidence) return null;
+    return notRun(
+      "config_missing",
+      "No ESLint project configuration was found for safe changed-file lint planning.",
+    );
+  }
   if (tool.configPaths.length > 1) {
     return notRun(
       "config_ambiguous",
@@ -420,10 +431,9 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
   }
 
   const workingDirectory = configRoot === "" ? null : configRoot;
-  const argvRoot = configRoot;
-  const executableArg = relativeFromRoot(argvRoot, executable);
-  const configArg = relativeFromRoot(argvRoot, configPath);
-  const selectedArgs = selectedPaths.map((path) => relativeFromRoot(argvRoot, path));
+  const executableArg = relativeFromRoot(configRoot, executable);
+  const configArg = relativeFromRoot(configRoot, configPath);
+  const selectedArgs = selectedPaths.map((path) => relativeFromRoot(configRoot, path));
 
   return planned(
     "discovery",
