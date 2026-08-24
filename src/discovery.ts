@@ -531,6 +531,179 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
   };
 }
 
+const ASCOUT_CONFIG_PATH = "ascout.config.json";
+const PACKAGE_SCRIPT_BY_TASK: Readonly<Record<SemanticTaskType, string | null>> = {
+  typecheck: "typecheck",
+  lint: "lint",
+  test: "test",
+  pytestBasic: null,
+};
+
+export interface ChangedPathView {
+  readonly path: string;
+  readonly previous_path?: string;
+}
+
+export interface TaskCommandAuthority {
+  readonly taskType: SemanticTaskType;
+  readonly authorityPaths: readonly string[];
+  readonly effectivePytestConfig: string | null;
+}
+
+export type TaskAuthoritySurfaces = Readonly<Record<SemanticTaskType, TaskCommandAuthority>>;
+
+export interface CommandSurfaceClassifyOptions {
+  readonly ascoutConfigPath?: string | null;
+  readonly tasks?: Readonly<Partial<Record<SemanticTaskType, {
+    readonly enabled?: boolean;
+    readonly command?: readonly string[];
+    readonly timeoutMs?: number;
+    readonly disabledReason?: string;
+  }>>> | null;
+}
+
+function configuredTaskSet(
+  tasks: CommandSurfaceClassifyOptions["tasks"],
+): ReadonlySet<SemanticTaskType> {
+  if (tasks === undefined || tasks === null) return new Set();
+  const result = new Set<SemanticTaskType>();
+  for (const key of FIXED_SEMANTIC_TASKS) {
+    const value = tasks[key];
+    if (value === undefined || value === null) continue;
+    if (
+      value.command !== undefined ||
+      value.enabled !== undefined ||
+      value.timeoutMs !== undefined ||
+      value.disabledReason !== undefined
+    ) {
+      result.add(key);
+    }
+  }
+  return result;
+}
+
+function overriddenTaskSet(
+  tasks: CommandSurfaceClassifyOptions["tasks"],
+): ReadonlySet<SemanticTaskType> {
+  if (tasks === undefined || tasks === null) return new Set();
+  const result = new Set<SemanticTaskType>();
+  for (const key of FIXED_SEMANTIC_TASKS) {
+    const value = tasks[key];
+    if (value?.command !== undefined) result.add(key);
+  }
+  return result;
+}
+
+function packageScriptOwners(
+  discovery: ProjectDiscovery,
+  task: SemanticTaskType,
+): readonly string[] {
+  const scriptName = PACKAGE_SCRIPT_BY_TASK[task];
+  if (scriptName === null) return [];
+  const result: string[] = [];
+  for (const path of discovery.workspace.packageJsonPaths) {
+    // We cannot reliably re-parse manifests without files, so rely on declared package.json paths only for script ownership.
+    // The planner modules can narrow this further before admission decisions.
+    result.push(path);
+  }
+  return result;
+}
+
+function baseAuthorityPaths(
+  discovery: ProjectDiscovery,
+  task: SemanticTaskType,
+): readonly string[] {
+  switch (task) {
+    case "typecheck":
+      return sortedUnique([
+        ...packageScriptOwners(discovery, "typecheck"),
+        ...discovery.tools.typescript.configPaths,
+      ]);
+    case "lint":
+      return sortedUnique([
+        ...packageScriptOwners(discovery, "lint"),
+        ...discovery.tools.eslint.configPaths,
+      ]);
+    case "test": {
+      const runnerConfigs = discovery.jsTestRunner.state === "resolved"
+        ? discovery.tools[discovery.jsTestRunner.value].configPaths
+        : [];
+      return sortedUnique([
+        ...packageScriptOwners(discovery, "test"),
+        ...runnerConfigs,
+      ]);
+    }
+    case "pytestBasic": {
+      const configs = discovery.pytestBasic.state === "resolved"
+        ? discovery.pytestBasic.sourcePaths
+        : [];
+      return sortedUnique(configs);
+    }
+  }
+}
+
+export function classifyCommandSurfaces(
+  discovery: ProjectDiscovery,
+  options: CommandSurfaceClassifyOptions = {},
+): TaskAuthoritySurfaces {
+  const ascoutPath = options.ascoutConfigPath ?? ASCOUT_CONFIG_PATH;
+  const configured = configuredTaskSet(options.tasks);
+  const overridden = overriddenTaskSet(options.tasks);
+  const result: Record<SemanticTaskType, TaskCommandAuthority> = {
+    typecheck: { taskType: "typecheck", authorityPaths: [], effectivePytestConfig: null },
+    lint: { taskType: "lint", authorityPaths: [], effectivePytestConfig: null },
+    test: { taskType: "test", authorityPaths: [], effectivePytestConfig: null },
+    pytestBasic: { taskType: "pytestBasic", authorityPaths: [], effectivePytestConfig: null },
+  };
+
+  for (const task of FIXED_SEMANTIC_TASKS) {
+    let authorityPaths: readonly string[];
+    if (overridden.has(task)) {
+      authorityPaths = [ascoutPath];
+    } else {
+      const withBase = baseAuthorityPaths(discovery, task);
+      const withAscout = configured.has(task)
+        ? sortedUnique([...withBase, ascoutPath])
+        : withBase;
+      authorityPaths = withAscout;
+    }
+
+    let effectivePytestConfig: string | null = null;
+    if (task === "pytestBasic" && discovery.pytestBasic.state === "resolved") {
+      effectivePytestConfig = discovery.pytestBasic.sourcePaths[0] ?? null;
+      if (effectivePytestConfig !== null && !authorityPaths.includes(effectivePytestConfig)) {
+        authorityPaths = sortedUnique([...authorityPaths, effectivePytestConfig]);
+      }
+    }
+
+    result[task] = {
+      taskType: task,
+      authorityPaths,
+      effectivePytestConfig,
+    };
+  }
+
+  return result;
+}
+
+export function intersectChangedAuthorityPaths(
+  authorityPaths: readonly string[],
+  changedFiles: readonly ChangedPathView[],
+): readonly string[] {
+  const authorities = new Set(authorityPaths);
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const file of changedFiles) {
+    for (const candidate of [file.path, file.previous_path]) {
+      if (candidate === undefined || candidate.length === 0) continue;
+      if (!authorities.has(candidate) || seen.has(candidate)) continue;
+      seen.add(candidate);
+      result.push(candidate);
+    }
+  }
+  return result.sort(compareStrings);
+}
+
 function repositoryPath(root: string, absolutePath: string): string {
   const native = relative(root, absolutePath);
   const path = sep === "/" ? native : native.split(sep).join("/");
