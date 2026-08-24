@@ -1,8 +1,11 @@
 #!/usr/bin/env node
-
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { runCheck } from "./check.js";
+import { collectDiscoveredProject } from "./discovery.js";
+import { loadConfig, composeSourceState } from "./check.js";
+import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./discovery.js";
+import { readWorkingTreeComparison } from "./git.js";
 
 const COMMANDS = ["init", "doctor", "check"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
@@ -84,7 +87,12 @@ async function runCli(argv: readonly string[]): Promise<number> {
       }
       return 0;
     }
-    // For init and doctor, we keep the placeholder.
+    if (invocation.command === "doctor") {
+      const output = await runDoctor(process.cwd());
+      console.error(output);
+      return 0;
+    }
+    // For init, we keep the placeholder.
     console.error(
       `ascout ${invocation.command}: recognized, but command execution is not implemented in T041. No project task was executed.`
     );
@@ -97,6 +105,51 @@ async function runCli(argv: readonly string[]): Promise<number> {
     // For other errors, we print the message.
     console.error(String(error));
     return 1;
+  }
+}
+
+async function runDoctor(repositoryRoot: string): Promise<string> {
+  try {
+    const { root, files, discovery } = collectDiscoveredProject(repositoryRoot);
+    const { config, digest } = loadConfig(root);
+    const sourceState = composeSourceState(root);
+    const gitComparison = readWorkingTreeComparison(root, sourceState.head_sha);
+    const changedFiles = gitComparison.changed_files;
+    const classifyOptions: CommandSurfaceClassifyOptions = {
+      ascoutConfigPath: "ascout.config.json",
+      tasks: config.tasks ?? null,
+    };
+    const surfaces = classifyCommandSurfaces(discovery, classifyOptions);
+
+    // Build output string
+    const lines: string[] = [];
+    lines.push(`=== Doctor Output ===\n`);
+    lines.push(`Repository root: ${root}`);
+    lines.push(`\n--- Discovered Project ---`);
+    lines.push(`Workspace kind: ${discovery.workspace.kind}`);
+    lines.push(`Package manager: ${discovery.packageManager.state === "resolved" ? discovery.packageManager.value : discovery.packageManager.reasonCode}`);
+    lines.push(`Js test runner: ${discovery.jsTestRunner.state === "resolved" ? discovery.jsTestRunner.value : discovery.jsTestRunner.reasonCode}`);
+    lines.push(`Pytest basic: ${discovery.pytestBasic.state === "resolved" ? discovery.pytestBasic.value : discovery.pytestBasic.reasonCode}`);
+    lines.push(`\n--- Config ---`);
+    lines.push(JSON.stringify(config, null, 2));
+    lines.push(`\n--- Authority Classification ---`);
+    for (const task of ["typecheck", "lint", "pytestBasic", "test"] as const) {
+      const surface = surfaces[task];
+      lines.push(`${task}:`);
+      lines.push(`  authorityPaths: ${JSON.stringify(surface.authorityPaths)}`);
+      lines.push(`  effectivePytestConfig: ${surface.effectivePytestConfig ?? "null"}`);
+    }
+    lines.push(`\n--- Changed Files ---`);
+    lines.push(`Count: ${changedFiles.length}`);
+    for (const file of changedFiles.slice(0, 10)) {
+      lines.push(`  ${file.path} (${file.change_kind})`);
+    }
+    if (changedFiles.length > 10) {
+      lines.push(`  ... and ${changedFiles.length - 10} more`);
+    }
+    return lines.join("\n");
+  } catch (error) {
+    return `Error during doctor: ${error}`;
   }
 }
 

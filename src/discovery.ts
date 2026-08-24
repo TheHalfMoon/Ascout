@@ -847,7 +847,13 @@ function collectFiles(root: string): DiscoveryFileMap {
   return result;
 }
 
-export function discoverProject(repositoryRoot: string): ProjectDiscovery {
+export interface DiscoveredProject {
+  readonly root: string;
+  readonly files: DiscoveryFileMap;
+  readonly discovery: ProjectDiscovery;
+}
+
+export function collectDiscoveredProject(repositoryRoot: string): DiscoveredProject {
   const requestedRoot = resolve(repositoryRoot);
   let root: string;
   try {
@@ -859,5 +865,10 @@ export function discoverProject(repositoryRoot: string): ProjectDiscovery {
     if (error instanceof DiscoveryError) throw error;
     throw new DiscoveryError("invalid_repository_root", "repository root must be an existing directory");
   }
-  return discoverProjectFromFiles(collectFiles(root));
+  const files = collectFiles(root);
+  return { root, files, discovery: discoverProjectFromFiles(files) };
+}
+
+export function discoverProject(repositoryRoot: string): ProjectDiscovery {
+  return collectDiscoveredProject(repositoryRoot).discovery;
 }

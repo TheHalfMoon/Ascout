@@ -236,7 +236,7 @@ function generateRunId(): string {
   return `${String(Date.now()).padStart(15, "0")}-${randomBytes(6).toString("hex")}`;
 }
 
-function composeSourceState(repositoryRoot: string): SourceStateV1 {
+export function composeSourceState(repositoryRoot: string): SourceStateV1 {
   const identity = resolveRepositoryIdentity(repositoryRoot);
   const head = readGitHeadState(repositoryRoot);
   const tree = readTreeDigestV1(repositoryRoot);
@@ -270,7 +270,7 @@ function toChangedFileV1(file: GitChangedFile): ChangedFileV1 {
   };
 }
 
-function loadConfig(repositoryRoot: string): { config: ConfigV1; digest: string } {
+export function loadConfig(repositoryRoot: string): { config: ConfigV1; digest: string } {
   const path = join(repositoryRoot, ASCOUT_CONFIG_PATH);
   let raw: Buffer;
   try {

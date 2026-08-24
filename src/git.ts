@@ -240,6 +240,46 @@ export function repositoryIdentityFromLocalPath(rawRepositoryPath: string): Repo
   };
 }
 
+/**
+ * Reads the configured `origin` remote URL, or null when no origin remote is
+ * configured. Real git failures fail closed. The raw URL is transient caller
+ * material; only its derived identity may persist.
+ */
+export function readOriginRemoteUrl(
+  repositoryRoot: string,
+  runGit: GitCommandRunner = defaultGitCommandRunner,
+): string | null {
+  const remotesResult = runGit(repositoryRoot, ["remote"]);
+  if (remotesResult.error !== undefined || remotesResult.status !== 0) {
+    throw new GitIdentityError("git_metadata_error", "unable to list configured Git remotes");
+  }
+
+  const remotes = remotesResult.stdout
+    .split("\n")
+    .map((line) => stripOneTerminalNewline(line).trim())
+    .filter((line) => line.length > 0);
+  if (!remotes.includes("origin")) return null;
+
+  const urlResult = runGit(repositoryRoot, ["remote", "get-url", "origin"]);
+  const raw = requireSuccessfulGit(
+    urlResult,
+    "git_metadata_error",
+    "unable to read the origin remote URL",
+  );
+  const url = stripOneTerminalNewline(raw);
+  if (url.length === 0 || url.includes("\n") || url.includes("\r")) {
+    throw new GitIdentityError("git_metadata_error", "Git returned an invalid origin remote URL");
+  }
+  return url;
+}
+
+export function resolveRepositoryIdentity(repositoryRoot: string): RepositoryIdentity {
+  const rawRemote = readOriginRemoteUrl(repositoryRoot);
+  return rawRemote === null
+    ? repositoryIdentityFromLocalPath(repositoryRoot)
+    : repositoryIdentityFromRemote(rawRemote);
+}
+
 const defaultGitCommandRunner: GitCommandRunner = (repositoryRoot, argv) => {
   const result = spawnSync("git", [...argv], {
     cwd: repositoryRoot,
