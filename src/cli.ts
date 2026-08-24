@@ -2,6 +2,7 @@
 
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { runCheck } from "./check.js";
 
 const COMMANDS = ["init", "doctor", "check"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
@@ -69,15 +70,23 @@ export function usageText(): string {
   ].join("\n");
 }
 
-export function runCli(argv: readonly string[]): number {
+async function runCli(argv: readonly string[]): Promise<number> {
   try {
     const invocation = parseCliArgs(argv);
-    const admissionNote = invocation.allowChangedCommandSurface
-      ? " Explicit per-run changed-command-surface admission was requested, but it has not been applied."
-      : "";
-
+    if (invocation.command === "check") {
+      const outcome = await runCheck(process.cwd(), {
+        allowChangedCommandSurface: invocation.allowChangedCommandSurface,
+      });
+      console.error(outcome.terminalSummary);
+      const { receipt } = outcome;
+      if (receipt.tasks.some(t => t.status === "FAIL" || t.status === "ERROR")) {
+        return 1;
+      }
+      return 0;
+    }
+    // For init and doctor, we keep the placeholder.
     console.error(
-      `ascout ${invocation.command}: recognized, but command execution is not implemented in T006. No project task was executed.${admissionNote}`,
+      `ascout ${invocation.command}: recognized, but command execution is not implemented in T041. No project task was executed.`
     );
     return 2;
   } catch (error: unknown) {
@@ -85,8 +94,9 @@ export function runCli(argv: readonly string[]): number {
       console.error(`${error.message}\n\n${usageText()}`);
       return 2;
     }
-
-    throw error;
+    // For other errors, we print the message.
+    console.error(String(error));
+    return 1;
   }
 }
 
@@ -107,7 +117,12 @@ function classifyEntry(): EntryDisposition {
 
 const entryDisposition = classifyEntry();
 if (entryDisposition === "direct") {
-  process.exitCode = runCli(process.argv.slice(2));
+  runCli(process.argv.slice(2)).then(code => {
+    process.exitCode = code;
+  }).catch(err => {
+    console.error("ascout: unexpected error:", err);
+    process.exitCode = 1;
+  });
 } else if (entryDisposition === "resolution_error") {
   console.error("ascout: unable to resolve CLI entry path. No project task was executed.");
   process.exitCode = 2;
