@@ -110,7 +110,8 @@ const SYMBOLIC_HEAD_REF = /^refs\/.+$/;
 const INDEX_MODE = /^[0-7]{6}$/;
 const INDEX_RECORD = /^([0-7]{6}) ([a-f0-9]{40}|[a-f0-9]{64}) ([0-3])\t(.+)$/s;
 const RAW_DIFF_METADATA = /^:([0-7]{6}) ([0-7]{6}) ([a-f0-9]{40}|[a-f0-9]{64}) ([a-f0-9]{40}|[a-f0-9]{64}) ([A-Z])$/;
-const CANONICAL_REPOSITORY_PATH = /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.*/[.]{1,2}(?:\/|$))(?!.*\\)[^/]+(?:\/[^/]+)*$/;
+const CANONICAL_REPOSITORY_PATH =
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");

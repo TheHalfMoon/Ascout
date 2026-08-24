@@ -361,8 +361,9 @@ function changedLintablePaths(changedFiles: readonly GitChangedFile[]): readonly
 
 function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTask | UnresolvedESLintTask | null {
   const tool = input.discovery.tools.eslint;
-  const changedPaths = changedLintablePaths(input.changedFiles);
-  if (!Array.isArray(changedPaths)) return changedPaths;
+  const changedPathsOrError = changedLintablePaths(input.changedFiles);
+  if ("state" in changedPathsOrError) return changedPathsOrError;
+  const changedPaths: readonly string[] = changedPathsOrError;
   if (changedPaths.length === 0) return null;
 
   if (tool.configPaths.length === 0) {
