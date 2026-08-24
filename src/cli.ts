@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { realpathSync } from "node:fs";
+import { realpathSync, mkdirSync, existsSync, writeFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { runCheck } from "./check.js";
 import { collectDiscoveredProject } from "./discovery.js";
 import { loadConfig, composeSourceState } from "./check.js";
@@ -73,9 +74,55 @@ export function usageText(): string {
   ].join("\n");
 }
 
+async function runInit(): Promise<number> {
+  try {
+    const root = process.cwd();
+
+    // 1. Create minimal ascout.config.json if it doesn't exist.
+    const configPath = join(root, "ascout.config.json");
+    if (!existsSync(configPath)) {
+      writeFileSync(configPath, JSON.stringify({ version: 1 }, null, 2));
+    }
+
+    // 2. Ensure .ascout/ is ignored in .gitignore.
+    const gitignorePath = join(root, ".gitignore");
+    const gitignoreEntry = ".ascout/";
+    let gitignoreContent = "";
+    if (existsSync(gitignorePath)) {
+      gitignoreContent = readFileSync(gitignorePath, "utf8");
+    }
+    // Normalize line endings for checking.
+    const lines = gitignoreContent.split(/\r?\n/);
+    if (!lines.some(line => line.trim() === gitignoreEntry)) {
+      // Append the entry, ensuring we have a newline before if the file is not empty.
+      const newContent = gitignoreContent.endsWith("\n")
+        ? gitignoreContent + gitignoreEntry
+        : gitignoreContent
+        ? gitignoreContent + "\n" + gitignoreEntry
+        : gitignoreEntry;
+      writeFileSync(gitignorePath, newContent);
+    }
+
+    // Optionally, create the .ascout directory (but it will be created on first run).
+    const ascoutDir = join(root, ".ascout");
+    if (!existsSync(ascoutDir)) {
+      mkdirSync(ascoutDir, { recursive: true });
+    }
+
+    console.error("ascout init: created ascout.config.json and ensured .ascout/ is ignored.");
+    return 0;
+  } catch (error) {
+    console.error(`ascout init failed: ${error}`);
+    return 1;
+  }
+}
+
 async function runCli(argv: readonly string[]): Promise<number> {
   try {
     const invocation = parseCliArgs(argv);
+    if (invocation.command === "init") {
+      return await runInit();
+    }
     if (invocation.command === "check") {
       const outcome = await runCheck(process.cwd(), {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
@@ -92,10 +139,8 @@ async function runCli(argv: readonly string[]): Promise<number> {
       console.error(output);
       return 0;
     }
-    // For init, we keep the placeholder.
-    console.error(
-      `ascout ${invocation.command}: recognized, but command execution is not implemented in T041. No project task was executed.`
-    );
+    // Should not happen because parseCliArgs validates the command.
+    console.error(`ascout ${invocation.command}: not implemented.`);
     return 2;
   } catch (error: unknown) {
     if (error instanceof CliUsageError) {
