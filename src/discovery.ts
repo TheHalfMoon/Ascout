@@ -313,11 +313,21 @@ function discoverWorkspace(
   }
 
   if (patterns === null) {
-    return {
+    // When no explicit workspace definition, include the root package.json
+    // plus any valid package.json files in subdirectories
+    const validPackageJsonPaths = ["package.json"];
+    for (const manifest of allManifests) {
+      if (manifest.path === "package.json") continue;
+      if (manifest.path.endsWith("/package.json")) {
+        // The value has already been parsed and validated in the manifests function
+        validPackageJsonPaths.push(manifest.path);
+      }
+    }
+        return {
       state: "resolved",
       kind: "single",
       patterns: [],
-      packageJsonPaths: root === undefined ? [] : ["package.json"],
+      packageJsonPaths: sortedUnique(validPackageJsonPaths),
       sourcePaths: [],
       reasonCode: null,
       reasonText: null,

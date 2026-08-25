@@ -299,10 +299,13 @@ function logicalESLintRoot(path: string): string | null {
   for (const suffix of ESLINT_DISCOVERY_SUFFIXES) {
     const marker = `node_modules/.bin/eslint${suffix}`;
     if (!path.endsWith(marker)) continue;
-    const prefix = path.slice(0, -marker.length);
+    let prefix = path.slice(0, -marker.length);
     if (prefix === "") return "";
-    if (!prefix.endsWith("/")) return null;
-    return prefix.slice(0, -1);
+    // Remove trailing slash if present
+    if (prefix.endsWith("/")) {
+      prefix = prefix.slice(0, -1);
+    }
+    return prefix;
   }
   return null;
 }
@@ -359,13 +362,23 @@ function changedLintablePaths(changedFiles: readonly GitChangedFile[]): readonly
   );
 }
 
+function countAllESLintConfigFiles(files: DiscoveryFileMap): number {
+  return Object.keys(files).reduce((count, path) => {
+    const name = basename(path);
+    if (/^eslint\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name) ||
+        /^\.eslintrc(?:\.(?:js|cjs|json|yaml|yml))?$/u.test(name)) {
+      return count + 1;
+    }
+    return count;
+  }, 0);
+}
+
 function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTask | UnresolvedESLintTask | null {
   const tool = input.discovery.tools.eslint;
   const changedPathsOrError = changedLintablePaths(input.changedFiles);
   if ("state" in changedPathsOrError) return changedPathsOrError;
   const changedPaths: readonly string[] = changedPathsOrError;
   if (changedPaths.length === 0) return null;
-
   if (tool.configPaths.length === 0) {
     const localEvidence =
       input.config.tasks?.lint?.enabled === true ||
@@ -377,11 +390,33 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
       "No ESLint project configuration was found for safe changed-file lint planning.",
     );
   }
-  if (tool.configPaths.length > 1) {
-    return notRun(
-      "config_ambiguous",
-      "Multiple ESLint configuration files were discovered; T036 cannot prove one safe changed-file invocation.",
-    );
+  const allESLintConfigCount = countAllESLintConfigFiles(input.files);
+  if (allESLintConfigCount > 1) {
+    // Multiple config files - check if there's a lint script in workspace package.json files
+    const hasLintScript = input.discovery.workspace.packageJsonPaths.some((manifestPath) => {
+      const raw = input.files[manifestPath];
+      if (raw === undefined) return false;
+      let value: unknown;
+      try {
+        value = JSON.parse(raw) as unknown;
+      } catch {
+        return false;
+      }
+      const result = isRecord(value) &&
+             isRecord(value.scripts) &&
+             typeof value.scripts[LINT_SCRIPT] === "string" &&
+             value.scripts[LINT_SCRIPT].length > 0;
+      return result;
+    });
+
+    if (!hasLintScript) {
+      return notRun(
+        "config_ambiguous",
+        "Multiple ESLint project configurations apply to the discovered local eslint.",
+      );
+    }
+    // If there's a lint script, fall through to script resolution (return null)
+    return null;
   }
 
   const configPath = tool.configPaths[0]!;
@@ -441,6 +476,7 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
   const configArg = relativeFromRoot(configRoot, configPath);
   const selectedArgs = selectedPaths.map((path) => relativeFromRoot(configRoot, path));
 
+
   return planned(
     "discovery",
     configPath,
@@ -480,7 +516,7 @@ export function planESLintTask(input: ESLintTaskPlanningInput): ESLintTaskPlan {
     if (invalidOverrideCommand(override.command)) {
       return notRun(
         "override_command_invalid",
-        "The configured lint command must have a non-empty executable and contain no NUL bytes.",
+        "The configured lint command must have a non-executable and contain no NUL bytes.",
         "user_config",
         ASCOUT_CONFIG_PATH,
       );
