@@ -31,7 +31,6 @@ export function normalizeLcov(input: string): string {
     }
     if (line.startsWith("end_of_record")) {
       if (inRecord) {
-        currentRecord.push(line);
         output.push(...currentRecord);
         output.push("end_of_record");
         currentRecord = [];
