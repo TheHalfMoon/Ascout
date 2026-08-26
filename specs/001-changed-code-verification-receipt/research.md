@@ -179,6 +179,8 @@ Valid affected deselection is selection accounting, not task-level `NOT_RUN`, an
 
 **Decision:** process launch may use raw argv transiently, but persisted/rendered argv is redacted using the same recognized/user-specified exact-value redaction policy as captured output. Raw secret-bearing argv is not written to receipt artifacts.
 
+The deterministic M1 recognized-name baseline and exact matching semantics are defined by [`contracts/redaction-policy-v1.md`](./contracts/redaction-policy-v1.md). The built-in recognized names are exactly `GITHUB_TOKEN`, `GH_TOKEN`, `NPM_TOKEN`, and `NODE_AUTH_TOKEN`; `ascout.config.json.redactEnv` extends that exact-name set. M1 does not infer broad `*_TOKEN`/`*_SECRET`/`*_KEY` patterns.
+
 ## R20 — Founding Spec Kit provenance
 
 **Decision:** pin GitHub Spec Kit v0.16.0 for the founding workflow; do not vendor its implementation internals.
