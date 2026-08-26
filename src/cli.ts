@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { realpathSync, mkdirSync, existsSync, writeFileSync, readFileSync } from "node:fs";
+import { realpathSync, existsSync, writeFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { runCheck } from "./check.js";
 import { collectDiscoveredProject } from "./discovery.js";
 import { loadConfig, composeSourceState } from "./check.js";
@@ -83,35 +83,25 @@ async function runInit(): Promise<number> {
   try {
     const root = process.cwd();
 
-    // 1. Create minimal ascout.config.json if it doesn't exist.
     const configPath = join(root, "ascout.config.json");
     if (!existsSync(configPath)) {
       writeFileSync(configPath, JSON.stringify({ version: 1 }, null, 2));
     }
 
-    // 2. Ensure .ascout/ is ignored in .gitignore.
     const gitignorePath = join(root, ".gitignore");
     const gitignoreEntry = ".ascout/";
     let gitignoreContent = "";
     if (existsSync(gitignorePath)) {
       gitignoreContent = readFileSync(gitignorePath, "utf8");
     }
-    // Normalize line endings for checking.
     const lines = gitignoreContent.split(/\r?\n/);
-    if (!lines.some(line => line.trim() === gitignoreEntry)) {
-      // Append the entry, ensuring we have a newline before if the file is not empty.
+    if (!lines.some((line) => line.trim() === gitignoreEntry)) {
       const newContent = gitignoreContent.endsWith("\n")
         ? gitignoreContent + gitignoreEntry
         : gitignoreContent
         ? gitignoreContent + "\n" + gitignoreEntry
         : gitignoreEntry;
       writeFileSync(gitignorePath, newContent);
-    }
-
-    // Optionally, create the .ascout directory (but it will be created on first run).
-    const ascoutDir = join(root, ".ascout");
-    if (!existsSync(ascoutDir)) {
-      mkdirSync(ascoutDir, { recursive: true });
     }
 
     console.error("ascout init: created ascout.config.json and ensured .ascout/ is ignored.");
@@ -140,7 +130,6 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       console.error(result.output);
       return result.exitCode;
     }
-    // Should not happen because parseCliArgs validates the command.
     console.error(`ascout ${invocation.command}: not implemented.`);
     return 2;
   } catch (error: unknown) {
@@ -148,10 +137,17 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       console.error(`${error.message}\n\n${usageText()}`);
       return 2;
     }
-    // For other errors, we print the message.
     console.error(String(error));
     return 1;
   }
+}
+
+function redactDoctorError(error: unknown, repositoryRoot: string): string {
+  let message = String(error);
+  for (const candidate of new Set([repositoryRoot, resolve(repositoryRoot)])) {
+    if (candidate.length > 0) message = message.replaceAll(candidate, "<repository>");
+  }
+  return message;
 }
 
 function runDoctor(repositoryRoot: string): DoctorResult {
@@ -167,25 +163,25 @@ function runDoctor(repositoryRoot: string): DoctorResult {
     };
     const surfaces = classifyCommandSurfaces(discovery, classifyOptions);
 
-    // Build output string
     const lines: string[] = [];
-    lines.push(`=== Doctor Output ===\n`);
-    lines.push(`Repository root: ${root}`);
-    lines.push(`\n--- Discovered Project ---`);
+    lines.push("=== Doctor Output ===\n");
+    lines.push(`Repository identity: ${sourceState.repository_id}`);
+    lines.push(`Repository identity kind: ${sourceState.repository_id_kind}`);
+    lines.push(`Portable identity: ${sourceState.portable}`);
+    lines.push(`Config source: ${existsSync(join(root, "ascout.config.json")) ? "ascout.config.json" : "built-in defaults"}`);
+    lines.push("\n--- Discovered Project ---");
     lines.push(`Workspace kind: ${discovery.workspace.kind}`);
     lines.push(`Package manager: ${discovery.packageManager.state === "resolved" ? discovery.packageManager.value : discovery.packageManager.reasonCode}`);
     lines.push(`Js test runner: ${discovery.jsTestRunner.state === "resolved" ? discovery.jsTestRunner.value : discovery.jsTestRunner.reasonCode}`);
     lines.push(`Pytest basic: ${discovery.pytestBasic.state === "resolved" ? discovery.pytestBasic.value : discovery.pytestBasic.reasonCode}`);
-    lines.push(`\n--- Config ---`);
-    lines.push(JSON.stringify(config, null, 2));
-    lines.push(`\n--- Authority Classification ---`);
+    lines.push("\n--- Authority Classification ---");
     for (const task of ["typecheck", "lint", "pytestBasic", "test"] as const) {
       const surface = surfaces[task];
       lines.push(`${task}:`);
       lines.push(`  authorityPaths: ${JSON.stringify(surface.authorityPaths)}`);
       lines.push(`  effectivePytestConfig: ${surface.effectivePytestConfig ?? "null"}`);
     }
-    lines.push(`\n--- Changed Files ---`);
+    lines.push("\n--- Changed Files ---");
     lines.push(`Count: ${changedFiles.length}`);
     for (const file of changedFiles.slice(0, 10)) {
       lines.push(`  ${file.path} (${file.change_kind})`);
@@ -195,7 +191,10 @@ function runDoctor(repositoryRoot: string): DoctorResult {
     }
     return { output: lines.join("\n"), exitCode: 0 };
   } catch (error) {
-    return { output: `Error during doctor: ${String(error)}`, exitCode: 1 };
+    return {
+      output: `Error during doctor: ${redactDoctorError(error, repositoryRoot)}`,
+      exitCode: 1,
+    };
   }
 }
 
@@ -216,9 +215,9 @@ function classifyEntry(): EntryDisposition {
 
 const entryDisposition = classifyEntry();
 if (entryDisposition === "direct") {
-  runCli(process.argv.slice(2)).then(code => {
+  runCli(process.argv.slice(2)).then((code) => {
     process.exitCode = code;
-  }).catch(err => {
+  }).catch((err) => {
     console.error("ascout: unexpected error:", err);
     process.exitCode = 1;
   });
