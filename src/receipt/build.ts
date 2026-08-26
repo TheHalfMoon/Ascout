@@ -70,6 +70,7 @@ function deriveComparison(
     changed_files: comparison.changed_files.map((file) => ({
       ...file,
       is_command_surface:
+        file.is_command_surface ||
         changedAuthorityPaths.has(file.path) ||
         (file.previous_path !== undefined && changedAuthorityPaths.has(file.previous_path)),
     })),
