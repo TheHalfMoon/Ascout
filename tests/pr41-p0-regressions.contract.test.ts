@@ -13,7 +13,10 @@ import type { GitChangedFile } from "../src/git.js";
 import { planESLintTask } from "../src/tools/eslint.js";
 
 const temporaryDirectories: string[] = [];
-const originalSecret = process.env.ASCOUT_PR41_SECRET;
+const originalEnv = new Map([
+  ["ASCOUT_PR41_SECRET", process.env.ASCOUT_PR41_SECRET],
+  ["GITHUB_TOKEN", process.env.GITHUB_TOKEN],
+] as const);
 const NULL_GIT_CONFIG = process.platform === "win32" ? "NUL" : "/dev/null";
 const GIT_ENV = {
   ...process.env,
@@ -62,10 +65,12 @@ function packageJson(value: Record<string, unknown>): string {
 }
 
 afterEach(() => {
-  if (originalSecret === undefined) {
-    delete process.env.ASCOUT_PR41_SECRET;
-  } else {
-    process.env.ASCOUT_PR41_SECRET = originalSecret;
+  for (const [name, value] of originalEnv) {
+    if (value === undefined) {
+      delete process.env[name];
+    } else {
+      process.env[name] = value;
+    }
   }
   for (const directory of temporaryDirectories.splice(0)) {
     rmSync(directory, { recursive: true, force: true });
@@ -207,6 +212,55 @@ describe("PR #41 P0 receipt integrity regressions", () => {
     });
     expect(lint!.argv.join("\n")).not.toContain(secret);
     expect(lint!.argv).toEqual(["must-not-launch", ""]);
+  });
+
+  it("redacts canonical built-in secrets from persisted argv and output without redactEnv", async () => {
+    const repositoryRoot = makeRepository();
+    const secret = "github-built-in-secret-value";
+    process.env.GITHUB_TOKEN = secret;
+
+    writeFileSync(
+      join(repositoryRoot, "ascout.config.json"),
+      JSON.stringify({ version: 1 }, null, 2),
+      "utf8",
+    );
+    commitAll(repositoryRoot);
+
+    writeFileSync(
+      join(repositoryRoot, "ascout.config.json"),
+      JSON.stringify({
+        version: 1,
+        tasks: {
+          lint: {
+            command: [
+              process.execPath,
+              "-e",
+              "process.stdout.write(process.env.GITHUB_TOKEN ?? '')",
+              secret,
+            ],
+          },
+        },
+      }, null, 2),
+      "utf8",
+    );
+
+    const outcome = await runCheck(repositoryRoot, { allowChangedCommandSurface: true });
+    const lint = outcome.receipt.tasks.find(({ task_type }) => task_type === "lint");
+    const stdout = outcome.receipt.artifacts.find(
+      ({ task_id, relative_run_path }) =>
+        task_id === "lint" && relative_run_path === "raw/lint-stdout.log",
+    );
+
+    expect(lint).toMatchObject({
+      status: "PASS",
+      argv_redacted: true,
+    });
+    expect(lint!.argv.join("\n")).not.toContain(secret);
+    expect(stdout).toMatchObject({
+      redacted: true,
+      truncated: false,
+      byte_length: 0,
+    });
   });
 
   it("marks changed authority files as command surfaces in the same receipt", async () => {
