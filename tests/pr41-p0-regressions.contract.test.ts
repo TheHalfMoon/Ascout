@@ -209,6 +209,59 @@ describe("PR #41 P0 receipt integrity regressions", () => {
     expect(lint!.argv).toEqual(["must-not-launch", ""]);
   });
 
+  it("marks redacted output as redacted without fabricating truncation", async () => {
+    const repositoryRoot = makeRepository();
+    const secret = "pr41-output-secret-value";
+    process.env.ASCOUT_PR41_SECRET = secret;
+
+    writeFileSync(
+      join(repositoryRoot, "ascout.config.json"),
+      JSON.stringify({ version: 1 }, null, 2),
+      "utf8",
+    );
+    commitAll(repositoryRoot);
+
+    writeFileSync(
+      join(repositoryRoot, "ascout.config.json"),
+      JSON.stringify({
+        version: 1,
+        redactEnv: ["ASCOUT_PR41_SECRET"],
+        tasks: {
+          lint: {
+            command: [
+              process.execPath,
+              "-e",
+              "process.stdout.write(process.env.ASCOUT_PR41_SECRET ?? '')",
+            ],
+          },
+        },
+      }, null, 2),
+      "utf8",
+    );
+
+    const outcome = await runCheck(repositoryRoot, { allowChangedCommandSurface: true });
+    const lint = outcome.receipt.tasks.find(({ task_type }) => task_type === "lint");
+    const stdout = outcome.receipt.artifacts.find(
+      ({ task_id, relative_run_path }) =>
+        task_id === "lint" && relative_run_path === "raw/lint-stdout.log",
+    );
+    const stdoutEvidence = outcome.receipt.evidence.find(
+      ({ artifact_id }) => artifact_id === stdout?.artifact_id,
+    );
+
+    expect(lint?.status).toBe("PASS");
+    expect(lint?.output_truncated).toBe(false);
+    expect(stdout).toMatchObject({
+      redacted: true,
+      truncated: false,
+      byte_length: 0,
+    });
+    expect(stdoutEvidence).toMatchObject({
+      redacted: true,
+      truncated: false,
+    });
+  });
+
   it("binds run.started_at before an executed task starts", async () => {
     const repositoryRoot = makeRepository();
     writeFileSync(
