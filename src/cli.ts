@@ -20,6 +20,11 @@ export interface CliInvocation {
   allowChangedCommandSurface: boolean;
 }
 
+interface DoctorResult {
+  readonly output: string;
+  readonly exitCode: number;
+}
+
 export class CliUsageError extends Error {
   override readonly name = "CliUsageError";
 }
@@ -117,7 +122,7 @@ async function runInit(): Promise<number> {
   }
 }
 
-async function runCli(argv: readonly string[]): Promise<number> {
+export async function runCli(argv: readonly string[]): Promise<number> {
   try {
     const invocation = parseCliArgs(argv);
     if (invocation.command === "init") {
@@ -128,16 +133,12 @@ async function runCli(argv: readonly string[]): Promise<number> {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
       });
       console.error(outcome.terminalSummary);
-      const { receipt } = outcome;
-      if (receipt.tasks.some(t => t.status === "FAIL" || t.status === "ERROR")) {
-        return 1;
-      }
-      return 0;
+      return outcome.receipt.summary.exit_code;
     }
     if (invocation.command === "doctor") {
-      const output = await runDoctor(process.cwd());
-      console.error(output);
-      return 0;
+      const result = runDoctor(process.cwd());
+      console.error(result.output);
+      return result.exitCode;
     }
     // Should not happen because parseCliArgs validates the command.
     console.error(`ascout ${invocation.command}: not implemented.`);
@@ -153,10 +154,10 @@ async function runCli(argv: readonly string[]): Promise<number> {
   }
 }
 
-async function runDoctor(repositoryRoot: string): Promise<string> {
+function runDoctor(repositoryRoot: string): DoctorResult {
   try {
-    const { root, files, discovery } = collectDiscoveredProject(repositoryRoot);
-    const { config, digest } = loadConfig(root);
+    const { root, discovery } = collectDiscoveredProject(repositoryRoot);
+    const { config } = loadConfig(root);
     const sourceState = composeSourceState(root);
     const gitComparison = readWorkingTreeComparison(root, sourceState.head_sha);
     const changedFiles = gitComparison.changed_files;
@@ -192,9 +193,9 @@ async function runDoctor(repositoryRoot: string): Promise<string> {
     if (changedFiles.length > 10) {
       lines.push(`  ... and ${changedFiles.length - 10} more`);
     }
-    return lines.join("\n");
+    return { output: lines.join("\n"), exitCode: 0 };
   } catch (error) {
-    return `Error during doctor: ${error}`;
+    return { output: `Error during doctor: ${String(error)}`, exitCode: 1 };
   }
 }
 
