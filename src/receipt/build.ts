@@ -57,6 +57,25 @@ function deriveStability(sourceStart: SourceStateV1, sourceEnd: SourceStateV1 | 
   return sourceEnd.tree_digest === sourceStart.tree_digest ? "stable" : "tree_drifted";
 }
 
+function deriveComparison(
+  comparison: ComparisonV1,
+  tasks: readonly TaskResultV1[],
+): ComparisonV1 {
+  const changedAuthorityPaths = new Set(
+    tasks.flatMap((task) => task.changed_authority_paths),
+  );
+
+  return {
+    ...comparison,
+    changed_files: comparison.changed_files.map((file) => ({
+      ...file,
+      is_command_surface:
+        changedAuthorityPaths.has(file.path) ||
+        (file.previous_path !== undefined && changedAuthorityPaths.has(file.previous_path)),
+    })),
+  };
+}
+
 function deriveChangedCode(comparison: ComparisonV1): ChangedCodeV1 {
   let changedTextLineCount = 0;
   for (const file of comparison.changed_files) {
@@ -76,7 +95,8 @@ function deriveChangedCode(comparison: ComparisonV1): ChangedCodeV1 {
  */
 export function buildReceipt(input: BuildReceiptInput): ReceiptV1 {
   const stability = deriveStability(input.sourceStart, input.sourceEnd);
-  const changedCode = deriveChangedCode(input.comparison);
+  const comparison = deriveComparison(input.comparison, input.tasks);
+  const changedCode = deriveChangedCode(comparison);
   const taskStatusCounts = countTaskStatuses(input.tasks);
 
   const base = {
@@ -86,7 +106,7 @@ export function buildReceipt(input: BuildReceiptInput): ReceiptV1 {
       start: input.sourceStart,
       end: input.sourceEnd,
     },
-    comparison: input.comparison,
+    comparison,
     selection: input.selection,
     tasks: input.tasks,
     changed_code: changedCode,
