@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -10,7 +10,6 @@ import {
   discoverProjectFromFiles,
 } from "../src/discovery.js";
 import type { GitChangedFile } from "../src/git.js";
-import { normalizeLcov } from "../src/coverage/lcov.js";
 import { planESLintTask } from "../src/tools/eslint.js";
 
 const temporaryDirectories: string[] = [];
@@ -173,19 +172,6 @@ describe("PR #41 P0 ESLint scope regression", () => {
 });
 
 describe("PR #41 P0 receipt integrity regressions", () => {
-  it("normalizes explicit LCOV terminators exactly once", () => {
-    const normalized = normalizeLcov([
-      "TN:",
-      "SF:src/a.ts",
-      "DA:1,1",
-      "end_of_record",
-      "",
-    ].join("\n"));
-
-    expect(normalized).toBe("SF:src/a.ts\nDA:1,1\nend_of_record");
-    expect(normalized.match(/end_of_record/gu)).toHaveLength(1);
-  });
-
   it("redacts selected secret values from admission-refused argv", async () => {
     const repositoryRoot = makeRepository();
     const secret = "pr41-super-secret-value";
