@@ -482,16 +482,20 @@ function nonExecutedTask(
   status: Extract<TaskResultV1["status"], "NOT_RUN" | "NOT_APPLICABLE">,
   reasonCode: string | null,
   reasonText: string | null,
+  secrets: readonly string[],
 ): ExecutedTask {
-  void decision;
+  const persistedArgv = plan !== null ? redactPersistedArgv(plan.argv, secrets) : [];
+  const argvRedacted = plan !== null &&
+    persistedArgv.some((value, index) => value !== plan.argv[index]);
+
   return {
     task: {
       task_id: taskId,
       task_type: taskId,
       authorized_by: plan?.authorizedBy ?? "discovery",
       source_path: plan?.sourcePath ?? null,
-      argv: plan !== null ? redactPersistedArgv(plan.argv, []) : [],
-      argv_redacted: false,
+      argv: [...persistedArgv],
+      argv_redacted: argvRedacted,
       tool_name: null,
       tool_version: null,
       command_surface_changed: decision.commandSurfaceChanged,
@@ -543,6 +547,7 @@ export async function runCheck(
     const runDir = await createRunDirectory(root, runId);
 
     try {
+      const runStartedAt = new Date().toISOString();
       const sourceStart = composeSourceState(root);
       const gitComparison = readWorkingTreeComparison(root, sourceStart.head_sha);
       const comparison: ComparisonV1 = {
@@ -586,32 +591,71 @@ export async function runCheck(
         const decision = decisions[task];
 
         if (!decision.launchAllowed) {
-          // Refusals are decided before any planning/launch work for the task.
-          const refused = nonExecutedTask(task, decision, plans[task as keyof typeof plans] ?? null, "NOT_RUN", decision.refusal!.reasonCode, decision.refusal!.reasonText);
+          // Refusals are decided before any process launch for the task.
+          const refused = nonExecutedTask(
+            task,
+            decision,
+            plans[task as keyof typeof plans] ?? null,
+            "NOT_RUN",
+            decision.refusal!.reasonCode,
+            decision.refusal!.reasonText,
+            secrets,
+          );
           tasks.push(refused.task);
           continue;
         }
 
         if (task === "test") {
-          const unwired = nonExecutedTask(task, decision, null, "NOT_RUN", TEST_TASK_NOT_WIRED_REASON_CODE, TEST_TASK_NOT_WIRED_REASON_TEXT);
+          const unwired = nonExecutedTask(
+            task,
+            decision,
+            null,
+            "NOT_RUN",
+            TEST_TASK_NOT_WIRED_REASON_CODE,
+            TEST_TASK_NOT_WIRED_REASON_TEXT,
+            secrets,
+          );
           tasks.push(unwired.task);
           continue;
         }
 
         const plan = plans[task];
         if (plan.state === "not_applicable") {
-          const notApplicable = nonExecutedTask(task, decision, plan, "NOT_APPLICABLE", plan.reasonCode, plan.reasonText);
+          const notApplicable = nonExecutedTask(
+            task,
+            decision,
+            plan,
+            "NOT_APPLICABLE",
+            plan.reasonCode,
+            plan.reasonText,
+            secrets,
+          );
           tasks.push(notApplicable.task);
           continue;
         }
         if (plan.state === "not_run") {
-          const notRun = nonExecutedTask(task, decision, plan, "NOT_RUN", plan.reasonCode, plan.reasonText);
+          const notRun = nonExecutedTask(
+            task,
+            decision,
+            plan,
+            "NOT_RUN",
+            plan.reasonCode,
+            plan.reasonText,
+            secrets,
+          );
           tasks.push(notRun.task);
           continue;
         }
 
         const executed = await executePlannedTask(
-          root, runId, runDir.raw_path, task, plan as NormalizedPlan & { state: "planned" }, decision, secrets, taskTimeoutMs(config, task),
+          root,
+          runId,
+          runDir.raw_path,
+          task,
+          plan as NormalizedPlan & { state: "planned" },
+          decision,
+          secrets,
+          taskTimeoutMs(config, task),
         );
         tasks.push(executed.task);
         evidence.push(...executed.evidence);
@@ -624,7 +668,7 @@ export async function runCheck(
         run: {
           run_id: runId,
           ascout_version: ascoutVersion(),
-          started_at: sourceStartObservedAt(sourceStart, sourceEnd),
+          started_at: runStartedAt,
           finished_at: new Date().toISOString(),
           config_digest: digest,
         },
@@ -655,8 +699,3 @@ export async function runCheck(
 function ascoutVersion(): string {
   return "0.1.0-m1";
 }
-
-function sourceStartObservedAt(_start: SourceStateV1, _end: SourceStateV1 | null): string {
-  return new Date().toISOString();
-}
-
