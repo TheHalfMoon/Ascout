@@ -341,13 +341,14 @@ function persistCapture(
   truncated: boolean,
   secrets: readonly string[],
 ): PersistedCapture {
-  const text = redactExactValues(bytes.toString("utf8"), secrets);
+  const rawText = bytes.toString("utf8");
+  const text = redactExactValues(rawText, secrets);
   const persisted = Buffer.from(text, "utf8");
   writeFileSync(join(rawPath, fileName), persisted);
 
   const sha256 = createSha256(persisted);
   const artifactId = `${taskId}.${fileName}`;
-  const redacted = secrets.some((secret) => bytes.toString("utf8").includes(secret));
+  const redacted = secrets.some((secret) => rawText.includes(secret));
 
   return {
     artifact: {
@@ -358,7 +359,7 @@ function persistCapture(
       sha256,
       byte_length: persisted.byteLength,
       redacted,
-      truncated: truncated || persisted.byteLength !== bytes.byteLength,
+      truncated,
     },
     evidence: {
       evidence_id: `${taskId}.e${sequence}`,
@@ -467,8 +468,7 @@ async function executePlannedTask(
       cache_state: "not_applicable",
       evidence_ids: [stdoutPersisted.evidence.evidence_id, stderrPersisted.evidence.evidence_id],
       artifact_refs: [stdoutPersisted.artifact.artifact_id, stderrPersisted.artifact.artifact_id],
-      output_truncated: result.stdout.truncated || result.stderr.truncated ||
-        stdoutPersisted.artifact.truncated || stderrPersisted.artifact.truncated,
+      output_truncated: result.stdout.truncated || result.stderr.truncated,
     },
     evidence: [stdoutPersisted.evidence, stderrPersisted.evidence],
     artifacts: [stdoutPersisted.artifact, stderrPersisted.artifact],
