@@ -79,6 +79,20 @@ export function usageText(): string {
   ].join("\n");
 }
 
+function redactLocalPathFromError(error: unknown, repositoryRoot: string): string {
+  let message = String(error);
+  const candidates = new Set([repositoryRoot, resolve(repositoryRoot)]);
+  try {
+    candidates.add(realpathSync(repositoryRoot));
+  } catch {
+    // A failing path may not have a resolvable real path; lexical candidates still apply.
+  }
+  for (const candidate of candidates) {
+    if (candidate.length > 0) message = message.replaceAll(candidate, "<repository>");
+  }
+  return message;
+}
+
 async function runInit(): Promise<number> {
   try {
     const root = process.cwd();
@@ -107,7 +121,7 @@ async function runInit(): Promise<number> {
     console.error("ascout init: created ascout.config.json and ensured .ascout/ is ignored.");
     return 0;
   } catch (error) {
-    console.error(`ascout init failed: ${error}`);
+    console.error(`ascout init failed: ${redactLocalPathFromError(error, process.cwd())}`);
     return 1;
   }
 }
@@ -137,17 +151,9 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       console.error(`${error.message}\n\n${usageText()}`);
       return 2;
     }
-    console.error(String(error));
+    console.error(redactLocalPathFromError(error, process.cwd()));
     return 1;
   }
-}
-
-function redactDoctorError(error: unknown, repositoryRoot: string): string {
-  let message = String(error);
-  for (const candidate of new Set([repositoryRoot, resolve(repositoryRoot)])) {
-    if (candidate.length > 0) message = message.replaceAll(candidate, "<repository>");
-  }
-  return message;
 }
 
 function runDoctor(repositoryRoot: string): DoctorResult {
@@ -192,7 +198,7 @@ function runDoctor(repositoryRoot: string): DoctorResult {
     return { output: lines.join("\n"), exitCode: 0 };
   } catch (error) {
     return {
-      output: `Error during doctor: ${redactDoctorError(error, repositoryRoot)}`,
+      output: `Error during doctor: ${redactLocalPathFromError(error, repositoryRoot)}`,
       exitCode: 1,
     };
   }
@@ -218,7 +224,7 @@ if (entryDisposition === "direct") {
   runCli(process.argv.slice(2)).then((code) => {
     process.exitCode = code;
   }).catch((err) => {
-    console.error("ascout: unexpected error:", err);
+    console.error("ascout: unexpected error:", redactLocalPathFromError(err, process.cwd()));
     process.exitCode = 1;
   });
 } else if (entryDisposition === "resolution_error") {
