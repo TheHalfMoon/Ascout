@@ -56,10 +56,17 @@ export interface LocalNodeToolDiscovery {
   readonly configPaths: readonly string[];
 }
 
+export interface PackageScriptAuthority {
+  readonly typecheck: readonly string[];
+  readonly lint: readonly string[];
+  readonly test: readonly string[];
+}
+
 export interface ProjectDiscovery {
   readonly semanticTasks: readonly SemanticTaskType[];
   readonly packageManager: DiscoveryResolution<PackageManager>;
   readonly workspace: WorkspaceDiscovery;
+  readonly packageScriptAuthority: PackageScriptAuthority;
   readonly jsTestRunner: DiscoveryResolution<JsTestRunner>;
   readonly pytestBasic: DiscoveryResolution<"pytestBasic">;
   readonly tools: {
@@ -184,6 +191,29 @@ function dependencyNames(manifest: PackageManifest): ReadonlySet<string> {
     for (const name of Object.keys(section)) result.add(name);
   }
   return result;
+}
+
+function scriptOwnerPaths(
+  allManifests: readonly PackageManifest[],
+  scriptName: "typecheck" | "lint" | "test",
+): readonly string[] {
+  return allManifests
+    .filter((manifest) => {
+      const scripts = manifest.value.scripts;
+      return isRecord(scripts) && Object.prototype.hasOwnProperty.call(scripts, scriptName);
+    })
+    .map(({ path }) => path)
+    .sort(compareStrings);
+}
+
+function discoverPackageScriptAuthority(
+  allManifests: readonly PackageManifest[],
+): PackageScriptAuthority {
+  return {
+    typecheck: scriptOwnerPaths(allManifests, "typecheck"),
+    lint: scriptOwnerPaths(allManifests, "lint"),
+    test: scriptOwnerPaths(allManifests, "test"),
+  };
 }
 
 function discoverPackageManager(
@@ -313,21 +343,11 @@ function discoverWorkspace(
   }
 
   if (patterns === null) {
-    // When no explicit workspace definition, include the root package.json
-    // plus any valid package.json files in subdirectories
-    const validPackageJsonPaths = ["package.json"];
-    for (const manifest of allManifests) {
-      if (manifest.path === "package.json") continue;
-      if (manifest.path.endsWith("/package.json")) {
-        // The value has already been parsed and validated in the manifests function
-        validPackageJsonPaths.push(manifest.path);
-      }
-    }
-        return {
+    return {
       state: "resolved",
       kind: "single",
       patterns: [],
-      packageJsonPaths: sortedUnique(validPackageJsonPaths),
+      packageJsonPaths: root === undefined ? [] : ["package.json"],
       sourcePaths: [],
       reasonCode: null,
       reasonText: null,
@@ -530,6 +550,7 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
     semanticTasks: FIXED_SEMANTIC_TASKS,
     packageManager: discoverPackageManager(normalized, root),
     workspace,
+    packageScriptAuthority: discoverPackageScriptAuthority(scopedManifests),
     jsTestRunner: discoverRunner(scopedManifests),
     pytestBasic: discoverPytest(normalized, roots),
     tools: {
@@ -542,12 +563,6 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
 }
 
 const ASCOUT_CONFIG_PATH = "ascout.config.json";
-const PACKAGE_SCRIPT_BY_TASK: Readonly<Record<SemanticTaskType, string | null>> = {
-  typecheck: "typecheck",
-  lint: "lint",
-  test: "test",
-  pytestBasic: null,
-};
 
 export interface ChangedPathView {
   readonly path: string;
@@ -608,15 +623,29 @@ function packageScriptOwners(
   discovery: ProjectDiscovery,
   task: SemanticTaskType,
 ): readonly string[] {
-  const scriptName = PACKAGE_SCRIPT_BY_TASK[task];
-  if (scriptName === null) return [];
-  const result: string[] = [];
-  for (const path of discovery.workspace.packageJsonPaths) {
-    // We cannot reliably re-parse manifests without files, so rely on declared package.json paths only for script ownership.
-    // The planner modules can narrow this further before admission decisions.
-    result.push(path);
+  switch (task) {
+    case "typecheck":
+      return discovery.packageScriptAuthority.typecheck;
+    case "lint":
+      return discovery.packageScriptAuthority.lint;
+    case "test":
+      return discovery.packageScriptAuthority.test;
+    case "pytestBasic":
+      return [];
   }
-  return result;
+}
+
+function testRunnerDeclarationPaths(discovery: ProjectDiscovery): readonly string[] {
+  if (discovery.jsTestRunner.state === "resolved") {
+    return discovery.tools[discovery.jsTestRunner.value].declarationPaths;
+  }
+  if (discovery.jsTestRunner.state === "ambiguous") {
+    return sortedUnique([
+      ...discovery.tools.vitest.declarationPaths,
+      ...discovery.tools.jest.declarationPaths,
+    ]);
+  }
+  return [];
 }
 
 function baseAuthorityPaths(
@@ -627,11 +656,13 @@ function baseAuthorityPaths(
     case "typecheck":
       return sortedUnique([
         ...packageScriptOwners(discovery, "typecheck"),
+        ...discovery.tools.typescript.declarationPaths,
         ...discovery.tools.typescript.configPaths,
       ]);
     case "lint":
       return sortedUnique([
         ...packageScriptOwners(discovery, "lint"),
+        ...discovery.tools.eslint.declarationPaths,
         ...discovery.tools.eslint.configPaths,
       ]);
     case "test": {
@@ -640,6 +671,7 @@ function baseAuthorityPaths(
         : [];
       return sortedUnique([
         ...packageScriptOwners(discovery, "test"),
+        ...testRunnerDeclarationPaths(discovery),
         ...runnerConfigs,
       ]);
     }
