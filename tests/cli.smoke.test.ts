@@ -70,15 +70,17 @@ describe("T007 CLI startup smoke", () => {
       throw new Error("network access attempted during CLI startup");
     });
     vi.stubGlobal("fetch", fetchSpy);
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     vi.resetModules();
     const { runCli } = await import("../src/cli.js");
     const exitCode = await runCli(["doctor"]);
+    const output = errorSpy.mock.calls.flat().map(String).join("\n");
 
     expect(typeof exitCode).toBe("number");
     expect(exitCode).not.toBe(0);
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(output).not.toContain(emptyProject);
     expect(readdirSync(emptyProject)).toEqual([]);
   });
 
