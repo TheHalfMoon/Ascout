@@ -209,6 +209,50 @@ describe("PR #41 P0 receipt integrity regressions", () => {
     expect(lint!.argv).toEqual(["must-not-launch", ""]);
   });
 
+  it("marks changed authority files as command surfaces in the same receipt", async () => {
+    const repositoryRoot = makeRepository();
+    writeFileSync(
+      join(repositoryRoot, "package.json"),
+      packageJson({
+        name: "fixture",
+        private: true,
+        packageManager: "npm@11.0.0",
+        scripts: { lint: "eslint ." },
+      }),
+      "utf8",
+    );
+    commitAll(repositoryRoot);
+
+    writeFileSync(
+      join(repositoryRoot, "package.json"),
+      packageJson({
+        name: "fixture",
+        private: true,
+        version: "1.0.1",
+        packageManager: "npm@11.0.0",
+        scripts: { lint: "eslint ." },
+      }),
+      "utf8",
+    );
+
+    const outcome = await runCheck(repositoryRoot);
+    const changedPackage = outcome.receipt.comparison.changed_files.find(
+      ({ path }) => path === "package.json",
+    );
+    const lint = outcome.receipt.tasks.find(({ task_type }) => task_type === "lint");
+
+    expect(changedPackage).toMatchObject({
+      path: "package.json",
+      is_command_surface: true,
+    });
+    expect(lint).toMatchObject({
+      status: "NOT_RUN",
+      command_surface_changed: true,
+      changed_authority_paths: ["package.json"],
+      execution_admission: "refused_changed_surface",
+    });
+  });
+
   it("marks redacted output as redacted without fabricating truncation", async () => {
     const repositoryRoot = makeRepository();
     const secret = "pr41-output-secret-value";
