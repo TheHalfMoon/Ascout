@@ -57,9 +57,10 @@ describe("T007 CLI startup smoke", () => {
 
     vi.resetModules();
     const { runCli } = await import("../src/cli.js");
-    const exitCode = runCli(["doctor"]);
+    const exitCode = await runCli(["doctor"]);
 
     expect(typeof exitCode).toBe("number");
+    expect(exitCode).not.toBe(0);
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(readdirSync(emptyProject)).toEqual([]);
   });
