@@ -1,6 +1,9 @@
 name: T066 exact-head qualification
 
 on:
+  push:
+    branches:
+      - qualification/t066-exact-head-8cc7264a
   workflow_dispatch:
 
 permissions:
