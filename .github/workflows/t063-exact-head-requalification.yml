@@ -1,0 +1,58 @@
+name: T063 exact-head requalification
+
+on:
+  push:
+    branches:
+      - qualification/t063-exact-head-4eba7a1f
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T063 head
+        uses: actions/checkout@v4
+        with:
+          ref: 4eba7a1fea2eda5a68268021a3f26d7f0f60b77b
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Prove opening exact head and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "4eba7a1fea2eda5a68268021a3f26d7f0f60b77b"
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD
+          git status --short
+
+      - name: Provision exact locked dependencies
+        run: npm ci
+
+      - name: Run focused T063 qualification
+        run: npm test -- tests/targeted-test-rerun.contract.test.ts tests/vitest-task.contract.test.ts tests/jest-task.contract.test.ts tests/flake-reproduction.contract.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Prove closing exact head and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "4eba7a1fea2eda5a68268021a3f26d7f0f60b77b"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git rev-parse HEAD
+          git status --short --untracked-files=no
