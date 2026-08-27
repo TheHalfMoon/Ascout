@@ -1,0 +1,91 @@
+name: T071 exact-head qualification 2f0cf933
+
+on:
+  push:
+    branches:
+      - qualification/t071-exact-head-2f0cf933
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact T071 feature head
+        uses: actions/checkout@v4
+        with:
+          ref: 2f0cf9336e99fb5221be0ce403346a7ff5e4d223
+          fetch-depth: 0
+
+      - name: Opening exact-head clean-tree merge-base scope guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          test -z "$(git status --short)"
+          test "$(git merge-base 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca HEAD)" = "5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca"
+          test "$(git diff --name-only 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca...HEAD | tr '\n' ' ')" = "benchmarks/README.md "
+          git diff --check 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca...HEAD
+
+      - name: T071 benchmark-policy contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f benchmarks/README.md
+          test ! -e benchmarks/manifest.json
+          test "$(find benchmarks -type f -printf '%P\n' | sort | tr '\n' ' ')" = "README.md "
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path("benchmarks/README.md").read_text()
+          required = [
+              "selection corpus:** 5–6",
+              "gap corpus:** 3–4",
+              "T071–T074 acquisition/review is non-executing",
+              "T075: first executable boundary",
+              "CASE_REVIEWED",
+              "BENCHMARK_ACTIVE",
+              "oracle specification",
+              "oracle observation",
+              "cross-tree evidence leakage = 0",
+              "binding-integrity violations = 0",
+              "stable material exercise gap returning exit 0 = 0",
+              "does not invent a pre-data 98%",
+              "https://spdx.github.io/spdx-spec/v3.0.1/annexes/spdx-license-expressions/",
+              "https://spdx.org/licenses/",
+              "https://git-scm.com/docs/git-cat-file",
+              "https://git-scm.com/docs/git-clone",
+          ]
+          missing = [needle for needle in required if needle not in text]
+          if missing:
+              raise SystemExit(f"missing T071 contract text: {missing}")
+          forbidden = [
+              "T071/T072 acquisition is non-executing",
+              "-> ORACLE_VERIFIED\n  -> ACCEPTED",
+          ]
+          present = [needle for needle in forbidden if needle in text]
+          if present:
+              raise SystemExit(f"stale/circular T071 contract text remains: {present}")
+          if text.count("## 16. T071 completion boundary") != 1:
+              raise SystemExit("T071 completion boundary must appear exactly once")
+          PY
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Closing exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          test -z "$(git status --short)"
