@@ -1,0 +1,71 @@
+name: T054 exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualification/t054-exact-head-f82ac8e9
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact T054 head
+        uses: actions/checkout@v4
+        with:
+          ref: f82ac8e91f0b3bea189f81a1ce0ec2bd6dd3a6b0
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Prove opening exact head and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "f82ac8e91f0b3bea189f81a1ce0ec2bd6dd3a6b0"
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD
+          git status --short
+
+      - name: Provision exact locked dependencies
+        run: npm ci
+
+      - name: Run focused T054 qualification
+        run: |
+          npm test -- \
+            tests/post-run-widening.integration.test.ts \
+            tests/post-run-widening-run-check.integration.test.ts \
+            tests/vitest-task.contract.test.ts \
+            tests/jest-task.contract.test.ts \
+            tests/vitest-check.integration.test.ts \
+            tests/jest-check.integration.test.ts \
+            tests/check-receipt-end-to-end.contract.test.ts \
+            tests/check-admission.contract.test.ts \
+            tests/pre-run-widening.integration.test.ts \
+            tests/changed-command-surface-override.integration.test.ts \
+            tests/receipt-v1.semantic-invariants.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Prove closing exact head and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "f82ac8e91f0b3bea189f81a1ce0ec2bd6dd3a6b0"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git rev-parse HEAD
+          git status --short --untracked-files=no
