@@ -27,22 +27,39 @@ type JestCaseCatalog = {
 };
 
 type JestJsonResult = {
-  readonly numFailedTestSuites: number;
-  readonly numFailedTests: number;
-  readonly numPassedTestSuites: number;
-  readonly numPassedTests: number;
-  readonly numTotalTestSuites: number;
-  readonly numTotalTests: number;
   readonly success: boolean;
-  readonly wasInterrupted: boolean;
+  readonly startTime: number;
+  readonly numTotalTestSuites: number;
+  readonly numPassedTestSuites: number;
+  readonly numFailedTestSuites: number;
+  readonly numRuntimeErrorTestSuites: number;
+  readonly numTotalTests: number;
+  readonly numPassedTests: number;
+  readonly numFailedTests: number;
+  readonly numPendingTests: number;
+  readonly numTodoTests: number;
+  readonly openHandles: readonly unknown[];
   readonly testResults: readonly {
-    readonly name: string;
-    readonly status: string;
-    readonly assertionResults: readonly {
-      readonly fullName: string;
-      readonly status: string;
+    readonly numFailingTests: number;
+    readonly numPassingTests: number;
+    readonly numPendingTests: number;
+    readonly testResults: readonly {
       readonly title: string;
+      readonly status: "failed" | "pending" | "passed";
+      readonly ancestorTitles: readonly string[];
+      readonly failureMessages: readonly string[];
+      readonly numPassingAsserts: number;
+      readonly location: {
+        readonly line: number;
+        readonly column: number;
+      };
     }[];
+    readonly perfStats: {
+      readonly start: number;
+      readonly end: number;
+    };
+    readonly testFilePath: string;
+    readonly coverage: Readonly<Record<string, unknown>>;
   }[];
 };
 
@@ -73,26 +90,42 @@ function expectSafeJestArgs(args: readonly string[]): void {
 }
 
 function testPaths(result: JestJsonResult): readonly string[] {
-  return result.testResults.map(({ name }) => `tests/${basename(name)}`).sort();
+  return result.testResults.map(({ testFilePath }) => `tests/${basename(testFilePath)}`).sort();
 }
 
 function expectSuccessfulMachineResult(result: JestJsonResult): void {
   expect(result.success).toBe(true);
-  expect(result.wasInterrupted).toBe(false);
+  expect(Number.isInteger(result.startTime)).toBe(true);
   expect(result.numFailedTestSuites).toBe(0);
+  expect(result.numRuntimeErrorTestSuites).toBe(0);
   expect(result.numFailedTests).toBe(0);
+  expect(result.numPendingTests).toBe(0);
+  expect(result.numTodoTests).toBe(0);
+  expect(result.openHandles).toEqual([]);
   expect(result.numPassedTestSuites).toBe(result.numTotalTestSuites);
   expect(result.numPassedTests).toBe(result.numTotalTests);
   expect(result.testResults).toHaveLength(result.numTotalTestSuites);
-  for (const testResult of result.testResults) {
-    expect(testResult.status).toBe("passed");
-    expect(testResult.assertionResults.length).toBeGreaterThan(0);
-    for (const assertion of testResult.assertionResults) {
+
+  let observedTests = 0;
+  for (const suite of result.testResults) {
+    expect(suite.numFailingTests).toBe(0);
+    expect(suite.numPendingTests).toBe(0);
+    expect(suite.numPassingTests).toBe(suite.testResults.length);
+    expect(suite.perfStats.start).toBeLessThanOrEqual(suite.perfStats.end);
+    expect(suite.testFilePath.startsWith("/")).toBe(true);
+    expect(typeof suite.coverage).toBe("object");
+    observedTests += suite.testResults.length;
+
+    for (const assertion of suite.testResults) {
       expect(assertion.status).toBe("passed");
-      expect(assertion.fullName.length).toBeGreaterThan(0);
       expect(assertion.title.length).toBeGreaterThan(0);
+      expect(assertion.failureMessages).toEqual([]);
+      expect(assertion.numPassingAsserts).toBeGreaterThan(0);
+      expect(assertion.location.line).toBeGreaterThan(0);
+      expect(assertion.location.column).toBeGreaterThan(0);
     }
   }
+  expect(observedTests).toBe(result.numTotalTests);
 }
 
 describe("T046 Jest fixture/integration contract", () => {
@@ -118,7 +151,7 @@ describe("T046 Jest fixture/integration contract", () => {
     expect(catalog.artifacts.lcov).toBe(`${catalog.artifacts.coverageDirectory}/lcov.info`);
   });
 
-  it("locks the expected related-test machine-result shape", () => {
+  it("locks the Jest 30 related-test machine-result shape", () => {
     const catalog = loadJson<JestCaseCatalog>(CASES_URL);
     const result = loadJson<JestJsonResult>(RELATED_RESULTS_URL);
 
@@ -145,7 +178,7 @@ describe("T046 Jest fixture/integration contract", () => {
     expectSafeJestArgs(args);
   });
 
-  it("locks the expected full-run machine-result shape after widening", () => {
+  it("locks the Jest 30 full-run machine-result shape after widening", () => {
     const catalog = loadJson<JestCaseCatalog>(CASES_URL);
     const result = loadJson<JestJsonResult>(FULL_RESULTS_URL);
 
