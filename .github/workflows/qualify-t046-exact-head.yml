@@ -1,0 +1,73 @@
+name: Ephemeral T046 exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualify/t046-98e0edab
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Select Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+
+      - name: Checkout exact T046 candidate
+        shell: bash
+        env:
+          TARGET_SHA: 98e0edabb1a18c78c839af27b492d2a240950e64
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "$TARGET_SHA"
+          git checkout --detach FETCH_HEAD
+          actual_sha="$(git rev-parse HEAD)"
+          printf 'TARGET_SHA=%s\nACTUAL_SHA=%s\n' "$TARGET_SHA" "$actual_sha"
+          test "$actual_sha" = "$TARGET_SHA"
+          test -z "$(git status --porcelain=v1)"
+          node --version
+          npm --version
+
+      - name: Install locked dependencies without lifecycle scripts
+        shell: bash
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify locked tool versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const expected = {
+            typescript: '6.0.3',
+            vitest: '4.1.10',
+            'cross-spawn': '7.0.6',
+          };
+          for (const [name, version] of Object.entries(expected)) {
+            const actual = require(`./node_modules/${name}/package.json`).version;
+            console.log(`${name}=${actual}`);
+            if (actual !== version) process.exitCode = 1;
+          }
+          NODE
+
+      - name: Run T046 focused contract
+        shell: bash
+        run: npm test -- tests/jest-fixture.contract.test.ts
+
+      - name: Typecheck exact candidate
+        shell: bash
+        run: npm run typecheck
+
+      - name: Run full test suite
+        shell: bash
+        run: npm test
+
+      - name: Build exact candidate
+        shell: bash
+        run: npm run build
