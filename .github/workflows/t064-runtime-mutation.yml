@@ -32,14 +32,15 @@ jobs:
           from pathlib import Path
           path = Path('/tmp/t064_mutate.py')
           text = path.read_text()
-          old = '''check = check.replace(
+
+          old_counts = '''check = check.replace(
               '    selectedTestCounts: [null],\\n  };',
               '    selectedTestCounts: [null],\\n    machineResults: [],\\n  };',
           )
           if check.count('machineResults: [],') < 4:
               raise SystemExit('expected evidence-error returns to gain machineResults')
           '''
-          new = '''evidence_error_needle = '    selectedTestCounts: [null],\\n  };'
+          new_counts = '''evidence_error_needle = '    selectedTestCounts: [null],\\n  };'
           if check.count(evidence_error_needle) != 2:
               raise SystemExit(f"expected two evidence-error return blocks, found {check.count(evidence_error_needle)}")
           check = check.replace(
@@ -49,9 +50,30 @@ jobs:
           if check.count('    machineResults: [],\\n  };') != 2:
               raise SystemExit('expected exactly two evidence-error machineResults fields')
           '''
-          if text.count(old) != 1:
-              raise SystemExit('temporary correction target not found exactly once')
-          path.write_text(text.replace(old, new, 1))
+          if text.count(old_counts) != 1:
+              raise SystemExit('machineResults count correction target not found exactly once')
+          text = text.replace(old_counts, new_counts, 1)
+
+          old_vitest = '''check = replace_once(
+              check,
+              '  let coveragePoints: readonly LcovLinePoint[] | null = null;\\n  let selectedTestCount: number | null = null;\\n  try {\\n    const machine = persistGeneratedTextArtifact(',
+              '  let coveragePoints: readonly LcovLinePoint[] | null = null;\\n  let selectedTestCount: number | null = null;\\n  let machineResult: TestMachineResultRecord | null = null;\\n  try {\\n    const machine = persistGeneratedTextArtifact(',
+              'Vitest machine result declaration',
+          )
+          '''
+          new_vitest = '''vitest_machine_needle = '  let coveragePoints: readonly LcovLinePoint[] | null = null;\\n  let selectedTestCount: number | null = null;\\n  try {\\n    const machine = persistGeneratedTextArtifact('
+          if check.count(vitest_machine_needle) != 2:
+              raise SystemExit(f"expected shared Vitest/Jest declaration twice, found {check.count(vitest_machine_needle)}")
+          check = check.replace(
+              vitest_machine_needle,
+              '  let coveragePoints: readonly LcovLinePoint[] | null = null;\\n  let selectedTestCount: number | null = null;\\n  let machineResult: TestMachineResultRecord | null = null;\\n  try {\\n    const machine = persistGeneratedTextArtifact(',
+              1,
+          )
+          '''
+          if text.count(old_vitest) != 1:
+              raise SystemExit('Vitest declaration correction target not found exactly once')
+          text = text.replace(old_vitest, new_vitest, 1)
+          path.write_text(text)
           PY
           python3 /tmp/t064_mutate.py
           git diff --check
