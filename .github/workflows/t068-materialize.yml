@@ -1,0 +1,64 @@
+name: T068 isolated materialization
+
+on:
+  push:
+    branches:
+      - qualification/t068-materialize-5b7e83fa
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout helper history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract tested implementation step
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show origin/qualification/t068-build-5b7e83fa:.github/workflows/t068-build.yml > /tmp/t068-build.yml
+          python3 <<'PY'
+          from pathlib import Path
+
+          text = Path('/tmp/t068-build.yml').read_text(encoding='utf-8')
+          start = text.index('      - name: Implement T068 only\n')
+          run = text.index('        run: |\n', start) + len('        run: |\n')
+          end = text.index('\n      - name: Install locked dependencies', run)
+          body = text[run:end]
+          lines = []
+          for line in body.splitlines():
+              if line.startswith('          '):
+                  lines.append(line[10:])
+              elif line == '':
+                  lines.append('')
+              else:
+                  raise SystemExit(f'unexpected helper indentation: {line!r}')
+          Path('/tmp/implement-t068.sh').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
+
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: 5b7e83fa5e825fc183d8a4941d8b49cfc29511eb
+          fetch-depth: 0
+
+      - name: Materialize exact tested delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "5b7e83fa5e825fc183d8a4941d8b49cfc29511eb"
+          test -z "$(git status --short)"
+          bash /tmp/implement-t068.sh
+          git diff --check
+          git add src/check.ts tests/test-snapshot-facts.runtime.test.ts
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "src/check.ts tests/test-snapshot-facts.runtime.test.ts "
+          test -z "$(git diff --name-only)"
+          test -z "$(git ls-files --others --exclude-standard)"
+          git commit -m "feat(m1): implement T068 test snapshot facts"
+          test -z "$(git status --short)"
+          git push origin HEAD:refs/heads/feat/068-test-snapshot-facts
