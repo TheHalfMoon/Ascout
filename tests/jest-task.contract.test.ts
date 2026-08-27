@@ -26,11 +26,12 @@ function fixtureRoot(version = "30.4.2"): string {
   return root;
 }
 
-function rootFiles(): DiscoveryFileMap {
+function rootFiles(extra: DiscoveryFileMap = {}): DiscoveryFileMap {
   return {
     "package.json": JSON.stringify({ private: true, devDependencies: { jest: "30.4.2" } }),
     "node_modules/.bin/jest": "",
     "jest.config.cjs": "",
+    ...extra,
   };
 }
 
@@ -180,6 +181,53 @@ describe("T052 Jest task planner", () => {
         changedFiles: [changed("src/used.js")],
       });
       expect(plan).toMatchObject({ state: "not_applicable", reasonCode: "runner_not_jest" });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+  it("keeps option-like changed Jest paths positional instead of letting them become CLI options", () => {
+    const root = fixtureRoot();
+    try {
+      const files = rootFiles();
+      const plan = planJestTask({
+        repositoryRoot: root,
+        runId: "run-052",
+        config: { version: 1 },
+        discovery: discoverProjectFromFiles(files),
+        files,
+        changedFiles: [changed("--config=other.js")],
+      });
+
+      expect(plan.state).toBe("planned");
+      if (plan.state !== "planned") return;
+      expect(plan.selectedPaths).toEqual(["--config=other.js"]);
+      expect(plan.argv.slice(1, 3)).toEqual(["--findRelatedTests", "./--config=other.js"]);
+      expect(plan.argv).not.toContain("--config=other.js");
+      expect(plan.argv).toContain("--config");
+      expect(plan.argv).toContain("jest.config.cjs");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("prefers the npm .cmd Jest launcher on Windows when both shim forms are present", () => {
+    const root = fixtureRoot();
+    try {
+      writeFileSync(join(root, "node_modules", ".bin", "jest.cmd"), "");
+      const files = rootFiles({ "node_modules/.bin/jest.cmd": "" });
+      const plan = planJestTask({
+        repositoryRoot: root,
+        runId: "run-052",
+        config: { version: 1 },
+        discovery: discoverProjectFromFiles(files),
+        files,
+        changedFiles: [changed("src/used.js")],
+        platform: "win32",
+      });
+
+      expect(plan.state).toBe("planned");
+      if (plan.state !== "planned") return;
+      expect(plan.argv[0]).toBe("node_modules/.bin/jest.cmd");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

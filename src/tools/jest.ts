@@ -51,6 +51,7 @@ export interface JestTaskPlanningInput {
   readonly discovery: ProjectDiscovery;
   readonly files: DiscoveryFileMap;
   readonly changedFiles: readonly GitChangedFile[];
+  readonly platform?: NodeJS.Platform;
 }
 
 interface LocalExecutableGroup {
@@ -67,7 +68,6 @@ type JsonRecord = Record<string, unknown>;
 
 const ASCOUT_CONFIG_PATH = "ascout.config.json";
 const JEST_EXECUTABLE_SUFFIXES = ["", ".cmd", ".exe", ".ps1"] as const;
-const JEST_LAUNCH_SUFFIX_PRIORITY = ["", ".cmd", ".exe"] as const;
 const JS_TS_SOURCE = /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$/u;
 const CANONICAL_REPOSITORY_PATH =
   /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
@@ -104,6 +104,10 @@ function relativeFromRoot(root: string, path: string): string {
   let common = 0;
   while (common < from.length && common < to.length && from[common] === to[common]) common += 1;
   return [...from.slice(common).map(() => ".."), ...to.slice(common)].join("/") || ".";
+}
+
+function positionalPathArg(path: string): string {
+  return path.startsWith("-") ? `./${path}` : path;
 }
 
 function emptyBase(
@@ -180,8 +184,12 @@ function executableSuffix(path: string): (typeof JEST_EXECUTABLE_SUFFIXES)[numbe
   return null;
 }
 
-function preferredExecutable(paths: readonly string[]): string | null {
-  for (const suffix of JEST_LAUNCH_SUFFIX_PRIORITY) {
+function launchSuffixPriority(platform: NodeJS.Platform): readonly (typeof JEST_EXECUTABLE_SUFFIXES)[number][] {
+  return platform === "win32" ? [".cmd", ".exe", ""] : ["", ".exe"];
+}
+
+function preferredExecutable(paths: readonly string[], platform: NodeJS.Platform): string | null {
+  for (const suffix of launchSuffixPriority(platform)) {
     const candidate = paths.find((path) => executableSuffix(path) === suffix);
     if (candidate !== undefined) return candidate;
   }
@@ -250,6 +258,7 @@ function resolveInstalledJest(
   repositoryRoot: string,
   scopeRoot: string,
   executablePaths: readonly string[],
+  platform: NodeJS.Platform,
 ): InstalledJest | null {
   const groups = groupLocalExecutables(executablePaths);
   const exact = groups.find((group) => group.root === scopeRoot);
@@ -257,7 +266,7 @@ function resolveInstalledJest(
   const group = exact ?? hoisted;
   if (group === undefined) return null;
 
-  const executablePath = preferredExecutable(group.executablePaths);
+  const executablePath = preferredExecutable(group.executablePaths, platform);
   if (executablePath === null) return null;
 
   const prefix = group.root === "" ? "" : `${group.root}/`;
@@ -340,7 +349,12 @@ export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
     );
   }
 
-  const installed = resolveInstalledJest(repositoryRootOrThrow(input.repositoryRoot), scopeRoot, input.discovery.tools.jest.localExecutablePaths);
+  const installed = resolveInstalledJest(
+    repositoryRootOrThrow(input.repositoryRoot),
+    scopeRoot,
+    input.discovery.tools.jest.localExecutablePaths,
+    input.platform ?? process.platform,
+  );
   if (installed === null) {
     return notRun(
       "tool_unresolved",
@@ -360,7 +374,7 @@ export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
   const lcovPath = `${coverageDirectoryPath}/lcov.info`;
   const workingDirectory = scopeRoot === "" ? null : scopeRoot;
   const executableArg = relativeFromRoot(scopeRoot, installed.executablePath);
-  const selectedArgs = changedPaths.map((path) => relativeFromRoot(scopeRoot, path));
+  const selectedArgs = changedPaths.map((path) => positionalPathArg(relativeFromRoot(scopeRoot, path)));
   const machineResultArg = relativeFromRoot(scopeRoot, machineResultPath);
   const coverageDirectoryArg = relativeFromRoot(scopeRoot, coverageDirectoryPath);
   const configArgs = configPath === null ? [] : ["--config", relativeFromRoot(scopeRoot, configPath)];

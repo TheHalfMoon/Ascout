@@ -216,4 +216,50 @@ describe("T051 project-local Vitest planning", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+  it("keeps option-like changed Vitest paths positional instead of letting them become CLI options", () => {
+    const root = fixtureRoot();
+    try {
+      const files = rootFiles();
+      const plan = planVitestTask({
+        repositoryRoot: root,
+        runId: "run-051",
+        config: { version: 1 },
+        discovery: discoverProjectFromFiles(files),
+        files,
+        changedFiles: [changed("--config=other.ts")],
+      });
+
+      expect(plan.state).toBe("planned");
+      if (plan.state !== "planned") return;
+      expect(plan.selectedPaths).toEqual(["--config=other.ts"]);
+      expect(plan.argv.slice(1, 3)).toEqual(["related", "./--config=other.ts"]);
+      expect(plan.argv).not.toContain("--config=other.ts");
+      expect(plan.argv).toContain("--config");
+      expect(plan.argv).toContain("vitest.config.mjs");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("prefers the npm .cmd Vitest launcher on Windows when both shim forms are present", () => {
+    const root = fixtureRoot();
+    try {
+      const files = rootFiles({ "node_modules/.bin/vitest.cmd": "" });
+      const plan = planVitestTask({
+        repositoryRoot: root,
+        runId: "run-051",
+        config: { version: 1 },
+        discovery: discoverProjectFromFiles(files),
+        files,
+        changedFiles: [changed("src/used.ts")],
+        platform: "win32",
+      });
+
+      expect(plan.state).toBe("planned");
+      if (plan.state !== "planned") return;
+      expect(plan.argv[0]).toBe("node_modules/.bin/vitest.cmd");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
