@@ -53,12 +53,14 @@ describe("T050 strict line-only LCOV normalization", () => {
     });
   });
 
-  it("fails closed on repository-relative source traversal", () => {
-    expect(normalizeLcovLineCoverage("SF:../outside.ts\nDA:1,1\nend_of_record\n", "/repo")).toEqual({
-      outcome: "unresolved",
-      count: null,
-      reason: "source path cannot be mapped inside the repository",
-    });
+  it("fails closed on repository-relative source traversal or URI-like source paths", () => {
+    for (const sourcePath of ["../outside.ts", "file:src/a.ts", "https://example.test/a.ts"]) {
+      expect(normalizeLcovLineCoverage(`SF:${sourcePath}\nDA:1,1\nend_of_record\n`, "/repo")).toEqual({
+        outcome: "unresolved",
+        count: null,
+        reason: "source path cannot be mapped inside the repository",
+      });
+    }
   });
 
   it("maps transient Windows absolute source paths without persisting host separators", () => {
@@ -70,6 +72,40 @@ describe("T050 strict line-only LCOV normalization", () => {
     ).toEqual({
       outcome: "resolved",
       points: [{ path: "src/windows.ts", line: 3, count: 2, instrumented: true }],
+    });
+  });
+
+  it("accepts decimal line tokens with leading zeros and a non-empty optional checksum", () => {
+    expect(normalizeLcovLineCoverage("SF:/repo/src/checksum.ts\nDA:004,2,abc123\nend_of_record\n", "/repo")).toEqual({
+      outcome: "resolved",
+      points: [{ path: "src/checksum.ts", line: 4, count: 2, instrumented: true }],
+    });
+  });
+
+  it("fails closed when any completed source record lacks usable DA line data", () => {
+    const input = [
+      "SF:/repo/src/covered.ts",
+      "DA:1,1",
+      "end_of_record",
+      "SF:/repo/src/ambiguous.ts",
+      "FN:2,work",
+      "FNDA:1,work",
+      "end_of_record",
+      "",
+    ].join("\n");
+
+    expect(normalizeLcovLineCoverage(input, "/repo")).toEqual({
+      outcome: "unresolved",
+      count: null,
+      reason: "no usable line coverage records",
+    });
+  });
+
+  it("fails closed on an empty optional checksum instead of repairing malformed DA input", () => {
+    expect(normalizeLcovLineCoverage("SF:/repo/src/checksum.ts\nDA:4,2,\nend_of_record\n", "/repo")).toEqual({
+      outcome: "unresolved",
+      count: null,
+      reason: "LCOV line record is malformed",
     });
   });
 
