@@ -1,0 +1,42 @@
+name: Ephemeral main baseline qualification
+
+on:
+  push:
+    branches:
+      - qualify/pr41-8719ea1f
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Select Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Checkout exact canonical main baseline
+        shell: bash
+        env:
+          TARGET_SHA: b4483973ca9fac0b1380ea06e7abbffc9f08813e
+        run: |
+          set -euo pipefail
+          git init .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --no-tags --depth=1 origin "$TARGET_SHA"
+          git checkout --detach FETCH_HEAD
+          actual_sha="$(git rev-parse HEAD)"
+          printf 'TARGET_SHA=%s\nACTUAL_SHA=%s\n' "$TARGET_SHA" "$actual_sha"
+          test "$actual_sha" = "$TARGET_SHA"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install locked dependencies without lifecycle scripts
+        shell: bash
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run canonical main full test suite
+        shell: bash
+        run: npm test
