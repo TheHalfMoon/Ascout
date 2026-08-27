@@ -1,0 +1,277 @@
+name: T069 Qodo review repair
+
+on:
+  push:
+    branches:
+      - repair/t069-qodo-review-2c98615b
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact T069 feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/069-bounded-agent-renderer
+          fetch-depth: 0
+
+      - name: Opening exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2c98615b87b2d31855934f22f67a69c5742bcaf7"
+          test -z "$(git status --short)"
+
+      - name: Apply review repairs and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          agent_path = Path("src/receipt/agent.ts")
+          agent = agent_path.read_text()
+
+          old_encoder = '''export function encodeAgentFieldValue(value: string): string {
+            let encoded = "";
+            for (const byte of Buffer.from(value, "utf8")) {
+              encoded += isSafeFieldByte(byte)
+                ? String.fromCharCode(byte)
+                : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+            }
+            return encoded;
+          }
+          '''
+          new_encoder = '''function appendEncodedUtf8Scalar(encoded: string, scalar: string): string {
+            let result = encoded;
+            for (const byte of Buffer.from(scalar, "utf8")) {
+              result += isSafeFieldByte(byte)
+                ? String.fromCharCode(byte)
+                : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+            }
+            return result;
+          }
+
+          export function encodeAgentFieldValue(value: string): string {
+            let encoded = "";
+            for (let index = 0; index < value.length;) {
+              const codeUnit = value.charCodeAt(index);
+              if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+                const nextCodeUnit = index + 1 < value.length ? value.charCodeAt(index + 1) : null;
+                if (nextCodeUnit !== null && nextCodeUnit >= 0xdc00 && nextCodeUnit <= 0xdfff) {
+                  encoded = appendEncodedUtf8Scalar(encoded, value.slice(index, index + 2));
+                  index += 2;
+                  continue;
+                }
+                encoded += `%u${codeUnit.toString(16).toUpperCase().padStart(4, "0")}`;
+                index += 1;
+                continue;
+              }
+              if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+                encoded += `%u${codeUnit.toString(16).toUpperCase().padStart(4, "0")}`;
+                index += 1;
+                continue;
+              }
+              encoded = appendEncodedUtf8Scalar(encoded, value[index]!);
+              index += 1;
+            }
+            return encoded;
+          }
+          '''
+          if old_encoder not in agent:
+              raise SystemExit("encoder anchor not found")
+          agent = agent.replace(old_encoder, new_encoder, 1)
+
+          old_error_loop = '''  for (const task of receipt.tasks) {
+              const candidate = errorCandidate(task, evidenceById);
+              if (candidate === null) continue;
+              const linkedEvidence = evidenceById.get(candidate.evidenceId)!;
+              const changes: SelectionChanges = {
+                representedTaskId: task.task_id,
+                evidenceId: candidate.evidenceId,
+                evidenceLineBytes: lineContributionBytes(evidenceLine(linkedEvidence)),
+              };
+              const recordBytes = lineContributionBytes(candidate.record.line);
+              if (canAdd(fixedBytes, receipt, materialGaps.length, state, maxUtf8Bytes, recordBytes, changes)) {
+                state.errors.push(candidate.record);
+                commitSelection(state, recordBytes, changes);
+              }
+            }
+          '''
+          new_error_loop = '''  for (const task of receipt.tasks) {
+              const candidate = errorCandidate(task, evidenceById);
+              if (candidate === null) continue;
+              const linkedEvidence = evidenceById.get(candidate.evidenceId)!;
+              const pairedAdmission = admissionCandidate(task);
+              const changes: SelectionChanges = {
+                representedTaskId: task.task_id,
+                evidenceId: candidate.evidenceId,
+                evidenceLineBytes: lineContributionBytes(evidenceLine(linkedEvidence)),
+              };
+              const recordBytes =
+                lineContributionBytes(candidate.record.line) +
+                (pairedAdmission === null ? 0 : lineContributionBytes(pairedAdmission.line));
+              if (canAdd(fixedBytes, receipt, materialGaps.length, state, maxUtf8Bytes, recordBytes, changes)) {
+                state.errors.push(candidate.record);
+                if (pairedAdmission !== null) state.admissions.push(pairedAdmission);
+                commitSelection(state, recordBytes, changes);
+              }
+            }
+          '''
+          if old_error_loop not in agent:
+              raise SystemExit("error-loop anchor not found")
+          agent = agent.replace(old_error_loop, new_error_loop, 1)
+
+          old_admission_loop = '''  for (const task of receipt.tasks) {
+              const candidate = admissionCandidate(task);
+              if (candidate === null) continue;
+              const changes: SelectionChanges = { representedTaskId: task.task_id };
+          '''
+          new_admission_loop = '''  for (const task of receipt.tasks) {
+              if (state.admissions.some((record) => record.taskId === task.task_id)) continue;
+              const candidate = admissionCandidate(task);
+              if (candidate === null) continue;
+              const changes: SelectionChanges = { representedTaskId: task.task_id };
+          '''
+          if old_admission_loop not in agent:
+              raise SystemExit("admission-loop anchor not found")
+          agent = agent.replace(old_admission_loop, new_admission_loop, 1)
+          agent_path.write_text(agent)
+
+          test_path = Path("tests/agent-receipt.runtime.test.ts")
+          tests = test_path.read_text()
+
+          old_import = '''  AGENT_RECEIPT_MAX_UTF8_BYTES,
+            AgentReceiptBudgetError,
+            renderReceiptAgent,
+          '''
+          new_import = '''  AGENT_RECEIPT_MAX_UTF8_BYTES,
+            AgentReceiptBudgetError,
+            encodeAgentFieldValue,
+            renderReceiptAgent,
+          '''
+          if old_import not in tests:
+              raise SystemExit("test import anchor not found")
+          tests = tests.replace(old_import, new_import, 1)
+
+          insertion_anchor = '''  it("encodes structural field bytes so legal paths cannot forge agent records", () => {
+          '''
+          new_tests = '''  it("keeps admission truth atomic with a retained ERROR under the default budget", () => {
+              const base = receiptFixture();
+              const tasks = base.tasks.map((task) =>
+                task.task_id === "typecheck"
+                  ? {
+                      ...task,
+                      command_surface_changed: true,
+                      changed_authority_paths: ["package.json"],
+                      execution_admission: "explicit_changed_surface_override" as const,
+                    }
+                  : task,
+              );
+              const findings = Array.from({ length: 300 }, (_, index) => ({
+                ...findingFixture(),
+                finding_id: `finding-pressure-${index + 1}`,
+              }));
+              const receipt = buildReceipt({
+                run: base.run,
+                sourceStart: base.source.start,
+                sourceEnd: base.source.end,
+                comparison: base.comparison,
+                selection: base.selection,
+                tasks,
+                exercise: base.exercise,
+                testChanges: base.test_changes,
+                findings,
+                evidence: base.evidence,
+                artifacts: base.artifacts,
+              });
+
+              const rendered = renderReceiptAgent(receipt);
+              expect(Buffer.byteLength(rendered, "utf8")).toBeLessThanOrEqual(AGENT_RECEIPT_MAX_UTF8_BYTES);
+              expect(rendered).toContain(
+                "ERROR task=typecheck reason=task_execution_error evidence=typecheck.error",
+              );
+              expect(rendered).toContain(
+                "ADMISSION task=typecheck state=explicit_changed_surface_override authority=package.json",
+              );
+            });
+
+            it("encodes unpaired UTF-16 surrogates losslessly so identities cannot collapse", () => {
+              const first = String.fromCharCode(0xd800);
+              const second = String.fromCharCode(0xd801);
+              expect(encodeAgentFieldValue(`evidence-${first}`)).toBe("evidence-%uD800");
+              expect(encodeAgentFieldValue(`evidence-${second}`)).toBe("evidence-%uD801");
+              expect(encodeAgentFieldValue(`evidence-${first}`)).not.toBe(
+                encodeAgentFieldValue(`evidence-${second}`),
+              );
+              expect(encodeAgentFieldValue("%uD800")).toBe("%25uD800");
+              expect(encodeAgentFieldValue("😀")).toBe("%F0%9F%98%80");
+            });
+
+            it("preserves distinct accepted evidence identities containing lone surrogates", () => {
+              const receipt = receiptFixture();
+              const firstId = `test.result-${String.fromCharCode(0xd800)}`;
+              const secondId = `test.coverage-${String.fromCharCode(0xd801)}`;
+              const candidate: ReceiptV1 = {
+                ...receipt,
+                tasks: receipt.tasks.map((task) =>
+                  task.task_id === "test"
+                    ? { ...task, evidence_ids: [firstId, secondId] }
+                    : task,
+                ),
+                findings: receipt.findings.map((finding) => ({
+                  ...finding,
+                  evidence_ids: [firstId],
+                })),
+                evidence: receipt.evidence.map((evidence) => {
+                  if (evidence.evidence_id === "test.result") return { ...evidence, evidence_id: firstId };
+                  if (evidence.evidence_id === "test.coverage") return { ...evidence, evidence_id: secondId };
+                  return evidence;
+                }),
+              };
+              const rendered = renderReceiptAgent(candidate);
+              expect(rendered).toContain("EVIDENCE id=test.result-%uD800 task=test kind=test_result");
+              expect(rendered).toContain("EVIDENCE id=test.coverage-%uD801 task=test kind=coverage");
+              expect(rendered).toContain("FINDING id=finding-1 task=test severity=medium evidence=test.result-%uD800");
+            });
+
+          ''' + insertion_anchor
+          if insertion_anchor not in tests:
+              raise SystemExit("test insertion anchor not found")
+          tests = tests.replace(insertion_anchor, new_tests, 1)
+          test_path.write_text(tests)
+          PY
+
+          git diff --check
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "src/receipt/agent.ts tests/agent-receipt.runtime.test.ts "
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T066 T067 T069 tests
+        run: npx vitest run tests/agent-receipt.contract.test.ts tests/cross-format-consistency.contract.test.ts tests/agent-receipt.runtime.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Commit and push repaired feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2c98615b87b2d31855934f22f67a69c5742bcaf7"
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "src/receipt/agent.ts tests/agent-receipt.runtime.test.ts "
+          git config user.name "TheHalfMoon"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/receipt/agent.ts tests/agent-receipt.runtime.test.ts
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "src/receipt/agent.ts tests/agent-receipt.runtime.test.ts "
+          git commit -m "fix(m1): reconcile T069 review findings"
+          git push origin HEAD:feat/069-bounded-agent-renderer
