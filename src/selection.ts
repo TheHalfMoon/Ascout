@@ -176,6 +176,37 @@ export function decidePreRunWidening(
   };
 }
 
+/**
+ * Produces planner-only changed-file carriers for the paths that actually
+ * caused pre-run widening. Receipt comparison facts and admission decisions
+ * continue to use the complete changed-file set.
+ */
+export function preRunPlanningChangedFiles(
+  changedFiles: readonly GitChangedFile[],
+  widening: PreRunWideningDecision,
+): readonly GitChangedFile[] {
+  if (!widening.widened) return changedFiles;
+
+  const owners = new Map<string, GitChangedFile>();
+  for (const file of changedFiles) {
+    owners.set(file.path, file);
+    if (file.previous_path !== undefined) owners.set(file.previous_path, file);
+  }
+
+  return widening.riskPaths.map((path) => {
+    const source = owners.get(path);
+    if (source === undefined) {
+      throw new Error(`pre-run widening risk path has no changed-file owner: ${path}`);
+    }
+    return {
+      path,
+      change_kind: source.change_kind,
+      line_semantics: source.line_semantics,
+      changed_new_line_ranges: source.path === path ? source.changed_new_line_ranges : [],
+    };
+  });
+}
+
 export function initialSelection(
   testPlan: VitestTaskPlan | JestTaskPlan,
   widening: PreRunWideningDecision,
