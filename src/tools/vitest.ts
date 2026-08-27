@@ -441,7 +441,7 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
       "config_ambiguous",
       "Multiple Vitest configuration files exist at the selected package scope.",
       "repo_config",
-      packageRoot(scopeRoot === "" ? "package.json" : `${scopeRoot}/package.json") || "package.json",
+      packageRoot(scopeRoot === "" ? "package.json" : `${scopeRoot}/package.json`) || "package.json",
     );
   }
 
