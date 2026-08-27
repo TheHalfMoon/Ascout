@@ -69,7 +69,7 @@ describe("T070 CLI receipt format wiring", () => {
   it("keeps default terminal rendering on stderr without machine rendering", async () => {
     const receipt = { summary: { exit_code: 4 } } as never;
     mocks.runCheck.mockResolvedValue({ receipt, terminalSummary: "terminal-output" });
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     expect(await runCli(["check"])).toBe(4);
@@ -78,7 +78,7 @@ describe("T070 CLI receipt format wiring", () => {
       allowChangedCommandSurface: false,
     });
     expect(error).toHaveBeenCalledWith("terminal-output");
-    expect(log).not.toHaveBeenCalled();
+    expect(stdout).not.toHaveBeenCalled();
     expect(mocks.renderJson).not.toHaveBeenCalled();
     expect(mocks.renderAgent).not.toHaveBeenCalled();
   });
@@ -86,8 +86,8 @@ describe("T070 CLI receipt format wiring", () => {
   it("renders JSON to stdout from the single-run receipt and preserves exit code", async () => {
     const receipt = { summary: { exit_code: 3 } } as never;
     mocks.runCheck.mockResolvedValue({ receipt, terminalSummary: "must-not-render" });
-    mocks.renderJson.mockReturnValue('{"schema_version":1}');
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    mocks.renderJson.mockReturnValue('{"schema_version":1}\n');
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     expect(await runCli(["check", "--format", "json"])).toBe(3);
@@ -95,7 +95,8 @@ describe("T070 CLI receipt format wiring", () => {
     expect(mocks.renderJson).toHaveBeenCalledTimes(1);
     expect(mocks.renderJson).toHaveBeenCalledWith(receipt);
     expect(mocks.renderAgent).not.toHaveBeenCalled();
-    expect(log).toHaveBeenCalledWith('{"schema_version":1}');
+    expect(stdout).toHaveBeenCalledTimes(1);
+    expect(stdout).toHaveBeenCalledWith('{"schema_version":1}\n');
     expect(error).not.toHaveBeenCalled();
   });
 
@@ -103,7 +104,7 @@ describe("T070 CLI receipt format wiring", () => {
     const receipt = { summary: { exit_code: 1 } } as never;
     mocks.runCheck.mockResolvedValue({ receipt, terminalSummary: "must-not-render" });
     mocks.renderAgent.mockReturnValue("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     expect(await runCli(["check", "--allow-changed-command-surface", "--format", "agent"])).toBe(1);
@@ -114,7 +115,8 @@ describe("T070 CLI receipt format wiring", () => {
     expect(mocks.renderAgent).toHaveBeenCalledTimes(1);
     expect(mocks.renderAgent).toHaveBeenCalledWith(receipt);
     expect(mocks.renderJson).not.toHaveBeenCalled();
-    expect(log).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
+    expect(stdout).toHaveBeenCalledTimes(1);
+    expect(stdout).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
     expect(error).not.toHaveBeenCalled();
   });
 });

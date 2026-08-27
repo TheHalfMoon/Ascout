@@ -171,9 +171,9 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
       });
       if (invocation.format === "json") {
-        console.log(renderReceiptJson(outcome.receipt));
+        process.stdout.write(renderReceiptJson(outcome.receipt));
       } else if (invocation.format === "agent") {
-        console.log(renderReceiptAgent(outcome.receipt));
+        process.stdout.write(renderReceiptAgent(outcome.receipt));
       } else {
         console.error(outcome.terminalSummary);
       }
