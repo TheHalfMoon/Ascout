@@ -1,39 +1,64 @@
 {
-  "numFailedTestSuites": 0,
-  "numFailedTests": 0,
-  "numPassedTestSuites": 2,
-  "numPassedTests": 2,
-  "numPendingTestSuites": 0,
-  "numPendingTests": 0,
-  "numRuntimeErrorTestSuites": 0,
-  "numTotalTestSuites": 2,
-  "numTotalTests": 2,
   "success": true,
+  "startTime": 1000,
+  "numTotalTestSuites": 2,
+  "numPassedTestSuites": 2,
+  "numFailedTestSuites": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTotalTests": 2,
+  "numPassedTests": 2,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "openHandles": [],
   "testResults": [
     {
-      "name": "/repo/tests/unused.test.js",
-      "status": "passed",
-      "assertionResults": [
+      "numFailingTests": 0,
+      "numPassingTests": 1,
+      "numPendingTests": 0,
+      "testResults": [
         {
-          "ancestorTitles": [],
-          "fullName": "unused",
+          "title": "unused",
           "status": "passed",
-          "title": "unused"
+          "ancestorTitles": [],
+          "failureMessages": [],
+          "numPassingAsserts": 1,
+          "location": {
+            "line": 1,
+            "column": 1
+          }
         }
-      ]
+      ],
+      "perfStats": {
+        "start": 1000,
+        "end": 1010
+      },
+      "testFilePath": "/repo/tests/unused.test.js",
+      "coverage": {}
     },
     {
-      "name": "/repo/tests/used.test.js",
-      "status": "passed",
-      "assertionResults": [
+      "numFailingTests": 0,
+      "numPassingTests": 1,
+      "numPendingTests": 0,
+      "testResults": [
         {
-          "ancestorTitles": [],
-          "fullName": "used",
+          "title": "used",
           "status": "passed",
-          "title": "used"
+          "ancestorTitles": [],
+          "failureMessages": [],
+          "numPassingAsserts": 1,
+          "location": {
+            "line": 1,
+            "column": 1
+          }
         }
-      ]
+      ],
+      "perfStats": {
+        "start": 1011,
+        "end": 1020
+      },
+      "testFilePath": "/repo/tests/used.test.js",
+      "coverage": {}
     }
-  ],
-  "wasInterrupted": false
+  ]
 }
