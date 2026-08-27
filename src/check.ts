@@ -33,7 +33,6 @@ import { createRunDirectory } from "./run.js";
 import { buildReceipt, renderTerminalSummary } from "./receipt/build.js";
 import { renderReceiptJson } from "./receipt/json.js";
 import {
-  UNSAFE_SELECTION_LIMITATION,
   validateReceiptSemantics,
   type ArtifactV1,
   type ChangedFileV1,
@@ -42,16 +41,18 @@ import {
   type ExecutionAdmission,
   type ExerciseV1,
   type ReceiptV1,
-  type SelectionV1,
   type SourceStateV1,
   type TaskResultV1,
   type TestChangeV1,
 } from "./receipt/model.js";
+import { decidePreRunWidening, initialSelection } from "./selection.js";
 import { planESLintTask } from "./tools/eslint.js";
 import { planJestTask, type JestTaskPlan, type PlannedJestTask } from "./tools/jest.js";
 import { planPytestBasicTask } from "./tools/pytest.js";
 import { planTypeScriptTask } from "./tools/typescript.js";
 import { planVitestTask, type PlannedVitestTask, type VitestTaskPlan } from "./tools/vitest.js";
+
+export { SELECTION_COUNTS_NOT_OBSERVED_LIMITATION } from "./selection.js";
 
 export const COMMAND_SURFACE_CHANGED_REASON_CODE = "command_surface_changed";
 export const COMMAND_SURFACE_CHANGED_REASON_TEXT =
@@ -177,9 +178,6 @@ const DEFAULT_TERMINATION_GRACE_MS = 5_000;
 const TASK_CAPTURE_CAP_BYTES = 8 * 1024 * 1024;
 const MIN_SECRET_VALUE_BYTES = 8;
 
-/** Selection totals remain unknown until T057/T061 final selection accounting; disclose rather than invent them. */
-export const SELECTION_COUNTS_NOT_OBSERVED_LIMITATION = "selection_counts_not_observed";
-
 export interface CheckRunOptions {
   /**
    * Per-invocation explicit human admission from the command line. It is never
@@ -304,48 +302,6 @@ function emptyExercise(): ExerciseV1 {
     unresolved_lines: 0,
     changed_files_with_zero_exercised_lines: 0,
     records: [],
-  };
-}
-
-function baseSelection(testPlan: VitestTaskPlan | JestTaskPlan): SelectionV1 {
-  const limitations = [SELECTION_COUNTS_NOT_OBSERVED_LIMITATION, UNSAFE_SELECTION_LIMITATION] as const;
-  if (testPlan.state !== "planned") {
-    return {
-      mode: "full",
-      initial_scope: { kind: "repository", path: null },
-      selected_test_count: null,
-      deselected_test_count: null,
-      total_test_count: null,
-      widened: false,
-      widen_triggers: [],
-      passes: [],
-      limitations,
-    };
-  }
-
-  const scope = testPlan.workingDirectory === null
-    ? ({ kind: "repository", path: null } as const)
-    : ({ kind: "package", path: testPlan.workingDirectory } as const);
-  return {
-    mode: "native_related",
-    initial_scope: scope,
-    selected_test_count: null,
-    deselected_test_count: null,
-    total_test_count: null,
-    widened: false,
-    widen_triggers: [],
-    passes: [
-      {
-        ordinal: 1,
-        mode: "native_related",
-        scope,
-        trigger: null,
-        selected_test_count: null,
-        deselected_test_count: null,
-        total_test_count: null,
-      },
-    ],
-    limitations,
   };
 }
 
@@ -1016,6 +972,8 @@ export async function runCheck(
         ascoutConfigPath: ASCOUT_CONFIG_PATH,
         tasks: config.tasks ?? null,
       });
+      const preRunWidening = decidePreRunWidening(discovery, gitComparison.changed_files);
+      const selectionMode = preRunWidening.widened ? "full" as const : "native_related" as const;
 
       const vitestPlan = planVitestTask({
         repositoryRoot: root,
@@ -1024,6 +982,7 @@ export async function runCheck(
         discovery,
         files,
         changedFiles: gitComparison.changed_files,
+        selectionMode,
       });
       const jestPlan = planJestTask({
         repositoryRoot: root,
@@ -1032,6 +991,7 @@ export async function runCheck(
         discovery,
         files,
         changedFiles: gitComparison.changed_files,
+        selectionMode,
       });
       const testPlan: VitestTaskPlan | JestTaskPlan =
         discovery.jsTestRunner.state === "resolved" && discovery.jsTestRunner.value === "jest"
@@ -1156,7 +1116,7 @@ export async function runCheck(
         sourceStart,
         sourceEnd,
         comparison,
-        selection: baseSelection(testPlan),
+        selection: initialSelection(testPlan, preRunWidening),
         tasks,
         exercise: emptyExercise(),
         testChanges: [] satisfies readonly TestChangeV1[],
