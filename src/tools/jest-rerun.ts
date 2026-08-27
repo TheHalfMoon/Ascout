@@ -66,7 +66,7 @@ function positionalPathArg(path: string): string {
 }
 
 function exactRegex(value: string): string {
-  return `^${value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}$`;
+  return `^${value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}(?![\\s\\S])`;
 }
 
 function unavailable(
