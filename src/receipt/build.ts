@@ -77,6 +77,23 @@ function deriveComparison(
   };
 }
 
+function deriveTaskTiming(tasks: readonly TaskResultV1[]): readonly TaskResultV1[] {
+  return tasks.map((task) => {
+    if (task.started_at === null || task.finished_at === null || task.duration_ms === null) {
+      return task;
+    }
+    const started = Date.parse(task.started_at);
+    const finished = Date.parse(task.finished_at);
+    if (!Number.isFinite(started) || !Number.isFinite(finished) || finished < started) {
+      return task;
+    }
+    return {
+      ...task,
+      duration_ms: finished - started,
+    };
+  });
+}
+
 function deriveChangedCode(comparison: ComparisonV1): ChangedCodeV1 {
   let changedTextLineCount = 0;
   for (const file of comparison.changed_files) {
@@ -96,9 +113,10 @@ function deriveChangedCode(comparison: ComparisonV1): ChangedCodeV1 {
  */
 export function buildReceipt(input: BuildReceiptInput): ReceiptV1 {
   const stability = deriveStability(input.sourceStart, input.sourceEnd);
-  const comparison = deriveComparison(input.comparison, input.tasks);
+  const tasks = deriveTaskTiming(input.tasks);
+  const comparison = deriveComparison(input.comparison, tasks);
   const changedCode = deriveChangedCode(comparison);
-  const taskStatusCounts = countTaskStatuses(input.tasks);
+  const taskStatusCounts = countTaskStatuses(tasks);
 
   const base = {
     schema_version: "1.0" as const,
@@ -109,7 +127,7 @@ export function buildReceipt(input: BuildReceiptInput): ReceiptV1 {
     },
     comparison,
     selection: input.selection,
-    tasks: input.tasks,
+    tasks,
     changed_code: changedCode,
     exercise: input.exercise,
     test_changes: input.testChanges,
