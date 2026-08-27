@@ -1,0 +1,50 @@
+name: T070 exact-head qualification 5860091a
+
+on:
+  push:
+    branches:
+      - qualification/t070-exact-head-5860091a
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact T070 repaired head
+        uses: actions/checkout@v4
+        with:
+          ref: 5860091a5d95e839c2c8ba981e82da797fb8faa0
+          fetch-depth: 0
+
+      - name: Opening exact-head clean-tree merge-base scope guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "5860091a5d95e839c2c8ba981e82da797fb8faa0"
+          test -z "$(git status --short)"
+          test "$(git merge-base 2b373b370881a057a90285f911c6bf08ea510bae HEAD)" = "2b373b370881a057a90285f911c6bf08ea510bae"
+          test "$(git diff --name-only 2b373b370881a057a90285f911c6bf08ea510bae...HEAD | sort | tr '\n' ' ')" = "src/cli.ts tests/cli-format.contract.test.ts "
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T070 tests
+        run: npx vitest run tests/cli.smoke.test.ts tests/cli-format.contract.test.ts tests/receipt-json.test.ts tests/agent-receipt.runtime.test.ts tests/cross-format-consistency.contract.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Closing exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "5860091a5d95e839c2c8ba981e82da797fb8faa0"
+          test -z "$(git status --short)"
