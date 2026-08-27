@@ -271,17 +271,76 @@ export function composeSourceState(repositoryRoot: string): SourceStateV1 {
   };
 }
 
+export interface VerificationAssetClassification {
+  readonly isTestFile: boolean;
+  readonly isSnapshot: boolean;
+}
+
+const JAVASCRIPT_TEST_FILE = /\.(?:test|spec)\.(?:[cm]?[jt]s|[jt]sx)$/u;
+const PYTHON_TEST_FILE = /^(?:test_.+|.+_test)\.py$/u;
+
+export function classifyVerificationAssetPath(path: string): VerificationAssetClassification {
+  const segments = path.split("/");
+  const fileName = segments[segments.length - 1] ?? "";
+  const isSnapshot = segments.includes("__snapshots__") && fileName.endsWith(".snap");
+  const isTestFile = !isSnapshot && (
+    JAVASCRIPT_TEST_FILE.test(fileName) ||
+    PYTHON_TEST_FILE.test(fileName)
+  );
+  return { isTestFile, isSnapshot };
+}
+
+export function deriveTestChanges(changedFiles: readonly GitChangedFile[]): readonly TestChangeV1[] {
+  const facts: TestChangeV1[] = [];
+  for (const file of changedFiles) {
+    const current = classifyVerificationAssetPath(file.path);
+    const previous = file.change_kind === "renamed" && file.previous_path !== undefined
+      ? classifyVerificationAssetPath(file.previous_path)
+      : null;
+
+    if (current.isTestFile) {
+      facts.push({
+        kind: file.change_kind === "deleted" ? "test_file_deleted" : "test_file_changed",
+        path: file.path,
+        source: "git_diff",
+      });
+    } else if (previous?.isTestFile === true) {
+      facts.push({
+        kind: "test_file_deleted",
+        path: file.previous_path!,
+        source: "git_diff",
+      });
+    }
+
+    if (current.isSnapshot && file.change_kind !== "untracked") {
+      facts.push({
+        kind: file.change_kind === "deleted" ? "snapshot_deleted" : "snapshot_changed",
+        path: file.path,
+        source: "git_diff",
+      });
+    } else if (previous?.isSnapshot === true) {
+      facts.push({
+        kind: "snapshot_deleted",
+        path: file.previous_path!,
+        source: "git_diff",
+      });
+    }
+  }
+  return facts;
+}
+
 function toChangedFileV1(file: GitChangedFile): ChangedFileV1 {
+  const classification = classifyVerificationAssetPath(file.path);
   return {
     path: file.path,
     ...(file.previous_path === undefined ? {} : { previous_path: file.previous_path }),
     change_kind: file.change_kind,
     line_semantics: file.line_semantics,
     changed_new_line_ranges: file.changed_new_line_ranges,
-    // Factual test/snapshot/command-surface classification is a later task;
-    // these facts stay honestly absent rather than inferred.
-    is_test_file: false,
-    is_snapshot: false,
+    is_test_file: classification.isTestFile,
+    is_snapshot: classification.isSnapshot,
+    // T038 admission uses effective authority paths directly. This field remains
+    // untouched here because T068 owns only factual test/snapshot classification.
     is_command_surface: false,
   };
 }
@@ -1666,7 +1725,7 @@ export async function runCheck(
         selection,
         tasks,
         exercise,
-        testChanges: [] satisfies readonly TestChangeV1[],
+        testChanges: deriveTestChanges(gitComparison.changed_files),
         findings,
         evidence,
         artifacts,
