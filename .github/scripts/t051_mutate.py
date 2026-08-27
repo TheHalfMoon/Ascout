@@ -145,10 +145,18 @@ replace_once(
 ''',
 )
 replace_once(
-'''      tool_name: null,
+'''      authorized_by: plan.authorizedBy,
+      source_path: plan.sourcePath,
+      argv: [...persistedArgv],
+      argv_redacted: argvRedacted,
+      tool_name: null,
       tool_version: null,
 ''',
-'''      tool_name: options.toolName ?? null,
+'''      authorized_by: plan.authorizedBy,
+      source_path: plan.sourcePath,
+      argv: [...persistedArgv],
+      argv_redacted: argvRedacted,
+      tool_name: options.toolName ?? null,
       tool_version: options.toolVersion ?? null,
 ''',
 )
