@@ -8,7 +8,7 @@ import type { TaskResultV1 } from "../receipt/model.js";
 
 export type VitestAuthorizedBy = TaskResultV1["authorized_by"];
 export type VitestCoverageProvider = "v8" | "istanbul";
-export type VitestSelectionMode = "native_related";
+export type VitestSelectionMode = "native_related" | "full";
 
 interface VitestPlanBase {
   readonly taskType: "test";
@@ -53,6 +53,7 @@ export interface VitestTaskPlanningInput {
   readonly discovery: ProjectDiscovery;
   readonly files: DiscoveryFileMap;
   readonly changedFiles: readonly GitChangedFile[];
+  readonly selectionMode?: VitestSelectionMode;
   readonly platform?: NodeJS.Platform;
 }
 
@@ -211,9 +212,13 @@ function preferredExecutable(paths: readonly string[], platform: NodeJS.Platform
   return null;
 }
 
+function validChangedPath(path: string): boolean {
+  return !path.includes("\0") && CANONICAL_REPOSITORY_PATH.test(path);
+}
+
 function changedSourcePaths(changedFiles: readonly GitChangedFile[]): readonly string[] | UnresolvedVitestTask {
   for (const file of changedFiles) {
-    if (file.path.includes("\0") || !CANONICAL_REPOSITORY_PATH.test(file.path)) {
+    if (!validChangedPath(file.path)) {
       return notRun(
         "changed_path_invalid",
         "Changed-file paths supplied to Vitest planning must already be canonical repository-relative paths.",
@@ -228,6 +233,23 @@ function changedSourcePaths(changedFiles: readonly GitChangedFile[]): readonly s
       .map(({ path }) => path)
       .filter((path) => JS_TS_SOURCE.test(path)),
   );
+}
+
+function changedScopePaths(changedFiles: readonly GitChangedFile[]): readonly string[] | UnresolvedVitestTask {
+  const result: string[] = [];
+  for (const file of changedFiles) {
+    for (const candidate of [file.path, file.previous_path]) {
+      if (candidate === undefined) continue;
+      if (!validChangedPath(candidate)) {
+        return notRun(
+          "changed_path_invalid",
+          "Changed-file paths supplied to Vitest planning must already be canonical repository-relative paths.",
+        );
+      }
+      result.push(candidate);
+    }
+  }
+  return sortedUnique(result);
 }
 
 function chooseScopeRoot(
@@ -382,13 +404,18 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
     );
   }
 
-  const changedPathsOrError = changedSourcePaths(input.changedFiles);
+  const selectionMode = input.selectionMode ?? "native_related";
+  const changedPathsOrError = selectionMode === "full"
+    ? changedScopePaths(input.changedFiles)
+    : changedSourcePaths(input.changedFiles);
   if ("state" in changedPathsOrError) return changedPathsOrError;
   const changedPaths = changedPathsOrError;
   if (changedPaths.length === 0) {
     return notRun(
-      "native_selection_unresolved",
-      "No changed supported JavaScript/TypeScript source path is available for confident native Vitest related selection.",
+      selectionMode === "full" ? "full_scope_unresolved" : "native_selection_unresolved",
+      selectionMode === "full"
+        ? "No changed repository path is available to determine a safe full Vitest package/workspace scope."
+        : "No changed supported JavaScript/TypeScript source path is available for confident native Vitest related selection.",
       "discovery",
       runner.sourcePaths[0] ?? null,
     );
@@ -398,7 +425,9 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
   if (scopeRoot === null) {
     return notRun(
       "test_scope_ambiguous",
-      "No single declared Vitest package scope safely contains every changed supported source path.",
+      selectionMode === "full"
+        ? "No single declared Vitest package/workspace scope safely contains every changed relation-risk path."
+        : "No single declared Vitest package scope safely contains every changed supported source path.",
       "discovery",
       runner.sourcePaths[0] ?? null,
     );
@@ -439,7 +468,10 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
   const lcovPath = `${coverageDirectoryPath}/lcov.info`;
   const workingDirectory = scopeRoot === "" ? null : scopeRoot;
   const executableArg = relativeFromRoot(scopeRoot, installed.executablePath);
-  const selectedArgs = changedPaths.map((path) => positionalPathArg(relativeFromRoot(scopeRoot, path)));
+  const selectedArgs = selectionMode === "native_related"
+    ? changedPaths.map((path) => positionalPathArg(relativeFromRoot(scopeRoot, path)))
+    : [];
+  const selectionArgs = selectionMode === "native_related" ? ["related", ...selectedArgs] : [];
   const machineResultArg = relativeFromRoot(scopeRoot, machineResultPath);
   const coverageDirectoryArg = relativeFromRoot(scopeRoot, coverageDirectoryPath);
   const configArgs = configPath === null ? [] : ["--config", relativeFromRoot(scopeRoot, configPath)];
@@ -451,8 +483,7 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
     sourcePath: configPath ?? runner.sourcePaths[0] ?? null,
     argv: [
       executableArg,
-      "related",
-      ...selectedArgs,
+      ...selectionArgs,
       "--run",
       "--passWithNoTests",
       "--reporter=json",
@@ -466,8 +497,8 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
     ],
     workingDirectory,
     configPath,
-    selectionMode: "native_related",
-    selectedPaths: changedPaths,
+    selectionMode,
+    selectedPaths: selectionMode === "native_related" ? changedPaths : [],
     machineResultPath,
     coverageDirectoryPath,
     lcovPath,
