@@ -182,4 +182,27 @@ describe("T056 exercise/widening/completeness rendering", () => {
     expect(json.summary.exit_code).toBe(4);
     expect(json.summary.completeness).toBe("materially_incomplete");
   });
+
+  it("escapes model-valid package-scope line controls without creating extra terminal records", () => {
+    const receipt = gapReceipt();
+    const scope = { kind: "package" as const, path: "packages/a\nspoofed-record" };
+    const packageReceipt: ReceiptV1 = {
+      ...receipt,
+      selection: {
+        ...receipt.selection,
+        initial_scope: scope,
+        passes: receipt.selection.passes.map((pass) => ({ ...pass, scope })),
+      },
+    };
+
+    // JSON rendering performs the canonical schema/semantic validation first,
+    // proving this path is reachable in a model-valid ReceiptV1.
+    expect(() => renderReceiptJson(packageReceipt)).not.toThrow();
+
+    const summary = renderTerminalSummary(packageReceipt);
+    expect(summary).toContain("initial=package:packages/a\\u000aspoofed-record");
+    expect(summary).toContain("scope=package:packages/a\\u000aspoofed-record");
+    expect(summary).not.toContain("package:packages/a\nspoofed-record");
+    expect(summary.split("\n").length).toBeLessThan(30);
+  });
 });
