@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "related": {
+    "changedSource": "src/used.js",
+    "expectedTestBasenames": ["used.test.js"],
+    "selectionMode": "native_related"
+  },
+  "configWidening": {
+    "changedPath": "vitest.config.mjs",
+    "expectedTestBasenames": ["unused.test.js", "used.test.js"],
+    "trigger": "vitest_config_changed"
+  },
+  "artifacts": {
+    "jsonResult": ".ascout/runs/t045/raw/test/vitest-results.json",
+    "coverageDirectory": ".ascout/runs/t045/raw/test/coverage",
+    "lcov": ".ascout/runs/t045/raw/test/coverage/lcov.info"
+  },
+  "requiredRunArgs": ["--run", "--reporter=json"],
+  "coverageArgs": [
+    "--coverage.enabled=true",
+    "--coverage.reporter=lcov",
+    "--coverage.reportsDirectory=.ascout/runs/t045/raw/test/coverage"
+  ]
+}
