@@ -3,7 +3,13 @@ import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
 
 const AGENT_MAX_UTF8_BYTES = 16 * 1024;
-const PRIORITY_MARKERS = ["ERROR", "FINDING", "ADMISSION", "GAP", "OMITTED"] as const;
+const PRIORITY_DETAIL_PREFIXES = [
+  "ERROR task=",
+  "FINDING id=",
+  "ADMISSION task=",
+  "GAP kind=",
+  "OMITTED ",
+] as const;
 
 interface OmittedTotals {
   readonly tasks: number;
@@ -79,7 +85,10 @@ function expectWithinAgentBudget(candidate: AgentProjectionCase): void {
 }
 
 function expectPriorityOrder(candidate: AgentProjectionCase): void {
-  const positions = PRIORITY_MARKERS.map((marker) => candidate.rendered.indexOf(marker));
+  const lines = candidate.rendered.split("\n");
+  const positions = PRIORITY_DETAIL_PREFIXES.map((prefix) =>
+    lines.findIndex((line) => line.startsWith(prefix)),
+  );
   for (const position of positions) {
     expect(position).toBeGreaterThanOrEqual(0);
   }
