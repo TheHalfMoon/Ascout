@@ -1,0 +1,78 @@
+name: Ephemeral T052 exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualify/t052-e40adfc
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T052 head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: e40adfc5a366b43321252752e689cb0136b28d11
+          fetch-depth: 1
+
+      - name: Select Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Verify exact candidate and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "T052_EXPECTED_HEAD=e40adfc5a366b43321252752e689cb0136b28d11"
+          echo "T052_ACTUAL_HEAD=$actual"
+          test "$actual" = "e40adfc5a366b43321252752e689cb0136b28d11"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify pinned tool and dependency boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          const versions = {
+            jest: require('./node_modules/jest/package.json').version,
+            vitest: require('./node_modules/vitest/package.json').version,
+            typescript: require('./node_modules/typescript/package.json').version,
+            crossSpawn: require('./node_modules/cross-spawn/package.json').version,
+          };
+          console.log(JSON.stringify(versions));
+          if (pkg.dependencies?.jest !== undefined) throw new Error('jest must not be a runtime dependency');
+          if (pkg.devDependencies?.jest !== '30.4.2') throw new Error('jest devDependency must be exactly 30.4.2');
+          if (versions.jest !== '30.4.2') throw new Error(`unexpected Jest ${versions.jest}`);
+          if (versions.vitest !== '4.1.10') throw new Error(`unexpected Vitest ${versions.vitest}`);
+          if (versions.typescript !== '6.0.3') throw new Error(`unexpected TypeScript ${versions.typescript}`);
+          if (versions.crossSpawn !== '7.0.6') throw new Error(`unexpected cross-spawn ${versions.crossSpawn}`);
+          NODE
+
+      - name: Typecheck exact head
+        run: npm run typecheck
+
+      - name: Focused T052 and compatibility contracts
+        run: npm test -- tests/jest-task.contract.test.ts tests/jest-check.integration.test.ts tests/jest-fixture.contract.test.ts tests/vitest-task.contract.test.ts tests/vitest-check.integration.test.ts tests/check-artifact-io.contract.test.ts tests/lcov-normalization.test.ts tests/receipt-model.test.ts
+
+      - name: Full suite exact head
+        run: npm test
+
+      - name: Build exact head
+        run: npm run build
+
+      - name: Verify repository tree remained clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e40adfc5a366b43321252752e689cb0136b28d11"
+          test -z "$(git status --porcelain=v1)"
+          echo "T052_EXACT_HEAD_QUALIFICATION=PASS"
