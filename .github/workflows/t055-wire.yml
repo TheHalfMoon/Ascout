@@ -1,0 +1,70 @@
+name: Wire T055 changed-line exercise
+
+on:
+  push:
+    branches:
+      - mutate/t055-wire
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout live T055 feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/055-changed-line-exercise
+          fetch-depth: 0
+
+      - name: Fetch mutation script
+        shell: bash
+        run: git show origin/mutate/t055-wire:scripts/t055-wire.py > /tmp/t055-wire.py
+
+      - name: Patch T055 runCheck orchestration
+        shell: bash
+        run: python /tmp/t055-wire.py
+
+      - name: Check patch
+        shell: bash
+        run: |
+          git diff --check
+          git diff --stat
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Provision exact locked dependencies
+        run: npm ci
+
+      - name: Focused T055 tests
+        run: |
+          npm test -- \
+            tests/changed-line-exercise.integration.test.ts \
+            tests/exercise-state.contract.test.ts \
+            tests/exercise-exit.contract.test.ts \
+            tests/post-run-widening.integration.test.ts \
+            tests/post-run-widening-run-check.integration.test.ts \
+            tests/post-run-widening-jest-run-check.integration.test.ts \
+            tests/vitest-check.integration.test.ts \
+            tests/jest-check.integration.test.ts \
+            tests/check-receipt-end-to-end.contract.test.ts \
+            tests/receipt-v1.semantic-invariants.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Commit and push feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/check.ts
+          git commit -m "feat(m1): wire T055 exercise into check"
+          git push origin HEAD:feat/055-changed-line-exercise
