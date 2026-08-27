@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { runCheck } from "../src/check.js";
 import { validateReceiptSemantics } from "../src/receipt/model.js";
+import { SELECTION_COUNTS_NOT_OBSERVED_LIMITATION } from "../src/selection.js";
 
 function run(root: string, file: string, argv: readonly string[]): void {
   const result = spawnSync(file, argv, { cwd: root, encoding: "utf8" });
@@ -109,8 +110,12 @@ describe("T054 runCheck bounded post-run widening", () => {
       expect(secondCoverage && existsSync(join(root, ".ascout", "runs", receipt.run.run_id, secondCoverage.relative_run_path))).toBe(true);
       expect(readFileSync(join(root, ".ascout", "runs", receipt.run.run_id, secondCoverage!.relative_run_path), "utf8")).toContain("SF:src/b.js");
 
-      expect(receipt.summary.completeness).toBe("materially_incomplete");
-      expect(receipt.summary.exit_code).toBe(4);
+      expect(receipt.selection.selected_test_count).toBeNull();
+      expect(receipt.selection.deselected_test_count).toBeNull();
+      expect(receipt.selection.total_test_count).toBeNull();
+      expect(receipt.selection.limitations).toEqual([SELECTION_COUNTS_NOT_OBSERVED_LIMITATION]);
+      expect(receipt.summary.completeness).toBe("complete");
+      expect(receipt.summary.exit_code).toBe(0);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { runCheck } from "../src/check.js";
 import { normalizeLcovLineCoverage } from "../src/coverage/lcov.js";
 import { UNSAFE_SELECTION_LIMITATION, validateReceiptSemantics } from "../src/receipt/model.js";
+import { SELECTION_COUNTS_NOT_OBSERVED_LIMITATION } from "../src/selection.js";
 
 function run(root: string, file: string, argv: readonly string[]): void {
   const result = spawnSync(file, argv, { cwd: root, encoding: "utf8" });
@@ -60,9 +61,13 @@ describe("T052 runCheck Jest integration", () => {
       expect(receipt.stability).toBe("stable");
       expect(receipt.selection.mode).toBe("native_related");
       expect(receipt.selection.passes).toHaveLength(1);
-      expect(receipt.selection.limitations).toContain(UNSAFE_SELECTION_LIMITATION);
-      expect(receipt.summary.completeness).toBe("materially_incomplete");
-      expect(receipt.summary.exit_code).toBe(4);
+      expect(receipt.selection.limitations).not.toContain(UNSAFE_SELECTION_LIMITATION);
+      expect(receipt.selection.limitations).toContain(SELECTION_COUNTS_NOT_OBSERVED_LIMITATION);
+      expect(receipt.selection.selected_test_count).toBe(1);
+      expect(receipt.selection.deselected_test_count).toBeNull();
+      expect(receipt.selection.total_test_count).toBeNull();
+      expect(receipt.summary.completeness).toBe("complete");
+      expect(receipt.summary.exit_code).toBe(0);
 
       const task = receipt.tasks.find((candidate) => candidate.task_type === "test");
       expect(task).toMatchObject({

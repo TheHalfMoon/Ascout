@@ -34,6 +34,7 @@ import { createRunDirectory } from "./run.js";
 import { buildReceipt, renderTerminalSummary } from "./receipt/build.js";
 import { renderReceiptJson } from "./receipt/json.js";
 import {
+  UNSAFE_SELECTION_LIMITATION,
   validateReceiptSemantics,
   type ArtifactV1,
   type ChangedFileV1,
@@ -42,6 +43,7 @@ import {
   type ExecutionAdmission,
   type ExerciseV1,
   type ReceiptV1,
+  type SelectionV1,
   type SourceStateV1,
   type TaskResultV1,
   type TestChangeV1,
@@ -52,6 +54,7 @@ import {
   initialSelection,
   postRunPlanningChangedFiles,
   preRunPlanningChangedFiles,
+  SELECTION_COUNTS_NOT_OBSERVED_LIMITATION,
   withPostRunWideningPass,
 } from "./selection.js";
 import { planESLintTask } from "./tools/eslint.js";
@@ -382,6 +385,7 @@ interface ExecutedTask {
 
 interface ExecutedTestTask extends ExecutedTask {
   readonly coveragePoints: readonly LcovLinePoint[] | null;
+  readonly selectedTestCounts: readonly (number | null)[];
 }
 
 interface ExecutePlannedTaskOptions {
@@ -681,6 +685,95 @@ function persistGeneratedTextArtifact(
   }
 }
 
+function observedSelectedTestCount(text: string): number | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const count = (value as { readonly numTotalTests?: unknown }).numTotalTests;
+  return typeof count === "number" && Number.isInteger(count) && count >= 0 ? count : null;
+}
+
+function sameSelectionScope(
+  left: SelectionV1["initial_scope"],
+  right: SelectionV1["initial_scope"],
+): boolean {
+  return left.kind === right.kind && left.path === right.path;
+}
+
+function hasUnknownSelectionCounts(selection: SelectionV1): boolean {
+  if (
+    selection.selected_test_count === null ||
+    selection.deselected_test_count === null ||
+    selection.total_test_count === null
+  ) return true;
+  return selection.passes.some((pass) =>
+    pass.selected_test_count === null ||
+    pass.deselected_test_count === null ||
+    pass.total_test_count === null
+  );
+}
+
+/**
+ * Finalizes only observed SelectionAccount facts after valid test execution.
+ * Native-related runs expose the selected count when reported without guessing
+ * the unobserved universe. A full pass is its own observed universe, so
+ * selected=total and deselected=0. If a related first pass and a full second
+ * pass share scope, the full pass closes the first-pass total/deselection
+ * equation. Unknown counts stay null with an explicit limitation.
+ */
+export function finalizeSelectionAccount(
+  selection: SelectionV1,
+  passSelectedCounts: readonly (number | null)[],
+  executedSafely: boolean,
+): SelectionV1 {
+  if (!executedSafely || selection.passes.length === 0) return selection;
+  if (selection.passes.length > 2 || passSelectedCounts.length > 2) {
+    throw new Error("SelectionAccount finalization permits at most two passes");
+  }
+
+  const passes: Array<SelectionV1["passes"][number]> = selection.passes.map((pass, index) => {
+    const selected = passSelectedCounts[index] ?? null;
+    return pass.mode === "full" && selected !== null
+      ? { ...pass, selected_test_count: selected, deselected_test_count: 0, total_test_count: selected }
+      : { ...pass, selected_test_count: selected, deselected_test_count: null, total_test_count: null };
+  });
+
+  if (
+    passes.length === 2 &&
+    passes[0]!.mode !== "full" &&
+    passes[1]!.mode === "full" &&
+    sameSelectionScope(passes[0]!.scope, passes[1]!.scope) &&
+    passes[0]!.selected_test_count !== null &&
+    passes[1]!.total_test_count !== null &&
+    passes[0]!.selected_test_count <= passes[1]!.total_test_count
+  ) {
+    const total = passes[1]!.total_test_count;
+    const selected = passes[0]!.selected_test_count;
+    passes[0] = { ...passes[0]!, selected_test_count: selected, deselected_test_count: total - selected, total_test_count: total };
+  }
+
+  const finalPass = passes[passes.length - 1]!;
+  const finalized: SelectionV1 = {
+    ...selection,
+    selected_test_count: finalPass.selected_test_count,
+    deselected_test_count: finalPass.deselected_test_count,
+    total_test_count: finalPass.total_test_count,
+    passes,
+    limitations: selection.limitations.filter((limitation) =>
+      limitation !== UNSAFE_SELECTION_LIMITATION &&
+      limitation !== SELECTION_COUNTS_NOT_OBSERVED_LIMITATION
+    ),
+  };
+
+  return hasUnknownSelectionCounts(finalized)
+    ? { ...finalized, limitations: [...finalized.limitations, SELECTION_COUNTS_NOT_OBSERVED_LIMITATION] }
+    : finalized;
+}
+
 function validVitestMachineResult(text: string): boolean {
   let value: unknown;
   try {
@@ -708,6 +801,7 @@ function withVitestEvidenceError(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints: null,
+    selectedTestCounts: [null],
   };
 }
 
@@ -745,13 +839,14 @@ async function executeVitestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null };
+  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withVitestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
   const generatedSequenceStart = passOrdinal === 1 ? 3 : 7;
   const artifactPrefix = passOrdinal === 1 ? "test" : "test.pass-2";
   let coveragePoints: readonly LcovLinePoint[] | null = null;
+  let selectedTestCount: number | null = null;
   try {
     const machine = persistGeneratedTextArtifact(
       runId,
@@ -766,6 +861,7 @@ async function executeVitestTask(
     );
     generated.push(machine);
     if (!validVitestMachineResult(machine.text)) return withVitestEvidenceError(executed, generated);
+    selectedTestCount = observedSelectedTestCount(machine.text);
 
     const coverage = persistGeneratedTextArtifact(
       runId,
@@ -795,6 +891,7 @@ async function executeVitestTask(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints,
+    selectedTestCounts: [selectedTestCount],
   };
 }
 
@@ -832,6 +929,7 @@ function withJestEvidenceError(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints: null,
+    selectedTestCounts: [null],
   };
 }
 
@@ -869,13 +967,14 @@ async function executeJestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null };
+  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withJestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
   const generatedSequenceStart = passOrdinal === 1 ? 3 : 7;
   const artifactPrefix = passOrdinal === 1 ? "test" : "test.pass-2";
   let coveragePoints: readonly LcovLinePoint[] | null = null;
+  let selectedTestCount: number | null = null;
   try {
     const machine = persistGeneratedTextArtifact(
       runId,
@@ -890,6 +989,7 @@ async function executeJestTask(
     );
     generated.push(machine);
     if (!validJestMachineResult(machine.text)) return withJestEvidenceError(executed, generated);
+    selectedTestCount = observedSelectedTestCount(machine.text);
 
     const coverage = persistGeneratedTextArtifact(
       runId,
@@ -919,6 +1019,7 @@ async function executeJestTask(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints,
+    selectedTestCounts: [selectedTestCount],
   };
 }
 
@@ -958,6 +1059,7 @@ function combineTestPasses(first: ExecutedTestTask, second: ExecutedTestTask): E
     evidence: [...first.evidence, ...second.evidence],
     artifacts: [...first.artifacts, ...second.artifacts],
     coveragePoints: second.coveragePoints,
+    selectedTestCounts: [...first.selectedTestCounts, ...second.selectedTestCounts],
   };
 }
 
@@ -1248,6 +1350,12 @@ export async function runCheck(
               }
             }
           }
+          selection = finalizeSelectionAccount(
+            selection,
+            finalExecuted.selectedTestCounts,
+            (finalExecuted.task.status === "PASS" || finalExecuted.task.status === "FAIL") &&
+              finalExecuted.coveragePoints !== null,
+          );
           exerciseCoveragePoints = finalExecuted.coveragePoints;
           executed = finalExecuted;
         } else {
