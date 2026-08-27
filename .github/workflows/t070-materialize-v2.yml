@@ -1,0 +1,310 @@
+name: T070 materialize v2
+
+on:
+  push:
+    branches:
+      - qualification/t070-materialize-v2-2b373b37
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact T070 feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/070-cli-format
+          fetch-depth: 0
+
+      - name: Opening exact-base and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2b373b370881a057a90285f911c6bf08ea510bae"
+          test -z "$(git status --short)"
+
+      - name: Implement T070
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+
+          path = Path("src/cli.ts")
+          text = path.read_text()
+
+          text = text.replace(
+              'import { readWorkingTreeComparison } from "./git.js";\n',
+              'import { readWorkingTreeComparison } from "./git.js";\nimport { renderReceiptAgent } from "./receipt/agent.js";\nimport { renderReceiptJson } from "./receipt/json.js";\n',
+              1,
+          )
+          text = text.replace(
+              'const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";\n',
+              'const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";\nconst FORMAT_FLAG = "--format";\nconst CHECK_FORMATS = ["json", "agent"] as const;\n',
+              1,
+          )
+          text = text.replace(
+              'export type CliCommand = (typeof COMMANDS)[number];\n',
+              'export type CliCommand = (typeof COMMANDS)[number];\nexport type CheckFormat = (typeof CHECK_FORMATS)[number];\n',
+              1,
+          )
+          text = text.replace(
+              '  allowChangedCommandSurface: boolean;\n}',
+              '  allowChangedCommandSurface: boolean;\n  format?: CheckFormat;\n}',
+              1,
+          )
+          text = text.replace(
+              'function isCliCommand(value: string): value is CliCommand {\n  return COMMANDS.includes(value as CliCommand);\n}\n',
+              'function isCliCommand(value: string): value is CliCommand {\n  return COMMANDS.includes(value as CliCommand);\n}\n\nfunction isCheckFormat(value: string): value is CheckFormat {\n  return CHECK_FORMATS.includes(value as CheckFormat);\n}\n',
+              1,
+          )
+
+          parser_start = text.index('export function parseCliArgs(argv: readonly string[]): CliInvocation {')
+          parser_end = text.index('\n\nexport function usageText(): string {', parser_start)
+          parser = "\n".join([
+              'export function parseCliArgs(argv: readonly string[]): CliInvocation {',
+              '  const [commandToken, ...rest] = argv;',
+              '',
+              '  if (commandToken === undefined) {',
+              '    throw new CliUsageError("Missing command.");',
+              '  }',
+              '',
+              '  if (!isCliCommand(commandToken)) {',
+              '    throw new CliUsageError(`Unknown command: ${commandToken}`);',
+              '  }',
+              '',
+              '  let allowChangedCommandSurface = false;',
+              '  let format: CheckFormat | undefined;',
+              '',
+              '  for (let index = 0; index < rest.length; index += 1) {',
+              '    const token = rest[index]!;',
+              '',
+              '    if (token === ALLOW_CHANGED_COMMAND_SURFACE) {',
+              '      if (commandToken !== "check") {',
+              '        throw new CliUsageError(',
+              '          `${ALLOW_CHANGED_COMMAND_SURFACE} is valid only with the check command.`,',
+              '        );',
+              '      }',
+              '      if (allowChangedCommandSurface) {',
+              '        throw new CliUsageError(`${ALLOW_CHANGED_COMMAND_SURFACE} may be supplied only once.`);',
+              '      }',
+              '      allowChangedCommandSurface = true;',
+              '      continue;',
+              '    }',
+              '',
+              '    if (token === FORMAT_FLAG) {',
+              '      if (commandToken !== "check") {',
+              '        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check command.`);',
+              '      }',
+              '      if (format !== undefined) {',
+              '        throw new CliUsageError(`${FORMAT_FLAG} may be supplied only once.`);',
+              '      }',
+              '      const value = rest[index + 1];',
+              '      if (value === undefined) {',
+              '        throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${CHECK_FORMATS.join("|")}.`);',
+              '      }',
+              '      if (!isCheckFormat(value)) {',
+              '        throw new CliUsageError(',
+              '          `Unsupported check format: ${value}. Expected one of: ${CHECK_FORMATS.join("|")}.`,',
+              '        );',
+              '      }',
+              '      format = value;',
+              '      index += 1;',
+              '      continue;',
+              '    }',
+              '',
+              '    throw new CliUsageError(`Unknown argument for ${commandToken}: ${token}`);',
+              '  }',
+              '',
+              '  return {',
+              '    command: commandToken,',
+              '    allowChangedCommandSurface,',
+              '    ...(format === undefined ? {} : { format }),',
+              '  };',
+              '}',
+          ])
+          text = text[:parser_start] + parser + text[parser_end:]
+
+          text = text.replace(
+              '    `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}]`,',
+              '    `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,',
+              1,
+          )
+
+          check_start = text.index('    if (invocation.command === "check") {')
+          check_end = text.index('    if (invocation.command === "doctor") {', check_start)
+          check_block = "\n".join([
+              '    if (invocation.command === "check") {',
+              '      const outcome = await runCheck(process.cwd(), {',
+              '        allowChangedCommandSurface: invocation.allowChangedCommandSurface,',
+              '      });',
+              '      if (invocation.format === "json") {',
+              '        console.log(renderReceiptJson(outcome.receipt));',
+              '      } else if (invocation.format === "agent") {',
+              '        console.log(renderReceiptAgent(outcome.receipt));',
+              '      } else {',
+              '        console.error(outcome.terminalSummary);',
+              '      }',
+              '      return outcome.receipt.summary.exit_code;',
+              '    }',
+              '',
+          ])
+          text = text[:check_start] + check_block + text[check_end:]
+          path.write_text(text)
+
+          Path("tests/cli-format.contract.test.ts").write_text(textwrap.dedent(r'''
+          import { afterEach, describe, expect, it, vi } from "vitest";
+
+          const mocks = vi.hoisted(() => ({
+            runCheck: vi.fn(),
+            renderJson: vi.fn(),
+            renderAgent: vi.fn(),
+          }));
+
+          vi.mock("../src/check.js", async (importOriginal) => {
+            const actual = await importOriginal<typeof import("../src/check.js")>();
+            return { ...actual, runCheck: mocks.runCheck };
+          });
+
+          vi.mock("../src/receipt/json.js", async (importOriginal) => {
+            const actual = await importOriginal<typeof import("../src/receipt/json.js")>();
+            return { ...actual, renderReceiptJson: mocks.renderJson };
+          });
+
+          vi.mock("../src/receipt/agent.js", async (importOriginal) => {
+            const actual = await importOriginal<typeof import("../src/receipt/agent.js")>();
+            return { ...actual, renderReceiptAgent: mocks.renderAgent };
+          });
+
+          import { CliUsageError, parseCliArgs, runCli, usageText } from "../src/cli.js";
+
+          afterEach(() => {
+            vi.restoreAllMocks();
+            mocks.runCheck.mockReset();
+            mocks.renderJson.mockReset();
+            mocks.renderAgent.mockReset();
+          });
+
+          describe("T070 CLI receipt format wiring", () => {
+            it("parses json/agent format in either flag order without changing the default shape", () => {
+              expect(parseCliArgs(["check"])).toEqual({
+                command: "check",
+                allowChangedCommandSurface: false,
+              });
+              expect(parseCliArgs(["check", "--format", "json"])).toEqual({
+                command: "check",
+                allowChangedCommandSurface: false,
+                format: "json",
+              });
+              expect(parseCliArgs(["check", "--format", "agent", "--allow-changed-command-surface"])).toEqual({
+                command: "check",
+                allowChangedCommandSurface: true,
+                format: "agent",
+              });
+              expect(parseCliArgs(["check", "--allow-changed-command-surface", "--format", "json"])).toEqual({
+                command: "check",
+                allowChangedCommandSurface: true,
+                format: "json",
+              });
+            });
+
+            it("rejects missing, unsupported, duplicate, and non-check format usage", () => {
+              for (const argv of [
+                ["check", "--format"],
+                ["check", "--format", "terminal"],
+                ["check", "--format", "json", "--format", "agent"],
+                ["doctor", "--format", "json"],
+                ["init", "--format", "agent"],
+              ]) {
+                expect(() => parseCliArgs(argv)).toThrow(CliUsageError);
+              }
+              expect(usageText()).toContain("--format json|agent");
+            });
+
+            it("keeps default terminal rendering on stderr without machine rendering", async () => {
+              const receipt = { summary: { exit_code: 4 } } as never;
+              mocks.runCheck.mockResolvedValue({ receipt, terminalSummary: "terminal-output" });
+              const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+              expect(await runCli(["check"])).toBe(4);
+              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
+              expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
+                allowChangedCommandSurface: false,
+              });
+              expect(error).toHaveBeenCalledWith("terminal-output");
+              expect(log).not.toHaveBeenCalled();
+              expect(mocks.renderJson).not.toHaveBeenCalled();
+              expect(mocks.renderAgent).not.toHaveBeenCalled();
+            });
+
+            it("renders JSON to stdout from the single-run receipt and preserves exit code", async () => {
+              const receipt = { summary: { exit_code: 3 } } as never;
+              mocks.runCheck.mockResolvedValue({ receipt, terminalSummary: "must-not-render" });
+              mocks.renderJson.mockReturnValue('{"schema_version":1}');
+              const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+              expect(await runCli(["check", "--format", "json"])).toBe(3);
+              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
+              expect(mocks.renderJson).toHaveBeenCalledTimes(1);
+              expect(mocks.renderJson).toHaveBeenCalledWith(receipt);
+              expect(mocks.renderAgent).not.toHaveBeenCalled();
+              expect(log).toHaveBeenCalledWith('{"schema_version":1}');
+              expect(error).not.toHaveBeenCalled();
+            });
+
+            it("renders agent output to stdout from the same single-run receipt", async () => {
+              const receipt = { summary: { exit_code: 1 } } as never;
+              mocks.runCheck.mockResolvedValue({ receipt, terminalSummary: "must-not-render" });
+              mocks.renderAgent.mockReturnValue("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
+              const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+              expect(await runCli(["check", "--allow-changed-command-surface", "--format", "agent"])).toBe(1);
+              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
+              expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
+                allowChangedCommandSurface: true,
+              });
+              expect(mocks.renderAgent).toHaveBeenCalledTimes(1);
+              expect(mocks.renderAgent).toHaveBeenCalledWith(receipt);
+              expect(mocks.renderJson).not.toHaveBeenCalled();
+              expect(log).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
+              expect(error).not.toHaveBeenCalled();
+            });
+          });
+          ''').lstrip())
+          PY
+
+          git diff --check
+          test "$(git status --short | awk '{print $2}' | sort | tr '\n' ' ')" = "src/cli.ts tests/cli-format.contract.test.ts "
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T070 tests
+        run: npx vitest run tests/cli.smoke.test.ts tests/cli-format.contract.test.ts tests/receipt-json.test.ts tests/agent-receipt.runtime.test.ts tests/cross-format-consistency.contract.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Commit and push T070 feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2b373b370881a057a90285f911c6bf08ea510bae"
+          git add src/cli.ts tests/cli-format.contract.test.ts
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "src/cli.ts tests/cli-format.contract.test.ts "
+          git config user.name "TheHalfMoon"
+          git config user.email "alshehriofficial@gmail.com"
+          git commit -m "feat(m1): wire T070 receipt formats"
+          git push origin HEAD:feat/070-cli-format
