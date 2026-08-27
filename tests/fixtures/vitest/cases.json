@@ -8,7 +8,9 @@
   "configWidening": {
     "changedPath": "vitest.config.mjs",
     "expectedTestBasenames": ["unused.test.js", "used.test.js"],
-    "trigger": "vitest_config_changed"
+    "trigger": "vitest_config_changed",
+    "widenedMode": "full",
+    "forbiddenNarrowArgs": ["related", "--changed"]
   },
   "artifacts": {
     "jsonResult": ".ascout/runs/t045/raw/test/vitest-results.json",
