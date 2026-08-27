@@ -849,6 +849,14 @@ function validateReferences(receipt: ReceiptV1, issues: ReceiptSemanticIssue[]):
 
   for (const [i, finding] of receipt.findings.entries()) {
     validateObservations(finding.observations, issues, `findings[${i}].observations`);
+    if (finding.introduced_by_change !== "unknown") {
+      addIssue(
+        issues,
+        "finding_causation_unproven",
+        `findings[${i}].introduced_by_change`,
+        "M1 receipt v1 has no comparative proof input; introduced_by_change must remain unknown",
+      );
+    }
     const owningTask = tasks.get(finding.task_id);
     const validObservationCounts =
       isNonNegativeInteger(finding.observations.runs) &&
