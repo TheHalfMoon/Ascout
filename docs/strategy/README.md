@@ -17,6 +17,18 @@ For current implementation, the authoritative order remains:
 
 Nothing in `docs/strategy/` independently authorizes implementation, dependency admission, task reordering, or expansion of M1 scope. Future capabilities described here require their own reconciliation and Spec Kit canonicalization before implementation.
 
+## Canonical sequencing clarification
+
+The milestone labels and trust gates in `POST_M1_VERIFICATION_ROADMAP.md` are strategic groupings, **not a replacement task order**. Where the roadmap groups an obligation under `P0`, the canonical Spec Kit task ordering still controls when that obligation may be implemented or qualified.
+
+In particular:
+
+- LCOV normalization remains scheduled by the canonical M1 plan at **T050 / Phase 4** and must not be pulled into T041–T043 closeout;
+- project cross-platform CI remains scheduled at **T079 / Phase 8** and must not be pulled forward merely because the strategic P0 section names exact-head/cross-platform evidence as an eventual trust obligation;
+- current US1 closeout must use the gates actually required by the active canonical tasks/runbook; later M1 gates remain later M1 work.
+
+If any roadmap wording appears to conflict with the canonical Spec Kit ordering, the canonical task order wins and the roadmap wording must be reconciled before implementation.
+
 ## Documents
 
 - [`ASCOUT_MAJOR_REVIEW_2026-08-26.md`](./ASCOUT_MAJOR_REVIEW_2026-08-26.md) — major repository/product review, current gaps, target product architecture, competitive synthesis, and strategic principles.
