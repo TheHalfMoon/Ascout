@@ -224,7 +224,7 @@ describe("T034 production discovery", () => {
       state: "resolved",
       kind: "basic",
       patterns: ["apps/*"],
-      packageJsonPaths: ["package.json", "apps/web/package.json"],
+      packageJsonPaths: ["apps/web/package.json", "package.json"],
       sourcePaths: ["pnpm-workspace.yaml"],
     });
   });
