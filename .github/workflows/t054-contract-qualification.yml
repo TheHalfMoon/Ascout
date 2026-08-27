@@ -1,0 +1,29 @@
+name: T054 contract qualification
+
+on:
+  push:
+    branches:
+      - qualification/t054-contract-e0a3c19c
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact T054 contract head
+        uses: actions/checkout@v4
+        with:
+          ref: e0a3c19cfc0911edfcd2a0dbe3f52c3f3d0d2290
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Focused contract tests
+        run: npm test -- tests/post-run-widening.integration.test.ts tests/vitest-task.contract.test.ts tests/jest-task.contract.test.ts
+      - name: Typecheck
+        run: npm run typecheck
