@@ -1,0 +1,256 @@
+name: T068 isolated build
+
+on:
+  push:
+    branches:
+      - qualification/t068-build-5b7e83fa
+
+permissions:
+  contents: write
+
+jobs:
+  build-t068:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: 5b7e83fa5e825fc183d8a4941d8b49cfc29511eb
+          fetch-depth: 0
+
+      - name: Guard exact starting head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "5b7e83fa5e825fc183d8a4941d8b49cfc29511eb"
+          test -z "$(git status --short)"
+
+      - name: Implement T068 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c feat/068-test-snapshot-facts
+
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path("src/check.ts")
+          text = path.read_text(encoding="utf-8")
+
+          old = '''function toChangedFileV1(file: GitChangedFile): ChangedFileV1 {
+            return {
+              path: file.path,
+              ...(file.previous_path === undefined ? {} : { previous_path: file.previous_path }),
+              change_kind: file.change_kind,
+              line_semantics: file.line_semantics,
+              changed_new_line_ranges: file.changed_new_line_ranges,
+              // Factual test/snapshot/command-surface classification is a later task;
+              // these facts stay honestly absent rather than inferred.
+              is_test_file: false,
+              is_snapshot: false,
+              is_command_surface: false,
+            };
+          }
+          '''
+
+          new = '''export interface VerificationAssetClassification {
+            readonly isTestFile: boolean;
+            readonly isSnapshot: boolean;
+          }
+
+          const JAVASCRIPT_TEST_FILE = /\\.(?:test|spec)\\.(?:[cm]?[jt]s|[jt]sx)$/u;
+          const PYTHON_TEST_FILE = /^(?:test_.+|.+_test)\\.py$/u;
+
+          export function classifyVerificationAssetPath(path: string): VerificationAssetClassification {
+            const segments = path.split("/");
+            const fileName = segments[segments.length - 1] ?? "";
+            const isSnapshot = segments.includes("__snapshots__") && fileName.endsWith(".snap");
+            const isTestFile = !isSnapshot && (
+              JAVASCRIPT_TEST_FILE.test(fileName) ||
+              PYTHON_TEST_FILE.test(fileName)
+            );
+            return { isTestFile, isSnapshot };
+          }
+
+          export function deriveTestChanges(changedFiles: readonly GitChangedFile[]): readonly TestChangeV1[] {
+            const facts: TestChangeV1[] = [];
+            for (const file of changedFiles) {
+              const classification = classifyVerificationAssetPath(file.path);
+              if (classification.isTestFile) {
+                facts.push({
+                  kind: file.change_kind === "deleted" ? "test_file_deleted" : "test_file_changed",
+                  path: file.path,
+                  source: "git_diff",
+                });
+                continue;
+              }
+              if (classification.isSnapshot && file.change_kind !== "untracked") {
+                facts.push({
+                  kind: file.change_kind === "deleted" ? "snapshot_deleted" : "snapshot_changed",
+                  path: file.path,
+                  source: "git_diff",
+                });
+              }
+            }
+            return facts;
+          }
+
+          function toChangedFileV1(file: GitChangedFile): ChangedFileV1 {
+            const classification = classifyVerificationAssetPath(file.path);
+            return {
+              path: file.path,
+              ...(file.previous_path === undefined ? {} : { previous_path: file.previous_path }),
+              change_kind: file.change_kind,
+              line_semantics: file.line_semantics,
+              changed_new_line_ranges: file.changed_new_line_ranges,
+              is_test_file: classification.isTestFile,
+              is_snapshot: classification.isSnapshot,
+              // T038 admission uses effective authority paths directly. This field remains
+              // untouched here because T068 owns only factual test/snapshot classification.
+              is_command_surface: false,
+            };
+          }
+          '''
+
+          if old not in text:
+              raise SystemExit("T068 patch anchor for toChangedFileV1 not found")
+          text = text.replace(old, new, 1)
+
+          old = '''        changed_files: gitComparison.changed_files.map(toChangedFileV1),
+              };
+          '''
+          new = '''        changed_files: gitComparison.changed_files.map(toChangedFileV1),
+              };
+              const testChanges = deriveTestChanges(gitComparison.changed_files);
+          '''
+          if old not in text:
+              raise SystemExit("T068 patch anchor for comparison not found")
+          text = text.replace(old, new, 1)
+
+          old = '''        testChanges: [] satisfies readonly TestChangeV1[],
+          '''
+          new = '''        testChanges,
+          '''
+          if old not in text:
+              raise SystemExit("T068 patch anchor for receipt testChanges not found")
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+          cat > tests/test-snapshot-facts.runtime.test.ts <<'EOF'
+          import { describe, expect, it } from "vitest";
+
+          import {
+            classifyVerificationAssetPath,
+            deriveTestChanges,
+          } from "../src/check.js";
+          import type { GitChangedFile } from "../src/git.js";
+
+          function changedFile(
+            path: string,
+            changeKind: GitChangedFile["change_kind"],
+          ): GitChangedFile {
+            return {
+              path,
+              change_kind: changeKind,
+              line_semantics: changeKind === "deleted" ? "deleted_only" : "text",
+              changed_new_line_ranges: changeKind === "deleted" ? [] : [[1, 1]],
+            };
+          }
+
+          describe("T068 factual test/snapshot diff classification", () => {
+            it("classifies conventional JavaScript/TypeScript and pytest files conservatively", () => {
+              expect(classifyVerificationAssetPath("tests/unit/example.test.ts")).toEqual({
+                isTestFile: true,
+                isSnapshot: false,
+              });
+              expect(classifyVerificationAssetPath("packages/ui/button.spec.tsx")).toEqual({
+                isTestFile: true,
+                isSnapshot: false,
+              });
+              expect(classifyVerificationAssetPath("python/test_example.py")).toEqual({
+                isTestFile: true,
+                isSnapshot: false,
+              });
+              expect(classifyVerificationAssetPath("python/example_test.py")).toEqual({
+                isTestFile: true,
+                isSnapshot: false,
+              });
+              expect(classifyVerificationAssetPath("tests/helpers.ts")).toEqual({
+                isTestFile: false,
+                isSnapshot: false,
+              });
+            });
+
+            it("recognizes tracked Jest/Vitest snapshot paths without treating them as test files", () => {
+              expect(classifyVerificationAssetPath("tests/__snapshots__/example.test.ts.snap")).toEqual({
+                isTestFile: false,
+                isSnapshot: true,
+              });
+              expect(classifyVerificationAssetPath("fixtures/example.snap")).toEqual({
+                isTestFile: false,
+                isSnapshot: false,
+              });
+            });
+
+            it("derives exactly the four canonical Git facts without semantic inference", () => {
+              expect(deriveTestChanges([
+                changedFile("tests/unit/example.test.ts", "modified"),
+                changedFile("tests/legacy/removed.spec.js", "deleted"),
+                changedFile("tests/__snapshots__/example.test.ts.snap", "modified"),
+                changedFile("tests/__snapshots__/removed.test.ts.snap", "deleted"),
+                changedFile("src/index.ts", "modified"),
+              ])).toEqual([
+                { kind: "test_file_changed", path: "tests/unit/example.test.ts", source: "git_diff" },
+                { kind: "test_file_deleted", path: "tests/legacy/removed.spec.js", source: "git_diff" },
+                { kind: "snapshot_changed", path: "tests/__snapshots__/example.test.ts.snap", source: "git_diff" },
+                { kind: "snapshot_deleted", path: "tests/__snapshots__/removed.test.ts.snap", source: "git_diff" },
+              ]);
+            });
+
+            it("reports untracked test files as changed but does not call untracked snapshots tracked facts", () => {
+              expect(deriveTestChanges([
+                changedFile("tests/new.test.ts", "untracked"),
+                changedFile("tests/__snapshots__/new.test.ts.snap", "untracked"),
+              ])).toEqual([
+                { kind: "test_file_changed", path: "tests/new.test.ts", source: "git_diff" },
+              ]);
+            });
+          });
+          EOF
+
+      - name: Install locked dependencies
+        shell: bash
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T065/T068 tests
+        shell: bash
+        run: npx vitest run tests/test-snapshot-facts.contract.test.ts tests/test-snapshot-facts.runtime.test.ts
+
+      - name: Typecheck
+        shell: bash
+        run: npm run typecheck
+
+      - name: Build
+        shell: bash
+        run: npm run build
+
+      - name: Full suite
+        shell: bash
+        run: npm test
+
+      - name: Commit and push feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "5b7e83fa5e825fc183d8a4941d8b49cfc29511eb"
+          git status --short
+          git diff --check
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "src/check.ts tests/test-snapshot-facts.runtime.test.ts "
+          git add src/check.ts tests/test-snapshot-facts.runtime.test.ts
+          git commit -m "feat(m1): implement T068 test snapshot facts"
+          test -z "$(git status --short)"
+          git push origin HEAD:refs/heads/feat/068-test-snapshot-facts
