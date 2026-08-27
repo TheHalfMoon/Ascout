@@ -1,0 +1,64 @@
+name: T059 exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualification/t059-exact-head-911283ec
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact T059 head
+        uses: actions/checkout@v4
+        with:
+          ref: 911283ec86006091c691bc63137b59d3c16d7912
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Prove opening exact head and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "911283ec86006091c691bc63137b59d3c16d7912"
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD
+          git status --short
+
+      - name: Provision exact locked dependencies
+        run: npm ci
+
+      - name: Run focused T059 qualification
+        run: |
+          npm test -- \
+            tests/flake-reproduction.contract.test.ts \
+            tests/receipt-model.test.ts \
+            tests/task-status.contract.test.ts \
+            tests/receipt-v1.semantic-invariants.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Prove closing exact head and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "911283ec86006091c691bc63137b59d3c16d7912"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git rev-parse HEAD
+          git status --short --untracked-files=no
