@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -21,6 +21,12 @@ function initializeFixture(): string {
   mkdirSync(join(root, "src"), { recursive: true });
   mkdirSync(join(root, "tests"), { recursive: true });
   cpSync(resolve("node_modules"), join(root, "node_modules"), { recursive: true });
+  const binRoot = join(root, "node_modules", ".bin");
+  rmSync(binRoot, { recursive: true, force: true });
+  mkdirSync(binRoot, { recursive: true });
+  const vitestShim = join(binRoot, "vitest");
+  writeFileSync(vitestShim, '#!/bin/sh\nexec node "$(dirname "$0")/../vitest/vitest.mjs" "$@"\n');
+  chmodSync(vitestShim, 0o755);
   writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
   writeFileSync(
     join(root, "package.json"),
