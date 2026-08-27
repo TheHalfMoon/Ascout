@@ -1,7 +1,7 @@
 # Ascout Founding Benchmark Corpus Policy
 
-**Task:** T071 — Define benchmark corpus acquisition, licensing, and reproducibility.  
-**Scope:** Founding M1 benchmark policy only. Case manifests are T072; reviewed case definitions are T073/T074; executable isolation and replay begin at T075; metrics and assertions are T076–T078.  
+**Task:** T071 — Define benchmark corpus acquisition, licensing, and reproducibility.
+**Scope:** Founding M1 benchmark policy only. Case manifests are T072; reviewed case definitions are T073/T074; executable isolation and replay begin at T075; metrics and assertions are T076–T078.
 **Canonical product boundary:** Ascout verifies developer-owned trusted local repositories. Historical donor repositories used by this benchmark are third-party inputs and are not silently promoted into the product trust boundary.
 
 ## 1. Purpose
