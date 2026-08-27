@@ -48,6 +48,7 @@ import {
   type TestChangeV1,
 } from "./receipt/model.js";
 import { planESLintTask } from "./tools/eslint.js";
+import { planJestTask, type JestTaskPlan, type PlannedJestTask } from "./tools/jest.js";
 import { planPytestBasicTask } from "./tools/pytest.js";
 import { planTypeScriptTask } from "./tools/typescript.js";
 import { planVitestTask, type PlannedVitestTask, type VitestTaskPlan } from "./tools/vitest.js";
@@ -306,7 +307,7 @@ function emptyExercise(): ExerciseV1 {
   };
 }
 
-function baseSelection(testPlan: VitestTaskPlan): SelectionV1 {
+function baseSelection(testPlan: VitestTaskPlan | JestTaskPlan): SelectionV1 {
   const limitations = [SELECTION_COUNTS_NOT_OBSERVED_LIMITATION, UNSAFE_SELECTION_LIMITATION] as const;
   if (testPlan.state !== "planned") {
     return {
@@ -813,6 +814,119 @@ async function executeVitestTask(
   };
 }
 
+
+function validJestMachineResult(text: string): boolean {
+  let value: unknown;
+  try {
+    value = JSON.parse(text) as unknown;
+  } catch {
+    return false;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const candidate = value as { readonly success?: unknown; readonly testResults?: unknown };
+  if (typeof candidate.success !== "boolean" || !Array.isArray(candidate.testResults)) return false;
+  return candidate.testResults.every((suite) => {
+    if (typeof suite !== "object" || suite === null || Array.isArray(suite)) return false;
+    const formatted = suite as { readonly name?: unknown };
+    return typeof formatted.name === "string" && formatted.name.length > 0;
+  });
+}
+
+function withJestEvidenceError(
+  executed: ExecutedTask,
+  generated: readonly PersistedTextArtifact[],
+): ExecutedTask {
+  return {
+    task: {
+      ...executed.task,
+      status: "ERROR",
+      reason_code: "jest_evidence_invalid",
+      reason_text: "Jest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
+      evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
+      artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
+    },
+    evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
+    artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
+  };
+}
+
+async function executeJestTask(
+  repositoryRoot: string,
+  runId: string,
+  runPath: string,
+  rawPath: string,
+  plan: PlannedJestTask,
+  decision: TaskAdmissionDecision,
+  secrets: readonly string[],
+  timeoutMs: number,
+): Promise<ExecutedTask> {
+  mkdirSync(join(rawPath, "test"), { recursive: true });
+  const executionOptions: ExecutePlannedTaskOptions = {
+    env: { ...process.env, CI: "1" },
+    toolName: "jest",
+    ...(plan.toolVersion === null ? {} : { toolVersion: plan.toolVersion }),
+  };
+  const executed = await executePlannedTask(
+    repositoryRoot,
+    runId,
+    rawPath,
+    "test",
+    normalizePlan(plan) as NormalizedPlan & { state: "planned" },
+    decision,
+    secrets,
+    timeoutMs,
+    executionOptions,
+  );
+
+  if (executed.task.status === "ERROR") return executed;
+  if (plan.machineResultPath === null || plan.lcovPath === null) return withJestEvidenceError(executed, []);
+
+  const generated: PersistedTextArtifact[] = [];
+  try {
+    const machine = persistGeneratedTextArtifact(
+      runId,
+      "test",
+      3,
+      runPath,
+      runRelativeArtifactPath(runId, plan.machineResultPath),
+      "test.jest-results",
+      "test_result_json",
+      "test_result",
+      secrets,
+    );
+    generated.push(machine);
+    if (!validJestMachineResult(machine.text)) return withJestEvidenceError(executed, generated);
+
+    const coverage = persistGeneratedTextArtifact(
+      runId,
+      "test",
+      4,
+      runPath,
+      runRelativeArtifactPath(runId, plan.lcovPath),
+      "test.lcov",
+      "coverage_lcov",
+      "coverage",
+      secrets,
+    );
+    generated.push(coverage);
+    if (normalizeLcovLineCoverage(coverage.text, repositoryRoot).outcome !== "resolved") {
+      return withJestEvidenceError(executed, generated);
+    }
+  } catch {
+    return withJestEvidenceError(executed, generated);
+  }
+
+  return {
+    task: {
+      ...executed.task,
+      evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
+      artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
+    },
+    evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
+    artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
+  };
+}
+
 function nonExecutedTask(
   taskId: SemanticTaskType,
   decision: TaskAdmissionDecision,
@@ -911,6 +1025,18 @@ export async function runCheck(
         files,
         changedFiles: gitComparison.changed_files,
       });
+      const jestPlan = planJestTask({
+        repositoryRoot: root,
+        runId,
+        config,
+        discovery,
+        files,
+        changedFiles: gitComparison.changed_files,
+      });
+      const testPlan: VitestTaskPlan | JestTaskPlan =
+        discovery.jsTestRunner.state === "resolved" && discovery.jsTestRunner.value === "jest"
+          ? jestPlan
+          : vitestPlan;
       const plans: Record<SemanticTaskType, NormalizedPlan> = {
         typecheck: normalizePlan(planTypeScriptTask({ config, discovery, files })),
         lint: normalizePlan(planESLintTask({
@@ -919,7 +1045,7 @@ export async function runCheck(
           files,
           changedFiles: gitComparison.changed_files,
         })),
-        test: normalizePlan(vitestPlan),
+        test: normalizePlan(testPlan),
         pytestBasic: normalizePlan(planPytestBasicTask({ config, discovery, files })),
       };
 
@@ -981,16 +1107,27 @@ export async function runCheck(
         }
 
         const executed = task === "test"
-          ? await executeVitestTask(
-              root,
-              runId,
-              runDir.run_path,
-              runDir.raw_path,
-              vitestPlan as PlannedVitestTask,
-              decision,
-              secrets,
-              taskTimeoutMs(config, task),
-            )
+          ? discovery.jsTestRunner.state === "resolved" && discovery.jsTestRunner.value === "jest"
+            ? await executeJestTask(
+                root,
+                runId,
+                runDir.run_path,
+                runDir.raw_path,
+                testPlan as PlannedJestTask,
+                decision,
+                secrets,
+                taskTimeoutMs(config, task),
+              )
+            : await executeVitestTask(
+                root,
+                runId,
+                runDir.run_path,
+                runDir.raw_path,
+                testPlan as PlannedVitestTask,
+                decision,
+                secrets,
+                taskTimeoutMs(config, task),
+              )
           : await executePlannedTask(
               root,
               runId,
@@ -1019,7 +1156,7 @@ export async function runCheck(
         sourceStart,
         sourceEnd,
         comparison,
-        selection: baseSelection(vitestPlan),
+        selection: baseSelection(testPlan),
         tasks,
         exercise: emptyExercise(),
         testChanges: [] satisfies readonly TestChangeV1[],

@@ -1,52 +1,50 @@
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { dirname as nativeDirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import type { ConfigV1 } from "../config.js";
 import type { DiscoveryFileMap, ProjectDiscovery } from "../discovery.js";
 import type { GitChangedFile } from "../git.js";
 import type { TaskResultV1 } from "../receipt/model.js";
 
-export type VitestAuthorizedBy = TaskResultV1["authorized_by"];
-export type VitestCoverageProvider = "v8" | "istanbul";
-export type VitestSelectionMode = "native_related";
+export type JestAuthorizedBy = TaskResultV1["authorized_by"];
+export type JestSelectionMode = "native_related";
 
-interface VitestPlanBase {
+interface JestPlanBase {
   readonly taskType: "test";
-  readonly authorizedBy: VitestAuthorizedBy;
+  readonly authorizedBy: JestAuthorizedBy;
   readonly sourcePath: string | null;
   readonly argv: readonly string[];
   readonly workingDirectory: string | null;
   readonly configPath: string | null;
-  readonly selectionMode: VitestSelectionMode | null;
+  readonly selectionMode: JestSelectionMode | null;
   readonly selectedPaths: readonly string[];
   readonly machineResultPath: string | null;
   readonly coverageDirectoryPath: string | null;
   readonly lcovPath: string | null;
-  readonly coverageProvider: VitestCoverageProvider | null;
   readonly toolVersion: string | null;
 }
 
-export interface PlannedVitestTask extends VitestPlanBase {
+export interface PlannedJestTask extends JestPlanBase {
   readonly state: "planned";
   readonly reasonCode: null;
   readonly reasonText: null;
 }
 
-export interface UnresolvedVitestTask extends VitestPlanBase {
+export interface UnresolvedJestTask extends JestPlanBase {
   readonly state: "not_run";
   readonly reasonCode: string;
   readonly reasonText: string;
 }
 
-export interface NotApplicableVitestTask extends VitestPlanBase {
+export interface NotApplicableJestTask extends JestPlanBase {
   readonly state: "not_applicable";
   readonly reasonCode: string | null;
   readonly reasonText: string | null;
 }
 
-export type VitestTaskPlan = PlannedVitestTask | UnresolvedVitestTask | NotApplicableVitestTask;
+export type JestTaskPlan = PlannedJestTask | UnresolvedJestTask | NotApplicableJestTask;
 
-export interface VitestTaskPlanningInput {
+export interface JestTaskPlanningInput {
   readonly repositoryRoot: string;
   readonly runId: string;
   readonly config: ConfigV1;
@@ -61,17 +59,15 @@ interface LocalExecutableGroup {
   readonly executablePaths: readonly string[];
 }
 
-interface InstalledVitest {
+interface InstalledJest {
   readonly executablePath: string;
-  readonly installRoot: string;
   readonly version: string;
-  readonly coverageProvider: VitestCoverageProvider;
 }
 
 type JsonRecord = Record<string, unknown>;
 
 const ASCOUT_CONFIG_PATH = "ascout.config.json";
-const VITEST_EXECUTABLE_SUFFIXES = ["", ".cmd", ".exe", ".ps1"] as const;
+const JEST_EXECUTABLE_SUFFIXES = ["", ".cmd", ".exe", ".ps1"] as const;
 const JS_TS_SOURCE = /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$/u;
 const CANONICAL_REPOSITORY_PATH =
   /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
@@ -115,11 +111,11 @@ function positionalPathArg(path: string): string {
 }
 
 function emptyBase(
-  authorizedBy: VitestAuthorizedBy = "discovery",
+  authorizedBy: JestAuthorizedBy = "discovery",
   sourcePath: string | null = null,
-): Omit<VitestPlanBase, "taskType" | "authorizedBy" | "sourcePath"> & {
+): Omit<JestPlanBase, "taskType" | "authorizedBy" | "sourcePath"> & {
   readonly taskType: "test";
-  readonly authorizedBy: VitestAuthorizedBy;
+  readonly authorizedBy: JestAuthorizedBy;
   readonly sourcePath: string | null;
 } {
   return {
@@ -134,7 +130,6 @@ function emptyBase(
     machineResultPath: null,
     coverageDirectoryPath: null,
     lcovPath: null,
-    coverageProvider: null,
     toolVersion: null,
   };
 }
@@ -142,34 +137,24 @@ function emptyBase(
 function notRun(
   reasonCode: string,
   reasonText: string,
-  authorizedBy: VitestAuthorizedBy = "discovery",
+  authorizedBy: JestAuthorizedBy = "discovery",
   sourcePath: string | null = null,
-): UnresolvedVitestTask {
-  return {
-    ...emptyBase(authorizedBy, sourcePath),
-    state: "not_run",
-    reasonCode,
-    reasonText,
-  };
+): UnresolvedJestTask {
+  return { ...emptyBase(authorizedBy, sourcePath), state: "not_run", reasonCode, reasonText };
 }
 
 function notApplicable(
-  authorizedBy: VitestAuthorizedBy = "discovery",
+  authorizedBy: JestAuthorizedBy = "discovery",
   sourcePath: string | null = null,
   reasonCode: string | null = null,
   reasonText: string | null = null,
-): NotApplicableVitestTask {
-  return {
-    ...emptyBase(authorizedBy, sourcePath),
-    state: "not_applicable",
-    reasonCode,
-    reasonText,
-  };
+): NotApplicableJestTask {
+  return { ...emptyBase(authorizedBy, sourcePath), state: "not_applicable", reasonCode, reasonText };
 }
 
-function logicalVitestRoot(path: string): string | null {
-  for (const suffix of VITEST_EXECUTABLE_SUFFIXES) {
-    const marker = `node_modules/.bin/vitest${suffix}`;
+function logicalJestRoot(path: string): string | null {
+  for (const suffix of JEST_EXECUTABLE_SUFFIXES) {
+    const marker = `node_modules/.bin/jest${suffix}`;
     if (!path.endsWith(marker)) continue;
     let prefix = path.slice(0, -marker.length);
     if (prefix.endsWith("/")) prefix = prefix.slice(0, -1);
@@ -181,7 +166,7 @@ function logicalVitestRoot(path: string): string | null {
 function groupLocalExecutables(paths: readonly string[]): readonly LocalExecutableGroup[] {
   const groups = new Map<string, string[]>();
   for (const path of paths) {
-    const root = logicalVitestRoot(path);
+    const root = logicalJestRoot(path);
     if (root === null) continue;
     const values = groups.get(root) ?? [];
     values.push(path);
@@ -192,14 +177,14 @@ function groupLocalExecutables(paths: readonly string[]): readonly LocalExecutab
     .map(([root, executablePaths]) => ({ root, executablePaths: sortedUnique(executablePaths) }));
 }
 
-function executableSuffix(path: string): (typeof VITEST_EXECUTABLE_SUFFIXES)[number] | null {
-  for (const suffix of VITEST_EXECUTABLE_SUFFIXES) {
-    if (path.endsWith(`node_modules/.bin/vitest${suffix}`)) return suffix;
+function executableSuffix(path: string): (typeof JEST_EXECUTABLE_SUFFIXES)[number] | null {
+  for (const suffix of JEST_EXECUTABLE_SUFFIXES) {
+    if (path.endsWith(`node_modules/.bin/jest${suffix}`)) return suffix;
   }
   return null;
 }
 
-function launchSuffixPriority(platform: NodeJS.Platform): readonly (typeof VITEST_EXECUTABLE_SUFFIXES)[number][] {
+function launchSuffixPriority(platform: NodeJS.Platform): readonly (typeof JEST_EXECUTABLE_SUFFIXES)[number][] {
   return platform === "win32" ? [".cmd", ".exe"] : ["", ".exe"];
 }
 
@@ -211,12 +196,12 @@ function preferredExecutable(paths: readonly string[], platform: NodeJS.Platform
   return null;
 }
 
-function changedSourcePaths(changedFiles: readonly GitChangedFile[]): readonly string[] | UnresolvedVitestTask {
+function changedSourcePaths(changedFiles: readonly GitChangedFile[]): readonly string[] | UnresolvedJestTask {
   for (const file of changedFiles) {
     if (file.path.includes("\0") || !CANONICAL_REPOSITORY_PATH.test(file.path)) {
       return notRun(
         "changed_path_invalid",
-        "Changed-file paths supplied to Vitest planning must already be canonical repository-relative paths.",
+        "Changed-file paths supplied to Jest planning must already be canonical repository-relative paths.",
       );
     }
   }
@@ -230,10 +215,7 @@ function changedSourcePaths(changedFiles: readonly GitChangedFile[]): readonly s
   );
 }
 
-function chooseScopeRoot(
-  declarationPaths: readonly string[],
-  changedPaths: readonly string[],
-): string | null {
+function chooseScopeRoot(declarationPaths: readonly string[], changedPaths: readonly string[]): string | null {
   const candidates = sortedUnique(
     declarationPaths
       .map(packageRoot)
@@ -248,11 +230,7 @@ function containedByRepository(repositoryRoot: string, absolutePath: string): bo
   return candidate === "" || (!isAbsolute(candidate) && candidate !== ".." && !candidate.startsWith(`..${sep}`));
 }
 
-function readInstalledPackageVersion(
-  repositoryRoot: string,
-  repositoryPath: string,
-  expectedName: string,
-): string | null {
+function readInstalledPackageVersion(repositoryRoot: string, repositoryPath: string): string | null {
   const absolute = resolve(repositoryRoot, ...repositoryPath.split("/"));
   if (!existsSync(absolute)) return null;
 
@@ -270,47 +248,18 @@ function readInstalledPackageVersion(
   } catch {
     return null;
   }
-  if (!isRecord(parsed) || parsed.name !== expectedName || typeof parsed.version !== "string" || parsed.version.length === 0) {
+  if (!isRecord(parsed) || parsed.name !== "jest" || typeof parsed.version !== "string" || parsed.version.length === 0) {
     return null;
   }
   return parsed.version;
 }
 
-function installedCoverageProvider(
-  repositoryRoot: string,
-  installRoot: string,
-): VitestCoverageProvider | null {
-  const roots = sortedUnique([installRoot, ""]);
-  for (const root of roots) {
-    const prefix = root === "" ? "" : `${root}/`;
-    if (
-      readInstalledPackageVersion(
-        repositoryRoot,
-        `${prefix}node_modules/@vitest/coverage-v8/package.json`,
-        "@vitest/coverage-v8",
-      ) !== null
-    ) {
-      return "v8";
-    }
-    if (
-      readInstalledPackageVersion(
-        repositoryRoot,
-        `${prefix}node_modules/@vitest/coverage-istanbul/package.json`,
-        "@vitest/coverage-istanbul",
-      ) !== null
-    ) {
-      return "istanbul";
-    }
-  }
-  return null;
-}
-
-function resolveInstalledVitest(
+function resolveInstalledJest(
   repositoryRoot: string,
   scopeRoot: string,
   executablePaths: readonly string[],
   platform: NodeJS.Platform,
-): InstalledVitest | null {
+): InstalledJest | null {
   const groups = groupLocalExecutables(executablePaths);
   const exact = groups.find((group) => group.root === scopeRoot);
   const hoisted = groups.find((group) => group.root === "");
@@ -321,22 +270,8 @@ function resolveInstalledVitest(
   if (executablePath === null) return null;
 
   const prefix = group.root === "" ? "" : `${group.root}/`;
-  const version = readInstalledPackageVersion(
-    repositoryRoot,
-    `${prefix}node_modules/vitest/package.json`,
-    "vitest",
-  );
-  if (version === null) return null;
-
-  const coverageProvider = installedCoverageProvider(repositoryRoot, group.root);
-  if (coverageProvider === null) return null;
-
-  return {
-    executablePath,
-    installRoot: group.root,
-    version,
-    coverageProvider,
-  };
+  const version = readInstalledPackageVersion(repositoryRoot, `${prefix}node_modules/jest/package.json`);
+  return version === null ? null : { executablePath, version };
 }
 
 function configAtScope(configPaths: readonly string[], scopeRoot: string): string | null | "ambiguous" {
@@ -349,7 +284,7 @@ function assertRunId(runId: string): boolean {
   return /^[A-Za-z0-9._-]+$/u.test(runId) && runId !== "." && runId !== "..";
 }
 
-export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
+export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
   const override = input.config.tasks?.test;
   if (override?.enabled === false) {
     return notApplicable(
@@ -362,7 +297,7 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
   if (override?.command !== undefined) {
     return notRun(
       "configured_test_command_machine_contract_unavailable",
-      "T051 cannot infer trusted machine-result and LCOV artifact contracts for an arbitrary configured test command.",
+      "T052 cannot infer trusted machine-result and LCOV artifact contracts for an arbitrary configured test command.",
       "user_config",
       ASCOUT_CONFIG_PATH,
     );
@@ -373,12 +308,12 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
   if (runner.state === "ambiguous" || runner.state === "unsupported") {
     return notRun(runner.reasonCode, runner.reasonText, "discovery", runner.sourcePaths[0] ?? null);
   }
-  if (runner.value !== "vitest") {
+  if (runner.value !== "jest") {
     return notApplicable(
       "discovery",
       runner.sourcePaths[0] ?? null,
-      "runner_not_vitest",
-      "The discovered JavaScript test runner is not Vitest; Jest integration is handled separately.",
+      "runner_not_jest",
+      "The discovered JavaScript test runner is not Jest; Vitest integration is handled separately.",
     );
   }
 
@@ -388,53 +323,53 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
   if (changedPaths.length === 0) {
     return notRun(
       "native_selection_unresolved",
-      "No changed supported JavaScript/TypeScript source path is available for confident native Vitest related selection.",
+      "No changed supported JavaScript/TypeScript source path is available for confident native Jest related selection.",
       "discovery",
       runner.sourcePaths[0] ?? null,
     );
   }
 
-  const scopeRoot = chooseScopeRoot(input.discovery.tools.vitest.declarationPaths, changedPaths);
+  const scopeRoot = chooseScopeRoot(input.discovery.tools.jest.declarationPaths, changedPaths);
   if (scopeRoot === null) {
     return notRun(
       "test_scope_ambiguous",
-      "No single declared Vitest package scope safely contains every changed supported source path.",
+      "No single declared Jest package scope safely contains every changed supported source path.",
       "discovery",
       runner.sourcePaths[0] ?? null,
     );
   }
 
-  const configPath = configAtScope(input.discovery.tools.vitest.configPaths, scopeRoot);
+  const configPath = configAtScope(input.discovery.tools.jest.configPaths, scopeRoot);
   if (configPath === "ambiguous") {
     return notRun(
       "config_ambiguous",
-      "Multiple Vitest configuration files exist at the selected package scope.",
+      "Multiple Jest configuration files exist at the selected package scope.",
       "repo_config",
-      packageRoot(scopeRoot === "" ? "package.json" : `${scopeRoot}/package.json`) || "package.json",
+      scopeRoot === "" ? "package.json" : `${scopeRoot}/package.json`,
     );
   }
 
-  const installed = resolveInstalledVitest(
-    input.repositoryRoot,
+  const installed = resolveInstalledJest(
+    repositoryRootOrThrow(input.repositoryRoot),
     scopeRoot,
-    input.discovery.tools.vitest.localExecutablePaths,
+    input.discovery.tools.jest.localExecutablePaths,
     input.platform ?? process.platform,
   );
   if (installed === null) {
     return notRun(
-      "tool_or_coverage_provider_unresolved",
-      "Project-local Vitest plus an installed local v8 or Istanbul coverage provider are required; Ascout will not install either implicitly.",
+      "tool_unresolved",
+      "Project-local Jest is required; Ascout will not install or invoke package-manager executors implicitly.",
       "discovery",
       configPath ?? runner.sourcePaths[0] ?? null,
     );
   }
 
   if (!assertRunId(input.runId)) {
-    return notRun("run_id_invalid", "Internal run identifier is not safe for Vitest artifact paths.");
+    return notRun("run_id_invalid", "Internal run identifier is not safe for Jest artifact paths.");
   }
 
   const artifactBase = `.ascout/runs/${input.runId}/raw/test`;
-  const machineResultPath = `${artifactBase}/vitest-results.json`;
+  const machineResultPath = `${artifactBase}/jest-results.json`;
   const coverageDirectoryPath = `${artifactBase}/coverage`;
   const lcovPath = `${coverageDirectoryPath}/lcov.info`;
   const workingDirectory = scopeRoot === "" ? null : scopeRoot;
@@ -451,17 +386,14 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
     sourcePath: configPath ?? runner.sourcePaths[0] ?? null,
     argv: [
       executableArg,
-      "related",
+      "--findRelatedTests",
       ...selectedArgs,
-      "--run",
-      "--passWithNoTests",
-      "--reporter=json",
+      "--ci",
+      "--json",
       `--outputFile=${machineResultArg}`,
-      "--coverage.enabled=true",
-      `--coverage.provider=${installed.coverageProvider}`,
-      "--coverage.reporter=lcov",
-      `--coverage.reportsDirectory=${coverageDirectoryArg}`,
-      "--coverage.reportOnFailure=true",
+      "--coverage",
+      `--coverageDirectory=${coverageDirectoryArg}`,
+      "--coverageReporters=lcov",
       ...configArgs,
     ],
     workingDirectory,
@@ -471,9 +403,15 @@ export function planVitestTask(input: VitestTaskPlanningInput): VitestTaskPlan {
     machineResultPath,
     coverageDirectoryPath,
     lcovPath,
-    coverageProvider: installed.coverageProvider,
     toolVersion: installed.version,
     reasonCode: null,
     reasonText: null,
   };
+}
+
+function repositoryRootOrThrow(repositoryRoot: string): string {
+  if (repositoryRoot.length === 0 || repositoryRoot.includes("\0")) {
+    throw new Error("repository root must be a non-empty path");
+  }
+  return repositoryRoot;
 }
