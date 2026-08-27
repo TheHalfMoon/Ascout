@@ -1,0 +1,53 @@
+name: T068 exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualification/t068-exact-head-c50452d2
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact T068 feature head
+        uses: actions/checkout@v4
+        with:
+          ref: c50452d2999d12380e5ad45b781728056985576d
+          fetch-depth: 0
+
+      - name: Opening exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c50452d2999d12380e5ad45b781728056985576d"
+          test -z "$(git status --short)"
+
+      - name: Install locked dependencies
+        shell: bash
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T065/T068 tests
+        shell: bash
+        run: npx vitest run tests/test-snapshot-facts.contract.test.ts tests/test-snapshot-facts.runtime.test.ts
+
+      - name: Typecheck
+        shell: bash
+        run: npm run typecheck
+
+      - name: Build
+        shell: bash
+        run: npm run build
+
+      - name: Full suite
+        shell: bash
+        run: npm test
+
+      - name: Closing exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c50452d2999d12380e5ad45b781728056985576d"
+          test -z "$(git status --short)"
