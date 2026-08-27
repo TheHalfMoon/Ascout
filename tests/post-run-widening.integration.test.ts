@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { validateReceiptSemantics, type ReceiptV1 } from "../src/receipt/model.js";
+import type { GitChangedFile } from "../src/git.js";
+import { validateReceiptSemantics, type ReceiptV1, type SelectionV1 } from "../src/receipt/model.js";
+import {
+  decidePostRunWidening,
+  postRunPlanningChangedFiles,
+  withPostRunWideningPass,
+} from "../src/selection.js";
 
 function twoPassReceipt(): ReceiptV1 {
   const head = "a".repeat(40);
@@ -176,6 +182,39 @@ function issueCodes(receipt: ReceiptV1): string[] {
   return validateReceiptSemantics(receipt).issues.map(({ code }) => code);
 }
 
+function changed(path: string): GitChangedFile {
+  return {
+    path,
+    change_kind: "modified",
+    line_semantics: "text",
+    changed_new_line_ranges: [[1, 1]],
+  };
+}
+
+function onePassSelection(): SelectionV1 {
+  return {
+    mode: "native_related",
+    initial_scope: { kind: "package", path: "packages/a" },
+    selected_test_count: null,
+    deselected_test_count: null,
+    total_test_count: null,
+    widened: false,
+    widen_triggers: [],
+    passes: [
+      {
+        ordinal: 1,
+        mode: "native_related",
+        scope: { kind: "package", path: "packages/a" },
+        trigger: null,
+        selected_test_count: null,
+        deselected_test_count: null,
+        total_test_count: null,
+      },
+    ],
+    limitations: ["selection_counts_not_observed", "unsafe_selection"],
+  };
+}
+
 describe("T048 bounded post-run widening integration contract", () => {
   it("accepts one post-run wider pass while preserving an unresolved gap that the wider pass cannot prove", () => {
     const receipt = twoPassReceipt();
@@ -231,5 +270,67 @@ describe("T048 bounded post-run widening integration contract", () => {
     (receipt.selection as unknown as { widened: boolean }).widened = false;
 
     expect(issueCodes(receipt)).toContain("selection_widening_invariant");
+  });
+});
+
+describe("T054 post-run coverage-relation decision", () => {
+  it("widens once when narrowed coverage has no usable relationship for one changed production source", () => {
+    const files = [changed("packages/a/src/covered.ts"), changed("packages/a/src/missing.ts"), changed("README.md")];
+    const decision = decidePostRunWidening(files, "native_related", [
+      { path: "packages/a/src/covered.ts", line: 1, count: 0, instrumented: true },
+    ]);
+
+    expect(decision).toEqual({
+      widened: true,
+      trigger: "post_run_exercise_gap",
+      relationGapPaths: ["packages/a/src/missing.ts"],
+    });
+    expect(postRunPlanningChangedFiles(files, decision).map(({ path }) => path)).toEqual([
+      "packages/a/src/missing.ts",
+    ]);
+  });
+
+  it("treats a zero-count LCOV point as a usable relationship and leaves line exercise to T055", () => {
+    const files = [changed("src/a.ts")];
+    expect(decidePostRunWidening(files, "native_related", [
+      { path: "src/a.ts", line: 1, count: 0, instrumented: true },
+    ])).toEqual({ widened: false, trigger: null, relationGapPaths: [] });
+  });
+
+  it("never recursively widens an initial full pass", () => {
+    const files = [changed("src/a.ts")];
+    expect(decidePostRunWidening(files, "full", [])).toEqual({
+      widened: false,
+      trigger: null,
+      relationGapPaths: [],
+    });
+  });
+
+  it("ignores changed tests and non-production files when deciding the coverage relationship", () => {
+    const files = [changed("tests/a.test.ts"), changed("README.md")];
+    expect(decidePostRunWidening(files, "native_related", [])).toEqual({
+      widened: false,
+      trigger: null,
+      relationGapPaths: [],
+    });
+  });
+
+  it("records exactly one full second pass and refuses to append a third", () => {
+    const widened = withPostRunWideningPass(onePassSelection(), "packages/a");
+    expect(widened).toMatchObject({
+      mode: "full",
+      widened: true,
+      widen_triggers: ["post_run_exercise_gap"],
+    });
+    expect(widened.passes).toEqual([
+      expect.objectContaining({ ordinal: 1, mode: "native_related", trigger: null }),
+      expect.objectContaining({
+        ordinal: 2,
+        mode: "full",
+        scope: { kind: "package", path: "packages/a" },
+        trigger: "post_run_exercise_gap",
+      }),
+    ]);
+    expect(withPostRunWideningPass(widened, "packages/a")).toEqual(widened);
   });
 });
