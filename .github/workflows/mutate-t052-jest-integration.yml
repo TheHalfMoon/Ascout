@@ -23,6 +23,7 @@ jobs:
           cp .github/scripts/t052_jest_task.contract.test.ts /tmp/jest-task.contract.test.ts
           cp .github/scripts/t052_jest_check.integration.test.ts /tmp/jest-check.integration.test.ts
           cp .github/scripts/t052_patch_check.py /tmp/t052_patch_check.py
+          cp .github/scripts/t052_jest_validator_fix.py /tmp/t052_jest_validator_fix.py
 
       - name: Checkout exact T052 feature branch
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -72,6 +73,7 @@ jobs:
           cp /tmp/jest-task.contract.test.ts tests/jest-task.contract.test.ts
           cp /tmp/jest-check.integration.test.ts tests/jest-check.integration.test.ts
           python /tmp/t052_patch_check.py
+          python /tmp/t052_jest_validator_fix.py
           git diff --check
 
       - name: Typecheck candidate
