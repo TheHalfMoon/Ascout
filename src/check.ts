@@ -13,6 +13,7 @@ import {
 } from "./discovery.js";
 import { configDigestV1, parseConfigV1Json, type ConfigV1 } from "./config.js";
 import { normalizeLcovLineCoverage, type LcovLinePoint } from "./coverage/lcov.js";
+import { buildChangedLineExercise } from "./exercise.js";
 import {
   readGitHeadState,
   readTreeDigestV1,
@@ -300,8 +301,9 @@ function workingDirectoryPath(repositoryRoot: string, workingDirectory: string |
 }
 
 function emptyExercise(): ExerciseV1 {
-  // Changed-line exercise proof arrives with US2; until then the receipt keeps
-  // the exercise section empty, which forces materially_incomplete and exit 4.
+  // No usable normalized test coverage means T055 has no trustworthy line
+  // intersection input. Task/selection/error semantics still keep the run
+  // incomplete without inventing exercise evidence.
   return {
     changed_executable_lines: 0,
     exercised_lines: 0,
@@ -1100,6 +1102,7 @@ export async function runCheck(
       const tasks: TaskResultV1[] = [];
       const evidence: EvidenceV1[] = [];
       const artifacts: ArtifactV1[] = [];
+      let exerciseCoveragePoints: readonly LcovLinePoint[] | null = null;
 
       for (const task of FIXED_SEMANTIC_TASKS) {
         const decision = decisions[task];
@@ -1245,6 +1248,7 @@ export async function runCheck(
               }
             }
           }
+          exerciseCoveragePoints = finalExecuted.coveragePoints;
           executed = finalExecuted;
         } else {
           executed = await executePlannedTask(
@@ -1263,6 +1267,9 @@ export async function runCheck(
         artifacts.push(...executed.artifacts);
       }
 
+      const exercise = exerciseCoveragePoints === null
+        ? emptyExercise()
+        : buildChangedLineExercise(gitComparison.changed_files, exerciseCoveragePoints, "test");
       const sourceEnd = composeSourceState(root);
 
       const receipt = buildReceipt({
@@ -1278,7 +1285,7 @@ export async function runCheck(
         comparison,
         selection,
         tasks,
-        exercise: emptyExercise(),
+        exercise,
         testChanges: [] satisfies readonly TestChangeV1[],
         findings: [],
         evidence,
