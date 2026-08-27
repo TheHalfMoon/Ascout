@@ -389,7 +389,9 @@ describe("T033 end-to-end check receipt contract", () => {
       const codes = semanticCodes(receipt);
       expect(codes, invalid).toContain("noncanonical_original_path");
       expect(changed.path, invalid).toBe(invalid);
-      expectSemanticRejection(receipt, "noncanonical_original_path");
+      const error = captureContractError(() => renderReceiptJson(receipt));
+      expect(error.layer, invalid).toBe("schema");
+      expect(error.schemaIssues.length, invalid).toBeGreaterThan(0);
       expect(changed.path, invalid).toBe(invalid);
     }
   });

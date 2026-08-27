@@ -6,6 +6,7 @@ import type {
 } from "../discovery.js";
 import type { GitChangedFile } from "../git.js";
 import type { TaskResultV1 } from "../receipt/model.js";
+
 export type ESLintCommandSource = "override" | "package_script" | "local_eslint";
 export type ESLintExecutionScope = "configured_override" | "project_script" | "changed_files";
 export type ESLintAuthorizedBy = TaskResultV1["authorized_by"];
@@ -223,11 +224,45 @@ function inspectLintScript(files: DiscoveryFileMap, manifestPath: string): Scrip
   };
 }
 
+function pathWithinRoot(path: string, root: string): boolean {
+  return root === "" || path.startsWith(`${root}/`);
+}
+
+function changedLintablePaths(changedFiles: readonly GitChangedFile[]): readonly string[] | UnresolvedESLintTask {
+  for (const file of changedFiles) {
+    if (file.path.includes("\0") || !CANONICAL_REPOSITORY_PATH.test(file.path)) {
+      return notRun(
+        "changed_path_invalid",
+        "Changed-file paths supplied to ESLint planning must already be canonical repository-relative paths.",
+      );
+    }
+  }
+
+  return sortedUnique(
+    changedFiles
+      .filter(({ change_kind }) => change_kind !== "deleted")
+      .filter(({ line_semantics }) => line_semantics === "text")
+      .map(({ path }) => path)
+      .filter((path) => LINTABLE_SOURCE.test(path)),
+  );
+}
+
+function scriptCandidateCoversChangedPaths(
+  candidate: ScriptCandidate,
+  changedPaths: readonly string[],
+): boolean {
+  if (candidate.workingDirectory === null || changedPaths.length === 0) return true;
+  return changedPaths.every((path) => pathWithinRoot(path, candidate.workingDirectory!));
+}
+
 function resolveScriptCandidate(
   input: ESLintTaskPlanningInput,
 ): ScriptCandidate | UnresolvedESLintTask | null {
   const manifestPaths = input.discovery.workspace.packageJsonPaths;
   const rootPath = manifestPaths.includes("package.json") ? "package.json" : null;
+  const changedPathsOrError = changedLintablePaths(input.changedFiles);
+  if ("state" in changedPathsOrError) return changedPathsOrError;
+  const changedPaths = changedPathsOrError;
 
   if (rootPath !== null) {
     const root = inspectLintScript(input.files, rootPath);
@@ -247,6 +282,14 @@ function resolveScriptCandidate(
     if (manifestPath === "package.json") continue;
     const inspected = inspectLintScript(input.files, manifestPath);
     if (inspected.state === "invalid") {
+      const packageRoot = packageDirectory(inspected.manifestPath);
+      if (
+        packageRoot !== null &&
+        changedPaths.length > 0 &&
+        !changedPaths.every((path) => pathWithinRoot(path, packageRoot))
+      ) {
+        continue;
+      }
       return notRun(
         "lint_script_invalid",
         "A discovered workspace lint script must be a non-empty string.",
@@ -254,14 +297,19 @@ function resolveScriptCandidate(
         inspected.manifestPath,
       );
     }
-    if (inspected.state === "present") candidates.push(inspected.candidate);
+    if (
+      inspected.state === "present" &&
+      scriptCandidateCoversChangedPaths(inspected.candidate, changedPaths)
+    ) {
+      candidates.push(inspected.candidate);
+    }
   }
 
   if (candidates.length === 0) return null;
   if (candidates.length > 1) {
     return notRun(
       "lint_script_ambiguous",
-      "Multiple workspace lint scripts were discovered without a root lint script.",
+      "Multiple workspace lint scripts cover the changed supported files without a root lint script.",
       "repo_config",
     );
   }
@@ -338,29 +386,6 @@ function preferredExecutable(paths: readonly string[]): string | null {
   return null;
 }
 
-function pathWithinRoot(path: string, root: string): boolean {
-  return root === "" || path.startsWith(`${root}/`);
-}
-
-function changedLintablePaths(changedFiles: readonly GitChangedFile[]): readonly string[] | UnresolvedESLintTask {
-  for (const file of changedFiles) {
-    if (file.path.includes("\0") || !CANONICAL_REPOSITORY_PATH.test(file.path)) {
-      return notRun(
-        "changed_path_invalid",
-        "Changed-file paths supplied to ESLint planning must already be canonical repository-relative paths.",
-      );
-    }
-  }
-
-  return sortedUnique(
-    changedFiles
-      .filter(({ change_kind }) => change_kind !== "deleted")
-      .filter(({ line_semantics }) => line_semantics === "text")
-      .map(({ path }) => path)
-      .filter((path) => LINTABLE_SOURCE.test(path)),
-  );
-}
-
 function countAllESLintConfigFiles(files: DiscoveryFileMap): number {
   return Object.keys(files).reduce((count, path) => {
     const name = basename(path);
@@ -391,30 +416,15 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
   }
   const allESLintConfigCount = countAllESLintConfigFiles(input.files);
   if (allESLintConfigCount > 1) {
-    // Multiple config files - check if there's a lint script in workspace package.json files
-    const hasLintScript = input.discovery.workspace.packageJsonPaths.some((manifestPath) => {
-      const raw = input.files[manifestPath];
-      if (raw === undefined) return false;
-      let value: unknown;
-      try {
-        value = JSON.parse(raw) as unknown;
-      } catch {
-        return false;
-      }
-      const result = isRecord(value) &&
-             isRecord(value.scripts) &&
-             typeof value.scripts[LINT_SCRIPT] === "string" &&
-             value.scripts[LINT_SCRIPT].length > 0;
-      return result;
-    });
-
-    if (!hasLintScript) {
+    const script = resolveScriptCandidate(input);
+    if (script === null || "state" in script) {
       return notRun(
         "config_ambiguous",
         "Multiple ESLint project configurations apply to the discovered local eslint.",
       );
     }
-    // If there's a lint script, fall through to script resolution (return null)
+    // A source-bound repository script that covers the changed files takes
+    // precedence over guessing which one of multiple ESLint configs applies.
     return null;
   }
 
@@ -475,7 +485,6 @@ function planLocalChangedFiles(input: ESLintTaskPlanningInput): PlannedESLintTas
   const configArg = relativeFromRoot(configRoot, configPath);
   const selectedArgs = selectedPaths.map((path) => relativeFromRoot(configRoot, path));
 
-
   return planned(
     "discovery",
     configPath,
@@ -515,7 +524,7 @@ export function planESLintTask(input: ESLintTaskPlanningInput): ESLintTaskPlan {
     if (invalidOverrideCommand(override.command)) {
       return notRun(
         "override_command_invalid",
-        "The configured lint command must have a non-executable and contain no NUL bytes.",
+        "The configured lint command must have a non-empty executable and contain no NUL bytes.",
         "user_config",
         ASCOUT_CONFIG_PATH,
       );
