@@ -1,0 +1,59 @@
+name: T067 repaired exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualification/t067-exact-head-b9308fef
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact feature head
+        uses: actions/checkout@v4
+        with:
+          ref: b9308fef182efe84c6d264c0a512ff6d48dd0a31
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Opening exact-head guard
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "b9308fef182efe84c6d264c0a512ff6d48dd0a31"
+          test -z "$(git status --porcelain)"
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T067 tests
+        run: >-
+          npx vitest run
+          tests/cross-format-consistency.contract.test.ts
+          tests/agent-receipt.contract.test.ts
+          tests/receipt-terminal.contract.test.ts
+          tests/receipt-json.test.ts
+          tests/receipt-v1.semantic-invariants.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full test suite
+        run: npm test
+
+      - name: Closing exact-head guard
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "b9308fef182efe84c6d264c0a512ff6d48dd0a31"
+          git diff --exit-code
+          git diff --cached --exit-code
