@@ -118,7 +118,7 @@ describe("T044 LCOV fixture contract", () => {
   it("locks repeated matching DA records to additive execution counts", () => {
     const catalog = loadCatalog();
     const repeated = fixtureById(catalog, "repeated-line-across-records");
-    const mixed = fixtureById(catalog, "repeated-zero-and-hit");
+    const mixed = fixtureById(catalog, "repeated-hit-then-zero");
 
     const repeatedEntries = parseWellFormedDaEntries(repeated.input).filter((entry) => entry.line === 7);
     expect(repeatedEntries).toEqual([

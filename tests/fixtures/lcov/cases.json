@@ -38,10 +38,10 @@
       }
     },
     {
-      "id": "repeated-zero-and-hit",
-      "purpose": "a repeated zero observation does not erase a positive observation for the same source line",
+      "id": "repeated-hit-then-zero",
+      "purpose": "a later repeated zero observation does not erase an earlier positive observation for the same source line",
       "repoRoot": "/repo",
-      "input": "TN:unit\nSF:/repo/src/mixed.ts\nDA:11,0\nend_of_record\nTN:unit\nSF:/repo/src/mixed.ts\nDA:11,4\nend_of_record\n",
+      "input": "TN:unit\nSF:/repo/src/mixed.ts\nDA:11,4\nend_of_record\nTN:unit\nSF:/repo/src/mixed.ts\nDA:11,0\nend_of_record\n",
       "expected": {
         "outcome": "resolved",
         "points": [
