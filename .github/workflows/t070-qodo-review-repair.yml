@@ -34,96 +34,56 @@ jobs:
 
           cli_path = Path("src/cli.ts")
           cli = cli_path.read_text()
-          old = '''      if (invocation.format === "json") {
-                console.log(renderReceiptJson(outcome.receipt));
-              } else if (invocation.format === "agent") {
-                console.log(renderReceiptAgent(outcome.receipt));
-              } else {
-          '''
-          new = '''      if (invocation.format === "json") {
-                process.stdout.write(renderReceiptJson(outcome.receipt));
-              } else if (invocation.format === "agent") {
-                process.stdout.write(renderReceiptAgent(outcome.receipt));
-              } else {
-          '''
-          if old not in cli:
-              raise SystemExit("CLI machine-output anchor not found")
-          cli_path.write_text(cli.replace(old, new, 1))
+          replacements = [
+              (
+                  'console.log(renderReceiptJson(outcome.receipt));',
+                  'process.stdout.write(renderReceiptJson(outcome.receipt));',
+              ),
+              (
+                  'console.log(renderReceiptAgent(outcome.receipt));',
+                  'process.stdout.write(renderReceiptAgent(outcome.receipt));',
+              ),
+          ]
+          for old, new in replacements:
+              if cli.count(old) != 1:
+                  raise SystemExit(f"expected exactly one CLI anchor: {old!r}")
+              cli = cli.replace(old, new, 1)
+          cli_path.write_text(cli)
 
           test_path = Path("tests/cli-format.contract.test.ts")
           tests = test_path.read_text()
 
-          tests = tests.replace(
-              '    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);\n    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);',
-              '    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);\n    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);',
-          )
-          tests = tests.replace('    expect(log).not.toHaveBeenCalled();', '    expect(stdout).not.toHaveBeenCalled();')
+          old_spy = 'const log = vi.spyOn(console, "log").mockImplementation(() => undefined);'
+          new_spy = 'const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);'
+          if tests.count(old_spy) != 3:
+              raise SystemExit(f"expected three console.log spies, found {tests.count(old_spy)}")
+          tests = tests.replace(old_spy, new_spy)
 
-          old_json = '''    mocks.renderJson.mockReturnValue('{"schema_version":1}');
-              const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
-              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+          exact_replacements = [
+              (
+                  'expect(log).not.toHaveBeenCalled();',
+                  'expect(stdout).not.toHaveBeenCalled();',
+              ),
+              (
+                  'mocks.renderJson.mockReturnValue(\'{"schema_version":1}\');',
+                  'mocks.renderJson.mockReturnValue(\'{"schema_version":1}\\n\');',
+              ),
+              (
+                  'expect(log).toHaveBeenCalledWith(\'{"schema_version":1}\');',
+                  'expect(stdout).toHaveBeenCalledTimes(1);\n    expect(stdout).toHaveBeenCalledWith(\'{"schema_version":1}\\n\');',
+              ),
+              (
+                  'expect(log).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");',
+                  'expect(stdout).toHaveBeenCalledTimes(1);\n    expect(stdout).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");',
+              ),
+          ]
+          for old, new in exact_replacements:
+              if tests.count(old) != 1:
+                  raise SystemExit(f"expected exactly one test anchor: {old!r}; found {tests.count(old)}")
+              tests = tests.replace(old, new, 1)
 
-              expect(await runCli(["check", "--format", "json"])).toBe(3);
-              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
-              expect(mocks.renderJson).toHaveBeenCalledTimes(1);
-              expect(mocks.renderJson).toHaveBeenCalledWith(receipt);
-              expect(mocks.renderAgent).not.toHaveBeenCalled();
-              expect(log).toHaveBeenCalledWith('{"schema_version":1}');
-              expect(error).not.toHaveBeenCalled();
-          '''
-          new_json = '''    const rendered = '{"schema_version":1}\\n';
-              mocks.renderJson.mockReturnValue(rendered);
-              const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-              expect(await runCli(["check", "--format", "json"])).toBe(3);
-              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
-              expect(mocks.renderJson).toHaveBeenCalledTimes(1);
-              expect(mocks.renderJson).toHaveBeenCalledWith(receipt);
-              expect(mocks.renderAgent).not.toHaveBeenCalled();
-              expect(stdout).toHaveBeenCalledTimes(1);
-              expect(stdout).toHaveBeenCalledWith(rendered);
-              expect(error).not.toHaveBeenCalled();
-          '''
-          if old_json not in tests:
-              raise SystemExit("JSON test anchor not found")
-          tests = tests.replace(old_json, new_json, 1)
-
-          old_agent = '''    mocks.renderAgent.mockReturnValue("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
-              const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
-              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-              expect(await runCli(["check", "--allow-changed-command-surface", "--format", "agent"])).toBe(1);
-              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
-              expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
-                allowChangedCommandSurface: true,
-              });
-              expect(mocks.renderAgent).toHaveBeenCalledTimes(1);
-              expect(mocks.renderAgent).toHaveBeenCalledWith(receipt);
-              expect(mocks.renderJson).not.toHaveBeenCalled();
-              expect(log).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
-              expect(error).not.toHaveBeenCalled();
-          '''
-          new_agent = '''    const rendered = "ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable";
-              mocks.renderAgent.mockReturnValue(rendered);
-              const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
-
-              expect(await runCli(["check", "--allow-changed-command-surface", "--format", "agent"])).toBe(1);
-              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
-              expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
-                allowChangedCommandSurface: true,
-              });
-              expect(mocks.renderAgent).toHaveBeenCalledTimes(1);
-              expect(mocks.renderAgent).toHaveBeenCalledWith(receipt);
-              expect(mocks.renderJson).not.toHaveBeenCalled();
-              expect(stdout).toHaveBeenCalledTimes(1);
-              expect(stdout).toHaveBeenCalledWith(rendered);
-              expect(error).not.toHaveBeenCalled();
-          '''
-          if old_agent not in tests:
-              raise SystemExit("agent test anchor not found")
-          tests = tests.replace(old_agent, new_agent, 1)
+          if 'console, "log"' in tests or 'expect(log)' in tests:
+              raise SystemExit("stale console.log test expectations remain")
           test_path.write_text(tests)
           PY
 
