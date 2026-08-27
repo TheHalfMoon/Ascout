@@ -1,3 +1,4 @@
+import type { LcovLinePoint } from "./coverage/lcov.js";
 import type { ProjectDiscovery } from "./discovery.js";
 import type { GitChangedFile } from "./git.js";
 import {
@@ -8,6 +9,7 @@ import type { JestTaskPlan } from "./tools/jest.js";
 import type { VitestTaskPlan } from "./tools/vitest.js";
 
 export const SELECTION_COUNTS_NOT_OBSERVED_LIMITATION = "selection_counts_not_observed" as const;
+export const POST_RUN_EXERCISE_GAP_TRIGGER = "post_run_exercise_gap" as const;
 
 export type PreRunWidenTrigger =
   | "dependency_surface_changed"
@@ -24,6 +26,12 @@ export interface PreRunWideningDecision {
   readonly riskPaths: readonly string[];
 }
 
+export interface PostRunWideningDecision {
+  readonly widened: boolean;
+  readonly trigger: typeof POST_RUN_EXERCISE_GAP_TRIGGER | null;
+  readonly relationGapPaths: readonly string[];
+}
+
 const LOCKFILE_NAMES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock"]);
 const PACKAGE_MANAGER_CONFIG_NAMES = new Set([
   ".npmrc",
@@ -33,6 +41,7 @@ const PACKAGE_MANAGER_CONFIG_NAMES = new Set([
   "pnpmfile.cjs",
 ]);
 const JS_TS_SOURCE = /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$/u;
+const TYPESCRIPT_DECLARATION_SOURCE = /\.d\.(?:ts|mts|cts)$/u;
 const DEFAULT_JS_TEST_SURFACE =
   /(?:^|\/)(?:__tests__\/.*\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)|[^/]+\.(?:test|spec)\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx))$/u;
 const SNAPSHOT_SURFACE = /(?:^|\/)__snapshots__\/.*\.snap$/u;
@@ -69,6 +78,17 @@ function isCompilerConfig(path: string): boolean {
 function isRunnerConfig(path: string): boolean {
   const name = basename(path);
   return VITEST_CONFIG_NAME.test(name) || JEST_CONFIG_NAME.test(name);
+}
+
+function isChangedProductionSource(file: GitChangedFile): boolean {
+  return (
+    file.change_kind !== "deleted" &&
+    file.line_semantics === "text" &&
+    JS_TS_SOURCE.test(file.path) &&
+    !TYPESCRIPT_DECLARATION_SOURCE.test(file.path) &&
+    !DEFAULT_JS_TEST_SURFACE.test(file.path) &&
+    !isRunnerConfig(file.path)
+  );
 }
 
 function currentRunnerConfigPaths(discovery: ProjectDiscovery): ReadonlySet<string> {
@@ -205,6 +225,95 @@ export function preRunPlanningChangedFiles(
       changed_new_line_ranges: source.path === path ? source.changed_new_line_ranges : [],
     };
   });
+}
+
+/**
+ * T054 is intentionally file-relation only. A changed production source needs
+ * at least one normalized LCOV point before narrowed selection can be treated
+ * as having a usable coverage relationship. A zero execution count is still a
+ * usable relationship; T055 owns changed-line exercise/count semantics.
+ */
+export function decidePostRunWidening(
+  changedFiles: readonly GitChangedFile[],
+  firstPassMode: "native_related" | "full",
+  coveragePoints: readonly LcovLinePoint[],
+): PostRunWideningDecision {
+  if (firstPassMode !== "native_related") {
+    return { widened: false, trigger: null, relationGapPaths: [] };
+  }
+
+  const coveredPaths = new Set(coveragePoints.map(({ path }) => path));
+  const relationGapPaths = changedFiles
+    .filter(isChangedProductionSource)
+    .map(({ path }) => path)
+    .filter((path) => !coveredPaths.has(path));
+  const ordered = [...new Set(relationGapPaths)].sort(compareStrings);
+
+  return ordered.length === 0
+    ? { widened: false, trigger: null, relationGapPaths: [] }
+    : { widened: true, trigger: POST_RUN_EXERCISE_GAP_TRIGGER, relationGapPaths: ordered };
+}
+
+/** Planner-only carriers for T054 relation-gap paths; source comparison truth remains unchanged. */
+export function postRunPlanningChangedFiles(
+  changedFiles: readonly GitChangedFile[],
+  widening: PostRunWideningDecision,
+): readonly GitChangedFile[] {
+  if (!widening.widened) return [];
+  const owners = new Map(changedFiles.map((file) => [file.path, file] as const));
+  return widening.relationGapPaths.map((path) => {
+    const source = owners.get(path);
+    if (source === undefined) {
+      throw new Error(`post-run widening relation-gap path has no changed-file owner: ${path}`);
+    }
+    return {
+      path,
+      change_kind: source.change_kind,
+      line_semantics: source.line_semantics,
+      changed_new_line_ranges: source.changed_new_line_ranges,
+    };
+  });
+}
+
+/**
+ * Records the one permitted T054 second pass only after that full pass actually
+ * launches. Calling this on an already widened/two-pass selection is a no-op,
+ * which keeps recursive widening impossible by construction.
+ */
+export function withPostRunWideningPass(
+  selection: SelectionV1,
+  workingDirectory: string | null,
+): SelectionV1 {
+  if (
+    selection.widened ||
+    selection.mode !== "native_related" ||
+    selection.passes.length !== 1
+  ) {
+    return selection;
+  }
+
+  const scope = workingDirectory === null || workingDirectory === ""
+    ? ({ kind: "repository", path: null } as const)
+    : ({ kind: "package", path: workingDirectory } as const);
+
+  return {
+    ...selection,
+    mode: "full",
+    widened: true,
+    widen_triggers: [POST_RUN_EXERCISE_GAP_TRIGGER],
+    passes: [
+      selection.passes[0]!,
+      {
+        ordinal: 2,
+        mode: "full",
+        scope,
+        trigger: POST_RUN_EXERCISE_GAP_TRIGGER,
+        selected_test_count: null,
+        deselected_test_count: null,
+        total_test_count: null,
+      },
+    ],
+  };
 }
 
 export function initialSelection(
