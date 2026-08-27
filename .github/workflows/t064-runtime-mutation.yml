@@ -28,6 +28,31 @@ jobs:
           set -euo pipefail
           git show origin/mutation/t064-wire-runtime:.github/scripts/t064_mutate.py > /tmp/t064_mutate.py
           test -s /tmp/t064_mutate.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('/tmp/t064_mutate.py')
+          text = path.read_text()
+          old = '''check = check.replace(
+              '    selectedTestCounts: [null],\\n  };',
+              '    selectedTestCounts: [null],\\n    machineResults: [],\\n  };',
+          )
+          if check.count('machineResults: [],') < 4:
+              raise SystemExit('expected evidence-error returns to gain machineResults')
+          '''
+          new = '''evidence_error_needle = '    selectedTestCounts: [null],\\n  };'
+          if check.count(evidence_error_needle) != 2:
+              raise SystemExit(f"expected two evidence-error return blocks, found {check.count(evidence_error_needle)}")
+          check = check.replace(
+              evidence_error_needle,
+              '    selectedTestCounts: [null],\\n    machineResults: [],\\n  };',
+          )
+          if check.count('    machineResults: [],\\n  };') != 2:
+              raise SystemExit('expected exactly two evidence-error machineResults fields')
+          '''
+          if text.count(old) != 1:
+              raise SystemExit('temporary correction target not found exactly once')
+          path.write_text(text.replace(old, new, 1))
+          PY
           python3 /tmp/t064_mutate.py
           git diff --check
           test -n "$(git status --porcelain)"
