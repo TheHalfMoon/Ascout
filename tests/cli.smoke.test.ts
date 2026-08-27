@@ -122,7 +122,7 @@ describe("T007 CLI startup smoke", () => {
     expect(readFileSync(join(emptyProject, ".gitignore"), "utf8")).toBe(".ascout/");
   });
 
-  it("keeps doctor output opaque to local paths and configured command secrets", async () => {
+  it("keeps doctor output opaque to local and repository-relative paths plus configured command secrets", async () => {
     const repositoryRoot = mkdtempSync(join(tmpdir(), "ascout-t042-"));
     temporaryDirectories.push(repositoryRoot);
     process.chdir(repositoryRoot);
@@ -148,6 +148,9 @@ describe("T007 CLI startup smoke", () => {
     git(repositoryRoot, ["add", "--all"]);
     git(repositoryRoot, ["commit", "-q", "-m", "base"]);
 
+    const sensitiveChangedPath = "customer-acquisition-secret-plan.txt";
+    writeFileSync(join(repositoryRoot, sensitiveChangedPath), "private\n", "utf8");
+
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.resetModules();
     const { runCli } = await import("../src/cli.js");
@@ -156,8 +159,12 @@ describe("T007 CLI startup smoke", () => {
 
     expect(exitCode).toBe(0);
     expect(output).toContain("Repository identity: local:");
-    expect(output).toContain("Config source: ascout.config.json");
+    expect(output).toContain("Config source: repository_config");
+    expect(output).toContain("authorityPathCount:");
+    expect(output).toContain("Changed Files");
     expect(output).not.toContain(repositoryRoot);
     expect(output).not.toContain(secret);
+    expect(output).not.toContain("ascout.config.json");
+    expect(output).not.toContain(sensitiveChangedPath);
   });
 });
