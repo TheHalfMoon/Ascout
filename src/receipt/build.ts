@@ -166,8 +166,23 @@ function admissionMark(task: TaskResultV1): string {
   return "";
 }
 
+function escapeTerminalControlCharacters(value: string): string {
+  let rendered = "";
+  for (const character of value) {
+    const codePoint = character.codePointAt(0)!;
+    const isControl = codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f);
+    const isUnicodeLineSeparator = codePoint === 0x2028 || codePoint === 0x2029;
+    rendered += isControl || isUnicodeLineSeparator
+      ? `\\u${codePoint.toString(16).padStart(4, "0")}`
+      : character;
+  }
+  return rendered;
+}
+
 function renderSelectionScope(scope: SelectionV1["initial_scope"]): string {
-  return scope.kind === "repository" ? "repository" : `package:${scope.path}`;
+  return scope.kind === "repository"
+    ? "repository"
+    : `package:${escapeTerminalControlCharacters(scope.path)}`;
 }
 
 /**
