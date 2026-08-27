@@ -21,6 +21,7 @@ export type PreRunWidenTrigger =
 export interface PreRunWideningDecision {
   readonly widened: boolean;
   readonly triggers: readonly PreRunWidenTrigger[];
+  readonly riskPaths: readonly string[];
 }
 
 const LOCKFILE_NAMES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock"]);
@@ -52,10 +53,6 @@ function changedPathCandidates(file: GitChangedFile): readonly string[] {
   return file.previous_path === undefined ? [file.path] : [file.path, file.previous_path];
 }
 
-function anyCandidateIn(file: GitChangedFile, paths: ReadonlySet<string>): boolean {
-  return changedPathCandidates(file).some((path) => paths.has(path));
-}
-
 function isPackageManifest(path: string): boolean {
   return path === "package.json" || path.endsWith("/package.json");
 }
@@ -84,17 +81,31 @@ function currentRunnerConfigPaths(discovery: ProjectDiscovery): ReadonlySet<stri
   ]);
 }
 
+function addRisk(
+  triggers: Set<PreRunWidenTrigger>,
+  riskPaths: Set<string>,
+  trigger: PreRunWidenTrigger,
+  paths: readonly string[],
+): void {
+  if (paths.length === 0) return;
+  triggers.add(trigger);
+  for (const path of paths) riskPaths.add(path);
+}
+
 /**
  * Decides only pre-run uncertainty. Path grammar for manifests, supported
  * package-manager files, and JS test/compiler configs is exact by basename or
  * discovery identity so deletion cannot erase a formerly relation-bearing
- * surface from the decision. Post-run coverage gaps remain T054 work.
+ * surface from the decision. Risk-bearing paths are retained so full-scope
+ * planning is not distorted by unrelated changed files. Post-run coverage gaps
+ * remain T054 work.
  */
 export function decidePreRunWidening(
   discovery: ProjectDiscovery,
   changedFiles: readonly GitChangedFile[],
 ): PreRunWideningDecision {
   const triggers = new Set<PreRunWidenTrigger>();
+  const riskPaths = new Set<string>();
   const workspaceSources = new Set(discovery.workspace.sourcePaths);
   const compilerConfigs = new Set(discovery.tools.typescript.configPaths);
   const runnerConfigs = currentRunnerConfigPaths(discovery);
@@ -102,44 +113,67 @@ export function decidePreRunWidening(
   for (const file of changedFiles) {
     const candidates = changedPathCandidates(file);
 
-    if (candidates.some(isPackageManifest)) triggers.add("dependency_surface_changed");
-    if (candidates.some(isPackageManagerSurface)) triggers.add("package_manager_surface_changed");
-    if (
-      anyCandidateIn(file, workspaceSources) ||
-      candidates.includes("pnpm-workspace.yaml")
-    ) {
-      triggers.add("workspace_surface_changed");
-    }
-    if (anyCandidateIn(file, compilerConfigs) || candidates.some(isCompilerConfig)) {
-      triggers.add("compiler_surface_changed");
-    }
-    if (
-      anyCandidateIn(file, runnerConfigs) ||
-      candidates.some((path) => isRunnerConfig(path) || DEFAULT_JS_TEST_SURFACE.test(path) || SNAPSHOT_SURFACE.test(path))
-    ) {
-      triggers.add("test_surface_changed");
-    }
-
-    const productionJsPath = candidates.some(
-      (path) => JS_TS_SOURCE.test(path) && !DEFAULT_JS_TEST_SURFACE.test(path) && !isRunnerConfig(path),
+    addRisk(
+      triggers,
+      riskPaths,
+      "dependency_surface_changed",
+      candidates.filter(isPackageManifest),
     );
-    if (
-      productionJsPath &&
-      (file.change_kind === "deleted" || file.change_kind === "renamed" || file.change_kind === "type_changed")
-    ) {
-      triggers.add("path_relation_risk");
+    addRisk(
+      triggers,
+      riskPaths,
+      "package_manager_surface_changed",
+      candidates.filter(isPackageManagerSurface),
+    );
+    addRisk(
+      triggers,
+      riskPaths,
+      "workspace_surface_changed",
+      candidates.filter((path) => workspaceSources.has(path) || path === "pnpm-workspace.yaml"),
+    );
+    addRisk(
+      triggers,
+      riskPaths,
+      "compiler_surface_changed",
+      candidates.filter((path) => compilerConfigs.has(path) || isCompilerConfig(path)),
+    );
+    addRisk(
+      triggers,
+      riskPaths,
+      "test_surface_changed",
+      candidates.filter(
+        (path) => runnerConfigs.has(path) || isRunnerConfig(path) || DEFAULT_JS_TEST_SURFACE.test(path) || SNAPSHOT_SURFACE.test(path),
+      ),
+    );
+
+    if (file.change_kind === "deleted" || file.change_kind === "renamed" || file.change_kind === "type_changed") {
+      addRisk(
+        triggers,
+        riskPaths,
+        "path_relation_risk",
+        candidates.filter(
+          (path) => JS_TS_SOURCE.test(path) && !DEFAULT_JS_TEST_SURFACE.test(path) && !isRunnerConfig(path),
+        ),
+      );
     }
 
-    if (
-      file.line_semantics === "binary_or_non_line" &&
-      !candidates.some((path) => SNAPSHOT_SURFACE.test(path))
-    ) {
-      triggers.add("non_source_relation_risk");
+    if (file.line_semantics === "binary_or_non_line") {
+      addRisk(
+        triggers,
+        riskPaths,
+        "non_source_relation_risk",
+        candidates.filter((path) => !SNAPSHOT_SURFACE.test(path)),
+      );
     }
   }
 
-  const ordered = [...triggers].sort(compareStrings);
-  return { widened: ordered.length > 0, triggers: ordered };
+  const orderedTriggers = [...triggers].sort(compareStrings);
+  const orderedRiskPaths = [...riskPaths].sort(compareStrings);
+  return {
+    widened: orderedTriggers.length > 0,
+    triggers: orderedTriggers,
+    riskPaths: orderedRiskPaths,
+  };
 }
 
 export function initialSelection(
