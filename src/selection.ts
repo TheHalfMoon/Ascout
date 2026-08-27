@@ -23,8 +23,8 @@ export interface PreRunWideningDecision {
   readonly triggers: readonly PreRunWidenTrigger[];
 }
 
-const ROOT_LOCKFILES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock"]);
-const PACKAGE_MANAGER_CONFIG_PATHS = new Set([
+const LOCKFILE_NAMES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock"]);
+const PACKAGE_MANAGER_CONFIG_NAMES = new Set([
   ".npmrc",
   ".yarnrc",
   ".yarnrc.yml",
@@ -60,6 +60,11 @@ function isPackageManifest(path: string): boolean {
   return path === "package.json" || path.endsWith("/package.json");
 }
 
+function isPackageManagerSurface(path: string): boolean {
+  const name = basename(path);
+  return LOCKFILE_NAMES.has(name) || PACKAGE_MANAGER_CONFIG_NAMES.has(name);
+}
+
 function isCompilerConfig(path: string): boolean {
   return TYPESCRIPT_CONFIG_NAME.test(basename(path));
 }
@@ -80,10 +85,10 @@ function currentRunnerConfigPaths(discovery: ProjectDiscovery): ReadonlySet<stri
 }
 
 /**
- * Decides only pre-run uncertainty. Path grammar for manifests and supported
- * JS test/compiler configs intentionally mirrors discovery so deletion cannot
- * make a formerly relation-bearing surface disappear from the decision.
- * Post-run coverage relationship gaps and a possible second pass remain T054.
+ * Decides only pre-run uncertainty. Path grammar for manifests, supported
+ * package-manager files, and JS test/compiler configs is exact by basename or
+ * discovery identity so deletion cannot erase a formerly relation-bearing
+ * surface from the decision. Post-run coverage gaps remain T054 work.
  */
 export function decidePreRunWidening(
   discovery: ProjectDiscovery,
@@ -98,9 +103,7 @@ export function decidePreRunWidening(
     const candidates = changedPathCandidates(file);
 
     if (candidates.some(isPackageManifest)) triggers.add("dependency_surface_changed");
-    if (candidates.some((path) => ROOT_LOCKFILES.has(path) || PACKAGE_MANAGER_CONFIG_PATHS.has(path))) {
-      triggers.add("package_manager_surface_changed");
-    }
+    if (candidates.some(isPackageManagerSurface)) triggers.add("package_manager_surface_changed");
     if (
       anyCandidateIn(file, workspaceSources) ||
       candidates.includes("pnpm-workspace.yaml")
