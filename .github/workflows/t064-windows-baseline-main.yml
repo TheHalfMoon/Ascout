@@ -1,0 +1,33 @@
+name: T064 Windows baseline main verification
+
+on:
+  push:
+    branches:
+      - qualification/t064-windows-baseline-main-d7c82b59
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: windows-2025
+    steps:
+      - name: Checkout exact canonical main baseline
+        uses: actions/checkout@v4
+        with:
+          ref: d7c82b59e3732a0368cef7f09a7c27450945ab1c
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Prove exact baseline head
+        shell: pwsh
+        run: |
+          if ((git rev-parse HEAD).Trim() -ne 'd7c82b59e3732a0368cef7f09a7c27450945ab1c') { throw 'unexpected baseline HEAD' }
+          if (git status --porcelain) { throw 'opening baseline tree not clean' }
+      - name: Provision exact locked dependencies
+        run: npm ci
+      - name: Run pre-T064 Windows integration baseline
+        run: npm test -- tests/jest-check.integration.test.ts tests/vitest-check.integration.test.ts
