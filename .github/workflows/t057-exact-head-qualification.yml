@@ -1,0 +1,66 @@
+name: T057 exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualification/t057-exact-head-2d8e67b9
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact T057 head
+        uses: actions/checkout@v4
+        with:
+          ref: 2d8e67b92945651cf37f0e995beac516be67a7eb
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Prove opening exact head and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2d8e67b92945651cf37f0e995beac516be67a7eb"
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD
+          git status --short
+
+      - name: Provision exact locked dependencies
+        run: npm ci
+
+      - name: Run focused T057 qualification
+        run: |
+          npm test -- \
+            tests/selection-account.contract.test.ts \
+            tests/receipt-model.test.ts \
+            tests/receipt-v1.semantic-invariants.test.ts \
+            tests/pre-run-widening.integration.test.ts \
+            tests/post-run-widening.integration.test.ts \
+            tests/exercise-exit.contract.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Prove closing exact head and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2d8e67b92945651cf37f0e995beac516be67a7eb"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git rev-parse HEAD
+          git status --short --untracked-files=no
