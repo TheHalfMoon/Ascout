@@ -180,9 +180,11 @@ function escapeTerminalControlCharacters(value: string): string {
 }
 
 function renderSelectionScope(scope: SelectionV1["initial_scope"]): string {
-  return scope.kind === "repository"
-    ? "repository"
-    : `package:${escapeTerminalControlCharacters(scope.path)}`;
+  if (scope.kind === "repository") return "repository";
+  if (scope.path === null) {
+    throw new Error("package selection scope path must be non-null");
+  }
+  return `package:${escapeTerminalControlCharacters(scope.path)}`;
 }
 
 /**
