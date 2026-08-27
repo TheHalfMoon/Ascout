@@ -316,6 +316,12 @@ describe("T025 receipt semantic model", () => {
       duration_ms: number | null;
       observations: { runs: number; failures: number };
     };
+    const authorityFile = admission.comparison.changed_files[0] as unknown as {
+      path: string;
+      is_command_surface: boolean;
+    };
+    authorityFile.path = "package.json";
+    authorityFile.is_command_surface = true;
     task.command_surface_changed = true;
     task.changed_authority_paths = ["package.json"];
     task.execution_admission = "refused_changed_surface";
