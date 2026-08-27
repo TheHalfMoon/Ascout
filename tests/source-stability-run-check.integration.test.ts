@@ -38,6 +38,7 @@ fs.writeFileSync(path.join(coverageDirectory, "lcov.info"), "SF:src/a.js\\nDA:1,
 fs.writeFileSync(path.join(process.cwd(), "src", "a.js"), "export const a = 12;\\n");
 `);
   chmodSync(vitestShim, 0o755);
+  writeFileSync(join(binRoot, "vitest.cmd"), "@echo off\r\nnode \"%~dp0vitest\" %*\r\n");
 
   writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
   writeFileSync(join(root, "package.json"), JSON.stringify({
