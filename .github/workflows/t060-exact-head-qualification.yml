@@ -1,0 +1,65 @@
+name: T060 exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualification/t060-exact-head-38372c35
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T060 head
+        uses: actions/checkout@v4
+        with:
+          ref: 38372c351b22de0b6b16bb83709b4780bf726b7d
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Prove opening exact head and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "38372c351b22de0b6b16bb83709b4780bf726b7d"
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD
+          git status --short
+
+      - name: Provision exact locked dependencies
+        run: npm ci
+
+      - name: Run focused T060 qualification
+        run: >-
+          npm test --
+          tests/exit-precedence.contract.test.ts
+          tests/receipt-model.test.ts
+          tests/drift.contract.test.ts
+          tests/exercise-exit.contract.test.ts
+          tests/flake-reproduction.contract.test.ts
+          tests/receipt-v1.semantic-invariants.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Prove closing exact head and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "38372c351b22de0b6b16bb83709b4780bf726b7d"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git rev-parse HEAD
+          git status --short --untracked-files=no
