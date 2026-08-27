@@ -146,7 +146,7 @@ describe("T057 strict selection scopes and passes", () => {
     expect(validateReceiptSemantics(packageReceipt)).toEqual({ valid: true, issues: [] });
   });
 
-  it("rejects repository scopes with paths and package scopes without paths", () => {
+  it("rejects invalid repository/package path pairings on the initial scope", () => {
     const repositoryPath = receiptWithSelection(knownSelection({
       initial_scope: { kind: "repository", path: "packages/app" },
     }));
@@ -154,6 +154,22 @@ describe("T057 strict selection scopes and passes", () => {
 
     const missingPackagePath = receiptWithSelection(knownSelection({
       initial_scope: { kind: "package", path: null },
+    }));
+    expect(issueCodes(missingPackagePath)).toContain("package_scope_path");
+  });
+
+  it("enforces the same repository/package path rules on every selection pass", () => {
+    const repositoryPath = receiptWithSelection(knownSelection({
+      passes: [knownPass({
+        scope: { kind: "repository", path: "packages/app" },
+      })],
+    }));
+    expect(issueCodes(repositoryPath)).toContain("repository_scope_path");
+
+    const missingPackagePath = receiptWithSelection(knownSelection({
+      passes: [knownPass({
+        scope: { kind: "package", path: null },
+      })],
     }));
     expect(issueCodes(missingPackagePath)).toContain("package_scope_path");
   });
@@ -211,17 +227,11 @@ describe("T057 known/null selection counts and limitations", () => {
     expect(issueCodes(passMismatch)).toContain("selection_count_mismatch");
   });
 
-  it("accepts null counts only when the uncertainty is disclosed by a limitation", () => {
-    const unknownPass = knownPass({
-      selected_test_count: null,
-      deselected_test_count: null,
-      total_test_count: null,
-    });
+  it("requires a disclosed limitation when root selection counts are unknown", () => {
     const disclosed = receiptWithSelection(knownSelection({
       selected_test_count: null,
       deselected_test_count: null,
       total_test_count: null,
-      passes: [unknownPass],
       limitations: [SELECTION_COUNTS_NOT_OBSERVED],
     }));
     expect(validateReceiptSemantics(disclosed)).toEqual({ valid: true, issues: [] });
@@ -230,9 +240,32 @@ describe("T057 known/null selection counts and limitations", () => {
       selected_test_count: null,
       deselected_test_count: null,
       total_test_count: null,
+      limitations: [],
+    }));
+    expect(issueCodes(undisclosed)).toContain("selection_unknown_without_limitation");
+  });
+
+  it("requires a disclosed limitation for unknown pass counts even when root counts are fully known", () => {
+    const unknownPass = knownPass({
+      selected_test_count: null,
+      deselected_test_count: null,
+      total_test_count: null,
+    });
+    const disclosed = receiptWithSelection(knownSelection({
+      passes: [unknownPass],
+      limitations: [SELECTION_COUNTS_NOT_OBSERVED],
+    }));
+    expect(validateReceiptSemantics(disclosed)).toEqual({ valid: true, issues: [] });
+
+    const undisclosed = receiptWithSelection(knownSelection({
       passes: [unknownPass],
       limitations: [],
     }));
+    expect(undisclosed.selection).toMatchObject({
+      selected_test_count: 2,
+      deselected_test_count: 3,
+      total_test_count: 5,
+    });
     expect(issueCodes(undisclosed)).toContain("selection_unknown_without_limitation");
   });
 
