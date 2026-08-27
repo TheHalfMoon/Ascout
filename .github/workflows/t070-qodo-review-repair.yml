@@ -1,0 +1,158 @@
+name: T070 Qodo review repair
+
+on:
+  push:
+    branches:
+      - repair/t070-qodo-review-2f7ca341
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact T070 feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/070-cli-format
+          fetch-depth: 0
+
+      - name: Opening exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2f7ca341a80b3651d24bac51c2b251511790b328"
+          test -z "$(git status --short)"
+
+      - name: Apply review repair and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          cli_path = Path("src/cli.ts")
+          cli = cli_path.read_text()
+          old = '''      if (invocation.format === "json") {
+                console.log(renderReceiptJson(outcome.receipt));
+              } else if (invocation.format === "agent") {
+                console.log(renderReceiptAgent(outcome.receipt));
+              } else {
+          '''
+          new = '''      if (invocation.format === "json") {
+                process.stdout.write(renderReceiptJson(outcome.receipt));
+              } else if (invocation.format === "agent") {
+                process.stdout.write(renderReceiptAgent(outcome.receipt));
+              } else {
+          '''
+          if old not in cli:
+              raise SystemExit("CLI machine-output anchor not found")
+          cli_path.write_text(cli.replace(old, new, 1))
+
+          test_path = Path("tests/cli-format.contract.test.ts")
+          tests = test_path.read_text()
+
+          tests = tests.replace(
+              '    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);\n    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);',
+              '    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);\n    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);',
+          )
+          tests = tests.replace('    expect(log).not.toHaveBeenCalled();', '    expect(stdout).not.toHaveBeenCalled();')
+
+          old_json = '''    mocks.renderJson.mockReturnValue('{"schema_version":1}');
+              const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+              expect(await runCli(["check", "--format", "json"])).toBe(3);
+              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
+              expect(mocks.renderJson).toHaveBeenCalledTimes(1);
+              expect(mocks.renderJson).toHaveBeenCalledWith(receipt);
+              expect(mocks.renderAgent).not.toHaveBeenCalled();
+              expect(log).toHaveBeenCalledWith('{"schema_version":1}');
+              expect(error).not.toHaveBeenCalled();
+          '''
+          new_json = '''    const rendered = '{"schema_version":1}\\n';
+              mocks.renderJson.mockReturnValue(rendered);
+              const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+              expect(await runCli(["check", "--format", "json"])).toBe(3);
+              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
+              expect(mocks.renderJson).toHaveBeenCalledTimes(1);
+              expect(mocks.renderJson).toHaveBeenCalledWith(receipt);
+              expect(mocks.renderAgent).not.toHaveBeenCalled();
+              expect(stdout).toHaveBeenCalledTimes(1);
+              expect(stdout).toHaveBeenCalledWith(rendered);
+              expect(error).not.toHaveBeenCalled();
+          '''
+          if old_json not in tests:
+              raise SystemExit("JSON test anchor not found")
+          tests = tests.replace(old_json, new_json, 1)
+
+          old_agent = '''    mocks.renderAgent.mockReturnValue("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
+              const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+              expect(await runCli(["check", "--allow-changed-command-surface", "--format", "agent"])).toBe(1);
+              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
+              expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
+                allowChangedCommandSurface: true,
+              });
+              expect(mocks.renderAgent).toHaveBeenCalledTimes(1);
+              expect(mocks.renderAgent).toHaveBeenCalledWith(receipt);
+              expect(mocks.renderJson).not.toHaveBeenCalled();
+              expect(log).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
+              expect(error).not.toHaveBeenCalled();
+          '''
+          new_agent = '''    const rendered = "ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable";
+              mocks.renderAgent.mockReturnValue(rendered);
+              const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+              const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+              expect(await runCli(["check", "--allow-changed-command-surface", "--format", "agent"])).toBe(1);
+              expect(mocks.runCheck).toHaveBeenCalledTimes(1);
+              expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
+                allowChangedCommandSurface: true,
+              });
+              expect(mocks.renderAgent).toHaveBeenCalledTimes(1);
+              expect(mocks.renderAgent).toHaveBeenCalledWith(receipt);
+              expect(mocks.renderJson).not.toHaveBeenCalled();
+              expect(stdout).toHaveBeenCalledTimes(1);
+              expect(stdout).toHaveBeenCalledWith(rendered);
+              expect(error).not.toHaveBeenCalled();
+          '''
+          if old_agent not in tests:
+              raise SystemExit("agent test anchor not found")
+          tests = tests.replace(old_agent, new_agent, 1)
+          test_path.write_text(tests)
+          PY
+
+          git diff --check
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "src/cli.ts tests/cli-format.contract.test.ts "
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T070 tests
+        run: npx vitest run tests/cli.smoke.test.ts tests/cli-format.contract.test.ts tests/receipt-json.test.ts tests/agent-receipt.runtime.test.ts tests/cross-format-consistency.contract.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Commit and push repaired feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2f7ca341a80b3651d24bac51c2b251511790b328"
+          git add src/cli.ts tests/cli-format.contract.test.ts
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "src/cli.ts tests/cli-format.contract.test.ts "
+          git config user.name "TheHalfMoon"
+          git config user.email "alshehriofficial@gmail.com"
+          git commit -m "fix(m1): preserve T070 machine output bytes"
+          git push origin HEAD:feat/070-cli-format
