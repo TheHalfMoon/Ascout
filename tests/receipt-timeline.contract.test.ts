@@ -194,7 +194,7 @@ describe("receipt execution timeline semantic validation", () => {
     expect(issueCodes(receipt)).toContain("task_duration_mismatch");
   });
 
-  it("derives task duration from the persisted timestamp pair during receipt construction", () => {
+  it("preserves contradictory task timing so semantic validation can reject it", () => {
     const receipt = receiptFixture();
     const task = { ...receipt.tasks[0]!, duration_ms: 999 };
     const built = buildReceipt({
@@ -211,7 +211,7 @@ describe("receipt execution timeline semantic validation", () => {
       artifacts: receipt.artifacts,
     });
 
-    expect(built.tasks[0]?.duration_ms).toBe(100);
-    expect(validateReceiptSemantics(built).valid).toBe(true);
+    expect(built.tasks[0]?.duration_ms).toBe(999);
+    expect(issueCodes(built)).toContain("task_duration_mismatch");
   });
 });
