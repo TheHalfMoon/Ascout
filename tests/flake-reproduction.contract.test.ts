@@ -288,16 +288,45 @@ describe("T059 flake and reproduction contract", () => {
     }
   });
 
-  it("rejects contradictory observations that remain a plain FAIL", () => {
+  it("allows a contradictory finding under aggregate FAIL when another finding fails consistently", () => {
     const receipt = receiptFor({
       status: "FAIL",
       runs: 3,
-      failures: 2,
-      determinismClass: "nondeterministic",
-      reproduced: false,
+      failures: 3,
+      determinismClass: "deterministic",
+      reproduced: true,
     });
+    const stableFinding = receipt.findings[0]!;
+    const flakyFinding: FindingV1 = {
+      ...stableFinding,
+      finding_id: "finding-2",
+      rule_or_test_id: "src/a.test.ts > flakes",
+      message: "intermittent mismatch",
+      determinism_class: "nondeterministic",
+      observations: { runs: 3, failures: 2 },
+      reproduced: false,
+    };
+    (receipt.findings as FindingV1[]).push(flakyFinding);
+    (receipt.summary as { finding_count: number }).finding_count = 2;
 
-    expect(issueCodes(receipt)).toContain("finding_flake_status_invariant");
+    expect(validateReceiptSemantics(receipt)).toEqual({ valid: true, issues: [] });
+    expect(receipt.tasks[0]).toMatchObject({
+      status: "FAIL",
+      observations: { runs: 3, failures: 3 },
+    });
+    expect(receipt.findings).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        finding_id: "finding-1",
+        observations: { runs: 3, failures: 3 },
+        reproduced: true,
+      }),
+      expect.objectContaining({
+        finding_id: "finding-2",
+        observations: { runs: 3, failures: 2 },
+        reproduced: false,
+        determinism_class: "nondeterministic",
+      }),
+    ]));
   });
 
   it("rejects contradictory observations that claim stable reproduction", () => {

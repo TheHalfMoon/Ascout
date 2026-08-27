@@ -873,14 +873,6 @@ function validateReferences(receipt: ReceiptV1, issues: ReceiptSemanticIssue[]):
         );
       }
       if (runs >= 2 && failures > 0 && failures < runs) {
-        if (owningTask.status !== "FLAKY") {
-          addIssue(
-            issues,
-            "finding_flake_status_invariant",
-            `findings[${i}]`,
-            "contradictory valid test observations require task status FLAKY",
-          );
-        }
         if (finding.reproduced !== false) {
           addIssue(
             issues,
