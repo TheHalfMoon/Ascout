@@ -260,6 +260,74 @@ describe("T059 flake and reproduction contract", () => {
     expect(issueCodes(receipt)).toContain("flake_observation_invariant");
   });
 
+  it("rejects non-unknown reproduction after only one valid failing observation", () => {
+    for (const reproduced of [true, false, "not_applicable"] as const) {
+      const receipt = receiptFor({
+        status: "FAIL",
+        runs: 1,
+        failures: 1,
+        determinismClass: "unknown",
+        reproduced,
+      });
+
+      expect(issueCodes(receipt), String(reproduced)).toContain("finding_reproduction_invariant");
+    }
+  });
+
+  it("rejects non-true reproduction for repeated consistent test failures", () => {
+    for (const reproduced of [false, "unknown", "not_applicable"] as const) {
+      const receipt = receiptFor({
+        status: "FAIL",
+        runs: 3,
+        failures: 3,
+        determinismClass: "deterministic",
+        reproduced,
+      });
+
+      expect(issueCodes(receipt), String(reproduced)).toContain("finding_reproduction_invariant");
+    }
+  });
+
+  it("rejects contradictory observations that remain a plain FAIL", () => {
+    const receipt = receiptFor({
+      status: "FAIL",
+      runs: 3,
+      failures: 2,
+      determinismClass: "nondeterministic",
+      reproduced: false,
+    });
+
+    expect(issueCodes(receipt)).toContain("finding_flake_status_invariant");
+  });
+
+  it("rejects contradictory observations that claim stable reproduction", () => {
+    for (const reproduced of [true, "unknown", "not_applicable"] as const) {
+      const receipt = receiptFor({
+        status: "FLAKY",
+        runs: 3,
+        failures: 2,
+        determinismClass: "nondeterministic",
+        reproduced,
+      });
+
+      expect(issueCodes(receipt), String(reproduced)).toContain("finding_reproduction_invariant");
+    }
+  });
+
+  it("rejects contradictory observations without nondeterministic classification", () => {
+    for (const determinismClass of ["deterministic", "unknown"] as const) {
+      const receipt = receiptFor({
+        status: "FLAKY",
+        runs: 3,
+        failures: 2,
+        determinismClass,
+        reproduced: false,
+      });
+
+      expect(issueCodes(receipt), determinismClass).toContain("finding_determinism_invariant");
+    }
+  });
+
   it("keeps reproduction unknown when a rerun errors before a valid second observation", () => {
     const receipt = receiptFor({
       status: "FAIL",
