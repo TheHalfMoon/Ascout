@@ -62,6 +62,8 @@ describe("T053 pre-run conservative widening", () => {
   it.each([
     ["package manifest", changed("package.json"), "dependency_surface_changed"],
     ["lockfile", changed("package-lock.json"), "package_manager_surface_changed"],
+    ["package-scoped lockfile", changed("packages/a/package-lock.json"), "package_manager_surface_changed"],
+    ["package-scoped manager config", changed("packages/a/.npmrc"), "package_manager_surface_changed"],
     ["compiler config", changed("tsconfig.json"), "compiler_surface_changed"],
     ["test config", changed("vitest.config.mjs"), "test_surface_changed"],
     ["changed test", changed("tests/unit.test.ts"), "test_surface_changed"],
