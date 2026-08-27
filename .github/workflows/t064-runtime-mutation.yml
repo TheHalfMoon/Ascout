@@ -23,8 +23,14 @@ jobs:
           node-version: '22'
           cache: npm
       - name: Apply T064 patch
-        run: python3 <(git show mutation/t064-wire-runtime:.github/scripts/t064_mutate.py)
         shell: bash
+        run: |
+          set -euo pipefail
+          git show origin/mutation/t064-wire-runtime:.github/scripts/t064_mutate.py > /tmp/t064_mutate.py
+          test -s /tmp/t064_mutate.py
+          python3 /tmp/t064_mutate.py
+          git diff --check
+          test -n "$(git status --porcelain)"
       - name: Provision dependencies
         run: npm ci
       - name: Run focused T064 tests
