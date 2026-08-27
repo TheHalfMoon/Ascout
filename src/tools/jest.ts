@@ -7,7 +7,7 @@ import type { GitChangedFile } from "../git.js";
 import type { TaskResultV1 } from "../receipt/model.js";
 
 export type JestAuthorizedBy = TaskResultV1["authorized_by"];
-export type JestSelectionMode = "native_related";
+export type JestSelectionMode = "native_related" | "full";
 
 interface JestPlanBase {
   readonly taskType: "test";
@@ -51,6 +51,7 @@ export interface JestTaskPlanningInput {
   readonly discovery: ProjectDiscovery;
   readonly files: DiscoveryFileMap;
   readonly changedFiles: readonly GitChangedFile[];
+  readonly selectionMode?: JestSelectionMode;
   readonly platform?: NodeJS.Platform;
 }
 
@@ -196,9 +197,13 @@ function preferredExecutable(paths: readonly string[], platform: NodeJS.Platform
   return null;
 }
 
+function validChangedPath(path: string): boolean {
+  return !path.includes("\0") && CANONICAL_REPOSITORY_PATH.test(path);
+}
+
 function changedSourcePaths(changedFiles: readonly GitChangedFile[]): readonly string[] | UnresolvedJestTask {
   for (const file of changedFiles) {
-    if (file.path.includes("\0") || !CANONICAL_REPOSITORY_PATH.test(file.path)) {
+    if (!validChangedPath(file.path)) {
       return notRun(
         "changed_path_invalid",
         "Changed-file paths supplied to Jest planning must already be canonical repository-relative paths.",
@@ -213,6 +218,23 @@ function changedSourcePaths(changedFiles: readonly GitChangedFile[]): readonly s
       .map(({ path }) => path)
       .filter((path) => JS_TS_SOURCE.test(path)),
   );
+}
+
+function changedScopePaths(changedFiles: readonly GitChangedFile[]): readonly string[] | UnresolvedJestTask {
+  const result: string[] = [];
+  for (const file of changedFiles) {
+    for (const candidate of [file.path, file.previous_path]) {
+      if (candidate === undefined) continue;
+      if (!validChangedPath(candidate)) {
+        return notRun(
+          "changed_path_invalid",
+          "Changed-file paths supplied to Jest planning must already be canonical repository-relative paths.",
+        );
+      }
+      result.push(candidate);
+    }
+  }
+  return sortedUnique(result);
 }
 
 function chooseScopeRoot(declarationPaths: readonly string[], changedPaths: readonly string[]): string | null {
@@ -317,13 +339,18 @@ export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
     );
   }
 
-  const changedPathsOrError = changedSourcePaths(input.changedFiles);
+  const selectionMode = input.selectionMode ?? "native_related";
+  const changedPathsOrError = selectionMode === "full"
+    ? changedScopePaths(input.changedFiles)
+    : changedSourcePaths(input.changedFiles);
   if ("state" in changedPathsOrError) return changedPathsOrError;
   const changedPaths = changedPathsOrError;
   if (changedPaths.length === 0) {
     return notRun(
-      "native_selection_unresolved",
-      "No changed supported JavaScript/TypeScript source path is available for confident native Jest related selection.",
+      selectionMode === "full" ? "full_scope_unresolved" : "native_selection_unresolved",
+      selectionMode === "full"
+        ? "No changed repository path is available to determine a safe full Jest package/workspace scope."
+        : "No changed supported JavaScript/TypeScript source path is available for confident native Jest related selection.",
       "discovery",
       runner.sourcePaths[0] ?? null,
     );
@@ -333,7 +360,9 @@ export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
   if (scopeRoot === null) {
     return notRun(
       "test_scope_ambiguous",
-      "No single declared Jest package scope safely contains every changed supported source path.",
+      selectionMode === "full"
+        ? "No single declared Jest package/workspace scope safely contains every changed relation-risk path."
+        : "No single declared Jest package scope safely contains every changed supported source path.",
       "discovery",
       runner.sourcePaths[0] ?? null,
     );
@@ -374,7 +403,10 @@ export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
   const lcovPath = `${coverageDirectoryPath}/lcov.info`;
   const workingDirectory = scopeRoot === "" ? null : scopeRoot;
   const executableArg = relativeFromRoot(scopeRoot, installed.executablePath);
-  const selectedArgs = changedPaths.map((path) => positionalPathArg(relativeFromRoot(scopeRoot, path)));
+  const selectedArgs = selectionMode === "native_related"
+    ? changedPaths.map((path) => positionalPathArg(relativeFromRoot(scopeRoot, path)))
+    : [];
+  const selectionArgs = selectionMode === "native_related" ? ["--findRelatedTests", ...selectedArgs] : [];
   const machineResultArg = relativeFromRoot(scopeRoot, machineResultPath);
   const coverageDirectoryArg = relativeFromRoot(scopeRoot, coverageDirectoryPath);
   const configArgs = configPath === null ? [] : ["--config", relativeFromRoot(scopeRoot, configPath)];
@@ -386,8 +418,7 @@ export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
     sourcePath: configPath ?? runner.sourcePaths[0] ?? null,
     argv: [
       executableArg,
-      "--findRelatedTests",
-      ...selectedArgs,
+      ...selectionArgs,
       "--ci",
       "--json",
       `--outputFile=${machineResultArg}`,
@@ -398,8 +429,8 @@ export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
     ],
     workingDirectory,
     configPath,
-    selectionMode: "native_related",
-    selectedPaths: changedPaths,
+    selectionMode,
+    selectedPaths: selectionMode === "native_related" ? changedPaths : [],
     machineResultPath,
     coverageDirectoryPath,
     lcovPath,
