@@ -1,0 +1,612 @@
+name: Ephemeral T051 check wiring mutation
+
+on:
+  push:
+    branches:
+      - mutate/t051-check-wiring-v2
+
+permissions:
+  contents: write
+
+jobs:
+  mutate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Select Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+
+      - name: Checkout exact T051 feature head
+        uses: actions/checkout@v4
+        with:
+          ref: feat/051-vitest-integration
+          fetch-depth: 0
+
+      - name: Verify expected feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "155b9f25a6ed2fe11c1b03d9401f521e40ced504"
+
+      - name: Add exact dev-only Vitest coverage provider
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --save-dev --save-exact @vitest/coverage-v8@4.1.10 --ignore-scripts --no-audit --no-fund
+          node -e "const p=require('./node_modules/@vitest/coverage-v8/package.json'); if(p.version!=='4.1.10') process.exit(1); console.log('coverage-v8='+p.version+' license='+p.license)"
+
+      - name: Wire T051 execution and evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/check.ts')
+          text = path.read_text()
+
+          def replace_once(old: str, new: str) -> None:
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one replacement, found {count}: {old[:100]!r}')
+              text = text.replace(old, new, 1)
+
+          replace_once(
+              'import { readFileSync, writeFileSync } from "node:fs";',
+              'import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";',
+          )
+          replace_once(
+              'import { configDigestV1, parseConfigV1Json, type ConfigV1 } from "./config.js";\n',
+              'import { configDigestV1, parseConfigV1Json, type ConfigV1 } from "./config.js";\nimport { normalizeLcovLineCoverage } from "./coverage/lcov.js";\n',
+          )
+          replace_once(
+              'import {\n  validateReceiptSemantics,',
+              'import {\n  UNSAFE_SELECTION_LIMITATION,\n  validateReceiptSemantics,',
+          )
+          replace_once(
+              'import { planTypeScriptTask } from "./tools/typescript.js";\n',
+              'import { planTypeScriptTask } from "./tools/typescript.js";\nimport { planVitestTask, type PlannedVitestTask, type VitestTaskPlan } from "./tools/vitest.js";\n',
+          )
+
+          replace_once(
+              '''/**
+ * Disclosed reason for the fixed `test` task until its dedicated JS/TS test
+ * integration lands: the receipt records the omission instead of claiming
+ * coverage that was never executed.
+ */
+export const TEST_TASK_NOT_WIRED_REASON_CODE = "test_task_unavailable";
+export const TEST_TASK_NOT_WIRED_REASON_TEXT =
+  "JavaScript/TypeScript test planning and execution is not wired in this milestone phase; the omission is recorded instead of claimed coverage.";
+
+/** Selection counts are unobserved until native test-output parsing exists; the limitation is disclosed rather than invented. */
+export const SELECTION_COUNTS_NOT_OBSERVED_LIMITATION = "selection_counts_not_observed";
+''',
+              '''/** Selection totals remain unknown until T057/T061 final selection accounting; disclose rather than invent them. */
+export const SELECTION_COUNTS_NOT_OBSERVED_LIMITATION = "selection_counts_not_observed";
+''',
+          )
+
+          replace_once(
+              '''function baseSelection(): SelectionV1 {
+  return {
+    mode: "full",
+    initial_scope: { kind: "repository", path: null },
+    selected_test_count: null,
+    deselected_test_count: null,
+    total_test_count: null,
+    widened: false,
+    widen_triggers: [],
+    passes: [],
+    limitations: [SELECTION_COUNTS_NOT_OBSERVED_LIMITATION],
+  };
+}
+''',
+              '''function baseSelection(testPlan: VitestTaskPlan): SelectionV1 {
+  const limitations = [SELECTION_COUNTS_NOT_OBSERVED_LIMITATION, UNSAFE_SELECTION_LIMITATION] as const;
+  if (testPlan.state !== "planned") {
+    return {
+      mode: "full",
+      initial_scope: { kind: "repository", path: null },
+      selected_test_count: null,
+      deselected_test_count: null,
+      total_test_count: null,
+      widened: false,
+      widen_triggers: [],
+      passes: [],
+      limitations,
+    };
+  }
+
+  const scope = testPlan.workingDirectory === null
+    ? ({ kind: "repository", path: null } as const)
+    : ({ kind: "package", path: testPlan.workingDirectory } as const);
+  return {
+    mode: "native_related",
+    initial_scope: scope,
+    selected_test_count: null,
+    deselected_test_count: null,
+    total_test_count: null,
+    widened: false,
+    widen_triggers: [],
+    passes: [
+      {
+        ordinal: 1,
+        mode: "native_related",
+        scope,
+        trigger: null,
+        selected_test_count: null,
+        deselected_test_count: null,
+        total_test_count: null,
+      },
+    ],
+    limitations,
+  };
+}
+''',
+          )
+
+          replace_once(
+              '''async function executePlannedTask(
+  repositoryRoot: string,
+  runId: string,
+  rawPath: string,
+  taskId: SemanticTaskType,
+  plan: NormalizedPlan & { state: "planned" },
+  decision: TaskAdmissionDecision,
+  secrets: readonly string[],
+  timeoutMs: number,
+): Promise<ExecutedTask> {
+''',
+              '''interface ExecutePlannedTaskOptions {
+  readonly env?: NodeJS.ProcessEnv;
+  readonly toolName?: string;
+  readonly toolVersion?: string;
+}
+
+async function executePlannedTask(
+  repositoryRoot: string,
+  runId: string,
+  rawPath: string,
+  taskId: SemanticTaskType,
+  plan: NormalizedPlan & { state: "planned" },
+  decision: TaskAdmissionDecision,
+  secrets: readonly string[],
+  timeoutMs: number,
+  options: ExecutePlannedTaskOptions = {},
+): Promise<ExecutedTask> {
+''',
+          )
+          replace_once(
+              '''    cwd: workingDirectoryPath(repositoryRoot, plan.workingDirectory),
+    timeout_ms: timeoutMs,
+''',
+              '''    cwd: workingDirectoryPath(repositoryRoot, plan.workingDirectory),
+    ...(options.env === undefined ? {} : { env: options.env }),
+    timeout_ms: timeoutMs,
+''',
+          )
+          replace_once(
+              '''      tool_name: null,
+      tool_version: null,
+''',
+              '''      tool_name: options.toolName ?? null,
+      tool_version: options.toolVersion ?? null,
+''',
+          )
+
+          marker = '\nfunction nonExecutedTask(\n'
+          if marker not in text:
+              raise SystemExit('nonExecutedTask marker missing')
+          helper = r'''
+const CANONICAL_RUN_RELATIVE_PATH =
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
+
+interface PersistedTextArtifact extends PersistedCapture {
+  readonly text: string;
+}
+
+function runRelativeArtifactPath(runId: string, repositoryPath: string): string {
+  const prefix = `.ascout/runs/${runId}/`;
+  if (!repositoryPath.startsWith(prefix)) {
+    throw new Error("Vitest artifact path escaped the current Ascout run.");
+  }
+  const relativePath = repositoryPath.slice(prefix.length);
+  if (!CANONICAL_RUN_RELATIVE_PATH.test(relativePath)) {
+    throw new Error("Vitest artifact path is not a canonical run-relative path.");
+  }
+  return relativePath;
+}
+
+function persistGeneratedTextArtifact(
+  runId: string,
+  taskId: SemanticTaskType,
+  sequence: number,
+  runPath: string,
+  relativeRunPath: string,
+  artifactId: string,
+  artifactKind: string,
+  evidenceKind: EvidenceV1["kind"],
+  secrets: readonly string[],
+): PersistedTextArtifact {
+  const absolute = join(runPath, ...relativeRunPath.split("/"));
+  const info = statSync(absolute);
+  if (!info.isFile() || info.size > TASK_CAPTURE_CAP_BYTES) {
+    throw new Error("Vitest generated artifact is missing, non-file, or exceeds the evidence size budget.");
+  }
+  const raw = readFileSync(absolute);
+  const rawText = raw.toString("utf8");
+  const text = redactExactValues(rawText, secrets);
+  const persisted = Buffer.from(text, "utf8");
+  if (!persisted.equals(raw)) writeFileSync(absolute, persisted);
+  const sha256 = createSha256(persisted);
+  const redacted = secrets.some((secret) => rawText.includes(secret));
+  return {
+    text,
+    artifact: {
+      artifact_id: artifactId,
+      task_id: taskId,
+      relative_run_path: relativeRunPath,
+      kind: artifactKind,
+      sha256,
+      byte_length: persisted.byteLength,
+      redacted,
+      truncated: false,
+    },
+    evidence: {
+      evidence_id: `${taskId}.e${sequence}`,
+      run_id: runId,
+      task_id: taskId,
+      sequence,
+      kind: evidenceKind,
+      sha256,
+      artifact_id: artifactId,
+      redacted,
+      truncated: false,
+    },
+  };
+}
+
+function validVitestMachineResult(text: string): boolean {
+  let value: unknown;
+  try {
+    value = JSON.parse(text) as unknown;
+  } catch {
+    return false;
+  }
+  return typeof value === "object" && value !== null && !Array.isArray(value) &&
+    Array.isArray((value as { readonly testResults?: unknown }).testResults);
+}
+
+function withVitestEvidenceError(
+  executed: ExecutedTask,
+  generated: readonly PersistedTextArtifact[],
+): ExecutedTask {
+  return {
+    task: {
+      ...executed.task,
+      status: "ERROR",
+      reason_code: "vitest_evidence_invalid",
+      reason_text: "Vitest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
+      evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
+      artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
+    },
+    evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
+    artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
+  };
+}
+
+async function executeVitestTask(
+  repositoryRoot: string,
+  runId: string,
+  runPath: string,
+  rawPath: string,
+  plan: PlannedVitestTask,
+  decision: TaskAdmissionDecision,
+  secrets: readonly string[],
+  timeoutMs: number,
+): Promise<ExecutedTask> {
+  mkdirSync(join(rawPath, "test"), { recursive: true });
+  const executionOptions: ExecutePlannedTaskOptions = {
+    env: { ...process.env, CI: "1" },
+    toolName: "vitest",
+    ...(plan.toolVersion === null ? {} : { toolVersion: plan.toolVersion }),
+  };
+  const executed = await executePlannedTask(
+    repositoryRoot,
+    runId,
+    rawPath,
+    "test",
+    normalizePlan(plan) as NormalizedPlan & { state: "planned" },
+    decision,
+    secrets,
+    timeoutMs,
+    executionOptions,
+  );
+
+  if (executed.task.status === "ERROR") return executed;
+  if (plan.machineResultPath === null || plan.lcovPath === null) return withVitestEvidenceError(executed, []);
+
+  const generated: PersistedTextArtifact[] = [];
+  try {
+    const machine = persistGeneratedTextArtifact(
+      runId,
+      "test",
+      3,
+      runPath,
+      runRelativeArtifactPath(runId, plan.machineResultPath),
+      "test.vitest-results",
+      "test_result_json",
+      "test_result",
+      secrets,
+    );
+    generated.push(machine);
+    if (!validVitestMachineResult(machine.text)) return withVitestEvidenceError(executed, generated);
+
+    const coverage = persistGeneratedTextArtifact(
+      runId,
+      "test",
+      4,
+      runPath,
+      runRelativeArtifactPath(runId, plan.lcovPath),
+      "test.lcov",
+      "coverage_lcov",
+      "coverage",
+      secrets,
+    );
+    generated.push(coverage);
+    if (normalizeLcovLineCoverage(coverage.text, repositoryRoot).outcome !== "resolved") {
+      return withVitestEvidenceError(executed, generated);
+    }
+  } catch {
+    return withVitestEvidenceError(executed, generated);
+  }
+
+  return {
+    task: {
+      ...executed.task,
+      evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
+      artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
+    },
+    evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
+    artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
+  };
+}
+'''
+          text = text.replace(marker, '\n' + helper + marker, 1)
+
+          replace_once(
+              '''      const plans: Record<"typecheck" | "lint" | "pytestBasic", NormalizedPlan> = {
+        typecheck: normalizePlan(planTypeScriptTask({ config, discovery, files })),
+        lint: normalizePlan(planESLintTask({
+          config,
+          discovery,
+          files,
+          changedFiles: gitComparison.changed_files,
+        })),
+        pytestBasic: normalizePlan(planPytestBasicTask({ config, discovery, files })),
+      };
+''',
+              '''      const vitestPlan = planVitestTask({
+        repositoryRoot: root,
+        runId,
+        config,
+        discovery,
+        files,
+        changedFiles: gitComparison.changed_files,
+      });
+      const plans: Record<SemanticTaskType, NormalizedPlan> = {
+        typecheck: normalizePlan(planTypeScriptTask({ config, discovery, files })),
+        lint: normalizePlan(planESLintTask({
+          config,
+          discovery,
+          files,
+          changedFiles: gitComparison.changed_files,
+        })),
+        test: normalizePlan(vitestPlan),
+        pytestBasic: normalizePlan(planPytestBasicTask({ config, discovery, files })),
+      };
+''',
+          )
+          replace_once(
+              '''            plans[task as keyof typeof plans] ?? null,
+''',
+              '''            plans[task],
+''',
+          )
+          replace_once(
+              '''
+        if (task === "test") {
+          const unwired = nonExecutedTask(
+            task,
+            decision,
+            null,
+            "NOT_RUN",
+            TEST_TASK_NOT_WIRED_REASON_CODE,
+            TEST_TASK_NOT_WIRED_REASON_TEXT,
+            secrets,
+          );
+          tasks.push(unwired.task);
+          continue;
+        }
+
+''',
+              '\n',
+          )
+          replace_once(
+              '''        const executed = await executePlannedTask(
+          root,
+          runId,
+          runDir.raw_path,
+          task,
+          plan as NormalizedPlan & { state: "planned" },
+          decision,
+          secrets,
+          taskTimeoutMs(config, task),
+        );
+''',
+              '''        const executed = task === "test"
+          ? await executeVitestTask(
+              root,
+              runId,
+              runDir.run_path,
+              runDir.raw_path,
+              vitestPlan as PlannedVitestTask,
+              decision,
+              secrets,
+              taskTimeoutMs(config, task),
+            )
+          : await executePlannedTask(
+              root,
+              runId,
+              runDir.raw_path,
+              task,
+              plan as NormalizedPlan & { state: "planned" },
+              decision,
+              secrets,
+              taskTimeoutMs(config, task),
+            );
+''',
+          )
+          replace_once('        selection: baseSelection(),\n', '        selection: baseSelection(vitestPlan),\n')
+
+          path.write_text(text)
+          PY
+
+      - name: Add T051 end-to-end Vitest integration proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > tests/vitest-check.integration.test.ts <<'EOF'
+          import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+          import { tmpdir } from "node:os";
+          import { basename, join, resolve } from "node:path";
+          import { spawnSync } from "node:child_process";
+
+          import { describe, expect, it } from "vitest";
+
+          import { runCheck } from "../src/check.js";
+          import { normalizeLcovLineCoverage } from "../src/coverage/lcov.js";
+          import { UNSAFE_SELECTION_LIMITATION, validateReceiptSemantics } from "../src/receipt/model.js";
+
+          function run(root: string, file: string, argv: readonly string[]): void {
+            const result = spawnSync(file, argv, { cwd: root, encoding: "utf8" });
+            if (result.status !== 0) {
+              throw new Error(`${file} ${argv.join(" ")} failed: ${result.stderr || result.stdout}`);
+            }
+          }
+
+          function initializeFixture(): string {
+            const root = mkdtempSync(join(tmpdir(), "ascout-t051-check-"));
+            mkdirSync(join(root, "src"), { recursive: true });
+            mkdirSync(join(root, "tests"), { recursive: true });
+            cpSync(resolve("node_modules"), join(root, "node_modules"), { recursive: true });
+            writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
+            writeFileSync(
+              join(root, "package.json"),
+              JSON.stringify({
+                name: "t051-vitest-check-fixture",
+                private: true,
+                type: "module",
+                devDependencies: { vitest: "4.1.10", "@vitest/coverage-v8": "4.1.10" },
+              }),
+            );
+            writeFileSync(join(root, "vitest.config.mjs"), "export default { test: { globals: true } };\n");
+            writeFileSync(join(root, "src", "used.js"), "export function used() { return 2; }\n");
+            writeFileSync(join(root, "src", "unused.js"), "export function unused() { return 3; }\n");
+            writeFileSync(
+              join(root, "tests", "used.test.js"),
+              'import { used } from "../src/used.js";\ntest("used", () => { expect(used()).toBe(2); });\n',
+            );
+            writeFileSync(
+              join(root, "tests", "unused.test.js"),
+              'import { unused } from "../src/unused.js";\ntest("unused", () => { expect(unused()).toBe(3); });\n',
+            );
+            run(root, "git", ["init", "-q"]);
+            run(root, "git", ["config", "user.name", "Ascout T051 Fixture"]);
+            run(root, "git", ["config", "user.email", "t051@example.invalid"]);
+            run(root, "git", ["add", "."]);
+            run(root, "git", ["commit", "-qm", "baseline"]);
+            writeFileSync(join(root, "src", "used.js"), "export function used() { return 1 + 1; }\n");
+            return root;
+          }
+
+          describe("T051 runCheck Vitest integration", () => {
+            it("runs project-local related Vitest and binds JSON plus LCOV while remaining fail-closed before widening/exercise", async () => {
+              const root = initializeFixture();
+              try {
+                const outcome = await runCheck(root);
+                const receipt = outcome.receipt;
+                expect(validateReceiptSemantics(receipt)).toEqual({ valid: true, issues: [] });
+                expect(receipt.stability).toBe("stable");
+                expect(receipt.selection.mode).toBe("native_related");
+                expect(receipt.selection.passes).toHaveLength(1);
+                expect(receipt.selection.limitations).toContain(UNSAFE_SELECTION_LIMITATION);
+                expect(receipt.summary.completeness).toBe("materially_incomplete");
+                expect(receipt.summary.exit_code).toBe(4);
+
+                const task = receipt.tasks.find((candidate) => candidate.task_type === "test");
+                expect(task).toMatchObject({
+                  status: "PASS",
+                  tool_name: "vitest",
+                  tool_version: "4.1.10",
+                  execution_admission: "normal",
+                });
+                expect(task?.argv).toContain("related");
+                expect(task?.argv).toContain("src/used.js");
+                expect(task?.argv).not.toContain("src/unused.js");
+
+                const testEvidence = receipt.evidence.filter((item) => item.task_id === "test");
+                expect(testEvidence.some((item) => item.kind === "test_result")).toBe(true);
+                expect(testEvidence.some((item) => item.kind === "coverage")).toBe(true);
+
+                const resultArtifact = receipt.artifacts.find((artifact) => artifact.artifact_id === "test.vitest-results");
+                const coverageArtifact = receipt.artifacts.find((artifact) => artifact.artifact_id === "test.lcov");
+                expect(resultArtifact?.relative_run_path).toBe("raw/test/vitest-results.json");
+                expect(coverageArtifact?.relative_run_path).toBe("raw/test/coverage/lcov.info");
+                expect(resultArtifact && existsSync(join(root, ".ascout", "runs", receipt.run.run_id, resultArtifact.relative_run_path))).toBe(true);
+                expect(coverageArtifact && existsSync(join(root, ".ascout", "runs", receipt.run.run_id, coverageArtifact.relative_run_path))).toBe(true);
+
+                const resultJson = JSON.parse(
+                  readFileSync(join(root, ".ascout", "runs", receipt.run.run_id, resultArtifact!.relative_run_path), "utf8"),
+                ) as { testResults?: readonly { name?: string }[] };
+                const selectedFiles = (resultJson.testResults ?? []).map(({ name }) => name === undefined ? "" : basename(name));
+                expect(selectedFiles).toContain("used.test.js");
+                expect(selectedFiles).not.toContain("unused.test.js");
+
+                const lcovText = readFileSync(
+                  join(root, ".ascout", "runs", receipt.run.run_id, coverageArtifact!.relative_run_path),
+                  "utf8",
+                );
+                const normalized = normalizeLcovLineCoverage(lcovText, root);
+                expect(normalized.outcome).toBe("resolved");
+                if (normalized.outcome === "resolved") {
+                  expect(normalized.points.some((point) => point.path === "src/used.js" && point.count > 0)).toBe(true);
+                }
+              } finally {
+                rmSync(root, { recursive: true, force: true });
+              }
+            }, 30_000);
+          });
+          EOF
+
+      - name: Qualify mutated T051 tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          npm test -- tests/vitest-task.contract.test.ts tests/vitest-fixture.integration.test.ts tests/vitest-check.integration.test.ts tests/lcov-normalization.test.ts tests/receipt-model.test.ts
+          npm test
+          npm run build
+
+      - name: Commit and push qualified T051 feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/check.ts src/tools/vitest.ts tests/vitest-task.contract.test.ts tests/vitest-check.integration.test.ts package.json package-lock.json
+          git diff --cached --check
+          git commit -m "feat(051): wire project-local Vitest evidence"
+          git push origin HEAD:feat/051-vitest-integration
