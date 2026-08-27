@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   FIXED_SEMANTIC_TASKS,
@@ -12,6 +12,7 @@ import {
   type SemanticTaskType,
 } from "./discovery.js";
 import { configDigestV1, parseConfigV1Json, type ConfigV1 } from "./config.js";
+import { normalizeLcovLineCoverage } from "./coverage/lcov.js";
 import {
   readGitHeadState,
   readTreeDigestV1,
@@ -32,6 +33,7 @@ import { createRunDirectory } from "./run.js";
 import { buildReceipt, renderTerminalSummary } from "./receipt/build.js";
 import { renderReceiptJson } from "./receipt/json.js";
 import {
+  UNSAFE_SELECTION_LIMITATION,
   validateReceiptSemantics,
   type ArtifactV1,
   type ChangedFileV1,
@@ -48,6 +50,7 @@ import {
 import { planESLintTask } from "./tools/eslint.js";
 import { planPytestBasicTask } from "./tools/pytest.js";
 import { planTypeScriptTask } from "./tools/typescript.js";
+import { planVitestTask, type PlannedVitestTask, type VitestTaskPlan } from "./tools/vitest.js";
 
 export const COMMAND_SURFACE_CHANGED_REASON_CODE = "command_surface_changed";
 export const COMMAND_SURFACE_CHANGED_REASON_TEXT =
@@ -173,16 +176,7 @@ const DEFAULT_TERMINATION_GRACE_MS = 5_000;
 const TASK_CAPTURE_CAP_BYTES = 8 * 1024 * 1024;
 const MIN_SECRET_VALUE_BYTES = 8;
 
-/**
- * Disclosed reason for the fixed `test` task until its dedicated JS/TS test
- * integration lands: the receipt records the omission instead of claiming
- * coverage that was never executed.
- */
-export const TEST_TASK_NOT_WIRED_REASON_CODE = "test_task_unavailable";
-export const TEST_TASK_NOT_WIRED_REASON_TEXT =
-  "JavaScript/TypeScript test planning and execution is not wired in this milestone phase; the omission is recorded instead of claimed coverage.";
-
-/** Selection counts are unobserved until native test-output parsing exists; the limitation is disclosed rather than invented. */
+/** Selection totals remain unknown until T057/T061 final selection accounting; disclose rather than invent them. */
 export const SELECTION_COUNTS_NOT_OBSERVED_LIMITATION = "selection_counts_not_observed";
 
 export interface CheckRunOptions {
@@ -312,17 +306,45 @@ function emptyExercise(): ExerciseV1 {
   };
 }
 
-function baseSelection(): SelectionV1 {
+function baseSelection(testPlan: VitestTaskPlan): SelectionV1 {
+  const limitations = [SELECTION_COUNTS_NOT_OBSERVED_LIMITATION, UNSAFE_SELECTION_LIMITATION] as const;
+  if (testPlan.state !== "planned") {
+    return {
+      mode: "full",
+      initial_scope: { kind: "repository", path: null },
+      selected_test_count: null,
+      deselected_test_count: null,
+      total_test_count: null,
+      widened: false,
+      widen_triggers: [],
+      passes: [],
+      limitations,
+    };
+  }
+
+  const scope = testPlan.workingDirectory === null
+    ? ({ kind: "repository", path: null } as const)
+    : ({ kind: "package", path: testPlan.workingDirectory } as const);
   return {
-    mode: "full",
-    initial_scope: { kind: "repository", path: null },
+    mode: "native_related",
+    initial_scope: scope,
     selected_test_count: null,
     deselected_test_count: null,
     total_test_count: null,
     widened: false,
     widen_triggers: [],
-    passes: [],
-    limitations: [SELECTION_COUNTS_NOT_OBSERVED_LIMITATION],
+    passes: [
+      {
+        ordinal: 1,
+        mode: "native_related",
+        scope,
+        trigger: null,
+        selected_test_count: null,
+        deselected_test_count: null,
+        total_test_count: null,
+      },
+    ],
+    limitations,
   };
 }
 
@@ -344,7 +366,14 @@ function persistCapture(
   const rawText = bytes.toString("utf8");
   const text = redactExactValues(rawText, secrets);
   const persisted = Buffer.from(text, "utf8");
-  writeFileSync(join(rawPath, fileName), persisted);
+  const capturePath = join(rawPath, fileName);
+  let captureFd: number | null = null;
+  try {
+    captureFd = openSync(capturePath, "wx", 0o600);
+    writeFileSync(captureFd, persisted);
+  } finally {
+    if (captureFd !== null) closeSync(captureFd);
+  }
 
   const sha256 = createSha256(persisted);
   const artifactId = `${taskId}.${fileName}`;
@@ -385,6 +414,12 @@ interface ExecutedTask {
   readonly artifacts: readonly ArtifactV1[];
 }
 
+interface ExecutePlannedTaskOptions {
+  readonly env?: NodeJS.ProcessEnv;
+  readonly toolName?: string;
+  readonly toolVersion?: string;
+}
+
 async function executePlannedTask(
   repositoryRoot: string,
   runId: string,
@@ -394,6 +429,7 @@ async function executePlannedTask(
   decision: TaskAdmissionDecision,
   secrets: readonly string[],
   timeoutMs: number,
+  options: ExecutePlannedTaskOptions = {},
 ): Promise<ExecutedTask> {
   const startedMs = Date.now();
   const startedAt = new Date(startedMs).toISOString();
@@ -401,6 +437,7 @@ async function executePlannedTask(
     file: plan.argv[0]!,
     argv: plan.argv.slice(1),
     cwd: workingDirectoryPath(repositoryRoot, plan.workingDirectory),
+    ...(options.env === undefined ? {} : { env: options.env }),
     timeout_ms: timeoutMs,
     termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
     capture_cap_bytes: TASK_CAPTURE_CAP_BYTES,
@@ -453,8 +490,8 @@ async function executePlannedTask(
       source_path: plan.sourcePath,
       argv: [...persistedArgv],
       argv_redacted: argvRedacted,
-      tool_name: null,
-      tool_version: null,
+      tool_name: options.toolName ?? null,
+      tool_version: options.toolVersion ?? null,
       command_surface_changed: decision.commandSurfaceChanged,
       changed_authority_paths: [...decision.changedAuthorityPaths],
       execution_admission: decision.executionAdmission,
@@ -473,6 +510,306 @@ async function executePlannedTask(
     },
     evidence: [stdoutPersisted.evidence, stderrPersisted.evidence],
     artifacts: [stdoutPersisted.artifact, stderrPersisted.artifact],
+  };
+}
+
+
+const CANONICAL_RUN_RELATIVE_PATH =
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
+
+interface PersistedTextArtifact extends PersistedCapture {
+  readonly text: string;
+}
+
+function runRelativeArtifactPath(runId: string, repositoryPath: string): string {
+  const prefix = `.ascout/runs/${runId}/`;
+  if (!repositoryPath.startsWith(prefix)) {
+    throw new Error("Vitest artifact path escaped the current Ascout run.");
+  }
+  const relativePath = repositoryPath.slice(prefix.length);
+  if (!CANONICAL_RUN_RELATIVE_PATH.test(relativePath)) {
+    throw new Error("Vitest artifact path is not a canonical run-relative path.");
+  }
+  return relativePath;
+}
+
+function samePhysicalFile(left: BigIntStats, right: BigIntStats): boolean {
+  return left.dev === right.dev && left.ino === right.ino;
+}
+
+function assertSafeManagedDescriptor(info: BigIntStats): void {
+  if (!info.isFile() || info.nlink !== 1n) {
+    throw new Error("generated artifact must be a single-link physical file");
+  }
+}
+
+function readBoundedDescriptor(fd: number): Buffer {
+  const buffer = Buffer.alloc(TASK_CAPTURE_CAP_BYTES + 1);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const bytesRead = readSync(fd, buffer, offset, buffer.length - offset, offset);
+    if (bytesRead === 0) break;
+    offset += bytesRead;
+  }
+  if (offset > TASK_CAPTURE_CAP_BYTES) {
+    throw new Error("Vitest generated artifact exceeds the evidence size budget.");
+  }
+  return buffer.subarray(0, offset);
+}
+
+export interface ManagedGeneratedArtifactHandle {
+  readonly expectedPath: string;
+  readBounded(): Buffer;
+  replace(contents: Buffer): void;
+  assertStillBound(): void;
+  close(): void;
+}
+
+export function openManagedGeneratedArtifact(
+  runPath: string,
+  relativeRunPath: string,
+): ManagedGeneratedArtifactHandle {
+  if (!CANONICAL_RUN_RELATIVE_PATH.test(relativeRunPath)) {
+    throw new Error("generated artifact path is not canonical run-relative data");
+  }
+
+  const realRunPath = realpathSync(runPath);
+  const expectedPath = resolve(realRunPath, ...relativeRunPath.split("/"));
+  const fd = openSync(expectedPath, "r+");
+  let closed = false;
+
+  const descriptorInfo = (): BigIntStats => {
+    if (closed) throw new Error("generated artifact descriptor is already closed");
+    const info = fstatSync(fd, { bigint: true });
+    assertSafeManagedDescriptor(info);
+    return info;
+  };
+
+  const assertStillBound = (): void => {
+    const opened = descriptorInfo();
+    const realArtifactPath = realpathSync(expectedPath);
+    if (realArtifactPath !== expectedPath) {
+      throw new Error("generated artifact does not resolve to its exact managed run path");
+    }
+    const current = statSync(expectedPath, { bigint: true });
+    if (!samePhysicalFile(opened, current) || current.nlink !== 1n) {
+      throw new Error("generated artifact path no longer identifies the opened managed file");
+    }
+  };
+
+  try {
+    assertStillBound();
+  } catch (error) {
+    closeSync(fd);
+    closed = true;
+    throw error;
+  }
+
+  const readBounded = (): Buffer => {
+    const before = descriptorInfo();
+    if (before.size > BigInt(TASK_CAPTURE_CAP_BYTES)) {
+      throw new Error("Vitest generated artifact exceeds the evidence size budget.");
+    }
+    const bytes = readBoundedDescriptor(fd);
+    const after = descriptorInfo();
+    if (
+      !samePhysicalFile(before, after) ||
+      before.size !== after.size ||
+      after.size !== BigInt(bytes.byteLength) ||
+      before.mtimeMs !== after.mtimeMs ||
+      before.ctimeMs !== after.ctimeMs
+    ) {
+      throw new Error("Vitest generated artifact changed while evidence was being captured.");
+    }
+    return bytes;
+  };
+
+  const replaceContents = (contents: Buffer): void => {
+    if (contents.byteLength > TASK_CAPTURE_CAP_BYTES) {
+      throw new Error("Vitest generated artifact exceeds the evidence size budget.");
+    }
+    descriptorInfo();
+    ftruncateSync(fd, 0);
+    let offset = 0;
+    while (offset < contents.byteLength) {
+      const written = writeSync(fd, contents, offset, contents.byteLength - offset, offset);
+      if (written <= 0) throw new Error("failed to rewrite generated artifact through its bound descriptor");
+      offset += written;
+    }
+    ftruncateSync(fd, contents.byteLength);
+    fsyncSync(fd);
+    const confirmed = readBounded();
+    if (!confirmed.equals(contents)) {
+      throw new Error("generated artifact rewrite could not be verified through its bound descriptor");
+    }
+  };
+
+  return {
+    expectedPath,
+    readBounded,
+    replace: replaceContents,
+    assertStillBound,
+    close(): void {
+      if (closed) return;
+      closeSync(fd);
+      closed = true;
+    },
+  };
+}
+
+function persistGeneratedTextArtifact(
+  runId: string,
+  taskId: SemanticTaskType,
+  sequence: number,
+  runPath: string,
+  relativeRunPath: string,
+  artifactId: string,
+  artifactKind: string,
+  evidenceKind: EvidenceV1["kind"],
+  secrets: readonly string[],
+): PersistedTextArtifact {
+  const handle = openManagedGeneratedArtifact(runPath, relativeRunPath);
+  try {
+    const raw = handle.readBounded();
+    const rawText = raw.toString("utf8");
+    const text = redactExactValues(rawText, secrets);
+    const persisted = Buffer.from(text, "utf8");
+    if (!persisted.equals(raw)) handle.replace(persisted);
+    handle.assertStillBound();
+    const sha256 = createSha256(persisted);
+    const redacted = secrets.some((secret) => rawText.includes(secret));
+    return {
+      text,
+      artifact: {
+        artifact_id: artifactId,
+        task_id: taskId,
+        relative_run_path: relativeRunPath,
+        kind: artifactKind,
+        sha256,
+        byte_length: persisted.byteLength,
+        redacted,
+        truncated: false,
+      },
+      evidence: {
+        evidence_id: `${taskId}.e${sequence}`,
+        run_id: runId,
+        task_id: taskId,
+        sequence,
+        kind: evidenceKind,
+        sha256,
+        artifact_id: artifactId,
+        redacted,
+        truncated: false,
+      },
+    };
+  } finally {
+    handle.close();
+  }
+}
+
+function validVitestMachineResult(text: string): boolean {
+  let value: unknown;
+  try {
+    value = JSON.parse(text) as unknown;
+  } catch {
+    return false;
+  }
+  return typeof value === "object" && value !== null && !Array.isArray(value) &&
+    Array.isArray((value as { readonly testResults?: unknown }).testResults);
+}
+
+function withVitestEvidenceError(
+  executed: ExecutedTask,
+  generated: readonly PersistedTextArtifact[],
+): ExecutedTask {
+  return {
+    task: {
+      ...executed.task,
+      status: "ERROR",
+      reason_code: "vitest_evidence_invalid",
+      reason_text: "Vitest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
+      evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
+      artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
+    },
+    evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
+    artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
+  };
+}
+
+async function executeVitestTask(
+  repositoryRoot: string,
+  runId: string,
+  runPath: string,
+  rawPath: string,
+  plan: PlannedVitestTask,
+  decision: TaskAdmissionDecision,
+  secrets: readonly string[],
+  timeoutMs: number,
+): Promise<ExecutedTask> {
+  mkdirSync(join(rawPath, "test"), { recursive: true });
+  const executionOptions: ExecutePlannedTaskOptions = {
+    env: { ...process.env, CI: "1" },
+    toolName: "vitest",
+    ...(plan.toolVersion === null ? {} : { toolVersion: plan.toolVersion }),
+  };
+  const executed = await executePlannedTask(
+    repositoryRoot,
+    runId,
+    rawPath,
+    "test",
+    normalizePlan(plan) as NormalizedPlan & { state: "planned" },
+    decision,
+    secrets,
+    timeoutMs,
+    executionOptions,
+  );
+
+  if (executed.task.status === "ERROR") return executed;
+  if (plan.machineResultPath === null || plan.lcovPath === null) return withVitestEvidenceError(executed, []);
+
+  const generated: PersistedTextArtifact[] = [];
+  try {
+    const machine = persistGeneratedTextArtifact(
+      runId,
+      "test",
+      3,
+      runPath,
+      runRelativeArtifactPath(runId, plan.machineResultPath),
+      "test.vitest-results",
+      "test_result_json",
+      "test_result",
+      secrets,
+    );
+    generated.push(machine);
+    if (!validVitestMachineResult(machine.text)) return withVitestEvidenceError(executed, generated);
+
+    const coverage = persistGeneratedTextArtifact(
+      runId,
+      "test",
+      4,
+      runPath,
+      runRelativeArtifactPath(runId, plan.lcovPath),
+      "test.lcov",
+      "coverage_lcov",
+      "coverage",
+      secrets,
+    );
+    generated.push(coverage);
+    if (normalizeLcovLineCoverage(coverage.text, repositoryRoot).outcome !== "resolved") {
+      return withVitestEvidenceError(executed, generated);
+    }
+  } catch {
+    return withVitestEvidenceError(executed, generated);
+  }
+
+  return {
+    task: {
+      ...executed.task,
+      evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
+      artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
+    },
+    evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
+    artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
   };
 }
 
@@ -566,7 +903,15 @@ export async function runCheck(
         tasks: config.tasks ?? null,
       });
 
-      const plans: Record<"typecheck" | "lint" | "pytestBasic", NormalizedPlan> = {
+      const vitestPlan = planVitestTask({
+        repositoryRoot: root,
+        runId,
+        config,
+        discovery,
+        files,
+        changedFiles: gitComparison.changed_files,
+      });
+      const plans: Record<SemanticTaskType, NormalizedPlan> = {
         typecheck: normalizePlan(planTypeScriptTask({ config, discovery, files })),
         lint: normalizePlan(planESLintTask({
           config,
@@ -574,6 +919,7 @@ export async function runCheck(
           files,
           changedFiles: gitComparison.changed_files,
         })),
+        test: normalizePlan(vitestPlan),
         pytestBasic: normalizePlan(planPytestBasicTask({ config, discovery, files })),
       };
 
@@ -596,27 +942,13 @@ export async function runCheck(
           const refused = nonExecutedTask(
             task,
             decision,
-            plans[task as keyof typeof plans] ?? null,
+            plans[task],
             "NOT_RUN",
             decision.refusal!.reasonCode,
             decision.refusal!.reasonText,
             secrets,
           );
           tasks.push(refused.task);
-          continue;
-        }
-
-        if (task === "test") {
-          const unwired = nonExecutedTask(
-            task,
-            decision,
-            null,
-            "NOT_RUN",
-            TEST_TASK_NOT_WIRED_REASON_CODE,
-            TEST_TASK_NOT_WIRED_REASON_TEXT,
-            secrets,
-          );
-          tasks.push(unwired.task);
           continue;
         }
 
@@ -648,16 +980,27 @@ export async function runCheck(
           continue;
         }
 
-        const executed = await executePlannedTask(
-          root,
-          runId,
-          runDir.raw_path,
-          task,
-          plan as NormalizedPlan & { state: "planned" },
-          decision,
-          secrets,
-          taskTimeoutMs(config, task),
-        );
+        const executed = task === "test"
+          ? await executeVitestTask(
+              root,
+              runId,
+              runDir.run_path,
+              runDir.raw_path,
+              vitestPlan as PlannedVitestTask,
+              decision,
+              secrets,
+              taskTimeoutMs(config, task),
+            )
+          : await executePlannedTask(
+              root,
+              runId,
+              runDir.raw_path,
+              task,
+              plan as NormalizedPlan & { state: "planned" },
+              decision,
+              secrets,
+              taskTimeoutMs(config, task),
+            );
         tasks.push(executed.task);
         evidence.push(...executed.evidence);
         artifacts.push(...executed.artifacts);
@@ -676,7 +1019,7 @@ export async function runCheck(
         sourceStart,
         sourceEnd,
         comparison,
-        selection: baseSelection(),
+        selection: baseSelection(vitestPlan),
         tasks,
         exercise: emptyExercise(),
         testChanges: [] satisfies readonly TestChangeV1[],
