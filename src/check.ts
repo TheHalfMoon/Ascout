@@ -1116,7 +1116,7 @@ export async function runCheck(
         sourceStart,
         sourceEnd,
         comparison,
-        selection: initialSelection(testPlan, preRunWidening),
+        selection: initialSelection(testPlan, preRunWidening, decisions.test.launchAllowed),
         tasks,
         exercise: emptyExercise(),
         testChanges: [] satisfies readonly TestChangeV1[],
