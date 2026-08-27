@@ -126,8 +126,8 @@ export function initialSelection(
       selected_test_count: null,
       deselected_test_count: null,
       total_test_count: null,
-      widened: widening.widened,
-      widen_triggers: [...widening.triggers],
+      widened: false,
+      widen_triggers: [],
       passes: [],
       limitations,
     };
