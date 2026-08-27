@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { describe, expect, it } from "vitest";
 import {
+  M1_RECOGNIZED_SECRET_ENV_NAMES,
   redactExactValues,
   redactPersistedArgv,
   redactThenTruncate,
@@ -19,6 +20,34 @@ function policy(overrides: Partial<RedactionPolicy> = {}): RedactionPolicy {
 }
 
 describe("T023 redaction", () => {
+  it("always applies the canonical M1 recognized secret-name baseline", () => {
+    expect(M1_RECOGNIZED_SECRET_ENV_NAMES).toEqual([
+      "GITHUB_TOKEN",
+      "GH_TOKEN",
+      "NPM_TOKEN",
+      "NODE_AUTH_TOKEN",
+    ]);
+
+    const secrets = selectedSecretValues(
+      {
+        GITHUB_TOKEN: "github-secret-value",
+        GH_TOKEN: "gh-secret-value",
+        NPM_TOKEN: "npm-secret-value",
+        NODE_AUTH_TOKEN: "node-auth-secret-value",
+        ORDINARY_SETTING: "visible-setting",
+      },
+      policy({ recognized_names: [] }),
+    );
+
+    expect(new Set(secrets)).toEqual(new Set([
+      "github-secret-value",
+      "gh-secret-value",
+      "npm-secret-value",
+      "node-auth-secret-value",
+    ]));
+    expect(secrets).not.toContain("visible-setting");
+  });
+
   it("selects recognized and configured secret values without selecting ordinary env values", () => {
     const secrets = selectedSecretValues(
       {

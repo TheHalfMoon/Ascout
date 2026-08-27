@@ -576,6 +576,82 @@ function validateRenameAndFileSemantics(receipt: ReceiptV1, issues: ReceiptSeman
   }
 }
 
+function validateCommandSurfaceFileFacts(receipt: ReceiptV1, issues: ReceiptSemanticIssue[]): void {
+  const reportedFileMismatches = new Set<number>();
+  for (const [taskIndex, task] of receipt.tasks.entries()) {
+    for (const [authorityIndex, authorityPath] of task.changed_authority_paths.entries()) {
+      const matches = receipt.comparison.changed_files
+        .map((file, fileIndex) => ({ file, fileIndex }))
+        .filter(({ file }) => file.path === authorityPath || file.previous_path === authorityPath);
+      if (matches.length === 0) {
+        addIssue(
+          issues,
+          "changed_authority_path_not_in_comparison",
+          `tasks[${taskIndex}].changed_authority_paths[${authorityIndex}]`,
+          "changed authority path must resolve to a current comparison path or rename previous_path",
+        );
+        continue;
+      }
+      for (const { file, fileIndex } of matches) {
+        if (file.is_command_surface || reportedFileMismatches.has(fileIndex)) continue;
+        reportedFileMismatches.add(fileIndex);
+        addIssue(
+          issues,
+          "command_surface_file_fact_mismatch",
+          `comparison.changed_files[${fileIndex}].is_command_surface`,
+          "changed file matched by task authority must be marked is_command_surface=true",
+        );
+      }
+    }
+  }
+}
+
+function timelineMilliseconds(value: string): number | null {
+  const direct = Date.parse(value);
+  if (Number.isFinite(direct)) return direct;
+  const leapSecond = value.match(/^(.*T\d{2}:\d{2}):60(\.\d+)?(Z|[+-]\d{2}:\d{2})$/u);
+  if (leapSecond === null) return null;
+  const normalized = `${leapSecond[1]}:59${leapSecond[2] ?? ""}${leapSecond[3]}`;
+  const base = Date.parse(normalized);
+  return Number.isFinite(base) ? base + 1_000 : null;
+}
+
+function validateExecutionTimeline(receipt: ReceiptV1, issues: ReceiptSemanticIssue[]): void {
+  const runStarted = timelineMilliseconds(receipt.run.started_at);
+  const runFinished = timelineMilliseconds(receipt.run.finished_at);
+  if (runStarted === null) addIssue(issues, "timeline_timestamp_unparseable", "run.started_at", "run.started_at must be a parseable receipt timestamp");
+  if (runFinished === null) addIssue(issues, "timeline_timestamp_unparseable", "run.finished_at", "run.finished_at must be a parseable receipt timestamp");
+  if (runStarted !== null && runFinished !== null && runFinished < runStarted) {
+    addIssue(issues, "run_timeline_reversed", "run.finished_at", "run.finished_at must not precede run.started_at");
+  }
+
+  for (const [taskIndex, task] of receipt.tasks.entries()) {
+    const base = `tasks[${taskIndex}]`;
+    const timingPresence = [task.started_at, task.finished_at, task.duration_ms].filter((value) => value !== null).length;
+    if (timingPresence !== 0 && timingPresence !== 3) {
+      addIssue(issues, "task_timing_shape", base, "task started_at, finished_at, and duration_ms must be either all null or all present");
+      continue;
+    }
+    if (EXECUTED_OUTCOME_STATUSES.has(task.status) && timingPresence !== 3) {
+      addIssue(issues, "executed_task_timing_required", base, `${task.status} requires complete task timing`);
+      continue;
+    }
+    if (timingPresence === 0) continue;
+
+    const taskStarted = timelineMilliseconds(task.started_at!);
+    const taskFinished = timelineMilliseconds(task.finished_at!);
+    if (taskStarted === null) addIssue(issues, "timeline_timestamp_unparseable", `${base}.started_at`, "task started_at must be a parseable receipt timestamp");
+    if (taskFinished === null) addIssue(issues, "timeline_timestamp_unparseable", `${base}.finished_at`, "task finished_at must be a parseable receipt timestamp");
+    if (taskStarted === null || taskFinished === null) continue;
+    if (taskFinished < taskStarted) addIssue(issues, "task_timeline_reversed", `${base}.finished_at`, "task finished_at must not precede task started_at");
+    if (runStarted !== null && taskStarted < runStarted) addIssue(issues, "task_timeline_outside_run", `${base}.started_at`, "task started_at must not precede run.started_at");
+    if (runFinished !== null && taskFinished > runFinished) addIssue(issues, "task_timeline_outside_run", `${base}.finished_at`, "task finished_at must not exceed run.finished_at");
+    if (task.duration_ms !== taskFinished - taskStarted) {
+      addIssue(issues, "task_duration_mismatch", `${base}.duration_ms`, "task duration_ms must equal finished_at - started_at in milliseconds");
+    }
+  }
+}
+
 function validateObservations(
   observations: ObservationsV1,
   issues: ReceiptSemanticIssue[],
@@ -961,6 +1037,8 @@ export function validateReceiptSemantics(receipt: ReceiptV1): ReceiptSemanticVal
 
   validateGitBindingAndStability(receipt, issues);
   validateRenameAndFileSemantics(receipt, issues);
+  validateCommandSurfaceFileFacts(receipt, issues);
+  validateExecutionTimeline(receipt, issues);
   validateTaskInvariants(receipt, issues);
   validateSelection(receipt, issues);
   const tasks = validateReferences(receipt, issues);

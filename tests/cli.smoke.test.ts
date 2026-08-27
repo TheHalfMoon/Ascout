@@ -1,4 +1,5 @@
-import { mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -17,6 +18,22 @@ const ENV_KEYS = [
 const originalCwd = process.cwd();
 const originalEnv = new Map(ENV_KEYS.map((key) => [key, process.env[key]]));
 const temporaryDirectories: string[] = [];
+const NULL_GIT_CONFIG = process.platform === "win32" ? "NUL" : "/dev/null";
+const GIT_ENV = {
+  ...process.env,
+  GIT_CONFIG_GLOBAL: NULL_GIT_CONFIG,
+  GIT_CONFIG_SYSTEM: NULL_GIT_CONFIG,
+  GIT_TERMINAL_PROMPT: "0",
+};
+
+function git(repositoryRoot: string, argv: readonly string[]): string {
+  return execFileSync("git", [...argv], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+    env: GIT_ENV,
+    windowsHide: true,
+  });
+}
 
 afterEach(() => {
   process.chdir(originalCwd);
@@ -53,14 +70,17 @@ describe("T007 CLI startup smoke", () => {
       throw new Error("network access attempted during CLI startup");
     });
     vi.stubGlobal("fetch", fetchSpy);
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     vi.resetModules();
     const { runCli } = await import("../src/cli.js");
-    const exitCode = runCli(["doctor"]);
+    const exitCode = await runCli(["doctor"]);
+    const output = errorSpy.mock.calls.flat().map(String).join("\n");
 
     expect(typeof exitCode).toBe("number");
+    expect(exitCode).not.toBe(0);
     expect(fetchSpy).not.toHaveBeenCalled();
+    expect(output).not.toContain(emptyProject);
     expect(readdirSync(emptyProject)).toEqual([]);
   });
 
@@ -82,5 +102,69 @@ describe("T007 CLI startup smoke", () => {
       command: "check",
       allowChangedCommandSurface: true,
     });
+  });
+
+  it("keeps init limited to config plus .gitignore and does not pre-create runtime state", async () => {
+    const emptyProject = mkdtempSync(join(tmpdir(), "ascout-t043-"));
+    temporaryDirectories.push(emptyProject);
+    process.chdir(emptyProject);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    vi.resetModules();
+    const { runCli } = await import("../src/cli.js");
+    const exitCode = await runCli(["init"]);
+
+    expect(exitCode).toBe(0);
+    expect(readdirSync(emptyProject).sort()).toEqual([".gitignore", "ascout.config.json"]);
+    expect(readFileSync(join(emptyProject, "ascout.config.json"), "utf8")).toBe(
+      JSON.stringify({ version: 1 }, null, 2),
+    );
+    expect(readFileSync(join(emptyProject, ".gitignore"), "utf8")).toBe(".ascout/");
+  });
+
+  it("keeps doctor output opaque to local and repository-relative paths plus configured command secrets", async () => {
+    const repositoryRoot = mkdtempSync(join(tmpdir(), "ascout-t042-"));
+    temporaryDirectories.push(repositoryRoot);
+    process.chdir(repositoryRoot);
+
+    git(repositoryRoot, ["init", "-q"]);
+    git(repositoryRoot, ["config", "user.name", "Ascout Test"]);
+    git(repositoryRoot, ["config", "user.email", "ascout@example.invalid"]);
+    git(repositoryRoot, ["config", "commit.gpgsign", "false"]);
+    git(repositoryRoot, ["config", "core.autocrlf", "false"]);
+
+    const secret = "doctor-must-not-render-this-secret";
+    writeFileSync(
+      join(repositoryRoot, "ascout.config.json"),
+      JSON.stringify({
+        version: 1,
+        tasks: {
+          lint: { command: ["custom-lint", "--token", secret] },
+        },
+      }),
+      "utf8",
+    );
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "base\n", "utf8");
+    git(repositoryRoot, ["add", "--all"]);
+    git(repositoryRoot, ["commit", "-q", "-m", "base"]);
+
+    const sensitiveChangedPath = "customer-acquisition-secret-plan.txt";
+    writeFileSync(join(repositoryRoot, sensitiveChangedPath), "private\n", "utf8");
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.resetModules();
+    const { runCli } = await import("../src/cli.js");
+    const exitCode = await runCli(["doctor"]);
+    const output = errorSpy.mock.calls.flat().map(String).join("\n");
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain("Repository identity: local:");
+    expect(output).toContain("Config source: repository_config");
+    expect(output).toContain("authorityPathCount:");
+    expect(output).toContain("Changed Files");
+    expect(output).not.toContain(repositoryRoot);
+    expect(output).not.toContain(secret);
+    expect(output).not.toContain("ascout.config.json");
+    expect(output).not.toContain(sensitiveChangedPath);
   });
 });

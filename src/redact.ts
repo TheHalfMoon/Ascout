@@ -2,6 +2,13 @@ import { Buffer } from "node:buffer";
 
 export type RedactionEnv = Readonly<Record<string, string | undefined>>;
 
+export const M1_RECOGNIZED_SECRET_ENV_NAMES = [
+  "GITHUB_TOKEN",
+  "GH_TOKEN",
+  "NPM_TOKEN",
+  "NODE_AUTH_TOKEN",
+] as const;
+
 export interface RedactionPolicy {
   readonly recognized_names: readonly string[];
   readonly configured_names: readonly string[];
@@ -43,6 +50,7 @@ export function selectedSecretValues(
   validatePolicy(policy);
 
   const names = new Set([
+    ...M1_RECOGNIZED_SECRET_ENV_NAMES,
     ...policy.recognized_names,
     ...policy.configured_names,
   ]);

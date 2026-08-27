@@ -56,10 +56,17 @@ export interface LocalNodeToolDiscovery {
   readonly configPaths: readonly string[];
 }
 
+export interface PackageScriptAuthority {
+  readonly typecheck: readonly string[];
+  readonly lint: readonly string[];
+  readonly test: readonly string[];
+}
+
 export interface ProjectDiscovery {
   readonly semanticTasks: readonly SemanticTaskType[];
   readonly packageManager: DiscoveryResolution<PackageManager>;
   readonly workspace: WorkspaceDiscovery;
+  readonly packageScriptAuthority: PackageScriptAuthority;
   readonly jsTestRunner: DiscoveryResolution<JsTestRunner>;
   readonly pytestBasic: DiscoveryResolution<"pytestBasic">;
   readonly tools: {
@@ -184,6 +191,29 @@ function dependencyNames(manifest: PackageManifest): ReadonlySet<string> {
     for (const name of Object.keys(section)) result.add(name);
   }
   return result;
+}
+
+function scriptOwnerPaths(
+  allManifests: readonly PackageManifest[],
+  scriptName: "typecheck" | "lint" | "test",
+): readonly string[] {
+  return allManifests
+    .filter((manifest) => {
+      const scripts = manifest.value.scripts;
+      return isRecord(scripts) && Object.prototype.hasOwnProperty.call(scripts, scriptName);
+    })
+    .map(({ path }) => path)
+    .sort(compareStrings);
+}
+
+function discoverPackageScriptAuthority(
+  allManifests: readonly PackageManifest[],
+): PackageScriptAuthority {
+  return {
+    typecheck: scriptOwnerPaths(allManifests, "typecheck"),
+    lint: scriptOwnerPaths(allManifests, "lint"),
+    test: scriptOwnerPaths(allManifests, "test"),
+  };
 }
 
 function discoverPackageManager(
@@ -520,6 +550,7 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
     semanticTasks: FIXED_SEMANTIC_TASKS,
     packageManager: discoverPackageManager(normalized, root),
     workspace,
+    packageScriptAuthority: discoverPackageScriptAuthority(scopedManifests),
     jsTestRunner: discoverRunner(scopedManifests),
     pytestBasic: discoverPytest(normalized, roots),
     tools: {
@@ -529,6 +560,190 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
       jest: discoverNodeTool(normalized, scopedManifests, "jest", roots),
     },
   };
+}
+
+const ASCOUT_CONFIG_PATH = "ascout.config.json";
+
+export interface ChangedPathView {
+  readonly path: string;
+  readonly previous_path?: string;
+}
+
+export interface TaskCommandAuthority {
+  readonly taskType: SemanticTaskType;
+  readonly authorityPaths: readonly string[];
+  readonly effectivePytestConfig: string | null;
+}
+
+export type TaskAuthoritySurfaces = Readonly<Record<SemanticTaskType, TaskCommandAuthority>>;
+
+export interface CommandSurfaceClassifyOptions {
+  readonly ascoutConfigPath?: string | null;
+  readonly tasks?: Readonly<Partial<Record<SemanticTaskType, {
+    readonly enabled?: boolean;
+    readonly command?: readonly string[];
+    readonly timeoutMs?: number;
+    readonly disabledReason?: string;
+  }>>> | null;
+}
+
+function configuredTaskSet(
+  tasks: CommandSurfaceClassifyOptions["tasks"],
+): ReadonlySet<SemanticTaskType> {
+  if (tasks === undefined || tasks === null) return new Set();
+  const result = new Set<SemanticTaskType>();
+  for (const key of FIXED_SEMANTIC_TASKS) {
+    const value = tasks[key];
+    if (value === undefined || value === null) continue;
+    if (
+      value.command !== undefined ||
+      value.enabled !== undefined ||
+      value.timeoutMs !== undefined ||
+      value.disabledReason !== undefined
+    ) {
+      result.add(key);
+    }
+  }
+  return result;
+}
+
+function overriddenTaskSet(
+  tasks: CommandSurfaceClassifyOptions["tasks"],
+): ReadonlySet<SemanticTaskType> {
+  if (tasks === undefined || tasks === null) return new Set();
+  const result = new Set<SemanticTaskType>();
+  for (const key of FIXED_SEMANTIC_TASKS) {
+    const value = tasks[key];
+    if (value?.command !== undefined) result.add(key);
+  }
+  return result;
+}
+
+function packageScriptOwners(
+  discovery: ProjectDiscovery,
+  task: SemanticTaskType,
+): readonly string[] {
+  switch (task) {
+    case "typecheck":
+      return discovery.packageScriptAuthority.typecheck;
+    case "lint":
+      return discovery.packageScriptAuthority.lint;
+    case "test":
+      return discovery.packageScriptAuthority.test;
+    case "pytestBasic":
+      return [];
+  }
+}
+
+function testRunnerDeclarationPaths(discovery: ProjectDiscovery): readonly string[] {
+  if (discovery.jsTestRunner.state === "resolved") {
+    return discovery.tools[discovery.jsTestRunner.value].declarationPaths;
+  }
+  if (discovery.jsTestRunner.state === "ambiguous") {
+    return sortedUnique([
+      ...discovery.tools.vitest.declarationPaths,
+      ...discovery.tools.jest.declarationPaths,
+    ]);
+  }
+  return [];
+}
+
+function baseAuthorityPaths(
+  discovery: ProjectDiscovery,
+  task: SemanticTaskType,
+): readonly string[] {
+  switch (task) {
+    case "typecheck":
+      return sortedUnique([
+        ...packageScriptOwners(discovery, "typecheck"),
+        ...discovery.tools.typescript.declarationPaths,
+        ...discovery.tools.typescript.configPaths,
+      ]);
+    case "lint":
+      return sortedUnique([
+        ...packageScriptOwners(discovery, "lint"),
+        ...discovery.tools.eslint.declarationPaths,
+        ...discovery.tools.eslint.configPaths,
+      ]);
+    case "test": {
+      const runnerConfigs = discovery.jsTestRunner.state === "resolved"
+        ? discovery.tools[discovery.jsTestRunner.value].configPaths
+        : [];
+      return sortedUnique([
+        ...packageScriptOwners(discovery, "test"),
+        ...testRunnerDeclarationPaths(discovery),
+        ...runnerConfigs,
+      ]);
+    }
+    case "pytestBasic": {
+      const configs = discovery.pytestBasic.state === "resolved"
+        ? discovery.pytestBasic.sourcePaths
+        : [];
+      return sortedUnique(configs);
+    }
+  }
+}
+
+export function classifyCommandSurfaces(
+  discovery: ProjectDiscovery,
+  options: CommandSurfaceClassifyOptions = {},
+): TaskAuthoritySurfaces {
+  const ascoutPath = options.ascoutConfigPath ?? ASCOUT_CONFIG_PATH;
+  const configured = configuredTaskSet(options.tasks);
+  const overridden = overriddenTaskSet(options.tasks);
+  const result: Record<SemanticTaskType, TaskCommandAuthority> = {
+    typecheck: { taskType: "typecheck", authorityPaths: [], effectivePytestConfig: null },
+    lint: { taskType: "lint", authorityPaths: [], effectivePytestConfig: null },
+    test: { taskType: "test", authorityPaths: [], effectivePytestConfig: null },
+    pytestBasic: { taskType: "pytestBasic", authorityPaths: [], effectivePytestConfig: null },
+  };
+
+  for (const task of FIXED_SEMANTIC_TASKS) {
+    let authorityPaths: readonly string[];
+    if (overridden.has(task)) {
+      authorityPaths = [ascoutPath];
+    } else {
+      const withBase = baseAuthorityPaths(discovery, task);
+      const withAscout = configured.has(task)
+        ? sortedUnique([...withBase, ascoutPath])
+        : withBase;
+      authorityPaths = withAscout;
+    }
+
+    let effectivePytestConfig: string | null = null;
+    if (task === "pytestBasic" && discovery.pytestBasic.state === "resolved") {
+      effectivePytestConfig = discovery.pytestBasic.sourcePaths[0] ?? null;
+      if (effectivePytestConfig !== null && !authorityPaths.includes(effectivePytestConfig)) {
+        authorityPaths = sortedUnique([...authorityPaths, effectivePytestConfig]);
+      }
+    }
+
+    result[task] = {
+      taskType: task,
+      authorityPaths,
+      effectivePytestConfig,
+    };
+  }
+
+  return result;
+}
+
+export function intersectChangedAuthorityPaths(
+  authorityPaths: readonly string[],
+  changedFiles: readonly ChangedPathView[],
+): readonly string[] {
+  const authorities = new Set(authorityPaths);
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const file of changedFiles) {
+    for (const candidate of [file.path, file.previous_path]) {
+      if (candidate === undefined || candidate.length === 0) continue;
+      if (!authorities.has(candidate) || seen.has(candidate)) continue;
+      seen.add(candidate);
+      result.push(candidate);
+    }
+  }
+  return result.sort(compareStrings);
 }
 
 function repositoryPath(root: string, absolutePath: string): string {
@@ -674,7 +889,13 @@ function collectFiles(root: string): DiscoveryFileMap {
   return result;
 }
 
-export function discoverProject(repositoryRoot: string): ProjectDiscovery {
+export interface DiscoveredProject {
+  readonly root: string;
+  readonly files: DiscoveryFileMap;
+  readonly discovery: ProjectDiscovery;
+}
+
+export function collectDiscoveredProject(repositoryRoot: string): DiscoveredProject {
   const requestedRoot = resolve(repositoryRoot);
   let root: string;
   try {
@@ -686,5 +907,10 @@ export function discoverProject(repositoryRoot: string): ProjectDiscovery {
     if (error instanceof DiscoveryError) throw error;
     throw new DiscoveryError("invalid_repository_root", "repository root must be an existing directory");
   }
-  return discoverProjectFromFiles(collectFiles(root));
+  const files = collectFiles(root);
+  return { root, files, discovery: discoverProjectFromFiles(files) };
+}
+
+export function discoverProject(repositoryRoot: string): ProjectDiscovery {
+  return collectDiscoveredProject(repositoryRoot).discovery;
 }
