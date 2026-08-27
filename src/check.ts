@@ -45,7 +45,7 @@ import {
   type TaskResultV1,
   type TestChangeV1,
 } from "./receipt/model.js";
-import { decidePreRunWidening, initialSelection } from "./selection.js";
+import { decidePreRunWidening, initialSelection, preRunPlanningChangedFiles } from "./selection.js";
 import { planESLintTask } from "./tools/eslint.js";
 import { planJestTask, type JestTaskPlan, type PlannedJestTask } from "./tools/jest.js";
 import { planPytestBasicTask } from "./tools/pytest.js";
@@ -974,6 +974,10 @@ export async function runCheck(
       });
       const preRunWidening = decidePreRunWidening(discovery, gitComparison.changed_files);
       const selectionMode = preRunWidening.widened ? "full" as const : "native_related" as const;
+      const testPlanningChangedFiles = preRunPlanningChangedFiles(
+        gitComparison.changed_files,
+        preRunWidening,
+      );
 
       const vitestPlan = planVitestTask({
         repositoryRoot: root,
@@ -981,7 +985,7 @@ export async function runCheck(
         config,
         discovery,
         files,
-        changedFiles: gitComparison.changed_files,
+        changedFiles: testPlanningChangedFiles,
         selectionMode,
       });
       const jestPlan = planJestTask({
@@ -990,7 +994,7 @@ export async function runCheck(
         config,
         discovery,
         files,
-        changedFiles: gitComparison.changed_files,
+        changedFiles: testPlanningChangedFiles,
         selectionMode,
       });
       const testPlan: VitestTaskPlan | JestTaskPlan =
