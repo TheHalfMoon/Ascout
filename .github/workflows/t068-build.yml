@@ -35,6 +35,7 @@ jobs:
 
           python3 <<'PY'
           from pathlib import Path
+          import re
 
           path = Path("src/check.ts")
           text = path.read_text(encoding="utf-8")
@@ -77,19 +78,35 @@ jobs:
           export function deriveTestChanges(changedFiles: readonly GitChangedFile[]): readonly TestChangeV1[] {
             const facts: TestChangeV1[] = [];
             for (const file of changedFiles) {
-              const classification = classifyVerificationAssetPath(file.path);
-              if (classification.isTestFile) {
+              const current = classifyVerificationAssetPath(file.path);
+              const previous = file.change_kind === "renamed" && file.previous_path !== undefined
+                ? classifyVerificationAssetPath(file.previous_path)
+                : null;
+
+              if (current.isTestFile) {
                 facts.push({
                   kind: file.change_kind === "deleted" ? "test_file_deleted" : "test_file_changed",
                   path: file.path,
                   source: "git_diff",
                 });
-                continue;
+              } else if (previous?.isTestFile === true) {
+                facts.push({
+                  kind: "test_file_deleted",
+                  path: file.previous_path!,
+                  source: "git_diff",
+                });
               }
-              if (classification.isSnapshot && file.change_kind !== "untracked") {
+
+              if (current.isSnapshot && file.change_kind !== "untracked") {
                 facts.push({
                   kind: file.change_kind === "deleted" ? "snapshot_deleted" : "snapshot_changed",
                   path: file.path,
+                  source: "git_diff",
+                });
+              } else if (previous?.isSnapshot === true) {
+                facts.push({
+                  kind: "snapshot_deleted",
+                  path: file.previous_path!,
                   source: "git_diff",
                 });
               }
@@ -118,24 +135,14 @@ jobs:
               raise SystemExit("T068 patch anchor for toChangedFileV1 not found")
           text = text.replace(old, new, 1)
 
-          old = '''        changed_files: gitComparison.changed_files.map(toChangedFileV1),
-              };
-          '''
-          new = '''        changed_files: gitComparison.changed_files.map(toChangedFileV1),
-              };
-              const testChanges = deriveTestChanges(gitComparison.changed_files);
-          '''
-          if old not in text:
-              raise SystemExit("T068 patch anchor for comparison not found")
-          text = text.replace(old, new, 1)
-
-          old = '''        testChanges: [] satisfies readonly TestChangeV1[],
-          '''
-          new = '''        testChanges,
-          '''
-          if old not in text:
-              raise SystemExit("T068 patch anchor for receipt testChanges not found")
-          text = text.replace(old, new, 1)
+          text, count = re.subn(
+              r'(?m)^(\s*)testChanges: \[\] satisfies readonly TestChangeV1\[\],$',
+              r'\1testChanges: deriveTestChanges(gitComparison.changed_files),',
+              text,
+              count=1,
+          )
+          if count != 1:
+              raise SystemExit("T068 patch anchor for receipt testChanges not found exactly once")
 
           path.write_text(text, encoding="utf-8")
           PY
@@ -152,9 +159,11 @@ jobs:
           function changedFile(
             path: string,
             changeKind: GitChangedFile["change_kind"],
+            previousPath?: string,
           ): GitChangedFile {
             return {
               path,
+              ...(previousPath === undefined ? {} : { previous_path: previousPath }),
               change_kind: changeKind,
               line_semantics: changeKind === "deleted" ? "deleted_only" : "text",
               changed_new_line_ranges: changeKind === "deleted" ? [] : [[1, 1]],
@@ -185,7 +194,7 @@ jobs:
               });
             });
 
-            it("recognizes tracked Jest/Vitest snapshot paths without treating them as test files", () => {
+            it("recognizes Jest/Vitest snapshot paths without treating them as test files", () => {
               expect(classifyVerificationAssetPath("tests/__snapshots__/example.test.ts.snap")).toEqual({
                 isTestFile: false,
                 isSnapshot: true,
@@ -211,7 +220,27 @@ jobs:
               ]);
             });
 
-            it("reports untracked test files as changed but does not call untracked snapshots tracked facts", () => {
+            it("preserves deletion truth when a verification asset is renamed out of its category", () => {
+              expect(deriveTestChanges([
+                changedFile("src/example.ts", "renamed", "tests/example.test.ts"),
+                changedFile("fixtures/example.txt", "renamed", "tests/__snapshots__/example.test.ts.snap"),
+              ])).toEqual([
+                { kind: "test_file_deleted", path: "tests/example.test.ts", source: "git_diff" },
+                { kind: "snapshot_deleted", path: "tests/__snapshots__/example.test.ts.snap", source: "git_diff" },
+              ]);
+            });
+
+            it("reports a verification asset renamed into its category as changed at the current path", () => {
+              expect(deriveTestChanges([
+                changedFile("tests/example.test.ts", "renamed", "src/example.ts"),
+                changedFile("tests/__snapshots__/example.test.ts.snap", "renamed", "fixtures/example.txt"),
+              ])).toEqual([
+                { kind: "test_file_changed", path: "tests/example.test.ts", source: "git_diff" },
+                { kind: "snapshot_changed", path: "tests/__snapshots__/example.test.ts.snap", source: "git_diff" },
+              ]);
+            });
+
+            it("reports untracked test files as changed but not untracked snapshots as tracked facts", () => {
               expect(deriveTestChanges([
                 changedFile("tests/new.test.ts", "untracked"),
                 changedFile("tests/__snapshots__/new.test.ts.snap", "untracked"),
@@ -247,7 +276,6 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "5b7e83fa5e825fc183d8a4941d8b49cfc29511eb"
-          git status --short
           git diff --check
           test "$(git diff --name-only | sort | tr '\n' ' ')" = "src/check.ts tests/test-snapshot-facts.runtime.test.ts "
           git add src/check.ts tests/test-snapshot-facts.runtime.test.ts
