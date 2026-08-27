@@ -1,0 +1,118 @@
+name: T070 Qodo review repair v2
+
+on:
+  push:
+    branches:
+      - repair/t070-qodo-review-v2-2f7ca341
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact T070 feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/070-cli-format
+          fetch-depth: 0
+
+      - name: Opening exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2f7ca341a80b3651d24bac51c2b251511790b328"
+          test -z "$(git status --short)"
+
+      - name: Apply review repair and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          cli_path = Path("src/cli.ts")
+          cli = cli_path.read_text()
+          replacements = [
+              (
+                  'console.log(renderReceiptJson(outcome.receipt));',
+                  'process.stdout.write(renderReceiptJson(outcome.receipt));',
+              ),
+              (
+                  'console.log(renderReceiptAgent(outcome.receipt));',
+                  'process.stdout.write(renderReceiptAgent(outcome.receipt));',
+              ),
+          ]
+          for old, new in replacements:
+              if cli.count(old) != 1:
+                  raise SystemExit(f"expected exactly one CLI anchor: {old!r}")
+              cli = cli.replace(old, new, 1)
+          cli_path.write_text(cli)
+
+          test_path = Path("tests/cli-format.contract.test.ts")
+          tests = test_path.read_text()
+
+          old_spy = 'const log = vi.spyOn(console, "log").mockImplementation(() => undefined);'
+          new_spy = 'const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);'
+          if tests.count(old_spy) != 3:
+              raise SystemExit(f"expected three console.log spies, found {tests.count(old_spy)}")
+          tests = tests.replace(old_spy, new_spy)
+
+          exact_replacements = [
+              (
+                  'expect(log).not.toHaveBeenCalled();',
+                  'expect(stdout).not.toHaveBeenCalled();',
+              ),
+              (
+                  'mocks.renderJson.mockReturnValue(\'{"schema_version":1}\');',
+                  'mocks.renderJson.mockReturnValue(\'{"schema_version":1}\\n\');',
+              ),
+              (
+                  'expect(log).toHaveBeenCalledWith(\'{"schema_version":1}\');',
+                  'expect(stdout).toHaveBeenCalledTimes(1);\n    expect(stdout).toHaveBeenCalledWith(\'{"schema_version":1}\\n\');',
+              ),
+              (
+                  'expect(log).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");',
+                  'expect(stdout).toHaveBeenCalledTimes(1);\n    expect(stdout).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");',
+              ),
+          ]
+          for old, new in exact_replacements:
+              if tests.count(old) != 1:
+                  raise SystemExit(f"expected exactly one test anchor: {old!r}; found {tests.count(old)}")
+              tests = tests.replace(old, new, 1)
+
+          if 'console, "log"' in tests or 'expect(log)' in tests:
+              raise SystemExit("stale console.log test expectations remain")
+          test_path.write_text(tests)
+          PY
+
+          git diff --check
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = "src/cli.ts tests/cli-format.contract.test.ts "
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T070 tests
+        run: npx vitest run tests/cli.smoke.test.ts tests/cli-format.contract.test.ts tests/receipt-json.test.ts tests/agent-receipt.runtime.test.ts tests/cross-format-consistency.contract.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Commit and push repaired feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2f7ca341a80b3651d24bac51c2b251511790b328"
+          git add src/cli.ts tests/cli-format.contract.test.ts
+          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = "src/cli.ts tests/cli-format.contract.test.ts "
+          git config user.name "TheHalfMoon"
+          git config user.email "alshehriofficial@gmail.com"
+          git commit -m "fix(m1): preserve T070 machine output bytes"
+          git push origin HEAD:feat/070-cli-format
