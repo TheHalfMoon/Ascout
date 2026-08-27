@@ -1,0 +1,59 @@
+name: T061 exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualification/t061-exact-head-e6a1f57b
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T061 head
+        uses: actions/checkout@v4
+        with:
+          ref: e6a1f57b86c4c0a91dcca9665fef885bcd71810c
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Prove opening exact head and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e6a1f57b86c4c0a91dcca9665fef885bcd71810c"
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD
+          git status --short
+      - name: Provision exact locked dependencies
+        run: npm ci
+      - name: Run focused T061 qualification
+        run: >-
+          npm test --
+          tests/selection-account.contract.test.ts
+          tests/selection-account-run-check.integration.test.ts
+          tests/vitest-check.integration.test.ts
+          tests/jest-check.integration.test.ts
+          tests/post-run-widening-run-check.integration.test.ts
+          tests/post-run-widening-jest-run-check.integration.test.ts
+          tests/changed-line-exercise-run-check.integration.test.ts
+          tests/receipt-v1.semantic-invariants.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+      - name: Run full test suite
+        run: npm test
+      - name: Prove closing exact head and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e6a1f57b86c4c0a91dcca9665fef885bcd71810c"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git rev-parse HEAD
+          git status --short --untracked-files=no
