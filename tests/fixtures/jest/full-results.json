@@ -26,12 +26,22 @@
           "location": {
             "line": 1,
             "column": 1
-          }
+          },
+          "duration": 5,
+          "startAt": 1001
         }
       ],
       "perfStats": {
         "start": 1000,
-        "end": 1010
+        "end": 1010,
+        "runtime": 10,
+        "slow": false,
+        "loadTestEnvironmentStart": 1000,
+        "loadTestEnvironmentEnd": 1001,
+        "setupFilesStart": 1001,
+        "setupFilesEnd": 1002,
+        "setupAfterEnvStart": 1002,
+        "setupAfterEnvEnd": 1003
       },
       "testFilePath": "/repo/tests/unused.test.js",
       "coverage": {}
@@ -50,12 +60,22 @@
           "location": {
             "line": 1,
             "column": 1
-          }
+          },
+          "duration": 5,
+          "startAt": 1012
         }
       ],
       "perfStats": {
         "start": 1011,
-        "end": 1020
+        "end": 1020,
+        "runtime": 9,
+        "slow": false,
+        "loadTestEnvironmentStart": 1011,
+        "loadTestEnvironmentEnd": 1012,
+        "setupFilesStart": 1012,
+        "setupFilesEnd": 1013,
+        "setupAfterEnvStart": 1013,
+        "setupAfterEnvEnd": 1014
       },
       "testFilePath": "/repo/tests/used.test.js",
       "coverage": {}
