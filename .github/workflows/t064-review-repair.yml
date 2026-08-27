@@ -1,0 +1,151 @@
+name: T064 review repair
+
+on:
+  push:
+    branches:
+      - mutation/t064-review-repair
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact reviewed feature head
+        uses: actions/checkout@v4
+        with:
+          ref: feat/064-normalize-reproduction-flake
+          fetch-depth: 0
+      - name: Guard reviewed head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "563ef13645073592995a58421333343f26073d44"
+          test -z "$(git status --porcelain)"
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Apply Qodo review repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected one match, found {count}")
+              return text.replace(old, new, 1)
+
+          check_path = Path("src/check.ts")
+          check = check_path.read_text()
+          old = '''    evidence.push(machine.evidence);
+              artifacts.push(machine.artifact);
+              const matches = parseTestAssertionObservations(
+                repositoryRoot,
+                machine.text,
+                machine.evidence.evidence_id,
+              ).filter((observation) =>
+'''
+          new = '''    evidence.push(machine.evidence);
+              artifacts.push(machine.artifact);
+              const machineResultValid = runner === "jest"
+                ? validJestMachineResult(machine.text)
+                : validVitestMachineResult(machine.text);
+              if (!machineResultValid) {
+                return { observation: null, evidence, artifacts, finishedAt, outputTruncated: executed.task.output_truncated };
+              }
+              const matches = parseTestAssertionObservations(
+                repositoryRoot,
+                machine.text,
+                machine.evidence.evidence_id,
+              ).filter((observation) =>
+'''
+          check = replace_once(check, old, new, "targeted runner machine validation")
+          check_path.write_text(check)
+
+          test_path = Path("tests/flake-run-check.integration.test.ts")
+          test = test_path.read_text()
+          test = replace_once(
+              test,
+              'type Scenario = "flaky" | "stable" | "rerun-error";\n',
+              'type Scenario = "flaky" | "stable" | "rerun-error" | "malformed-rerun";\n',
+              "scenario union",
+          )
+          test = replace_once(
+              test,
+              '''const result = {
+              success: !failed,
+              numTotalTests: 1,
+''',
+              '''const result = {
+              ...(scenario === "malformed-rerun" && isTargeted && ordinal === 2 ? {} : { success: !failed }),
+              numTotalTests: 1,
+''',
+              "malformed targeted result",
+          )
+          test = replace_once(
+              test,
+              '''  writeFileSync(executable, runnerShim());
+              chmodSync(executable, 0o755);
+
+              writeFileSync(join(root, ".gitignore"), ".ascout/\\nnode_modules/\\n");
+''',
+              '''  writeFileSync(executable, runnerShim());
+              chmodSync(executable, 0o755);
+              writeFileSync(
+                join(binRoot, `${runner}.cmd`),
+                `@ECHO off\\r\\nnode "%~dp0${runner}" %*\\r\\n`,
+              );
+
+              writeFileSync(join(root, ".gitignore"), ".ascout/\\nnode_modules/\\n");
+''',
+              "Windows command launcher",
+          )
+          insert = '''
+            it("jest: keeps reproduction unknown when a targeted machine result violates the Jest contract", async () => {
+              const receipt = await checkFixture("jest", "malformed-rerun");
+              expect(receipt.tasks.find((task) => task.task_type === "test")).toMatchObject({
+                status: "FAIL",
+                observations: { runs: 1, failures: 1 },
+              });
+              expect(receipt.findings[0]).toMatchObject({
+                determinism_class: "unknown",
+                observations: { runs: 1, failures: 1 },
+                reproduced: "unknown",
+              });
+              expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-1"))).toBe(true);
+              expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-2"))).toBe(false);
+            }, 30_000);
+          '''
+          test = replace_once(
+              test,
+              '\n});\n',
+              insert + '\n});\n',
+              "malformed Jest regression insertion",
+          )
+          test_path.write_text(test)
+          PY
+          git diff --check
+          git diff -- src/check.ts tests/flake-run-check.integration.test.ts
+      - name: Provision dependencies
+        run: npm ci
+      - name: Run focused repair tests
+        run: npm test -- tests/flake-run-check.integration.test.ts tests/test-reproduction-normalization.contract.test.ts tests/flake-reproduction.contract.test.ts tests/targeted-test-rerun.contract.test.ts tests/jest-check.integration.test.ts tests/vitest-check.integration.test.ts tests/receipt-model.test.ts
+      - name: Typecheck repair
+        run: npm run typecheck
+      - name: Commit and push repaired feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          test -n "$(git status --porcelain)"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/check.ts tests/flake-run-check.integration.test.ts
+          git commit -m "fix(m1): harden T064 rerun evidence"
+          git push origin HEAD:feat/064-normalize-reproduction-flake
