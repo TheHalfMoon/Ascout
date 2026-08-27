@@ -1,0 +1,98 @@
+name: Ephemeral T052 Jest integration
+
+on:
+  push:
+    branches:
+      - mutate/t052-jest-integration
+
+permissions:
+  contents: write
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout mutation source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Stage mutation inputs outside workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/t052_jest.ts /tmp/t052_jest.ts
+          cp .github/scripts/t052_jest_task.contract.test.ts /tmp/jest-task.contract.test.ts
+          cp .github/scripts/t052_jest_check.integration.test.ts /tmp/jest-check.integration.test.ts
+          cp .github/scripts/t052_patch_check.py /tmp/t052_patch_check.py
+
+      - name: Checkout exact T052 feature branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feat/052-jest-integration
+          fetch-depth: 0
+
+      - name: Select Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Verify expected feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED=e02031aa7ace8856bd837d8ae89f62c2a783b60b"
+          echo "ACTUAL=$actual"
+          test "$actual" = "e02031aa7ace8856bd837d8ae89f62c2a783b60b"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install current locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Add exact Jest dev dependency
+        run: npm install --save-dev --save-exact jest@30.4.2 --ignore-scripts --no-audit --no-fund
+
+      - name: Verify dependency boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          if (pkg.dependencies?.jest !== undefined) throw new Error('jest must not be a runtime dependency');
+          if (pkg.devDependencies?.jest !== '30.4.2') throw new Error('jest devDependency must be exactly 30.4.2');
+          const actual = require('./node_modules/jest/package.json').version;
+          console.log(`jest=${actual}`);
+          if (actual !== '30.4.2') process.exitCode = 1;
+          NODE
+
+      - name: Apply T052 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp /tmp/t052_jest.ts src/tools/jest.ts
+          cp /tmp/jest-task.contract.test.ts tests/jest-task.contract.test.ts
+          cp /tmp/jest-check.integration.test.ts tests/jest-check.integration.test.ts
+          python /tmp/t052_patch_check.py
+          git diff --check
+
+      - name: Typecheck candidate
+        run: npm run typecheck
+
+      - name: Run focused T052 and compatibility contracts
+        run: npm test -- tests/jest-task.contract.test.ts tests/jest-check.integration.test.ts tests/jest-fixture.contract.test.ts tests/vitest-task.contract.test.ts tests/vitest-check.integration.test.ts tests/check-artifact-io.contract.test.ts tests/lcov-normalization.test.ts tests/receipt-model.test.ts
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Build candidate
+        run: npm run build
+
+      - name: Commit and push qualified T052 tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add package.json package-lock.json src/check.ts src/tools/jest.ts tests/jest-task.contract.test.ts tests/jest-check.integration.test.ts
+          git diff --cached --check
+          git commit -m "feat(052): wire project-local Jest evidence"
+          git push origin HEAD:feat/052-jest-integration
