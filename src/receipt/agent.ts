@@ -88,12 +88,38 @@ function isSafeFieldByte(byte: number): boolean {
  * Agent records are space-delimited. Encode any byte that could alter record
  * structure while keeping ordinary repository paths and identifiers readable.
  */
-export function encodeAgentFieldValue(value: string): string {
-  let encoded = "";
-  for (const byte of Buffer.from(value, "utf8")) {
-    encoded += isSafeFieldByte(byte)
+function appendEncodedUtf8Scalar(encoded: string, scalar: string): string {
+  let result = encoded;
+  for (const byte of Buffer.from(scalar, "utf8")) {
+    result += isSafeFieldByte(byte)
       ? String.fromCharCode(byte)
       : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+  }
+  return result;
+}
+
+export function encodeAgentFieldValue(value: string): string {
+  let encoded = "";
+  for (let index = 0; index < value.length;) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const nextCodeUnit = index + 1 < value.length ? value.charCodeAt(index + 1) : null;
+      if (nextCodeUnit !== null && nextCodeUnit >= 0xdc00 && nextCodeUnit <= 0xdfff) {
+        encoded = appendEncodedUtf8Scalar(encoded, value.slice(index, index + 2));
+        index += 2;
+        continue;
+      }
+      encoded += `%u${codeUnit.toString(16).toUpperCase().padStart(4, "0")}`;
+      index += 1;
+      continue;
+    }
+    if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      encoded += `%u${codeUnit.toString(16).toUpperCase().padStart(4, "0")}`;
+      index += 1;
+      continue;
+    }
+    encoded = appendEncodedUtf8Scalar(encoded, value[index]!);
+    index += 1;
   }
   return encoded;
 }
@@ -335,14 +361,18 @@ export function renderReceiptAgent(
     const candidate = errorCandidate(task, evidenceById);
     if (candidate === null) continue;
     const linkedEvidence = evidenceById.get(candidate.evidenceId)!;
+    const pairedAdmission = admissionCandidate(task);
     const changes: SelectionChanges = {
       representedTaskId: task.task_id,
       evidenceId: candidate.evidenceId,
       evidenceLineBytes: lineContributionBytes(evidenceLine(linkedEvidence)),
     };
-    const recordBytes = lineContributionBytes(candidate.record.line);
+    const recordBytes =
+      lineContributionBytes(candidate.record.line) +
+      (pairedAdmission === null ? 0 : lineContributionBytes(pairedAdmission.line));
     if (canAdd(fixedBytes, receipt, materialGaps.length, state, maxUtf8Bytes, recordBytes, changes)) {
       state.errors.push(candidate.record);
+      if (pairedAdmission !== null) state.admissions.push(pairedAdmission);
       commitSelection(state, recordBytes, changes);
     }
   }
@@ -364,6 +394,7 @@ export function renderReceiptAgent(
   }
 
   for (const task of receipt.tasks) {
+    if (state.admissions.some((record) => record.taskId === task.task_id)) continue;
     const candidate = admissionCandidate(task);
     if (candidate === null) continue;
     const changes: SelectionChanges = { representedTaskId: task.task_id };

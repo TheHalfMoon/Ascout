@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   AGENT_RECEIPT_MAX_UTF8_BYTES,
   AgentReceiptBudgetError,
+  encodeAgentFieldValue,
   renderReceiptAgent,
 } from "../src/receipt/agent.js";
 import { buildReceipt } from "../src/receipt/build.js";
@@ -419,6 +420,85 @@ describe("T069 bounded production agent renderer", () => {
       expect(linked).toBeDefined();
       expect(linked!.task).toBe(record.task);
     }
+  });
+
+  it("keeps admission truth atomic with a retained ERROR under the default budget", () => {
+    const base = receiptFixture();
+    const tasks = base.tasks.map((task) =>
+      task.task_id === "typecheck"
+        ? {
+            ...task,
+            command_surface_changed: true,
+            changed_authority_paths: ["package.json"],
+            execution_admission: "explicit_changed_surface_override" as const,
+          }
+        : task,
+    );
+    const findings = Array.from({ length: 300 }, (_, index) => ({
+      ...findingFixture(),
+      finding_id: `finding-pressure-${index + 1}`,
+    }));
+    const receipt = buildReceipt({
+      run: base.run,
+      sourceStart: base.source.start,
+      sourceEnd: base.source.end,
+      comparison: base.comparison,
+      selection: base.selection,
+      tasks,
+      exercise: base.exercise,
+      testChanges: base.test_changes,
+      findings,
+      evidence: base.evidence,
+      artifacts: base.artifacts,
+    });
+
+    const rendered = renderReceiptAgent(receipt);
+    expect(Buffer.byteLength(rendered, "utf8")).toBeLessThanOrEqual(AGENT_RECEIPT_MAX_UTF8_BYTES);
+    expect(rendered).toContain(
+      "ERROR task=typecheck reason=task_execution_error evidence=typecheck.error",
+    );
+    expect(rendered).toContain(
+      "ADMISSION task=typecheck state=explicit_changed_surface_override authority=package.json",
+    );
+  });
+
+  it("encodes unpaired UTF-16 surrogates losslessly so identities cannot collapse", () => {
+    const first = String.fromCharCode(0xd800);
+    const second = String.fromCharCode(0xd801);
+    expect(encodeAgentFieldValue(`evidence-${first}`)).toBe("evidence-%uD800");
+    expect(encodeAgentFieldValue(`evidence-${second}`)).toBe("evidence-%uD801");
+    expect(encodeAgentFieldValue(`evidence-${first}`)).not.toBe(
+      encodeAgentFieldValue(`evidence-${second}`),
+    );
+    expect(encodeAgentFieldValue("%uD800")).toBe("%25uD800");
+    expect(encodeAgentFieldValue("😀")).toBe("%F0%9F%98%80");
+  });
+
+  it("preserves distinct accepted evidence identities containing lone surrogates", () => {
+    const receipt = receiptFixture();
+    const firstId = `test.result-${String.fromCharCode(0xd800)}`;
+    const secondId = `test.coverage-${String.fromCharCode(0xd801)}`;
+    const candidate: ReceiptV1 = {
+      ...receipt,
+      tasks: receipt.tasks.map((task) =>
+        task.task_id === "test"
+          ? { ...task, evidence_ids: [firstId, secondId] }
+          : task,
+      ),
+      findings: receipt.findings.map((finding) => ({
+        ...finding,
+        evidence_ids: [firstId],
+      })),
+      evidence: receipt.evidence.map((evidence) => {
+        if (evidence.evidence_id === "test.result") return { ...evidence, evidence_id: firstId };
+        if (evidence.evidence_id === "test.coverage") return { ...evidence, evidence_id: secondId };
+        return evidence;
+      }),
+    };
+    const rendered = renderReceiptAgent(candidate);
+    expect(rendered).toContain("EVIDENCE id=test.result-%uD800 task=test kind=test_result");
+    expect(rendered).toContain("EVIDENCE id=test.coverage-%uD801 task=test kind=coverage");
+    expect(rendered).toContain("FINDING id=finding-1 task=test severity=medium evidence=test.result-%uD800");
   });
 
   it("encodes structural field bytes so legal paths cannot forge agent records", () => {
