@@ -824,7 +824,12 @@ function validJestMachineResult(text: string): boolean {
   }
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const candidate = value as { readonly success?: unknown; readonly testResults?: unknown };
-  return typeof candidate.success === "boolean" && Array.isArray(candidate.testResults);
+  if (typeof candidate.success !== "boolean" || !Array.isArray(candidate.testResults)) return false;
+  return candidate.testResults.every((suite) => {
+    if (typeof suite !== "object" || suite === null || Array.isArray(suite)) return false;
+    const formatted = suite as { readonly name?: unknown };
+    return typeof formatted.name === "string" && formatted.name.length > 0;
+  });
 }
 
 function withJestEvidenceError(
