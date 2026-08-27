@@ -1,0 +1,89 @@
+name: Ephemeral T052 final Jest validation
+
+on:
+  push:
+    branches:
+      - mutate/t052-validator-final
+
+permissions:
+  contents: write
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout mutation source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Stage patch outside workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/t052_validator_final.py /tmp/t052_validator_final.py
+
+      - name: Checkout exact T052 feature head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: feat/052-jest-integration
+          fetch-depth: 0
+
+      - name: Select Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Verify expected feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "EXPECTED=32ed12fe622857cf57f70bd707d044fda197f859"
+          echo "ACTUAL=$actual"
+          test "$actual" = "32ed12fe622857cf57f70bd707d044fda197f859"
+          test -z "$(git status --porcelain=v1)"
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Verify locked Jest version and runtime dependency boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          if (pkg.dependencies?.jest !== undefined) throw new Error('jest must remain dev-only');
+          if (pkg.devDependencies?.jest !== '30.4.2') throw new Error('jest devDependency must remain exactly 30.4.2');
+          const actual = require('./node_modules/jest/package.json').version;
+          console.log(`jest=${actual}`);
+          if (actual !== '30.4.2') process.exitCode = 1;
+          NODE
+
+      - name: Apply validator strengthening
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/t052_validator_final.py
+          git diff --check
+
+      - name: Typecheck candidate
+        run: npm run typecheck
+
+      - name: Run focused T052 and compatibility contracts
+        run: npm test -- tests/jest-task.contract.test.ts tests/jest-check.integration.test.ts tests/jest-fixture.contract.test.ts tests/vitest-task.contract.test.ts tests/vitest-check.integration.test.ts tests/check-artifact-io.contract.test.ts tests/lcov-normalization.test.ts tests/receipt-model.test.ts
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Build candidate
+        run: npm run build
+
+      - name: Commit and push qualified validator strengthening
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/check.ts
+          git diff --cached --check
+          git commit -m "fix(052): validate formatted Jest suite paths"
+          git push origin HEAD:feat/052-jest-integration
