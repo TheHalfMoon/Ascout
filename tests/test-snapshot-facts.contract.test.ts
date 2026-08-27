@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { buildReceipt } from "../src/receipt/build.js";
@@ -9,6 +11,35 @@ import {
   type TaskResultV1,
   type TestChangeV1,
 } from "../src/receipt/model.js";
+
+const CANONICAL_FACT_KINDS = [
+  "test_file_changed",
+  "test_file_deleted",
+  "snapshot_changed",
+  "snapshot_deleted",
+] as const;
+
+interface TestChangeSchemaContract {
+  readonly $defs: {
+    readonly testChange: {
+      readonly properties: {
+        readonly kind: { readonly enum: readonly string[] };
+        readonly source: { readonly const: string };
+      };
+    };
+  };
+}
+
+function testChangeSchemaContract(): TestChangeSchemaContract["$defs"]["testChange"] {
+  const schema = JSON.parse(readFileSync(
+    new URL(
+      "../specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json",
+      import.meta.url,
+    ),
+    "utf8",
+  )) as TestChangeSchemaContract;
+  return schema.$defs.testChange;
+}
 
 function sourceState(): SourceStateV1 {
   return {
@@ -170,17 +201,13 @@ function receiptWithFacts(testChanges: readonly TestChangeV1[] = FACTS): Receipt
 }
 
 describe("T065 factual test and snapshot change contract", () => {
-  it("accepts exactly the four canonical first-slice Git fact kinds", () => {
-    const receipt = receiptWithFacts();
+  it("locks the receipt schema to exactly four Git-diff-sourced first-slice facts", () => {
+    const contract = testChangeSchemaContract();
+    expect(contract.properties.kind.enum).toEqual(CANONICAL_FACT_KINDS);
+    expect(contract.properties.source).toEqual({ const: "git_diff" });
 
+    const receipt = receiptWithFacts();
     expect(receipt.test_changes).toEqual(FACTS);
-    expect(receipt.test_changes.map((fact) => fact.kind)).toEqual([
-      "test_file_changed",
-      "test_file_deleted",
-      "snapshot_changed",
-      "snapshot_deleted",
-    ]);
-    expect(receipt.test_changes.every((fact) => fact.source === "git_diff")).toBe(true);
     expect(validateReceiptJsonSchema(receipt)).toEqual({ valid: true, issues: [] });
     expect(validateReceiptSemantics(receipt)).toEqual({ valid: true, issues: [] });
   });
@@ -224,6 +251,20 @@ describe("T065 factual test and snapshot change contract", () => {
     const result = validateReceiptJsonSchema(receipt);
     expect(result.valid).toBe(false);
     expect(result.issues.some((issue) => issue.keyword === "enum")).toBe(true);
+  });
+
+  it("rejects non-Git test-change sources at the receipt boundary", () => {
+    const receipt = structuredClone(receiptWithFacts()) as unknown as Record<string, unknown>;
+    const testChanges = receipt.test_changes as Array<Record<string, unknown>>;
+    testChanges[0] = {
+      kind: "test_file_changed",
+      path: "tests/unit/example.test.ts",
+      source: "repository_scan",
+    };
+
+    const result = validateReceiptJsonSchema(receipt);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((issue) => issue.keyword === "const")).toBe(true);
   });
 
   it("rejects noncanonical test-change paths at the receipt boundary", () => {
