@@ -1,0 +1,39 @@
+{
+  "numFailedTestSuites": 0,
+  "numFailedTests": 0,
+  "numPassedTestSuites": 2,
+  "numPassedTests": 2,
+  "numPendingTestSuites": 0,
+  "numPendingTests": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTotalTestSuites": 2,
+  "numTotalTests": 2,
+  "success": true,
+  "testResults": [
+    {
+      "name": "/repo/tests/unused.test.js",
+      "status": "passed",
+      "assertionResults": [
+        {
+          "ancestorTitles": [],
+          "fullName": "unused",
+          "status": "passed",
+          "title": "unused"
+        }
+      ]
+    },
+    {
+      "name": "/repo/tests/used.test.js",
+      "status": "passed",
+      "assertionResults": [
+        {
+          "ancestorTitles": [],
+          "fullName": "used",
+          "status": "passed",
+          "title": "used"
+        }
+      ]
+    }
+  ],
+  "wasInterrupted": false
+}
