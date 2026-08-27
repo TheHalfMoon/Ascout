@@ -82,7 +82,7 @@ describe("T063 exact failing-test targeted rerun helpers", () => {
         "--reporter=json",
         "--outputFile=.ascout/runs/run-063/raw/test/rerun-1/vitest-results.json",
         "--testNamePattern",
-        "^math \\[edge\\] adds \\(a\\+b\\)\\?$",
+        "^math \\[edge\\] adds \\(a\\+b\\)\\?(?![\\s\\S])",
         "--config",
         "vitest.config.mjs",
       ],
@@ -117,7 +117,7 @@ describe("T063 exact failing-test targeted rerun helpers", () => {
       "--reporter=json",
       "--outputFile=../../.ascout/runs/run-063/raw/test/rerun-2/vitest-results.json",
       "--testNamePattern",
-      "^a suite exact failure$",
+      "^a suite exact failure(?![\\s\\S])",
       "--config",
       "vitest.config.mjs",
     ]);
@@ -154,7 +154,7 @@ describe("T063 exact failing-test targeted rerun helpers", () => {
         "--runTestsByPath",
         "tests/math.test.ts",
         "--testNamePattern",
-        "^math \\[edge\\] adds \\(a\\+b\\)\\?$",
+        "^math \\[edge\\] adds \\(a\\+b\\)\\?(?![\\s\\S])",
         "--ci",
         "--json",
         "--outputFile=.ascout/runs/run-063/raw/test/rerun-1/jest-results.json",
@@ -190,7 +190,7 @@ describe("T063 exact failing-test targeted rerun helpers", () => {
       "--runTestsByPath",
       "tests/a.test.ts",
       "--testNamePattern",
-      "^a suite exact failure$",
+      "^a suite exact failure(?![\\s\\S])",
       "--ci",
       "--json",
       "--outputFile=../../.ascout/runs/run-063/raw/test/rerun-2/jest-results.json",
@@ -211,6 +211,34 @@ describe("T063 exact failing-test targeted rerun helpers", () => {
     expect(plan.state).toBe("planned");
     if (plan.state !== "planned") return;
     expect(plan.argv.slice(1, 3)).toEqual(["--runTestsByPath", "./--odd.test.ts"]);
+  });
+
+  it("uses absolute-end semantics for names that differ only by a final line terminator", () => {
+    const vitest = planVitestTargetedRerun({
+      runId: "run-063",
+      basePlan: vitestPlan(),
+      selector: { path: "tests/a.test.ts", fullName: "foo" },
+      observationOrdinal: 2,
+    });
+    expect(vitest.state).toBe("planned");
+    if (vitest.state !== "planned") return;
+    const vitestPattern = vitest.argv[vitest.argv.indexOf("--testNamePattern") + 1];
+    expect(vitestPattern).toBeDefined();
+    expect(new RegExp(vitestPattern!).test("foo")).toBe(true);
+    expect(new RegExp(vitestPattern!).test("foo\n")).toBe(false);
+
+    const jest = planJestTargetedRerun({
+      runId: "run-063",
+      basePlan: jestPlan(),
+      selector: { path: "tests/a.test.ts", fullName: "foo" },
+      observationOrdinal: 2,
+    });
+    expect(jest.state).toBe("planned");
+    if (jest.state !== "planned") return;
+    const jestPattern = jest.argv[jest.argv.indexOf("--testNamePattern") + 1];
+    expect(jestPattern).toBeDefined();
+    expect(new RegExp(jestPattern!).test("foo")).toBe(true);
+    expect(new RegExp(jestPattern!).test("foo\n")).toBe(false);
   });
 
   it("refuses any third extra observation for both runners", () => {
