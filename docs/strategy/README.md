@@ -6,16 +6,20 @@ This directory stores strategic product research, gap reviews, and future-roadma
 
 ## Authority rule
 
-For current implementation, the authoritative order remains:
+Live GitHub/repository truth determines the **current factual state**: exact heads, merged commits, open PRs, review threads, checks, and branch relationships. It does not displace repository governance.
 
-1. live GitHub/repository truth;
+For product-work governance and implementation decisions, the authority order is:
+
+1. `.specify/memory/constitution.md`;
 2. `docs/founding/MASTER_PLAN_V1.md`;
 3. `specs/001-changed-code-verification-receipt/spec.md`;
 4. `specs/001-changed-code-verification-receipt/plan.md`;
 5. `specs/001-changed-code-verification-receipt/tasks.md`;
-6. relevant contracts, acceptance criteria, and exact-head review evidence.
+6. relevant contracts, acceptance criteria, and fresh exact-head review/evidence required by those artifacts.
 
-Nothing in `docs/strategy/` independently authorizes implementation, dependency admission, task reordering, or expansion of M1 scope. Future capabilities described here require their own reconciliation and Spec Kit canonicalization before implementation.
+The Constitution governs all product work. A stale handoff, strategy note, review, plan, task list, or implementation snapshot cannot override constitutional constraints. Planning artifacts do not independently authorize implementation.
+
+Nothing in `docs/strategy/` independently authorizes implementation, dependency admission, task reordering, or expansion of M1 scope. Future capabilities described here require their own reconciliation, Spec Kit canonicalization, constitutional compliance, and explicit implementation authorization.
 
 ## Canonical sequencing clarification
 
@@ -27,7 +31,7 @@ In particular:
 - project cross-platform CI remains scheduled at **T079 / Phase 8** and must not be pulled forward merely because the strategic P0 section names exact-head/cross-platform evidence as an eventual trust obligation;
 - current US1 closeout must use the gates actually required by the active canonical tasks/runbook; later M1 gates remain later M1 work.
 
-If any roadmap wording appears to conflict with the canonical Spec Kit ordering, the canonical task order wins and the roadmap wording must be reconciled before implementation.
+If any roadmap wording appears to conflict with the Constitution, canonical Master Plan, or canonical Spec Kit ordering, those canonical artifacts win and the roadmap wording must be reconciled before implementation.
 
 ## Documents
 
