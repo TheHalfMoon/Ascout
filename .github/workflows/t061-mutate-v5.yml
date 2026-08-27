@@ -1,0 +1,100 @@
+name: T061 mutation v5
+
+on:
+  push:
+    branches:
+      - mutation/t061-selection-finalization-v5
+
+permissions:
+  contents: write
+
+jobs:
+  mutate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T061 feature base
+        uses: actions/checkout@v4
+        with:
+          ref: feat/061-selection-account-finalization
+          fetch-depth: 0
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Prove feature base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c5e9259d0c7186ab08f41b0e61c715615653b91d"
+          test -z "$(git status --porcelain)"
+      - name: Provision exact locked dependencies
+        run: npm ci
+      - name: Apply T061 implementation and typing repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show origin/mutation/t061-selection-finalization-v3:tools/t061_mutate.py > /tmp/t061_mutate.py
+          python3 /tmp/t061_mutate.py
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("src/check.ts")
+          text = path.read_text()
+
+          old = '  let coveragePoints: readonly LcovLinePoint[] | null = null;\n  try {'
+          if text.count(old) != 2:
+              raise SystemExit(f"coverage scope anchors: expected 2, found {text.count(old)}")
+          text = text.replace(
+              old,
+              '  let coveragePoints: readonly LcovLinePoint[] | null = null;\n  let selectedTestCount: number | null = null;\n  try {',
+          )
+
+          old = '    const selectedTestCount = observedSelectedTestCount(machine.text);'
+          if text.count(old) != 2:
+              raise SystemExit(f"selected count assignments: expected 2, found {text.count(old)}")
+          text = text.replace(old, '    selectedTestCount = observedSelectedTestCount(machine.text);')
+
+          old = '  const passes = selection.passes.map((pass, index) => {'
+          if text.count(old) != 1:
+              raise SystemExit(f"passes inference anchor: expected 1, found {text.count(old)}")
+          text = text.replace(
+              old,
+              '  const passes: Array<SelectionV1["passes"][number]> = selection.passes.map((pass, index) => {',
+              1,
+          )
+
+          old = '    passes[0] = { ...passes[0]!, deselected_test_count: total - selected, total_test_count: total };'
+          if text.count(old) != 1:
+              raise SystemExit(f"pass assignment anchor: expected 1, found {text.count(old)}")
+          text = text.replace(
+              old,
+              '    passes[0] = { ...passes[0]!, selected_test_count: selected, deselected_test_count: total - selected, total_test_count: total };',
+              1,
+          )
+
+          path.write_text(text)
+          PY
+      - name: Run focused T061 tests
+        run: >-
+          npm test --
+          tests/selection-account.contract.test.ts
+          tests/selection-account-run-check.integration.test.ts
+          tests/vitest-check.integration.test.ts
+          tests/jest-check.integration.test.ts
+          tests/post-run-widening-run-check.integration.test.ts
+          tests/post-run-widening-jest-run-check.integration.test.ts
+          tests/changed-line-exercise-run-check.integration.test.ts
+          tests/receipt-v1.semantic-invariants.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Commit and push feature change
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          git status --short
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/check.ts tests/selection-account-run-check.integration.test.ts tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts tests/post-run-widening-run-check.integration.test.ts tests/post-run-widening-jest-run-check.integration.test.ts
+          git commit -m "feat(m1): finalize T061 selection account"
+          git push origin HEAD:feat/061-selection-account-finalization
