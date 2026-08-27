@@ -179,12 +179,48 @@ function replaceTaskStatus(receipt: ReceiptV1, status: TaskStatus): void {
   }
 }
 
+function configureRefusedAdmission(receipt: ReceiptV1, authorityPath = "package.json"): void {
+  const task = receipt.tasks[0] as unknown as {
+    command_surface_changed: boolean;
+    changed_authority_paths: string[];
+    execution_admission: "refused_changed_surface";
+    status: TaskStatus;
+    reason_code: string | null;
+    reason_text: string | null;
+    argv: string[];
+    tool_name: string | null;
+    tool_version: string | null;
+    exit_code: number | null;
+    started_at: string | null;
+    finished_at: string | null;
+    duration_ms: number | null;
+    observations: { runs: number; failures: number };
+  };
+  task.command_surface_changed = true;
+  task.changed_authority_paths = [authorityPath];
+  task.execution_admission = "refused_changed_surface";
+  task.status = "NOT_RUN";
+  task.reason_code = "command_surface_changed";
+  task.reason_text = "changed command authority";
+  task.argv = [];
+  task.tool_name = null;
+  task.tool_version = null;
+  task.exit_code = null;
+  task.started_at = null;
+  task.finished_at = null;
+  task.duration_ms = null;
+  task.observations = { runs: 0, failures: 0 };
+  (receipt.summary as { completeness: "materially_incomplete"; exit_code: 4 }).completeness = "materially_incomplete";
+  (receipt.summary as { exit_code: 4 }).exit_code = 4;
+  (receipt.summary.task_status_counts as { PASS: number; NOT_RUN: number }).PASS = 0;
+  (receipt.summary.task_status_counts as { PASS: number; NOT_RUN: number }).NOT_RUN = 1;
+}
+
 describe("T025 receipt semantic model", () => {
   it("accepts one internally consistent receipt", () => {
     const result = validateReceiptSemantics(validReceipt());
     expect(result).toEqual({ valid: true, issues: [] });
   });
-
 
   it("constructs repository/run candidates from transient host paths without repairing invalid receipt spellings", () => {
     const candidate = constructReceiptPathCandidateFromHostPath(
@@ -300,47 +336,51 @@ describe("T025 receipt semantic model", () => {
     expect(issueCodes(rename)).toContain("rename_previous_path_required");
 
     const admission = structuredClone(validReceipt()) as ReceiptV1;
-    const task = admission.tasks[0] as unknown as {
-      command_surface_changed: boolean;
-      changed_authority_paths: string[];
-      execution_admission: "normal" | "refused_changed_surface" | "explicit_changed_surface_override";
-      status: TaskStatus;
-      reason_code: string | null;
-      reason_text: string | null;
-      argv: string[];
-      tool_name: string | null;
-      tool_version: string | null;
-      exit_code: number | null;
-      started_at: string | null;
-      finished_at: string | null;
-      duration_ms: number | null;
-      observations: { runs: number; failures: number };
-    };
     const authorityFile = admission.comparison.changed_files[0] as unknown as {
       path: string;
       is_command_surface: boolean;
     };
     authorityFile.path = "package.json";
     authorityFile.is_command_surface = true;
-    task.command_surface_changed = true;
-    task.changed_authority_paths = ["package.json"];
-    task.execution_admission = "refused_changed_surface";
-    task.status = "NOT_RUN";
-    task.reason_code = "command_surface_changed";
-    task.reason_text = "changed command authority";
-    task.argv = [];
-    task.tool_name = null;
-    task.tool_version = null;
-    task.exit_code = null;
-    task.started_at = null;
-    task.finished_at = null;
-    task.duration_ms = null;
-    task.observations = { runs: 0, failures: 0 };
-    (admission.summary as { completeness: "materially_incomplete"; exit_code: 4 }).completeness = "materially_incomplete";
-    (admission.summary as { exit_code: 4 }).exit_code = 4;
-    (admission.summary.task_status_counts as { PASS: number; NOT_RUN: number }).PASS = 0;
-    (admission.summary.task_status_counts as { PASS: number; NOT_RUN: number }).NOT_RUN = 1;
+    configureRefusedAdmission(admission);
     expect(validateReceiptSemantics(admission).valid).toBe(true);
+  });
+
+  it("rejects a matching changed authority file not marked as a command surface", () => {
+    const receipt = structuredClone(validReceipt()) as ReceiptV1;
+    const authorityFile = receipt.comparison.changed_files[0] as unknown as {
+      path: string;
+      is_command_surface: boolean;
+    };
+    authorityFile.path = "package.json";
+    authorityFile.is_command_surface = false;
+    configureRefusedAdmission(receipt);
+
+    expect(issueCodes(receipt)).toContain("command_surface_file_fact_mismatch");
+  });
+
+  it("accepts a rename previous_path as the changed authority identity", () => {
+    const receipt = structuredClone(validReceipt()) as ReceiptV1;
+    const authorityFile = receipt.comparison.changed_files[0] as unknown as {
+      path: string;
+      previous_path?: string;
+      change_kind: "renamed";
+      is_command_surface: boolean;
+    };
+    authorityFile.path = "package-renamed.json";
+    authorityFile.previous_path = "package.json";
+    authorityFile.change_kind = "renamed";
+    authorityFile.is_command_surface = true;
+    configureRefusedAdmission(receipt);
+
+    expect(validateReceiptSemantics(receipt).valid).toBe(true);
+  });
+
+  it("rejects a changed authority path absent from the current comparison", () => {
+    const receipt = structuredClone(validReceipt()) as ReceiptV1;
+    configureRefusedAdmission(receipt, "missing.json");
+
+    expect(issueCodes(receipt)).toContain("changed_authority_path_not_in_comparison");
   });
 
   it("keeps non-text changes file-level and requires executed observations for executed outcomes", () => {
