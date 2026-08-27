@@ -849,6 +849,48 @@ function validateReferences(receipt: ReceiptV1, issues: ReceiptSemanticIssue[]):
 
   for (const [i, finding] of receipt.findings.entries()) {
     validateObservations(finding.observations, issues, `findings[${i}].observations`);
+    const owningTask = tasks.get(finding.task_id);
+    const validObservationCounts =
+      isNonNegativeInteger(finding.observations.runs) &&
+      isNonNegativeInteger(finding.observations.failures) &&
+      finding.observations.failures <= finding.observations.runs;
+    if (owningTask?.task_type === "test" && validObservationCounts) {
+      const { runs, failures } = finding.observations;
+      if (runs === 1 && failures === 1 && finding.reproduced !== "unknown") {
+        addIssue(
+          issues,
+          "finding_reproduction_invariant",
+          `findings[${i}].reproduced`,
+          "one valid failing test observation requires reproduced=unknown",
+        );
+      }
+      if (runs >= 2 && failures === runs && finding.reproduced !== true) {
+        addIssue(
+          issues,
+          "finding_reproduction_invariant",
+          `findings[${i}].reproduced`,
+          "repeated consistent test failures require reproduced=true",
+        );
+      }
+      if (runs >= 2 && failures > 0 && failures < runs) {
+        if (finding.reproduced !== false) {
+          addIssue(
+            issues,
+            "finding_reproduction_invariant",
+            `findings[${i}].reproduced`,
+            "contradictory valid test observations require stable-failure reproduction false",
+          );
+        }
+        if (finding.determinism_class !== "nondeterministic") {
+          addIssue(
+            issues,
+            "finding_determinism_invariant",
+            `findings[${i}].determinism_class`,
+            "contradictory valid test observations require nondeterministic classification",
+          );
+        }
+      }
+    }
     if (finding.fingerprint != null && !SHA256.test(finding.fingerprint)) {
       addIssue(issues, "fingerprint_invalid", `findings[${i}]`, "persisted weak fingerprint must be lowercase SHA-256 when present");
     }
