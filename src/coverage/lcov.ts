@@ -26,9 +26,9 @@ const REASON_INVALID_COUNT = "LCOV execution count is invalid";
 const REASON_INCOMPLETE_RECORD = "LCOV source record is incomplete";
 const REASON_NO_LINE_DATA = "no usable line coverage records";
 
-const POSITIVE_DECIMAL = /^[1-9]\d*$/u;
-const INTEGER_DECIMAL = /^-?\d+$/u;
+const UNSIGNED_DECIMAL = /^\d+$/u;
 const WINDOWS_ABSOLUTE = /^(?:[A-Za-z]:[\\/]|\\\\)/u;
+const URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
 
 function unresolved(reason: string): UnresolvedLcovLineCoverage {
   return { outcome: "unresolved", count: null, reason };
@@ -51,6 +51,7 @@ function canonicalRepositoryPath(path: string): string | null {
     canonical.length === 0 ||
     canonical.startsWith("/") ||
     /^[A-Za-z]:/u.test(canonical) ||
+    URI_SCHEME.test(canonical) ||
     canonical.endsWith("/") ||
     canonical.includes("//")
   ) {
@@ -87,13 +88,13 @@ function mapSourcePath(repositoryRoot: string, sourcePath: string): string | nul
 }
 
 function parsePositiveSafeInteger(token: string): number | null {
-  if (!POSITIVE_DECIMAL.test(token)) return null;
+  if (!UNSIGNED_DECIMAL.test(token)) return null;
   const value = Number(token);
   return Number.isSafeInteger(value) && value > 0 ? value : null;
 }
 
 function parseNonnegativeSafeInteger(token: string): number | null {
-  if (!INTEGER_DECIMAL.test(token)) return null;
+  if (!UNSIGNED_DECIMAL.test(token)) return null;
   const value = Number(token);
   return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
@@ -117,7 +118,6 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
   let currentSource: string | null = null;
   let currentRecordHadLineData = false;
   let sawCompleteSourceRecord = false;
-  let sawAnyLineData = false;
 
   const lines = input.split(/\r?\n/u);
   for (const rawLine of lines) {
@@ -132,8 +132,8 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
 
     if (rawLine === "end_of_record") {
       if (currentSource === null) continue;
+      if (!currentRecordHadLineData) return unresolved(REASON_NO_LINE_DATA);
       sawCompleteSourceRecord = true;
-      sawAnyLineData ||= currentRecordHadLineData;
       currentSource = null;
       currentRecordHadLineData = false;
       continue;
@@ -143,7 +143,13 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
     if (currentSource === null) return unresolved(REASON_MALFORMED_LINE);
 
     const fields = rawLine.slice(3).split(",");
-    if (fields.length < 2 || fields.length > 3 || fields[0] === undefined || fields[1] === undefined) {
+    if (
+      fields.length < 2 ||
+      fields.length > 3 ||
+      fields[0] === undefined ||
+      fields[1] === undefined ||
+      (fields.length === 3 && fields[2]?.length === 0)
+    ) {
       return unresolved(REASON_MALFORMED_LINE);
     }
 
@@ -158,7 +164,7 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
   }
 
   if (currentSource !== null) return unresolved(REASON_INCOMPLETE_RECORD);
-  if (!sawCompleteSourceRecord || !sawAnyLineData || counts.size === 0) return unresolved(REASON_NO_LINE_DATA);
+  if (!sawCompleteSourceRecord || counts.size === 0) return unresolved(REASON_NO_LINE_DATA);
 
   const points: LcovLinePoint[] = [];
   for (const path of [...counts.keys()].sort()) {
