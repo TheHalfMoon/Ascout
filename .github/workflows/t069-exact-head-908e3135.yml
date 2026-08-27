@@ -1,0 +1,49 @@
+name: T069 repaired exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualification/t069-exact-head-908e3135
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact T069 feature head
+        uses: actions/checkout@v4
+        with:
+          ref: 908e31353489007472520f1884798f0f9dc0f42a
+          fetch-depth: 0
+
+      - name: Opening exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "908e31353489007472520f1884798f0f9dc0f42a"
+          test -z "$(git status --short)"
+          test "$(git merge-base 705e6830e46604f0e40161bd14766eb8fc5bf12b HEAD)" = "705e6830e46604f0e40161bd14766eb8fc5bf12b"
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T066 T067 T069 tests
+        run: npx vitest run tests/agent-receipt.contract.test.ts tests/cross-format-consistency.contract.test.ts tests/agent-receipt.runtime.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Closing exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "908e31353489007472520f1884798f0f9dc0f42a"
+          test -z "$(git status --short)"
