@@ -52,6 +52,8 @@ export interface JestTaskPlanningInput {
   readonly files: DiscoveryFileMap;
   readonly changedFiles: readonly GitChangedFile[];
   readonly selectionMode?: JestSelectionMode;
+  /** Keeps T054 second-pass machine/coverage evidence physically separate. */
+  readonly artifactPassOrdinal?: 1 | 2;
   readonly platform?: NodeJS.Platform;
 }
 
@@ -397,7 +399,10 @@ export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
     return notRun("run_id_invalid", "Internal run identifier is not safe for Jest artifact paths.");
   }
 
-  const artifactBase = `.ascout/runs/${input.runId}/raw/test`;
+  const artifactPassOrdinal = input.artifactPassOrdinal ?? 1;
+  const artifactBase = artifactPassOrdinal === 1
+    ? `.ascout/runs/${input.runId}/raw/test`
+    : `.ascout/runs/${input.runId}/raw/test/pass-2`;
   const machineResultPath = `${artifactBase}/jest-results.json`;
   const coverageDirectoryPath = `${artifactBase}/coverage`;
   const lcovPath = `${coverageDirectoryPath}/lcov.info`;
