@@ -169,12 +169,17 @@ function runDoctor(repositoryRoot: string): DoctorResult {
     };
     const surfaces = classifyCommandSurfaces(discovery, classifyOptions);
 
+    const changedKindCounts = new Map<string, number>();
+    for (const file of changedFiles) {
+      changedKindCounts.set(file.change_kind, (changedKindCounts.get(file.change_kind) ?? 0) + 1);
+    }
+
     const lines: string[] = [];
     lines.push("=== Doctor Output ===\n");
     lines.push(`Repository identity: ${sourceState.repository_id}`);
     lines.push(`Repository identity kind: ${sourceState.repository_id_kind}`);
     lines.push(`Portable identity: ${sourceState.portable}`);
-    lines.push(`Config source: ${existsSync(join(root, "ascout.config.json")) ? "ascout.config.json" : "built-in defaults"}`);
+    lines.push(`Config source: ${existsSync(join(root, "ascout.config.json")) ? "repository_config" : "built_in_defaults"}`);
     lines.push("\n--- Discovered Project ---");
     lines.push(`Workspace kind: ${discovery.workspace.kind}`);
     lines.push(`Package manager: ${discovery.packageManager.state === "resolved" ? discovery.packageManager.value : discovery.packageManager.reasonCode}`);
@@ -184,16 +189,14 @@ function runDoctor(repositoryRoot: string): DoctorResult {
     for (const task of ["typecheck", "lint", "pytestBasic", "test"] as const) {
       const surface = surfaces[task];
       lines.push(`${task}:`);
-      lines.push(`  authorityPaths: ${JSON.stringify(surface.authorityPaths)}`);
-      lines.push(`  effectivePytestConfig: ${surface.effectivePytestConfig ?? "null"}`);
+      lines.push(`  authorityPathCount: ${surface.authorityPaths.length}`);
+      lines.push(`  effectivePytestConfig: ${surface.effectivePytestConfig === null ? "absent" : "present"}`);
     }
     lines.push("\n--- Changed Files ---");
     lines.push(`Count: ${changedFiles.length}`);
-    for (const file of changedFiles.slice(0, 10)) {
-      lines.push(`  ${file.path} (${file.change_kind})`);
-    }
-    if (changedFiles.length > 10) {
-      lines.push(`  ... and ${changedFiles.length - 10} more`);
+    for (const kind of ["added", "modified", "deleted", "renamed", "type_changed", "untracked"] as const) {
+      const count = changedKindCounts.get(kind) ?? 0;
+      if (count > 0) lines.push(`  ${kind}: ${count}`);
     }
     return { output: lines.join("\n"), exitCode: 0 };
   } catch (error) {
