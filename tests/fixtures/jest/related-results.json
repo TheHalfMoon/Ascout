@@ -1,27 +1,40 @@
 {
-  "numFailedTestSuites": 0,
-  "numFailedTests": 0,
-  "numPassedTestSuites": 1,
-  "numPassedTests": 1,
-  "numPendingTestSuites": 0,
-  "numPendingTests": 0,
-  "numRuntimeErrorTestSuites": 0,
-  "numTotalTestSuites": 1,
-  "numTotalTests": 1,
   "success": true,
+  "startTime": 1000,
+  "numTotalTestSuites": 1,
+  "numPassedTestSuites": 1,
+  "numFailedTestSuites": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTotalTests": 1,
+  "numPassedTests": 1,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "openHandles": [],
   "testResults": [
     {
-      "name": "/repo/tests/used.test.js",
-      "status": "passed",
-      "assertionResults": [
+      "numFailingTests": 0,
+      "numPassingTests": 1,
+      "numPendingTests": 0,
+      "testResults": [
         {
-          "ancestorTitles": [],
-          "fullName": "used",
+          "title": "used",
           "status": "passed",
-          "title": "used"
+          "ancestorTitles": [],
+          "failureMessages": [],
+          "numPassingAsserts": 1,
+          "location": {
+            "line": 1,
+            "column": 1
+          }
         }
-      ]
+      ],
+      "perfStats": {
+        "start": 1000,
+        "end": 1010
+      },
+      "testFilePath": "/repo/tests/used.test.js",
+      "coverage": {}
     }
-  ],
-  "wasInterrupted": false
+  ]
 }
