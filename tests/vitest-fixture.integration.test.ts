@@ -17,6 +17,8 @@ type FixtureCatalog = {
     readonly changedPath: string;
     readonly expectedTestBasenames: readonly string[];
     readonly trigger: "vitest_config_changed";
+    readonly widenedMode: "full";
+    readonly forbiddenNarrowArgs: readonly ["related", "--changed"];
   };
   readonly artifacts: {
     readonly jsonResult: string;
@@ -93,12 +95,11 @@ function initializeFixtureRepository(): string {
 
 function readTestBasenames(jsonPath: string): readonly string[] {
   const report = JSON.parse(readFileSync(jsonPath, "utf8")) as VitestJsonReport;
-  const names = (report.testResults ?? [])
+  return (report.testResults ?? [])
     .map((result) => result.name)
     .filter((name): name is string => typeof name === "string")
     .map((name) => basename(name))
     .sort();
-  return names;
 }
 
 function expectAscoutRelativePath(path: string): void {
@@ -116,6 +117,8 @@ describe("T045 Vitest fixture/integration contract", () => {
     expect(catalog.version).toBe(1);
     expect(catalog.related.selectionMode).toBe("native_related");
     expect(catalog.configWidening.trigger).toBe("vitest_config_changed");
+    expect(catalog.configWidening.widenedMode).toBe("full");
+    expect(catalog.configWidening.forbiddenNarrowArgs).toEqual(["related", "--changed"]);
     expect(catalog.requiredRunArgs).toContain("--run");
     expect(catalog.requiredRunArgs).toContain("--reporter=json");
     expect(catalog.coverageArgs).toContain("--coverage.enabled=true");
@@ -154,22 +157,26 @@ describe("T045 Vitest fixture/integration contract", () => {
     }
   });
 
-  it("widens a native changed run to the full fixture when Vitest config changes", () => {
+  it("widens to a full non-watch run when Vitest config changes", () => {
     const catalog = loadCatalog();
     const root = initializeFixtureRepository();
 
     try {
       const configPath = join(root, catalog.configWidening.changedPath);
-      writeFileSync(configPath, `${readFileSync(configPath, "utf8")}\n// trigger full native changed rerun\n`);
+      writeFileSync(configPath, `${readFileSync(configPath, "utf8")}\n// changed config requires full Ascout widening\n`);
 
-      const jsonPath = join(root, ...catalog.artifacts.jsonResult.split("/"));
-      runCommand(root, process.execPath, [
+      const widenedArgs = [
         vitestCliPath,
-        "--changed",
         "--run",
         "--reporter=json",
         `--outputFile=${catalog.artifacts.jsonResult}`,
-      ]);
+      ] as const;
+      for (const forbidden of catalog.configWidening.forbiddenNarrowArgs) {
+        expect(widenedArgs).not.toContain(forbidden);
+      }
+
+      const jsonPath = join(root, ...catalog.artifacts.jsonResult.split("/"));
+      runCommand(root, process.execPath, widenedArgs);
 
       expect(existsSync(jsonPath)).toBe(true);
       expect(readTestBasenames(jsonPath)).toEqual([...catalog.configWidening.expectedTestBasenames].sort());
