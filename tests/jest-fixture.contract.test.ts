@@ -53,10 +53,20 @@ type JestJsonResult = {
         readonly line: number;
         readonly column: number;
       };
+      readonly duration: number | null;
+      readonly startAt: number | null;
     }[];
     readonly perfStats: {
       readonly start: number;
       readonly end: number;
+      readonly runtime: number;
+      readonly slow: boolean;
+      readonly loadTestEnvironmentStart: number;
+      readonly loadTestEnvironmentEnd: number;
+      readonly setupFilesStart: number;
+      readonly setupFilesEnd: number;
+      readonly setupAfterEnvStart: number;
+      readonly setupAfterEnvEnd: number;
     };
     readonly testFilePath: string;
     readonly coverage: Readonly<Record<string, unknown>>;
@@ -112,6 +122,15 @@ function expectSuccessfulMachineResult(result: JestJsonResult): void {
     expect(suite.numPendingTests).toBe(0);
     expect(suite.numPassingTests).toBe(suite.testResults.length);
     expect(suite.perfStats.start).toBeLessThanOrEqual(suite.perfStats.end);
+    expect(suite.perfStats.runtime).toBe(suite.perfStats.end - suite.perfStats.start);
+    expect(suite.perfStats.slow).toBe(false);
+    expect(suite.perfStats.loadTestEnvironmentStart).toBeGreaterThanOrEqual(suite.perfStats.start);
+    expect(suite.perfStats.loadTestEnvironmentEnd).toBeGreaterThanOrEqual(suite.perfStats.loadTestEnvironmentStart);
+    expect(suite.perfStats.setupFilesStart).toBeGreaterThanOrEqual(suite.perfStats.loadTestEnvironmentEnd);
+    expect(suite.perfStats.setupFilesEnd).toBeGreaterThanOrEqual(suite.perfStats.setupFilesStart);
+    expect(suite.perfStats.setupAfterEnvStart).toBeGreaterThanOrEqual(suite.perfStats.setupFilesEnd);
+    expect(suite.perfStats.setupAfterEnvEnd).toBeGreaterThanOrEqual(suite.perfStats.setupAfterEnvStart);
+    expect(suite.perfStats.setupAfterEnvEnd).toBeLessThanOrEqual(suite.perfStats.end);
     expect(suite.testFilePath.startsWith("/")).toBe(true);
     expect(typeof suite.coverage).toBe("object");
     observedTests += suite.testResults.length;
@@ -123,6 +142,11 @@ function expectSuccessfulMachineResult(result: JestJsonResult): void {
       expect(assertion.numPassingAsserts).toBeGreaterThan(0);
       expect(assertion.location.line).toBeGreaterThan(0);
       expect(assertion.location.column).toBeGreaterThan(0);
+      expect(assertion.duration).not.toBeNull();
+      expect(assertion.startAt).not.toBeNull();
+      expect(assertion.duration!).toBeGreaterThanOrEqual(0);
+      expect(assertion.startAt!).toBeGreaterThanOrEqual(suite.perfStats.start);
+      expect(assertion.startAt!).toBeLessThanOrEqual(suite.perfStats.end);
     }
   }
   expect(observedTests).toBe(result.numTotalTests);
@@ -151,7 +175,7 @@ describe("T046 Jest fixture/integration contract", () => {
     expect(catalog.artifacts.lcov).toBe(`${catalog.artifacts.coverageDirectory}/lcov.info`);
   });
 
-  it("locks the Jest 30 related-test machine-result shape", () => {
+  it("locks the documented Jest 30 related-test machine-result shape", () => {
     const catalog = loadJson<JestCaseCatalog>(CASES_URL);
     const result = loadJson<JestJsonResult>(RELATED_RESULTS_URL);
 
@@ -178,7 +202,7 @@ describe("T046 Jest fixture/integration contract", () => {
     expectSafeJestArgs(args);
   });
 
-  it("locks the Jest 30 full-run machine-result shape after widening", () => {
+  it("locks the documented Jest 30 full-run machine-result shape after widening", () => {
     const catalog = loadJson<JestCaseCatalog>(CASES_URL);
     const result = loadJson<JestJsonResult>(FULL_RESULTS_URL);
 
