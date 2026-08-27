@@ -142,12 +142,18 @@ export function decidePreRunWidening(
 export function initialSelection(
   testPlan: VitestTaskPlan | JestTaskPlan,
   widening: PreRunWideningDecision,
+  launchAllowed = true,
 ): SelectionV1 {
   const limitations = [SELECTION_COUNTS_NOT_OBSERVED_LIMITATION, UNSAFE_SELECTION_LIMITATION] as const;
-  if (testPlan.state !== "planned") {
+  const scope = testPlan.state === "planned" && testPlan.workingDirectory !== null
+    ? ({ kind: "package", path: testPlan.workingDirectory } as const)
+    : ({ kind: "repository", path: null } as const);
+  const mode = testPlan.state === "planned" ? (testPlan.selectionMode ?? "native_related") : "full";
+
+  if (testPlan.state !== "planned" || !launchAllowed) {
     return {
-      mode: "full",
-      initial_scope: { kind: "repository", path: null },
+      mode,
+      initial_scope: scope,
       selected_test_count: null,
       deselected_test_count: null,
       total_test_count: null,
@@ -158,10 +164,6 @@ export function initialSelection(
     };
   }
 
-  const scope = testPlan.workingDirectory === null
-    ? ({ kind: "repository", path: null } as const)
-    : ({ kind: "package", path: testPlan.workingDirectory } as const);
-  const mode = testPlan.selectionMode ?? "native_related";
   const widened = widening.widened && mode === "full";
   const triggers = widened ? [...widening.triggers] : [];
 
