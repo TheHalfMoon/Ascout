@@ -6,7 +6,11 @@ import { describe, expect, it } from "vitest";
 
 import { discoverProjectFromFiles, type DiscoveryFileMap } from "../src/discovery.js";
 import type { GitChangedFile } from "../src/git.js";
-import { decidePreRunWidening, initialSelection } from "../src/selection.js";
+import {
+  decidePreRunWidening,
+  initialSelection,
+  preRunPlanningChangedFiles,
+} from "../src/selection.js";
 import { planJestTask } from "../src/tools/jest.js";
 import { planVitestTask } from "../src/tools/vitest.js";
 
@@ -33,19 +37,32 @@ function rootFiles(runner: "vitest" | "jest", extra: DiscoveryFileMap = {}): Dis
   };
 }
 
+function packageScopedFiles(runner: "vitest" | "jest"): DiscoveryFileMap {
+  return {
+    "package.json": JSON.stringify({ private: true, workspaces: ["packages/*"] }),
+    "packages/a/package.json": JSON.stringify({
+      private: true,
+      devDependencies: { [runner]: "1.0.0" },
+    }),
+    [`packages/a/node_modules/.bin/${runner}`]: "",
+    [`packages/a/${runner}.config.mjs`]: "",
+  };
+}
+
 function writePackage(root: string, path: string, name: string, version: string): void {
   const absolute = join(root, ...path.split("/"));
   mkdirSync(join(absolute, ".."), { recursive: true });
   writeFileSync(absolute, JSON.stringify({ name, version }));
 }
 
-function fixtureRoot(runner: "vitest" | "jest"): string {
+function fixtureRoot(runner: "vitest" | "jest", packageRoot = ""): string {
   const root = mkdtempSync(join(tmpdir(), "ascout-t053-"));
+  const prefix = packageRoot === "" ? "" : `${packageRoot}/`;
   if (runner === "vitest") {
-    writePackage(root, "node_modules/vitest/package.json", "vitest", "4.1.10");
-    writePackage(root, "node_modules/@vitest/coverage-v8/package.json", "@vitest/coverage-v8", "4.1.10");
+    writePackage(root, `${prefix}node_modules/vitest/package.json`, "vitest", "4.1.10");
+    writePackage(root, `${prefix}node_modules/@vitest/coverage-v8/package.json`, "@vitest/coverage-v8", "4.1.10");
   } else {
-    writePackage(root, "node_modules/jest/package.json", "jest", "30.4.2");
+    writePackage(root, `${prefix}node_modules/jest/package.json`, "jest", "30.4.2");
   }
   return root;
 }
@@ -56,7 +73,7 @@ describe("T053 pre-run conservative widening", () => {
     const discovery = discoverProjectFromFiles(files);
     const widening = decidePreRunWidening(discovery, [changed("src/used.ts")]);
 
-    expect(widening).toEqual({ widened: false, triggers: [] });
+    expect(widening).toEqual({ widened: false, triggers: [], riskPaths: [] });
   });
 
   it.each([
@@ -76,6 +93,7 @@ describe("T053 pre-run conservative widening", () => {
 
     expect(widening.widened).toBe(true);
     expect(widening.triggers).toContain(trigger);
+    expect(widening.riskPaths).toContain(file.path);
   });
 
   it("treats the discovered workspace declaration as a workspace widening surface", () => {
@@ -88,9 +106,10 @@ describe("T053 pre-run conservative widening", () => {
       "packages/a/package.json": JSON.stringify({ private: true, devDependencies: { vitest: "4.1.10" } }),
     });
     const discovery = discoverProjectFromFiles(files);
+    const widening = decidePreRunWidening(discovery, [changed("package.json")]);
 
-    expect(decidePreRunWidening(discovery, [changed("package.json")]).triggers)
-      .toContain("workspace_surface_changed");
+    expect(widening.triggers).toContain("workspace_surface_changed");
+    expect(widening.riskPaths).toEqual(["package.json"]);
   });
 
   it("plans one full Vitest pass for a pre-run lockfile risk instead of a related pass", () => {
@@ -106,7 +125,7 @@ describe("T053 pre-run conservative widening", () => {
         config: { version: 1 },
         discovery,
         files,
-        changedFiles,
+        changedFiles: preRunPlanningChangedFiles(changedFiles, widening),
         selectionMode: widening.widened ? "full" : "native_related",
       });
 
@@ -131,6 +150,58 @@ describe("T053 pre-run conservative widening", () => {
     }
   });
 
+  it.each(["vitest", "jest"] as const)(
+    "keeps mixed risk/non-risk changes scoped to the affected package for %s",
+    (runner) => {
+      const root = fixtureRoot(runner, "packages/a");
+      try {
+        const files = packageScopedFiles(runner);
+        const discovery = discoverProjectFromFiles(files);
+        const changedFiles = [
+          changed("packages/a/package-lock.json"),
+          changed("README.md"),
+        ];
+        const widening = decidePreRunWidening(discovery, changedFiles);
+        const planningFiles = preRunPlanningChangedFiles(changedFiles, widening);
+
+        expect(widening).toMatchObject({
+          widened: true,
+          triggers: ["package_manager_surface_changed"],
+          riskPaths: ["packages/a/package-lock.json"],
+        });
+        expect(planningFiles.map(({ path }) => path)).toEqual(["packages/a/package-lock.json"]);
+
+        const plan = runner === "vitest"
+          ? planVitestTask({
+              repositoryRoot: root,
+              runId: "run-053-mixed-vitest",
+              config: { version: 1 },
+              discovery,
+              files,
+              changedFiles: planningFiles,
+              selectionMode: "full",
+            })
+          : planJestTask({
+              repositoryRoot: root,
+              runId: "run-053-mixed-jest",
+              config: { version: 1 },
+              discovery,
+              files,
+              changedFiles: planningFiles,
+              selectionMode: "full",
+            });
+
+        expect(plan.state).toBe("planned");
+        if (plan.state !== "planned") return;
+        expect(plan.selectionMode).toBe("full");
+        expect(plan.workingDirectory).toBe("packages/a");
+        expect(plan.selectedPaths).toEqual([]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("does not record a widening pass when changed command-surface admission refuses test launch", () => {
     const root = fixtureRoot("vitest");
     try {
@@ -144,7 +215,7 @@ describe("T053 pre-run conservative widening", () => {
         config: { version: 1 },
         discovery,
         files,
-        changedFiles,
+        changedFiles: preRunPlanningChangedFiles(changedFiles, widening),
         selectionMode: "full",
       });
 
@@ -173,7 +244,7 @@ describe("T053 pre-run conservative widening", () => {
         config: { version: 1 },
         discovery,
         files,
-        changedFiles,
+        changedFiles: preRunPlanningChangedFiles(changedFiles, widening),
         selectionMode: widening.widened ? "full" : "native_related",
       });
 
