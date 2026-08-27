@@ -67,7 +67,7 @@ describe("T053 pre-run conservative widening", () => {
     ["changed test", changed("tests/unit.test.ts"), "test_surface_changed"],
     ["deleted source", changed("src/removed.ts", "deleted"), "path_relation_risk"],
     ["renamed source", changed("src/new.ts", "renamed", "src/old.ts"), "path_relation_risk"],
-  ])("widens before execution for a %s", (_label, file, trigger) => {
+  ] as const)("widens before execution for a %s", (_label, file, trigger) => {
     const files = rootFiles("vitest", { "tsconfig.json": "{}" });
     const discovery = discoverProjectFromFiles(files);
     const widening = decidePreRunWidening(discovery, [file]);
@@ -124,6 +124,35 @@ describe("T053 pre-run conservative widening", () => {
       expect(selection.passes).toHaveLength(1);
       expect(selection.passes[0]).toMatchObject({ ordinal: 1, mode: "full", trigger: "package_manager_surface_changed" });
       expect(selection.limitations).toContain("unsafe_selection");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not record a widening pass when changed command-surface admission refuses test launch", () => {
+    const root = fixtureRoot("vitest");
+    try {
+      const files = rootFiles("vitest");
+      const discovery = discoverProjectFromFiles(files);
+      const changedFiles = [changed("vitest.config.mjs")];
+      const widening = decidePreRunWidening(discovery, changedFiles);
+      const plan = planVitestTask({
+        repositoryRoot: root,
+        runId: "run-053-refused",
+        config: { version: 1 },
+        discovery,
+        files,
+        changedFiles,
+        selectionMode: "full",
+      });
+
+      expect(plan.state).toBe("planned");
+      if (plan.state !== "planned") return;
+      const selection = initialSelection(plan, widening, false);
+      expect(selection.mode).toBe("full");
+      expect(selection.widened).toBe(false);
+      expect(selection.widen_triggers).toEqual([]);
+      expect(selection.passes).toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
