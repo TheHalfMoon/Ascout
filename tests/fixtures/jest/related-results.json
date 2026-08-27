@@ -1,0 +1,50 @@
+{
+  "success": true,
+  "startTime": 1000,
+  "numTotalTestSuites": 1,
+  "numPassedTestSuites": 1,
+  "numFailedTestSuites": 0,
+  "numRuntimeErrorTestSuites": 0,
+  "numTotalTests": 1,
+  "numPassedTests": 1,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "openHandles": [],
+  "testResults": [
+    {
+      "numFailingTests": 0,
+      "numPassingTests": 1,
+      "numPendingTests": 0,
+      "testResults": [
+        {
+          "title": "used",
+          "status": "passed",
+          "ancestorTitles": [],
+          "failureMessages": [],
+          "numPassingAsserts": 1,
+          "location": {
+            "line": 1,
+            "column": 1
+          },
+          "duration": 5,
+          "startAt": 1001
+        }
+      ],
+      "perfStats": {
+        "start": 1000,
+        "end": 1010,
+        "runtime": 10,
+        "slow": false,
+        "loadTestEnvironmentStart": 1000,
+        "loadTestEnvironmentEnd": 1001,
+        "setupFilesStart": 1001,
+        "setupFilesEnd": 1002,
+        "setupAfterEnvStart": 1002,
+        "setupAfterEnvEnd": 1003
+      },
+      "testFilePath": "/repo/tests/used.test.js",
+      "coverage": {}
+    }
+  ]
+}

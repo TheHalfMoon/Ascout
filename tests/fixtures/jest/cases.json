@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "related": {
+    "changedSources": ["src/used.js"],
+    "selectionMode": "native_related",
+    "args": [
+      "--findRelatedTests",
+      "src/used.js",
+      "--ci",
+      "--json",
+      "--outputFile=.ascout/runs/t046/raw/test/jest-results.json",
+      "--coverage",
+      "--coverageDirectory=.ascout/runs/t046/raw/test/coverage",
+      "--coverageReporters=lcov"
+    ],
+    "expectedTestPaths": ["tests/used.test.js"]
+  },
+  "configWidening": {
+    "changedPath": "jest.config.cjs",
+    "trigger": "jest_config_changed",
+    "widenedMode": "full",
+    "args": [
+      "--ci",
+      "--json",
+      "--outputFile=.ascout/runs/t046/raw/test/jest-results.json",
+      "--coverage",
+      "--coverageDirectory=.ascout/runs/t046/raw/test/coverage",
+      "--coverageReporters=lcov"
+    ],
+    "forbiddenNarrowArgs": ["--findRelatedTests", "--onlyChanged", "-o"],
+    "expectedTestPaths": ["tests/unused.test.js", "tests/used.test.js"]
+  },
+  "artifacts": {
+    "jsonResult": ".ascout/runs/t046/raw/test/jest-results.json",
+    "coverageDirectory": ".ascout/runs/t046/raw/test/coverage",
+    "lcov": ".ascout/runs/t046/raw/test/coverage/lcov.info"
+  }
+}
