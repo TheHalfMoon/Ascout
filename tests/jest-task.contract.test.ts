@@ -232,4 +232,24 @@ describe("T052 Jest task planner", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+  it("fails closed on Windows when only the POSIX unsuffixed Jest shim is available", () => {
+    const root = fixtureRoot();
+    try {
+      const files = rootFiles();
+      const plan = planJestTask({
+        repositoryRoot: root,
+        runId: "run-052",
+        config: { version: 1 },
+        discovery: discoverProjectFromFiles(files),
+        files,
+        changedFiles: [changed("src/used.js")],
+        platform: "win32",
+      });
+
+      expect(plan).toMatchObject({ state: "not_run", reasonCode: "tool_unresolved" });
+      expect(plan.argv).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

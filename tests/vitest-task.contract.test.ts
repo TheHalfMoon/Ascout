@@ -262,4 +262,24 @@ describe("T051 project-local Vitest planning", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+  it("fails closed on Windows when only the POSIX unsuffixed Vitest shim is available", () => {
+    const root = fixtureRoot();
+    try {
+      const files = rootFiles();
+      const plan = planVitestTask({
+        repositoryRoot: root,
+        runId: "run-051",
+        config: { version: 1 },
+        discovery: discoverProjectFromFiles(files),
+        files,
+        changedFiles: [changed("src/used.ts")],
+        platform: "win32",
+      });
+
+      expect(plan).toMatchObject({ state: "not_run", reasonCode: "tool_or_coverage_provider_unresolved" });
+      expect(plan.argv).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });

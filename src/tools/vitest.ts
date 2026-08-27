@@ -200,7 +200,7 @@ function executableSuffix(path: string): (typeof VITEST_EXECUTABLE_SUFFIXES)[num
 }
 
 function launchSuffixPriority(platform: NodeJS.Platform): readonly (typeof VITEST_EXECUTABLE_SUFFIXES)[number][] {
-  return platform === "win32" ? [".cmd", ".exe", ""] : ["", ".exe"];
+  return platform === "win32" ? [".cmd", ".exe"] : ["", ".exe"];
 }
 
 function preferredExecutable(paths: readonly string[], platform: NodeJS.Platform): string | null {
