@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   FIXED_SEMANTIC_TASKS,
@@ -366,7 +366,14 @@ function persistCapture(
   const rawText = bytes.toString("utf8");
   const text = redactExactValues(rawText, secrets);
   const persisted = Buffer.from(text, "utf8");
-  writeFileSync(join(rawPath, fileName), persisted);
+  const capturePath = join(rawPath, fileName);
+  let captureFd: number | null = null;
+  try {
+    captureFd = openSync(capturePath, "wx", 0o600);
+    writeFileSync(captureFd, persisted);
+  } finally {
+    if (captureFd !== null) closeSync(captureFd);
+  }
 
   const sha256 = createSha256(persisted);
   const artifactId = `${taskId}.${fileName}`;
@@ -526,6 +533,22 @@ function runRelativeArtifactPath(runId: string, repositoryPath: string): string 
   return relativePath;
 }
 
+export function resolveManagedGeneratedArtifactPath(
+  runPath: string,
+  relativeRunPath: string,
+): string {
+  if (!CANONICAL_RUN_RELATIVE_PATH.test(relativeRunPath)) {
+    throw new Error("generated artifact path is not canonical run-relative data");
+  }
+  const realRunPath = realpathSync(runPath);
+  const expectedPath = resolve(realRunPath, ...relativeRunPath.split("/"));
+  const realArtifactPath = realpathSync(expectedPath);
+  if (realArtifactPath !== expectedPath) {
+    throw new Error("generated artifact does not resolve to its exact managed run path");
+  }
+  return expectedPath;
+}
+
 function persistGeneratedTextArtifact(
   runId: string,
   taskId: SemanticTaskType,
@@ -537,7 +560,7 @@ function persistGeneratedTextArtifact(
   evidenceKind: EvidenceV1["kind"],
   secrets: readonly string[],
 ): PersistedTextArtifact {
-  const absolute = join(runPath, ...relativeRunPath.split("/"));
+  const absolute = resolveManagedGeneratedArtifactPath(runPath, relativeRunPath);
   const info = statSync(absolute);
   if (!info.isFile() || info.size > TASK_CAPTURE_CAP_BYTES) {
     throw new Error("Vitest generated artifact is missing, non-file, or exceeds the evidence size budget.");
