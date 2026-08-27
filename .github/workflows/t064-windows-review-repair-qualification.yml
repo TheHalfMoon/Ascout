@@ -1,0 +1,40 @@
+name: T064 Windows review-repair qualification
+
+on:
+  push:
+    branches:
+      - qualification/t064-windows-cb8a7553
+
+permissions:
+  contents: read
+
+jobs:
+  qualify-windows:
+    runs-on: windows-2025
+    steps:
+      - name: Checkout exact T064 head
+        uses: actions/checkout@v4
+        with:
+          ref: cb8a7553c69fd1e1b94fcd6c4688dad586be3dc9
+          persist-credentials: false
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Prove exact head
+        shell: pwsh
+        run: |
+          if ((git rev-parse HEAD).Trim() -ne 'cb8a7553c69fd1e1b94fcd6c4688dad586be3dc9') { throw 'unexpected HEAD' }
+          if (git status --porcelain) { throw 'opening tree not clean' }
+      - name: Provision exact locked dependencies
+        run: npm ci
+      - name: Run Windows-specific T064 integration qualification
+        run: npm test -- tests/flake-run-check.integration.test.ts tests/targeted-test-rerun.contract.test.ts tests/jest-check.integration.test.ts tests/vitest-check.integration.test.ts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Prove closing exact head and clean tracked tree
+        shell: pwsh
+        run: |
+          if ((git rev-parse HEAD).Trim() -ne 'cb8a7553c69fd1e1b94fcd6c4688dad586be3dc9') { throw 'unexpected closing HEAD' }
+          if (git status --porcelain --untracked-files=no) { throw 'closing tracked tree not clean' }
