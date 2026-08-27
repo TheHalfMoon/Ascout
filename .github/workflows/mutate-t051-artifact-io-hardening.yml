@@ -1,0 +1,70 @@
+name: Ephemeral T051 artifact I/O hardening
+
+on:
+  push:
+    branches:
+      - mutate/t051-artifact-io-hardening
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout mutation source
+        uses: actions/checkout@v4
+
+      - name: Stage mutation inputs outside workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/scripts/t051_artifact_io_hardening.py /tmp/t051_artifact_io_hardening.py
+          cp .github/scripts/check-artifact-io.contract.test.ts /tmp/check-artifact-io.contract.test.ts
+
+      - name: Checkout exact T051 feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/051-vitest-integration
+          fetch-depth: 0
+
+      - name: Select Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+
+      - name: Verify expected T051 head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "7ec2cbdcef124bd49f1f39451600b7434bfa8ca8"
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Apply artifact I/O hardening
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/t051_artifact_io_hardening.py
+          cp /tmp/check-artifact-io.contract.test.ts tests/check-artifact-io.contract.test.ts
+
+      - name: Qualify hardened T051 tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          npm test -- tests/check-artifact-io.contract.test.ts tests/vitest-task.contract.test.ts tests/vitest-check.integration.test.ts tests/lcov-normalization.test.ts tests/receipt-model.test.ts
+          npm test
+          npm run build
+
+      - name: Commit and push qualified hardened head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/check.ts tests/check-artifact-io.contract.test.ts
+          git diff --cached --check
+          git commit -m "fix(051): harden managed artifact I/O"
+          git push origin HEAD:feat/051-vitest-integration
