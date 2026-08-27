@@ -21,7 +21,7 @@ jobs:
       - name: Checkout exact T046 candidate
         shell: bash
         env:
-          TARGET_SHA: 64b1e5c2679c1cbef497e52236a177a2ba4830ad
+          TARGET_SHA: 99c146efb4f1a5faf0febfede6c147b7238171dd
         run: |
           set -euo pipefail
           git init .
