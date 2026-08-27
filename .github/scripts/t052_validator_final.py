@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Ephemeral qualification input only; never merged into the T052 feature branch.
 path = Path('src/check.ts')
 text = path.read_text()
 old = '''  const candidate = value as { readonly success?: unknown; readonly testResults?: unknown };
