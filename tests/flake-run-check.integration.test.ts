@@ -9,7 +9,7 @@ import { runCheck } from "../src/check.js";
 import { validateReceiptSemantics } from "../src/receipt/model.js";
 
 type Runner = "vitest" | "jest";
-type Scenario = "flaky" | "stable" | "rerun-error";
+type Scenario = "flaky" | "stable" | "rerun-error" | "malformed-rerun";
 
 function run(root: string, file: string, argv: readonly string[]): void {
   const result = spawnSync(file, argv, { cwd: root, encoding: "utf8" });
@@ -41,7 +41,7 @@ const isTargeted = args.includes("--testNamePattern");
 if (scenario === "rerun-error" && isTargeted && ordinal === 2) process.exit(2);
 const failed = scenario === "flaky" ? ordinal < 3 : true;
 const result = {
-  success: !failed,
+  ...(scenario === "malformed-rerun" && isTargeted && ordinal === 2 ? {} : { success: !failed }),
   numTotalTests: 1,
   testResults: [{
     name: path.join(process.cwd(), "tests", "a.test.js"),
@@ -75,6 +75,10 @@ function initializeFixture(runner: Runner, scenario: Scenario): string {
   const executable = join(binRoot, runner);
   writeFileSync(executable, runnerShim());
   chmodSync(executable, 0o755);
+  writeFileSync(
+    join(binRoot, `${runner}.cmd`),
+    `@ECHO off\r\nnode "%~dp0${runner}" %*\r\n`,
+  );
 
   writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
   writeFileSync(join(root, "t064-scenario.txt"), `${scenario}\n`);
@@ -171,4 +175,20 @@ describe("T064 runCheck reproduction and flake normalization", () => {
       expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-2"))).toBe(false);
     }, 30_000);
   }
+
+  it("jest: keeps reproduction unknown when a targeted machine result violates the Jest contract", async () => {
+    const receipt = await checkFixture("jest", "malformed-rerun");
+    expect(receipt.tasks.find((task) => task.task_type === "test")).toMatchObject({
+      status: "FAIL",
+      observations: { runs: 1, failures: 1 },
+    });
+    expect(receipt.findings[0]).toMatchObject({
+      determinism_class: "unknown",
+      observations: { runs: 1, failures: 1 },
+      reproduced: "unknown",
+    });
+    expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-1"))).toBe(true);
+    expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-2"))).toBe(false);
+  }, 30_000);
+
 });

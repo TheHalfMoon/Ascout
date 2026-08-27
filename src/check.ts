@@ -1183,6 +1183,12 @@ async function executeTargetedTestObservation(
     );
     evidence.push(machine.evidence);
     artifacts.push(machine.artifact);
+    const machineResultValid = runner === "jest"
+      ? validJestMachineResult(machine.text)
+      : validVitestMachineResult(machine.text);
+    if (!machineResultValid) {
+      return { observation: null, evidence, artifacts, finishedAt, outputTruncated: executed.task.output_truncated };
+    }
     const matches = parseTestAssertionObservations(
       repositoryRoot,
       machine.text,
