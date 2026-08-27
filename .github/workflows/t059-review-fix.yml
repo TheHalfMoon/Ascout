@@ -1,0 +1,68 @@
+name: T059 review repair
+
+on:
+  push:
+    branches:
+      - mutate/t059-review-fix
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout mutation helper
+        uses: actions/checkout@v4
+        with:
+          ref: mutate/t059-review-fix
+          fetch-depth: 0
+
+      - name: Preserve patch script and switch to exact feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/t059-review-fix.py /tmp/t059-review-fix.py
+          git fetch origin feat/059-flake-contract-tests
+          git checkout -B feat/059-flake-contract-tests origin/feat/059-flake-contract-tests
+          test "$(git rev-parse HEAD)" = "911283ec86006091c691bc63137b59d3c16d7912"
+          test -z "$(git status --porcelain)"
+
+      - name: Apply review repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python /tmp/t059-review-fix.py
+          git diff --check
+          git diff -- src/receipt/model.ts tests/flake-reproduction.contract.test.ts
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Provision exact locked dependencies
+        run: npm ci
+
+      - name: Run focused repair tests
+        run: >-
+          npm test --
+          tests/flake-reproduction.contract.test.ts
+          tests/receipt-model.test.ts
+          tests/task-status.contract.test.ts
+          tests/receipt-v1.semantic-invariants.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Commit and push feature repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/receipt/model.ts tests/flake-reproduction.contract.test.ts
+          test "$(git diff --cached --name-only)" = $'src/receipt/model.ts\ntests/flake-reproduction.contract.test.ts'
+          git commit -m "fix(m1): enforce T059 reproduction invariants"
+          git push origin HEAD:feat/059-flake-contract-tests
