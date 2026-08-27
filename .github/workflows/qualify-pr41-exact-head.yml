@@ -21,7 +21,7 @@ jobs:
       - name: Checkout exact PR 41 candidate
         shell: bash
         env:
-          TARGET_SHA: 8719ea1fa6e98cb4dad8446645ac944fa2b7e49a
+          TARGET_SHA: 50085a64d7d1e8ed40641e52b883d93e507c28da
         run: |
           set -euo pipefail
           git init .
@@ -64,8 +64,10 @@ jobs:
           set -euo pipefail
           npm test -- \
             tests/check-admission.contract.test.ts \
+            tests/check-receipt-end-to-end.contract.test.ts \
             tests/cli.smoke.test.ts \
             tests/command-surface.contract.test.ts \
+            tests/discovery-production.contract.test.ts \
             tests/pr41-p0-regressions.contract.test.ts \
             tests/pytest-basic-task.contract.test.ts \
             tests/receipt-model.test.ts \
