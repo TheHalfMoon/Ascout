@@ -395,8 +395,8 @@ async function executePlannedTask(
   secrets: readonly string[],
   timeoutMs: number,
 ): Promise<ExecutedTask> {
-  const startedAt = new Date().toISOString();
   const startedMs = Date.now();
+  const startedAt = new Date(startedMs).toISOString();
   const result = await runProcess({
     file: plan.argv[0]!,
     argv: plan.argv.slice(1),
@@ -405,8 +405,9 @@ async function executePlannedTask(
     termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
     capture_cap_bytes: TASK_CAPTURE_CAP_BYTES,
   });
-  const finishedAt = new Date().toISOString();
-  const durationMs = Date.now() - startedMs;
+  const finishedMs = Date.now();
+  const finishedAt = new Date(finishedMs).toISOString();
+  const durationMs = finishedMs - startedMs;
 
   const stdoutPersisted = persistCapture(
     runId, taskId, 1, rawPath, `${taskId}-stdout.log`,
