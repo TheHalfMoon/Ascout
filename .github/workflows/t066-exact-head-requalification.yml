@@ -1,0 +1,53 @@
+name: T066 exact-head requalification
+
+on:
+  push:
+    branches:
+      - qualification/t066-exact-head-707abfb0
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact feature head
+        uses: actions/checkout@v4
+        with:
+          ref: 707abfb06ef53988d8efbbaf347c1d1adc4b31b5
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Opening exact-head guard
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "707abfb06ef53988d8efbbaf347c1d1adc4b31b5"
+          test -z "$(git status --porcelain)"
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused T066 tests
+        run: npx vitest run tests/agent-receipt.contract.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full test suite
+        run: npm test
+
+      - name: Closing exact-head guard
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "707abfb06ef53988d8efbbaf347c1d1adc4b31b5"
+          git diff --exit-code
+          git diff --cached --exit-code
