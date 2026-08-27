@@ -166,9 +166,31 @@ function admissionMark(task: TaskResultV1): string {
   return "";
 }
 
+function escapeTerminalControlCharacters(value: string): string {
+  let rendered = "";
+  for (const character of value) {
+    const codePoint = character.codePointAt(0)!;
+    const isControl = codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f);
+    const isUnicodeLineSeparator = codePoint === 0x2028 || codePoint === 0x2029;
+    rendered += isControl || isUnicodeLineSeparator
+      ? `\\u${codePoint.toString(16).padStart(4, "0")}`
+      : character;
+  }
+  return rendered;
+}
+
+function renderSelectionScope(scope: SelectionV1["initial_scope"]): string {
+  if (scope.kind === "repository") return "repository";
+  if (scope.path === null) {
+    throw new Error("package selection scope path must be non-null");
+  }
+  return `package:${escapeTerminalControlCharacters(scope.path)}`;
+}
+
 /**
- * Renders the concise human-facing terminal summary: changed scope, task
- * matrix, admissions/omissions, stability/completeness. No raw logs.
+ * Renders the concise human-facing terminal summary: changed scope, bounded
+ * selection passes, task matrix, admissions/omissions, exercise, and canonical
+ * completeness/exit truth. No raw logs and no inferred selection counts.
  */
 export function renderTerminalSummary(receipt: ReceiptV1): string {
   const lines: string[] = [];
@@ -180,6 +202,14 @@ export function renderTerminalSummary(receipt: ReceiptV1): string {
   lines.push(
     `changed scope: ${receipt.changed_code.changed_file_count} file(s), ${receipt.changed_code.changed_text_line_count} changed line(s)`,
   );
+  lines.push(
+    `selection: mode=${receipt.selection.mode} initial=${renderSelectionScope(receipt.selection.initial_scope)} widened=${receipt.selection.widened} passes=${receipt.selection.passes.length} triggers=${receipt.selection.widen_triggers.length === 0 ? "none" : receipt.selection.widen_triggers.join(",")}`,
+  );
+  for (const pass of receipt.selection.passes) {
+    lines.push(
+      `  pass ${pass.ordinal}: mode=${pass.mode} scope=${renderSelectionScope(pass.scope)} trigger=${pass.trigger ?? "none"}`,
+    );
+  }
 
   lines.push("tasks:");
   for (const task of receipt.tasks) {
@@ -209,6 +239,9 @@ export function renderTerminalSummary(receipt: ReceiptV1): string {
     }
   }
 
+  lines.push(
+    `exercise: changed_executable=${receipt.exercise.changed_executable_lines} exercised=${receipt.exercise.exercised_lines} not_exercised=${receipt.exercise.not_exercised_lines} unresolved=${receipt.exercise.unresolved_lines} zero_exercised_files=${receipt.exercise.changed_files_with_zero_exercised_lines}`,
+  );
   lines.push(
     `completeness=${receipt.summary.completeness} exit=${receipt.summary.exit_code} findings=${receipt.summary.finding_count}`,
   );
