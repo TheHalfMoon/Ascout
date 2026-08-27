@@ -1,0 +1,54 @@
+name: T065 exact-head requalification
+
+on:
+  push:
+    branches:
+      - qualification/t065-exact-head-e548cce0
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact T065 head
+        uses: actions/checkout@v4
+        with:
+          ref: e548cce0da0a9f98709a2a6019cf980c0eb5cdeb
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Prove opening exact head and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e548cce0da0a9f98709a2a6019cf980c0eb5cdeb"
+          test -z "$(git status --porcelain)"
+
+      - name: Provision exact locked dependencies
+        run: npm ci
+
+      - name: Run focused T065 contract tests
+        run: npm test -- tests/test-snapshot-facts.contract.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Prove closing exact head and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e548cce0da0a9f98709a2a6019cf980c0eb5cdeb"
+          test -z "$(git status --porcelain --untracked-files=no)"
