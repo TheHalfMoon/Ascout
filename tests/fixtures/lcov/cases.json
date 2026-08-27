@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "zero-count",
+      "purpose": "an instrumented line with DA count zero remains resolved execution evidence with count 0",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/zero.ts\nDA:4,0\nLF:1\nLH:0\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "points": [
+          { "path": "src/zero.ts", "line": 4, "count": 0, "instrumented": true }
+        ]
+      }
+    },
+    {
+      "id": "nonzero-count",
+      "purpose": "an instrumented line with a positive DA count preserves the observed integer count",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/hit.ts\nDA:8,3\nLF:1\nLH:1\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "points": [
+          { "path": "src/hit.ts", "line": 8, "count": 3, "instrumented": true }
+        ]
+      }
+    },
+    {
+      "id": "repeated-line-across-records",
+      "purpose": "matching repeated DA entries for the same source line aggregate by addition rather than overwrite",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/repeated.ts\nDA:7,2\nLF:1\nLH:1\nend_of_record\nTN:unit\nSF:/repo/src/repeated.ts\nDA:7,3\nLF:1\nLH:1\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "points": [
+          { "path": "src/repeated.ts", "line": 7, "count": 5, "instrumented": true }
+        ]
+      }
+    },
+    {
+      "id": "repeated-hit-then-zero",
+      "purpose": "a later repeated zero observation does not erase an earlier positive observation for the same source line",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/mixed.ts\nDA:11,4\nend_of_record\nTN:unit\nSF:/repo/src/mixed.ts\nDA:11,0\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "points": [
+          { "path": "src/mixed.ts", "line": 11, "count": 4, "instrumented": true }
+        ]
+      }
+    },
+    {
+      "id": "relative-source-path",
+      "purpose": "a canonical repository-relative SF path remains canonical and repository-relative",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:src/relative.ts\nDA:2,1\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "points": [
+          { "path": "src/relative.ts", "line": 2, "count": 1, "instrumented": true }
+        ]
+      }
+    },
+    {
+      "id": "absolute-source-path-inside-repo",
+      "purpose": "an absolute tool path may be resolved transiently to a canonical repository-relative coverage path",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/absolute.ts\nDA:5,2\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "points": [
+          { "path": "src/absolute.ts", "line": 5, "count": 2, "instrumented": true }
+        ]
+      }
+    },
+    {
+      "id": "source-path-outside-repo",
+      "purpose": "coverage for a source path outside the repository cannot become repository-bound line evidence",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/outside/src/escape.ts\nDA:9,1\nend_of_record\n",
+      "expected": {
+        "outcome": "unresolved",
+        "count": null,
+        "reason": "source path cannot be mapped inside the repository"
+      }
+    },
+    {
+      "id": "line-only-with-function-and-branch-noise",
+      "purpose": "line-only normalization uses DA records and does not promote function or branch records into line evidence",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/line-only.ts\nFN:3,work\nFNDA:8,work\nFNF:1\nFNH:1\nBRDA:6,0,0,4\nBRF:1\nBRH:1\nDA:3,8\nDA:6,4\nLF:2\nLH:2\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "points": [
+          { "path": "src/line-only.ts", "line": 3, "count": 8, "instrumented": true },
+          { "path": "src/line-only.ts", "line": 6, "count": 4, "instrumented": true }
+        ]
+      }
+    },
+    {
+      "id": "malformed-da-line-number",
+      "purpose": "a malformed DA line number fails closed instead of fabricating or dropping a potentially material line",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/bad-line.ts\nDA:not-a-line,1\nend_of_record\n",
+      "expected": {
+        "outcome": "unresolved",
+        "count": null,
+        "reason": "LCOV line record is malformed"
+      }
+    },
+    {
+      "id": "malformed-negative-count",
+      "purpose": "a negative execution count is not accepted as valid line execution evidence",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/bad-count.ts\nDA:4,-1\nend_of_record\n",
+      "expected": {
+        "outcome": "unresolved",
+        "count": null,
+        "reason": "LCOV execution count is invalid"
+      }
+    },
+    {
+      "id": "missing-record-terminator",
+      "purpose": "a truncated source section without end_of_record fails closed rather than being repaired implicitly",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/truncated.ts\nDA:4,1\n",
+      "expected": {
+        "outcome": "unresolved",
+        "count": null,
+        "reason": "LCOV source record is incomplete"
+      }
+    },
+    {
+      "id": "no-line-data",
+      "purpose": "a source section with no DA records does not prove that changed source is non-executable or unexercised",
+      "repoRoot": "/repo",
+      "input": "TN:unit\nSF:/repo/src/no-lines.ts\nFN:3,work\nFNDA:1,work\nend_of_record\n",
+      "expected": {
+        "outcome": "unresolved",
+        "count": null,
+        "reason": "no usable line coverage records"
+      }
+    }
+  ]
+}
