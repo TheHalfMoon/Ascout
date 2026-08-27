@@ -8,6 +8,7 @@ import {
   validateReceiptForAcceptance,
 } from "../src/receipt/json.js";
 import type {
+  FindingV1,
   ReceiptV1,
   SourceStateV1,
   TaskResultV1,
@@ -61,11 +62,15 @@ interface MachineTruth {
   readonly repository_id: string;
   readonly evidence_ids: readonly string[];
   readonly test_changes: readonly string[];
+  readonly error_records: readonly string[];
+  readonly finding_records: readonly string[];
 }
 
 interface ParsedAgentProjection {
   readonly header: Fields;
   readonly summary: Fields;
+  readonly errors: readonly Fields[];
+  readonly findings: readonly Fields[];
   readonly admissions: readonly Fields[];
   readonly gaps: readonly Fields[];
   readonly test_changes: readonly Fields[];
@@ -89,7 +94,7 @@ function sourceState(): SourceStateV1 {
   };
 }
 
-function passingTestTask(): TaskResultV1 {
+function failingTestTask(): TaskResultV1 {
   return {
     task_id: "test",
     task_type: "test",
@@ -102,16 +107,44 @@ function passingTestTask(): TaskResultV1 {
     command_surface_changed: false,
     changed_authority_paths: [],
     execution_admission: "normal",
-    status: "PASS",
+    status: "FAIL",
     reason_code: null,
     reason_text: null,
-    exit_code: 0,
+    exit_code: 1,
     started_at: "2026-08-27T12:00:00.000Z",
     finished_at: "2026-08-27T12:00:01.000Z",
     duration_ms: 1000,
-    observations: { runs: 1, failures: 0 },
+    observations: { runs: 1, failures: 1 },
     cache_state: "not_applicable",
-    evidence_ids: ["test.e1"],
+    evidence_ids: ["test.result", "test.coverage"],
+    artifact_refs: [],
+    output_truncated: false,
+  };
+}
+
+function errorTypecheckTask(): TaskResultV1 {
+  return {
+    task_id: "typecheck",
+    task_type: "typecheck",
+    authorized_by: "discovery",
+    source_path: "package.json",
+    argv: ["tsc", "--noEmit"],
+    argv_redacted: false,
+    tool_name: "tsc",
+    tool_version: "5.9.3",
+    command_surface_changed: false,
+    changed_authority_paths: [],
+    execution_admission: "normal",
+    status: "ERROR",
+    reason_code: "task_execution_error",
+    reason_text: "synthetic T067 task execution error",
+    exit_code: 2,
+    started_at: "2026-08-27T12:00:00.000Z",
+    finished_at: "2026-08-27T12:00:01.000Z",
+    duration_ms: 1000,
+    observations: { runs: 1, failures: 1 },
+    cache_state: "not_applicable",
+    evidence_ids: ["typecheck.error"],
     artifact_refs: [],
     output_truncated: false,
   };
@@ -142,6 +175,26 @@ function refusedLintTask(): TaskResultV1 {
     evidence_ids: [],
     artifact_refs: [],
     output_truncated: false,
+  };
+}
+
+function findingFixture(): FindingV1 {
+  return {
+    finding_id: "finding-1",
+    task_id: "test",
+    producer: "vitest",
+    rule_or_test_id: "src/a.test.ts > changed behavior",
+    message: "expected true to be false",
+    path: "src/a.test.ts",
+    line_start: 10,
+    line_end: 10,
+    severity: "medium",
+    in_changed_lines: null,
+    introduced_by_change: "unknown",
+    determinism_class: "unknown",
+    observations: { runs: 1, failures: 1 },
+    reproduced: "unknown",
+    evidence_ids: ["test.result"],
   };
 }
 
@@ -214,7 +267,7 @@ function receiptFixture(): ReceiptV1 {
       ],
       limitations: ["selection_counts_not_observed"],
     },
-    tasks: [passingTestTask(), refusedLintTask()],
+    tasks: [failingTestTask(), errorTypecheckTask(), refusedLintTask()],
     exercise: {
       changed_executable_lines: 2,
       exercised_lines: 0,
@@ -246,15 +299,37 @@ function receiptFixture(): ReceiptV1 {
         source: "git_diff",
       },
     ],
-    findings: [],
+    findings: [findingFixture()],
     evidence: [
       {
-        evidence_id: "test.e1",
+        evidence_id: "test.result",
         run_id: "run-t067-cross-format",
         task_id: "test",
         sequence: 1,
-        kind: "coverage",
+        kind: "test_result",
         sha256: "e".repeat(64),
+        artifact_id: null,
+        redacted: false,
+        truncated: false,
+      },
+      {
+        evidence_id: "test.coverage",
+        run_id: "run-t067-cross-format",
+        task_id: "test",
+        sequence: 2,
+        kind: "coverage",
+        sha256: "f".repeat(64),
+        artifact_id: null,
+        redacted: false,
+        truncated: false,
+      },
+      {
+        evidence_id: "typecheck.error",
+        run_id: "run-t067-cross-format",
+        task_id: "typecheck",
+        sequence: 1,
+        kind: "process_result",
+        sha256: "1".repeat(64),
         artifact_id: null,
         redacted: false,
         truncated: false,
@@ -284,11 +359,34 @@ function commonTruth(receipt: ReceiptV1): CrossFormatTruth {
   };
 }
 
+function firstOwnedEvidenceId(
+  receipt: ReceiptV1,
+  taskId: string,
+  evidenceIds: readonly string[],
+): string | null {
+  for (const evidenceId of evidenceIds) {
+    const evidence = receipt.evidence.find((candidate) => candidate.evidence_id === evidenceId);
+    if (evidence?.task_id === taskId) return evidenceId;
+  }
+  return null;
+}
+
 function machineTruth(receipt: ReceiptV1): MachineTruth {
   return {
     repository_id: receipt.source.start.repository_id,
     evidence_ids: receipt.evidence.map((evidence) => evidence.evidence_id),
     test_changes: receipt.test_changes.map((change) => `${change.kind}:${change.path}`),
+    error_records: receipt.tasks.flatMap((task) => {
+      if (task.status !== "ERROR") return [];
+      const evidenceId = firstOwnedEvidenceId(receipt, task.task_id, task.evidence_ids);
+      return evidenceId === null ? [] : [`${task.task_id}:${evidenceId}`];
+    }),
+    finding_records: receipt.findings.flatMap((finding) => {
+      const evidenceId = firstOwnedEvidenceId(receipt, finding.task_id, finding.evidence_ids);
+      return evidenceId === null
+        ? []
+        : [`${finding.finding_id}:${finding.task_id}:${evidenceId}`];
+    }),
   };
 }
 
@@ -413,12 +511,20 @@ function parseAgentProjection(rendered: string): ParsedAgentProjection {
   return {
     header: exactlyOneRecord(lines, "ASCOUT_AGENT_V1 "),
     summary: exactlyOneRecord(lines, "SUMMARY "),
+    errors: recordsWithPrefix(lines, "ERROR "),
+    findings: recordsWithPrefix(lines, "FINDING "),
     admissions: recordsWithPrefix(lines, "ADMISSION "),
     gaps: recordsWithPrefix(lines, "GAP "),
     test_changes: recordsWithPrefix(lines, "TEST_CHANGE "),
     evidence: recordsWithPrefix(lines, "EVIDENCE "),
     omitted: exactlyOneRecord(lines, "OMITTED "),
   };
+}
+
+function parseCount(fields: Fields, key: string): number {
+  const raw = fields[key];
+  if (raw === undefined || !/^\d+$/.test(raw)) throw new Error(`invalid count: ${key}`);
+  return Number.parseInt(raw, 10);
 }
 
 /**
@@ -428,6 +534,7 @@ function parseAgentProjection(rendered: string): ParsedAgentProjection {
  */
 function projectAgentContract(receipt: ReceiptV1): string {
   const representedTaskIds = new Set<string>();
+  const representedFindingIds = new Set<string>();
   const lines: string[] = [
     `ASCOUT_AGENT_V1 repo=${receipt.source.start.repository_id} head=${receipt.source.start.head_sha} stability=${receipt.stability}`,
   ];
@@ -439,16 +546,20 @@ function projectAgentContract(receipt: ReceiptV1): string {
   );
 
   for (const task of receipt.tasks) {
-    if (task.status === "ERROR") {
-      representedTaskIds.add(task.task_id);
-      lines.push(`ERROR task=${task.task_id} reason=${task.reason_code ?? "unknown"}`);
-    }
+    if (task.status !== "ERROR") continue;
+    const evidenceId = firstOwnedEvidenceId(receipt, task.task_id, task.evidence_ids);
+    if (evidenceId === null) continue;
+    representedTaskIds.add(task.task_id);
+    lines.push(
+      `ERROR task=${task.task_id} reason=${task.reason_code ?? "unknown"} evidence=${evidenceId}`,
+    );
   }
   for (const finding of receipt.findings) {
-    const evidence = finding.evidence_ids[0];
-    const suffix = evidence === undefined ? "" : ` evidence=${evidence}`;
+    const evidenceId = firstOwnedEvidenceId(receipt, finding.task_id, finding.evidence_ids);
+    if (evidenceId === null) continue;
+    representedFindingIds.add(finding.finding_id);
     lines.push(
-      `FINDING id=${finding.finding_id} task=${finding.task_id} severity=${finding.severity}${suffix}`,
+      `FINDING id=${finding.finding_id} task=${finding.task_id} severity=${finding.severity} evidence=${evidenceId}`,
     );
   }
   for (const task of receipt.tasks) {
@@ -474,7 +585,7 @@ function projectAgentContract(receipt: ReceiptV1): string {
     );
   }
   lines.push(
-    `OMITTED tasks=${receipt.tasks.length - representedTaskIds.size} findings=0 exercise_gaps=0 test_changes=0 evidence=0`,
+    `OMITTED tasks=${receipt.tasks.length - representedTaskIds.size} findings=${receipt.findings.length - representedFindingIds.size} exercise_gaps=0 test_changes=0 evidence=0`,
   );
   return lines.join("\n");
 }
@@ -484,31 +595,47 @@ function truthFromAgent(rendered: string): {
   readonly machine: MachineTruth;
 } {
   const parsed = parseAgentProjection(rendered);
-  const expectedHeaderKeys = ["repo", "head", "stability"];
-  expect(Object.keys(parsed.header).sort()).toEqual([...expectedHeaderKeys].sort());
-
-  const expectedSummaryKeys = [
-    "completeness",
-    "exit",
-    "tasks",
-    "findings",
-    "exercise_gaps",
-    "test_changes",
-    "evidence",
-    ...STATUS_ORDER,
-  ];
-  expect(Object.keys(parsed.summary).sort()).toEqual([...expectedSummaryKeys].sort());
+  expect(Object.keys(parsed.header).sort()).toEqual(["repo", "head", "stability"].sort());
+  expect(Object.keys(parsed.summary).sort()).toEqual(
+    [
+      "completeness",
+      "exit",
+      "tasks",
+      "findings",
+      "exercise_gaps",
+      "test_changes",
+      "evidence",
+      ...STATUS_ORDER,
+    ].sort(),
+  );
   expect(Object.keys(parsed.omitted).sort()).toEqual(
     ["tasks", "findings", "exercise_gaps", "test_changes", "evidence"].sort(),
   );
 
   const taskStatusCounts = {} as Record<TaskStatus, number>;
   for (const status of STATUS_ORDER) {
-    const raw = parsed.summary[status];
-    if (raw === undefined || !/^\d+$/.test(raw)) throw new Error(`invalid ${status} count`);
-    taskStatusCounts[status] = Number.parseInt(raw, 10);
+    taskStatusCounts[status] = parseCount(parsed.summary, status);
   }
 
+  const errors = parsed.errors.map((record) => {
+    expect(Object.keys(record).sort()).toEqual(["evidence", "reason", "task"].sort());
+    if (record.task === undefined || record.evidence === undefined || record.reason === undefined) {
+      throw new Error("malformed agent error record");
+    }
+    return record;
+  });
+  const findings = parsed.findings.map((record) => {
+    expect(Object.keys(record).sort()).toEqual(["evidence", "id", "severity", "task"].sort());
+    if (
+      record.id === undefined ||
+      record.task === undefined ||
+      record.evidence === undefined ||
+      record.severity === undefined
+    ) {
+      throw new Error("malformed agent finding record");
+    }
+    return record;
+  });
   const admissions = parsed.admissions.map((record) => {
     expect(Object.keys(record).sort()).toEqual(["authority", "state", "task"].sort());
     if (
@@ -539,12 +666,48 @@ function truthFromAgent(rendered: string): {
       throw new Error("agent gap kind is not material T066 truth");
     }
   }
-
-  for (const evidence of parsed.evidence) {
-    expect(Object.keys(evidence).sort()).toEqual(["id", "kind", "task"].sort());
-  }
   for (const change of parsed.test_changes) {
     expect(Object.keys(change).sort()).toEqual(["kind", "path"].sort());
+  }
+  for (const evidence of parsed.evidence) {
+    expect(Object.keys(evidence).sort()).toEqual(["id", "kind", "task"].sort());
+    if (evidence.id === undefined || evidence.task === undefined || evidence.kind === undefined) {
+      throw new Error("malformed agent evidence record");
+    }
+  }
+
+  const evidenceOwners = new Map<string, string>();
+  for (const evidence of parsed.evidence) {
+    if (evidenceOwners.has(evidence.id!)) throw new Error(`duplicate agent evidence: ${evidence.id}`);
+    evidenceOwners.set(evidence.id!, evidence.task!);
+  }
+  const findingIds = new Set<string>();
+  for (const finding of findings) {
+    if (findingIds.has(finding.id!)) throw new Error(`duplicate agent finding: ${finding.id}`);
+    findingIds.add(finding.id!);
+    if (evidenceOwners.get(finding.evidence!) !== finding.task) {
+      throw new Error("agent finding evidence does not resolve to its owning task");
+    }
+  }
+  for (const error of errors) {
+    if (evidenceOwners.get(error.evidence!) !== error.task) {
+      throw new Error("agent error evidence does not resolve to its owning task");
+    }
+  }
+
+  const retainedTaskIds = new Set([
+    ...errors.map((record) => record.task!),
+    ...parsed.admissions.map((record) => record.task!),
+  ]);
+  const accounting = [
+    ["tasks", retainedTaskIds.size],
+    ["findings", findings.length],
+    ["exercise_gaps", parsed.gaps.length],
+    ["test_changes", parsed.test_changes.length],
+    ["evidence", parsed.evidence.length],
+  ] as const;
+  for (const [key, retained] of accounting) {
+    expect(retained + parseCount(parsed.omitted, key)).toBe(parseCount(parsed.summary, key));
   }
 
   return {
@@ -555,7 +718,7 @@ function truthFromAgent(rendered: string): {
       admissions,
       not_exercised_lines: notExercised,
       unresolved_lines: unresolved,
-      finding_count: Number.parseInt(parsed.summary.findings!, 10),
+      finding_count: parseCount(parsed.summary, "findings"),
       completeness: parsed.summary.completeness! as ReceiptV1["summary"]["completeness"],
       exit_code: Number.parseInt(parsed.summary.exit!, 10) as ReceiptV1["summary"]["exit_code"],
     },
@@ -563,6 +726,10 @@ function truthFromAgent(rendered: string): {
       repository_id: parsed.header.repo!,
       evidence_ids: parsed.evidence.map((record) => record.id!),
       test_changes: parsed.test_changes.map((record) => `${record.kind}:${record.path}`),
+      error_records: errors.map((record) => `${record.task}:${record.evidence}`),
+      finding_records: findings.map(
+        (record) => `${record.id}:${record.task}:${record.evidence}`,
+      ),
     },
   };
 }
@@ -601,10 +768,10 @@ describe("T067 cross-format consistency contract", () => {
 
     expect(expectedCommon).toMatchObject({
       stability: "stable",
-      completeness: "materially_incomplete",
-      exit_code: 4,
-      finding_count: 0,
-      task_status_counts: { PASS: 1, NOT_RUN: 1 },
+      completeness: "unknown_due_to_error",
+      exit_code: 2,
+      finding_count: 1,
+      task_status_counts: { FAIL: 1, ERROR: 1, NOT_RUN: 1 },
       admissions: [
         {
           task_id: "lint",
@@ -617,7 +784,7 @@ describe("T067 cross-format consistency contract", () => {
     });
   });
 
-  it("preserves machine-only evidence/test-change truth between validated JSON and T066 agent records", () => {
+  it("preserves machine-only evidence, error/finding linkage, test changes, and omission accounting", () => {
     const formats = projectAcceptedFormats(receiptFixture());
     const jsonReceipt = validateReceiptForAcceptance(JSON.parse(formats.json));
     const agentTruth = truthFromAgent(formats.agent);
@@ -625,8 +792,10 @@ describe("T067 cross-format consistency contract", () => {
     expect(agentTruth.machine).toEqual(machineTruth(jsonReceipt));
     expect(agentTruth.machine).toEqual({
       repository_id: formats.accepted.source.start.repository_id,
-      evidence_ids: ["test.e1"],
+      evidence_ids: ["test.result", "test.coverage", "typecheck.error"],
       test_changes: ["test_file_deleted:tests/old.test.ts"],
+      error_records: ["typecheck:typecheck.error"],
+      finding_records: ["finding-1:test:test.result"],
     });
   });
 
