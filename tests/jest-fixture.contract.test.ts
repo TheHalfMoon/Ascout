@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { basename } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -76,6 +75,7 @@ type JestJsonResult = {
 const CASES_URL = new URL("./fixtures/jest/cases.json", import.meta.url);
 const RELATED_RESULTS_URL = new URL("./fixtures/jest/related-results.json", import.meta.url);
 const FULL_RESULTS_URL = new URL("./fixtures/jest/full-results.json", import.meta.url);
+const FIXTURE_REPOSITORY_ROOT = "/repo/";
 
 function loadJson<T>(url: URL): T {
   return JSON.parse(readFileSync(url, "utf8")) as T;
@@ -99,8 +99,19 @@ function expectSafeJestArgs(args: readonly string[]): void {
   }
 }
 
+function fixtureRelativeTestPath(testFilePath: string): string {
+  if (!testFilePath.startsWith(FIXTURE_REPOSITORY_ROOT)) {
+    throw new Error(`Jest fixture testFilePath is outside the known repository root: ${testFilePath}`);
+  }
+  const relative = testFilePath.slice(FIXTURE_REPOSITORY_ROOT.length);
+  if (relative.length === 0 || relative.startsWith("/") || relative.includes("\\") || relative.split("/").includes("..")) {
+    throw new Error(`Jest fixture testFilePath is not a canonical repository-relative path: ${testFilePath}`);
+  }
+  return relative;
+}
+
 function testPaths(result: JestJsonResult): readonly string[] {
-  return result.testResults.map(({ testFilePath }) => `tests/${basename(testFilePath)}`).sort();
+  return result.testResults.map(({ testFilePath }) => fixtureRelativeTestPath(testFilePath)).sort();
 }
 
 function expectSuccessfulMachineResult(result: JestJsonResult): void {
@@ -131,7 +142,7 @@ function expectSuccessfulMachineResult(result: JestJsonResult): void {
     expect(suite.perfStats.setupAfterEnvStart).toBeGreaterThanOrEqual(suite.perfStats.setupFilesEnd);
     expect(suite.perfStats.setupAfterEnvEnd).toBeGreaterThanOrEqual(suite.perfStats.setupAfterEnvStart);
     expect(suite.perfStats.setupAfterEnvEnd).toBeLessThanOrEqual(suite.perfStats.end);
-    expect(suite.testFilePath.startsWith("/")).toBe(true);
+    expect(fixtureRelativeTestPath(suite.testFilePath).length).toBeGreaterThan(0);
     expect(typeof suite.coverage).toBe("object");
     observedTests += suite.testResults.length;
 
@@ -181,6 +192,10 @@ describe("T046 Jest fixture/integration contract", () => {
 
     expectSuccessfulMachineResult(result);
     expect(testPaths(result)).toEqual([...catalog.related.expectedTestPaths].sort());
+  });
+
+  it("rejects raw Jest test paths outside the known fixture repository root", () => {
+    expect(() => fixtureRelativeTestPath("/wrong-directory/used.test.js")).toThrow(/outside the known repository root/);
   });
 
   it("widens a changed Jest config to a full command with no related narrowing", () => {
