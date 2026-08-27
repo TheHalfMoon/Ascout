@@ -7,17 +7,23 @@ import { collectDiscoveredProject } from "./discovery.js";
 import { loadConfig, composeSourceState } from "./check.js";
 import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./discovery.js";
 import { readWorkingTreeComparison } from "./git.js";
+import { renderReceiptAgent } from "./receipt/agent.js";
+import { renderReceiptJson } from "./receipt/json.js";
 
 const COMMANDS = ["init", "doctor", "check"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
+const FORMAT_FLAG = "--format";
+const CHECK_FORMATS = ["json", "agent"] as const;
 
 export type CliCommand = (typeof COMMANDS)[number];
+export type CheckFormat = (typeof CHECK_FORMATS)[number];
 
 type EntryDisposition = "direct" | "not_direct" | "resolution_error";
 
 export interface CliInvocation {
   command: CliCommand;
   allowChangedCommandSurface: boolean;
+  format?: CheckFormat;
 }
 
 interface DoctorResult {
@@ -33,6 +39,10 @@ function isCliCommand(value: string): value is CliCommand {
   return COMMANDS.includes(value as CliCommand);
 }
 
+function isCheckFormat(value: string): value is CheckFormat {
+  return CHECK_FORMATS.includes(value as CheckFormat);
+}
+
 export function parseCliArgs(argv: readonly string[]): CliInvocation {
   const [commandToken, ...rest] = argv;
 
@@ -45,28 +55,52 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   }
 
   let allowChangedCommandSurface = false;
+  let format: CheckFormat | undefined;
 
-  for (const token of rest) {
-    if (token !== ALLOW_CHANGED_COMMAND_SURFACE) {
-      throw new CliUsageError(`Unknown argument for ${commandToken}: ${token}`);
+  for (let index = 0; index < rest.length; index += 1) {
+    const token = rest[index]!;
+
+    if (token === ALLOW_CHANGED_COMMAND_SURFACE) {
+      if (commandToken !== "check") {
+        throw new CliUsageError(
+          `${ALLOW_CHANGED_COMMAND_SURFACE} is valid only with the check command.`,
+        );
+      }
+      if (allowChangedCommandSurface) {
+        throw new CliUsageError(`${ALLOW_CHANGED_COMMAND_SURFACE} may be supplied only once.`);
+      }
+      allowChangedCommandSurface = true;
+      continue;
     }
 
-    if (commandToken !== "check") {
-      throw new CliUsageError(
-        `${ALLOW_CHANGED_COMMAND_SURFACE} is valid only with the check command.`,
-      );
+    if (token === FORMAT_FLAG) {
+      if (commandToken !== "check") {
+        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check command.`);
+      }
+      if (format !== undefined) {
+        throw new CliUsageError(`${FORMAT_FLAG} may be supplied only once.`);
+      }
+      const value = rest[index + 1];
+      if (value === undefined) {
+        throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${CHECK_FORMATS.join("|")}.`);
+      }
+      if (!isCheckFormat(value)) {
+        throw new CliUsageError(
+          `Unsupported check format: ${value}. Expected one of: ${CHECK_FORMATS.join("|")}.`,
+        );
+      }
+      format = value;
+      index += 1;
+      continue;
     }
 
-    if (allowChangedCommandSurface) {
-      throw new CliUsageError(`${ALLOW_CHANGED_COMMAND_SURFACE} may be supplied only once.`);
-    }
-
-    allowChangedCommandSurface = true;
+    throw new CliUsageError(`Unknown argument for ${commandToken}: ${token}`);
   }
 
   return {
     command: commandToken,
     allowChangedCommandSurface,
+    ...(format === undefined ? {} : { format }),
   };
 }
 
@@ -75,7 +109,7 @@ export function usageText(): string {
     "Usage:",
     "  ascout init",
     "  ascout doctor",
-    `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}]`,
+    `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
   ].join("\n");
 }
 
@@ -136,7 +170,13 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       const outcome = await runCheck(process.cwd(), {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
       });
-      console.error(outcome.terminalSummary);
+      if (invocation.format === "json") {
+        process.stdout.write(renderReceiptJson(outcome.receipt));
+      } else if (invocation.format === "agent") {
+        process.stdout.write(renderReceiptAgent(outcome.receipt));
+      } else {
+        console.error(outcome.terminalSummary);
+      }
       return outcome.receipt.summary.exit_code;
     }
     if (invocation.command === "doctor") {
