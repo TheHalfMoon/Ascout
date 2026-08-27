@@ -1,0 +1,69 @@
+name: T056 exact-head qualification
+
+on:
+  push:
+    branches:
+      - qualification/t056-exact-head-aea0addb
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact T056 head
+        uses: actions/checkout@v4
+        with:
+          ref: aea0addbc0862b0818e830a4eb4ddf15ac564c08
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Prove opening exact head and clean tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "aea0addbc0862b0818e830a4eb4ddf15ac564c08"
+          test -z "$(git status --porcelain)"
+          git rev-parse HEAD
+          git status --short
+
+      - name: Provision exact locked dependencies
+        run: npm ci
+
+      - name: Run focused T056 qualification
+        run: |
+          npm test -- \
+            tests/exercise-widening-rendering.contract.test.ts \
+            tests/receipt-terminal.contract.test.ts \
+            tests/receipt-json.test.ts \
+            tests/exercise-state.contract.test.ts \
+            tests/exercise-exit.contract.test.ts \
+            tests/changed-line-exercise.integration.test.ts \
+            tests/changed-line-exercise-run-check.integration.test.ts \
+            tests/post-run-widening.integration.test.ts \
+            tests/receipt-v1.semantic-invariants.test.ts
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Run full test suite
+        run: npm test
+
+      - name: Prove closing exact head and clean tracked tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "aea0addbc0862b0818e830a4eb4ddf15ac564c08"
+          test -z "$(git status --porcelain --untracked-files=no)"
+          git rev-parse HEAD
+          git status --short --untracked-files=no
