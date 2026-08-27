@@ -20,6 +20,7 @@ jobs:
         run: |
           set -euo pipefail
           cp .github/scripts/t052_runner_argv_hardening.py /tmp/t052_runner_argv_hardening.py
+          cp .github/scripts/t052_runner_argv_fixture_fix.py /tmp/t052_runner_argv_fixture_fix.py
 
       - name: Checkout exact PR head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -50,6 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           python /tmp/t052_runner_argv_hardening.py
+          python /tmp/t052_runner_argv_fixture_fix.py
           git diff --check
 
       - name: Typecheck candidate
