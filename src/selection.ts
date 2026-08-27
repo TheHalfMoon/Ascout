@@ -35,9 +35,17 @@ const JS_TS_SOURCE = /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$/u;
 const DEFAULT_JS_TEST_SURFACE =
   /(?:^|\/)(?:__tests__\/.*\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)|[^/]+\.(?:test|spec)\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx))$/u;
 const SNAPSHOT_SURFACE = /(?:^|\/)__snapshots__\/.*\.snap$/u;
+const TYPESCRIPT_CONFIG_NAME = /^tsconfig(?:\.[^/]+)?\.json$/u;
+const VITEST_CONFIG_NAME = /^vitest\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u;
+const JEST_CONFIG_NAME = /^jest\.config\.(?:js|mjs|cjs|ts|json)$/u;
 
 function compareStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function basename(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index < 0 ? path : path.slice(index + 1);
 }
 
 function changedPathCandidates(file: GitChangedFile): readonly string[] {
@@ -46,6 +54,19 @@ function changedPathCandidates(file: GitChangedFile): readonly string[] {
 
 function anyCandidateIn(file: GitChangedFile, paths: ReadonlySet<string>): boolean {
   return changedPathCandidates(file).some((path) => paths.has(path));
+}
+
+function isPackageManifest(path: string): boolean {
+  return path === "package.json" || path.endsWith("/package.json");
+}
+
+function isCompilerConfig(path: string): boolean {
+  return TYPESCRIPT_CONFIG_NAME.test(basename(path));
+}
+
+function isRunnerConfig(path: string): boolean {
+  const name = basename(path);
+  return VITEST_CONFIG_NAME.test(name) || JEST_CONFIG_NAME.test(name);
 }
 
 function currentRunnerConfigPaths(discovery: ProjectDiscovery): ReadonlySet<string> {
@@ -58,20 +79,17 @@ function currentRunnerConfigPaths(discovery: ProjectDiscovery): ReadonlySet<stri
   ]);
 }
 
-function manifestPaths(discovery: ProjectDiscovery): ReadonlySet<string> {
-  return new Set(discovery.workspace.packageJsonPaths);
-}
-
 /**
- * Decides only pre-run uncertainty. Post-run coverage relationship gaps and a
- * possible second pass are deliberately outside T053 and remain T054 work.
+ * Decides only pre-run uncertainty. Path grammar for manifests and supported
+ * JS test/compiler configs intentionally mirrors discovery so deletion cannot
+ * make a formerly relation-bearing surface disappear from the decision.
+ * Post-run coverage relationship gaps and a possible second pass remain T054.
  */
 export function decidePreRunWidening(
   discovery: ProjectDiscovery,
   changedFiles: readonly GitChangedFile[],
 ): PreRunWideningDecision {
   const triggers = new Set<PreRunWidenTrigger>();
-  const manifests = manifestPaths(discovery);
   const workspaceSources = new Set(discovery.workspace.sourcePaths);
   const compilerConfigs = new Set(discovery.tools.typescript.configPaths);
   const runnerConfigs = currentRunnerConfigPaths(discovery);
@@ -79,21 +97,28 @@ export function decidePreRunWidening(
   for (const file of changedFiles) {
     const candidates = changedPathCandidates(file);
 
-    if (anyCandidateIn(file, manifests)) triggers.add("dependency_surface_changed");
+    if (candidates.some(isPackageManifest)) triggers.add("dependency_surface_changed");
     if (candidates.some((path) => ROOT_LOCKFILES.has(path) || PACKAGE_MANAGER_CONFIG_PATHS.has(path))) {
       triggers.add("package_manager_surface_changed");
     }
-    if (anyCandidateIn(file, workspaceSources)) triggers.add("workspace_surface_changed");
-    if (anyCandidateIn(file, compilerConfigs)) triggers.add("compiler_surface_changed");
+    if (
+      anyCandidateIn(file, workspaceSources) ||
+      candidates.includes("pnpm-workspace.yaml")
+    ) {
+      triggers.add("workspace_surface_changed");
+    }
+    if (anyCandidateIn(file, compilerConfigs) || candidates.some(isCompilerConfig)) {
+      triggers.add("compiler_surface_changed");
+    }
     if (
       anyCandidateIn(file, runnerConfigs) ||
-      candidates.some((path) => DEFAULT_JS_TEST_SURFACE.test(path) || SNAPSHOT_SURFACE.test(path))
+      candidates.some((path) => isRunnerConfig(path) || DEFAULT_JS_TEST_SURFACE.test(path) || SNAPSHOT_SURFACE.test(path))
     ) {
       triggers.add("test_surface_changed");
     }
 
     const productionJsPath = candidates.some(
-      (path) => JS_TS_SOURCE.test(path) && !DEFAULT_JS_TEST_SURFACE.test(path),
+      (path) => JS_TS_SOURCE.test(path) && !DEFAULT_JS_TEST_SURFACE.test(path) && !isRunnerConfig(path),
     );
     if (
       productionJsPath &&
