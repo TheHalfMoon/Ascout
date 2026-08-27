@@ -384,4 +384,19 @@ describe("T059 flake and reproduction contract", () => {
       task_id: "test-1",
     });
   });
+
+  it("rejects introduced_by_change claims without comparative proof", () => {
+    for (const introducedByChange of [true, false] as const) {
+      const receipt = receiptFor({
+        status: "FAIL",
+        runs: 1,
+        failures: 1,
+        determinismClass: "unknown",
+        reproduced: "unknown",
+      });
+      (receipt.findings[0] as { introduced_by_change: boolean | "unknown" }).introduced_by_change = introducedByChange;
+      expect(issueCodes(receipt), String(introducedByChange)).toContain("finding_causation_unproven");
+    }
+  });
+
 });

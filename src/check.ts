@@ -42,6 +42,7 @@ import {
   type EvidenceV1,
   type ExecutionAdmission,
   type ExerciseV1,
+  type FindingV1,
   type ReceiptV1,
   type SelectionV1,
   type SourceStateV1,
@@ -57,10 +58,21 @@ import {
   SELECTION_COUNTS_NOT_OBSERVED_LIMITATION,
   withPostRunWideningPass,
 } from "./selection.js";
+import {
+  buildNormalizedTestFinding,
+  failingTestIdentities,
+  normalizedAggregateTestStatus,
+  observationsForIdentity,
+  parseTestAssertionObservations,
+  type FailingTestIdentity,
+  type TestAssertionObservation,
+} from "./test-reproduction.js";
 import { planESLintTask } from "./tools/eslint.js";
+import { planJestTargetedRerun } from "./tools/jest-rerun.js";
 import { planJestTask, type JestTaskPlan, type PlannedJestTask } from "./tools/jest.js";
 import { planPytestBasicTask } from "./tools/pytest.js";
 import { planTypeScriptTask } from "./tools/typescript.js";
+import { planVitestTargetedRerun } from "./tools/vitest-rerun.js";
 import { planVitestTask, type PlannedVitestTask, type VitestTaskPlan } from "./tools/vitest.js";
 
 export { SELECTION_COUNTS_NOT_OBSERVED_LIMITATION } from "./selection.js";
@@ -383,9 +395,17 @@ interface ExecutedTask {
   readonly artifacts: readonly ArtifactV1[];
 }
 
+interface TestMachineResultRecord {
+  readonly runner: "vitest" | "jest";
+  readonly text: string;
+  readonly evidenceId: string;
+  readonly basePlan: PlannedVitestTask | PlannedJestTask;
+}
+
 interface ExecutedTestTask extends ExecutedTask {
   readonly coveragePoints: readonly LcovLinePoint[] | null;
   readonly selectedTestCounts: readonly (number | null)[];
+  readonly machineResults: readonly TestMachineResultRecord[];
 }
 
 interface ExecutePlannedTaskOptions {
@@ -802,6 +822,7 @@ function withVitestEvidenceError(
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints: null,
     selectedTestCounts: [null],
+    machineResults: [],
   };
 }
 
@@ -839,7 +860,7 @@ async function executeVitestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null] };
+  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null], machineResults: [] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withVitestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
@@ -847,6 +868,7 @@ async function executeVitestTask(
   const artifactPrefix = passOrdinal === 1 ? "test" : "test.pass-2";
   let coveragePoints: readonly LcovLinePoint[] | null = null;
   let selectedTestCount: number | null = null;
+  let machineResult: TestMachineResultRecord | null = null;
   try {
     const machine = persistGeneratedTextArtifact(
       runId,
@@ -862,6 +884,7 @@ async function executeVitestTask(
     generated.push(machine);
     if (!validVitestMachineResult(machine.text)) return withVitestEvidenceError(executed, generated);
     selectedTestCount = observedSelectedTestCount(machine.text);
+    machineResult = { runner: "vitest", text: machine.text, evidenceId: machine.evidence.evidence_id, basePlan: plan };
 
     const coverage = persistGeneratedTextArtifact(
       runId,
@@ -892,6 +915,7 @@ async function executeVitestTask(
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints,
     selectedTestCounts: [selectedTestCount],
+    machineResults: machineResult === null ? [] : [machineResult],
   };
 }
 
@@ -930,6 +954,7 @@ function withJestEvidenceError(
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints: null,
     selectedTestCounts: [null],
+    machineResults: [],
   };
 }
 
@@ -967,7 +992,7 @@ async function executeJestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null] };
+  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null], machineResults: [] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withJestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
@@ -975,6 +1000,7 @@ async function executeJestTask(
   const artifactPrefix = passOrdinal === 1 ? "test" : "test.pass-2";
   let coveragePoints: readonly LcovLinePoint[] | null = null;
   let selectedTestCount: number | null = null;
+  let machineResult: TestMachineResultRecord | null = null;
   try {
     const machine = persistGeneratedTextArtifact(
       runId,
@@ -990,6 +1016,7 @@ async function executeJestTask(
     generated.push(machine);
     if (!validJestMachineResult(machine.text)) return withJestEvidenceError(executed, generated);
     selectedTestCount = observedSelectedTestCount(machine.text);
+    machineResult = { runner: "jest", text: machine.text, evidenceId: machine.evidence.evidence_id, basePlan: plan };
 
     const coverage = persistGeneratedTextArtifact(
       runId,
@@ -1020,6 +1047,7 @@ async function executeJestTask(
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints,
     selectedTestCounts: [selectedTestCount],
+    machineResults: machineResult === null ? [] : [machineResult],
   };
 }
 
@@ -1060,6 +1088,237 @@ function combineTestPasses(first: ExecutedTestTask, second: ExecutedTestTask): E
     artifacts: [...first.artifacts, ...second.artifacts],
     coveragePoints: second.coveragePoints,
     selectedTestCounts: [...first.selectedTestCounts, ...second.selectedTestCounts],
+    machineResults: [...first.machineResults, ...second.machineResults],
+  };
+}
+
+interface TargetedObservationExecution {
+  readonly observation: TestAssertionObservation | null;
+  readonly evidence: readonly EvidenceV1[];
+  readonly artifacts: readonly ArtifactV1[];
+  readonly finishedAt: string | null;
+  readonly outputTruncated: boolean;
+}
+
+async function executeTargetedTestObservation(
+  repositoryRoot: string,
+  runId: string,
+  runPath: string,
+  rawPath: string,
+  runner: "vitest" | "jest",
+  basePlan: PlannedVitestTask | PlannedJestTask,
+  identity: FailingTestIdentity,
+  observationOrdinal: 2 | 3,
+  decision: TaskAdmissionDecision,
+  secrets: readonly string[],
+  timeoutMs: number,
+): Promise<TargetedObservationExecution> {
+  const targeted = runner === "jest"
+    ? planJestTargetedRerun({
+        runId,
+        basePlan: basePlan as PlannedJestTask,
+        selector: identity,
+        observationOrdinal,
+      })
+    : planVitestTargetedRerun({
+        runId,
+        basePlan: basePlan as PlannedVitestTask,
+        selector: identity,
+        observationOrdinal,
+      });
+  if (targeted.state !== "planned") {
+    return { observation: null, evidence: [], artifacts: [], finishedAt: null, outputTruncated: false };
+  }
+
+  const rerunIndex = observationOrdinal - 1;
+  mkdirSync(join(rawPath, "test", `rerun-${rerunIndex}`), { recursive: true });
+  const baseNormalized = normalizePlan(basePlan);
+  if (baseNormalized.state !== "planned") {
+    return { observation: null, evidence: [], artifacts: [], finishedAt: null, outputTruncated: false };
+  }
+  const normalizedPlan: NormalizedPlan & { state: "planned" } = {
+    ...baseNormalized,
+    state: "planned",
+    argv: [...targeted.argv],
+    workingDirectory: targeted.workingDirectory,
+    reasonCode: null,
+    reasonText: null,
+  };
+  const sequenceStart = observationOrdinal === 2 ? 9 : 12;
+  const executed = await executePlannedTask(
+    repositoryRoot,
+    runId,
+    rawPath,
+    "test",
+    normalizedPlan,
+    decision,
+    secrets,
+    timeoutMs,
+    {
+      env: { ...process.env, CI: "1" },
+      toolName: runner,
+      ...(basePlan.toolVersion === null ? {} : { toolVersion: basePlan.toolVersion }),
+      captureFilePrefix: `test-rerun-${rerunIndex}`,
+      evidenceSequenceStart: sequenceStart,
+    },
+  );
+  const evidence = [...executed.evidence];
+  const artifacts = [...executed.artifacts];
+  const finishedAt = executed.task.finished_at;
+  if (executed.task.status === "ERROR") {
+    return { observation: null, evidence, artifacts, finishedAt, outputTruncated: executed.task.output_truncated };
+  }
+
+  try {
+    const machine = persistGeneratedTextArtifact(
+      runId,
+      "test",
+      sequenceStart + 2,
+      runPath,
+      runRelativeArtifactPath(runId, targeted.machineResultPath),
+      `test.rerun-${rerunIndex}.${runner}-results`,
+      "test_result_json",
+      "test_result",
+      secrets,
+    );
+    evidence.push(machine.evidence);
+    artifacts.push(machine.artifact);
+    const machineResultValid = runner === "jest"
+      ? validJestMachineResult(machine.text)
+      : validVitestMachineResult(machine.text);
+    if (!machineResultValid) {
+      return { observation: null, evidence, artifacts, finishedAt, outputTruncated: executed.task.output_truncated };
+    }
+    const matches = parseTestAssertionObservations(
+      repositoryRoot,
+      machine.text,
+      machine.evidence.evidence_id,
+    ).filter((observation) =>
+      observation.path === identity.path && observation.fullName === identity.fullName
+    );
+    if (matches.length != 1) {
+      return { observation: null, evidence, artifacts, finishedAt, outputTruncated: executed.task.output_truncated };
+    }
+    const observation = matches[0]!;
+    const expectedStatus = observation.outcome === "failed" ? "FAIL" : "PASS";
+    if (executed.task.status !== expectedStatus) {
+      return { observation: null, evidence, artifacts, finishedAt, outputTruncated: executed.task.output_truncated };
+    }
+    return { observation, evidence, artifacts, finishedAt, outputTruncated: executed.task.output_truncated };
+  } catch {
+    return { observation: null, evidence, artifacts, finishedAt, outputTruncated: executed.task.output_truncated };
+  }
+}
+
+interface NormalizedFailedTestExecution {
+  readonly executed: ExecutedTestTask;
+  readonly findings: readonly FindingV1[];
+}
+
+async function normalizeFailedTestExecution(
+  repositoryRoot: string,
+  runId: string,
+  runPath: string,
+  rawPath: string,
+  executed: ExecutedTestTask,
+  decision: TaskAdmissionDecision,
+  secrets: readonly string[],
+  timeoutMs: number,
+): Promise<NormalizedFailedTestExecution> {
+  if (executed.task.status !== "FAIL" || executed.machineResults.length === 0) {
+    return { executed, findings: [] };
+  }
+
+  const baselineObservations = executed.machineResults.flatMap((record) =>
+    parseTestAssertionObservations(repositoryRoot, record.text, record.evidenceId)
+  );
+  const identities = failingTestIdentities(baselineObservations);
+  if (identities.length === 0) return { executed, findings: [] };
+
+  const allObservations = [...baselineObservations];
+  const extraEvidence: EvidenceV1[] = [];
+  const extraArtifacts: ArtifactV1[] = [];
+  let taskRuns = executed.task.observations.runs;
+  let taskFailures = executed.task.observations.failures;
+  let taskFinishedAt = executed.task.finished_at;
+  let outputTruncated = executed.task.output_truncated;
+
+  // T063 owns exactly two global extra observation slots. Use them for one
+  // deterministic exact failure identity; other failures remain unknown unless
+  // normal selection passes already observed them.
+  const targetIdentity = identities[0]!;
+  const origin = executed.machineResults.find((record) =>
+    parseTestAssertionObservations(repositoryRoot, record.text, record.evidenceId).some((observation) =>
+      observation.path === targetIdentity.path &&
+      observation.fullName === targetIdentity.fullName &&
+      observation.outcome === "failed"
+    )
+  );
+
+  if (origin !== undefined) {
+    let targetObservations = observationsForIdentity(allObservations, targetIdentity);
+    while (
+      targetObservations.length < 3 &&
+      targetObservations.length > 0 &&
+      targetObservations.every((observation) => observation.outcome === "failed")
+    ) {
+      const observationOrdinal = (targetObservations.length + 1) as 2 | 3;
+      const targeted = await executeTargetedTestObservation(
+        repositoryRoot,
+        runId,
+        runPath,
+        rawPath,
+        origin.runner,
+        origin.basePlan,
+        targetIdentity,
+        observationOrdinal,
+        decision,
+        secrets,
+        timeoutMs,
+      );
+      extraEvidence.push(...targeted.evidence);
+      extraArtifacts.push(...targeted.artifacts);
+      outputTruncated ||= targeted.outputTruncated;
+      if (targeted.finishedAt !== null) taskFinishedAt = targeted.finishedAt;
+      if (targeted.observation === null) break;
+      allObservations.push(targeted.observation);
+      taskRuns += 1;
+      if (targeted.observation.outcome === "failed") taskFailures += 1;
+      targetObservations = observationsForIdentity(allObservations, targetIdentity);
+    }
+  }
+
+  const findings = identities.map((identity, index) =>
+    buildNormalizedTestFinding(
+      index,
+      executed.machineResults[0]!.runner,
+      identity,
+      observationsForIdentity(allObservations, identity),
+    )
+  );
+  const status = normalizedAggregateTestStatus(findings);
+  const startedAt = executed.task.started_at;
+  const durationMs = startedAt !== null && taskFinishedAt !== null
+    ? Date.parse(taskFinishedAt) - Date.parse(startedAt)
+    : executed.task.duration_ms;
+
+  return {
+    executed: {
+      ...executed,
+      task: {
+        ...executed.task,
+        status,
+        finished_at: taskFinishedAt,
+        duration_ms: durationMs,
+        observations: { runs: taskRuns, failures: taskFailures },
+        evidence_ids: [...executed.task.evidence_ids, ...extraEvidence.map(({ evidence_id }) => evidence_id)],
+        artifact_refs: [...executed.task.artifact_refs, ...extraArtifacts.map(({ artifact_id }) => artifact_id)],
+        output_truncated: outputTruncated,
+      },
+      evidence: [...executed.evidence, ...extraEvidence],
+      artifacts: [...executed.artifacts, ...extraArtifacts],
+    },
+    findings,
   };
 }
 
@@ -1204,6 +1463,7 @@ export async function runCheck(
       const tasks: TaskResultV1[] = [];
       const evidence: EvidenceV1[] = [];
       const artifacts: ArtifactV1[] = [];
+      const findings: FindingV1[] = [];
       let exerciseCoveragePoints: readonly LcovLinePoint[] | null = null;
 
       for (const task of FIXED_SEMANTIC_TASKS) {
@@ -1356,6 +1616,18 @@ export async function runCheck(
             (finalExecuted.task.status === "PASS" || finalExecuted.task.status === "FAIL") &&
               finalExecuted.coveragePoints !== null,
           );
+          const normalizedTestExecution = await normalizeFailedTestExecution(
+            root,
+            runId,
+            runDir.run_path,
+            runDir.raw_path,
+            finalExecuted,
+            decision,
+            secrets,
+            taskTimeoutMs(config, task),
+          );
+          finalExecuted = normalizedTestExecution.executed;
+          findings.push(...normalizedTestExecution.findings);
           exerciseCoveragePoints = finalExecuted.coveragePoints;
           executed = finalExecuted;
         } else {
@@ -1395,7 +1667,7 @@ export async function runCheck(
         tasks,
         exercise,
         testChanges: [] satisfies readonly TestChangeV1[],
-        findings: [],
+        findings,
         evidence,
         artifacts,
       });
