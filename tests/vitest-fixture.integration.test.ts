@@ -134,11 +134,13 @@ describe("T045 Vitest fixture/integration contract", () => {
     expect(catalog.artifacts.coverageDirectory).not.toBe("coverage");
   });
 
-  it("uses project-local Vitest related selection and writes machine JSON under .ascout/", () => {
+  it("uses native Vitest related selection in the fixture and writes machine JSON under .ascout/", () => {
     const catalog = loadCatalog();
     const root = initializeFixtureRepository();
 
     try {
+      // T045 exercises the already-installed Vitest test-harness CLI against the
+      // temporary repository. Target-repository-local tool resolution belongs to T051.
       expect(existsSync(vitestCliPath)).toBe(true);
       const jsonPath = join(root, ...catalog.artifacts.jsonResult.split("/"));
       runCommand(root, process.execPath, [
