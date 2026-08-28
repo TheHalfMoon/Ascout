@@ -1,0 +1,55 @@
+name: T075 zod membership diagnostic
+
+on:
+  push:
+    branches:
+      - diagnostic/t075-zod-membership-0f73fa8a
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 0f73fa8a91f40a0ec8aebb889a9a6ef419afc3bb
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build and provision
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = '10.12.1'
+      - name: Instrument membership evidence on helper only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('benchmarks/run.mjs')
+          s = p.read_text()
+          s = s.replace('''  let proof = null;\n  let membership = mentionsAllIds(exactText, caseRecord.oracle.specification.regression_test_ids);''', '''  let proof = null;\n  let proofText = "";\n  let membership = mentionsAllIds(exactText, caseRecord.oracle.specification.regression_test_ids);''', 1)
+          s = s.replace('''    const proofText = textOutput(proof);''', '''    proofText = textOutput(proof);''', 1)
+          s = s.replace('''  if (!membership) fail("oracle_membership", `${label} did not prove all reviewed regression_test_ids executed`);''', '''  if (!membership) {\n    process.stderr.write(`MEMBERSHIP_DIAGNOSTIC=${JSON.stringify({ label, ids: caseRecord.oracle.specification.regression_test_ids, exactText: exactText.slice(-12000), proofText: proofText.slice(-12000) })}\\n`);\n    fail("oracle_membership", `${label} did not prove all reviewed regression_test_ids executed`);\n  }''', 1)
+          p.write_text(s)
+          PY
+          node --check benchmarks/run.mjs
+      - name: Reproduce canary membership failure
+        shell: bash
+        run: |
+          set -uo pipefail
+          node benchmarks/run.mjs \
+            --case zod-scientific-exponents \
+            --run-id "diagnostic:${GITHUB_RUN_ID}:zod-scientific-exponents" \
+            --repetitions 2 \
+            > "$RUNNER_TEMP/out.json"
+          code=$?
+          test "$code" -ne 0
+          exit 0
