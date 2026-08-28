@@ -1,0 +1,145 @@
+name: T073 CodeRabbit blocker repair
+
+on:
+  push:
+    branches:
+      - repair/t073-coderabbit-blockers-c2011dc4
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout isolated helper branch
+        uses: actions/checkout@v4
+        with:
+          ref: repair/t073-coderabbit-blockers-c2011dc4
+          path: helper
+          fetch-depth: 1
+
+      - name: Checkout exact product head
+        uses: actions/checkout@v4
+        with:
+          ref: c2011dc431cb0a7cacc8518dacfd52a600447952
+          path: product
+          fetch-depth: 0
+
+      - name: Guard canonical base and exact product scope
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD='c2011dc431cb0a7cacc8518dacfd52a600447952'
+          BASE='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$OLD"
+          test -z "$(git status --porcelain)"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$OLD"
+          test "$(git merge-base HEAD origin/main)" = "$BASE"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+
+      - name: Apply isolated manifest repair
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ../helper/.github/scripts/t073_repair.py
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+
+      - name: Validate schema recipe revisions and ancillary anti-leakage
+        working-directory: product
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --quiet 'jsonschema[format]==4.23.0'
+          python3 - <<'PY'
+          import copy,hashlib,json,shutil,subprocess,tempfile
+          from pathlib import Path
+          from jsonschema import Draft202012Validator,FormatChecker
+          m=json.loads(Path('benchmarks/manifest.json').read_text())
+          assert m['manifest_revision']==3 and len(m['cases'])==6
+          Draft202012Validator.check_schema(m['case_schema'])
+          v=Draft202012Validator(m['case_schema'],format_checker=FormatChecker())
+          root=Path(tempfile.mkdtemp(prefix='t073-review-repair-'))
+          def gr(repo,*args,text=True):
+              p=subprocess.run(['git','-C',str(repo),*args],stdout=subprocess.PIPE,stderr=subprocess.PIPE,check=True)
+              return p.stdout.decode() if text else p.stdout
+          try:
+              for c in m['cases']:
+                  cid=c['case_id']; assert c['case_revision']==2; v.validate(c)
+                  sh=c['reconstruction']['synthetic_head']
+                  assert sh['parent_commit_ids']==[c['git']['base']['commit_id']]
+                  assert sh['result_commit_id'] is None
+                  assert hashlib.sha256(sh['payload_template_utf8'].encode()).hexdigest()==sh['payload_template_sha256']
+                  assert sh['payload_template_utf8'].count('{derived_tree_id}')==1
+                  assert sh['payload_template_utf8'].count('{base_commit_id}')==1
+                  assert sh['author']==sh['committer']=={'name':'Ascout Benchmark Harness','email':'ascout-benchmark@users.noreply.github.com','git_timestamp':'946684800 +0000'}
+                  assert sh['encoding_header'] is None and sh['signing']=='forbidden' and sh['extra_headers']==[]
+                  repo=root/cid
+                  subprocess.run(['git','init','-q',str(repo)],check=True)
+                  subprocess.run(['git','-C',str(repo),'remote','add','origin',c['upstream']['canonical_url']],check=True)
+                  fix=c['git']['fix']['commit_id']; base=c['git']['base']['commit_id']
+                  subprocess.run(['git','-C',str(repo),'fetch','-q','--depth=3','--filter=blob:none','origin',fix],check=True)
+                  changed=set(gr(repo,'diff','--name-only',base,fix).splitlines())
+                  expected=changed-set(c['paths']['production'])-set(c['paths']['regression_tests'])
+                  ar=c['reconstruction']['ancillary_review']
+                  assert set(ar['changed_paths'])==expected
+                  keep=set(ar['preserved_allowlist']); drop=set(ar['excluded_from_derived_baseline'])
+                  assert not (keep & drop) and keep|drop==expected
+                  if cid=='tanstack-streamed-query-reducer':
+                      assert expected=={'.changeset/fair-peaches-deny.md'}
+                      assert keep==set() and drop==expected
+                      absent=subprocess.run(['git','-C',str(repo),'cat-file','-e',f'{base}:.changeset/fair-peaches-deny.md'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                      assert absent.returncode!=0
+                      assert 'Fix streamedQuery reducer being called twice' in gr(repo,'show',f'{fix}:.changeset/fair-peaches-deny.md')
+                  else:
+                      assert expected==set() and keep==set() and drop==set()
+              bad=copy.deepcopy(m['cases'][0]); del bad['reconstruction']['synthetic_head']; assert list(v.iter_errors(bad))
+              bad=copy.deepcopy(m['cases'][0]); bad['reconstruction']['synthetic_head']['result_commit_id']='0'*40; assert list(v.iter_errors(bad))
+              print('T073 structured synthetic HEAD + ancillary anti-leakage contract PASS')
+          finally:
+              shutil.rmtree(root,ignore_errors=True)
+          PY
+          echo AUDIT_MODE=GIT_OBJECT_METADATA_ONLY
+          echo DONOR_CHECKOUT=NO
+          echo DONOR_DEPENDENCY_INSTALL=NO
+          echo DONOR_SCRIPT_EXECUTION=NO
+          echo DONOR_TEST_EXECUTION=NO
+
+      - name: Verify Ascout health before guarded push
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+          git diff --check
+
+      - name: Commit and guarded fast-forward push
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD='c2011dc431cb0a7cacc8518dacfd52a600447952'
+          BASE='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$OLD"
+          test "$(git rev-parse HEAD)" = "$OLD"
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+          git config user.name 'Ascout Qualification Helper'
+          git config user.email 'ascout-helper@users.noreply.github.com'
+          git add benchmarks/manifest.json
+          git commit -m 'fix(benchmark): close T073 review leakage gaps'
+          NEW="$(git rev-parse HEAD)"
+          test "$(git diff --name-only "$OLD"..."$NEW")" = 'benchmarks/manifest.json'
+          git push origin "HEAD:refs/heads/feat/073-benchmark-selection-cases"
+          echo "NEW_FEATURE_HEAD=$NEW"
