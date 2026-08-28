@@ -1,0 +1,38 @@
+name: T075 corpus runtime inventory
+on:
+  push:
+    branches:
+      - diagnostic/t075-corpus-inventory-c0909d7d
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c0909d7d26c7258f5c9470c95a120d1ec117c67b
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Print reviewed corpus matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          for (const c of manifest.cases) {
+            console.log(JSON.stringify({
+              case_id: c.case_id,
+              case_class: c.case_class,
+              lifecycle_state: c.lifecycle_state,
+              node_version: c.runtime.node_version,
+              package_manager: c.runtime.package_manager,
+              package_manager_version: c.runtime.package_manager_version,
+              upstream: c.upstream.canonical_url,
+            }));
+          }
+          console.log(`TOTAL=${manifest.cases.length}`);
+          NODE
