@@ -1,0 +1,37 @@
+name: T075 oracle comparator repair v2
+on:
+  push:
+    branches:
+      - repair/t075-oracle-comparator-proof-v2-8dffddf
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Apply guarded repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '8dffddf49b8453688d46034e3f5793bd1259560f'
+          python3 < <(git show '570902703cda15234dc50f15e890f101794def4c:.github/repair-t075-oracle-comparator-proof.py')
+          git diff --check
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-proxy.mjs
+          node --check benchmarks/membership-preload.cjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add benchmarks/harness-lib.mjs benchmarks/run.mjs tests/benchmark-membership-proof.test.ts
+          git commit -m 'fix(benchmark): bind oracle to reviewed assertions'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
