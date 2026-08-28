@@ -30,7 +30,7 @@ jobs:
           test "$(git rev-parse HEAD)" = '31fc82245130f9f1f8339b7c1b4c0384269570dd'
           test "$(npm --version)" = '10.8.2'
           set +e
-          node benchmarks/run.mjs --case braintree-venmo-csp-nonce-web-login --run-id "diagnostic:${GITHUB_RUN_ID}:braintree" --repetitions 1 --keep-temp > "$RUNNER_TEMP/braintree.out" 2> "$RUNNER_TEMP/braintree.err"
+          node benchmarks/run.mjs --case braintree-venmo-csp-nonce-web-login --run-id "diagnostic:${GITHUB_RUN_ID}:braintree" --repetitions 2 --keep-temp > "$RUNNER_TEMP/braintree.out" 2> "$RUNNER_TEMP/braintree.err"
           harness_code=$?
           set -e
           echo "HARNESS_EXIT=$harness_code"
@@ -40,11 +40,7 @@ jobs:
           ROOT="$root" REPORT="$RUNNER_TEMP/braintree-fixed-membership.json" node --input-type=module <<'NODE'
           import fs from 'node:fs';
           import { spawnSync } from 'node:child_process';
-          import {
-            extractGapCommands,
-            membershipProofCommand,
-            proveRunnerMembership,
-          } from './benchmarks/harness-lib.mjs';
+          import { extractGapCommands, membershipProofCommand, proveRunnerMembership } from './benchmarks/harness-lib.mjs';
           const manifest = JSON.parse(fs.readFileSync('./benchmarks/manifest.json', 'utf8'));
           const c = manifest.cases.find((x) => x.case_id === 'braintree-venmo-csp-nonce-web-login');
           const targeted = extractGapCommands(c).targeted;
@@ -94,7 +90,7 @@ jobs:
           test "$(node --version)" = 'v24.15.0'
           test "$(pnpm --version)" = '9.12.2'
           set +e
-          node benchmarks/run.mjs --case trpc-streaming-onerror-cause --run-id "diagnostic:${GITHUB_RUN_ID}:trpc" --repetitions 1 --keep-temp > "$RUNNER_TEMP/trpc.out" 2> "$RUNNER_TEMP/trpc.err"
+          node benchmarks/run.mjs --case trpc-streaming-onerror-cause --run-id "diagnostic:${GITHUB_RUN_ID}:trpc" --repetitions 2 --keep-temp > "$RUNNER_TEMP/trpc.out" 2> "$RUNNER_TEMP/trpc.err"
           harness_code=$?
           set -e
           echo "HARNESS_EXIT=$harness_code"
@@ -116,14 +112,7 @@ jobs:
           const parsed = parseRestrictedCommand(targeted);
           const result = spawnSync(parsed.file, parsed.argv, {
             cwd: `${process.env.ROOT}/observation-1/oracle-pre`,
-            env: {
-              PATH: process.env.PATH,
-              HOME: process.env.HOME,
-              CI: '1',
-              ...parsed.env,
-              NODE_OPTIONS: `--require=${process.env.PRELOAD}`,
-              ASCOUT_DIAG_ARGV_LOG: process.env.LOG,
-            },
+            env: { PATH: process.env.PATH, HOME: process.env.HOME, CI: '1', ...parsed.env, NODE_OPTIONS: `--require=${process.env.PRELOAD}`, ASCOUT_DIAG_ARGV_LOG: process.env.LOG },
             encoding: 'utf8',
             maxBuffer: 16 * 1024 * 1024,
           });
