@@ -247,6 +247,62 @@ function canonicalRepoPath(path) {
   return path.replaceAll("\\", "/").replace(/^\.\//, "");
 }
 
+function pathMatchesReviewed(sourcePath, reviewedPaths) {
+  const source = canonicalRepoPath(sourcePath);
+  return reviewedPaths.some((path) => {
+    const expected = canonicalRepoPath(path);
+    return source === expected || source.endsWith(`/${expected}`);
+  });
+}
+
+export function membershipProofCommand(commandText, kind, outputFile) {
+  if (kind !== "vitest" && kind !== "jest") fail("invalid_command", `unsupported membership-proof runner: ${String(kind)}`);
+  if (typeof outputFile !== "string" || !isAbsolute(outputFile)) fail("invalid_path", "membership proof output must be an absolute path");
+  const parsed = parseRestrictedCommand(commandText);
+  const argv = [...parsed.argv];
+  const isPackageScript = ["npm", "pnpm", "yarn"].includes(parsed.file) && !argv.includes("exec");
+  if (argv.some((value) => value === "--json" || value.startsWith("--reporter") || value.startsWith("--outputFile"))) {
+    fail("invalid_command", "reviewed command already controls reporter or output-file authority");
+  }
+  if (isPackageScript && !argv.includes("--")) argv.push("--");
+  if (kind === "vitest") {
+    argv.push("--reporter=json", `--outputFile=${outputFile}`);
+  } else {
+    argv.push("--json", `--outputFile=${outputFile}`);
+  }
+  return { ...parsed, argv };
+}
+
+export function proveRunnerMembership(report, regressionTestIds, regressionTestPaths) {
+  if (!report || typeof report !== "object" || !Array.isArray(report.testResults)) {
+    fail("oracle_membership", "runner membership report is missing testResults");
+  }
+  if (!Array.isArray(regressionTestIds) || regressionTestIds.length === 0 || regressionTestIds.some((value) => typeof value !== "string" || value.trim().length === 0)) {
+    fail("oracle_membership", "reviewed regression_test_ids are invalid");
+  }
+  if (!Array.isArray(regressionTestPaths) || regressionTestPaths.length === 0 || regressionTestPaths.some((value) => typeof value !== "string" || value.length === 0)) {
+    fail("oracle_membership", "reviewed regression test paths are invalid");
+  }
+
+  const executedNames = new Set();
+  let matchedReviewedFile = false;
+  for (const result of report.testResults) {
+    if (!result || typeof result !== "object" || typeof result.name !== "string") continue;
+    if (!pathMatchesReviewed(result.name, regressionTestPaths)) continue;
+    matchedReviewedFile = true;
+    if (!Array.isArray(result.assertionResults)) continue;
+    for (const assertion of result.assertionResults) {
+      if (!assertion || typeof assertion !== "object") continue;
+      if (assertion.status !== "passed" && assertion.status !== "failed") continue;
+      for (const field of [assertion.title, assertion.fullName]) {
+        if (typeof field === "string" && field.trim().length > 0) executedNames.add(field.trim());
+      }
+    }
+  }
+  if (!matchedReviewedFile) fail("oracle_membership", "runner membership report contains no reviewed regression-test path");
+  return regressionTestIds.every((id) => executedNames.has(id.trim()));
+}
+
 export function classifyLcov(lcovText, reviewedLines) {
   if (typeof lcovText !== "string") fail("invalid_lcov", "LCOV input must be text");
   if (!Array.isArray(reviewedLines) || reviewedLines.length === 0) fail("invalid_lcov", "reviewed changed-line set is empty");
