@@ -1,0 +1,73 @@
+name: T075 case review revisions
+on:
+  push:
+    branches:
+      - repair/t075-case-review-revisions-31fc822
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Correct reviewed case bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '31fc82245130f9f1f8339b7c1b4c0384269570dd'
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('benchmarks/manifest.json')
+          manifest = json.loads(path.read_text(encoding='utf-8'))
+          if manifest.get('manifest_revision') != 7:
+              raise SystemExit(f"expected manifest revision 7, got {manifest.get('manifest_revision')}")
+
+          cases = {case['case_id']: case for case in manifest['cases']}
+
+          immer = cases['immer-prototype-undefined']
+          if immer['case_revision'] != 2:
+              raise SystemExit(f"expected Immer case revision 2, got {immer['case_revision']}")
+          if immer['runtime']['node_version'] != '24.0.0':
+              raise SystemExit(f"unexpected Immer Node pin {immer['runtime']['node_version']}")
+          immer['case_revision'] = 3
+          immer['runtime']['node_version'] = '24.15.0'
+          immer['runtime']['node_constraint_provenance'] = [
+              'Exact donor CI blob 04250bbc1c6208f7669988547b6b7a779bc36db2 selects Node major 24.',
+              'T075 isolated dependency reconstruction rejected the previous exact Node 24.0.0 replay pin because the frozen dependency graph includes semantic-release@25.0.3, whose engine range requires ^22.14.0 or >=24.10.0.',
+              'Case revision 3 selects exact Node 24.15.0 within the reviewed donor CI major and the frozen dependency engine range; nodejs/node refs/tags/v24.15.0 resolves to annotated tag object a20a24415694b80361d661d6ecc1ea0e260d9c32.',
+          ]
+          immer['provenance']['review_notes'] += ' T075 isolated replay invalidated the prior Node 24.0.0 exact replay choice during frozen dependency reconstruction; case revision 3 corrects only the exact replay patch version to Node 24.15.0 while preserving the reviewed donor commit, lockfile, paths, reconstruction recipe, and oracle.'
+          immer['limitations'].append('Case revision 3 supersedes the definition-only Node 24.0.0 replay choice after T075 proved it incompatible with the frozen dependency engine graph; the corrected Node 24.15.0 pin must still pass isolated replay before this case can become BENCHMARK_ACTIVE.')
+
+          rhf = cases['react-hook-form-valueasdate-minmax']
+          if rhf['case_revision'] != 1:
+              raise SystemExit(f"expected RHF gap case revision 1, got {rhf['case_revision']}")
+          artifact = rhf['oracle']['specification']['coverage_oracle']['artifact']
+          if artifact['path'] != 'coverage/lcov.info':
+              raise SystemExit(f"unexpected RHF LCOV path {artifact['path']}")
+          rhf['case_revision'] = 2
+          artifact['path'] = 'scripts/jest/coverage/lcov.info'
+          rhf['provenance']['review_notes'] += ' T075 isolated replay proved that the reviewed Jest config resolves the relative coverage directory beneath scripts/jest, so case revision 2 corrects the frozen oracle artifact binding from coverage/lcov.info to scripts/jest/coverage/lcov.info without changing the reviewed command or expected line classifications.'
+          rhf['limitations'].append('Case revision 2 corrects the LCOV artifact path from T075 observed project-native behavior; the corrected binding must pass repeated isolated replay before this case can become BENCHMARK_ACTIVE.')
+
+          manifest['manifest_revision'] = 8
+          path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+          PY
+          git diff --check
+          node -e "const m=require('./benchmarks/manifest.json'); if(m.manifest_revision!==8) process.exit(1); const c=Object.fromEntries(m.cases.map(x=>[x.case_id,x])); if(c['immer-prototype-undefined'].case_revision!==3||c['immer-prototype-undefined'].runtime.node_version!=='24.15.0') process.exit(1); if(c['react-hook-form-valueasdate-minmax'].case_revision!==2||c['react-hook-form-valueasdate-minmax'].oracle.specification.coverage_oracle.artifact.path!=='scripts/jest/coverage/lcov.info') process.exit(1);"
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add benchmarks/manifest.json
+          git commit -m 'fix(benchmark): revise invalid T075 case bindings'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
