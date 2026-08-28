@@ -1,0 +1,79 @@
+name: T075 Zod oracle status diagnostic bb23d2ab
+on:
+  push:
+    branches:
+      - diagnostic/t075-zod-oracle-status-bb23d2ab
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id:
+          - zod-scientific-exponents
+          - zod-jitless-allows-eval
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    name: diagnose / ${{ matrix.case_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bb23d2ab7011628e1fd1b549a1b8dcdc85ac0ec7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build controller
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
+      - name: Provision donor package manager
+        run: npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+      - name: Inspect pre-fix structured assertion records
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = 'v24.15.0'
+          test "$(pnpm --version)" = '10.12.1'
+          set +e
+          node benchmarks/run.mjs --case "$CASE_ID" --run-id "diagnostic:${GITHUB_RUN_ID}:${CASE_ID}" --repetitions 2 --keep-temp > "$RUNNER_TEMP/harness.out" 2> "$RUNNER_TEMP/harness.err"
+          code=$?
+          set -e
+          echo "HARNESS_EXIT=$code"
+          cat "$RUNNER_TEMP/harness.err"
+          root="$(find /tmp -maxdepth 1 -type d -name "ascout-t075-${CASE_ID}-*" | sort | tail -n 1)"
+          test -n "$root"
+          ROOT="$root" CASE_ID="$CASE_ID" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const m=JSON.parse(fs.readFileSync('./benchmarks/manifest.json','utf8'));
+          const c=m.cases.find((x)=>x.case_id===process.env.CASE_ID);
+          const proofDir=path.join(process.env.ROOT,'observation-1','membership-proofs');
+          const files=fs.existsSync(proofDir)?fs.readdirSync(proofDir).filter((x)=>x.endsWith('.json')).sort():[];
+          console.log('PROOF_FILES=' + JSON.stringify(files));
+          const normalized=(v)=>String(v??'').replaceAll('\\','/');
+          for (const file of files) {
+            const report=JSON.parse(fs.readFileSync(path.join(proofDir,file),'utf8'));
+            const hits=[];
+            for (const tr of report.testResults??[]) {
+              if (!c.paths.regression_tests.some((p)=>normalized(tr.name).endsWith(normalized(p)))) continue;
+              for (const a of tr.assertionResults??[]) {
+                const names=[a?.title,a?.fullName];
+                if (Array.isArray(a?.ancestorTitles)&&typeof a?.title==='string') names.push([...a.ancestorTitles,a.title].join(' > '));
+                if (names.some((n)=>c.oracle.specification.regression_test_ids.includes(String(n??'').trim()))) {
+                  hits.push({
+                    resultName:normalized(tr.name),
+                    resultStatus:tr.status??null,
+                    projectName:tr.projectName??null,
+                    displayName:tr.displayName??null,
+                    assertion:{status:a.status,title:a.title,fullName:a.fullName,ancestorTitles:a.ancestorTitles??null},
+                  });
+                }
+              }
+            }
+            console.log('PROOF=' + file + ' HITS=' + JSON.stringify(hits));
+          }
+          NODE
+          test "$code" -ne 0
