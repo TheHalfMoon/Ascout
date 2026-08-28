@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "ascout-founding-benchmark-v1",
-  "manifest_revision": 7,
+  "manifest_revision": 8,
   "policy": {
     "policy_path": "benchmarks/README.md",
     "manifest_task": "T072",
@@ -2417,7 +2417,7 @@
     },
     {
       "case_id": "immer-prototype-undefined",
-      "case_revision": 2,
+      "case_revision": 3,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -2488,10 +2488,11 @@
           "blob_id": "8f51dda0c55ae651ee39b7082ced081ac2c1d4e6",
           "sha256": "b5af47d91e57045fb18ee38a6f05d8405938c547f2fa2ce4f53f6970ea2b8b82"
         },
-        "node_version": "24.0.0",
+        "node_version": "24.15.0",
         "node_constraint_provenance": [
           "Exact donor CI blob 04250bbc1c6208f7669988547b6b7a779bc36db2 selects Node major 24.",
-          "Benchmark resolves that reviewed major deterministically to exact Node 24.0.0; nodejs/node v24.0.0 tag resolves to c5349f43cd66d2aa02d86414c9ed426f71d3ae48."
+          "T075 isolated dependency reconstruction rejected the previous exact Node 24.0.0 replay pin because the frozen dependency graph includes semantic-release@25.0.3, whose engine range requires ^22.14.0 or >=24.10.0.",
+          "Case revision 3 selects exact Node 24.15.0 within the reviewed donor CI major and the frozen dependency engine range; nodejs/node refs/tags/v24.15.0 resolves to annotated tag object a20a24415694b80361d661d6ecc1ea0e260d9c32."
         ],
         "immutable_harness_artifact": {
           "required": false,
@@ -2590,13 +2591,14 @@
           "https://github.com/immerjs/immer/commit/16e225b5a316d9ef6695e9aee45eab6e7bf4258a",
           "https://github.com/immerjs/immer/pull/1262"
         ],
-        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. Changed paths are exactly ['src/core/proxy.ts', '__tests__/regressions.js']; measured reconstruction withholds the historical regression-test change and applies only production blobs. Definition-only review used Git-object metadata; no donor checkout for execution, install, script, build, or test occurred."
+        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. Changed paths are exactly ['src/core/proxy.ts', '__tests__/regressions.js']; measured reconstruction withholds the historical regression-test change and applies only production blobs. Definition-only review used Git-object metadata; no donor checkout for execution, install, script, build, or test occurred. T075 isolated replay invalidated the prior Node 24.0.0 exact replay choice during frozen dependency reconstruction; case revision 3 corrects only the exact replay patch version to Node 24.15.0 while preserving the reviewed donor commit, lockfile, paths, reconstruction recipe, and oracle."
       },
       "limitations": [
         "T074 is definition-only: no donor code, dependency, script, build, or test execution has occurred; all oracle observations remain unknown until T075.",
         "The exact Node/package-manager selection is benchmark-owned but constrained by exact upstream CI/engine metadata and must be enforced fail-closed by T075.",
         "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition.",
-        "T074 now freezes a project-native full-suite LCOV oracle definition; no LCOV artifact, artifact digest, or line classification has been observed yet and T075 must establish them before Ascout runs."
+        "T074 now freezes a project-native full-suite LCOV oracle definition; no LCOV artifact, artifact digest, or line classification has been observed yet and T075 must establish them before Ascout runs.",
+        "Case revision 3 supersedes the definition-only Node 24.0.0 replay choice after T075 proved it incompatible with the frozen dependency engine graph; the corrected Node 24.15.0 pin must still pass isolated replay before this case can become BENCHMARK_ACTIVE."
       ]
     },
     {
@@ -2785,7 +2787,7 @@
     },
     {
       "case_id": "react-hook-form-valueasdate-minmax",
-      "case_revision": 1,
+      "case_revision": 2,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -2932,7 +2934,7 @@
             "project_native_reference_command": "pnpm test:coverage",
             "artifact": {
               "format": "lcov",
-              "path": "coverage/lcov.info"
+              "path": "scripts/jest/coverage/lcov.info"
             },
             "artifact_digest_algorithm": "sha256",
             "mapping": {
@@ -2958,12 +2960,13 @@
           "https://github.com/react-hook-form/react-hook-form/pull/13646",
           "https://github.com/react-hook-form/react-hook-form/commit/d7118f40a50aa7783481e9a9b77a703302b94814"
         ],
-        "review_notes": "Reviewed T074 gap case from merged upstream PR #13646 and exact direct-parent Git objects. Changed paths are exactly src/logic/validateField.ts and src/__tests__/logic/validateField.test.tsx; measured reconstruction withholds the regression-test change. Definition-only metadata review used Git objects and PR metadata without donor checkout/install/build/test execution."
+        "review_notes": "Reviewed T074 gap case from merged upstream PR #13646 and exact direct-parent Git objects. Changed paths are exactly src/logic/validateField.ts and src/__tests__/logic/validateField.test.tsx; measured reconstruction withholds the regression-test change. Definition-only metadata review used Git objects and PR metadata without donor checkout/install/build/test execution. T075 isolated replay proved that the reviewed Jest config resolves the relative coverage directory beneath scripts/jest, so case revision 2 corrects the frozen oracle artifact binding from coverage/lcov.info to scripts/jest/coverage/lcov.info without changing the reviewed command or expected line classifications."
       },
       "limitations": [
         "T074 is definition-only: no donor dependency, script, build, test, LCOV artifact, or line classification has been executed or observed; T075 is the first execution task.",
         "The exact Node 22.23.2 patch is benchmark-owned resolution of donor CI node-version 22 and must be enforced fail-closed by T075.",
-        "Only src/logic/validateField.ts:140 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs."
+        "Only src/logic/validateField.ts:140 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs.",
+        "Case revision 2 corrects the LCOV artifact path from T075 observed project-native behavior; the corrected binding must pass repeated isolated replay before this case can become BENCHMARK_ACTIVE."
       ]
     }
   ]
