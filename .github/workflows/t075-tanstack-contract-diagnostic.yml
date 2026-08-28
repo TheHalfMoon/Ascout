@@ -1,0 +1,43 @@
+name: T075 TanStack contract diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-tanstack-contract-a0466508
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a0466508dce843cbbdf8f722e814ac15a2f71b9b
+          persist-credentials: false
+      - name: Guard exact source and print reviewed contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'a0466508dce843cbbdf8f722e814ac15a2f71b9b'
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json','utf8'));
+          const c = manifest.cases.find((item) => item.case_id === 'tanstack-streamed-query-reducer');
+          if (!c) throw new Error('TanStack case missing');
+          console.log(JSON.stringify({
+            manifest_revision: manifest.manifest_revision,
+            case_id: c.case_id,
+            case_revision: c.case_revision,
+            lifecycle_state: c.lifecycle_state,
+            paths: c.paths,
+            runtime: {
+              package_manager: c.runtime.package_manager,
+              package_manager_version: c.runtime.package_manager_version,
+              node_version: c.runtime.node_version,
+              lockfile: c.runtime.lockfile.path,
+            },
+            regression_test_ids: c.oracle.specification.regression_test_ids,
+            ground_truth_procedure: c.oracle.specification.ground_truth_procedure,
+            limitations: c.limitations,
+          }, null, 2));
+          NODE
+          test -z "$(git status --porcelain)"
