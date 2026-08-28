@@ -1,0 +1,22 @@
+name: T074 selected toolchain proof
+
+on:
+  push:
+    branches:
+      - research/t074-candidate-metadata
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/t074-candidate-metadata
+          fetch-depth: 1
+      - name: Prove selected Node npm and Yarn releases
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: python3 .github/scripts/t074_selected_toolchain.py
