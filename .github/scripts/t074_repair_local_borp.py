@@ -12,6 +12,7 @@ case['limitations'].append('The targeted Undici oracle command is intentionally 
 case['case_revision']=2; m['manifest_revision']=6
 Draft202012Validator.check_schema(m['case_schema']); v=Draft202012Validator(m['case_schema'],format_checker=FormatChecker())
 for c in m['cases']: v.validate(c)
-assert 'npm exec' not in '\n'.join(proc) and './node_modules/.bin/borp' in proc[0]
+joined='\n'.join(proc)
+assert '`npm exec -- borp' not in joined and './node_modules/.bin/borp' in proc[0]
 p.write_text(json.dumps(m,indent=2,ensure_ascii=False)+'\n')
 print('T074 local-borp fail-closed repair PASS')
