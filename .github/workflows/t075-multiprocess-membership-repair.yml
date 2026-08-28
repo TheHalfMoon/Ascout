@@ -1,0 +1,202 @@
+name: T075 multiprocess membership repair
+on:
+  push:
+    branches:
+      - repair/t075-multiprocess-membership-f6708304
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: f6708304fb5941cb85f7411f58ab6d3409d20e51
+          fetch-depth: 0
+      - name: Guard exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'f6708304fb5941cb85f7411f58ab6d3409d20e51'
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = 'f6708304fb5941cb85f7411f58ab6d3409d20e51'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Apply guarded repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          preload = Path('benchmarks/membership-preload.cjs')
+          s = preload.read_text()
+          old = '''      const instrumentation =
+        kind === "vitest"
+          ? ["--reporter=json", `--outputFile=${outputFile}`]
+          : ["--json", `--outputFile=${outputFile}`];'''
+          new = '''      const reportFile = `${outputFile}.${process.pid}.json`;
+      const instrumentation =
+        kind === "vitest"
+          ? ["--reporter=json", `--outputFile=${reportFile}`]
+          : ["--json", `--outputFile=${reportFile}`];'''
+          if old not in s:
+              raise SystemExit('membership-preload instrumentation guard missing')
+          preload.write_text(s.replace(old, new, 1))
+
+          run = Path('benchmarks/run.mjs')
+          s = run.read_text()
+          s = s.replace('  readFile,\n  rm,', '  readFile,\n  readdir,\n  rm,', 1)
+          s = s.replace('import { dirname, join, resolve } from "node:path";', 'import { basename, dirname, join, resolve } from "node:path";', 1)
+          old = '  rejectSetupFailure(textOutput(proof), `${label} membership proof`);\n'
+          if old not in s:
+              raise SystemExit('proof setup guard missing')
+          s = s.replace(old, '', 1)
+          start = s.index('  let reportStat;\n  try {\n    reportStat = await stat(proofPath);')
+          end = s.index('  const membership = proveRunnerMembership(', start)
+          replacement = '''  const proofDir = dirname(proofPath);
+  const proofBase = basename(proofPath);
+  const reportPaths = [];
+  try {
+    const exactStat = await stat(proofPath);
+    if (exactStat.isFile()) reportPaths.push(proofPath);
+  } catch {}
+  for (const entry of await readdir(proofDir)) {
+    if (entry.startsWith(`${proofBase}.`) && entry.endsWith(".json")) {
+      reportPaths.push(join(proofDir, entry));
+    }
+  }
+  const uniqueReportPaths = [...new Set(reportPaths)].sort();
+  if (uniqueReportPaths.length === 0) {
+    const boundedOutput = textOutput(proof).slice(0, 2000);
+    fail("oracle_membership", `${label} membership proof did not produce an external JSON report (exit ${proof.exitCode}); output=${boundedOutput}`);
+  }
+  const reports = [];
+  let reportBytesTotal = 0;
+  for (const reportPath of uniqueReportPaths) {
+    const reportStat = await stat(reportPath);
+    if (!reportStat.isFile() || reportStat.size <= 0 || reportStat.size > CAPTURE_CAP_BYTES) {
+      fail("oracle_membership", `${label} membership proof JSON report has an invalid size`);
+    }
+    reportBytesTotal += reportStat.size;
+    if (reportBytesTotal > CAPTURE_CAP_BYTES) fail("oracle_membership", `${label} aggregate membership proof JSON exceeds capture cap`);
+    const bytes = await readFile(reportPath);
+    let parsedReport;
+    try {
+      parsedReport = JSON.parse(bytes.toString("utf8"));
+    } catch {
+      fail("oracle_membership", `${label} membership proof JSON report is not valid JSON`);
+    }
+    if (!Array.isArray(parsedReport?.testResults)) fail("oracle_membership", `${label} membership proof JSON report is missing testResults`);
+    reports.push(parsedReport);
+  }
+  const report = { testResults: reports.flatMap((item) => item.testResults) };
+  const reportBytes = Buffer.from(canonicalJson(report), "utf8");
+'''
+          s = s[:start] + replacement + s[end:]
+          s = s.replace('      report_bytes: reportBytes.length,\n      evidence_kind: "runner-json-assertion-results",', '      report_bytes: reportBytesTotal,\n      report_count: uniqueReportPaths.length,\n      evidence_kind: "runner-json-assertion-results",', 1)
+          old = '''  const exactText = textOutput(exact);
+  rejectSetupFailure(exactText, label);
+  const proof = await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label);'''
+          new = '''  const proof = await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label);'''
+          if old not in s:
+              raise SystemExit('reviewed exact setup guard missing')
+          s = s.replace(old, new, 1)
+          old = '''  const exactText = textOutput(exact);
+  rejectSetupFailure(exactText, label);
+  const proof = requireMembership
+    ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label)
+    : null;'''
+          new = '''  if (!requireMembership) rejectSetupFailure(textOutput(exact), label);
+  const proof = requireMembership
+    ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label)
+    : null;'''
+          if old not in s:
+              raise SystemExit('comparator setup guard missing')
+          s = s.replace(old, new, 1)
+          run.write_text(s)
+
+          tests = Path('tests/benchmark-membership-preload.test.ts')
+          s = tests.read_text()
+          old = '    "process.stdout.write(JSON.stringify({ argv: process.argv.slice(2), instrumented: process.env.ASCOUT_MEMBERSHIP_INSTRUMENTED ?? null }));\\n",'
+          new = '    "process.stdout.write(JSON.stringify({ argv: process.argv.slice(2), instrumented: process.env.ASCOUT_MEMBERSHIP_INSTRUMENTED ?? null, pid: process.pid }));\\n",'
+          if old not in s:
+              raise SystemExit('fake runner guard missing')
+          s = s.replace(old, new, 1)
+          old = '''    expect(JSON.parse(result.stdout)).toEqual({
+      argv: ["run", "--reporter=json", `--outputFile=${outputFile}`, "--", "tests/a.test.ts"],
+      instrumented: "1",
+    });'''
+          new = '''    const observed = JSON.parse(result.stdout);
+    expect(observed).toEqual({
+      argv: ["run", "--reporter=json", `--outputFile=${outputFile}.${observed.pid}.json`, "--", "tests/a.test.ts"],
+      instrumented: "1",
+      pid: expect.any(Number),
+    });'''
+          if old not in s:
+              raise SystemExit('vitest preload assertion guard missing')
+          s = s.replace(old, new, 1)
+          old = '''    expect(JSON.parse(result.stdout)).toEqual({
+      argv: ["--runInBand", "tests/a.test.ts", "--json", `--outputFile=${outputFile}`],
+      instrumented: "1",
+    });'''
+          new = '''    const observed = JSON.parse(result.stdout);
+    expect(observed).toEqual({
+      argv: ["--runInBand", "tests/a.test.ts", "--json", `--outputFile=${outputFile}.${observed.pid}.json`],
+      instrumented: "1",
+      pid: expect.any(Number),
+    });'''
+          if old not in s:
+              raise SystemExit('jest preload assertion guard missing')
+          s = s.replace(old, new, 1)
+          old = '''    expect(JSON.parse(result.stdout)).toEqual({
+      argv: ["run", "tests/a.test.ts"],
+      instrumented: null,
+    });'''
+          new = '''    expect(JSON.parse(result.stdout)).toEqual({
+      argv: ["run", "tests/a.test.ts"],
+      instrumented: null,
+      pid: expect.any(Number),
+    });'''
+          if old not in s:
+              raise SystemExit('untrusted runner assertion guard missing')
+          tests.write_text(s.replace(old, new, 1))
+          PY
+          git diff --check
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-preload.cjs
+      - name: Qualify controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-proxy.mjs
+          node --check benchmarks/membership-preload.cjs
+      - name: Commit and fast-forward feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git status --short | awk '{print $2}' | sort)
+          printf '%s\n' "${changed[@]}"
+          test "${#changed[@]}" -eq 3
+          test "${changed[0]}" = 'benchmarks/membership-preload.cjs'
+          test "${changed[1]}" = 'benchmarks/run.mjs'
+          test "${changed[2]}" = 'tests/benchmark-membership-preload.test.ts'
+          git config user.name 'Ascout Benchmark Bot'
+          git config user.email 'benchmark-bot@users.noreply.github.com'
+          git add benchmarks/membership-preload.cjs benchmarks/run.mjs tests/benchmark-membership-preload.test.ts
+          git commit -m 'fix(benchmark): aggregate multiprocess runner evidence'
+          new_head="$(git rev-parse HEAD)"
+          git fetch origin feat/075-isolated-benchmark-harness
+          test "$(git rev-parse FETCH_HEAD)" = 'f6708304fb5941cb85f7411f58ab6d3409d20e51'
+          git push origin HEAD:refs/heads/feat/075-isolated-benchmark-harness
+          echo "FEATURE_HEAD=$new_head"
