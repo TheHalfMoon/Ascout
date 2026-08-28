@@ -25,28 +25,26 @@ jobs:
           test "$(node --version)" = 'v20.19.0'
           test "$(npm --version)" = '10.8.2'
           npm ci --ignore-scripts --no-audit --no-fund
-      - name: Probe coverage commands
+      - name: Probe full coverage without lifecycle prebuild
         working-directory: donor
         run: |
           set -euo pipefail
-          probe() {
-            label="$1"; shift
-            find . -type d -name coverage -prune -exec rm -rf {} + 2>/dev/null || true
-            set +e
-            "$@" >"$RUNNER_TEMP/${label}.out" 2>"$RUNNER_TEMP/${label}.err"
-            code=$?
-            set -e
-            echo "${label}_EXIT=$code"
-            mapfile -t artifacts < <(find . -type f -name lcov.info -print | sort)
-            echo "${label}_LCOV_COUNT=${#artifacts[@]}"
-            for artifact in "${artifacts[@]}"; do
-              echo "${label}_LCOV=$artifact"
-              sha256sum "$artifact"
-              awk 'BEGIN{inside=0} /^SF:/{inside=($0 ~ /src\/venmo\/venmo\.js$/)} inside && /^DA:87,/{print "LINE87=" $0}' "$artifact"
-            done
-            echo "${label}_ERR_TAIL_BEGIN"
-            tail -n 25 "$RUNNER_TEMP/${label}.err" || true
-            echo "${label}_ERR_TAIL_END"
-          }
-          probe ignore_publishing env BRAINTREE_JS_ENV=development ./node_modules/.bin/jest --config=jest.config.json --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage --ignoreProjects publishing
-          probe venmo_only env BRAINTREE_JS_ENV=development ./node_modules/.bin/jest --config=test/venmo/jest.config.json --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage
+          rm -rf src/coverage
+          set +e
+          BRAINTREE_JS_ENV=development npm_config_ignore_scripts=true ./node_modules/.bin/jest --config=jest.config.json --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage >"$RUNNER_TEMP/root.out" 2>"$RUNNER_TEMP/root.err"
+          code=$?
+          set -e
+          echo "ROOT_EXIT=$code"
+          mapfile -t artifacts < <(find . -type f -name lcov.info -print | sort)
+          echo "LCOV_COUNT=${#artifacts[@]}"
+          for artifact in "${artifacts[@]}"; do
+            echo "LCOV=$artifact"
+            sha256sum "$artifact"
+            echo "VENMO_SOURCES_BEGIN"
+            grep '^SF:' "$artifact" | grep -E '(^|/)venmo(/|\.js)' | head -n 20 || true
+            echo "VENMO_SOURCES_END"
+            awk 'BEGIN{inside=0} /^SF:/{inside=($0 ~ /(^|\/)venmo\/venmo\.js$/)} inside && /^DA:87,/{print "LINE87=" $0}' "$artifact"
+          done
+          echo 'ERR_TAIL_BEGIN'
+          tail -n 40 "$RUNNER_TEMP/root.err" || true
+          echo 'ERR_TAIL_END'
