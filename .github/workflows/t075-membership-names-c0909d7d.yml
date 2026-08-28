@@ -1,0 +1,71 @@
+name: T075 reviewed membership name diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-membership-names-c0909d7d
+permissions:
+  contents: read
+jobs:
+  inspect:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case_id: tanstack-streamed-query-reducer
+            node: 24.8.0
+            pm_version: 10.24.0
+          - case_id: zustand-persist-latest-state
+            node: 24.15.0
+            pm_version: 10.18.3
+          - case_id: react-hook-form-value-as-date
+            node: 22.22.2
+            pm_version: 11.7.0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    name: inspect / ${{ matrix.case_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: c0909d7d26c7258f5c9470c95a120d1ec117c67b
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Provision and capture structured names
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+          PM_VERSION: ${{ matrix.pm_version }}
+        run: |
+          set -euo pipefail
+          npm install --global "pnpm@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          set +e
+          node benchmarks/run.mjs --case "$CASE_ID" --run-id "diagnostic:${GITHUB_RUN_ID}:${CASE_ID}" --repetitions 2 --keep-temp > "$RUNNER_TEMP/stdout" 2> "$RUNNER_TEMP/stderr"
+          code=$?
+          set -e
+          echo "HARNESS_EXIT=$code"
+          cat "$RUNNER_TEMP/stderr"
+          root="$(find /tmp -maxdepth 1 -type d -name "ascout-t075-${CASE_ID}-*" | sort | tail -n 1)"
+          test -n "$root"
+          echo "ROOT=$root"
+          find "$root" -type f -name '*.membership.json' -print
+          REPORT="$(find "$root" -type f -name '*.membership.json' | sort | head -n 1)"
+          test -n "$REPORT"
+          REPORT="$REPORT" CASE_ID="$CASE_ID" MANIFEST="$GITHUB_WORKSPACE/benchmarks/manifest.json" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync(process.env.REPORT, 'utf8'));
+          const manifest = JSON.parse(fs.readFileSync(process.env.MANIFEST, 'utf8'));
+          const c = manifest.cases.find((x) => x.case_id === process.env.CASE_ID);
+          const normalized = (s) => String(s ?? '').replaceAll('\\', '/');
+          console.log('REVIEWED_IDS=' + JSON.stringify(c.oracle.specification.regression_test_ids));
+          console.log('REVIEWED_PATHS=' + JSON.stringify(c.paths.regression_tests));
+          for (const result of report.testResults ?? []) {
+            if (!c.paths.regression_tests.some((p) => normalized(result.name).endsWith(normalized(p)))) continue;
+            console.log('RESULT_PATH=' + normalized(result.name));
+            for (const a of result.assertionResults ?? []) {
+              if (a?.status !== 'passed' && a?.status !== 'failed') continue;
+              console.log(JSON.stringify({status:a.status,title:a.title,fullName:a.fullName,ancestorTitles:a.ancestorTitles}));
+            }
+          }
+          NODE
+          test "$code" -ne 0
