@@ -491,13 +491,12 @@ function rejectSetupFailure(output, label) {
   if (match) fail("oracle_setup", `${label} contains setup/runner failure evidence matching ${match}`);
 }
 
-async function runReviewed(caseRecord, repo, root, commandText, expected, label) {
+async function runReviewed(caseRecord, repo, root, commandText, expected, label, expectedPaths) {
   const envBase = runtimeEnvironment(root);
   const parsed = parseRestrictedCommand(commandText);
   const env = { ...envBase, ...parsed.env };
   assertControllerSecretsAbsent(env);
-  const expectedPaths = caseRecord.case_class === "selection" || label.includes("measured") ? caseRecord.paths.production : null;
-  if (expectedPaths) await assertMeasuredState(repo, expectedPaths, envBase);
+  await assertMeasuredState(repo, expectedPaths, envBase);
   const exact = await runBounded({ file: parsed.file, argv: parsed.argv, cwd: repo, env });
   requireExited(exact, label);
   const exactText = textOutput(exact);
@@ -517,7 +516,7 @@ async function runReviewed(caseRecord, repo, root, commandText, expected, label)
     membership = mentionsAllIds(proofText, caseRecord.oracle.specification.regression_test_ids);
   }
   if (!membership) fail("oracle_membership", `${label} did not prove all reviewed regression_test_ids executed`);
-  if (expectedPaths) await assertMeasuredState(repo, expectedPaths, envBase);
+  await assertMeasuredState(repo, expectedPaths, envBase);
   return { status: expected === "pass" ? "passed" : "failed_as_expected", membership_proven: true, exact: outputDigest(exact), proof: proof ? outputDigest(proof) : null };
 }
 
@@ -573,8 +572,8 @@ async function runSelectionObservation(caseRecord, cacheRepo, root, ascoutRoot) 
   const fixed = await materializeSelection(caseRecord, cacheRepo, root, "measured", true);
   if (pre.tree !== fixed.tree || pre.syntheticCommit !== fixed.syntheticCommit) fail("reconstruction", "selection reconstruction identity differs across oracle/measured materialization");
   const commands = extractSelectionCommands(caseRecord);
-  const preOracle = await runReviewed(caseRecord, pre.repo, root, commands.targeted, "fail", "pre-fix oracle");
-  const fixedOracle = await runReviewed(caseRecord, fixed.repo, root, commands.targeted, "pass", "measured fixed oracle");
+  const preOracle = await runReviewed(caseRecord, pre.repo, root, commands.targeted, "fail", "pre-fix oracle", []);
+  const fixedOracle = await runReviewed(caseRecord, fixed.repo, root, commands.targeted, "pass", "measured fixed oracle", caseRecord.paths.production);
   const full = await runComparator(caseRecord, fixed.repo, root, commands.full, "project-native full suite", true);
   const plain = await runComparator(caseRecord, fixed.repo, root, commands.plain, "plain project test", false);
   const related = await runComparator(caseRecord, fixed.repo, root, commands.related, "runner-native related selector", true);
@@ -597,8 +596,8 @@ async function runGapObservation(caseRecord, cacheRepo, root, ascoutRoot) {
   const fixed = await materializeGap(caseRecord, cacheRepo, root, "oracle-fixed", { productionFix: true, regressionPatch: true });
   const measured = await materializeGap(caseRecord, cacheRepo, root, "measured", { productionFix: true, regressionPatch: false });
   const commands = extractGapCommands(caseRecord);
-  const preOracle = await runReviewed(caseRecord, pre.repo, root, commands.targeted, "fail", "gap pre-fix oracle");
-  const fixedOracle = await runReviewed(caseRecord, fixed.repo, root, commands.targeted, "pass", "gap fixed oracle");
+  const preOracle = await runReviewed(caseRecord, pre.repo, root, commands.targeted, "fail", "gap pre-fix oracle", caseRecord.paths.regression_tests);
+  const fixedOracle = await runReviewed(caseRecord, fixed.repo, root, commands.targeted, "pass", "gap fixed oracle", [...caseRecord.paths.production, ...caseRecord.paths.regression_tests]);
   const env = runtimeEnvironment(root);
   await assertMeasuredState(measured.repo, caseRecord.paths.production, env);
   const coverageCommand = parseRestrictedCommand(commands.fullCoverage);
