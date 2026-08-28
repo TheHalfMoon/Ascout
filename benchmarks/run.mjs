@@ -497,7 +497,8 @@ async function runMembershipProof(caseRecord, repo, root, commandText, expectedE
   try {
     reportStat = await stat(proofPath);
   } catch {
-    fail("oracle_membership", `${label} membership proof did not produce its external JSON report`);
+    const boundedOutput = textOutput(proof).slice(0, 2000);
+    fail("oracle_membership", `${label} membership proof did not produce its external JSON report (exit ${proof.exitCode}); output=${boundedOutput}`);
   }
   if (!reportStat.isFile() || reportStat.size <= 0 || reportStat.size > CAPTURE_CAP_BYTES) {
     fail("oracle_membership", `${label} membership proof JSON report has an invalid size`);
@@ -588,6 +589,23 @@ async function runAscout(caseRecord, repo, root, ascoutRoot) {
     },
     exercise: receipt?.exercise ?? null,
     selection: receipt?.selection ?? null,
+    tasks: Array.isArray(receipt?.tasks)
+      ? receipt.tasks.map((task) => ({
+          task_id: task.task_id,
+          task_type: task.task_type,
+          status: task.status,
+          reason_code: task.reason_code,
+          exit_code: task.exit_code,
+          command_surface_changed: task.command_surface_changed,
+          changed_authority_paths: task.changed_authority_paths,
+          execution_admission: task.execution_admission,
+          observations: task.observations,
+          cache_state: task.cache_state,
+          selected_test_count: task.selected_test_count ?? null,
+          deselected_test_count: task.deselected_test_count ?? null,
+          output_truncated: task.output_truncated,
+        }))
+      : [],
     receipt_sha256: sha256Bytes(result.stdout),
   };
 }
@@ -632,7 +650,13 @@ async function runGapObservation(caseRecord, cacheRepo, root, ascoutRoot) {
   await assertMeasuredState(measured.repo, caseRecord.paths.production, env);
   const artifactPath = resolve(measured.repo, commands.artifact);
   assertPathInside(measured.repo, artifactPath);
-  const artifactBytes = await readFile(artifactPath);
+  let artifactBytes;
+  try {
+    artifactBytes = await readFile(artifactPath);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    fail("coverage_oracle", `full coverage command succeeded but required LCOV artifact ${commands.artifact} is unavailable: ${detail}`);
+  }
   const classifications = classifyLcov(artifactBytes.toString("utf8"), caseRecord.oracle.specification.gap_changed_executable_lines);
   const frozenCoverage = { artifact_sha256: sha256Bytes(artifactBytes), classifications };
   const nativeCoverage = await runComparator(caseRecord, measured.repo, root, commands.nativeCoverage, "project-native coverage reference", false);
@@ -651,13 +675,24 @@ async function runGapObservation(caseRecord, cacheRepo, root, ascoutRoot) {
 }
 
 function stableObservation(observation) {
+  const semanticAscout = observation.ascout === null
+    ? null
+    : {
+        exit_code: observation.ascout.exit_code,
+        completeness: observation.ascout.completeness,
+        source_stability: observation.ascout.source_stability,
+        source: observation.ascout.source,
+        selection: observation.ascout.selection,
+        exercise: observation.ascout.exercise,
+        tasks: observation.ascout.tasks,
+      };
   return {
     reconstruction: observation.reconstruction,
     pre_fix_oracle: observation.pre_fix_oracle,
     fixed_oracle: observation.fixed_oracle,
     full_reference: observation.full_reference,
     related: observation.related,
-    ascout: observation.ascout,
+    ascout: semanticAscout,
     gap_coverage: observation.gap_coverage,
   };
 }
