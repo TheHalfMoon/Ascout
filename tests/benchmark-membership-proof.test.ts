@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   BenchmarkHarnessError,
   membershipProofCommand,
+  proveReviewedAssertionStatus,
   proveRunnerMembership,
 } from "../benchmarks/harness-lib.mjs";
 
@@ -137,6 +138,89 @@ describe("T075 structured runner membership evidence", () => {
         ["packages/zod/src/v4/classic/tests/number.test.ts"],
       ),
     ).toBe(false);
+  });
+
+  it("proves reviewed assertion status independently from unrelated failures", () => {
+    const mixed = {
+      testResults: [
+        {
+          name: "/tmp/repo/packages/zod/src/v4/classic/tests/number.test.ts",
+          assertionResults: [
+            {
+              title: ".multipleOf() with scientific notation (multi-digit exponents)",
+              fullName: "number .multipleOf() with scientific notation (multi-digit exponents)",
+              ancestorTitles: ["number"],
+              status: "passed",
+            },
+            {
+              title: "unrelated historical failure",
+              fullName: "number unrelated historical failure",
+              ancestorTitles: ["number"],
+              status: "failed",
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      proveReviewedAssertionStatus(
+        mixed,
+        ["number > .multipleOf() with scientific notation (multi-digit exponents)"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+        "passed",
+      ),
+    ).toBe(true);
+    expect(
+      proveReviewedAssertionStatus(
+        mixed,
+        ["number > .multipleOf() with scientific notation (multi-digit exponents)"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+        "failed",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects contradictory reviewed assertion statuses", () => {
+    const contradictory = {
+      testResults: [
+        {
+          name: "/tmp/repo/packages/zod/src/v4/classic/tests/number.test.ts",
+          assertionResults: [
+            { title: "reviewed", fullName: "suite reviewed", ancestorTitles: ["suite"], status: "passed" },
+            { title: "reviewed", fullName: "suite reviewed", ancestorTitles: ["suite"], status: "failed" },
+          ],
+        },
+      ],
+    };
+    expect(
+      proveReviewedAssertionStatus(
+        contradictory,
+        ["suite > reviewed"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+        "passed",
+      ),
+    ).toBe(false);
+  });
+
+  it("injects reporter-only proof flags directly through pnpm exec", () => {
+    const output = "/tmp/ascout-membership.json";
+    const proof = membershipProofCommand(
+      "FOO=bar pnpm --filter @trpc/tests exec vitest run server/errors.test.ts",
+      "vitest",
+      output,
+    );
+    expect(proof.file).toBe("pnpm");
+    expect(proof.env).toEqual({ FOO: "bar" });
+    expect(proof.argv).toEqual([
+      "--filter",
+      "@trpc/tests",
+      "exec",
+      "vitest",
+      "--reporter=json",
+      `--outputFile=${output}`,
+      "run",
+      "server/errors.test.ts",
+    ]);
   });
 
   it("does not treat skipped or substring titles as execution", () => {

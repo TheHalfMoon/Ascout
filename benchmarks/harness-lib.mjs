@@ -268,6 +268,29 @@ export function membershipProofCommand(commandText, kind, outputFile) {
   if (parsed.argv.some((value) => value === "--json" || value === "--reporter" || value.startsWith("--reporter=") || value === "--outputFile" || value.startsWith("--outputFile="))) {
     fail("invalid_command", "reviewed command already controls reporter or output-file authority");
   }
+
+  if (parsed.file === "pnpm") {
+    const execIndex = parsed.argv.indexOf("exec");
+    if (execIndex !== -1) {
+      let runnerIndex = execIndex + 1;
+      if (parsed.argv[runnerIndex] === "--") runnerIndex += 1;
+      const runner = parsed.argv[runnerIndex];
+      const runnerBase = typeof runner === "string" ? runner.replaceAll("\\", "/").split("/").at(-1)?.toLowerCase() : null;
+      const matchesRunner =
+        (kind === "vitest" && (runnerBase === "vitest" || runnerBase === "vitest.mjs" || runnerBase === "vitest.js")) ||
+        (kind === "jest" && (runnerBase === "jest" || runnerBase === "jest.js" || runnerBase === "jest.mjs"));
+      if (matchesRunner) {
+        const instrumentation =
+          kind === "vitest"
+            ? ["--reporter=json", `--outputFile=${outputFile}`]
+            : ["--json", `--outputFile=${outputFile}`];
+        const argv = [...parsed.argv];
+        argv.splice(runnerIndex + 1, 0, ...instrumentation);
+        return { file: parsed.file, argv, env: parsed.env };
+      }
+    }
+  }
+
   return {
     file: process.execPath,
     argv: [MEMBERSHIP_PROXY, "--kind", kind, "--output", outputFile, "--", parsed.file, ...parsed.argv],
@@ -312,6 +335,44 @@ export function proveRunnerMembership(report, regressionTestIds, regressionTestP
   }
   if (!matchedReviewedFile) fail("oracle_membership", "runner membership report contains no reviewed regression-test path");
   return regressionTestIds.every((id) => executedNames.has(id.trim()));
+}
+
+export function proveReviewedAssertionStatus(report, regressionTestIds, regressionTestPaths, expectedStatus) {
+  if (expectedStatus !== "passed" && expectedStatus !== "failed") {
+    fail("oracle_membership", `unsupported reviewed assertion status: ${String(expectedStatus)}`);
+  }
+  if (!proveRunnerMembership(report, regressionTestIds, regressionTestPaths)) return false;
+
+  const expectedIds = new Map(regressionTestIds.map((id) => [id.trim(), new Set()]));
+  for (const result of report.testResults) {
+    if (!result || typeof result !== "object" || typeof result.name !== "string") continue;
+    if (!pathMatchesReviewed(result.name, regressionTestPaths)) continue;
+    if (!Array.isArray(result.assertionResults)) continue;
+    for (const assertion of result.assertionResults) {
+      if (!assertion || typeof assertion !== "object") continue;
+      if (assertion.status !== "passed" && assertion.status !== "failed") continue;
+      const names = new Set();
+      for (const field of [assertion.title, assertion.fullName]) {
+        if (typeof field === "string" && field.trim().length > 0) names.add(field.trim());
+      }
+      if (Array.isArray(assertion.ancestorTitles) && typeof assertion.title === "string") {
+        const ancestors = assertion.ancestorTitles.map((value) =>
+          typeof value === "string" ? value.trim() : null,
+        );
+        const title = assertion.title.trim();
+        if (ancestors.length > 0 && ancestors.every((value) => value !== null && value.length > 0) && title.length > 0) {
+          names.add([...ancestors, title].join(" > "));
+        }
+      }
+      for (const [id, statuses] of expectedIds) {
+        if (names.has(id)) statuses.add(assertion.status);
+      }
+    }
+  }
+
+  return [...expectedIds.values()].every(
+    (statuses) => statuses.size === 1 && statuses.has(expectedStatus),
+  );
 }
 
 export function classifyLcov(lcovText, reviewedLines) {

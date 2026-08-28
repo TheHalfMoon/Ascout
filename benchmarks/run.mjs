@@ -25,6 +25,7 @@ import {
   membershipProofCommand,
   observationsDeterministic,
   parseRestrictedCommand,
+  proveReviewedAssertionStatus,
   proveRunnerMembership,
   sanitizedDonorEnvironment,
   sha256Bytes,
@@ -515,8 +516,23 @@ async function runMembershipProof(caseRecord, repo, root, commandText, expectedE
     caseRecord.oracle.specification.regression_test_ids,
     caseRecord.paths.regression_tests,
   );
+  const reviewed_status = {
+    passed: proveReviewedAssertionStatus(
+      report,
+      caseRecord.oracle.specification.regression_test_ids,
+      caseRecord.paths.regression_tests,
+      "passed",
+    ),
+    failed: proveReviewedAssertionStatus(
+      report,
+      caseRecord.oracle.specification.regression_test_ids,
+      caseRecord.paths.regression_tests,
+      "failed",
+    ),
+  };
   return {
     membership,
+    reviewed_status,
     evidence: {
       ...outputDigest(proof),
       report_sha256: sha256Bytes(reportBytes),
@@ -536,12 +552,21 @@ async function runReviewed(caseRecord, repo, root, commandText, expected, label,
   requireExited(exact, label);
   const exactText = textOutput(exact);
   rejectSetupFailure(exactText, label);
-  if (expected === "pass" && exact.exitCode !== 0) fail("oracle", `${label} expected pass, got ${exact.exitCode}`);
-  if (expected === "fail" && exact.exitCode === 0) fail("oracle", `${label} expected historical failure, got exit 0`);
   const proof = await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label);
   if (!proof.membership) fail("oracle_membership", `${label} did not prove all reviewed regression_test_ids executed`);
+  const expectedStatus = expected === "pass" ? "passed" : "failed";
+  if (proof.reviewed_status[expectedStatus] !== true) {
+    fail("oracle", `${label} did not prove every reviewed regression_test_id was ${expectedStatus}`);
+  }
   await assertMeasuredState(repo, expectedPaths, envBase);
-  return { status: expected === "pass" ? "passed" : "failed_as_expected", membership_proven: true, exact: outputDigest(exact), proof: proof.evidence };
+  return {
+    status: expected === "pass" ? "passed" : "failed_as_expected",
+    membership_proven: true,
+    reviewed_assertion_status: expectedStatus,
+    command_exit_code: exact.exitCode,
+    exact: outputDigest(exact),
+    proof: proof.evidence,
+  };
 }
 
 async function runComparator(caseRecord, repo, root, commandText, label, requireMembership) {
@@ -553,13 +578,18 @@ async function runComparator(caseRecord, repo, root, commandText, label, require
   requireExited(exact, label);
   const exactText = textOutput(exact);
   rejectSetupFailure(exactText, label);
-  if (exact.exitCode !== 0) fail("comparator", `${label} failed with exit ${exact.exitCode}`);
   const proof = requireMembership
     ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label)
     : null;
   if (requireMembership && !proof.membership) fail("oracle_membership", `${label} did not prove oracle membership`);
   await assertMeasuredState(repo, caseRecord.paths.production, envBase);
-  return { status: "passed", oracle_membership: requireMembership ? true : null, exact: outputDigest(exact), proof: proof?.evidence ?? null };
+  return {
+    status: exact.exitCode === 0 ? "passed" : "failed",
+    exit_code: exact.exitCode,
+    oracle_membership: requireMembership ? true : null,
+    exact: outputDigest(exact),
+    proof: proof?.evidence ?? null,
+  };
 }
 
 async function runAscout(caseRecord, repo, root, ascoutRoot) {
