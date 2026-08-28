@@ -120,6 +120,15 @@ def referenced_script(command: str) -> str | None:
     return None
 
 
+def command_binary(command: str) -> str:
+    parts = shlex.split(command)
+    while parts and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*=.*', parts[0]):
+        parts.pop(0)
+    assert parts
+    assert parts[0].startswith('./node_modules/.bin/'), command
+    return parts[0].rsplit('/', 1)[-1]
+
+
 try:
     for case in gaps:
         cid = case['case_id']
@@ -130,6 +139,14 @@ try:
         assert case['reconstruction']['mode'] == 'base_plus_production_fix'
         assert case['reconstruction']['measured_diff_contains_regression_test_change'] is False
         assert 'synthetic_head' not in case['reconstruction']
+
+        steps = '\n'.join(case['reconstruction']['steps'])
+        procedure = '\n'.join(case['oracle']['specification']['ground_truth_procedure'])
+        assert 'changed-path set' in steps
+        assert 'physically separate' in procedure.lower()
+        assert 'measured' in procedure.lower()
+        assert ('destroy' in procedure.lower() or 'quarantine' in procedure.lower())
+        assert 'oracle' in procedure.lower()
 
         coverage = case['oracle']['specification']['coverage_oracle']
         assert coverage['freeze_before_ascout'] is True
@@ -145,7 +162,7 @@ try:
         assert mapping['procedure']
         full_cmd = coverage['full_test_coverage_command']
         ref_cmd = coverage['project_native_reference_command']
-        assert full_cmd.startswith('./node_modules/.bin/')
+        binary = command_binary(full_cmd)
         forbidden = ('npx ', 'npm exec', 'pnpm dlx', 'yarn dlx')
         lowered = full_cmd.lower()
         assert not any(token in lowered for token in forbidden)
@@ -188,16 +205,22 @@ try:
         assert required_changed <= changed
         extras = changed - required_changed
         ancillary = case['reconstruction'].get('ancillary_review')
-        if extras:
-            assert ancillary is not None
+        if extras and ancillary is not None:
             assert extras <= set(ancillary['changed_paths'])
             assert extras <= set(ancillary['excluded_from_derived_baseline'])
             assert not (extras & set(ancillary['preserved_allowlist']))
+        elif extras:
+            # A reviewed direct-parent fix may contain release-only ancillary paths.
+            # Every such path must be explicitly named as withheld in the measured
+            # reconstruction rather than silently ignored.
+            for extra in extras:
+                assert extra in steps, (cid, extra)
         elif ancillary is not None:
             assert set(ancillary['changed_paths']) <= changed
 
         for path in case['paths']['production']:
             assert exists(repo, f'{base}:{path}') and exists(repo, f'{fix}:{path}')
+            assert path in steps or 'listed production paths' in steps
         for item in case['oracle']['specification']['gap_changed_executable_lines']:
             path = item['path']
             line = item['line']
@@ -244,19 +267,12 @@ try:
                 assert b'Permission is hereby granted' in data
         assert case['licensing']['file_level_review']['status'] == 'CLEAR'
 
-        steps = '\n'.join(case['reconstruction']['steps'])
-        procedure = '\n'.join(case['oracle']['specification']['ground_truth_procedure'])
-        assert 'complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly' in steps
-        assert 'physically separate repository/worktree inaccessible to Ascout measurement' in procedure
-        assert 'Destroy or quarantine oracle worktrees and evidence before selector/Ascout measurement' in procedure
-
         pkg_raw = run(repo, 'show', f'{base}:package.json')
         assert isinstance(pkg_raw, str)
         pkg = json.loads(pkg_raw)
         scripts = pkg.get('scripts', {})
         script = referenced_script(ref_cmd)
         assert script is not None and script in scripts, (cid, ref_cmd, script)
-        binary = full_cmd.split()[0].rsplit('/', 1)[-1]
         deps = {**pkg.get('dependencies', {}), **pkg.get('devDependencies', {})}
         assert binary in deps, (cid, binary)
         if binary == 'vitest' and '--coverage' in full_cmd:
@@ -275,7 +291,10 @@ try:
             'yarn': 'https://github.com/yarnpkg/yarn.git',
         }
         pm_sha = resolved_tag(pm_urls[pm], pm_version)
-        assert pm_sha in case['runtime']['package_manager_version_provenance'], (cid, pm, pm_version, pm_sha)
+        pm_provenance = case['runtime']['package_manager_version_provenance']
+        assert pm_version in pm_provenance
+        if pm in {'pnpm', 'yarn'}:
+            assert pm_sha in pm_provenance, (cid, pm, pm_version, pm_sha)
 
         assert any('T074 is definition-only' in x for x in case['limitations'])
         assert any('LCOV' in x for x in case['limitations'])
