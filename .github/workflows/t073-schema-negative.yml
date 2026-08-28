@@ -1,0 +1,77 @@
+name: T073 schema negative-gate validation
+
+on:
+  push:
+    branches:
+      - qualification/t073-schema-negative-5e73c7fa
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5e73c7faf594eaba6c413c7f71cb734e683b7a9e
+          fetch-depth: 0
+
+      - name: Guard exact product head and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'; B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          test -z "$(git status --porcelain)"
+
+      - name: Prove CASE_REVIEWED lifecycle gates reject forbidden evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/t073-negative-venv
+          /tmp/t073-negative-venv/bin/pip install --disable-pip-version-check --no-input 'jsonschema[format]==4.23.0'
+          /tmp/t073-negative-venv/bin/python - <<'PY'
+          import copy, json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator, FormatChecker
+
+          m=json.loads(Path('benchmarks/manifest.json').read_text())
+          v=Draft202012Validator(m['case_schema'], format_checker=FormatChecker())
+          case=m['cases'][0]
+          assert not list(v.iter_errors(case))
+
+          def must_fail(label, mutate):
+              c=copy.deepcopy(case); mutate(c)
+              errs=list(v.iter_errors(c))
+              if not errs:
+                  raise SystemExit(f'{label}: invalid mutation was accepted')
+              print(f'REJECTED {label}: {errs[0].message}')
+
+          must_fail('observed-oracle-before-T075', lambda c: c['oracle'].__setitem__('observation', {
+              't075_run_id':'forbidden-pre-t075',
+              'evidence_sha256':'0'*64,
+              'valid_observation_count':1,
+              'status':'RECONSTRUCTION_REPLAYED'}))
+          must_fail('derived-digest-before-T075', lambda c: c['reconstruction']['derived_identity'].__setitem__('expected_digest','0'*40))
+          must_fail('license-not-clear-at-CASE_REVIEWED', lambda c: c['licensing']['file_level_review'].__setitem__('status','REJECTED'))
+          must_fail('benchmark-active-without-observation', lambda c: c.__setitem__('lifecycle_state','BENCHMARK_ACTIVE'))
+          print('T073_SCHEMA_NEGATIVE_LIFECYCLE_GATES=PASS')
+          PY
+
+      - name: Closing exact-head guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'; B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test -z "$(git status --porcelain)"
