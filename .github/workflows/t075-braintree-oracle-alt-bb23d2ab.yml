@@ -1,0 +1,72 @@
+name: T075 Braintree coverage alternatives bb23d2ab
+on:
+  push:
+    branches:
+      - diagnostic/t075-braintree-oracle-alt-bb23d2ab
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: braintree/braintree-web
+          ref: ba7327135aa757aab5534d41d5871723bd06103a
+          path: donor
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+      - name: Install exact donor dependencies
+        working-directory: donor
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = 'v20.19.0'
+          test "$(npm --version)" = '10.8.2'
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Probe coverage commands
+        working-directory: donor
+        run: |
+          set -euo pipefail
+          probe() {
+            label="$1"; shift
+            rm -rf coverage test/venmo/coverage
+            set +e
+            "$@" >"$RUNNER_TEMP/${label}.out" 2>"$RUNNER_TEMP/${label}.err"
+            code=$?
+            set -e
+            echo "${label}_EXIT=$code"
+            if [ -f coverage/lcov.info ]; then
+              echo "${label}_ROOT_LCOV=true"
+              sha256sum coverage/lcov.info
+              python - "$label" coverage/lcov.info <<'PY'
+import sys
+label,path=sys.argv[1:]
+source='src/venmo/venmo.js'; target=87
+cur=None; hit=None
+for line in open(path, encoding='utf-8', errors='replace'):
+    line=line.rstrip('\n')
+    if line.startswith('SF:'): cur=line[3:].replace('\\','/')
+    elif cur and (cur==source or cur.endswith('/'+source)) and line.startswith('DA:'):
+        parts=line[3:].split(',')
+        if int(parts[0])==target: hit=int(parts[1])
+    elif line=='end_of_record': cur=None
+print(f'{label}_LINE87_HITS={hit}')
+PY
+            else
+              echo "${label}_ROOT_LCOV=false"
+            fi
+            if [ -f test/venmo/coverage/lcov.info ]; then
+              echo "${label}_VENMO_LCOV=true"
+              sha256sum test/venmo/coverage/lcov.info
+            else
+              echo "${label}_VENMO_LCOV=false"
+            fi
+            echo "${label}_ERR_TAIL_BEGIN"
+            tail -n 25 "$RUNNER_TEMP/${label}.err" || true
+            echo "${label}_ERR_TAIL_END"
+          }
+
+          probe ignore_publishing env BRAINTREE_JS_ENV=development ./node_modules/.bin/jest --config=jest.config.json --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage --ignoreProjects publishing
+          probe venmo_only env BRAINTREE_JS_ENV=development ./node_modules/.bin/jest --config=test/venmo/jest.config.json --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage
