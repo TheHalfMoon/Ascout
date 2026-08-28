@@ -1,0 +1,103 @@
+name: T075 Ascout comparator fast diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-ascout-cli-fast-359264a
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 359264abc13153fe37ef7bcd164addc1534d38af
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Reconstruct measured Zod state and run Ascout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '359264abc13153fe37ef7bcd164addc1534d38af'
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+          repo="$RUNNER_TEMP/zod-measured"
+          git clone --no-tags https://github.com/colinhacks/zod.git "$repo"
+          CASE_ID=zod-scientific-exponents MANIFEST="$GITHUB_WORKSPACE/benchmarks/manifest.json" OUT="$RUNNER_TEMP/case.env" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync(process.env.MANIFEST, 'utf8'));
+          const c = manifest.cases.find((x) => x.case_id === process.env.CASE_ID);
+          if (!c) throw new Error('case not found');
+          const q = (value) => `'${String(value).replaceAll("'", "'\\''")}'`;
+          const lines = [
+            `BASE=${q(c.git.base.commit_id)}`,
+            `FIX=${q(c.git.fix.commit_id)}`,
+            `PRODUCTION=${q(c.paths.production.join('\n'))}`,
+            `EXCLUDED=${q((c.reconstruction.ancillary_review?.excluded_from_derived_baseline ?? []).join('\n'))}`,
+          ];
+          fs.writeFileSync(process.env.OUT, lines.join('\n') + '\n');
+          NODE
+          source "$RUNNER_TEMP/case.env"
+          git -C "$repo" checkout --detach "$FIX"
+          while IFS= read -r path; do
+            test -z "$path" && continue
+            git -C "$repo" restore --source="$BASE" --staged --worktree -- "$path"
+          done <<< "$PRODUCTION"
+          while IFS= read -r path; do
+            test -z "$path" && continue
+            if git -C "$repo" cat-file -e "$BASE:$path" 2>/dev/null; then
+              git -C "$repo" restore --source="$BASE" --staged --worktree -- "$path"
+            else
+              git -C "$repo" rm -f --ignore-unmatch -- "$path"
+            fi
+          done <<< "$EXCLUDED"
+          tree="$(git -C "$repo" write-tree)"
+          CASE_ID=zod-scientific-exponents TREE="$tree" MANIFEST="$GITHUB_WORKSPACE/benchmarks/manifest.json" PAYLOAD="$RUNNER_TEMP/synthetic.payload" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync(process.env.MANIFEST, 'utf8'));
+          const c = manifest.cases.find((x) => x.case_id === process.env.CASE_ID);
+          let payload = c.reconstruction.synthetic_head.payload_template_utf8;
+          payload = payload.replaceAll('{derived_tree_id}', process.env.TREE).replaceAll('{base_commit_id}', c.git.base.commit_id);
+          fs.writeFileSync(process.env.PAYLOAD, payload, 'utf8');
+          NODE
+          synthetic="$(git -C "$repo" hash-object -t commit -w --stdin < "$RUNNER_TEMP/synthetic.payload")"
+          git -C "$repo" checkout --detach "$synthetic"
+          pnpm --dir "$repo" install --frozen-lockfile --ignore-scripts
+          while IFS= read -r path; do
+            test -z "$path" && continue
+            mkdir -p "$repo/$(dirname "$path")"
+            git -C "$repo" show "$FIX:$path" > "$repo/$path"
+          done <<< "$PRODUCTION"
+          echo "SYNTHETIC_HEAD=$synthetic"
+          echo "STATUS_BEGIN"
+          git -C "$repo" status --short
+          echo "STATUS_END"
+          root="$RUNNER_TEMP/diag-runtime"
+          mkdir -p "$root/home" "$root/tmp"
+          set +e
+          env -i \
+            PATH="$PATH" \
+            HOME="$root/home" \
+            TMPDIR="$root/tmp" TMP="$root/tmp" TEMP="$root/tmp" \
+            CI=true NO_COLOR=1 FORCE_COLOR=0 GIT_TERMINAL_PROMPT=0 \
+            GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+            npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false \
+            node "$GITHUB_WORKSPACE/dist/cli.js" check --format json \
+            > "$RUNNER_TEMP/ascout.stdout" 2> "$RUNNER_TEMP/ascout.stderr"
+          code=$?
+          set -e
+          echo "ASCOUT_EXIT=$code"
+          echo "ASCOUT_STDOUT_BYTES=$(wc -c < "$RUNNER_TEMP/ascout.stdout")"
+          echo "ASCOUT_STDERR_BEGIN"
+          sed -E "s#${repo}#<repository>#g; s#${root}#<runtime>#g" "$RUNNER_TEMP/ascout.stderr" | head -c 16000
+          echo
+          echo "ASCOUT_STDERR_END"
+          echo "ASCOUT_STDOUT_BEGIN"
+          head -c 16000 "$RUNNER_TEMP/ascout.stdout"
+          echo
+          echo "ASCOUT_STDOUT_END"
