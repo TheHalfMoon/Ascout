@@ -339,7 +339,7 @@ async function cloneAcquisition(caseRecord, controllerRoot) {
   return cacheRepo;
 }
 
-async function cloneIsolated(cacheRepo, destination, root) {
+async function cloneIsolated(cacheRepo, destination, root, canonicalUrl) {
   const env = runtimeEnvironment(root);
   const result = await runBounded({
     file: "git",
@@ -350,6 +350,11 @@ async function cloneIsolated(cacheRepo, destination, root) {
   });
   requireExited(result, "isolated clone");
   if (result.exitCode !== 0) fail("acquisition", `isolated clone failed: ${result.stderr.toString("utf8").trim()}`);
+  await runGit(destination, ["remote", "set-url", "origin", canonicalUrl], env);
+  const isolatedOrigin = await gitText(destination, ["remote", "get-url", "origin"], env);
+  if (isolatedOrigin !== canonicalUrl) {
+    fail("binding_integrity", `isolated clone origin mismatch: expected ${canonicalUrl}, observed ${isolatedOrigin}`);
+  }
   await runGit(destination, ["config", "core.hooksPath", "/dev/null"], env);
   await runGit(destination, ["config", "submodule.recurse", "false"], env);
   await runGit(destination, ["config", "commit.gpgsign", "false"], env);
@@ -407,7 +412,7 @@ function syntheticPayload(caseRecord, tree) {
 
 async function materializeSelection(caseRecord, cacheRepo, root, name, withFix) {
   const repo = join(root, name);
-  await cloneIsolated(cacheRepo, repo, root);
+  await cloneIsolated(cacheRepo, repo, root, caseRecord.upstream.canonical_url);
   const env = runtimeEnvironment(root);
   await checkoutExact(repo, caseRecord.git.fix.commit_id, env);
   for (const path of caseRecord.paths.production) await restorePath(repo, caseRecord.git.base.commit_id, path, env);
@@ -444,7 +449,7 @@ async function computeWorktreeTree(repo, productionPaths, root) {
 
 async function materializeGap(caseRecord, cacheRepo, root, name, { productionFix, regressionPatch }) {
   const repo = join(root, name);
-  await cloneIsolated(cacheRepo, repo, root);
+  await cloneIsolated(cacheRepo, repo, root, caseRecord.upstream.canonical_url);
   const env = runtimeEnvironment(root);
   await checkoutExact(repo, caseRecord.git.base.commit_id, env);
   const install = await installDependencies(caseRecord, repo, root);
@@ -563,16 +568,24 @@ async function runAscout(caseRecord, repo, root, ascoutRoot) {
   const result = await runBounded({ file: process.execPath, argv: [cli, "check", "--format", "json"], cwd: repo, env, timeoutMs: DEFAULT_TIMEOUT_MS });
   requireExited(result, "Ascout comparator");
   let receipt;
+  const stdoutText = result.stdout.toString("utf8");
   try {
-    receipt = JSON.parse(result.stdout.toString("utf8"));
+    receipt = JSON.parse(stdoutText);
   } catch {
-    fail("ascout", `Ascout JSON receipt could not be parsed: ${result.stdout.toString("utf8").slice(0, 1000)}`);
+    const stderrText = result.stderr.toString("utf8").slice(0, 1000);
+    fail("ascout", `Ascout JSON receipt could not be parsed (exit ${result.exitCode}); stdout=${stdoutText.slice(0, 1000)} stderr=${stderrText}`);
   }
   await assertMeasuredState(repo, caseRecord.paths.production, env);
   return {
     exit_code: result.exitCode,
-    completeness: receipt?.completeness ?? null,
-    source_stability: receipt?.source?.stability ?? receipt?.source_stability ?? null,
+    completeness: receipt?.summary?.completeness ?? receipt?.completeness ?? null,
+    source_stability: receipt?.stability ?? receipt?.source?.stability ?? receipt?.source_stability ?? null,
+    source: {
+      repository_id: receipt?.source?.start?.repository_id ?? null,
+      repository_id_kind: receipt?.source?.start?.repository_id_kind ?? null,
+      portable: receipt?.source?.start?.portable ?? null,
+      head_sha: receipt?.source?.start?.head_sha ?? null,
+    },
     exercise: receipt?.exercise ?? null,
     selection: receipt?.selection ?? null,
     receipt_sha256: sha256Bytes(result.stdout),
