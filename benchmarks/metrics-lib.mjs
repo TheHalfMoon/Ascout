@@ -27,7 +27,7 @@ function uniqueSorted(values) {
 }
 
 function same(values) {
-  if (values.length < 2) return values.length === 0 ? "unknown" : "unknown";
+  if (values.length < 2) return "unknown";
   const first = stableJson(values[0]);
   return values.every((value) => stableJson(value) === first) ? "deterministic" : "nondeterministic";
 }
@@ -38,6 +38,22 @@ function requireCaseInput(input) {
   if (input.case_class !== "selection" && input.case_class !== "gap") fail("case class is invalid");
   if (!Array.isArray(input.observations) || input.observations.length < 2) fail("at least two T076 observations are required");
   if (!Array.isArray(input.baselines) || input.baselines.length === 0) fail("machine-readable metric baselines are required before calculation");
+  const ids = new Set();
+  for (const baseline of input.baselines) {
+    if (typeof baseline?.baseline_id !== "string" || !/^[0-9a-f]{64}$/u.test(baseline.baseline_id)) fail("every metric baseline requires a sha256 baseline_id");
+    if (ids.has(baseline.baseline_id)) fail(`duplicate metric baseline id: ${baseline.baseline_id}`);
+    ids.add(baseline.baseline_id);
+  }
+}
+
+function baselineFor(input, metric, comparator = null, cacheClass = null) {
+  const matches = input.baselines.filter((baseline) =>
+    baseline.metric === metric &&
+    (comparator === null || baseline.comparator === comparator) &&
+    (cacheClass === null || baseline.cache_class === cacheClass)
+  );
+  if (matches.length !== 1) fail(`expected exactly one baseline for ${metric}/${comparator ?? "-"}/${cacheClass ?? "-"}, got ${matches.length}`);
+  return matches[0];
 }
 
 function comparatorProjection(comparator, cacheClass) {
@@ -67,11 +83,13 @@ function comparatorDeterminism(observations, name, cacheClass) {
 }
 
 function selectionMetricForComparator(input, name) {
+  const baseline = baselineFor(input, "selection_recall", name);
   const required = uniqueSorted(input.oracle_test_ids);
   if (required.length === 0) fail(`${input.case_id} selection oracle has no test ids`);
   const runs = input.observations.map((observation) => observation.comparators?.[name]?.cold ?? null);
   if (runs.some((run) => run === null || run.membership_available !== true)) {
     return {
+      baseline_id: baseline.baseline_id,
       available: false,
       reason: "required oracle membership evidence is unavailable for one or more repeated cold observations",
       comparator: name,
@@ -83,6 +101,7 @@ function selectionMetricForComparator(input, name) {
   const observedSets = runs.map((run) => uniqueSorted(run.oracle_test_ids_observed ?? []));
   if (same(observedSets) !== "deterministic") {
     return {
+      baseline_id: baseline.baseline_id,
       available: false,
       reason: "oracle membership is nondeterministic across repeated cold observations",
       comparator: name,
@@ -93,6 +112,7 @@ function selectionMetricForComparator(input, name) {
   }
   const observed = observedSets[0].filter((id) => required.includes(id));
   return {
+    baseline_id: baseline.baseline_id,
     available: true,
     reason: null,
     comparator: name,
@@ -105,9 +125,11 @@ function selectionMetricForComparator(input, name) {
 }
 
 function falsePassForComparator(input, name) {
+  const baseline = baselineFor(input, "false_pass", name);
   const selection = selectionMetricForComparator(input, name);
   if (!selection.available) {
     return {
+      baseline_id: baseline.baseline_id,
       available: false,
       reason: selection.reason,
       comparator: name,
@@ -119,6 +141,7 @@ function falsePassForComparator(input, name) {
   const cleanStates = runs.map((run) => run.clean_success === true);
   if (same(cleanStates) !== "deterministic") {
     return {
+      baseline_id: baseline.baseline_id,
       available: false,
       reason: "clean/success semantics are nondeterministic across repeated cold observations",
       comparator: name,
@@ -128,6 +151,7 @@ function falsePassForComparator(input, name) {
   }
   const omission = selection.numerator < selection.denominator;
   return {
+    baseline_id: baseline.baseline_id,
     available: true,
     reason: null,
     comparator: name,
@@ -147,11 +171,15 @@ function mapExercise(records) {
 }
 
 function gapMetric(input) {
+  const accuracyBaseline = baselineFor(input, "gap_classification_accuracy", "ascout");
+  const unresolvedBaseline = baselineFor(input, "unresolved_rate", "ascout");
   const oracle = input.gap_oracle ?? [];
   const domain = oracle.filter((item) => item.classification !== "UNRESOLVED");
   const oracleExcluded = oracle.length - domain.length;
   if (domain.length === 0) {
     return {
+      accuracy_baseline_id: accuracyBaseline.baseline_id,
+      unresolved_baseline_id: unresolvedBaseline.baseline_id,
       available: false,
       reason: "independent gap oracle has no resolved comparison domain",
       accuracy: null,
@@ -176,6 +204,8 @@ function gapMetric(input) {
   });
   if (same(perObservation.map(({ raw }) => raw)) !== "deterministic") {
     return {
+      accuracy_baseline_id: accuracyBaseline.baseline_id,
+      unresolved_baseline_id: unresolvedBaseline.baseline_id,
       available: false,
       reason: "Ascout gap classifications are nondeterministic across repeated cold observations",
       accuracy: null,
@@ -187,6 +217,8 @@ function gapMetric(input) {
   }
   const first = perObservation[0];
   return {
+    accuracy_baseline_id: accuracyBaseline.baseline_id,
+    unresolved_baseline_id: unresolvedBaseline.baseline_id,
     available: true,
     reason: null,
     numerator_correct: first.correct,
@@ -200,16 +232,18 @@ function gapMetric(input) {
 }
 
 function gapFalsePass(input) {
+  const baseline = baselineFor(input, "false_pass", "ascout");
   const materialGap = (input.gap_oracle ?? []).some((item) => item.classification === "NOT_EXERCISED");
   const runs = input.observations.map((observation) => observation.comparators?.ascout?.cold ?? null);
   if (runs.some((run) => run === null)) {
-    return { available: false, reason: "Ascout cold observations are unavailable", comparator: "ascout", false_pass: null };
+    return { baseline_id: baseline.baseline_id, available: false, reason: "Ascout cold observations are unavailable", comparator: "ascout", false_pass: null };
   }
   const cleanStates = runs.map((run) => run.clean_success === true);
   if (same(cleanStates) !== "deterministic") {
-    return { available: false, reason: "Ascout clean/success semantics are nondeterministic", comparator: "ascout", false_pass: null };
+    return { baseline_id: baseline.baseline_id, available: false, reason: "Ascout clean/success semantics are nondeterministic", comparator: "ascout", false_pass: null };
   }
   return {
+    baseline_id: baseline.baseline_id,
     available: true,
     reason: null,
     comparator: "ascout",
@@ -224,12 +258,14 @@ function timingMetrics(input) {
   const results = [];
   for (const name of names) {
     for (const cacheClass of ["cold", "warm"]) {
+      const baseline = baselineFor(input, "timing", name, cacheClass);
       const samples = input.observations
         .map((observation) => observation.comparators?.[name]?.[cacheClass] ?? null)
         .filter((run) => run !== null)
         .map((run) => ({ duration_ms: run.duration_ms, source_stability: run.source_stability ?? null }));
       const valid = samples.filter((sample) => typeof sample.duration_ms === "number" && Number.isFinite(sample.duration_ms) && sample.duration_ms >= 0);
       results.push({
+        baseline_id: baseline.baseline_id,
         comparator: name,
         cache_class: cacheClass,
         sample_count: valid.length,
@@ -242,6 +278,7 @@ function timingMetrics(input) {
 }
 
 function driftMetric(input) {
+  const baseline = baselineFor(input, "drift_detection", "ascout");
   const samples = input.observations.flatMap((observation) => {
     const result = [];
     for (const cacheClass of ["cold", "warm"]) {
@@ -268,6 +305,7 @@ function driftMetric(input) {
     }
   }
   return {
+    baseline_id: baseline.baseline_id,
     sample_count: samples.length,
     agreement_count: correct,
     agreement_rate: rate(correct, samples.length),
@@ -282,6 +320,7 @@ function driftMetric(input) {
 function determinismMetrics(input) {
   const names = uniqueSorted(input.observations.flatMap((observation) => Object.keys(observation.comparators ?? {})));
   return names.flatMap((name) => ["cold", "warm"].map((cacheClass) => ({
+    baseline_id: baselineFor(input, "determinism", name, cacheClass).baseline_id,
     comparator: name,
     cache_class: cacheClass,
     classification: comparatorDeterminism(input.observations, name, cacheClass),
@@ -289,6 +328,7 @@ function determinismMetrics(input) {
 }
 
 function flakeBehavior(input) {
+  const baseline = baselineFor(input, "flake_classification_behavior", "ascout");
   const findings = input.observations.flatMap((observation) => observation.comparators?.ascout?.cold?.findings ?? []);
   const evaluated = [];
   for (const finding of findings) {
@@ -305,6 +345,7 @@ function flakeBehavior(input) {
   }
   const correct = evaluated.filter((item) => item.correct).length;
   return {
+    baseline_id: baseline.baseline_id,
     available: evaluated.length > 0,
     reason: evaluated.length === 0 ? "no benchmark-active Ascout finding exposed a repeated-observation flake classification domain" : null,
     evaluated_finding_count: evaluated.length,
@@ -362,6 +403,7 @@ export function aggregateBenchmarkMetrics(caseResults) {
     const numerator = available.reduce((sum, value) => sum + value.numerator, 0);
     const denominator = available.reduce((sum, value) => sum + value.denominator, 0);
     selection[name] = {
+      baseline_ids: uniqueSorted(available.map((value) => value.baseline_id)),
       available_case_count: available.length,
       unavailable_case_count: values.length - available.length,
       numerator,
@@ -393,10 +435,10 @@ export function aggregateBenchmarkMetrics(caseResults) {
 
   const timingGroups = new Map();
   for (const result of caseResults) {
-    const baselinesByName = new Map((result.baselines ?? []).map((baseline) => [`${baseline.comparator}:${baseline.cache_class}`, baseline]));
+    const baselinesById = new Map((result.baselines ?? []).filter((baseline) => baseline.metric === "timing").map((baseline) => [baseline.baseline_id, baseline]));
     for (const timing of result.metrics.timing ?? []) {
-      const baseline = baselinesByName.get(`${timing.comparator}:${timing.cache_class}`);
-      if (!baseline) continue;
+      const baseline = baselinesById.get(timing.baseline_id);
+      if (!baseline) fail(`${result.case_id} timing metric references an unknown baseline ${timing.baseline_id}`);
       const key = baselineKey(baseline);
       const existing = timingGroups.get(key) ?? { baseline, samples: [] };
       existing.samples.push(...timing.raw_samples.map((sample) => ({ case_id: result.case_id, case_revision: result.case_revision, ...sample })));
@@ -404,6 +446,7 @@ export function aggregateBenchmarkMetrics(caseResults) {
     }
   }
   const timing = [...timingGroups.values()].map(({ baseline, samples }) => ({
+    baseline_id: baseline.baseline_id,
     baseline,
     sample_count: samples.length,
     arithmetic_mean_ms: mean(samples.map(({ duration_ms }) => duration_ms).filter((value) => typeof value === "number" && Number.isFinite(value))),
@@ -427,14 +470,26 @@ export function aggregateBenchmarkMetrics(caseResults) {
     metrics: {
       selection_recall: selection,
       false_pass: {
+        baseline_ids: uniqueSorted(falsePassValues.map((value) => value.baseline_id)),
         available_comparator_count: falsePassValues.length,
         false_pass_count: falsePassCount,
         false_pass_rate: rate(falsePassCount, falsePassValues.length),
       },
-      gap_classification_accuracy: { numerator_correct: gapCorrect, denominator: gapDenominator, accuracy: rate(gapCorrect, gapDenominator) },
-      unresolved_rate: { numerator: gapUnresolved, denominator: gapDenominator, rate: rate(gapUnresolved, gapDenominator) },
+      gap_classification_accuracy: {
+        baseline_ids: uniqueSorted(gapValues.map((value) => value.accuracy_baseline_id)),
+        numerator_correct: gapCorrect,
+        denominator: gapDenominator,
+        accuracy: rate(gapCorrect, gapDenominator),
+      },
+      unresolved_rate: {
+        baseline_ids: uniqueSorted(gapValues.map((value) => value.unresolved_baseline_id)),
+        numerator: gapUnresolved,
+        denominator: gapDenominator,
+        rate: rate(gapUnresolved, gapDenominator),
+      },
       timing,
       drift_detection: {
+        baseline_ids: uniqueSorted(caseResults.map((result) => result.metrics.drift_detection.baseline_id)),
         sample_count: driftSamples.length,
         agreement_count: driftCorrect,
         agreement_rate: rate(driftCorrect, driftSamples.length),
@@ -442,8 +497,12 @@ export function aggregateBenchmarkMetrics(caseResults) {
         detected_tree_drifted_count: driftDetected,
         drift_detection_rate: rate(driftDetected, driftReference),
       },
-      determinism,
+      determinism: {
+        baseline_ids: uniqueSorted(caseResults.flatMap((result) => result.metrics.determinism.map((item) => item.baseline_id))),
+        ...determinism,
+      },
       flake_classification_behavior: {
+        baseline_ids: uniqueSorted(caseResults.map((result) => result.metrics.flake_classification_behavior.baseline_id)),
         available: flakeEvaluated > 0,
         evaluated_finding_count: flakeEvaluated,
         correct_count: flakeCorrect,
