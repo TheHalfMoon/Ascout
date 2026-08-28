@@ -1,0 +1,65 @@
+name: T075 short Nx socket repair
+on:
+  push:
+    branches:
+      - repair/t075-short-nx-5d5ab61f
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repair helper
+        uses: actions/checkout@v4
+        with:
+          ref: repair/t075-short-nx-5d5ab61f
+          path: helper
+          persist-credentials: false
+      - name: Checkout exact feature
+        uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          path: source
+          fetch-depth: 0
+      - name: Guard exact source
+        working-directory: source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '5d5ab61f5ad12198d746b54e9f2890fafc390692'
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '5d5ab61f5ad12198d746b54e9f2890fafc390692'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+      - name: Apply guarded repair
+        working-directory: source
+        run: |
+          set -euo pipefail
+          python ../helper/.github/scripts/t075_short_nx_repair.py
+          git diff --check
+          git diff -- benchmarks/run.mjs
+      - name: Qualify controller
+        working-directory: source
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+      - name: Commit and fast-forward feature
+        working-directory: source
+        run: |
+          set -euo pipefail
+          git fetch origin feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '5d5ab61f5ad12198d746b54e9f2890fafc390692'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add benchmarks/run.mjs
+          git commit -m 'fix(benchmark): shorten isolated Nx sockets'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
+          echo "NEW_HEAD=$(git rev-parse HEAD)"
