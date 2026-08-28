@@ -1,0 +1,109 @@
+name: T075 gap command grammar repair
+
+on:
+  push:
+    branches:
+      - repair/t075-selection-label-grammar-9880ab2c
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Opening exact-head guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '9880ab2cc78606e759f270c995d3f9a295a388ab'
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '9880ab2cc78606e759f270c995d3f9a295a388ab'
+          test "$(git merge-base HEAD origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+      - name: Repair reviewed command grammar without inventing authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('benchmarks/harness-lib.mjs')
+          s = p.read_text()
+          old = '''const SELECTION_COMMAND_PATTERN = /targeted regression-file command = `([^`]+)`; project-native full-suite\\/reference command = `([^`]+)`; plain-project test comparator = `([^`]+)`; runner-native related selector = `([^`]+)`\\./;\nconst GAP_TARGETED_PATTERN = /Pinned T075 targeted oracle command: `([^`]+)`\\. Pinned project-native reference command: `([^`]+)`\\./;'''
+          new = '''const SELECTION_COMMAND_PATTERNS = {\n  targeted: /targeted[^`;]{0,120}command = `([^`]+)`/,\n  full: /project-native full-suite\\/reference command = `([^`]+)`/,\n  plain: /plain-project[^`;]{0,120}comparator = `([^`]+)`/,\n  related: /runner-native related selector = `([^`]+)`/,\n};\nconst GAP_TARGETED_PATTERN = /Pinned T075 targeted oracle command: `([^`]+)`\\./;\nconst GAP_REFERENCE_PATTERN = /Pinned project-native reference command: `([^`]+)`\\./;'''
+          if old not in s:
+              raise SystemExit('expected original command patterns not found')
+          s = s.replace(old, new, 1)
+
+          old_selection = '''  const matches = procedure.map((line) => SELECTION_COMMAND_PATTERN.exec(line)).filter(Boolean);\n  if (matches.length !== 1) {\n    fail("invalid_case", `selection case ${caseRecord.case_id} must contain exactly one canonical T075 command-contract sentence`);\n  }\n  const [, targeted, full, plain, related] = matches[0];\n  const result = { targeted, full, plain, related };'''
+          new_selection = '''  const extractOne = (label, pattern) => {\n    const matches = procedure.map((line) => pattern.exec(line)).filter(Boolean);\n    if (matches.length !== 1) {\n      fail("invalid_case", `selection case ${caseRecord.case_id} must contain exactly one explicit ${label} command label`);\n    }\n    return matches[0][1];\n  };\n  const result = {\n    targeted: extractOne("targeted", SELECTION_COMMAND_PATTERNS.targeted),\n    full: extractOne("full-suite/reference", SELECTION_COMMAND_PATTERNS.full),\n    plain: extractOne("plain-project comparator", SELECTION_COMMAND_PATTERNS.plain),\n    related: extractOne("runner-native related", SELECTION_COMMAND_PATTERNS.related),\n  };'''
+          if old_selection not in s:
+              raise SystemExit('expected original selection extractor not found')
+          s = s.replace(old_selection, new_selection, 1)
+
+          old_gap = '''  const matches = procedure.map((line) => GAP_TARGETED_PATTERN.exec(line)).filter(Boolean);\n  if (matches.length !== 1) {\n    fail("invalid_case", `gap case ${caseRecord.case_id} must contain exactly one canonical targeted/reference sentence`);\n  }\n  const [, targeted, reference] = matches[0];\n  const fullCoverage = coverage.full_test_coverage_command;\n  const nativeCoverage = coverage.project_native_reference_command;\n  for (const value of [targeted, reference, fullCoverage, nativeCoverage]) parseRestrictedCommand(value);'''
+          new_gap = '''  const targetedMatches = procedure.map((line) => GAP_TARGETED_PATTERN.exec(line)).filter(Boolean);\n  if (targetedMatches.length !== 1) {\n    fail("invalid_case", `gap case ${caseRecord.case_id} must contain exactly one explicit targeted oracle command`);\n  }\n  const referenceMatches = procedure.map((line) => GAP_REFERENCE_PATTERN.exec(line)).filter(Boolean);\n  if (referenceMatches.length > 1) {\n    fail("invalid_case", `gap case ${caseRecord.case_id} must not contain more than one explicit project-native test reference`);\n  }\n  const targeted = targetedMatches[0][1];\n  const reference = referenceMatches.length === 1 ? referenceMatches[0][1] : null;\n  const fullCoverage = coverage.full_test_coverage_command;\n  const nativeCoverage = coverage.project_native_reference_command;\n  for (const value of [targeted, fullCoverage, nativeCoverage]) parseRestrictedCommand(value);\n  if (reference !== null) parseRestrictedCommand(reference);'''
+          if old_gap not in s:
+              raise SystemExit('expected original gap extractor not found')
+          s = s.replace(old_gap, new_gap, 1)
+          p.write_text(s)
+
+          t = Path('tests/benchmark-harness.test.ts')
+          ts = t.read_text()
+          needle = '''    expect(extractGapCommands(gapCase())).toEqual({\n      targeted: "npm test -- tests/a.test.ts",\n      reference: "npm test",\n      fullCoverage: "NODE_ENV=test ./node_modules/.bin/jest --coverage",\n      nativeCoverage: "npm test",\n      artifact: "coverage/lcov.info",\n    });'''
+          replacement = needle + '''\n\n    const noTestReference = gapCase();\n    noTestReference.oracle.specification.ground_truth_procedure = [\n      "Pinned T075 targeted oracle command: `npm test -- tests/a.test.ts`. T075 must prove execution.",\n    ];\n    expect(extractGapCommands(noTestReference)).toEqual({\n      targeted: "npm test -- tests/a.test.ts",\n      reference: null,\n      fullCoverage: "NODE_ENV=test ./node_modules/.bin/jest --coverage",\n      nativeCoverage: "npm test",\n      artifact: "coverage/lcov.info",\n    });'''
+          if needle not in ts:
+              raise SystemExit('expected gap extractor test anchor not found')
+          t.write_text(ts.replace(needle, replacement, 1))
+          PY
+          git diff --check
+          printf '%s\n' "$(git diff --name-only)"
+          test "$(git diff --name-only | sort)" = $'benchmarks/harness-lib.mjs\ntests/benchmark-harness.test.ts'
+      - name: Qualify all manifest contracts and Ascout suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --check benchmarks/harness-lib.mjs
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { extractGapCommands, validateReplayCase } from './benchmarks/harness-lib.mjs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          if (manifest.cases.length !== 9) throw new Error(`expected 9 cases, found ${manifest.cases.length}`);
+          for (const c of manifest.cases) {
+            validateReplayCase(c);
+            if (c.case_class === 'gap') console.log('GAP_COMMANDS', c.case_id, JSON.stringify(extractGapCommands(c)));
+            console.log('CONTRACT_OK', c.case_id);
+          }
+          const braintree = manifest.cases.find((c) => c.case_id === 'braintree-venmo-csp-nonce-web-login');
+          const rhf = manifest.cases.find((c) => c.case_id === 'react-hook-form-valueasdate-minmax');
+          const immer = manifest.cases.find((c) => c.case_id === 'immer-prototype-undefined');
+          if (extractGapCommands(braintree).reference !== null) throw new Error('Braintree must not invent a test reference');
+          if (extractGapCommands(rhf).reference !== null) throw new Error('RHF must not invent a test reference');
+          if (extractGapCommands(immer).reference !== 'yarn test') throw new Error('Immer explicit test reference must be preserved');
+          NODE
+          npm run typecheck
+          npm run build
+          npx vitest run tests/benchmark-harness.test.ts
+          npm test
+      - name: Guarded commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '9880ab2cc78606e759f270c995d3f9a295a388ab'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add benchmarks/harness-lib.mjs tests/benchmark-harness.test.ts
+          git commit -m 'fix(benchmark): preserve optional gap test reference'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
