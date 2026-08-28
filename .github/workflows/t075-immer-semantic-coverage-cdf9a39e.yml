@@ -1,0 +1,78 @@
+name: T075 Immer semantic coverage proof cdf9a39e
+on:
+  push:
+    branches:
+      - diagnostic/t075-immer-semantic-coverage-cdf9a39e
+permissions:
+  contents: read
+jobs:
+  prove:
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: [1, 2, 3]
+    name: prove / ${{ matrix.attempt }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cdf9a39e93e1ce655184078cb469f08b9111d3c2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Guard, patch semantic projection, and build
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+          git fetch https://github.com/TheHalfMoon/Ascout.git main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse FETCH_HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('benchmarks/run.mjs')
+          s = p.read_text()
+          old = '    gap_coverage: observation.gap_coverage,\n'
+          new = '    gap_coverage: observation.gap_coverage === null ? null : { classifications: observation.gap_coverage.classifications },\n'
+          if s.count(old) != 1:
+              raise SystemExit('stable gap coverage projection guard missing')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          git diff --check
+          node --check benchmarks/run.mjs
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Provision donor package manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global yarn@1.22.22 --ignore-scripts --no-audit --no-fund
+          test "$(node --version)" = 'v24.15.0'
+          test "$(yarn --version)" = '1.22.22'
+      - name: Replay Immer with semantic coverage projection
+        shell: bash
+        env:
+          ATTEMPT: ${{ matrix.attempt }}
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/immer-${ATTEMPT}.json"
+          node benchmarks/run.mjs \
+            --case immer-prototype-undefined \
+            --run-id "diagnostic:${GITHUB_RUN_ID}:immer:${ATTEMPT}" \
+            --repetitions 2 \
+            --output "$result" \
+            > "$RUNNER_TEMP/immer-${ATTEMPT}.stdout"
+          RESULT="$result" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const r = JSON.parse(fs.readFileSync(process.env.RESULT,'utf8'));
+          if (r.status !== 'BENCHMARK_ACTIVE') throw new Error(`unexpected status ${r.status}`);
+          if (r.evidence?.determinism !== 'deterministic') throw new Error('semantic projection did not stabilize Immer');
+          if (r.valid_observation_count !== 2) throw new Error('expected two observations');
+          const classifications = r.evidence.observations.map((o)=>JSON.stringify(o.gap_coverage.classifications));
+          if (classifications[0] !== classifications[1]) throw new Error('coverage classifications differ');
+          console.log(JSON.stringify({case_id:r.case_id,determinism:r.evidence.determinism,artifact_sha256:r.evidence.observations.map((o)=>o.gap_coverage.artifact_sha256),classifications:r.evidence.observations[0].gap_coverage.classifications}));
+          NODE
