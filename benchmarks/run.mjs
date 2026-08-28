@@ -17,6 +17,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import {
   BenchmarkHarnessError,
   assertControllerSecretsAbsent,
+  attestSourceStability,
+  filterAscoutRuntimeUntrackedStatus,
   assertPathInside,
   canonicalJson,
   classifyLcov,
@@ -38,6 +40,7 @@ const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 const INSTALL_TIMEOUT_MS = 20 * 60 * 1000;
 const CLONE_TIMEOUT_MS = 15 * 60 * 1000;
 const CLEAN_RUNTIME_PREFIXES = ["node_modules/", ".ascout/", "coverage/"];
+const MEMBERSHIP_RUNTIME_CACHE_PATHS = [".nx/cache", ".nx/workspace-data", ".cache", "node_modules/.cache"];
 const SETUP_ERROR_PATTERNS = [
   /command not found/i,
   /cannot find module/i,
@@ -228,6 +231,53 @@ async function runGit(repo, args, env, options = {}) {
 async function gitText(repo, args, env) {
   const result = await runGit(repo, args, env);
   return result.stdout.toString("utf8").trim();
+}
+
+async function clearIgnoredMembershipRuntimeCaches(repo, env) {
+  for (const relativePath of MEMBERSHIP_RUNTIME_CACHE_PATHS) {
+    const absolutePath = resolve(repo, relativePath);
+    assertPathInside(repo, absolutePath);
+    let present = false;
+    try {
+      const cacheStat = await stat(absolutePath);
+      present = cacheStat.isDirectory() || cacheStat.isFile();
+    } catch {}
+    if (!present) continue;
+    const ignored = await runGit(repo, ["check-ignore", "-q", "--", relativePath], env, { allowFailure: true });
+    if (ignored.exitCode !== 0) {
+      fail("binding_integrity", `membership runtime cache path is not ignored by donor repository: ${relativePath}`);
+    }
+    await rm(absolutePath, { recursive: true, force: true });
+  }
+}
+
+async function independentSourceStateDigest(repo, env) {
+  const status = await runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], env);
+  const sourceStatus = filterAscoutRuntimeUntrackedStatus(status.stdout);
+  const unstaged = await runGit(repo, ["diff", "--binary", "--no-ext-diff", "HEAD", "--"], env);
+  const staged = await runGit(repo, ["diff", "--cached", "--binary", "--no-ext-diff", "HEAD", "--"], env);
+  return sha256Bytes(Buffer.concat([
+    Buffer.from("status\0", "utf8"), sourceStatus,
+    Buffer.from("\0unstaged\0", "utf8"), unstaged.stdout,
+    Buffer.from("\0staged\0", "utf8"), staged.stdout,
+  ]));
+}
+
+async function restoreMeasuredSourceState(caseRecord, repo, root, expectedDigest) {
+  const env = runtimeEnvironment(root);
+  await runGit(repo, ["reset", "--hard", "HEAD"], env);
+  await runGit(repo, ["clean", "-fd"], env);
+  for (const productionPath of caseRecord.paths.production) {
+    if (!(await objectExists(repo, `${caseRecord.git.fix.commit_id}:${productionPath}`, env))) {
+      fail("reconstruction", `reviewed production path is absent from fix tree: ${productionPath}`);
+    }
+    await writeObjectPath(repo, caseRecord.git.fix.commit_id, productionPath, env);
+  }
+  await assertMeasuredState(repo, caseRecord.paths.production, env);
+  const restoredDigest = await independentSourceStateDigest(repo, env);
+  if (restoredDigest !== expectedDigest) {
+    fail("binding_integrity", "ephemeral comparator source restoration did not reproduce the exact measured source state");
+  }
 }
 
 async function objectExists(repo, objectSpec, env) {
@@ -496,6 +546,7 @@ async function runMembershipProof(caseRecord, repo, root, commandText, expectedE
   const envBase = runtimeEnvironment(root);
   const proofEnv = { ...envBase, ...variant.env };
   assertControllerSecretsAbsent(proofEnv);
+  await clearIgnoredMembershipRuntimeCaches(repo, proofEnv);
   const proof = await runBounded({ file: variant.file, argv: variant.argv, cwd: repo, env: proofEnv });
   requireExited(proof, `${label} membership proof`);
   if (proof.exitCode !== expectedExitCode) fail("oracle", `${label} reporter-only proof changed exit behavior`);
@@ -598,20 +649,41 @@ async function runReviewed(caseRecord, repo, root, commandText, expected, label,
 async function runComparator(caseRecord, repo, root, commandText, label, requireMembership) {
   const envBase = runtimeEnvironment(root);
   await assertMeasuredState(repo, caseRecord.paths.production, envBase);
+  await clearIgnoredMembershipRuntimeCaches(repo, envBase);
+  const sourceStateStartSha256 = await independentSourceStateDigest(repo, envBase);
   const parsed = parseRestrictedCommand(commandText);
   const env = { ...envBase, ...parsed.env };
   const exact = await runBounded({ file: parsed.file, argv: parsed.argv, cwd: repo, env });
   requireExited(exact, label);
+  const sourceStateEndSha256 = await independentSourceStateDigest(repo, envBase);
+  const sourceStability = sourceStateStartSha256 === sourceStateEndSha256 ? "stable" : "tree_drifted";
+  if (sourceStability === "tree_drifted") {
+    await restoreMeasuredSourceState(caseRecord, repo, root, sourceStateStartSha256);
+  }
   if (!requireMembership) rejectSetupFailure(textOutput(exact), label);
   const proof = requireMembership
     ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label)
     : null;
+  let proofSourceStability = null;
+  let proofSourceStateEndSha256 = null;
+  if (requireMembership) {
+    proofSourceStateEndSha256 = await independentSourceStateDigest(repo, envBase);
+    proofSourceStability = sourceStateStartSha256 === proofSourceStateEndSha256 ? "stable" : "tree_drifted";
+    if (proofSourceStability === "tree_drifted") {
+      await restoreMeasuredSourceState(caseRecord, repo, root, sourceStateStartSha256);
+    }
+  }
   if (requireMembership && !proof.membership) fail("oracle_membership", `${label} did not prove oracle membership`);
   await assertMeasuredState(repo, caseRecord.paths.production, envBase);
   return {
     status: exact.exitCode === 0 ? "passed" : "failed",
     exit_code: exact.exitCode,
     oracle_membership: requireMembership ? true : null,
+    source_stability: sourceStability,
+    source_state_start_sha256: sourceStateStartSha256,
+    source_state_end_sha256: sourceStateEndSha256,
+    proof_source_stability: proofSourceStability,
+    proof_source_state_end_sha256: proofSourceStateEndSha256,
     exact: outputDigest(exact),
     proof: proof?.evidence ?? null,
   };
@@ -621,6 +693,7 @@ async function runAscout(caseRecord, repo, root, ascoutRoot) {
   const env = runtimeEnvironment(root);
   await assertMeasuredState(repo, caseRecord.paths.production, env);
   const cli = resolve(ascoutRoot, "dist/cli.js");
+  const sourceStateStartSha256 = await independentSourceStateDigest(repo, env);
   const result = await runBounded({ file: process.execPath, argv: [cli, "check", "--format", "json"], cwd: repo, env, timeoutMs: DEFAULT_TIMEOUT_MS });
   requireExited(result, "Ascout comparator");
   let receipt;
@@ -631,11 +704,16 @@ async function runAscout(caseRecord, repo, root, ascoutRoot) {
     const stderrText = result.stderr.toString("utf8").slice(0, 1000);
     fail("ascout", `Ascout JSON receipt could not be parsed (exit ${result.exitCode}); stdout=${stdoutText.slice(0, 1000)} stderr=${stderrText}`);
   }
-  await assertMeasuredState(repo, caseRecord.paths.production, env);
+  const sourceStateEndSha256 = await independentSourceStateDigest(repo, env);
+  const reportedSourceStability = receipt?.stability ?? receipt?.source?.stability ?? receipt?.source_stability ?? null;
+  const independentSourceStability = attestSourceStability(sourceStateStartSha256, sourceStateEndSha256, reportedSourceStability);
   return {
     exit_code: result.exitCode,
     completeness: receipt?.summary?.completeness ?? receipt?.completeness ?? null,
-    source_stability: receipt?.stability ?? receipt?.source?.stability ?? receipt?.source_stability ?? null,
+    source_stability: reportedSourceStability,
+    independent_source_stability: independentSourceStability,
+    source_state_start_sha256: sourceStateStartSha256,
+    source_state_end_sha256: sourceStateEndSha256,
     source: {
       repository_id: receipt?.source?.start?.repository_id ?? null,
       repository_id_kind: receipt?.source?.start?.repository_id_kind ?? null,
@@ -729,25 +807,12 @@ async function runGapObservation(caseRecord, cacheRepo, root, ascoutRoot) {
   };
 }
 
-function stableObservation(observation) {
-  const semanticAscout = observation.ascout === null
-    ? null
-    : {
-        exit_code: observation.ascout.exit_code,
-        completeness: observation.ascout.completeness,
-        source_stability: observation.ascout.source_stability,
-        source: observation.ascout.source,
-        selection: observation.ascout.selection,
-        exercise: observation.ascout.exercise,
-        tasks: observation.ascout.tasks,
-      };
+function stableOracleObservation(observation) {
   return {
     reconstruction: observation.reconstruction,
     pre_fix_oracle: observation.pre_fix_oracle,
     fixed_oracle: observation.fixed_oracle,
     full_reference: observation.full_reference,
-    related: observation.related,
-    ascout: semanticAscout,
     gap_coverage: observation.gap_coverage,
   };
 }
@@ -781,8 +846,8 @@ async function executeCase(caseRecord, options) {
       observations.push(observation);
     }
     const identity = assertCrossObservationIdentity(observations, caseRecord);
-    const deterministic = observationsDeterministic(observations.map(stableObservation));
-    if (deterministic !== "deterministic") fail("oracle_flake", `${caseRecord.case_id} observations are ${deterministic}`);
+    const oracleDeterminism = observationsDeterministic(observations.map(stableOracleObservation));
+    if (oracleDeterminism !== "deterministic") fail("oracle_flake", `${caseRecord.case_id} oracle observations are ${oracleDeterminism}`);
     const evidence = {
       schema_version: 1,
       case_id: caseRecord.case_id,
@@ -805,7 +870,8 @@ async function executeCase(caseRecord, options) {
         cache_class: "fresh-observation-root",
       },
       valid_observation_count: observations.length,
-      determinism: deterministic,
+      determinism: oracleDeterminism,
+      determinism_scope: "oracle_only",
       observations,
     };
     const evidenceText = canonicalJson(evidence);

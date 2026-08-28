@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   BenchmarkHarnessError,
   assertControllerSecretsAbsent,
+  attestSourceStability,
+  filterAscoutRuntimeUntrackedStatus,
   canonicalJson,
   classifyLcov,
   extractGapCommands,
@@ -195,6 +197,24 @@ describe("T075 observation semantics", () => {
     expect(observationsDeterministic([observation])).toBe("unknown");
     expect(observationsDeterministic([observation, structuredClone(observation)])).toBe("deterministic");
     expect(observationsDeterministic([observation, { ...observation, ascout: { exit_code: 4 } }])).toBe("nondeterministic");
+  });
+
+  it("attests reported source stability against independent Git-state digests", () => {
+    expect(attestSourceStability("same", "same", "stable")).toBe("stable");
+    expect(attestSourceStability("before", "after", "tree_drifted")).toBe("tree_drifted");
+    expect(() => attestSourceStability("before", "after", "stable")).toThrowError(/independent Git state is tree_drifted/);
+    expect(() => attestSourceStability("same", "same", "tree_drifted")).toThrowError(/independent Git state is stable/);
+  });
+
+  it("excludes only untracked Ascout runtime records from independent source status", () => {
+    const raw = Buffer.from(
+      " M src/a.ts\0?? .ascout/runs/1/receipt.json\0?? .ascout\0?? notes.txt\0 M .ascout/tracked.txt\0",
+      "utf8",
+    );
+    expect(filterAscoutRuntimeUntrackedStatus(raw).toString("utf8")).toBe(
+      " M src/a.ts\0?? notes.txt\0 M .ascout/tracked.txt\0",
+    );
+    expect(() => filterAscoutRuntimeUntrackedStatus(Buffer.from("?? .ascout/file", "utf8"))).toThrowError(/NUL-terminated/);
   });
 
   it("canonicalizes evidence objects independently of insertion order", () => {

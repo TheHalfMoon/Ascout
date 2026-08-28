@@ -26,6 +26,37 @@ function fail(code, message) {
   throw new BenchmarkHarnessError(code, message);
 }
 
+export function attestSourceStability(startDigest, endDigest, reported) {
+  if (typeof startDigest !== "string" || startDigest.length === 0 || typeof endDigest !== "string" || endDigest.length === 0) {
+    fail("binding_integrity", "independent source-state digests must be non-empty strings");
+  }
+  const actual = startDigest === endDigest ? "stable" : "tree_drifted";
+  if (reported !== actual) {
+    fail("binding_integrity", `Ascout reported source stability ${String(reported)} but independent Git state is ${actual}`);
+  }
+  return actual;
+}
+
+export function filterAscoutRuntimeUntrackedStatus(statusBytes) {
+  if (!Buffer.isBuffer(statusBytes)) fail("binding_integrity", "source-state status must be a Buffer");
+  if (statusBytes.length === 0) return Buffer.alloc(0);
+  if (statusBytes[statusBytes.length - 1] !== 0) fail("binding_integrity", "source-state status must be NUL-terminated");
+  const prefix = Buffer.from("?? .ascout", "utf8");
+  const kept = [];
+  let start = 0;
+  for (let index = 0; index < statusBytes.length; index += 1) {
+    if (statusBytes[index] !== 0) continue;
+    const record = statusBytes.subarray(start, index);
+    start = index + 1;
+    const runtimeUntracked = record.length >= prefix.length
+      && record.subarray(0, prefix.length).equals(prefix)
+      && (record.length === prefix.length || record[prefix.length] === 0x2f);
+    if (runtimeUntracked) continue;
+    kept.push(record, Buffer.from([0]));
+  }
+  return Buffer.concat(kept);
+}
+
 export function sha256Bytes(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
