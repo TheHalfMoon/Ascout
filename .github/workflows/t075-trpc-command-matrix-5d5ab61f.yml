@@ -1,0 +1,64 @@
+name: T075 Trpc command matrix 5d5ab61f
+on:
+  push:
+    branches:
+      - diagnostic/t075-trpc-command-matrix-5d5ab61f
+permissions:
+  contents: read
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: targeted
+            command: pnpm exec vitest run packages/tests/server/errors.test.ts
+          - label: full
+            command: pnpm exec vitest run
+          - label: plain
+            command: pnpm test -- --run
+          - label: related
+            command: pnpm exec vitest related packages/server/src/unstable-core-do-not-import/http/resolveResponse.ts --run
+    name: probe / ${{ matrix.label }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: trpc/trpc
+          ref: 2b8a4f826d3b22829343cebd9b23e163dfeecd09
+          path: donor
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Provision exact package manager
+        run: npm install --global pnpm@9.12.2 --ignore-scripts --no-audit --no-fund
+      - name: Frozen install
+        working-directory: donor
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = 'v24.15.0'
+          test "$(pnpm --version)" = '9.12.2'
+          pnpm install --frozen-lockfile --ignore-scripts
+      - name: Probe reviewed command
+        working-directory: donor
+        env:
+          LABEL: ${{ matrix.label }}
+          COMMAND: ${{ matrix.command }}
+        run: |
+          set -euo pipefail
+          start=$(date +%s)
+          set +e
+          timeout --signal=TERM --kill-after=10s 120s bash -lc "$COMMAND" >"$RUNNER_TEMP/probe.out" 2>"$RUNNER_TEMP/probe.err"
+          code=$?
+          set -e
+          end=$(date +%s)
+          echo "PROBE_${LABEL}_EXIT=$code"
+          echo "PROBE_${LABEL}_SECONDS=$((end-start))"
+          echo "STDOUT_TAIL_BEGIN"
+          tail -n 30 "$RUNNER_TEMP/probe.out" || true
+          echo "STDOUT_TAIL_END"
+          echo "STDERR_TAIL_BEGIN"
+          tail -n 30 "$RUNNER_TEMP/probe.err" || true
+          echo "STDERR_TAIL_END"
