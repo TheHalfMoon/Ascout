@@ -1,0 +1,134 @@
+name: T075 eight-case prequalification
+on:
+  push:
+    branches:
+      - qualification/t075-eight-cases-precommit-92a964f
+permissions:
+  contents: read
+jobs:
+  replay:
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        case_id:
+          - zod-scientific-exponents
+          - zod-jitless-allows-eval
+          - zustand-persist-latest-state
+          - react-hook-form-value-as-date
+          - trpc-streaming-onerror-cause
+          - braintree-venmo-csp-nonce-web-login
+          - immer-prototype-undefined
+          - react-hook-form-valueasdate-minmax
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    name: replay / ${{ matrix.case_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: qualification/t075-eight-cases-precommit-92a964f
+          path: helper
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: candidate/t075-final-harness-a0466508
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard and apply exact candidate patches
+        id: runtime
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = 'a0466508dce843cbbdf8f722e814ac15a2f71b9b'
+          python3 helper/.github/repair/t075_final_harness_patch.py candidate
+          python3 helper/.github/repair/t075_braintree_semantic_patch.py candidate
+          python3 helper/.github/repair/t075_comparator_isolation_patch.py candidate
+          git -C candidate diff --check
+          CASE_ID="$CASE_ID" node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
+          import fs from 'node:fs';
+          const m = JSON.parse(fs.readFileSync('candidate/benchmarks/manifest.json','utf8'));
+          if (m.manifest_revision !== 10) throw new Error(`unexpected manifest revision ${m.manifest_revision}`);
+          const c = m.cases.find((x) => x.case_id === process.env.CASE_ID);
+          if (!c) throw new Error(`missing case ${process.env.CASE_ID}`);
+          console.log(`node=${String(c.runtime.node_version).replace(/^v/, '')}`);
+          console.log(`pm=${c.runtime.package_manager}`);
+          console.log(`pm_version=${c.runtime.package_manager_version}`);
+          console.log(`case_revision=${c.case_revision}`);
+          console.log(`case_class=${c.case_class}`);
+          NODE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build Ascout candidate
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.runtime.outputs.node }}
+      - name: Provision exact donor package manager
+        shell: bash
+        env:
+          PM: ${{ steps.runtime.outputs.pm }}
+          PM_VERSION: ${{ steps.runtime.outputs.pm_version }}
+          NODE_VERSION: ${{ steps.runtime.outputs.node }}
+        run: |
+          set -euo pipefail
+          if [ "$PM" = pnpm ]; then
+            npm install --global "pnpm@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = yarn ]; then
+            npm install --global "yarn@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = npm ]; then
+            test "$(npm --version)" = "$PM_VERSION"
+          else
+            echo "unsupported package manager $PM" >&2
+            exit 2
+          fi
+          test "$(node --version)" = "v$NODE_VERSION"
+          test "$($PM --version)" = "$PM_VERSION"
+      - name: Replay reviewed case twice
+        working-directory: candidate
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+          EXPECTED_REVISION: ${{ steps.runtime.outputs.case_revision }}
+          CASE_CLASS: ${{ steps.runtime.outputs.case_class }}
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/${CASE_ID}.json"
+          node benchmarks/run.mjs \
+            --case "$CASE_ID" \
+            --run-id "prequal:${GITHUB_RUN_ID}:${CASE_ID}" \
+            --repetitions 2 \
+            --output "$result" \
+            > "$RUNNER_TEMP/${CASE_ID}.stdout.json"
+          RESULT="$result" CASE_ID="$CASE_ID" EXPECTED_REVISION="$EXPECTED_REVISION" CASE_CLASS="$CASE_CLASS" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const r = JSON.parse(fs.readFileSync(process.env.RESULT,'utf8'));
+          if (r.case_id !== process.env.CASE_ID) throw new Error('case identity mismatch');
+          if (r.case_revision !== Number(process.env.EXPECTED_REVISION)) throw new Error('case revision mismatch');
+          if (r.status !== 'BENCHMARK_ACTIVE' || r.lifecycle_state !== 'BENCHMARK_ACTIVE') throw new Error(`unexpected lifecycle ${r.status}/${r.lifecycle_state}`);
+          if (r.valid_observation_count !== 2) throw new Error('expected two valid observations');
+          if (r.evidence?.determinism !== 'deterministic' || r.evidence?.determinism_scope !== 'oracle_only') throw new Error('oracle determinism contract failed');
+          if (r.evidence?.network?.isolation_claimed !== false) throw new Error('network isolation claim must remain false');
+          if (!/^[0-9a-f]{64}$/.test(r.evidence_sha256 ?? '')) throw new Error('evidence digest missing');
+          for (const o of r.evidence.observations) {
+            if (o.pre_fix_oracle?.membership_proven !== true) throw new Error('pre-fix oracle membership missing');
+            if (o.fixed_oracle?.membership_proven !== true) throw new Error('fixed oracle membership missing');
+            if (o.ascout?.source?.repository_id_kind !== 'remote' || o.ascout?.source?.portable !== true) throw new Error('portable remote source binding missing');
+            if (o.ascout?.source_stability !== o.ascout?.independent_source_stability) throw new Error('Ascout source-stability attestation mismatch');
+            if (process.env.CASE_CLASS === 'selection') {
+              if (o.full_reference?.oracle_membership !== true) throw new Error('full-suite oracle membership missing');
+              if (o.related?.oracle_membership !== true) throw new Error('related oracle membership missing');
+            } else {
+              if (!o.gap_coverage?.artifact_sha256 || !Array.isArray(o.gap_coverage?.classifications)) throw new Error('frozen gap coverage missing');
+            }
+          }
+          console.log(JSON.stringify({case_id:r.case_id,status:r.status,determinism:r.evidence.determinism,scope:r.evidence.determinism_scope,ascout_exit_codes:r.evidence.observations.map((o)=>o.ascout.exit_code)}));
+          NODE
