@@ -22,16 +22,13 @@ coverage.full_test_coverage_command = newCoverage;
 coverage.project_native_reference_command = newNative;
 const procedure = c.oracle.specification.ground_truth_procedure;
 if (!Array.isArray(procedure)) throw new Error('ground truth procedure missing');
-let referenceReplaced = 0;
+let referenceLabels = 0;
 c.oracle.specification.ground_truth_procedure = procedure.map((line) => {
-  const needle = 'Pinned project-native reference command: `npm test`.';
-  if (line.includes(needle)) {
-    referenceReplaced += 1;
-    return line.replace(needle, `Pinned project-native reference command: \`${newNative}\`.`);
-  }
-  return line;
+  if (!line.includes('Pinned project-native reference command:')) return line;
+  referenceLabels += 1;
+  return line.replace(/Pinned project-native reference command: `[^`]+`\./, `Pinned project-native reference command: \`${newNative}\`.`);
 });
-if (referenceReplaced !== 1) throw new Error(`expected one reference-command procedure label, got ${referenceReplaced}`);
+if (referenceLabels > 1) throw new Error(`expected at most one reference-command procedure label, got ${referenceLabels}`);
 c.case_revision = 3;
 manifest.manifest_revision = 10;
 c.limitations.push(
