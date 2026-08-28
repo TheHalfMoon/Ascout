@@ -1,0 +1,187 @@
+name: T073 exact-head qualification c2011dc4
+
+on:
+  push:
+    branches:
+      - qualification/t073-exact-head-c2011dc4
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T073 product head
+        uses: actions/checkout@v4
+        with:
+          ref: c2011dc431cb0a7cacc8518dacfd52a600447952
+          fetch-depth: 0
+
+      - name: Opening exact-head ancestry scope and cleanliness guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='c2011dc431cb0a7cacc8518dacfd52a600447952'
+          B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          test -z "$(git status --porcelain)"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t3'
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          git diff --check origin/main...HEAD
+
+      - name: Validate T073 semantic, lifecycle, measured-state, and command contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const m=require('./benchmarks/manifest.json');
+          const ids=new Set(['zod-scientific-exponents','zod-jitless-allows-eval','tanstack-streamed-query-reducer','zustand-persist-latest-state','react-hook-form-value-as-date','trpc-streaming-onerror-cause']);
+          if(m.manifest_revision!==2||m.cases.length!==6) throw Error('T073 corpus shape');
+          for(const c of m.cases){
+            if(!ids.delete(c.case_id)) throw Error('unexpected/duplicate '+c.case_id);
+            if(c.case_class!=='selection'||c.lifecycle_state!=='CASE_REVIEWED') throw Error(c.case_id+': lifecycle');
+            if(c.oracle.observation!==null||c.reconstruction.derived_identity.expected_digest!==null) throw Error(c.case_id+': pre-T075 evidence');
+            if(c.reconstruction.mode!=='fix_tree_with_production_paths_reverted'||c.reconstruction.measured_diff_contains_regression_test_change!==false) throw Error(c.case_id+': reconstruction');
+            const s=c.reconstruction.steps[3];
+            for(const t of ['deterministic benchmark-local synthetic commit','index and worktree exactly matching HEAD','without staging them','working-tree-vs-HEAD changed-path set to equal the listed production paths exactly','working tree to be non-clean','regression-test path to remain byte-identical to HEAD']) if(!s.includes(t)) throw Error(c.case_id+': '+t);
+            const p=c.oracle.specification.ground_truth_procedure;
+            if(p.length!==6||!p[1].startsWith('Pinned T075 project-native command contract')) throw Error(c.case_id+': command contract');
+            if(!p[1].includes('file-level success alone is not oracle evidence')) throw Error(c.case_id+': oracle membership proof');
+            if(c.licensing.file_level_review.status!=='CLEAR') throw Error(c.case_id+': license');
+            if('gap_changed_executable_lines' in c.oracle.specification) throw Error(c.case_id+': gap-only field');
+          }
+          if(ids.size) throw Error('missing cases');
+          console.log('T073 semantic/lifecycle/measured-state/command contract PASS');
+          NODE
+
+      - name: Validate embedded Draft 2020-12 schema and negative lifecycle gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --quiet 'jsonschema[format]==4.23.0'
+          python3 - <<'PY'
+          import copy,json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator, FormatChecker
+          m=json.loads(Path('benchmarks/manifest.json').read_text())
+          Draft202012Validator.check_schema(m['case_schema'])
+          v=Draft202012Validator(m['case_schema'],format_checker=FormatChecker())
+          for c in m['cases']:
+              v.validate(c)
+          c=copy.deepcopy(m['cases'][0])
+          c['oracle']['observation']={'t075_run_id':'x','evidence_sha256':'0'*64,'valid_observation_count':2,'status':'ORACLE_VERIFIED'}
+          assert list(v.iter_errors(c)), 'CASE_REVIEWED must reject observed oracle'
+          c=copy.deepcopy(m['cases'][0]); c['reconstruction']['derived_identity']['expected_digest']='0'*40
+          assert list(v.iter_errors(c)), 'CASE_REVIEWED must reject derived digest'
+          c=copy.deepcopy(m['cases'][0]); c['licensing']['file_level_review']['status']='REJECTED'
+          assert list(v.iter_errors(c)), 'CASE_REVIEWED must reject rejected license'
+          print('T073 Draft 2020-12 positive + negative lifecycle validation PASS')
+          PY
+
+      - name: Reverify exact donor Git, license, runtime, oracle, and command metadata
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib,json,re,shutil,subprocess,tempfile
+          from pathlib import Path
+          m=json.loads(Path('benchmarks/manifest.json').read_text())
+          root=Path(tempfile.mkdtemp(prefix='t073-final-qual-'))
+          gid=re.compile(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$')
+          def g(repo,*a,raw=False):
+              p=subprocess.run(['git','-C',str(repo),*a],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+              return p.stdout if raw else p.stdout.decode('utf-8')
+          try:
+              for c in m['cases']:
+                  cid=c['case_id']; fix=c['git']['fix']['commit_id']; base=c['git']['base']['commit_id']; repo=root/cid
+                  print('VERIFY',cid)
+                  subprocess.run(['git','init','-q',str(repo)],check=True)
+                  subprocess.run(['git','-C',str(repo),'remote','add','origin',c['upstream']['canonical_url']],check=True)
+                  subprocess.run(['git','-C',str(repo),'fetch','-q','--depth=3','--filter=blob:none','origin',fix],check=True)
+                  for role in ('base','fix','oracle'):
+                      r=c['git'][role]; assert gid.fullmatch(r['commit_id']) and gid.fullmatch(r['tree_id'])
+                      g(repo,'cat-file','-e',r['commit_id']+'^{commit}')
+                      assert g(repo,'rev-parse',r['commit_id']+'^{tree}').strip()==r['tree_id']
+                      assert g(repo,'show','-s','--format=%P',r['commit_id']).strip().split()==r['required_parent_ids']
+                  assert c['git']['fix']['required_parent_ids']==[base]
+                  assert c['git']['oracle']==c['git']['fix']
+                  assert c['git']['relationship']['kind']=='direct_parent' and c['git']['relationship']['required_parent_commit_id']==base
+                  changed=set(g(repo,'diff','--name-only',base,fix).splitlines())
+                  for p in c['paths']['production']+c['paths']['regression_tests']:
+                      assert p in changed; g(repo,'cat-file','-e',f'{fix}:{p}')
+                      assert not g(repo,'cat-file','blob',f'{fix}:{p}',raw=True).startswith(b'version https://git-lfs.github.com/spec/v1')
+                  for p in c['paths']['production']: g(repo,'cat-file','-e',f'{base}:{p}')
+                  lock=c['runtime']['lockfile']; lb=g(repo,'rev-parse',f'{fix}:{lock["path"]}').strip(); assert lb==lock['blob_id']
+                  assert hashlib.sha256(g(repo,'cat-file','blob',lb,raw=True)).hexdigest()==lock['sha256']
+                  for role in ('base','fix','oracle'):
+                      ref=c['git'][role]['commit_id']; lr=c['licensing'][role]; assert lr['spdx_expression']=='MIT'
+                      for e in lr['evidence']:
+                          b=g(repo,'rev-parse',f'{ref}:{e["path"]}').strip(); data=g(repo,'cat-file','blob',b,raw=True)
+                          assert b==e['blob_id'] and hashlib.sha256(data).hexdigest()==e['sha256'] and data.startswith(b'MIT License')
+                  assert not [x for x in g(repo,'ls-tree','-r',fix).splitlines() if x.startswith('160000 ')]
+                  for tid in c['oracle']['specification']['regression_test_ids']:
+                      leaf=tid.split(' > ')[-1]
+                      assert any(leaf in g(repo,'cat-file','blob',f'{fix}:{p}') for p in c['paths']['regression_tests'])
+                  pkg=json.loads(g(repo,'cat-file','blob',f'{fix}:package.json'))
+                  cmd=c['oracle']['specification']['ground_truth_procedure'][1]
+                  pm=c['runtime']['package_manager_version']
+                  if cid=='react-hook-form-value-as-date':
+                      a=g(repo,'cat-file','blob',f'{fix}:.github/actions/install-dependencies/action.yml')
+                      assert 'version: 11.7.0' in a and 'node-version: 22' in a and pm=='11.7.0'
+                      assert pkg['scripts']['test']=='jest --config ./scripts/jest/jest.config.js' and '--findRelatedTests src/logic/validateField.ts' in cmd
+                  else:
+                      assert pkg.get('packageManager')==f'pnpm@{pm}'
+                  if cid.startswith('zod-'):
+                      assert pkg['scripts']['test']=='vitest run' and 'pnpm exec vitest related packages/zod/src/v4/core/util.ts --run' in cmd
+                  if cid=='tanstack-streamed-query-reducer':
+                      q=json.loads(g(repo,'cat-file','blob',f'{fix}:packages/query-core/package.json'))
+                      assert pkg['scripts']['test']=='pnpm run test:ci' and q['scripts']['test:lib']=='vitest'
+                      assert g(repo,'cat-file','blob',f'{fix}:.nvmrc').strip()=='24.8.0' and c['runtime']['node_version']=='24.8.0'
+                      assert 'pnpm --filter @tanstack/query-core exec vitest related src/streamedQuery.ts --run' in cmd
+                  if cid=='zustand-persist-latest-state':
+                      assert pkg['scripts']['test:spec']=='vitest run' and pkg['scripts']['test']=='pnpm run "/^test:.*/"'
+                  if cid=='trpc-streaming-onerror-cause':
+                      assert pkg['scripts']['test']=='vitest' and pkg.get('engines',{}).get('node')=='^24.0.0'
+                      assert 'plain-project non-watch comparator = `pnpm test -- --run`' in cmd
+              for v in sorted({c['runtime']['node_version'] for c in m['cases']}):
+                  out=subprocess.run(['git','ls-remote','--tags','https://github.com/nodejs/node.git',f'refs/tags/v{v}'],check=True,stdout=subprocess.PIPE,text=True).stdout
+                  assert out.strip(),v
+              print('T073 exact donor Git/license/runtime/oracle/command evidence PASS')
+          finally:
+              shutil.rmtree(root,ignore_errors=True)
+          PY
+          echo AUDIT_MODE=GIT_OBJECT_METADATA_ONLY
+          echo DONOR_CHECKOUT=NO
+          echo DONOR_DEPENDENCY_INSTALL=NO
+          echo DONOR_SCRIPT_EXECUTION=NO
+          echo DONOR_TEST_EXECUTION=NO
+
+      - name: Verify Ascout typecheck build and full suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+
+      - name: Closing exact-head and clean-tree guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='c2011dc431cb0a7cacc8518dacfd52a600447952'
+          B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          test -z "$(git status --porcelain)"
