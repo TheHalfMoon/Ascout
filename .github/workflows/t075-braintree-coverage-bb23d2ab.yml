@@ -1,0 +1,76 @@
+name: T075 Braintree coverage diagnostic bb23d2ab
+on:
+  push:
+    branches:
+      - diagnostic/t075-braintree-coverage-bb23d2ab
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bb23d2ab7011628e1fd1b549a1b8dcdc85ac0ec7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build controller
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+      - name: Replay and inspect failed coverage artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = 'v20.19.0'
+          test "$(npm --version)" = '10.8.2'
+          set +e
+          node benchmarks/run.mjs --case braintree-venmo-csp-nonce-web-login --run-id "diagnostic:${GITHUB_RUN_ID}:coverage" --repetitions 2 --keep-temp > "$RUNNER_TEMP/harness.out" 2> "$RUNNER_TEMP/harness.err"
+          code=$?
+          set -e
+          echo "HARNESS_EXIT=$code"
+          cat "$RUNNER_TEMP/harness.err"
+          root="$(find /tmp -maxdepth 1 -type d -name 'ascout-t075-braintree-venmo-csp-nonce-web-login-*' | sort | tail -n 1)"
+          test -n "$root"
+          measured="$root/observation-1/measured"
+          test -d "$measured"
+          if [ -f "$measured/coverage/lcov.info" ]; then
+            echo 'LCOV_PRESENT=true'
+            sha256sum "$measured/coverage/lcov.info"
+            wc -c "$measured/coverage/lcov.info"
+            grep -n -A12 -B2 'SF:.*src/venmo/venmo.js' "$measured/coverage/lcov.info" | head -n 80 || true
+          else
+            echo 'LCOV_PRESENT=false'
+          fi
+          ROOT="$root" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { spawnSync } from 'node:child_process';
+          import { extractGapCommands, parseRestrictedCommand, classifyLcov } from './benchmarks/harness-lib.mjs';
+          const manifest = JSON.parse(fs.readFileSync('./benchmarks/manifest.json','utf8'));
+          const c = manifest.cases.find((x)=>x.case_id==='braintree-venmo-csp-nonce-web-login');
+          const commands = extractGapCommands(c);
+          console.log('COVERAGE_COMMAND=' + commands.fullCoverage);
+          const parsed = parseRestrictedCommand(commands.fullCoverage);
+          const result = spawnSync(parsed.file, parsed.argv, {
+            cwd: `${process.env.ROOT}/observation-1/measured`,
+            env: {PATH:process.env.PATH,HOME:process.env.HOME,CI:'true',NO_COLOR:'1',FORCE_COLOR:'0',...parsed.env},
+            encoding: 'utf8',
+            maxBuffer: 64*1024*1024,
+          });
+          console.log('COVERAGE_EXIT=' + result.status);
+          console.log('COVERAGE_STDOUT=' + String(result.stdout ?? '').slice(0,12000).replaceAll('\n','\\n'));
+          console.log('COVERAGE_STDERR=' + String(result.stderr ?? '').slice(0,12000).replaceAll('\n','\\n'));
+          const artifact = `${process.env.ROOT}/observation-1/measured/${commands.artifact}`;
+          console.log('ARTIFACT_PATH=' + commands.artifact);
+          console.log('ARTIFACT_PRESENT=' + fs.existsSync(artifact));
+          if (fs.existsSync(artifact)) {
+            const text = fs.readFileSync(artifact,'utf8');
+            console.log('CLASSIFICATIONS=' + JSON.stringify(classifyLcov(text,c.oracle.specification.gap_changed_executable_lines)));
+          }
+          NODE
+          test "$code" -ne 0
