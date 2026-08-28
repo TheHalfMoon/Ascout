@@ -1,0 +1,143 @@
+name: T073 candidate metadata audit
+
+on:
+  push:
+    branches:
+      - research/t073-candidate-metadata
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Ascout helper branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Inspect donor Git objects only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/t073-audit
+          cat > /tmp/t073-audit/cases.tsv <<'EOF'
+          zod-scientific-exponents	https://github.com/colinhacks/zod.git	3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf	packages/zod/src/v4/core/util.ts	packages/zod/src/v4/classic/tests/number.test.ts
+          zod-jitless-allows-eval	https://github.com/colinhacks/zod.git	b9b62c65357c2b0fed4ae046a30c8e84e4094202	packages/zod/src/v4/core/util.ts	packages/zod/src/v4/classic/tests/jitless-allows-eval.test.ts
+          tanstack-streamed-query-reducer	https://github.com/TanStack/query.git	d576092e2ece4ca3936add3eb0da5234c1d82ed4	packages/query-core/src/streamedQuery.ts	packages/query-core/src/__tests__/streamedQuery.test.tsx
+          zustand-persist-latest-state	https://github.com/pmndrs/zustand.git	6213fc11bdf096301a82ae5c236b5a666a4ee3ca	src/middleware/persist.ts	tests/persistAsync.test.tsx
+          react-hook-form-value-as-date	https://github.com/react-hook-form/react-hook-form.git	d7118f40a50aa7783481e9a9b77a703302b94814	src/logic/validateField.ts	src/__tests__/logic/validateField.test.tsx
+          trpc-streaming-onerror-cause	https://github.com/trpc/trpc.git	2b8a4f826d3b22829343cebd9b23e163dfeecd09	packages/server/src/unstable-core-do-not-import/http/resolveResponse.ts	packages/tests/server/errors.test.ts
+          EOF
+
+          while IFS=$'\t' read -r case_id url fix prod test_path; do
+            echo "===== CASE $case_id ====="
+            repo="/tmp/t073-audit/$case_id"
+            git init -q "$repo"
+            git -C "$repo" remote add origin "$url"
+            git -C "$repo" fetch -q --depth=3 --filter=blob:none origin "$fix"
+            git -C "$repo" cat-file -e "$fix^{commit}"
+            base="$(git -C "$repo" rev-parse "$fix^1")"
+            git -C "$repo" cat-file -e "$base^{commit}"
+            fix_tree="$(git -C "$repo" rev-parse "$fix^{tree}")"
+            base_tree="$(git -C "$repo" rev-parse "$base^{tree}")"
+            fix_parents="$(git -C "$repo" show -s --format='%P' "$fix")"
+            base_parents="$(git -C "$repo" show -s --format='%P' "$base")"
+            echo "fix=$fix"
+            echo "fix_tree=$fix_tree"
+            echo "fix_parents=$fix_parents"
+            echo "base=$base"
+            echo "base_tree=$base_tree"
+            echo "base_parents=$base_parents"
+            echo "prod_path=$prod"
+            echo "test_path=$test_path"
+            git -C "$repo" cat-file -e "$fix:$prod"
+            git -C "$repo" cat-file -e "$fix:$test_path"
+            git -C "$repo" cat-file -e "$base:$prod"
+            echo "changed_files_begin"
+            git -C "$repo" diff --name-status "$base" "$fix"
+            echo "changed_files_end"
+
+            lockfile=''
+            for p in pnpm-lock.yaml package-lock.json yarn.lock; do
+              if git -C "$repo" cat-file -e "$fix:$p" 2>/dev/null; then lockfile="$p"; break; fi
+            done
+            test -n "$lockfile"
+            echo "lockfile=$lockfile"
+            for ref_name in base fix; do
+              ref="$base"; test "$ref_name" = fix && ref="$fix"
+              git -C "$repo" cat-file -e "$ref:$lockfile"
+              blob="$(git -C "$repo" rev-parse "$ref:$lockfile")"
+              sha256="$(git -C "$repo" cat-file blob "$blob" | sha256sum | awk '{print $1}')"
+              echo "${ref_name}_lock_blob=$blob"
+              echo "${ref_name}_lock_sha256=$sha256"
+            done
+
+            license=''
+            for p in LICENSE LICENSE.md LICENSE.txt MIT-LICENSE; do
+              if git -C "$repo" cat-file -e "$fix:$p" 2>/dev/null; then license="$p"; break; fi
+            done
+            test -n "$license"
+            echo "license_path=$license"
+            for ref_name in base fix; do
+              ref="$base"; test "$ref_name" = fix && ref="$fix"
+              git -C "$repo" cat-file -e "$ref:$license"
+              blob="$(git -C "$repo" rev-parse "$ref:$license")"
+              sha256="$(git -C "$repo" cat-file blob "$blob" | sha256sum | awk '{print $1}')"
+              echo "${ref_name}_license_blob=$blob"
+              echo "${ref_name}_license_sha256=$sha256"
+              echo "${ref_name}_license_head=$(git -C "$repo" cat-file blob "$blob" | head -n 2 | tr '\n' ' ' | tr -s ' ')"
+            done
+
+            pkg_blob="$(git -C "$repo" rev-parse "$fix:package.json")"
+            echo "package_json_blob=$pkg_blob"
+            git -C "$repo" cat-file blob "$pkg_blob" > "/tmp/t073-audit/$case_id-package.json"
+            python3 - "$case_id" "/tmp/t073-audit/$case_id-package.json" <<'PY'
+          import json, sys
+          case_id, path = sys.argv[1:]
+          d = json.load(open(path, encoding='utf-8'))
+          print('package_manager_field=' + str(d.get('packageManager')))
+          print('engines=' + json.dumps(d.get('engines', {}), sort_keys=True))
+          print('test_script=' + str(d.get('scripts', {}).get('test')))
+          print('test_coverage_script=' + str(d.get('scripts', {}).get('test:coverage')))
+          deps = {**d.get('dependencies', {}), **d.get('devDependencies', {})}
+          print('vitest_version=' + str(deps.get('vitest')))
+          print('jest_version=' + str(deps.get('jest')))
+          PY
+
+            if [ "$case_id" = react-hook-form-value-as-date ]; then
+              action='.github/actions/install-dependencies/action.yml'
+              git -C "$repo" cat-file -e "$fix:$action"
+              echo 'ci_install_metadata_begin'
+              git -C "$repo" cat-file blob "$fix:$action" | sed -n '1,40p'
+              echo 'ci_install_metadata_end'
+            fi
+
+            echo 'relevant_file_notices_begin'
+            for p in "$prod" "$test_path"; do
+              echo "path=$p"
+              git -C "$repo" cat-file blob "$fix:$p" | grep -Ein 'SPDX|copyright|@license|license:' | head -n 20 || true
+              first_line="$(git -C "$repo" cat-file blob "$fix:$p" | head -n 1 || true)"
+              if [ "$first_line" = 'version https://git-lfs.github.com/spec/v1' ]; then
+                echo 'LFS_POINTER=YES'
+              else
+                echo 'LFS_POINTER=NO'
+              fi
+            done
+            echo 'relevant_file_notices_end'
+
+            submodules="$(git -C "$repo" ls-tree -r "$fix" | awk '$1=="160000" {print $4}' | paste -sd, -)"
+            echo "submodules=${submodules:-NONE}"
+            echo
+          done < /tmp/t073-audit/cases.tsv
+
+      - name: Confirm helper did not execute donor content
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'AUDIT_MODE=GIT_OBJECT_METADATA_ONLY'
+          echo 'DONOR_CHECKOUT=NO'
+          echo 'DONOR_DEPENDENCY_INSTALL=NO'
+          echo 'DONOR_SCRIPT_EXECUTION=NO'
+          echo 'DONOR_TEST_EXECUTION=NO'
