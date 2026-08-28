@@ -1,0 +1,61 @@
+name: T075 harness contract qualification 9880ab2c
+
+on:
+  push:
+    branches:
+      - qualification/t075-contract-9880ab2c
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 9880ab2cc78606e759f270c995d3f9a295a388ab
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Exact-head and scope guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '9880ab2cc78606e759f270c995d3f9a295a388ab'
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '9880ab2cc78606e759f270c995d3f9a295a388ab'
+          test "$(git merge-base HEAD origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          git diff --check origin/main...HEAD
+      - name: Install Ascout dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate harness library syntax and manifest contract compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check benchmarks/harness-lib.mjs
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { validateReplayCase } from './benchmarks/harness-lib.mjs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          if (manifest.cases.length !== 9) throw new Error(`expected 9 cases, found ${manifest.cases.length}`);
+          for (const c of manifest.cases) validateReplayCase(c);
+          console.log('T075_MANIFEST_CONTRACT_COMPATIBILITY_PASS', manifest.cases.map((c) => c.case_id).join(','));
+          NODE
+      - name: Typecheck build focused and full tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run typecheck
+          npm run build
+          npx vitest run tests/benchmark-harness.test.ts
+          npm test
+      - name: Closing exact-head guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '9880ab2cc78606e759f270c995d3f9a295a388ab'
+          test -z "$(git status --porcelain)"
