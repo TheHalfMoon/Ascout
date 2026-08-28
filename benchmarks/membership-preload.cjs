@@ -7,9 +7,12 @@ const alreadyInstrumented = process.env.ASCOUT_MEMBERSHIP_INSTRUMENTED === "1";
 if (!alreadyInstrumented && (kind === "vitest" || kind === "jest") && outputFile) {
   const entry = (process.argv[1] ?? "").replaceAll("\\", "/");
   const basename = entry.slice(entry.lastIndexOf("/") + 1).toLowerCase();
+  const isProjectLocalBin = entry.includes("/node_modules/.bin/");
   const isTargetRunner =
-    (kind === "vitest" && (basename === "vitest.mjs" || basename === "vitest.js")) ||
-    (kind === "jest" && (basename === "jest.js" || basename === "jest.mjs"));
+    (kind === "vitest" &&
+      (basename === "vitest.mjs" || basename === "vitest.js" || (isProjectLocalBin && basename === "vitest"))) ||
+    (kind === "jest" &&
+      (basename === "jest.js" || basename === "jest.mjs" || (isProjectLocalBin && basename === "jest")));
 
   if (isTargetRunner) {
     const runnerArgs = process.argv.slice(2);
