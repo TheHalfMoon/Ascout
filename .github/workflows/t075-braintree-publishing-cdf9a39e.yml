@@ -1,0 +1,87 @@
+name: T075 Braintree publishing diagnostic cdf9a39e
+on:
+  push:
+    branches:
+      - diagnostic/t075-braintree-publishing-cdf9a39e
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cdf9a39e93e1ce655184078cb469f08b9111d3c2
+          path: ascout
+          persist-credentials: false
+      - name: Read exact case metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd ascout
+          node --input-type=module <<'NODE' >> "$GITHUB_ENV"
+          import fs from 'node:fs';
+          const m = JSON.parse(fs.readFileSync('benchmarks/manifest.json','utf8'));
+          const c = m.cases.find((x)=>x.case_id==='braintree-venmo-csp-nonce-web-login');
+          if (!c) throw new Error('case missing');
+          console.log(`BASE=${c.git.base.commit_id}`);
+          console.log(`FIX=${c.git.fix.commit_id}`);
+          console.log(`PROD=${c.paths.production[0]}`);
+          console.log(`NODE_VERSION=${String(c.runtime.node_version).replace(/^v/,'')}`);
+          console.log(`NPM_VERSION=${c.runtime.package_manager_version}`);
+          console.log(`LINE=${c.oracle.specification.gap_changed_executable_lines[0].line}`);
+          NODE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Reconstruct production-only measured state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --no-checkout https://github.com/braintree/braintree-web.git donor
+          git -C donor checkout --detach "$BASE"
+          git -C donor fetch origin "$FIX"
+          git -C donor checkout "$FIX" -- "$PROD"
+          git -C donor reset
+          cd donor
+          test "$(npm --version)" = "$NPM_VERSION"
+          npm ci --ignore-scripts --no-audit --no-fund
+          test "$(git diff --name-only)" = "$PROD"
+      - name: Probe coverage without publishing project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd donor
+          rm -rf src/coverage
+          set +e
+          BRAINTREE_JS_ENV=development npm_config_ignore_scripts=true ./node_modules/.bin/jest --config=jest.config.json --runInBand --ignoreProjects publishing --coverage --coverageReporters=lcov --coverageDirectory=coverage >"$RUNNER_TEMP/coverage.out" 2>"$RUNNER_TEMP/coverage.err"
+          code=$?
+          set -e
+          echo "COVERAGE_EXIT=$code"
+          echo 'COVERAGE_CHANGED_BEGIN'
+          git diff --name-only | sort
+          echo 'COVERAGE_CHANGED_END'
+          test -f src/coverage/lcov.info
+          echo "LCOV_SHA=$(sha256sum src/coverage/lcov.info | awk '{print $1}')"
+          awk -v line="$LINE" 'BEGIN{inside=0} /^SF:/{inside=($0 ~ /src\/venmo\/venmo\.js$/)} inside && $0 ~ ("^DA:" line ",") {print "REVIEWED_LINE=" $0}' src/coverage/lcov.info
+          tail -n 8 "$RUNNER_TEMP/coverage.err" || true
+      - name: Probe native reference without publishing project
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd donor
+          git checkout "$BASE" -- .
+          git checkout "$FIX" -- "$PROD"
+          git reset
+          rm -rf src/coverage coverage
+          test "$(git diff --name-only)" = "$PROD"
+          set +e
+          BRAINTREE_JS_ENV=development npm_config_ignore_scripts=true ./node_modules/.bin/jest --config=jest.config.json --runInBand --ignoreProjects publishing >"$RUNNER_TEMP/native.out" 2>"$RUNNER_TEMP/native.err"
+          code=$?
+          set -e
+          echo "NATIVE_EXIT=$code"
+          echo 'NATIVE_CHANGED_BEGIN'
+          git diff --name-only | sort
+          echo 'NATIVE_CHANGED_END'
+          tail -n 8 "$RUNNER_TEMP/native.err" || true
