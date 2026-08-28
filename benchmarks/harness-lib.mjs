@@ -483,7 +483,7 @@ export function stableObservationProjection(observation) {
     full_reference: observation.full_reference,
     related: observation.related,
     ascout: observation.ascout,
-    gap_coverage: observation.gap_coverage ?? null,
+    gap_coverage: observation.gap_coverage === null || observation.gap_coverage === undefined ? null : { classifications: observation.gap_coverage.classifications },
   };
 }
 

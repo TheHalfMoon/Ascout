@@ -201,6 +201,28 @@ describe("T075 observation semantics", () => {
     expect(canonicalJson({ b: 2, a: { z: 1, y: 0 } })).toBe(canonicalJson({ a: { y: 0, z: 1 }, b: 2 }));
   });
 
+  it("treats raw coverage artifact bytes as evidence while comparing semantic gap classifications", () => {
+    const base = {
+      reconstruction: { tree: "abc" },
+      pre_fix_oracle: { status: "failed_as_expected" },
+      fixed_oracle: { status: "passed" },
+      full_reference: { status: "failed" },
+      related: { status: "not_applicable" },
+      ascout: { exit_code: 4 },
+      gap_coverage: {
+        artifact_sha256: "a".repeat(64),
+        classifications: [{ path: "src/a.ts", line: 10, classification: "EXERCISED", hits: 1, reason: null }],
+      },
+    };
+    const rawArtifactChanged = structuredClone(base);
+    rawArtifactChanged.gap_coverage.artifact_sha256 = "b".repeat(64);
+    expect(observationsDeterministic([base, rawArtifactChanged])).toBe("deterministic");
+
+    const semanticClassificationChanged = structuredClone(base);
+    semanticClassificationChanged.gap_coverage.classifications[0] = { path: "src/a.ts", line: 10, classification: "NOT_EXERCISED", hits: 0, reason: null };
+    expect(observationsDeterministic([base, semanticClassificationChanged])).toBe("nondeterministic");
+  });
+
   it("accepts only CASE_REVIEWED cases with unobserved replay identities", () => {
     expect(validateReplayCase(selectionCase())).toBe(true);
     expect(validateReplayCase(gapCase())).toBe(true);
