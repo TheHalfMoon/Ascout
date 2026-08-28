@@ -11,7 +11,6 @@ import {
   canonicalJson,
   extractGapCommands,
   extractSelectionCommands,
-  filterAscoutRuntimeUntrackedStatus,
   membershipProofCommand,
   parseRestrictedCommand,
   proveRunnerMembership,
@@ -24,7 +23,8 @@ import { aggregateBenchmarkMetrics, computeCaseMetrics } from "./metrics-lib.mjs
 const CAPTURE_CAP_BYTES = 32 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 const T075_TIMEOUT_MS = 70 * 60 * 1000;
-const MANAGED_RUNNER_CACHE_PATHS = [".nx/cache", ".nx/workspace-data", ".cache", "node_modules/.cache", "coverage"];
+const MANAGED_RUNNER_CACHE_PATHS = [".nx/cache", ".nx/workspace-data", ".cache", "node_modules/.cache"];
+const METRIC_NX_DIRS = new Set();
 
 function fail(code, message) {
   const error = new Error(message);
@@ -129,10 +129,9 @@ async function runProcess({ file, argv, cwd, env, timeoutMs = DEFAULT_TIMEOUT_MS
       resolvePromise({ outcome: "exited", exitCode, signal, error: null });
     });
   });
-  const elapsedNs = process.hrtime.bigint() - started;
   return {
     ...result,
-    durationMs: Number(elapsedNs) / 1_000_000,
+    durationMs: Number(process.hrtime.bigint() - started) / 1_000_000,
     stdout: Buffer.concat(stdout.chunks, stdout.captured),
     stderr: Buffer.concat(stderr.chunks, stderr.captured),
     stdoutTruncated: stdout.truncated,
@@ -159,6 +158,13 @@ function outputDigest(result) {
   };
 }
 
+function metricNxDir(root) {
+  const digest = sha256Bytes(Buffer.from(root, "utf8")).slice(0, 16);
+  const path = join(tmpdir(), `a76-nx-${digest}`);
+  METRIC_NX_DIRS.add(path);
+  return path;
+}
+
 async function ensureRuntimeDirs(root) {
   await Promise.all([
     mkdir(join(root, "home"), { recursive: true }),
@@ -166,7 +172,7 @@ async function ensureRuntimeDirs(root) {
     mkdir(join(root, "cache", "xdg"), { recursive: true }),
     mkdir(join(root, "cache", "npm"), { recursive: true }),
     mkdir(join(root, "cache", "corepack"), { recursive: true }),
-    mkdir(join(root, "nx-socket"), { recursive: true }),
+    mkdir(metricNxDir(root), { recursive: true }),
   ]);
 }
 
@@ -184,22 +190,44 @@ async function runtimeEnvironment(root, commandEnv = {}) {
     XDG_CACHE_HOME: join(root, "cache", "xdg"),
     npm_config_cache: join(root, "cache", "npm"),
     COREPACK_HOME: join(root, "cache", "corepack"),
-    NX_SOCKET_DIR: join(root, "nx-socket"),
+    NX_SOCKET_DIR: metricNxDir(root),
   });
   assertControllerSecretsAbsent(env);
   return env;
 }
 
-async function runGit(repo, args, env, { allowFailure = false } = {}) {
-  const result = await runProcess({ file: "git", argv: ["-C", repo, ...args], cwd: repo, env });
+async function runGit(repo, args, env, { allowFailure = false, input = null } = {}) {
+  const result = await runProcess({ file: "git", argv: ["-C", repo, ...args], cwd: repo, env, input });
   requireExited(result, `git ${args[0] ?? ""}`);
   if (!allowFailure && result.exitCode !== 0) fail("git", `git ${args.join(" ")} failed: ${result.stderr.toString("utf8").trim()}`);
   return result;
 }
 
+function filterMetricRuntimeUntrackedStatus(statusBytes) {
+  if (!Buffer.isBuffer(statusBytes)) fail("binding_integrity", "source-state status must be a Buffer");
+  if (statusBytes.length === 0) return Buffer.alloc(0);
+  if (statusBytes[statusBytes.length - 1] !== 0) fail("binding_integrity", "source-state status must be NUL-terminated");
+  const prefixes = [Buffer.from("?? .ascout", "utf8"), Buffer.from("?? coverage", "utf8")];
+  const kept = [];
+  let start = 0;
+  for (let index = 0; index < statusBytes.length; index += 1) {
+    if (statusBytes[index] !== 0) continue;
+    const record = statusBytes.subarray(start, index);
+    start = index + 1;
+    const runtime = prefixes.some((prefix) =>
+      record.length >= prefix.length &&
+      record.subarray(0, prefix.length).equals(prefix) &&
+      (record.length === prefix.length || record[prefix.length] === 0x2f)
+    );
+    if (runtime) continue;
+    kept.push(record, Buffer.from([0]));
+  }
+  return Buffer.concat(kept);
+}
+
 async function sourceStateDigest(repo, env) {
   const status = await runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], env);
-  const sourceStatus = filterAscoutRuntimeUntrackedStatus(status.stdout);
+  const sourceStatus = filterMetricRuntimeUntrackedStatus(status.stdout);
   const unstaged = await runGit(repo, ["diff", "--binary", "--no-ext-diff", "HEAD", "--"], env);
   const staged = await runGit(repo, ["diff", "--cached", "--binary", "--no-ext-diff", "HEAD", "--"], env);
   return sha256Bytes(Buffer.concat([
@@ -217,10 +245,32 @@ async function assertMeasuredPaths(caseRecord, repo, env) {
   if (staged.length !== 0) fail("binding_integrity", `measured repository has staged changes: ${staged.join(",")}`);
 }
 
-async function restoreMeasuredSource(caseRecord, repo, root) {
+async function clearCanonicalRuntimePath(repo, root, relativePath) {
+  const absolute = resolve(repo, relativePath);
+  assertPathInside(repo, absolute);
+  let exists = false;
+  try {
+    await stat(absolute);
+    exists = true;
+  } catch {}
+  if (!exists) return;
+  const env = await runtimeEnvironment(root);
+  const tracked = await runGit(repo, ["ls-files", "--error-unmatch", "--", relativePath], env, { allowFailure: true });
+  if (tracked.exitCode === 0) fail("binding_integrity", `canonical benchmark runtime path is tracked by donor repository: ${relativePath}`);
+  await rm(absolute, { recursive: true, force: true });
+}
+
+async function restoreMeasuredSource(caseRecord, repo, root, { preserveRuntime = false } = {}) {
   const env = await runtimeEnvironment(root);
   await runGit(repo, ["reset", "--hard", "HEAD"], env);
-  await runGit(repo, ["clean", "-fd"], env);
+  const cleanArgs = preserveRuntime
+    ? ["clean", "-fd", "-e", ".ascout", "-e", "coverage"]
+    : ["clean", "-fd"];
+  await runGit(repo, cleanArgs, env);
+  if (!preserveRuntime) {
+    await clearCanonicalRuntimePath(repo, root, ".ascout");
+    await clearCanonicalRuntimePath(repo, root, "coverage");
+  }
   for (const productionPath of caseRecord.paths.production) {
     await runGit(repo, ["restore", `--source=${caseRecord.git.fix.commit_id}`, "--worktree", "--", productionPath], env);
   }
@@ -245,9 +295,14 @@ async function clearIgnoredPath(repo, root, relativePath) {
 
 async function clearColdCaches(repo, root, includeAscout) {
   for (const path of MANAGED_RUNNER_CACHE_PATHS) await clearIgnoredPath(repo, root, path);
-  if (includeAscout) await clearIgnoredPath(repo, root, ".ascout");
+  await clearCanonicalRuntimePath(repo, root, "coverage");
+  if (includeAscout) await clearCanonicalRuntimePath(repo, root, ".ascout");
   await rm(join(root, "cache", "xdg"), { recursive: true, force: true });
-  await mkdir(join(root, "cache", "xdg"), { recursive: true });
+  await rm(metricNxDir(root), { recursive: true, force: true });
+  await Promise.all([
+    mkdir(join(root, "cache", "xdg"), { recursive: true }),
+    mkdir(metricNxDir(root), { recursive: true }),
+  ]);
 }
 
 async function runExactCommand(commandText, repo, root, label) {
@@ -278,16 +333,13 @@ async function timedCommandPair(caseRecord, repo, root, commandText, label) {
   const coldEnd = await sourceStateDigest(repo, await runtimeEnvironment(root));
   const coldStability = coldStart === coldEnd ? "stable" : "tree_drifted";
 
-  const warmBaseline = await restoreMeasuredSource(caseRecord, repo, root);
+  const warmBaseline = await restoreMeasuredSource(caseRecord, repo, root, { preserveRuntime: true });
   if (warmBaseline !== baselineDigest) fail("binding_integrity", `${label} warm source restoration changed baseline identity`);
   const warmResult = await runExactCommand(commandText, repo, root, `${label} warm`);
   const warmEnd = await sourceStateDigest(repo, await runtimeEnvironment(root));
   const warmStability = warmBaseline === warmEnd ? "stable" : "tree_drifted";
 
-  return {
-    cold: runProjection(coldResult, coldStability),
-    warm: runProjection(warmResult, warmStability),
-  };
+  return { cold: runProjection(coldResult, coldStability), warm: runProjection(warmResult, warmStability) };
 }
 
 function canonicalRepoPath(path) {
@@ -431,9 +483,7 @@ async function externalComparator(caseRecord, repo, root, commandText, label, mo
   if (!auditMembership) return timed;
   const membership = await membershipAudit(caseRecord, repo, root, commandText, timed.cold.exit_code, label);
   for (const cacheClass of ["cold", "warm"]) {
-    Object.assign(timed[cacheClass], membership, {
-      selection: benchmarkSelectionAccount(mode, membership, label),
-    });
+    Object.assign(timed[cacheClass], membership, { selection: benchmarkSelectionAccount(mode, membership, label) });
   }
   return timed;
 }
@@ -510,24 +560,19 @@ async function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {
   const result = await runProcess({ file: process.execPath, argv: [cli, "check", "--format", "json"], cwd: repo, env });
   requireExited(result, label);
   let receipt;
-  try {
-    receipt = JSON.parse(result.stdout.toString("utf8"));
-  } catch {
-    fail("ascout", `${label} did not produce parseable JSON`);
-  }
+  try { receipt = JSON.parse(result.stdout.toString("utf8")); } catch { fail("ascout", `${label} did not produce parseable JSON`); }
   if (receipt?.summary?.exit_code !== result.exitCode) fail("ascout", `${label} process exit does not match receipt summary exit`);
   const sourceEnd = await sourceStateDigest(repo, env);
-  const sourceStability = sourceStart === sourceEnd ? "stable" : "tree_drifted";
+  const projection = projectReceipt(receipt);
   const membership = caseRecord.case_class === "selection"
     ? await auditReceiptMachineResults(caseRecord, repo, receipt)
     : { membership_available: false, oracle_test_ids_observed: [], oracle_membership: null, evidence: [] };
-  const projection = projectReceipt(receipt);
   return {
     status: result.exitCode === 0 ? "passed" : "failed",
     exit_code: result.exitCode,
     clean_success: result.exitCode === 0 && receipt?.summary?.exit_code === 0 && receipt?.summary?.completeness === "complete",
     duration_ms: result.durationMs,
-    source_stability: sourceStability,
+    source_stability: sourceStart === sourceEnd ? "stable" : "tree_drifted",
     reported_source_stability: projection.reported_source_stability,
     membership_available: membership.membership_available,
     oracle_test_ids_observed: membership.oracle_test_ids_observed,
@@ -550,69 +595,190 @@ async function ascoutComparator(caseRecord, repo, root, ascoutRoot) {
   const coldStart = await sourceStateDigest(repo, await runtimeEnvironment(root));
   if (coldStart !== baselineDigest) fail("binding_integrity", "Ascout cold source state does not match restored baseline");
   const cold = await runAscoutOnce(caseRecord, repo, root, ascoutRoot, "Ascout cold comparator");
-
-  const warmBaseline = await restoreMeasuredSource(caseRecord, repo, root);
+  const warmBaseline = await restoreMeasuredSource(caseRecord, repo, root, { preserveRuntime: true });
   if (warmBaseline !== baselineDigest) fail("binding_integrity", "Ascout warm source restoration changed baseline identity");
   const warm = await runAscoutOnce(caseRecord, repo, root, ascoutRoot, "Ascout warm comparator");
   return { cold, warm };
 }
 
-function baselineDeclaration(caseRecord, t075, comparator, cacheClass, command) {
+function withBaselineId(declaration) {
+  return { baseline_id: sha256Bytes(Buffer.from(canonicalJson(declaration), "utf8")), ...declaration };
+}
+
+function commonBaseline(caseRecord, t075, metric, comparator) {
   return {
     schema_version: 1,
-    metric: "timing",
+    metric,
     case_id: caseRecord.case_id,
     case_revision: caseRecord.case_revision,
     manifest_revision: t075.evidence.manifest_revision,
     comparator,
-    cache_class: cacheClass,
-    source_state: {
-      derived_tree: t075.derived_identity,
-      synthetic_head: t075.synthetic_head,
-    },
+    source_state: { derived_tree: t075.derived_identity, synthetic_head: t075.synthetic_head },
     environment: {
       os: t075.evidence.platform.os,
       arch: t075.evidence.platform.arch,
       node: t075.evidence.toolchain.node,
       package_manager: `${t075.evidence.toolchain.package_manager}@${t075.evidence.toolchain.package_manager_version}`,
     },
-    command,
-    process_limits: { timeout_ms: DEFAULT_TIMEOUT_MS, capture_cap_bytes: CAPTURE_CAP_BYTES },
-    dependency_install_included: false,
     reference_evidence_sha256: t075.evidence_sha256,
-    cache_contract: cacheClass === "cold"
-      ? {
-          dependency_tree: "retained from frozen T075 dependency reconstruction",
-          managed_runner_cache_paths: "cleared before comparator",
-          xdg_cache: "cleared before comparator",
-          ascout_run_artifacts: comparator === "ascout" ? "absent before comparator" : "not_applicable",
-          other_project_caches: "not asserted absent; no values are pooled with a different declaration",
-        }
-      : {
-          dependency_tree: "retained from frozen T075 dependency reconstruction",
-          managed_runner_cache_paths: "retained from immediately preceding cold comparator",
-          xdg_cache: "retained from immediately preceding cold comparator",
-          ascout_run_artifacts: comparator === "ascout" ? "retained from immediately preceding cold comparator" : "not_applicable",
-          other_project_caches: "same declared state lineage as the paired cold comparator",
-        },
   };
 }
 
+function timingBaseline(caseRecord, t075, comparator, cacheClass, command) {
+  return withBaselineId({
+    ...commonBaseline(caseRecord, t075, "timing", comparator),
+    cache_class: cacheClass,
+    command,
+    process_limits: { timeout_ms: DEFAULT_TIMEOUT_MS, capture_cap_bytes: CAPTURE_CAP_BYTES },
+    dependency_install_included: false,
+    cache_contract: cacheClass === "cold"
+      ? {
+          dependency_tree: "retained from frozen T075 dependency reconstruction",
+          package_manager_cache: "retained; dependency installation is excluded from comparator timing",
+          managed_runner_cache_paths: [...MANAGED_RUNNER_CACHE_PATHS],
+          managed_runner_cache_state: "cleared before comparator",
+          xdg_cache: "cleared before comparator",
+          nx_socket_state: "fresh short controller path",
+          ascout_run_artifacts: comparator === "ascout" ? "absent before comparator" : "not_applicable",
+          coverage_runtime_artifacts: "absent before comparator",
+          other_project_caches: "not asserted absent and never pooled with a different declaration",
+        }
+      : {
+          dependency_tree: "retained from frozen T075 dependency reconstruction",
+          package_manager_cache: "retained; dependency installation is excluded from comparator timing",
+          managed_runner_cache_paths: [...MANAGED_RUNNER_CACHE_PATHS],
+          managed_runner_cache_state: "retained from immediately preceding cold comparator",
+          xdg_cache: "retained from immediately preceding cold comparator",
+          nx_socket_state: "retained from immediately preceding cold comparator",
+          ascout_run_artifacts: comparator === "ascout" ? "retained from immediately preceding cold comparator" : "not_applicable",
+          coverage_runtime_artifacts: "retained from immediately preceding cold comparator when produced",
+          other_project_caches: "same declared lineage as paired cold comparator",
+        },
+  });
+}
+
+function determinismBaseline(caseRecord, t075, comparator, cacheClass, command) {
+  return withBaselineId({
+    ...commonBaseline(caseRecord, t075, "determinism", comparator),
+    cache_class: cacheClass,
+    command,
+    observation_key: {
+      case_revision: caseRecord.case_revision,
+      derived_tree: t075.derived_identity,
+      synthetic_head: t075.synthetic_head,
+      environment: "exact declared toolchain and OS",
+      cache_class: cacheClass,
+    },
+    minimum_valid_observations: 2,
+    semantic_projection: [
+      "status", "exit_code", "clean_success", "oracle_test_ids_observed", "source_stability",
+      "reported_source_stability", "selection", "tasks", "exercise", "findings", "completeness",
+    ],
+    volatile_fields_excluded: ["duration_ms", "timestamps", "run_ids", "raw_output_hashes"],
+  });
+}
+
+function selectionReference(caseRecord, t075, comparator, command) {
+  const oracleTestIds = [...caseRecord.oracle.specification.regression_test_ids].map((value) => value.trim()).sort();
+  return withBaselineId({
+    ...commonBaseline(caseRecord, t075, "selection_recall", comparator),
+    command,
+    cache_class: "cold",
+    reference: "frozen T075 project-native full-suite oracle membership on the same measured source state",
+    frozen_oracle_test_ids: oracleTestIds,
+    denominator: { kind: "frozen_oracle_test_ids", count: oracleTestIds.length },
+    numerator: "exact frozen oracle test IDs observed in the comparator runner evidence",
+    selected_test_count_is_recall: false,
+  });
+}
+
+function falsePassReference(caseRecord, t075, comparator, command) {
+  const selectionCase = caseRecord.case_class === "selection";
+  return withBaselineId({
+    ...commonBaseline(caseRecord, t075, "false_pass", comparator),
+    command,
+    cache_class: "cold",
+    reference: selectionCase
+      ? "frozen T075 oracle-test membership; material omission means at least one frozen oracle test is not observed"
+      : "frozen T075 independent gap oracle; material omission means at least one independently NOT_EXERCISED reviewed line",
+    clean_success_semantics: comparator === "ascout"
+      ? "process exit 0 AND receipt summary exit 0 AND receipt completeness complete"
+      : "exact comparator process exit 0",
+  });
+}
+
+function gapReference(caseRecord, t075, metric) {
+  const classifications = t075.evidence.observations[0]?.gap_coverage?.classifications ?? [];
+  const resolved = classifications.filter((item) => item.classification !== "UNRESOLVED");
+  return withBaselineId({
+    ...commonBaseline(caseRecord, t075, metric, "ascout"),
+    cache_class: "cold",
+    reference: "frozen T075 independently interpreted project-native full-run coverage oracle",
+    independent_oracle_artifact_sha256: t075.evidence.observations[0]?.gap_coverage?.artifact_sha256 ?? null,
+    denominator: {
+      kind: "independently_resolved_reviewed_changed_executable_lines",
+      count: resolved.length,
+      excluded_independent_unresolved_count: classifications.length - resolved.length,
+    },
+  });
+}
+
+function driftReference(caseRecord, t075) {
+  return withBaselineId({
+    ...commonBaseline(caseRecord, t075, "drift_detection", "ascout"),
+    reference: "independent Git status/staged/unstaged source digest excluding only canonical benchmark runtime namespaces",
+    compared_to: "Ascout receipt stability",
+    classes: ["stable", "tree_drifted"],
+  });
+}
+
+function flakeReference(caseRecord, t075) {
+  return withBaselineId({
+    ...commonBaseline(caseRecord, t075, "flake_classification_behavior", "ascout"),
+    reference: "Ascout receipt raw bounded failing-test observation counts evaluated against the canonical T076 flake rules",
+    rules: {
+      fewer_than_two_valid_observations: { determinism_class: "unknown", reproduced: "unknown" },
+      contradictory_pass_fail_observations: { determinism_class: "nondeterministic", reproduced: false },
+      repeated_consistent_failures: { determinism_class: "deterministic", reproduced: true },
+    },
+    unavailable_when_no_evaluable_finding_domain: true,
+  });
+}
+
 function buildBaselines(caseRecord, t075, commands) {
-  const entries = [];
-  const add = (name, command) => {
-    for (const cacheClass of ["cold", "warm"]) entries.push(baselineDeclaration(caseRecord, t075, name, cacheClass, command));
-  };
+  const baselines = [];
+  const commandsByComparator = new Map();
   if (caseRecord.case_class === "selection") {
-    add("full", commands.full);
-    add("plain", commands.plain);
-    add("related", commands.related);
+    commandsByComparator.set("full", commands.full);
+    commandsByComparator.set("plain", commands.plain);
+    commandsByComparator.set("related", commands.related);
   } else {
-    if (commands.reference !== null) add("plain", commands.reference);
-    add("native_coverage", commands.nativeCoverage);
+    if (commands.reference !== null) commandsByComparator.set("plain", commands.reference);
+    commandsByComparator.set("native_coverage", commands.nativeCoverage);
   }
-  add("ascout", `${process.execPath} <ascout-root>/dist/cli.js check --format json`);
-  return entries;
+  commandsByComparator.set("ascout", "node <ascout-root>/dist/cli.js check --format json");
+
+  for (const [comparator, command] of commandsByComparator) {
+    for (const cacheClass of ["cold", "warm"]) {
+      baselines.push(timingBaseline(caseRecord, t075, comparator, cacheClass, command));
+      baselines.push(determinismBaseline(caseRecord, t075, comparator, cacheClass, command));
+    }
+  }
+
+  if (caseRecord.case_class === "selection") {
+    for (const comparator of ["full", "plain", "related", "ascout"]) {
+      const command = commandsByComparator.get(comparator);
+      baselines.push(selectionReference(caseRecord, t075, comparator, command));
+      baselines.push(falsePassReference(caseRecord, t075, comparator, command));
+    }
+  } else {
+    baselines.push(falsePassReference(caseRecord, t075, "ascout", commandsByComparator.get("ascout")));
+    baselines.push(gapReference(caseRecord, t075, "gap_classification_accuracy"));
+    baselines.push(gapReference(caseRecord, t075, "unresolved_rate"));
+  }
+  baselines.push(driftReference(caseRecord, t075));
+  baselines.push(flakeReference(caseRecord, t075));
+  return baselines;
 }
 
 async function runT075(caseRecord, options, metricsRoot) {
@@ -654,6 +820,12 @@ async function collectGapObservation(caseRecord, repo, root, ascoutRoot, command
   return { comparators };
 }
 
+async function cleanupMetricNxDirs() {
+  const paths = [...METRIC_NX_DIRS];
+  METRIC_NX_DIRS.clear();
+  await Promise.all(paths.map((path) => rm(path, { recursive: true, force: true })));
+}
+
 async function executeCaseMetrics(caseRecord, manifest, options) {
   if (process.platform !== "linux") fail("platform", "T076 executable benchmark metrics currently inherit T075 Linux replay authority; T079 owns cross-platform hardening");
   const metricsRoot = await mkdtemp(join(tmpdir(), `ascout-t076-${caseRecord.case_id}-`));
@@ -677,7 +849,7 @@ async function executeCaseMetrics(caseRecord, manifest, options) {
       observations.push({ ordinal: index + 1, ...observation });
     }
     const gapOracle = caseRecord.case_class === "gap" ? t075.evidence.observations[0].gap_coverage?.classifications ?? [] : null;
-    const metricInput = {
+    const metrics = computeCaseMetrics({
       case_id: caseRecord.case_id,
       case_revision: caseRecord.case_revision,
       case_class: caseRecord.case_class,
@@ -685,8 +857,7 @@ async function executeCaseMetrics(caseRecord, manifest, options) {
       gap_oracle: gapOracle,
       baselines,
       observations,
-    };
-    const metrics = computeCaseMetrics(metricInput);
+    });
     const result = {
       schema_version: 1,
       task: "T076",
@@ -708,6 +879,7 @@ async function executeCaseMetrics(caseRecord, manifest, options) {
     }
     process.stdout.write(canonicalJson(result));
   } finally {
+    await cleanupMetricNxDirs();
     await rm(metricsRoot, { recursive: true, force: true });
   }
 }
