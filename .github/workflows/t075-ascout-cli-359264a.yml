@@ -1,0 +1,81 @@
+name: T075 Ascout comparator diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-ascout-cli-359264a
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 359264abc13153fe37ef7bcd164addc1534d38af
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build controller and reproduce comparator failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '359264abc13153fe37ef7bcd164addc1534d38af'
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+          set +e
+          node benchmarks/run.mjs \
+            --case zod-scientific-exponents \
+            --run-id "diagnostic:${GITHUB_RUN_ID}" \
+            --repetitions 2 \
+            --keep-temp \
+            > "$RUNNER_TEMP/harness.stdout" \
+            2> "$RUNNER_TEMP/harness.stderr"
+          harness_code=$?
+          set -e
+          echo "HARNESS_EXIT=$harness_code"
+          cat "$RUNNER_TEMP/harness.stderr"
+          root="$(find /tmp -maxdepth 1 -type d -name 'ascout-t075-zod-scientific-exponents-*' | sort | tail -n 1)"
+          test -n "$root"
+          measured="$root/measured"
+          test -d "$measured"
+          echo "MEASURED_HEAD=$(git -C "$measured" rev-parse HEAD)"
+          echo "MEASURED_STATUS_BEGIN"
+          git -C "$measured" status --short
+          echo "MEASURED_STATUS_END"
+          mkdir -p "$root/diag-home" "$root/diag-tmp"
+          set +e
+          env -i \
+            PATH="$PATH" \
+            HOME="$root/diag-home" \
+            TMPDIR="$root/diag-tmp" \
+            TMP="$root/diag-tmp" \
+            TEMP="$root/diag-tmp" \
+            CI=true \
+            NO_COLOR=1 \
+            FORCE_COLOR=0 \
+            GIT_TERMINAL_PROMPT=0 \
+            GIT_CONFIG_GLOBAL=/dev/null \
+            GIT_CONFIG_SYSTEM=/dev/null \
+            npm_config_audit=false \
+            npm_config_fund=false \
+            npm_config_update_notifier=false \
+            node "$GITHUB_WORKSPACE/dist/cli.js" check --format json \
+            > "$RUNNER_TEMP/ascout.stdout" \
+            2> "$RUNNER_TEMP/ascout.stderr"
+          ascout_code=$?
+          set -e
+          echo "ASCOUT_EXIT=$ascout_code"
+          echo "ASCOUT_STDOUT_BYTES=$(wc -c < "$RUNNER_TEMP/ascout.stdout")"
+          echo "ASCOUT_STDERR_BEGIN"
+          sed -E "s#${root}#<controller>#g; s#${measured}#<repository>#g" "$RUNNER_TEMP/ascout.stderr" | head -c 12000
+          echo
+          echo "ASCOUT_STDERR_END"
+          echo "ASCOUT_STDOUT_BEGIN"
+          head -c 12000 "$RUNNER_TEMP/ascout.stdout"
+          echo
+          echo "ASCOUT_STDOUT_END"
+          test "$harness_code" -ne 0
