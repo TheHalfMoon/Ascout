@@ -1,6 +1,9 @@
 name: T075 assemble final candidate
 
 on:
+  push:
+    branches:
+      - assembly/t075-final-candidate-a0466508
   workflow_dispatch:
 
 permissions:
