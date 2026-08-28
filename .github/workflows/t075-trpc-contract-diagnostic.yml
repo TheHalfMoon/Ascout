@@ -1,0 +1,39 @@
+name: T075 tRPC reviewed-contract diagnostic
+
+on:
+  push:
+    branches:
+      - repair/t075-selection-label-grammar-9880ab2c
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: eecdd3f5be693f4fa5d607790090836a3158014f
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Print only reviewed tRPC T075 contract fields
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          const c = manifest.cases.find((x) => x.case_id === 'trpc-streaming-onerror-cause');
+          if (!c) throw new Error('tRPC case missing');
+          console.log(JSON.stringify({
+            case_id: c.case_id,
+            case_revision: c.case_revision,
+            runtime: c.runtime,
+            production: c.paths.production,
+            regression_tests: c.paths.regression_tests,
+            regression_test_ids: c.oracle.specification.regression_test_ids,
+            ground_truth_procedure: c.oracle.specification.ground_truth_procedure,
+          }, null, 2));
+          NODE
