@@ -1,0 +1,80 @@
+name: T075 selection-label grammar repair
+
+on:
+  push:
+    branches:
+      - repair/t075-selection-label-grammar-9880ab2c
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Opening guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '9880ab2cc78606e759f270c995d3f9a295a388ab'
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '9880ab2cc78606e759f270c995d3f9a295a388ab'
+      - name: Repair exactly-once labeled selection extraction
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('benchmarks/harness-lib.mjs')
+          s = p.read_text()
+          old = '''const SELECTION_COMMAND_PATTERN = /targeted regression-file command = `([^`]+)`; project-native full-suite\\/reference command = `([^`]+)`; plain-project test comparator = `([^`]+)`; runner-native related selector = `([^`]+)`\\./;'''
+          new = '''const SELECTION_COMMAND_PATTERNS = {\n  targeted: /targeted[^`;]{0,120}command = `([^`]+)`/,\n  full: /project-native full-suite\\/reference command = `([^`]+)`/,\n  plain: /plain-project test comparator = `([^`]+)`/,\n  related: /runner-native related selector = `([^`]+)`/,\n};'''
+          if old not in s:
+              raise SystemExit('expected selection pattern not found')
+          s = s.replace(old, new, 1)
+          old_fn = '''  const matches = procedure.map((line) => SELECTION_COMMAND_PATTERN.exec(line)).filter(Boolean);\n  if (matches.length !== 1) {\n    fail("invalid_case", `selection case ${caseRecord.case_id} must contain exactly one canonical T075 command-contract sentence`);\n  }\n  const [, targeted, full, plain, related] = matches[0];\n  const result = { targeted, full, plain, related };'''
+          new_fn = '''  const extractOne = (label, pattern) => {\n    const matches = procedure.map((line) => pattern.exec(line)).filter(Boolean);\n    if (matches.length !== 1) {\n      fail("invalid_case", `selection case ${caseRecord.case_id} must contain exactly one explicit ${label} command label`);\n    }\n    return matches[0][1];\n  };\n  const result = {\n    targeted: extractOne("targeted", SELECTION_COMMAND_PATTERNS.targeted),\n    full: extractOne("full-suite/reference", SELECTION_COMMAND_PATTERNS.full),\n    plain: extractOne("plain-project", SELECTION_COMMAND_PATTERNS.plain),\n    related: extractOne("runner-native related", SELECTION_COMMAND_PATTERNS.related),\n  };'''
+          if old_fn not in s:
+              raise SystemExit('expected selection extractor not found')
+          p.write_text(s.replace(old_fn, new_fn, 1))
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/harness-lib.mjs'
+      - name: Qualify repair against all nine manifest cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { validateReplayCase } from './benchmarks/harness-lib.mjs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          for (const c of manifest.cases) {
+            validateReplayCase(c);
+            console.log('CONTRACT_OK', c.case_id);
+          }
+          NODE
+          npm run typecheck
+          npm run build
+          npx vitest run tests/benchmark-harness.test.ts
+          npm test
+      - name: Guarded commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '9880ab2cc78606e759f270c995d3f9a295a388ab'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add benchmarks/harness-lib.mjs
+          git commit -m 'fix(benchmark): accept explicit T075 command labels'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
