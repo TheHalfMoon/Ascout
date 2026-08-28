@@ -1,0 +1,39 @@
+name: T075 Braintree contract diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-braintree-side-effects-a0466508
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a0466508dce843cbbdf8f722e814ac15a2f71b9b
+          persist-credentials: false
+      - name: Print exact Braintree command contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'a0466508dce843cbbdf8f722e814ac15a2f71b9b'
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { extractGapCommands } from './benchmarks/harness-lib.mjs';
+          const m = JSON.parse(fs.readFileSync('benchmarks/manifest.json','utf8'));
+          const c = m.cases.find((x)=>x.case_id==='braintree-venmo-csp-nonce-web-login');
+          if (!c) throw new Error('case missing');
+          console.log(JSON.stringify({
+            manifest_revision:m.manifest_revision,
+            case_revision:c.case_revision,
+            git:c.git,
+            paths:c.paths,
+            runtime:c.runtime,
+            commands:extractGapCommands(c),
+            procedure:c.oracle.specification.ground_truth_procedure,
+            coverage_oracle:c.oracle.specification.coverage_oracle,
+            limitations:c.limitations,
+          }, null, 2));
+          NODE
+          test -z "$(git status --porcelain)"
