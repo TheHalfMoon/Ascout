@@ -1,0 +1,75 @@
+name: T074 build gap cases
+
+on:
+  push:
+    branches:
+      - qualification/t074-build-261f04ce
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout helper
+        uses: actions/checkout@v4
+        with:
+          ref: qualification/t074-build-261f04ce
+          path: helper
+          fetch-depth: 1
+      - name: Checkout exact product branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/074-benchmark-gap-cases
+          path: product
+          fetch-depth: 0
+      - name: Opening canonical and feature guards
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          B='261f04ced40622567e34487b896cd5f08b1a251f'
+          test "$(git rev-parse HEAD)" = "$B"
+          git fetch origin main feat/074-benchmark-gap-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/074-benchmark-gap-cases)" = "$B"
+          test -z "$(git status --porcelain)"
+      - name: Build and validate T074 corpus from exact Git objects
+        working-directory: product
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --quiet 'jsonschema[format]==4.23.0'
+          python3 ../helper/.github/scripts/t074_build_gap_cases.py
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+      - name: Verify Ascout health before product commit
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+      - name: Commit and guarded fast-forward push
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          B='261f04ced40622567e34487b896cd5f08b1a251f'
+          git fetch origin main feat/074-benchmark-gap-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/074-benchmark-gap-cases)" = "$B"
+          test "$(git rev-parse HEAD)" = "$B"
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+          git config user.name 'Ascout Qualification Helper'
+          git config user.email 'ascout-helper@users.noreply.github.com'
+          git add benchmarks/manifest.json
+          git commit -m 'feat(benchmark): add T074 gap corpus'
+          NEW="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/feat/074-benchmark-gap-cases"
+          echo "T074_PRODUCT_HEAD=$NEW"
