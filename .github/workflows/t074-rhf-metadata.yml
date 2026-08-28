@@ -1,0 +1,37 @@
+name: T074 React Hook Form metadata audit
+on:
+  push:
+    branches:
+      - research/t074-rhf-coverage
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/t074-rhf-coverage
+          fetch-depth: 1
+      - name: Guard live canonical and feature refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/074-benchmark-gap-cases
+          test "$(git rev-parse origin/main)" = '261f04ced40622567e34487b896cd5f08b1a251f'
+          test "$(git rev-parse origin/feat/074-benchmark-gap-cases)" = 'bf87e7f47f8bd5a40628f80207fbff6cf6062821'
+      - name: Read-only React Hook Form metadata proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m pip install --disable-pip-version-check --quiet 'PyYAML==6.0.2'
+          python3 .github/scripts/t074_rhf_metadata.py
+      - name: Prove no product mutation or donor execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo DONOR_CHECKOUT=NO
+          echo DONOR_DEPENDENCY_INSTALL=NO
+          echo DONOR_SCRIPT_EXECUTION=NO
+          echo DONOR_TEST_EXECUTION=NO
