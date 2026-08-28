@@ -23,5 +23,4 @@ jobs:
           GIT_TERMINAL_PROMPT: '0'
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = '0208466f24d22419d863025addab35d10d48b14f'
           python3 .github/scripts/t074_candidate_metadata.py
