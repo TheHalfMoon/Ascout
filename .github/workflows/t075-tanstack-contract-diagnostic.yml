@@ -25,19 +25,28 @@ jobs:
           if (!c) throw new Error('TanStack case missing');
           console.log(JSON.stringify({
             manifest_revision: manifest.manifest_revision,
-            case_id: c.case_id,
-            case_revision: c.case_revision,
-            lifecycle_state: c.lifecycle_state,
-            paths: c.paths,
-            runtime: {
-              package_manager: c.runtime.package_manager,
-              package_manager_version: c.runtime.package_manager_version,
-              node_version: c.runtime.node_version,
-              lockfile: c.runtime.lockfile.path,
+            corpus_contract: manifest.corpus_contract,
+            cases: manifest.cases.map((item) => ({
+              case_id: item.case_id,
+              case_revision: item.case_revision,
+              case_class: item.case_class,
+              lifecycle_state: item.lifecycle_state,
+            })),
+            tanstack: {
+              case_id: c.case_id,
+              case_revision: c.case_revision,
+              lifecycle_state: c.lifecycle_state,
+              paths: c.paths,
+              runtime: {
+                package_manager: c.runtime.package_manager,
+                package_manager_version: c.runtime.package_manager_version,
+                node_version: c.runtime.node_version,
+                lockfile: c.runtime.lockfile.path,
+              },
+              regression_test_ids: c.oracle.specification.regression_test_ids,
+              ground_truth_procedure: c.oracle.specification.ground_truth_procedure,
+              limitations: c.limitations,
             },
-            regression_test_ids: c.oracle.specification.regression_test_ids,
-            ground_truth_procedure: c.oracle.specification.ground_truth_procedure,
-            limitations: c.limitations,
           }, null, 2));
           NODE
           test -z "$(git status --porcelain)"
