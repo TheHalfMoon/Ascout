@@ -1,0 +1,69 @@
+name: T073 independent JSON Schema validation v2
+
+on:
+  push:
+    branches:
+      - qualification/t073-jsonschema-v2-5e73c7fa
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5e73c7faf594eaba6c413c7f71cb734e683b7a9e
+          fetch-depth: 0
+
+      - name: Guard exact product head and manifest-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'; B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          test -z "$(git status --porcelain)"
+
+      - name: Validate embedded Draft 2020-12 schema and all six cases with pinned python-jsonschema
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/t073-schema-venv
+          /tmp/t073-schema-venv/bin/pip install --disable-pip-version-check --no-input 'jsonschema[format]==4.23.0'
+          /tmp/t073-schema-venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator, FormatChecker
+
+          manifest = json.loads(Path('benchmarks/manifest.json').read_text(encoding='utf-8'))
+          schema = manifest['case_schema']
+          Draft202012Validator.check_schema(schema)
+          validator = Draft202012Validator(schema, format_checker=FormatChecker())
+          assert len(manifest['cases']) == 6
+          for case in manifest['cases']:
+              errors = sorted(validator.iter_errors(case), key=lambda e: list(e.absolute_path))
+              if errors:
+                  for error in errors:
+                      print(case['case_id'], list(error.absolute_path), error.message)
+                  raise SystemExit(f"{case['case_id']} failed Draft 2020-12 validation")
+              print(f"VALID {case['case_id']}")
+          print('T073_PYTHON_JSONSCHEMA_DRAFT2020_CASE_VALIDATION=PASS')
+          PY
+
+      - name: Closing exact-head clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'; B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test -z "$(git status --porcelain)"
