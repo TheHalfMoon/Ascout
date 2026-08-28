@@ -14,7 +14,7 @@ async function fakeRunner(relativePath: string) {
   await mkdir(resolve(runner, ".."), { recursive: true });
   await writeFile(
     runner,
-    "process.stdout.write(JSON.stringify({ argv: process.argv.slice(2), instrumented: process.env.ASCOUT_MEMBERSHIP_INSTRUMENTED ?? null }));\n",
+    "process.stdout.write(JSON.stringify({ argv: process.argv.slice(2), instrumented: process.env.ASCOUT_MEMBERSHIP_INSTRUMENTED ?? null, pid: process.pid }));\n",
     "utf8",
   );
   return { root, runner };
@@ -43,9 +43,11 @@ describe("T075 membership preload runner authority", () => {
     const result = invoke(runner, "vitest", outputFile, ["run", "--", "tests/a.test.ts"]);
 
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({
-      argv: ["run", "--reporter=json", `--outputFile=${outputFile}`, "--", "tests/a.test.ts"],
+    const observed = JSON.parse(result.stdout);
+    expect(observed).toEqual({
+      argv: ["run", "--reporter=json", `--outputFile=${outputFile}.${observed.pid}.json`, "--", "tests/a.test.ts"],
       instrumented: "1",
+      pid: expect.any(Number),
     });
   });
 
@@ -55,9 +57,11 @@ describe("T075 membership preload runner authority", () => {
     const result = invoke(runner, "jest", outputFile, ["--runInBand", "tests/a.test.ts"]);
 
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({
-      argv: ["--runInBand", "tests/a.test.ts", "--json", `--outputFile=${outputFile}`],
+    const observed = JSON.parse(result.stdout);
+    expect(observed).toEqual({
+      argv: ["--runInBand", "tests/a.test.ts", "--json", `--outputFile=${outputFile}.${observed.pid}.json`],
       instrumented: "1",
+      pid: expect.any(Number),
     });
   });
 
@@ -70,6 +74,7 @@ describe("T075 membership preload runner authority", () => {
     expect(JSON.parse(result.stdout)).toEqual({
       argv: ["run", "tests/a.test.ts"],
       instrumented: null,
+      pid: expect.any(Number),
     });
   });
 });

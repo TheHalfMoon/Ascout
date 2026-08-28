@@ -29,10 +29,11 @@ if (!alreadyInstrumented && (kind === "vitest" || kind === "jest") && outputFile
     } else {
       const boundary = process.argv.indexOf("--", 2);
       const insertAt = boundary === -1 ? process.argv.length : boundary;
+      const reportFile = `${outputFile}.${process.pid}.json`;
       const instrumentation =
         kind === "vitest"
-          ? ["--reporter=json", `--outputFile=${outputFile}`]
-          : ["--json", `--outputFile=${outputFile}`];
+          ? ["--reporter=json", `--outputFile=${reportFile}`]
+          : ["--json", `--outputFile=${reportFile}`];
       process.argv.splice(insertAt, 0, ...instrumentation);
       process.env.ASCOUT_MEMBERSHIP_INSTRUMENTED = "1";
     }

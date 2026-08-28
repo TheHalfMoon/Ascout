@@ -6,12 +6,13 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 import {
   BenchmarkHarnessError,
@@ -497,26 +498,46 @@ async function runMembershipProof(caseRecord, repo, root, commandText, expectedE
   assertControllerSecretsAbsent(proofEnv);
   const proof = await runBounded({ file: variant.file, argv: variant.argv, cwd: repo, env: proofEnv });
   requireExited(proof, `${label} membership proof`);
-  rejectSetupFailure(textOutput(proof), `${label} membership proof`);
   if (proof.exitCode !== expectedExitCode) fail("oracle", `${label} reporter-only proof changed exit behavior`);
 
-  let reportStat;
+  const proofDir = dirname(proofPath);
+  const proofBase = basename(proofPath);
+  const reportPaths = [];
   try {
-    reportStat = await stat(proofPath);
-  } catch {
+    const exactStat = await stat(proofPath);
+    if (exactStat.isFile()) reportPaths.push(proofPath);
+  } catch {}
+  for (const entry of await readdir(proofDir)) {
+    if (entry.startsWith(`${proofBase}.`) && entry.endsWith(".json")) {
+      reportPaths.push(join(proofDir, entry));
+    }
+  }
+  const uniqueReportPaths = [...new Set(reportPaths)].sort();
+  if (uniqueReportPaths.length === 0) {
     const boundedOutput = textOutput(proof).slice(0, 2000);
-    fail("oracle_membership", `${label} membership proof did not produce its external JSON report (exit ${proof.exitCode}); output=${boundedOutput}`);
+    fail("oracle_membership", `${label} membership proof did not produce an external JSON report (exit ${proof.exitCode}); output=${boundedOutput}`);
   }
-  if (!reportStat.isFile() || reportStat.size <= 0 || reportStat.size > CAPTURE_CAP_BYTES) {
-    fail("oracle_membership", `${label} membership proof JSON report has an invalid size`);
+  const reports = [];
+  let reportBytesTotal = 0;
+  for (const reportPath of uniqueReportPaths) {
+    const reportStat = await stat(reportPath);
+    if (!reportStat.isFile() || reportStat.size <= 0 || reportStat.size > CAPTURE_CAP_BYTES) {
+      fail("oracle_membership", `${label} membership proof JSON report has an invalid size`);
+    }
+    reportBytesTotal += reportStat.size;
+    if (reportBytesTotal > CAPTURE_CAP_BYTES) fail("oracle_membership", `${label} aggregate membership proof JSON exceeds capture cap`);
+    const bytes = await readFile(reportPath);
+    let parsedReport;
+    try {
+      parsedReport = JSON.parse(bytes.toString("utf8"));
+    } catch {
+      fail("oracle_membership", `${label} membership proof JSON report is not valid JSON`);
+    }
+    if (!Array.isArray(parsedReport?.testResults)) fail("oracle_membership", `${label} membership proof JSON report is missing testResults`);
+    reports.push(parsedReport);
   }
-  const reportBytes = await readFile(proofPath);
-  let report;
-  try {
-    report = JSON.parse(reportBytes.toString("utf8"));
-  } catch {
-    fail("oracle_membership", `${label} membership proof JSON report is not valid JSON`);
-  }
+  const report = { testResults: reports.flatMap((item) => item.testResults) };
+  const reportBytes = Buffer.from(canonicalJson(report), "utf8");
   const membership = proveRunnerMembership(
     report,
     caseRecord.oracle.specification.regression_test_ids,
@@ -542,7 +563,8 @@ async function runMembershipProof(caseRecord, repo, root, commandText, expectedE
     evidence: {
       ...outputDigest(proof),
       report_sha256: sha256Bytes(reportBytes),
-      report_bytes: reportBytes.length,
+      report_bytes: reportBytesTotal,
+      report_count: uniqueReportPaths.length,
       evidence_kind: "runner-json-assertion-results",
     },
   };
@@ -556,8 +578,6 @@ async function runReviewed(caseRecord, repo, root, commandText, expected, label,
   await assertMeasuredState(repo, expectedPaths, envBase);
   const exact = await runBounded({ file: parsed.file, argv: parsed.argv, cwd: repo, env });
   requireExited(exact, label);
-  const exactText = textOutput(exact);
-  rejectSetupFailure(exactText, label);
   const proof = await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label);
   if (!proof.membership) fail("oracle_membership", `${label} did not prove all reviewed regression_test_ids executed`);
   const expectedStatus = expected === "pass" ? "passed" : "failed";
@@ -582,8 +602,7 @@ async function runComparator(caseRecord, repo, root, commandText, label, require
   const env = { ...envBase, ...parsed.env };
   const exact = await runBounded({ file: parsed.file, argv: parsed.argv, cwd: repo, env });
   requireExited(exact, label);
-  const exactText = textOutput(exact);
-  rejectSetupFailure(exactText, label);
+  if (!requireMembership) rejectSetupFailure(textOutput(exact), label);
   const proof = requireMembership
     ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label)
     : null;
