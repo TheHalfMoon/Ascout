@@ -1,0 +1,51 @@
+name: T075 Vitest JSON output diagnostic
+
+on:
+  push:
+    branches:
+      - diagnostic/t075-vitest-json-output-e6e9bad9
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e6e9bad926d71f6d03f2cb8a27a0ad41c41cb38a
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Reproduce donor runner output contract
+        shell: bash
+        run: |
+          set -uo pipefail
+          npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+          root="$RUNNER_TEMP/zod"
+          git clone --no-tags https://github.com/colinhacks/zod.git "$root"
+          git -C "$root" checkout --detach 3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf
+          cd "$root"
+          pnpm install --frozen-lockfile --ignore-scripts
+          git show 55747b3cd05cd8b60b4f3d6a6348e2c508069c12:packages/zod/src/v4/core/util.ts > packages/zod/src/v4/core/util.ts
+
+          echo '=== package-script + absolute output ==='
+          pnpm test -- packages/zod/src/v4/classic/tests/number.test.ts --reporter=json --outputFile="$RUNNER_TEMP/package-absolute.json"
+          echo "exit=$?"
+          test -e "$RUNNER_TEMP/package-absolute.json" && { stat "$RUNNER_TEMP/package-absolute.json"; head -c 400 "$RUNNER_TEMP/package-absolute.json"; echo; } || echo 'package absolute missing'
+
+          echo '=== direct runner + absolute output ==='
+          pnpm exec vitest run packages/zod/src/v4/classic/tests/number.test.ts --reporter=json --outputFile="$RUNNER_TEMP/direct-absolute.json"
+          echo "exit=$?"
+          test -e "$RUNNER_TEMP/direct-absolute.json" && { stat "$RUNNER_TEMP/direct-absolute.json"; head -c 400 "$RUNNER_TEMP/direct-absolute.json"; echo; } || echo 'direct absolute missing'
+
+          echo '=== direct runner + relative output ==='
+          rm -rf .ascout-proof
+          pnpm exec vitest run packages/zod/src/v4/classic/tests/number.test.ts --reporter=json --outputFile=.ascout-proof/result.json
+          echo "exit=$?"
+          test -e .ascout-proof/result.json && { stat .ascout-proof/result.json; head -c 400 .ascout-proof/result.json; echo; } || echo 'direct relative missing'
+
+          echo '=== find JSON-like outputs ==='
+          find "$root" "$RUNNER_TEMP" -maxdepth 5 -type f \( -name '*.json' -o -path '*/.vitest/*' \) -print | sort | tail -100
