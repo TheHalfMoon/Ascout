@@ -1,0 +1,94 @@
+name: T071 exact-head qualification e8802fb8
+
+on:
+  push:
+    branches:
+      - qualification/t071-exact-head-e8802fb8
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T071 head
+        uses: actions/checkout@v4
+        with:
+          ref: e8802fb81610e8ddfea6d7cf5c498d38e437ca1c
+          fetch-depth: 0
+
+      - name: Opening exact-head scope guard
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e8802fb81610e8ddfea6d7cf5c498d38e437ca1c"
+          test -z "$(git status --short)"
+          test "$(git merge-base 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca HEAD)" = "5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca"
+          test "$(git diff --name-only 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca...HEAD | tr '\n' ' ')" = "benchmarks/README.md "
+          git diff --check 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca...HEAD
+
+      - name: Final T071 policy contract
+        run: |
+          set -euo pipefail
+          test -f benchmarks/README.md
+          test ! -e benchmarks/manifest.json
+          test "$(find benchmarks -type f -printf '%P\n' | sort | tr '\n' ' ')" = "README.md "
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('benchmarks/README.md').read_text()
+          required = [
+              'selection corpus:** 5–6',
+              'gap corpus:** 3–4',
+              'T071–T074 acquisition/review is non-executing',
+              'T075: first executable boundary',
+              'CASE_REVIEWED',
+              'BENCHMARK_ACTIVE',
+              'base-state file and path remain unchanged',
+              'SelectionAccount needed by SC-005',
+              'SC-011 requires every published metric to name the baseline',
+              'at least two valid observations',
+              'Read-only Git-object inspection remains allowed',
+              'No third-party dependency installation or donor-provided code',
+              'exact package-manager version',
+              'version-selection provenance',
+              'exact Node runtime version selected for replay',
+              'immutable harness/toolchain artifact digest',
+              'rather than resolving a floating version during replay',
+              'refuses the case if any required pinned identity does not match',
+              'cross-tree evidence leakage = 0',
+              'binding-integrity violations = 0',
+              'stable material exercise gap returning exit 0 = 0',
+          ]
+          missing = [x for x in required if x not in text]
+          if missing:
+              raise SystemExit(f'missing final T071 text: {missing}')
+          forbidden = [
+              'No third-party install or repository command is executed during T071–T074.',
+              'exact package-manager version is recorded when the upstream project pins one',
+              'withheld regression-test content or paths for gap cases',
+              '## 13. Metrics handoff',
+          ]
+          present = [x for x in forbidden if x in text]
+          if present:
+              raise SystemExit(f'stale T071 text remains: {present}')
+          if text.count('## 16. T071 completion boundary') != 1:
+              raise SystemExit('T071 completion boundary must appear exactly once')
+          PY
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Closing exact-head clean-tree guard
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e8802fb81610e8ddfea6d7cf5c498d38e437ca1c"
+          test -z "$(git status --short)"
