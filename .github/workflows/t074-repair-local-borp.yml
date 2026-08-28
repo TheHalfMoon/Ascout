@@ -1,0 +1,67 @@
+name: T074 repair local borp command
+
+on:
+  push:
+    branches:
+      - repair/t074-local-borp-ae4e2d5
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/t074-local-borp-ae4e2d5
+          path: helper
+          fetch-depth: 1
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/074-benchmark-gap-cases
+          path: product
+          fetch-depth: 0
+      - name: Guard exact product head
+        working-directory: product
+        run: |
+          set -euo pipefail
+          H='ae4e2d5e1bae2dfd51931991139fa2673f45b5e8'
+          B='261f04ced40622567e34487b896cd5f08b1a251f'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/074-benchmark-gap-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/074-benchmark-gap-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+      - name: Apply schema-valid fail-closed repair
+        working-directory: product
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --quiet 'jsonschema[format]==4.23.0'
+          python3 ../helper/.github/scripts/t074_repair_local_borp.py
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+      - name: Verify Ascout health
+        working-directory: product
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+      - name: Commit and guarded fast-forward push
+        working-directory: product
+        run: |
+          set -euo pipefail
+          OLD='ae4e2d5e1bae2dfd51931991139fa2673f45b5e8'
+          B='261f04ced40622567e34487b896cd5f08b1a251f'
+          git fetch origin main feat/074-benchmark-gap-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/074-benchmark-gap-cases)" = "$OLD"
+          git config user.name 'Ascout Qualification Helper'
+          git config user.email 'ascout-helper@users.noreply.github.com'
+          git add benchmarks/manifest.json
+          git commit -m 'fix(benchmark): bind T074 oracle to local borp'
+          NEW="$(git rev-parse HEAD)"
+          git push origin 'HEAD:refs/heads/feat/074-benchmark-gap-cases'
+          echo "T074_REPAIRED_HEAD=$NEW"
