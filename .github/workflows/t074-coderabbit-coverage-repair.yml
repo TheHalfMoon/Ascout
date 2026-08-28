@@ -1,0 +1,74 @@
+name: T074 CodeRabbit coverage-oracle repair
+on:
+  push:
+    branches:
+      - repair/t074-coderabbit-coverage-bf87e7f4
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repair helper
+        uses: actions/checkout@v4
+        with:
+          ref: repair/t074-coderabbit-coverage-bf87e7f4
+          path: helper
+          fetch-depth: 1
+      - name: Checkout exact product branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/074-benchmark-gap-cases
+          path: product
+          fetch-depth: 0
+      - name: Opening guards
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD='bf87e7f47f8bd5a40628f80207fbff6cf6062821'
+          BASE='261f04ced40622567e34487b896cd5f08b1a251f'
+          test "$(git rev-parse HEAD)" = "$OLD"
+          test -z "$(git status --porcelain)"
+          git fetch origin main feat/074-benchmark-gap-cases
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/074-benchmark-gap-cases)" = "$OLD"
+          test "$(git merge-base HEAD origin/main)" = "$BASE"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+      - name: Apply and validate coverage-oracle repair
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --quiet 'jsonschema[format]==4.23.0'
+          python3 ../helper/.github/scripts/t074_repair_coverage_oracle.py
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+      - name: Verify Ascout health
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+      - name: Guarded commit and fast-forward push
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD='bf87e7f47f8bd5a40628f80207fbff6cf6062821'
+          BASE='261f04ced40622567e34487b896cd5f08b1a251f'
+          git fetch origin main feat/074-benchmark-gap-cases
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/074-benchmark-gap-cases)" = "$OLD"
+          test "$(git merge-base HEAD origin/main)" = "$BASE"
+          git config user.name 'Ascout Qualification Helper'
+          git config user.email 'ascout-helper@users.noreply.github.com'
+          git add benchmarks/manifest.json
+          git commit -m 'fix(benchmark): define independent gap coverage oracles'
+          NEW="$(git rev-parse HEAD)"
+          test "$(git diff --name-only "$OLD"..."$NEW")" = 'benchmarks/manifest.json'
+          git push origin 'HEAD:refs/heads/feat/074-benchmark-gap-cases'
+          echo "T074_REPAIRED_HEAD=$NEW"
