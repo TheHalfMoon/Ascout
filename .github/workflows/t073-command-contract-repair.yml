@@ -1,0 +1,195 @@
+name: T073 command-contract repair
+
+on:
+  push:
+    branches:
+      - repair/t073-command-contract-5e73c7fa
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact feature head
+        uses: actions/checkout@v4
+        with:
+          ref: feat/073-benchmark-selection-cases
+          fetch-depth: 0
+
+      - name: Guard canonical base, feature head, and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'
+          B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          test -z "$(git status --porcelain)"
+
+      - name: Add exact project-native command contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path('benchmarks/manifest.json')
+          m = json.loads(p.read_text())
+          contracts = {
+            'zod-scientific-exponents': (
+              'Pinned T075 project-native command contract from exact fix package.json blob '
+              'e95f7b9d5ceb484d72770f648bf6f2d8179cc6ea: targeted regression-file command = '
+              '`pnpm test -- packages/zod/src/v4/classic/tests/number.test.ts`; project-native full-suite/reference command = '
+              '`pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = '
+              '`pnpm exec vitest related packages/zod/src/v4/core/util.ts --run`. T075 must additionally prove the recorded '
+              '`regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.'
+            ),
+            'zod-jitless-allows-eval': (
+              'Pinned T075 project-native command contract from exact fix package.json blob '
+              'fed9766ac0ac65bc51ab7f0aa733e9d54832e698: targeted regression-file command = '
+              '`pnpm test -- packages/zod/src/v4/classic/tests/jitless-allows-eval.test.ts`; project-native full-suite/reference command = '
+              '`pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = '
+              '`pnpm exec vitest related packages/zod/src/v4/core/util.ts --run`. T075 must additionally prove the recorded '
+              '`regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.'
+            ),
+            'tanstack-streamed-query-reducer': (
+              'Pinned T075 project-native command contract from exact root package.json blob '
+              '431461d6ca5fd4a206819b8b105ee56503cfd53d and packages/query-core/package.json blob '
+              '272a6320c4ba790333e37cfb8d82fb6632ac9f33: targeted regression-file command = '
+              '`pnpm --filter @tanstack/query-core test:lib --run src/__tests__/streamedQuery.test.tsx`; '
+              'project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; '
+              'runner-native related selector = `pnpm --filter @tanstack/query-core exec vitest related src/streamedQuery.ts --run`. '
+              'T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; '
+              'file-level success alone is not oracle evidence.'
+            ),
+            'zustand-persist-latest-state': (
+              'Pinned T075 project-native command contract from exact fix package.json blob '
+              '8a181ce0618eebf23fc3d55f7a1c91cc0eb7c16c: targeted regression-file command = '
+              '`pnpm test:spec -- tests/persistAsync.test.tsx`; project-native full-suite/reference command = `pnpm test:spec`; '
+              'plain-project test comparator = `pnpm test`; runner-native related selector = '
+              '`pnpm exec vitest related src/middleware/persist.ts --run`. T075 must additionally prove the recorded '
+              '`regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.'
+            ),
+            'react-hook-form-value-as-date': (
+              'Pinned T075 project-native command contract from exact fix package.json blob '
+              'd3a4fcb72ccbe1178cd19a7eefeeadeab2ad3543: targeted regression-file command = '
+              '`pnpm exec jest --config ./scripts/jest/jest.config.js src/__tests__/logic/validateField.test.tsx`; '
+              'project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; '
+              'runner-native related selector = `pnpm exec jest --config ./scripts/jest/jest.config.js --findRelatedTests src/logic/validateField.ts`. '
+              'T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; '
+              'file-level success alone is not oracle evidence.'
+            ),
+            'trpc-streaming-onerror-cause': (
+              'Pinned T075 project-native command contract from exact fix package.json blob '
+              '9bc25c538d2bf378c697e6198d68de0fe277230a: targeted regression-file command = '
+              '`pnpm exec vitest run packages/tests/server/errors.test.ts`; project-native full-suite/reference command = '
+              '`pnpm exec vitest run`; plain-project non-watch comparator = `pnpm test -- --run`; runner-native related selector = '
+              '`pnpm exec vitest related packages/server/src/unstable-core-do-not-import/http/resolveResponse.ts --run`. '
+              'The donor `test` script is `vitest` (watch-capable), so a completed benchmark run must use the recorded non-watch form. '
+              'T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; '
+              'file-level success alone is not oracle evidence.'
+            ),
+          }
+          assert set(contracts) == {c['case_id'] for c in m['cases']}
+          for c in m['cases']:
+              proc = c['oracle']['specification']['ground_truth_procedure']
+              assert len(proc) == 5
+              proc.insert(1, contracts[c['case_id']])
+              c['provenance']['review_notes'] += ' T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075.'
+          p.write_text(json.dumps(m, indent=2, ensure_ascii=False) + '\n')
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+
+      - name: Reverify command metadata from exact donor Git objects
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, shutil, subprocess, tempfile
+          from pathlib import Path
+          m=json.loads(Path('benchmarks/manifest.json').read_text())
+          root=Path(tempfile.mkdtemp(prefix='t073-command-review-'))
+          def g(repo,*a):
+              return subprocess.run(['git','-C',str(repo),*a],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True).stdout
+          try:
+              for c in m['cases']:
+                  cid=c['case_id']; fix=c['git']['fix']['commit_id']; repo=root/cid
+                  subprocess.run(['git','init','-q',str(repo)],check=True)
+                  subprocess.run(['git','-C',str(repo),'remote','add','origin',c['upstream']['canonical_url']],check=True)
+                  subprocess.run(['git','-C',str(repo),'fetch','-q','--depth=1','--filter=blob:none','origin',fix],check=True)
+                  pkg=json.loads(g(repo,'show',f'{fix}:package.json'))
+                  proc=c['oracle']['specification']['ground_truth_procedure']
+                  assert len(proc)==6 and proc[1].startswith('Pinned T075 project-native command contract')
+                  if cid.startswith('zod-'):
+                      assert pkg['scripts']['test']=='vitest run'
+                      assert '`pnpm test`' in proc[1] and 'pnpm exec vitest related' in proc[1]
+                  elif cid=='tanstack-streamed-query-reducer':
+                      q=json.loads(g(repo,'show',f'{fix}:packages/query-core/package.json'))
+                      assert pkg['scripts']['test']=='pnpm run test:ci'
+                      assert q['scripts']['test:lib']=='vitest'
+                      assert 'pnpm --filter @tanstack/query-core test:lib --run' in proc[1]
+                      assert 'pnpm --filter @tanstack/query-core exec vitest related' in proc[1]
+                  elif cid=='zustand-persist-latest-state':
+                      assert pkg['scripts']['test:spec']=='vitest run'
+                      assert pkg['scripts']['test']=='pnpm run "/^test:.*/"'
+                      assert 'pnpm test:spec' in proc[1] and 'pnpm exec vitest related' in proc[1]
+                  elif cid=='react-hook-form-value-as-date':
+                      assert pkg['scripts']['test']=='jest --config ./scripts/jest/jest.config.js'
+                      assert 'pnpm exec jest --config ./scripts/jest/jest.config.js' in proc[1]
+                      assert '--findRelatedTests src/logic/validateField.ts' in proc[1]
+                  elif cid=='trpc-streaming-onerror-cause':
+                      assert pkg['scripts']['test']=='vitest'
+                      assert 'pnpm exec vitest run' in proc[1]
+                      assert 'plain-project non-watch comparator = `pnpm test -- --run`' in proc[1]
+                  else:
+                      raise AssertionError(cid)
+                  assert 'file-level success alone is not oracle evidence' in proc[1]
+              print('T073 exact donor project-native command metadata PASS')
+          finally:
+              shutil.rmtree(root,ignore_errors=True)
+          PY
+          echo AUDIT_MODE=GIT_OBJECT_METADATA_ONLY
+          echo DONOR_CHECKOUT=NO
+          echo DONOR_DEPENDENCY_INSTALL=NO
+          echo DONOR_SCRIPT_EXECUTION=NO
+          echo DONOR_TEST_EXECUTION=NO
+
+      - name: Verify Ascout health before guarded push
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+          git diff --check
+
+      - name: Commit and guarded fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'
+          BASE='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$OLD"
+          test "$(git rev-parse HEAD)" = "$OLD"
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+          git config user.name 'Ascout Qualification Helper'
+          git config user.email 'ascout-helper@users.noreply.github.com'
+          git add benchmarks/manifest.json
+          git commit -m 'fix(benchmark): pin T073 project-native command paths'
+          NEW="$(git rev-parse HEAD)"
+          test "$(git diff --name-only "$OLD"..."$NEW")" = 'benchmarks/manifest.json'
+          git push origin "HEAD:refs/heads/feat/073-benchmark-selection-cases"
+          echo "NEW_FEATURE_HEAD=$NEW"
