@@ -1,0 +1,90 @@
+name: T075 canonical donor origin repair
+on:
+  push:
+    branches:
+      - repair/t075-canonical-origin-359264a
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Patch exact T075 feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '359264abc13153fe37ef7bcd164addc1534d38af'
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('benchmarks/run.mjs')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  'async function cloneIsolated(cacheRepo, destination, root) {',
+                  'async function cloneIsolated(cacheRepo, destination, root, canonicalUrl) {'
+              ),
+              (
+                  '  await runGit(destination, ["config", "core.hooksPath", "/dev/null"], env);',
+                  '  await runGit(destination, ["remote", "set-url", "origin", canonicalUrl], env);\n'
+                  '  const isolatedOrigin = await gitText(destination, ["remote", "get-url", "origin"], env);\n'
+                  '  if (isolatedOrigin !== canonicalUrl) {\n'
+                  '    fail("binding_integrity", `isolated clone origin mismatch: expected ${canonicalUrl}, observed ${isolatedOrigin}`);\n'
+                  '  }\n'
+                  '  await runGit(destination, ["config", "core.hooksPath", "/dev/null"], env);'
+              ),
+              (
+                  '  await cloneIsolated(cacheRepo, repo, root);',
+                  '  await cloneIsolated(cacheRepo, repo, root, caseRecord.upstream.canonical_url);'
+              ),
+              (
+                  '  try {\n    receipt = JSON.parse(result.stdout.toString("utf8"));\n  } catch {\n    fail("ascout", `Ascout JSON receipt could not be parsed: ${result.stdout.toString("utf8").slice(0, 1000)}`);\n  }',
+                  '  const stdoutText = result.stdout.toString("utf8");\n'
+                  '  try {\n'
+                  '    receipt = JSON.parse(stdoutText);\n'
+                  '  } catch {\n'
+                  '    const stderrText = result.stderr.toString("utf8").slice(0, 1000);\n'
+                  '    fail("ascout", `Ascout JSON receipt could not be parsed (exit ${result.exitCode}); stdout=${stdoutText.slice(0, 1000)} stderr=${stderrText}`);\n'
+                  '  }'
+              ),
+              (
+                  '    completeness: receipt?.completeness ?? null,\n    source_stability: receipt?.source?.stability ?? receipt?.source_stability ?? null,',
+                  '    completeness: receipt?.summary?.completeness ?? receipt?.completeness ?? null,\n'
+                  '    source_stability: receipt?.stability ?? receipt?.source?.stability ?? receipt?.source_stability ?? null,\n'
+                  '    source: {\n'
+                  '      repository_id: receipt?.source?.start?.repository_id ?? null,\n'
+                  '      repository_id_kind: receipt?.source?.start?.repository_id_kind ?? null,\n'
+                  '      portable: receipt?.source?.start?.portable ?? null,\n'
+                  '      head_sha: receipt?.source?.start?.head_sha ?? null,\n'
+                  '    },'
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if old == '  await cloneIsolated(cacheRepo, repo, root);':
+                  if count != 2:
+                      raise SystemExit(f'expected 2 clone call sites, found {count}')
+                  text = text.replace(old, new)
+              else:
+                  if count != 1:
+                      raise SystemExit(f'expected exactly one replacement target, found {count}: {old[:80]!r}')
+                  text = text.replace(old, new)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+          node --check benchmarks/run.mjs
+          git diff --check
+          git diff -- benchmarks/run.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add benchmarks/run.mjs
+          git commit -m 'fix(benchmark): preserve canonical donor origin'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
