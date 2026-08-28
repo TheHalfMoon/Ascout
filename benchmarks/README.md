@@ -109,7 +109,7 @@ At T074, the case definition pins a reconstruction procedure from exact upstream
 5. specify which reviewed changed executable lines the oracle must classify as executed, not executed, or not reliably mappable;
 6. specify that the independent oracle is frozen before Ascout is run on the same source state.
 
-The withheld regression-test patch is oracle provenance, not measured input. It MUST NOT be present in the measured checkout, `.ascout/`, selector arguments, environment variables, benchmark-visible filenames, or other data available to Ascout or the project-native selector.
+The withheld regression-test **change** is oracle provenance, not measured input. Its patch bytes, newly introduced test content, and oracle-only metadata MUST NOT be injected into the measured checkout, `.ascout/`, selector arguments, environment variables, or other data available to Ascout or the project-native selector. If the regression-test path already exists naturally in the pinned base state, that base-state file and path remain unchanged in the measured subject; only the historical test change is withheld. If the historical fix introduced a new regression-test path that is absent from base, that new path is absent from the measured subject.
 
 At T075, an oracle-only validation may temporarily reconstruct the historical regression test in a separate checkout to prove that the case corresponds to the historical behavior. That checkout is never the measured subject.
 
@@ -142,7 +142,7 @@ T075 replay must additionally prove:
 - the historical/derived regression oracle behaves as specified;
 - the project-native full suite and coverage path are executable under the recorded environment;
 - no required secret/private/live-service dependency was missed during metadata review;
-- the oracle is stable enough for the claim;
+- the oracle satisfies the repeated-observation protocol in section 13; a single valid observation cannot make a case benchmark-active;
 - and the measured reconstruction reproduces its recorded identity.
 
 ### Reject by default
@@ -367,7 +367,7 @@ The Ascout receipt, Ascout LCOV normalization, or Ascout changed-line intersecti
 
 ### Flake rejection
 
-An oracle must be stable enough to support its claim. If T075 finds that the targeted regression test, full suite, or independent coverage classification contradicts itself, the case is not benchmark-active. It is rejected or returned to case review/reclassification before T076. T076 measures Ascout flake behavior; the founding oracle itself cannot be an unresolved flake.
+An oracle must satisfy the repeated-observation protocol in section 13 before it can support a benchmark-active claim. A single valid observation remains observation-unknown for reproduction/determinism purposes. If T075 finds that the targeted regression test, full suite, or independent coverage classification contradicts itself across valid observations, the case is not benchmark-active. It is rejected or returned to case review/reclassification before T076. T076 measures Ascout flake behavior; the founding oracle itself cannot be an unresolved flake.
 
 ## 10. Isolation and trust handoff to T075
 
@@ -396,7 +396,7 @@ During a measured run, none of the following may be injected into the donor repo
 - expected test IDs;
 - expected selected-test sets;
 - expected exercise states/counts;
-- withheld regression-test content or paths for gap cases;
+- withheld regression-test patch/content, oracle-only regression-test path metadata, or a newly introduced regression-test path that is absent from the pinned base state;
 - expected exit codes;
 - benchmark labels such as `must_select` or `must_gap`;
 - or Ascout-specific config added only to force the expected result.
@@ -433,15 +433,72 @@ Failure at any gate leaves the case non-active. T076–T078 metrics use only `BE
 
 The manifest/case records must distinguish these lifecycle states. A case must be re-reviewed if any identity-bearing field, reconstruction recipe, license evidence, oracle specification/observation, or expected behavior changes.
 
-## 13. Metrics handoff
+## 13. Metrics and observation protocol handoff
 
-T076 computes and publishes, at minimum, over benchmark-active cases:
+T076 computes and publishes metrics only over `BENCHMARK_ACTIVE` cases and only from runs that satisfy the evidence/baseline protocol below. Missing required audit evidence makes the affected metric unavailable; it is never guessed.
+
+### 13.1 Selection-account evidence
+
+Every **affected-mode** benchmark run MUST expose the canonical SelectionAccount needed by SC-005. For each native-related or Ascout affected/narrowed run, T075/T076 records:
+
+- selector identity and selection mode;
+- whether execution remained narrowed or widened to full scope;
+- every widening decision/trigger that applies to that run;
+- selected and deselected counts when knowable;
+- explicit null/unknown counts plus a non-empty limitation when counts are not knowable;
+- the frozen oracle-test membership needed to audit whether required oracle tests were selected/executed;
+- and the exact case revision/source state to which the account belongs.
+
+A valid deselection remains selection accounting, never an implicit PASS. An affected-mode run that omits this SelectionAccount cannot contribute selection-recall or false-PASS results.
+
+### 13.2 Declared metric baselines
+
+SC-011 requires every published metric to name the baseline it is measured against. T076 therefore records a machine-readable baseline declaration before calculating or aggregating a metric. At minimum the declaration identifies the case revision/set, comparator, source state, environment/toolchain, and denominator/reference evidence.
+
+The founding baseline definitions are:
+
+- **selection reference:** the frozen T075 oracle-test set proven by the project-native full-suite replay on the same measured source state. Selection recall for a comparator is `oracle tests selected/executed / frozen oracle tests`; unknown membership/counts remain explicit rather than being guessed.
+- **false-PASS reference:** the same frozen oracle plus the case's independent completeness/gap truth. A false PASS is a comparator-level clean/success claim while the frozen oracle demonstrates a material required verification omission; the publication must state which comparator semantics produced the clean/success label.
+- **gap reference:** the independently interpreted project-native full-run coverage oracle frozen before Ascout execution. Gap accuracy compares Ascout's per-line exercise classification only against that oracle, never against Ascout-produced normalization/intersection.
+- **unresolved reference:** the reviewed material changed executable-line set for which the independent oracle establishes a comparison domain. The numerator and any excluded/unmappable oracle lines are published explicitly.
+- **timing reference:** the exact comparator command/mode on the same case revision plus OS, Node/package-manager/tool versions, process limits, dependency-install inclusion/exclusion, and cache class. `cold` and `warm` MUST declare which dependency/runner/Ascout caches are absent or retained. Values from different baseline declarations are not silently pooled.
+
+The selector comparators remain the canonical four where applicable: project-native full suite, plain project test command, runner-native related selector, and Ascout. T076 publishes raw per-case observations alongside any aggregate and declares the aggregation function; it may not change a baseline definition after seeing the result without creating a new benchmark revision.
+
+### 13.3 Repeated-observation, determinism, and flake protocol
+
+A determinism or stable-reproduction claim requires **at least two valid observations** under the same declared observation key. One valid observation is `unknown`, never deterministic/stable by itself, preserving SC-007 and FR-025.
+
+The observation key includes at minimum:
+
+- case/manifest revision;
+- reconstructed source + working-diff identity;
+- comparator command/mode and Ascout version when applicable;
+- relevant configuration/toolchain/OS identity;
+- and cache class (`cold` or `warm`) plus the declared cache state.
+
+Whole-run determinism compares semantic outcomes, not volatile metadata such as timestamps, run IDs, or measured duration. T076's deterministic projection includes at minimum selection mode/counts/limitations, widening decisions, task/result classification, material exercise classifications, and exit/completeness classification.
+
+Classification rules:
+
+- fewer than two valid observations for the same key -> `unknown`;
+- two or more valid observations with the same deterministic projection -> `deterministic` for that declared key/sample set;
+- contradictory valid deterministic projections -> `nondeterministic`, with all raw observations retained;
+- contradictory valid pass/fail observations for an exact failing test -> `FLAKY`, with reproduction false and raw `{runs, failures}` retained;
+- fewer than two valid failing-test observations, or an invalid/error rerun before a second valid observation -> `reproduced=unknown`;
+- repeated valid consistent failing-test observations may establish `reproduced=true` under the existing bounded rerun contract (initial observation plus at most two additional targeted observations).
+
+The benchmark never retries until it gets the preferred result. Invalid observations are reported with their reason and do not become valid samples. Oracle contradiction prevents `BENCHMARK_ACTIVE`; comparator nondeterminism remains publishable benchmark evidence rather than being averaged away. Cold and warm observations are separate keys and cannot establish determinism for each other.
+
+### 13.4 Required metrics
+
+With the audit evidence and declared baselines above, T076 computes and publishes, at minimum:
 
 - selection recall;
 - false-PASS rate/count;
 - gap classification accuracy;
 - unresolved rate;
-- cold and warm time under explicitly recorded cache conditions;
+- cold and warm time;
 - drift detection;
 - determinism;
 - and flake classification behavior.
