@@ -76,6 +76,7 @@ describe("T075 structured runner membership evidence", () => {
           {
             title: ".multipleOf() with scientific notation (multi-digit exponents)",
             fullName: "number .multipleOf() with scientific notation (multi-digit exponents)",
+            ancestorTitles: ["number"],
             status: "passed",
           },
           {
@@ -116,6 +117,26 @@ describe("T075 structured runner membership evidence", () => {
         ["packages/zod/src/v4/classic/tests/number.test.ts"],
       ),
     ).toBe(true);
+  });
+
+  it("accepts exact canonical suite ancestry", () => {
+    expect(
+      proveRunnerMembership(
+        report,
+        ["number > .multipleOf() with scientific notation (multi-digit exponents)"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+      ),
+    ).toBe(true);
+  });
+
+  it("does not fuzzy-match canonical suite ancestry", () => {
+    expect(
+      proveRunnerMembership(
+        report,
+        ["number > scientific notation (multi-digit exponents)"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+      ),
+    ).toBe(false);
   });
 
   it("does not treat skipped or substring titles as execution", () => {

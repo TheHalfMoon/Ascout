@@ -299,6 +299,15 @@ export function proveRunnerMembership(report, regressionTestIds, regressionTestP
       for (const field of [assertion.title, assertion.fullName]) {
         if (typeof field === "string" && field.trim().length > 0) executedNames.add(field.trim());
       }
+      if (Array.isArray(assertion.ancestorTitles) && typeof assertion.title === "string") {
+        const ancestors = assertion.ancestorTitles.map((value) =>
+          typeof value === "string" ? value.trim() : null,
+        );
+        const title = assertion.title.trim();
+        if (ancestors.length > 0 && ancestors.every((value) => value !== null && value.length > 0) && title.length > 0) {
+          executedNames.add([...ancestors, title].join(" > "));
+        }
+      }
     }
   }
   if (!matchedReviewedFile) fail("oracle_membership", "runner membership report contains no reviewed regression-test path");
