@@ -1106,6 +1106,7 @@
           "historical_basis": "Upstream fix commit 3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf / PR #5687 changes floatSafeRemainder exponent parsing and adds a regression test whose commit message explicitly states it fails before the regex fix for 1e-10 and 1e-15 multiples.",
           "ground_truth_procedure": [
             "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob e95f7b9d5ceb484d72770f648bf6f2d8179cc6ea: targeted regression-file command = `pnpm test -- packages/zod/src/v4/classic/tests/number.test.ts`; project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm exec vitest related packages/zod/src/v4/core/util.ts --run`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1120,7 +1121,7 @@
           "https://github.com/colinhacks/zod/commit/3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf",
           "https://github.com/colinhacks/zod/pull/5687"
         ],
-        "review_notes": "Reviewed as a deterministic arithmetic selection case: one production file and one Vitest regression-test file changed; metadata audit found stable lock/license bytes and no external-service requirement in the test patch."
+        "review_notes": "Reviewed as a deterministic arithmetic selection case: one production file and one Vitest regression-test file changed; metadata audit found stable lock/license bytes and no external-service requirement in the test patch. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075."
       },
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
@@ -1261,6 +1262,7 @@
           "historical_basis": "Upstream fix commit b9b62c65357c2b0fed4ae046a30c8e84e4094202 / PR #5864 closes #4461 and #5414, adds a dedicated isolated Vitest regression file, and changes allowsEval to skip new Function when globalConfig.jitless is true.",
           "ground_truth_procedure": [
             "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob fed9766ac0ac65bc51ab7f0aa733e9d54832e698: targeted regression-file command = `pnpm test -- packages/zod/src/v4/classic/tests/jitless-allows-eval.test.ts`; project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm exec vitest related packages/zod/src/v4/core/util.ts --run`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1277,7 +1279,7 @@
           "https://github.com/colinhacks/zod/issues/4461",
           "https://github.com/colinhacks/zod/issues/5414"
         ],
-        "review_notes": "Reviewed as a CSP/JIT configuration selection case. The regression test is newly introduced in the fix tree, so the derived baseline deliberately preserves that exact test while reverting only the production path before T075."
+        "review_notes": "Reviewed as a CSP/JIT configuration selection case. The regression test is newly introduced in the fix tree, so the derived baseline deliberately preserves that exact test while reverting only the production path before T075. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075."
       },
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
@@ -1417,6 +1419,7 @@
           "historical_basis": "Upstream fix commit d576092e2ece4ca3936add3eb0da5234c1d82ed4 / PR #9970 changes streamedQuery so the reducer is invoked once per chunk and adds a regression test asserting the exact call sequence for replace refetch mode.",
           "ground_truth_procedure": [
             "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact root package.json blob 431461d6ca5fd4a206819b8b105ee56503cfd53d and packages/query-core/package.json blob 272a6320c4ba790333e37cfb8d82fb6632ac9f33: targeted regression-file command = `pnpm --filter @tanstack/query-core test:lib --run src/__tests__/streamedQuery.test.tsx`; project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm --filter @tanstack/query-core exec vitest related src/streamedQuery.ts --run`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1432,7 +1435,7 @@
           "https://github.com/TanStack/query/pull/9970",
           "https://github.com/TanStack/query/issues/9787"
         ],
-        "review_notes": "Reviewed as an async streaming/reducer selection case. The historical changeset file remains naturally present in the derived baseline so the measured baseline-to-fix diff is restricted to the production path."
+        "review_notes": "Reviewed as an async streaming/reducer selection case. The historical changeset file remains naturally present in the derived baseline so the measured baseline-to-fix diff is restricted to the production path. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075."
       },
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
@@ -1570,6 +1573,7 @@
           "historical_basis": "Upstream fix commit 6213fc11bdf096301a82ae5c236b5a666a4ee3ca / PR #3391 replaces the stale stateFromStorage callback value with get() and adds an async regression test that mutates state during hydration and asserts the callback receives the latest state.",
           "ground_truth_procedure": [
             "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob 8a181ce0618eebf23fc3d55f7a1c91cc0eb7c16c: targeted regression-file command = `pnpm test:spec -- tests/persistAsync.test.tsx`; project-native full-suite/reference command = `pnpm test:spec`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm exec vitest related src/middleware/persist.ts --run`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1584,7 +1588,7 @@
           "https://github.com/pmndrs/zustand/commit/6213fc11bdf096301a82ae5c236b5a666a4ee3ca",
           "https://github.com/pmndrs/zustand/pull/3391"
         ],
-        "review_notes": "Reviewed as an asynchronous state-hydration selection case with a single production path and a single Vitest regression path; no live service or credential is part of the test patch."
+        "review_notes": "Reviewed as an asynchronous state-hydration selection case with a single production path and a single Vitest regression path; no live service or credential is part of the test patch. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075."
       },
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
@@ -1724,6 +1728,7 @@
           "historical_basis": "Upstream fix commit d7118f40a50aa7783481e9a9b77a703302b94814 / PR #13646 excludes Date objects from numeric min/max validation and adds a regression test covering both min and max errors when form values are already Date instances.",
           "ground_truth_procedure": [
             "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob d3a4fcb72ccbe1178cd19a7eefeeadeab2ad3543: targeted regression-file command = `pnpm exec jest --config ./scripts/jest/jest.config.js src/__tests__/logic/validateField.test.tsx`; project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm exec jest --config ./scripts/jest/jest.config.js --findRelatedTests src/logic/validateField.ts`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1738,7 +1743,7 @@
           "https://github.com/react-hook-form/react-hook-form/commit/d7118f40a50aa7783481e9a9b77a703302b94814",
           "https://github.com/react-hook-form/react-hook-form/pull/13646"
         ],
-        "review_notes": "Reviewed as a Jest date-validation selection case. Exact pnpm provenance comes from the donor CI composite action because package.json does not declare packageManager at this commit."
+        "review_notes": "Reviewed as a Jest date-validation selection case. Exact pnpm provenance comes from the donor CI composite action because package.json does not declare packageManager at this commit. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075."
       },
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
@@ -1878,6 +1883,7 @@
           "historical_basis": "Upstream fix commit 2b8a4f826d3b22829343cebd9b23e163dfeecd09 / PR #7286 changes resolveResponse streaming onError to unwrap cause.error, adds a dedicated regression test preserving message/cause, and updates existing streaming snapshots that previously encoded the buggy empty message.",
           "ground_truth_procedure": [
             "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob 9bc25c538d2bf378c697e6198d68de0fe277230a: targeted regression-file command = `pnpm exec vitest run packages/tests/server/errors.test.ts`; project-native full-suite/reference command = `pnpm exec vitest run`; plain-project non-watch comparator = `pnpm test -- --run`; runner-native related selector = `pnpm exec vitest related packages/server/src/unstable-core-do-not-import/http/resolveResponse.ts --run`. The donor `test` script is `vitest` (watch-capable), so a completed benchmark run must use the recorded non-watch form. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1892,7 +1898,7 @@
           "https://github.com/trpc/trpc/commit/2b8a4f826d3b22829343cebd9b23e163dfeecd09",
           "https://github.com/trpc/trpc/pull/7286"
         ],
-        "review_notes": "Reviewed as a Vitest streaming-error propagation selection case. Both historically modified regression-test files are preserved in the derived baseline while only the production path is reverted for the pre-fix reconstruction."
+        "review_notes": "Reviewed as a Vitest streaming-error propagation selection case. Both historically modified regression-test files are preserved in the derived baseline while only the production path is reverted for the pre-fix reconstruction. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075."
       },
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
