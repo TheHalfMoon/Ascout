@@ -3,6 +3,30 @@ import { isAbsolute, normalize, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const PROTECTED_ENV_NAMES = new Set([
+  "PATH",
+  "HOME",
+  "TMPDIR",
+  "TMP",
+  "TEMP",
+  "CI",
+  "NO_COLOR",
+  "FORCE_COLOR",
+  "GIT_TERMINAL_PROMPT",
+  "GIT_CONFIG_GLOBAL",
+  "GIT_CONFIG_SYSTEM",
+  "NPM_CONFIG_AUDIT",
+  "NPM_CONFIG_FUND",
+  "NPM_CONFIG_UPDATE_NOTIFIER",
+  "XDG_CACHE_HOME",
+  "NPM_CONFIG_CACHE",
+  "COREPACK_HOME",
+  "NX_SOCKET_DIR",
+  "NODE_OPTIONS",
+  "ASCOUT_MEMBERSHIP_KIND",
+  "ASCOUT_MEMBERSHIP_OUTPUT",
+  "ASCOUT_MEMBERSHIP_INSTRUMENTED",
+]);
 const FORBIDDEN_METACHARS = new Set(["|", "&", ";", "<", ">", "`", "$", "(", ")", "\n", "\r", "\0"]);
 const MEMBERSHIP_PROXY = fileURLToPath(new URL("./membership-proxy.mjs", import.meta.url));
 const SELECTION_COMMAND_PATTERNS = {
@@ -237,6 +261,9 @@ export function sanitizedDonorEnvironment({ pathValue, home, temp, commandEnv = 
     if (!ENV_NAME.test(name) || typeof value !== "string" || value.includes("\0")) {
       fail("invalid_environment", `invalid command environment entry: ${name}`);
     }
+    if (PROTECTED_ENV_NAMES.has(name.toUpperCase())) {
+      fail("invalid_environment", `reviewed command must not override protected isolation environment: ${name}`);
+    }
   }
   return {
     PATH: pathValue,
@@ -384,7 +411,7 @@ export function proveRunnerMembership(report, regressionTestIds, regressionTestP
       }
     }
   }
-  if (!matchedReviewedFile) fail("oracle_membership", "runner membership report contains no reviewed regression-test path");
+  if (!matchedReviewedFile) return false;
   return regressionTestIds.every((id) => executedNames.has(id.trim()));
 }
 
@@ -425,6 +452,16 @@ export function proveReviewedAssertionStatus(report, regressionTestIds, regressi
   return [...expectedIds.values()].every(
     (statuses) => statuses.size === 1 && statuses.has(expectedStatus),
   );
+}
+
+export function enforceMembershipPolicy(policy, membership, label = "comparator") {
+  if (policy !== "none" && policy !== "required" && policy !== "observed") {
+    fail("invalid_case", `unsupported membership policy: ${String(policy)}`);
+  }
+  if (policy === "none") return null;
+  if (typeof membership !== "boolean") fail("oracle_membership", `${label} membership observation is unavailable`);
+  if (policy === "required" && !membership) fail("oracle_membership", `${label} did not prove oracle membership`);
+  return membership;
 }
 
 export function classifyLcov(lcovText, reviewedLines) {
