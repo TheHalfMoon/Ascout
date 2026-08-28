@@ -1,0 +1,84 @@
+name: T073 exact-head qualification f553b76c
+
+on:
+  push:
+    branches:
+      - qualification/t073-exact-head-f553b76c
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout qualification helper
+        uses: actions/checkout@v4
+        with:
+          ref: qualification/t073-exact-head-f553b76c
+          path: helper
+          fetch-depth: 1
+
+      - name: Checkout exact product head
+        uses: actions/checkout@v4
+        with:
+          ref: f553b76c7ed43c1c9506bbcd169ea71d20f7d7b0
+          path: product
+          fetch-depth: 0
+
+      - name: Opening exact-head ancestry scope and cleanliness guards
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='f553b76c7ed43c1c9506bbcd169ea71d20f7d7b0'
+          B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          test -z "$(git status --porcelain)"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t4'
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          git diff --check origin/main...HEAD
+
+      - name: Exact schema donor synthetic ancillary and command qualification
+        working-directory: product
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --quiet 'jsonschema[format]==4.23.0'
+          python3 ../helper/.github/scripts/t073_exact_qualify.py
+          echo AUDIT_MODE=GIT_OBJECT_METADATA_ONLY
+          echo DONOR_CHECKOUT=NO
+          echo DONOR_DEPENDENCY_INSTALL=NO
+          echo DONOR_SCRIPT_EXECUTION=NO
+          echo DONOR_TEST_EXECUTION=NO
+
+      - name: Verify Ascout typecheck build and full suite
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+
+      - name: Closing exact-head and clean-tree guards
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='f553b76c7ed43c1c9506bbcd169ea71d20f7d7b0'
+          B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          test -z "$(git status --porcelain)"
