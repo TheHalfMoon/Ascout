@@ -1,0 +1,237 @@
+name: T071 Qodo repair 2f0cf933
+
+on:
+  push:
+    branches:
+      - repair/t071-qodo-review-2f0cf933
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact reviewed T071 head
+        uses: actions/checkout@v4
+        with:
+          ref: 2f0cf9336e99fb5221be0ce403346a7ff5e4d223
+          fetch-depth: 0
+
+      - name: Opening exact-head and branch guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          test -z "$(git status --short)"
+          test "$(git merge-base 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca HEAD)" = "5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca"
+          remote_head="$(git ls-remote origin refs/heads/docs/071-benchmark-corpus-policy | awk '{print $1}')"
+          test "$remote_head" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          test "$(git diff --name-only 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca...HEAD | tr '\n' ' ')" = "benchmarks/README.md "
+
+      - name: Apply all four Qodo review repairs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("benchmarks/README.md")
+          text = path.read_text()
+
+          replacements = [
+              (
+                  "The withheld regression-test patch is oracle provenance, not measured input. It MUST NOT be present in the measured checkout, `.ascout/`, selector arguments, environment variables, benchmark-visible filenames, or other data available to Ascout or the project-native selector.",
+                  "The withheld regression-test **change** is oracle provenance, not measured input. Its patch bytes, newly introduced test content, and oracle-only metadata MUST NOT be injected into the measured checkout, `.ascout/`, selector arguments, environment variables, or other data available to Ascout or the project-native selector. If the regression-test path already exists naturally in the pinned base state, that base-state file and path remain unchanged in the measured subject; only the historical test change is withheld. If the historical fix introduced a new regression-test path that is absent from base, that new path is absent from the measured subject."
+              ),
+              (
+                  "- withheld regression-test content or paths for gap cases;",
+                  "- withheld regression-test patch/content, oracle-only regression-test path metadata, or a newly introduced regression-test path that is absent from the pinned base state;"
+              ),
+              (
+                  "- the oracle is stable enough for the claim;",
+                  "- the oracle satisfies the repeated-observation protocol in section 13; a single valid observation cannot make a case benchmark-active;"
+              ),
+              (
+                  "An oracle must be stable enough to support its claim. If T075 finds that the targeted regression test, full suite, or independent coverage classification contradicts itself, the case is not benchmark-active. It is rejected or returned to case review/reclassification before T076. T076 measures Ascout flake behavior; the founding oracle itself cannot be an unresolved flake.",
+                  "An oracle must satisfy the repeated-observation protocol in section 13 before it can support a benchmark-active claim. A single valid observation remains observation-unknown for reproduction/determinism purposes. If T075 finds that the targeted regression test, full suite, or independent coverage classification contradicts itself across valid observations, the case is not benchmark-active. It is rejected or returned to case review/reclassification before T076. T076 measures Ascout flake behavior; the founding oracle itself cannot be an unresolved flake."
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"expected exactly one replacement anchor, found {count}: {old[:80]!r}")
+              text = text.replace(old, new)
+
+          start = text.index("## 13. Metrics handoff")
+          end = text.index("## 14. Rejection and maintenance")
+          new_section = '''## 13. Metrics and observation protocol handoff
+
+T076 computes and publishes metrics only over `BENCHMARK_ACTIVE` cases and only from runs that satisfy the evidence/baseline protocol below. Missing required audit evidence makes the affected metric unavailable; it is never guessed.
+
+### 13.1 Selection-account evidence
+
+Every **affected-mode** benchmark run MUST expose the canonical SelectionAccount needed by SC-005. For each native-related or Ascout affected/narrowed run, T075/T076 records:
+
+- selector identity and selection mode;
+- whether execution remained narrowed or widened to full scope;
+- every widening decision/trigger that applies to that run;
+- selected and deselected counts when knowable;
+- explicit null/unknown counts plus a non-empty limitation when counts are not knowable;
+- the frozen oracle-test membership needed to audit whether required oracle tests were selected/executed;
+- and the exact case revision/source state to which the account belongs.
+
+A valid deselection remains selection accounting, never an implicit PASS. An affected-mode run that omits this SelectionAccount cannot contribute selection-recall or false-PASS results.
+
+### 13.2 Declared metric baselines
+
+SC-011 requires every published metric to name the baseline it is measured against. T076 therefore records a machine-readable baseline declaration before calculating or aggregating a metric. At minimum the declaration identifies the case revision/set, comparator, source state, environment/toolchain, and denominator/reference evidence.
+
+The founding baseline definitions are:
+
+- **selection reference:** the frozen T075 oracle-test set proven by the project-native full-suite replay on the same measured source state. Selection recall for a comparator is `oracle tests selected/executed / frozen oracle tests`; unknown membership/counts remain explicit rather than being guessed.
+- **false-PASS reference:** the same frozen oracle plus the case's independent completeness/gap truth. A false PASS is a comparator-level clean/success claim while the frozen oracle demonstrates a material required verification omission; the publication must state which comparator semantics produced the clean/success label.
+- **gap reference:** the independently interpreted project-native full-run coverage oracle frozen before Ascout execution. Gap accuracy compares Ascout's per-line exercise classification only against that oracle, never against Ascout-produced normalization/intersection.
+- **unresolved reference:** the reviewed material changed executable-line set for which the independent oracle establishes a comparison domain. The numerator and any excluded/unmappable oracle lines are published explicitly.
+- **timing reference:** the exact comparator command/mode on the same case revision plus OS, Node/package-manager/tool versions, process limits, dependency-install inclusion/exclusion, and cache class. `cold` and `warm` MUST declare which dependency/runner/Ascout caches are absent or retained. Values from different baseline declarations are not silently pooled.
+
+The selector comparators remain the canonical four where applicable: project-native full suite, plain project test command, runner-native related selector, and Ascout. T076 publishes raw per-case observations alongside any aggregate and declares the aggregation function; it may not change a baseline definition after seeing the result without creating a new benchmark revision.
+
+### 13.3 Repeated-observation, determinism, and flake protocol
+
+A determinism or stable-reproduction claim requires **at least two valid observations** under the same declared observation key. One valid observation is `unknown`, never deterministic/stable by itself, preserving SC-007 and FR-025.
+
+The observation key includes at minimum:
+
+- case/manifest revision;
+- reconstructed source + working-diff identity;
+- comparator command/mode and Ascout version when applicable;
+- relevant configuration/toolchain/OS identity;
+- and cache class (`cold` or `warm`) plus the declared cache state.
+
+Whole-run determinism compares semantic outcomes, not volatile metadata such as timestamps, run IDs, or measured duration. T076's deterministic projection includes at minimum selection mode/counts/limitations, widening decisions, task/result classification, material exercise classifications, and exit/completeness classification.
+
+Classification rules:
+
+- fewer than two valid observations for the same key -> `unknown`;
+- two or more valid observations with the same deterministic projection -> `deterministic` for that declared key/sample set;
+- contradictory valid deterministic projections -> `nondeterministic`, with all raw observations retained;
+- contradictory valid pass/fail observations for an exact failing test -> `FLAKY`, with reproduction false and raw `{runs, failures}` retained;
+- fewer than two valid failing-test observations, or an invalid/error rerun before a second valid observation -> `reproduced=unknown`;
+- repeated valid consistent failing-test observations may establish `reproduced=true` under the existing bounded rerun contract (initial observation plus at most two additional targeted observations).
+
+The benchmark never retries until it gets the preferred result. Invalid observations are reported with their reason and do not become valid samples. Oracle contradiction prevents `BENCHMARK_ACTIVE`; comparator nondeterminism remains publishable benchmark evidence rather than being averaged away. Cold and warm observations are separate keys and cannot establish determinism for each other.
+
+### 13.4 Required metrics
+
+With the audit evidence and declared baselines above, T076 computes and publishes, at minimum:
+
+- selection recall;
+- false-PASS rate/count;
+- gap classification accuracy;
+- unresolved rate;
+- cold and warm time;
+- drift detection;
+- determinism;
+- and flake classification behavior.
+
+T077 asserts absolute integrity conditions:
+
+```text
+cross-tree evidence leakage = 0
+binding-integrity violations = 0
+stable material exercise gap returning exit 0 = 0
+```
+
+A stable run with remaining material `NOT_EXERCISED` or `UNRESOLVED` changed executable lines must map to exit `4` unless a higher-precedence condition applies.
+
+T078 publishes every selector miss. The founding benchmark does not invent a pre-data 98% or similar threshold.
+
+'''
+          text = text[:start] + new_section + text[end:]
+          path.write_text(text)
+          PY
+
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/README.md "
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: Repaired T071 policy contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path("benchmarks/README.md").read_text()
+          required = [
+              "base-state file and path remain unchanged",
+              "only the historical test change is withheld",
+              "SelectionAccount needed by SC-005",
+              "selected and deselected counts when knowable",
+              "explicit null/unknown counts plus a non-empty limitation",
+              "SC-011 requires every published metric to name the baseline",
+              "selection reference:",
+              "false-PASS reference:",
+              "gap reference:",
+              "unresolved reference:",
+              "timing reference:",
+              "at least two valid observations",
+              "One valid observation is `unknown`",
+              "`nondeterministic`",
+              "`FLAKY`",
+              "reproduced=unknown",
+              "cross-tree evidence leakage = 0",
+              "binding-integrity violations = 0",
+              "stable material exercise gap returning exit 0 = 0",
+          ]
+          missing = [needle for needle in required if needle not in text]
+          if missing:
+              raise SystemExit(f"missing repaired T071 contract text: {missing}")
+
+          forbidden = [
+              "withheld regression-test content or paths for gap cases",
+              "The withheld regression-test patch is oracle provenance, not measured input. It MUST NOT be present in the measured checkout",
+              "## 13. Metrics handoff",
+          ]
+          present = [needle for needle in forbidden if needle in text]
+          if present:
+              raise SystemExit(f"stale T071 text remains: {present}")
+          PY
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Closing repair scope guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/README.md "
+          test -z "$(git ls-files --others --exclude-standard)"
+          remote_head="$(git ls-remote origin refs/heads/docs/071-benchmark-corpus-policy | awk '{print $1}')"
+          test "$remote_head" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+
+      - name: Commit and push repaired product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add benchmarks/README.md
+          git commit -m "docs(benchmark): repair T071 review findings"
+          new_head="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          git push origin HEAD:refs/heads/docs/071-benchmark-corpus-policy
+          echo "REPAIRED_HEAD=$new_head"
