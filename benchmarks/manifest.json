@@ -49,7 +49,9 @@
     ],
     "case_revision_is_positive_integer": true,
     "observed_oracle_before_t075": false,
-    "benchmark_active_requires_t075": true
+    "benchmark_active_requires_t075": true,
+    "lifecycle_status_binding_required": true,
+    "license_clearance_required_from_state": "LICENSE_CLEARED"
   },
   "case_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -688,6 +690,133 @@
                 "observation": {
                   "type": "object",
                   "properties": {
+                    "valid_observation_count": {
+                      "type": "integer",
+                      "minimum": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "enum": [
+                "LICENSE_CLEARED",
+                "RECONSTRUCTION_SPECIFIED",
+                "ORACLE_SPECIFIED",
+                "CASE_REVIEWED",
+                "RECONSTRUCTION_REPLAYED",
+                "ORACLE_VERIFIED",
+                "BENCHMARK_ACTIVE"
+              ]
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "licensing": {
+              "properties": {
+                "file_level_review": {
+                  "properties": {
+                    "status": {
+                      "const": "CLEAR"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "const": "RECONSTRUCTION_REPLAYED"
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "observation": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "RECONSTRUCTION_REPLAYED"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "const": "ORACLE_VERIFIED"
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "observation": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "ORACLE_VERIFIED"
+                    },
+                    "valid_observation_count": {
+                      "type": "integer",
+                      "minimum": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "const": "BENCHMARK_ACTIVE"
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "observation": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "BENCHMARK_ACTIVE"
+                    },
                     "valid_observation_count": {
                       "type": "integer",
                       "minimum": 2
