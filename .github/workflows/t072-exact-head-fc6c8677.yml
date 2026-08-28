@@ -1,0 +1,173 @@
+name: T072 exact-head qualification fc6c8677
+
+on:
+  push:
+    branches:
+      - qualification/t072-exact-head-fc6c8677
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T072 feature head
+        uses: actions/checkout@v4
+        with:
+          ref: fc6c867714412bacf65b6300ffee0e47b180c362
+          fetch-depth: 0
+
+      - name: Opening exact-head clean-tree merge-base scope guard
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "fc6c867714412bacf65b6300ffee0e47b180c362"
+          test -z "$(git status --short)"
+          test "$(git merge-base d4a9694f722acb9657c92b90f0d1832a295e3a3e HEAD)" = "d4a9694f722acb9657c92b90f0d1832a295e3a3e"
+          test "$(git diff --name-only d4a9694f722acb9657c92b90f0d1832a295e3a3e...HEAD | tr '\n' ' ')" = "benchmarks/manifest.json "
+          git diff --check d4a9694f722acb9657c92b90f0d1832a295e3a3e...HEAD
+
+      - name: T072 manifest contract
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          d = json.loads(Path('benchmarks/manifest.json').read_text())
+          assert d['schema_version'] == 1
+          assert d['manifest_id'] == 'ascout-founding-benchmark-v1'
+          assert d['manifest_revision'] == 1
+          assert d['cases'] == [], 'T072 must define contract only; T073/T074 add cases'
+
+          p = d['policy']
+          assert p['manifest_task'] == 'T072'
+          assert p['case_definition_tasks'] == ['T073', 'T074']
+          assert p['first_executable_task'] == 'T075'
+          assert p['donor_execution_before_t075'] is False
+          assert p['read_only_git_object_inspection_before_t075'] is True
+          assert p['spdx_expression_validation']['canonical_spdx_expression_required'] is True
+          assert p['spdx_expression_validation']['license_list_required'] is True
+
+          c = d['corpus_contract']
+          assert c['selection'] == {'minimum_cases': 5, 'maximum_cases': 6}
+          assert c['gap'] == {'minimum_cases': 3, 'maximum_cases': 4}
+          assert c['metrics_case_state'] == 'BENCHMARK_ACTIVE'
+          assert c['no_pre_data_recall_threshold'] is True
+
+          g = d['integrity_gates']
+          assert g['cross_tree_evidence_leakage_max'] == 0
+          assert g['binding_integrity_violations_max'] == 0
+          assert g['stable_material_exercise_gap_exit_zero_max'] == 0
+          assert g['stable_material_exercise_gap_expected_exit'] == 4
+
+          cc = d['case_collection_contract']
+          assert cc['items_schema_ref'] == '#/case_schema'
+          assert cc['unique_key'] == ['case_id', 'case_revision']
+          assert cc['case_revision_is_positive_integer'] is True
+          assert cc['observed_oracle_before_t075'] is False
+          assert cc['benchmark_active_requires_t075'] is True
+
+          s = d['case_schema']
+          required = set(s['required'])
+          expected = {
+              'case_id','case_revision','case_class','lifecycle_state','upstream','git','paths',
+              'reconstruction','runtime','licensing','oracle','provenance','limitations'
+          }
+          assert expected <= required
+          assert s['properties']['case_class']['enum'] == ['selection', 'gap']
+          assert 'BENCHMARK_ACTIVE' in s['properties']['lifecycle_state']['enum']
+
+          runtime_required = set(s['properties']['runtime']['required'])
+          assert {'package_manager_version','package_manager_version_provenance','node_version','node_constraint_provenance','lockfile','immutable_harness_artifact'} <= runtime_required
+
+          git_required = set(s['properties']['git']['required'])
+          assert {'base','fix','oracle','relationship'} <= git_required
+          revision_required = set(s['$defs']['git_revision']['required'])
+          assert {'commit_id','tree_id','required_parent_ids'} <= revision_required
+
+          licensing_required = set(s['properties']['licensing']['required'])
+          assert {'base','fix','oracle','file_level_review'} <= licensing_required
+          license_required = set(s['$defs']['license_review']['required'])
+          assert {'spdx_expression','evidence','review_note'} <= license_required
+
+          oracle = s['properties']['oracle']
+          assert oracle['required'] == ['specification', 'observation']
+          spec_required = set(oracle['properties']['specification']['required'])
+          assert {'regression_test_ids','historical_basis','ground_truth_procedure','independence_statement'} <= spec_required
+          assert any(x.get('type') == 'null' for x in oracle['properties']['observation']['oneOf'])
+
+          serialized = json.dumps(s['allOf'])
+          for token in ['CASE_REVIEWED','RECONSTRUCTION_REPLAYED','ORACLE_VERIFIED','BENCHMARK_ACTIVE','gap_changed_executable_lines','valid_observation_count']:
+              assert token in serialized
+          PY
+
+      - name: JSON-Schema reference and regex sanity
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          const schema = manifest.case_schema;
+          const defs = schema.$defs;
+          const refs = [];
+          const patterns = [];
+          function walk(value) {
+            if (Array.isArray(value)) return value.forEach(walk);
+            if (!value || typeof value !== 'object') return;
+            if (typeof value.$ref === 'string') refs.push(value.$ref);
+            if (typeof value.pattern === 'string') patterns.push(value.pattern);
+            Object.values(value).forEach(walk);
+          }
+          walk(schema);
+          for (const ref of refs) {
+            if (!ref.startsWith('#/$defs/')) throw new Error(`external/unexpected ref: ${ref}`);
+            const name = ref.slice('#/$defs/'.length);
+            if (!(name in defs)) throw new Error(`missing definition: ${ref}`);
+          }
+          for (const pattern of patterns) new RegExp(pattern);
+
+          const path = new RegExp(defs.repository_path.pattern);
+          for (const good of ['src/file.ts', 'tests/foo.test.ts', 'package-lock.json']) {
+            if (!path.test(good)) throw new Error(`valid path rejected: ${good}`);
+          }
+          for (const bad of ['/abs.ts','C:/abs.ts','C:\\abs.ts','https://x/y','src\\file.ts','src//file.ts','src/','.','..','a/../b','a/./b']) {
+            if (path.test(bad)) throw new Error(`invalid path accepted: ${bad}`);
+          }
+
+          const gitId = new RegExp(defs.git_object_id.pattern);
+          if (!gitId.test('a'.repeat(40)) || !gitId.test('b'.repeat(64))) throw new Error('full Git object IDs rejected');
+          if (gitId.test('abc123') || gitId.test('A'.repeat(40))) throw new Error('noncanonical Git object ID accepted');
+
+          const sha = new RegExp(defs.sha256.pattern);
+          if (!sha.test('c'.repeat(64)) || sha.test('c'.repeat(63))) throw new Error('SHA-256 contract invalid');
+
+          const upstream = new RegExp(schema.properties.upstream.properties.canonical_url.pattern);
+          if (!upstream.test('https://github.com/example/project.git')) throw new Error('canonical upstream rejected');
+          for (const bad of ['https://user@github.com/example/project.git','https://github.com/example/project.git?token=x','https://github.com/example/project.git#frag']) {
+            if (upstream.test(bad)) throw new Error(`credential/noncanonical upstream accepted: ${bad}`);
+          }
+
+          const pm = new RegExp(schema.properties.runtime.properties.package_manager_version.pattern);
+          if (!pm.test('10.9.3') || pm.test('latest') || pm.test('10')) throw new Error('package-manager exact version contract invalid');
+          const node = new RegExp(schema.properties.runtime.properties.node_version.pattern);
+          if (!node.test('22.19.0') || !node.test('v22.19.0') || node.test('>=22')) throw new Error('Node exact version contract invalid');
+          NODE
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Closing exact-head and clean-tree guard
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "fc6c867714412bacf65b6300ffee0e47b180c362"
+          test -z "$(git status --short)"
