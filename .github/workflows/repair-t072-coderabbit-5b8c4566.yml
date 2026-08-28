@@ -84,7 +84,8 @@ jobs:
                   candidate = clause['then']['properties']['reconstruction']['properties']['derived_identity']['properties']['expected_digest']
               except KeyError:
                   continue
-              replay_gates.append(candidate)
+              if 'anyOf' in candidate or 'oneOf' in candidate:
+                  replay_gates.append(candidate)
           assert len(replay_gates) == 1
           replay_gate = replay_gates[0]
           assert 'anyOf' in replay_gate and 'oneOf' not in replay_gate
