@@ -1,0 +1,139 @@
+name: T075 remaining corpus failure diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-failures-03754ab8
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case_id: tanstack-streamed-query-reducer
+            node: 24.8.0
+            pm: pnpm
+            pm_version: 10.24.0
+          - case_id: zustand-persist-latest-state
+            node: 24.15.0
+            pm: pnpm
+            pm_version: 10.18.3
+          - case_id: react-hook-form-value-as-date
+            node: 22.22.2
+            pm: pnpm
+            pm_version: 11.7.0
+          - case_id: trpc-streaming-onerror-cause
+            node: 24.15.0
+            pm: pnpm
+            pm_version: 9.12.2
+          - case_id: braintree-venmo-csp-nonce-web-login
+            node: 20.19.0
+            pm: npm
+            pm_version: 10.8.2
+          - case_id: react-hook-form-valueasdate-minmax
+            node: 22.23.2
+            pm: pnpm
+            pm_version: 11.7.0
+          - case_id: immer-prototype-undefined
+            node: 24.0.0
+            pm: yarn
+            pm_version: 1.22.22
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    name: diagnose / ${{ matrix.case_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 03754ab80bcb85bd57885c008451c4662af091d6
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Build controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '03754ab80bcb85bd57885c008451c4662af091d6'
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Provision exact donor package manager and diagnose
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+          PM: ${{ matrix.pm }}
+          PM_VERSION: ${{ matrix.pm_version }}
+        run: |
+          set -euo pipefail
+          if [ "$PM" = pnpm ]; then
+            npm install --global "pnpm@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = yarn ]; then
+            npm install --global "yarn@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = npm ]; then
+            test "$(npm --version)" = "$PM_VERSION"
+          else
+            exit 2
+          fi
+          test "$(node --version)" = 'v${{ matrix.node }}'
+          test "$($PM --version)" = "$PM_VERSION"
+          set +e
+          node benchmarks/run.mjs \
+            --case "$CASE_ID" \
+            --run-id "diagnostic:${GITHUB_RUN_ID}:${CASE_ID}" \
+            --repetitions 2 \
+            --keep-temp \
+            > "$RUNNER_TEMP/${CASE_ID}.stdout" \
+            2> "$RUNNER_TEMP/${CASE_ID}.stderr"
+          code=$?
+          set -e
+          echo "HARNESS_EXIT=$code"
+          echo "HARNESS_STDERR_BEGIN"
+          cat "$RUNNER_TEMP/${CASE_ID}.stderr"
+          echo "HARNESS_STDERR_END"
+          root="$(find /tmp -maxdepth 1 -type d -name "ascout-t075-${CASE_ID}-*" | sort | tail -n 1 || true)"
+          if [ -n "$root" ]; then
+            echo "ROOT=$root"
+            echo "MEMBERSHIP_REPORTS_BEGIN"
+            find "$root" -type f -name '*.json' -path '*membership-proofs*' -print | sort || true
+            echo "MEMBERSHIP_REPORTS_END"
+            CASE_ID="$CASE_ID" ROOT="$root" MANIFEST="$GITHUB_WORKSPACE/benchmarks/manifest.json" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          const manifest = JSON.parse(fs.readFileSync(process.env.MANIFEST, 'utf8'));
+          const c = manifest.cases.find((x) => x.case_id === process.env.CASE_ID);
+          const normalize = (value) => String(value ?? '').replaceAll('\\', '/');
+          function walk(root) {
+            const out = [];
+            for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+              const full = path.join(root, entry.name);
+              if (entry.isDirectory()) out.push(...walk(full));
+              else if (entry.isFile() && full.includes(`${path.sep}membership-proofs${path.sep}`) && entry.name.endsWith('.json')) out.push(full);
+            }
+            return out;
+          }
+          console.log('REVIEWED_IDS=' + JSON.stringify(c.oracle.specification.regression_test_ids));
+          console.log('REVIEWED_PATHS=' + JSON.stringify(c.paths.regression_tests));
+          for (const reportPath of walk(process.env.ROOT).sort()) {
+            let report;
+            try { report = JSON.parse(fs.readFileSync(reportPath, 'utf8')); } catch { continue; }
+            console.log('REPORT=' + reportPath.replace(process.env.ROOT, '<root>'));
+            for (const result of report.testResults ?? []) {
+              if (!c.paths.regression_tests.some((p) => normalize(result.name).endsWith(normalize(p)))) continue;
+              console.log('RESULT_PATH=' + normalize(result.name));
+              for (const a of result.assertionResults ?? []) {
+                if (a?.status !== 'passed' && a?.status !== 'failed') continue;
+                console.log(JSON.stringify({status:a.status,title:a.title,fullName:a.fullName,ancestorTitles:a.ancestorTitles}));
+              }
+            }
+          }
+          NODE
+            echo "COVERAGE_FILES_BEGIN"
+            find "$root" -type f \( -name 'lcov.info' -o -path '*/coverage/*' \) -print | sort | head -200 || true
+            echo "COVERAGE_FILES_END"
+          fi
+          test "$code" -ne 0
