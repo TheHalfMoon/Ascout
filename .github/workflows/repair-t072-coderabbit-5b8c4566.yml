@@ -78,7 +78,15 @@ jobs:
           assert expected_digest['anyOf'][1]['$ref'] == '#/$defs/sha256'
           assert expected_digest['anyOf'][2] == {'type': 'null'}
 
-          replay_gate = case['allOf'][4]['then']['properties']['reconstruction']['properties']['derived_identity']['properties']['expected_digest']
+          replay_gates = []
+          for clause in case['allOf']:
+              try:
+                  candidate = clause['then']['properties']['reconstruction']['properties']['derived_identity']['properties']['expected_digest']
+              except KeyError:
+                  continue
+              replay_gates.append(candidate)
+          assert len(replay_gates) == 1
+          replay_gate = replay_gates[0]
           assert 'anyOf' in replay_gate and 'oneOf' not in replay_gate
           assert len(replay_gate['anyOf']) == 2
           assert replay_gate['anyOf'][0]['$ref'] == '#/$defs/git_object_id'
