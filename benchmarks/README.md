@@ -35,7 +35,7 @@ The benchmark inherits the repository's M1 rules:
 5. **Conservative affected verification.** Benchmark reconstruction must not create an easier selector problem through changed-test leakage.
 6. **Minimal core.** The benchmark does not add a product runtime dependency, database, daemon, model, semantic graph, or plugin system.
 7. **License/provenance integrity.** A usable Git commit is not sufficient licensing evidence.
-8. **Trust boundary preservation.** No third-party install or repository command is executed during T071–T074. Executable replay begins only through the isolated benchmark harness authorized by T075.
+8. **Trust boundary preservation.** No third-party dependency installation or donor-provided code, hook, script, test, build step, generator, or binary is executed during T071–T074. Read-only Git-object inspection remains allowed for identity, provenance, and license verification. Executable replay begins only through the isolated benchmark harness authorized by T075.
 
 If a candidate cannot satisfy these constraints without interpretation or hidden repair, it is rejected rather than weakened into the corpus.
 
@@ -267,8 +267,9 @@ T072 defines the machine-readable manifest contract. Every reviewed case definit
 - exact tree IDs for those commits;
 - production path set and historical regression-test path set;
 - deterministic reconstruction mode and any derived-tree identity recipe;
-- package manager, lockfile path, and lockfile blob/digest;
-- relevant Node/tool constraints discoverable from the pinned source;
+- package manager, exact package-manager version, version-selection provenance, lockfile path, and lockfile blob/digest;
+- exact Node runtime version selected for replay plus the upstream Node/tool constraints used to justify that selection;
+- immutable harness/toolchain artifact digest when T075 executes inside a packaged image or equivalent immutable environment;
 - exact license expression and evidence digests;
 - regression-test oracle identity;
 - independent ground-truth **procedure/specification** to be executed at T075;
@@ -292,8 +293,10 @@ Dependency installation is not part of metadata acquisition. When T075 later exe
 - the committed lockfile is authoritative;
 - frozen/immutable install semantics are required (`npm ci`, pnpm frozen-lockfile, Yarn immutable equivalent as appropriate);
 - install must not rewrite the lockfile or product source;
-- exact package-manager version is recorded when the upstream project pins one;
-- toolchain/environment versions used by the benchmark run are recorded;
+- the manifest/case revision already pins an exact package-manager version before T075; an upstream exact pin is used when present, otherwise case review selects and records one exact compatible version with its provenance rather than resolving a floating version during replay;
+- the manifest/case revision already pins an exact Node runtime version before T075, justified against the pinned source constraints;
+- when replay uses a packaged image or equivalent immutable harness/toolchain artifact, its content digest is pinned before execution;
+- T075 records the actual package-manager, Node, OS/toolchain, and immutable artifact identities and refuses the case if any required pinned identity does not match;
 - and any required install script executes only inside the T075 isolation boundary.
 
 A case whose dependencies can no longer be reconstructed is unavailable, not silently upgraded.
