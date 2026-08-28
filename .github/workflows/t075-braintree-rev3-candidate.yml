@@ -51,7 +51,7 @@ jobs:
           npm run build
           node --check benchmarks/harness-lib.mjs
           node --check benchmarks/run.mjs
-          node benchmarks/run.mjs --case braintree-venmo-csp-nonce-web-login --plan-only > "$RUNNER_TEMP/braintree-plan.json"
+          node benchmarks/run.mjs --case braintree-venmo-csp-nonce-web-login --plan > "$RUNNER_TEMP/braintree-plan.json"
           PLAN="$RUNNER_TEMP/braintree-plan.json" node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const p = JSON.parse(fs.readFileSync(process.env.PLAN,'utf8'));
