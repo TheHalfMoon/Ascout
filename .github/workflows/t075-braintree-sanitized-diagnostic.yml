@@ -1,0 +1,84 @@
+name: T075 Braintree sanitized-environment diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-braintree-side-effects-a0466508
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: a0466508dce843cbbdf8f722e814ac15a2f71b9b
+          path: ascout
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+      - name: Reconstruct measured state under T075 environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=ba7327135aa757aab5534d41d5871723bd06103a
+          FIX=234edb7f3d541ad2df5c7a0d88db6135371c5090
+          PROD=src/venmo/venmo.js
+          ROOT="$RUNNER_TEMP/t075-braintree-sanitized"
+          rm -rf "$ROOT" donor
+          mkdir -p "$ROOT/home" "$ROOT/tmp" "$ROOT/cache/xdg" "$ROOT/cache/npm" "$ROOT/cache/corepack" "$ROOT/nx"
+          git clone --no-checkout https://github.com/braintree/braintree-web.git donor
+          git -C donor checkout --detach "$BASE"
+          git -C donor fetch origin "$FIX"
+          git -C donor checkout "$FIX" -- "$PROD"
+          git -C donor reset
+          cd donor
+          test "$(node --version)" = 'v20.19.0'
+          test "$(npm --version)" = '10.8.2'
+          ENV=(env -i
+            "PATH=$PATH"
+            "HOME=$ROOT/home"
+            "TMPDIR=$ROOT/tmp"
+            "TMP=$ROOT/tmp"
+            "TEMP=$ROOT/tmp"
+            "CI=true"
+            "NO_COLOR=1"
+            "FORCE_COLOR=0"
+            "GIT_TERMINAL_PROMPT=0"
+            "GIT_CONFIG_GLOBAL=/dev/null"
+            "GIT_CONFIG_SYSTEM=/dev/null"
+            "npm_config_audit=false"
+            "npm_config_fund=false"
+            "npm_config_update_notifier=false"
+            "XDG_CACHE_HOME=$ROOT/cache/xdg"
+            "npm_config_cache=$ROOT/cache/npm"
+            "COREPACK_HOME=$ROOT/cache/corepack"
+            "NX_SOCKET_DIR=$ROOT/nx")
+          "${ENV[@]}" npm ci --ignore-scripts --no-audit --no-fund
+          test "$(git diff --name-only)" = "$PROD"
+          echo "POST_INSTALL=$(git diff --name-only | tr '\n' ',')"
+          set +e
+          "${ENV[@]}" BRAINTREE_JS_ENV=development npm_config_ignore_scripts=true ./node_modules/.bin/jest --config=jest.config.json --runInBand --ignoreProjects publishing --coverage --coverageReporters=lcov --coverageDirectory=coverage >"$RUNNER_TEMP/coverage.out" 2>"$RUNNER_TEMP/coverage.err"
+          COVERAGE_EXIT=$?
+          set -e
+          echo "COVERAGE_EXIT=$COVERAGE_EXIT"
+          echo 'COVERAGE_CHANGED_BEGIN'
+          git diff --name-only | sort
+          echo 'COVERAGE_CHANGED_END'
+          test -f src/coverage/lcov.info
+          echo "LCOV_SHA=$(sha256sum src/coverage/lcov.info | awk '{print $1}')"
+          git checkout "$BASE" -- .
+          git checkout "$FIX" -- "$PROD"
+          git reset
+          rm -rf src/coverage coverage
+          test "$(git diff --name-only)" = "$PROD"
+          set +e
+          "${ENV[@]}" BRAINTREE_JS_ENV=development npm_config_ignore_scripts=true ./node_modules/.bin/jest --config=jest.config.json --runInBand --ignoreProjects publishing >"$RUNNER_TEMP/native.out" 2>"$RUNNER_TEMP/native.err"
+          NATIVE_EXIT=$?
+          set -e
+          echo "NATIVE_EXIT=$NATIVE_EXIT"
+          echo 'NATIVE_CHANGED_BEGIN'
+          git diff --name-only | sort
+          echo 'NATIVE_CHANGED_END'
+          tail -n 8 "$RUNNER_TEMP/native.err" || true
