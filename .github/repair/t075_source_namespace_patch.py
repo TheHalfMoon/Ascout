@@ -26,8 +26,8 @@ replace_once(
 run = root / "benchmarks" / "run.mjs"
 replace_once(
     run,
-    '''  attestSourceStability,\n  assertControllerSecretsAbsent,''',
-    '''  attestSourceStability,\n  filterAscoutRuntimeUntrackedStatus,\n  assertControllerSecretsAbsent,''',
+    '''  assertControllerSecretsAbsent,\n  attestSourceStability,''',
+    '''  assertControllerSecretsAbsent,\n  attestSourceStability,\n  filterAscoutRuntimeUntrackedStatus,''',
 )
 replace_once(
     run,
