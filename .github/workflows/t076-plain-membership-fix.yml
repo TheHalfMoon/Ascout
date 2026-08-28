@@ -1,0 +1,75 @@
+name: T076 plain membership repair
+
+on:
+  push:
+    branches:
+      - automation/t076-plain-membership-fix-2d0d57d8
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/t076-baseline-contract-6dc9eb56
+          fetch-depth: 0
+      - name: Guard exact repair head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2d0d57d8d6fe30d6a7d84f31590948693043d259"
+          test "$(git rev-parse origin/main)" = "0037eaef0311c131a7596f3717b148c1f7f62038"
+      - name: Restore plain membership authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          metrics = Path("benchmarks/metrics.mjs")
+          text = metrics.read_text()
+          old = '  const plain = await externalComparator(caseRecord, repo, root, commands.plain, "plain project test", "configured", true);'
+          new = '  const plain = await externalComparator(caseRecord, repo, root, commands.plain, "plain project test", "configured", false);'
+          if text.count(old) != 1:
+              raise SystemExit(f"expected one plain comparator membership call, found {text.count(old)}")
+          metrics.write_text(text.replace(old, new))
+
+          tests = Path("tests/benchmark-metrics.test.ts")
+          text = tests.read_text()
+          marker = '''  it("makes recall unavailable when repeated membership evidence is contradictory", () => {\n'''
+          insertion = '''  it("keeps plain recall and false-PASS unavailable without membership evidence", () => {\n    const input = selectionInput(["oracle A", "oracle B"]);\n    for (const observation of input.observations) {\n      for (const cacheClass of ["cold", "warm"] as const) {\n        observation.comparators.plain[cacheClass].membership_available = false;\n        observation.comparators.plain[cacheClass].oracle_test_ids_observed = [];\n      }\n    }\n    const metrics = computeCaseMetrics(input);\n    expect(metrics.selection_recall?.plain).toMatchObject({ available: false, numerator: null, recall: null });\n    expect(metrics.false_pass.find((item) => item.comparator === "plain")).toMatchObject({ available: false, false_pass: null, clean_success: null });\n  });\n\n'''
+          if text.count(marker) != 1:
+              raise SystemExit(f"expected one insertion marker, found {text.count(marker)}")
+          if "keeps plain recall and false-PASS unavailable without membership evidence" in text:
+              raise SystemExit("regression test already present")
+          tests.write_text(text.replace(marker, insertion + marker))
+          PY
+          test "$(git diff --name-only | sort)" = $'benchmarks/metrics.mjs\ntests/benchmark-metrics.test.ts'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Qualify repair before commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npx vitest run tests/benchmark-metrics.test.ts tests/benchmark-membership-proof.test.ts
+          npm test
+          npm run build
+          node --check benchmarks/metrics-lib.mjs
+          node --check benchmarks/metrics.mjs
+      - name: Commit and push repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add benchmarks/metrics.mjs tests/benchmark-metrics.test.ts
+          test "$(git diff --cached --name-only | sort)" = $'benchmarks/metrics.mjs\ntests/benchmark-metrics.test.ts'
+          git commit -m "fix(benchmark): keep plain membership unavailable"
+          git push origin HEAD:repair/t076-baseline-contract-6dc9eb56
