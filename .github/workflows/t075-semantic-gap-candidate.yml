@@ -1,0 +1,100 @@
+name: T075 semantic gap determinism candidate
+on:
+  push:
+    branches:
+      - repair/t075-semantic-gap-helper-cdf9a39e
+permissions:
+  contents: write
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/t075-semantic-gap-helper-cdf9a39e
+          path: helper
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: candidate/t075-semantic-gap-cdf9a39e
+          path: candidate
+          fetch-depth: 0
+      - name: Guard and patch exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd candidate
+          test "$(git rev-parse HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+          git fetch origin main feat/075-isolated-benchmark-harness candidate/t075-semantic-gap-cdf9a39e
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+          test "$(git rev-parse origin/candidate/t075-semantic-gap-cdf9a39e)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+          cd ..
+          node helper/.github/repair/t075_semantic_gap.mjs candidate
+          cd candidate
+          git diff --check
+          mapfile -t changed < <(git status --short | awk '{print $2}' | sort)
+          test "${#changed[@]}" -eq 2
+          test "${changed[0]}" = 'benchmarks/harness-lib.mjs'
+          test "${changed[1]}" = 'tests/benchmark-harness.test.ts'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: candidate/package-lock.json
+      - name: Full controller gates
+        shell: bash
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+      - name: Provision Immer package manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global yarn@1.22.22 --ignore-scripts --no-audit --no-fund
+          test "$(node --version)" = 'v24.15.0'
+          test "$(yarn --version)" = '1.22.22'
+      - name: Replay Immer twice
+        shell: bash
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/immer.json"
+          node benchmarks/run.mjs \
+            --case immer-prototype-undefined \
+            --run-id "candidate:${GITHUB_RUN_ID}:immer" \
+            --repetitions 2 \
+            --output "$result" \
+            > "$RUNNER_TEMP/immer.stdout"
+          RESULT="$result" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const r = JSON.parse(fs.readFileSync(process.env.RESULT,'utf8'));
+          if (r.status !== 'BENCHMARK_ACTIVE' || r.valid_observation_count !== 2) throw new Error('Immer did not become BENCHMARK_ACTIVE');
+          if (r.evidence?.determinism !== 'deterministic') throw new Error('Immer semantic evidence is not deterministic');
+          const classifications = r.evidence.observations.map((o)=>JSON.stringify(o.gap_coverage.classifications));
+          if (classifications[0] !== classifications[1]) throw new Error('Immer classifications differ');
+          if (!r.evidence.observations.every((o)=>/^[0-9a-f]{64}$/.test(o.gap_coverage.artifact_sha256))) throw new Error('raw LCOV digests must remain preserved');
+          console.log(JSON.stringify({case_id:r.case_id,status:r.status,determinism:r.evidence.determinism,artifact_sha256:r.evidence.observations.map((o)=>o.gap_coverage.artifact_sha256),classifications:r.evidence.observations[0].gap_coverage.classifications}));
+          NODE
+      - name: Commit candidate
+        shell: bash
+        working-directory: candidate
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git status --short | awk '{print $2}' | sort)
+          test "${#changed[@]}" -eq 2
+          git config user.name 'Ascout Benchmark Bot'
+          git config user.email 'benchmark-bot@users.noreply.github.com'
+          git add benchmarks/harness-lib.mjs tests/benchmark-harness.test.ts
+          git commit -m 'fix(benchmark): compare semantic gap evidence'
+          git fetch origin candidate/t075-semantic-gap-cdf9a39e
+          test "$(git rev-parse FETCH_HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+          git push origin HEAD:refs/heads/candidate/t075-semantic-gap-cdf9a39e
+          echo "CANDIDATE_HEAD=$(git rev-parse HEAD)"
