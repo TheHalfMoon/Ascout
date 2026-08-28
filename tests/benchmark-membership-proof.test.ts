@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   BenchmarkHarnessError,
+  enforceMembershipPolicy,
   membershipProofCommand,
   proveReviewedAssertionStatus,
   proveRunnerMembership,
@@ -232,16 +233,22 @@ describe("T075 structured runner membership evidence", () => {
     ).toBe(false);
   });
 
-  it("fails closed instead of accepting a title from an unrelated file", () => {
-    expect(() => proveRunnerMembership(report, ["duplicate title in an unrelated file"], ["tests/a.test.ts"])).toThrow(
-      /no reviewed regression-test path/,
-    );
+  it("returns false instead of accepting a title from an unrelated file", () => {
+    expect(proveRunnerMembership(report, ["duplicate title in an unrelated file"], ["tests/a.test.ts"])).toBe(false);
   });
 
-  it("fails closed when no reviewed regression-test path exists in the report", () => {
-    expect(() => proveRunnerMembership(report, ["duplicate title in an unrelated file"], ["tests/missing.test.ts"])).toThrow(
-      /no reviewed regression-test path/,
+  it("returns false when the reviewed regression-test path is absent", () => {
+    expect(proveRunnerMembership(report, ["duplicate title in an unrelated file"], ["tests/missing.test.ts"])).toBe(false);
+  });
+
+  it("keeps observed selector misses measurable while required oracle membership remains fail-closed", () => {
+    expect(enforceMembershipPolicy("observed", false, "runner-native related selector")).toBe(false);
+    expect(enforceMembershipPolicy("observed", true, "runner-native related selector")).toBe(true);
+    expect(enforceMembershipPolicy("required", true, "project-native full suite")).toBe(true);
+    expect(() => enforceMembershipPolicy("required", false, "project-native full suite")).toThrow(
+      /did not prove oracle membership/,
     );
+    expect(enforceMembershipPolicy("none", null, "plain project test")).toBeNull();
   });
 });
 
