@@ -1,0 +1,72 @@
+name: T075 Braintree semantic determinism candidate
+on:
+  push:
+    branches:
+      - repair/t075-braintree-semantic-a0466508
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/t075-braintree-semantic-a0466508
+          path: helper
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: candidate/t075-final-harness-a0466508
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard and apply final candidate patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = 'a0466508dce843cbbdf8f722e814ac15a2f71b9b'
+          python3 helper/.github/repair/t075_final_harness_patch.py candidate
+          python3 helper/.github/repair/t075_braintree_semantic_patch.py candidate
+          git -C candidate diff --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build controller and run focused semantic tests
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npx vitest run tests/benchmark-harness.test.ts
+          npm run build
+          node --check benchmarks/run.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+      - name: Replay Braintree revision 3 twice
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = 'v20.19.0'
+          test "$(npm --version)" = '10.8.2'
+          result="$RUNNER_TEMP/braintree.json"
+          node benchmarks/run.mjs \
+            --case braintree-venmo-csp-nonce-web-login \
+            --run-id "candidate:${GITHUB_RUN_ID}:braintree-semantic" \
+            --repetitions 2 \
+            --output "$result" \
+            > "$RUNNER_TEMP/braintree.stdout"
+          RESULT="$result" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const r = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (r.status !== 'BENCHMARK_ACTIVE' || r.case_revision !== 3) throw new Error('Braintree revision 3 is not BENCHMARK_ACTIVE');
+          if (r.valid_observation_count !== 2 || r.evidence?.determinism !== 'deterministic') throw new Error('Braintree semantic observations are not deterministic');
+          for (const o of r.evidence.observations) {
+            if (o.ascout?.source_stability !== o.ascout?.independent_source_stability) throw new Error('source-stability attestation mismatch');
+            if (!o.ascout?.source_state_start_sha256 || !o.ascout?.source_state_end_sha256) throw new Error('raw source-state evidence missing');
+          }
+          console.log(JSON.stringify({case_id:r.case_id,status:r.status,determinism:r.evidence.determinism,source_stability:r.evidence.observations.map((o)=>o.ascout.source_stability),source_evidence:r.evidence.observations.map((o)=>[o.ascout.source_state_start_sha256,o.ascout.source_state_end_sha256]),gap:r.evidence.observations.map((o)=>o.gap_coverage.classifications)}));
+          NODE
