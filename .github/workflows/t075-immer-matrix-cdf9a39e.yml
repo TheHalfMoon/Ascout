@@ -1,0 +1,71 @@
+name: T075 Immer determinism matrix cdf9a39e
+on:
+  push:
+    branches:
+      - diagnostic/t075-immer-matrix-cdf9a39e
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    strategy:
+      fail-fast: false
+      matrix:
+        attempt: [1, 2, 3]
+    name: diagnose / ${{ matrix.attempt }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cdf9a39e93e1ce655184078cb469f08b9111d3c2
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Guard and build exact controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+          git fetch https://github.com/TheHalfMoon/Ascout.git main
+          test "$(git rev-parse FETCH_HEAD)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Provision donor package manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global yarn@1.22.22 --ignore-scripts --no-audit --no-fund
+          test "$(node --version)" = 'v24.15.0'
+          test "$(yarn --version)" = '1.22.22'
+      - name: Replay and fingerprint semantic observations
+        shell: bash
+        env:
+          T075_DIAG_ATTEMPT: ${{ matrix.attempt }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('benchmarks/run.mjs')
+          s = p.read_text()
+          needle = '    const deterministic = observationsDeterministic(observations.map(stableObservation));\n'
+          insert = '    const diagnosticStable = observations.map(stableObservation);\n    for (let diagnosticIndex = 0; diagnosticIndex < diagnosticStable.length; diagnosticIndex += 1) {\n      const diagnostic = diagnosticStable[diagnosticIndex];\n      process.stderr.write(`T075_DIAG_ATTEMPT=${process.env.T075_DIAG_ATTEMPT} OBS=${diagnosticIndex + 1} ALL=${sha256Bytes(Buffer.from(canonicalJson(diagnostic), "utf8"))} ASCOUT=${sha256Bytes(Buffer.from(canonicalJson(diagnostic.ascout), "utf8"))} COVERAGE=${sha256Bytes(Buffer.from(canonicalJson(diagnostic.gap_coverage), "utf8"))} FULL=${sha256Bytes(Buffer.from(canonicalJson(diagnostic.full_reference), "utf8"))}\\n`);\n      if (diagnostic.ascout !== null) {\n        for (const key of Object.keys(diagnostic.ascout).sort()) {\n          process.stderr.write(`T075_DIAG_ASCOUT ATTEMPT=${process.env.T075_DIAG_ATTEMPT} OBS=${diagnosticIndex + 1} KEY=${key} HASH=${sha256Bytes(Buffer.from(canonicalJson(diagnostic.ascout[key]), "utf8"))}\\n`);\n        }\n      }\n    }\n'
+          if needle not in s:
+              raise SystemExit('diagnostic insertion guard missing')
+          p.write_text(s.replace(needle, insert + needle, 1))
+          PY
+          node --check benchmarks/run.mjs
+          set +e
+          node benchmarks/run.mjs \
+            --case immer-prototype-undefined \
+            --run-id "diagnostic:${GITHUB_RUN_ID}:immer:${T075_DIAG_ATTEMPT}" \
+            --repetitions 2 \
+            > "$RUNNER_TEMP/immer.out" 2> "$RUNNER_TEMP/immer.err"
+          code=$?
+          set -e
+          echo "HARNESS_EXIT=$code"
+          grep '^T075_DIAG_' "$RUNNER_TEMP/immer.err" || true
+          tail -n 5 "$RUNNER_TEMP/immer.err" || true
+          test "$code" -eq 0 -o "$code" -eq 2
