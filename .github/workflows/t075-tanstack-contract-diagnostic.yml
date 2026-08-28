@@ -36,6 +36,8 @@ jobs:
               case_id: c.case_id,
               case_revision: c.case_revision,
               lifecycle_state: c.lifecycle_state,
+              upstream: c.upstream,
+              git: c.git,
               paths: c.paths,
               runtime: {
                 package_manager: c.runtime.package_manager,
