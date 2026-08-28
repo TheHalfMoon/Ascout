@@ -1,0 +1,86 @@
+name: T075 TanStack full comparator diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-tanstack-full-8dffddf
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8dffddf49b8453688d46034e3f5793bd1259560f
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Read exact runtime
+        id: runtime
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
+          import fs from 'node:fs';
+          const m = JSON.parse(fs.readFileSync('benchmarks/manifest.json','utf8'));
+          const c = m.cases.find((x)=>x.case_id==='tanstack-streamed-query-reducer');
+          console.log(`node=${String(c.runtime.node_version).replace(/^v/,'')}`);
+          console.log(`pm=${c.runtime.package_manager}`);
+          console.log(`pm_version=${c.runtime.package_manager_version}`);
+          NODE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build controller
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.runtime.outputs.node }}
+      - name: Provision donor package manager
+        shell: bash
+        env:
+          PM: ${{ steps.runtime.outputs.pm }}
+          PM_VERSION: ${{ steps.runtime.outputs.pm_version }}
+        run: |
+          set -euo pipefail
+          if [ "$PM" = pnpm ]; then npm install --global "pnpm@$PM_VERSION" --ignore-scripts --no-audit --no-fund; else exit 2; fi
+          test "$($PM --version)" = "$PM_VERSION"
+      - name: Inspect exact full-suite failure
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          node benchmarks/run.mjs --case tanstack-streamed-query-reducer --run-id "diagnostic:${GITHUB_RUN_ID}:tanstack" --repetitions 1 --keep-temp > "$RUNNER_TEMP/harness.out" 2> "$RUNNER_TEMP/harness.err"
+          harness_code=$?
+          set -e
+          echo "HARNESS_EXIT=$harness_code"
+          cat "$RUNNER_TEMP/harness.err"
+          root="$(find /tmp -maxdepth 1 -type d -name 'ascout-t075-tanstack-streamed-query-reducer-*' | sort | tail -n 1)"
+          test -d "$root/observation-1/measured"
+          ROOT="$root" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { spawnSync } from 'node:child_process';
+          import { extractSelectionCommands, parseRestrictedCommand, membershipProofCommand, proveRunnerMembership } from './benchmarks/harness-lib.mjs';
+          const m = JSON.parse(fs.readFileSync('./benchmarks/manifest.json','utf8'));
+          const c = m.cases.find((x)=>x.case_id==='tanstack-streamed-query-reducer');
+          const full = extractSelectionCommands(c).full;
+          console.log('FULL_COMMAND=' + full);
+          const parsed = parseRestrictedCommand(full);
+          const env = { PATH: process.env.PATH, HOME: process.env.HOME, CI: '1', ...parsed.env };
+          const exact = spawnSync(parsed.file, parsed.argv, {cwd:`${process.env.ROOT}/observation-1/measured`,env,encoding:'utf8',maxBuffer:64*1024*1024});
+          console.log('FULL_EXIT=' + exact.status);
+          console.log('FULL_STDOUT=' + String(exact.stdout ?? '').slice(0,12000).replaceAll('\n','\\n'));
+          console.log('FULL_STDERR=' + String(exact.stderr ?? '').slice(0,12000).replaceAll('\n','\\n'));
+          const report = process.env.RUNNER_TEMP + '/tanstack-full-membership.json';
+          const variant = membershipProofCommand(full,'vitest',report);
+          const proof = spawnSync(variant.file,variant.argv,{cwd:`${process.env.ROOT}/observation-1/measured`,env:{PATH:process.env.PATH,HOME:process.env.HOME,CI:'1',...variant.env},encoding:'utf8',maxBuffer:64*1024*1024});
+          console.log('PROOF_EXIT=' + proof.status);
+          console.log('PROOF_STDERR=' + String(proof.stderr ?? '').slice(0,5000).replaceAll('\n','\\n'));
+          if (fs.existsSync(report)) {
+            const json=JSON.parse(fs.readFileSync(report,'utf8'));
+            console.log('REVIEWED_MEMBERSHIP=' + proveRunnerMembership(json,c.oracle.specification.regression_test_ids,c.paths.regression_tests));
+            for (const tr of json.testResults ?? []) for (const a of tr.assertionResults ?? []) if (a?.status==='failed') console.log('FAILED_ASSERTION='+JSON.stringify({path:tr.name,title:a.title,fullName:a.fullName,ancestorTitles:a.ancestorTitles}));
+          } else {
+            console.log('MEMBERSHIP_REPORT_MISSING=true');
+          }
+          NODE
+          test "$harness_code" -ne 0
