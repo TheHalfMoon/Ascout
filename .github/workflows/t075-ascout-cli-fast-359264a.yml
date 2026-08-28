@@ -80,15 +80,18 @@ jobs:
           root="$RUNNER_TEMP/diag-runtime"
           mkdir -p "$root/home" "$root/tmp"
           set +e
-          env -i \
-            PATH="$PATH" \
-            HOME="$root/home" \
-            TMPDIR="$root/tmp" TMP="$root/tmp" TEMP="$root/tmp" \
-            CI=true NO_COLOR=1 FORCE_COLOR=0 GIT_TERMINAL_PROMPT=0 \
-            GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
-            npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false \
-            node "$GITHUB_WORKSPACE/dist/cli.js" check --format json \
-            > "$RUNNER_TEMP/ascout.stdout" 2> "$RUNNER_TEMP/ascout.stderr"
+          (
+            cd "$repo"
+            env -i \
+              PATH="$PATH" \
+              HOME="$root/home" \
+              TMPDIR="$root/tmp" TMP="$root/tmp" TEMP="$root/tmp" \
+              CI=true NO_COLOR=1 FORCE_COLOR=0 GIT_TERMINAL_PROMPT=0 \
+              GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null \
+              npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false \
+              node "$GITHUB_WORKSPACE/dist/cli.js" check --format json \
+              > "$RUNNER_TEMP/ascout.stdout" 2> "$RUNNER_TEMP/ascout.stderr"
+          )
           code=$?
           set -e
           echo "ASCOUT_EXIT=$code"
