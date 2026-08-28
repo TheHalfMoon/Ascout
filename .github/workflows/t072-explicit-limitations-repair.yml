@@ -1,0 +1,72 @@
+name: T072 explicit limitations repair
+
+on:
+  push:
+    branches:
+      - repair/t072-explicit-limitations-f9e351ed
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/072-benchmark-manifest
+          fetch-depth: 0
+
+      - name: Opening exact-head guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "f9e351ed935ee05eccdf98335a108138ca32d357"
+          test -z "$(git status --short)"
+          test "$(git merge-base d4a9694f722acb9657c92b90f0d1832a295e3a3e HEAD)" = "d4a9694f722acb9657c92b90f0d1832a295e3a3e"
+
+      - name: Require explicit limitation notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('benchmarks/manifest.json')
+          d = json.loads(path.read_text())
+          assert d['cases'] == []
+          limitations = d['case_schema']['properties']['limitations']
+          assert 'minItems' not in limitations
+          limitations['minItems'] = 1
+          path.write_text(json.dumps(d, indent=2) + '\n')
+          PY
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/manifest.json "
+
+      - name: Explicit limitations contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path('benchmarks/manifest.json').read_text())
+          limitations = d['case_schema']['properties']['limitations']
+          assert limitations['type'] == 'array'
+          assert limitations['minItems'] == 1
+          assert limitations['uniqueItems'] is True
+          assert limitations['items']['type'] == 'string'
+          assert limitations['items']['minLength'] == 1
+          assert d['cases'] == []
+          PY
+
+      - name: Commit and push repaired product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add benchmarks/manifest.json
+          git commit -m "fix(benchmark): require explicit T072 limitations"
+          git push origin HEAD:feat/072-benchmark-manifest
