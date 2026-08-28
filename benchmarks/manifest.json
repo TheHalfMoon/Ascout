@@ -59,6 +59,7 @@
   },
   "case_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:ascout:benchmark-case-schema:v1",
     "type": "object",
     "additionalProperties": false,
     "required": [
@@ -249,7 +250,7 @@
                 ]
               },
               "expected_digest": {
-                "oneOf": [
+                "anyOf": [
                   {
                     "$ref": "#/$defs/git_object_id"
                   },
@@ -658,7 +659,7 @@
                 "derived_identity": {
                   "properties": {
                     "expected_digest": {
-                      "oneOf": [
+                      "anyOf": [
                         {
                           "$ref": "#/$defs/git_object_id"
                         },
