@@ -94,14 +94,19 @@ describe("T075 structured runner membership evidence", () => {
     ).toBe(true);
   });
 
-  it("does not treat skipped, substring, or unrelated-file titles as execution", () => {
+  it("does not treat skipped or substring titles as execution", () => {
     expect(
       proveRunnerMembership(report, ["skipped evidence is not execution"], ["packages/zod/src/v4/classic/tests/number.test.ts"]),
     ).toBe(false);
     expect(
       proveRunnerMembership(report, ["scientific notation"], ["packages/zod/src/v4/classic/tests/number.test.ts"]),
     ).toBe(false);
-    expect(proveRunnerMembership(report, ["duplicate title in an unrelated file"], ["tests/a.test.ts"])).toBe(false);
+  });
+
+  it("fails closed instead of accepting a title from an unrelated file", () => {
+    expect(() => proveRunnerMembership(report, ["duplicate title in an unrelated file"], ["tests/a.test.ts"])).toThrow(
+      /no reviewed regression-test path/,
+    );
   });
 
   it("fails closed when no reviewed regression-test path exists in the report", () => {
