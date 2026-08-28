@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "ascout-founding-benchmark-v1",
-  "manifest_revision": 8,
+  "manifest_revision": 9,
   "policy": {
     "policy_path": "benchmarks/README.md",
     "manifest_task": "T072",
@@ -2603,7 +2603,7 @@
     },
     {
       "case_id": "braintree-venmo-csp-nonce-web-login",
-      "case_revision": 1,
+      "case_revision": 2,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -2746,11 +2746,11 @@
             }
           ],
           "coverage_oracle": {
-            "full_test_coverage_command": "BRAINTREE_JS_ENV=development ./node_modules/.bin/jest --config=jest.config.json --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage",
+            "full_test_coverage_command": "BRAINTREE_JS_ENV=development npm_config_ignore_scripts=true ./node_modules/.bin/jest --config=jest.config.json --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage",
             "project_native_reference_command": "npm test",
             "artifact": {
               "format": "lcov",
-              "path": "coverage/lcov.info"
+              "path": "src/coverage/lcov.info"
             },
             "artifact_digest_algorithm": "sha256",
             "mapping": {
@@ -2782,7 +2782,8 @@
         "T074 is definition-only: no donor dependency, script, build, test, LCOV artifact, or line classification has been executed or observed; T075 is the first execution task.",
         "The exact Node 20.19.0 patch is benchmark-owned resolution of the donor .nvmrc v20 constraint and must be enforced fail-closed by T075.",
         "The historical fix also changes release/version/package-lock content; the measured benchmark intentionally preserves exact base dependency metadata and overlays only the reviewed production blob.",
-        "Only src/venmo/venmo.js:87 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs."
+        "Only src/venmo/venmo.js:87 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs.",
+        "Case revision 2 supersedes the definition-only coverage invocation after T075 executable replay proved that the root Jest publishing globalSetup invokes npm run build, whose unrelated prebuild formatter cannot parse historical YAML-style .eslintrc files under the reconstructed toolchain. The revised full 23-project coverage command preserves the root Jest project set while setting npm_config_ignore_scripts=true so npm runs the required build without lifecycle prebuild/postbuild scripts; T075 independently observed the resulting LCOV location as src/coverage/lcov.info. Historical unrelated test failures remain visible through the recorded coverage command exit status and are not normalized to PASS."
       ]
     },
     {

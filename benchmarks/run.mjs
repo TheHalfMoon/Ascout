@@ -682,7 +682,7 @@ async function runGapObservation(caseRecord, cacheRepo, root, ascoutRoot) {
   const coverageCommand = parseRestrictedCommand(commands.fullCoverage);
   const coverageRun = await runBounded({ file: coverageCommand.file, argv: coverageCommand.argv, cwd: measured.repo, env: { ...env, ...coverageCommand.env }, timeoutMs: DEFAULT_TIMEOUT_MS });
   requireExited(coverageRun, "gap full coverage oracle");
-  if (coverageRun.exitCode !== 0) fail("coverage_oracle", `full coverage command failed with ${coverageRun.exitCode}`);
+  rejectSetupFailure(textOutput(coverageRun), "gap full coverage oracle");
   await assertMeasuredState(measured.repo, caseRecord.paths.production, env);
   const artifactPath = resolve(measured.repo, commands.artifact);
   assertPathInside(measured.repo, artifactPath);
@@ -691,7 +691,7 @@ async function runGapObservation(caseRecord, cacheRepo, root, ascoutRoot) {
     artifactBytes = await readFile(artifactPath);
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
-    fail("coverage_oracle", `full coverage command succeeded but required LCOV artifact ${commands.artifact} is unavailable: ${detail}`);
+    fail("coverage_oracle", `full coverage command completed without required LCOV artifact ${commands.artifact}: ${detail}`);
   }
   const classifications = classifyLcov(artifactBytes.toString("utf8"), caseRecord.oracle.specification.gap_changed_executable_lines);
   const frozenCoverage = { artifact_sha256: sha256Bytes(artifactBytes), classifications };
@@ -701,7 +701,7 @@ async function runGapObservation(caseRecord, cacheRepo, root, ascoutRoot) {
     reconstruction: { derived_tree: measured.tree, synthetic_head: null },
     pre_fix_oracle: { status: preOracle.status, membership_proven: preOracle.membership_proven },
     fixed_oracle: { status: fixedOracle.status, membership_proven: fixedOracle.membership_proven },
-    full_reference: { status: "passed" },
+    full_reference: { status: coverageRun.exitCode === 0 ? "passed" : "failed" },
     plain: commands.reference === null ? null : await runComparator(caseRecord, measured.repo, root, commands.reference, "project-native test reference", false),
     related: { status: "not_applicable" },
     ascout,
