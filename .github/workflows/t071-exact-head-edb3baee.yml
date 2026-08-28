@@ -1,0 +1,110 @@
+name: T071 exact-head qualification edb3baee
+
+on:
+  push:
+    branches:
+      - qualification/t071-exact-head-edb3baee
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact repaired T071 head
+        uses: actions/checkout@v4
+        with:
+          ref: edb3baeec3d56372a9e551f9f63848883a62d534
+          fetch-depth: 0
+
+      - name: Opening exact-head clean-tree merge-base scope guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "edb3baeec3d56372a9e551f9f63848883a62d534"
+          test -z "$(git status --short)"
+          test "$(git merge-base 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca HEAD)" = "5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca"
+          test "$(git diff --name-only 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca...HEAD | tr '\n' ' ')" = "benchmarks/README.md "
+          git diff --check 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca...HEAD
+
+      - name: T071 repaired policy contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f benchmarks/README.md
+          test ! -e benchmarks/manifest.json
+          test "$(find benchmarks -type f -printf '%P\n' | sort | tr '\n' ' ')" = "README.md "
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path("benchmarks/README.md").read_text()
+          required = [
+              "selection corpus:** 5–6",
+              "gap corpus:** 3–4",
+              "T071–T074 acquisition/review is non-executing",
+              "T075: first executable boundary",
+              "CASE_REVIEWED",
+              "BENCHMARK_ACTIVE",
+              "base-state file and path remain unchanged",
+              "only the historical test change is withheld",
+              "SelectionAccount needed by SC-005",
+              "selected and deselected counts when knowable",
+              "explicit null/unknown counts plus a non-empty limitation",
+              "SC-011 requires every published metric to name the baseline",
+              "selection reference:",
+              "false-PASS reference:",
+              "gap reference:",
+              "unresolved reference:",
+              "timing reference:",
+              "at least two valid observations",
+              "One valid observation is `unknown`",
+              "`deterministic`",
+              "`nondeterministic`",
+              "`FLAKY`",
+              "reproduced=unknown",
+              "cross-tree evidence leakage = 0",
+              "binding-integrity violations = 0",
+              "stable material exercise gap returning exit 0 = 0",
+              "does not invent a pre-data 98%",
+              "https://spdx.github.io/spdx-spec/v3.0.1/annexes/spdx-license-expressions/",
+              "https://spdx.org/licenses/",
+              "https://git-scm.com/docs/git-cat-file",
+              "https://git-scm.com/docs/git-clone",
+          ]
+          missing = [needle for needle in required if needle not in text]
+          if missing:
+              raise SystemExit(f"missing repaired T071 contract text: {missing}")
+
+          forbidden = [
+              "withheld regression-test content or paths for gap cases",
+              "The withheld regression-test patch is oracle provenance, not measured input. It MUST NOT be present in the measured checkout",
+              "## 13. Metrics handoff",
+              "-> ORACLE_VERIFIED\n  -> ACCEPTED",
+          ]
+          present = [needle for needle in forbidden if needle in text]
+          if present:
+              raise SystemExit(f"stale T071 contract text remains: {present}")
+
+          if text.count("## 16. T071 completion boundary") != 1:
+              raise SystemExit("T071 completion boundary must appear exactly once")
+          PY
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Closing exact-head and clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "edb3baeec3d56372a9e551f9f63848883a62d534"
+          test -z "$(git status --short)"
