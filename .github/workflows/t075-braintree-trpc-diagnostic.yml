@@ -1,0 +1,137 @@
+name: T075 Braintree and Trpc diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-braintree-trpc-31fc822
+permissions:
+  contents: read
+jobs:
+  braintree:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 31fc82245130f9f1f8339b7c1b4c0384269570dd
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build controller
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.0
+      - name: Inspect fixed reviewed assertion independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '31fc82245130f9f1f8339b7c1b4c0384269570dd'
+          test "$(npm --version)" = '10.8.2'
+          set +e
+          node benchmarks/run.mjs --case braintree-venmo-csp-nonce-web-login --run-id "diagnostic:${GITHUB_RUN_ID}:braintree" --repetitions 1 --keep-temp > "$RUNNER_TEMP/braintree.out" 2> "$RUNNER_TEMP/braintree.err"
+          harness_code=$?
+          set -e
+          echo "HARNESS_EXIT=$harness_code"
+          cat "$RUNNER_TEMP/braintree.err"
+          root="$(find /tmp -maxdepth 1 -type d -name 'ascout-t075-braintree-venmo-csp-nonce-web-login-*' | sort | tail -n 1)"
+          test -d "$root/observation-1/oracle-fixed"
+          ROOT="$root" REPORT="$RUNNER_TEMP/braintree-fixed-membership.json" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { spawnSync } from 'node:child_process';
+          import {
+            extractGapCommands,
+            membershipProofCommand,
+            proveRunnerMembership,
+          } from './benchmarks/harness-lib.mjs';
+          const manifest = JSON.parse(fs.readFileSync('./benchmarks/manifest.json', 'utf8'));
+          const c = manifest.cases.find((x) => x.case_id === 'braintree-venmo-csp-nonce-web-login');
+          const targeted = extractGapCommands(c).targeted;
+          const variant = membershipProofCommand(targeted, 'jest', process.env.REPORT);
+          const result = spawnSync(variant.file, variant.argv, {
+            cwd: `${process.env.ROOT}/observation-1/oracle-fixed`,
+            env: { PATH: process.env.PATH, HOME: process.env.HOME, CI: '1', ...variant.env },
+            encoding: 'utf8',
+            maxBuffer: 16 * 1024 * 1024,
+          });
+          console.log('FIXED_PROOF_EXIT=' + result.status);
+          console.log('FIXED_PROOF_STDERR=' + String(result.stderr ?? '').slice(0, 2000).replaceAll('\n', '\\n'));
+          if (!fs.existsSync(process.env.REPORT)) throw new Error('fixed membership report missing');
+          const report = JSON.parse(fs.readFileSync(process.env.REPORT, 'utf8'));
+          console.log('REVIEWED_MEMBERSHIP=' + proveRunnerMembership(report, c.oracle.specification.regression_test_ids, c.paths.regression_tests));
+          const normalized = (v) => String(v ?? '').replaceAll('\\', '/');
+          for (const tr of report.testResults ?? []) {
+            if (!c.paths.regression_tests.some((p) => normalized(tr.name).endsWith(normalized(p)))) continue;
+            for (const a of tr.assertionResults ?? []) {
+              if (a?.status === 'failed' || c.oracle.specification.regression_test_ids.includes(a?.title)) {
+                console.log(JSON.stringify({status:a.status,title:a.title,fullName:a.fullName,ancestorTitles:a.ancestorTitles}));
+              }
+            }
+          }
+          NODE
+          test "$harness_code" -ne 0
+  trpc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 31fc82245130f9f1f8339b7c1b4c0384269570dd
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build controller
+        run: npm ci --ignore-scripts --no-audit --no-fund && npm run build
+      - name: Provision exact Trpc package manager
+        run: npm install --global pnpm@9.12.2 --ignore-scripts --no-audit --no-fund
+      - name: Inspect exact Node launcher chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = 'v24.15.0'
+          test "$(pnpm --version)" = '9.12.2'
+          set +e
+          node benchmarks/run.mjs --case trpc-streaming-onerror-cause --run-id "diagnostic:${GITHUB_RUN_ID}:trpc" --repetitions 1 --keep-temp > "$RUNNER_TEMP/trpc.out" 2> "$RUNNER_TEMP/trpc.err"
+          harness_code=$?
+          set -e
+          echo "HARNESS_EXIT=$harness_code"
+          cat "$RUNNER_TEMP/trpc.err"
+          root="$(find /tmp -maxdepth 1 -type d -name 'ascout-t075-trpc-streaming-onerror-cause-*' | sort | tail -n 1)"
+          test -d "$root/observation-1/oracle-pre"
+          cat > "$RUNNER_TEMP/argv-preload.cjs" <<'JS'
+          const fs = require('node:fs');
+          const entry = (process.argv[1] ?? '').replaceAll('\\', '/');
+          fs.appendFileSync(process.env.ASCOUT_DIAG_ARGV_LOG, JSON.stringify({entry, basename: entry.slice(entry.lastIndexOf('/') + 1), argv2: process.argv[2] ?? null}) + '\n');
+          JS
+          ROOT="$root" PRELOAD="$RUNNER_TEMP/argv-preload.cjs" LOG="$RUNNER_TEMP/trpc-launchers.jsonl" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { spawnSync } from 'node:child_process';
+          import { extractSelectionCommands, parseRestrictedCommand } from './benchmarks/harness-lib.mjs';
+          const manifest = JSON.parse(fs.readFileSync('./benchmarks/manifest.json', 'utf8'));
+          const c = manifest.cases.find((x) => x.case_id === 'trpc-streaming-onerror-cause');
+          const targeted = extractSelectionCommands(c).targeted;
+          const parsed = parseRestrictedCommand(targeted);
+          const result = spawnSync(parsed.file, parsed.argv, {
+            cwd: `${process.env.ROOT}/observation-1/oracle-pre`,
+            env: {
+              PATH: process.env.PATH,
+              HOME: process.env.HOME,
+              CI: '1',
+              ...parsed.env,
+              NODE_OPTIONS: `--require=${process.env.PRELOAD}`,
+              ASCOUT_DIAG_ARGV_LOG: process.env.LOG,
+            },
+            encoding: 'utf8',
+            maxBuffer: 16 * 1024 * 1024,
+          });
+          console.log('EXACT_EXIT=' + result.status);
+          console.log('EXACT_STDERR=' + String(result.stderr ?? '').slice(0, 1200).replaceAll('\n', '\\n'));
+          if (!fs.existsSync(process.env.LOG)) throw new Error('launcher log missing');
+          const lines = fs.readFileSync(process.env.LOG, 'utf8').trim().split(/\n+/).map((line) => JSON.parse(line));
+          const unique = [...new Map(lines.map((x) => [JSON.stringify(x), x])).values()];
+          for (const item of unique) console.log('LAUNCHER=' + JSON.stringify(item));
+          NODE
+          test "$harness_code" -ne 0
