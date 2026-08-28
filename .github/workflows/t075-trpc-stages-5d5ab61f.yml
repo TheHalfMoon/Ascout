@@ -6,18 +6,48 @@ on:
 permissions:
   contents: read
 jobs:
-  plan:
+  probe:
     runs-on: ubuntu-24.04
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 5d5ab61f5ad12198d746b54e9f2890fafc390692
+          repository: trpc/trpc
+          ref: 2b8a4f826d3b22829343cebd9b23e163dfeecd09
+          path: donor
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24.15.0
-      - name: Print reviewed Trpc plan
+      - name: Provision exact package manager
+        run: npm install --global pnpm@9.12.2 --ignore-scripts --no-audit --no-fund
+      - name: Frozen install
+        working-directory: donor
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = '5d5ab61f5ad12198d746b54e9f2890fafc390692'
-          node benchmarks/run.mjs --case trpc-streaming-onerror-cause --plan
+          test "$(node --version)" = 'v24.15.0'
+          test "$(pnpm --version)" = '9.12.2'
+          pnpm install --frozen-lockfile --ignore-scripts
+      - name: Probe reviewed commands
+        working-directory: donor
+        run: |
+          set -euo pipefail
+          run_probe() {
+            label="$1"; shift
+            echo "PROBE_${label}_BEGIN=$(date -u +%FT%TZ)"
+            start=$(date +%s)
+            set +e
+            timeout --signal=TERM --kill-after=10s 120s "$@" >"$RUNNER_TEMP/${label}.out" 2>"$RUNNER_TEMP/${label}.err"
+            code=$?
+            set -e
+            end=$(date +%s)
+            echo "PROBE_${label}_EXIT=$code"
+            echo "PROBE_${label}_SECONDS=$((end-start))"
+            echo "PROBE_${label}_STDERR_TAIL_BEGIN"
+            tail -n 30 "$RUNNER_TEMP/${label}.err" || true
+            echo "PROBE_${label}_STDERR_TAIL_END"
+          }
+          run_probe targeted pnpm exec vitest run packages/tests/server/errors.test.ts
+          run_probe full pnpm exec vitest run
+          run_probe plain pnpm test -- --run
+          run_probe related pnpm exec vitest related packages/server/src/unstable-core-do-not-import/http/resolveResponse.ts --run
