@@ -1031,7 +1031,7 @@
           "Materialize exact fix tree 4eab9ccc2b94b6351b77c3b2597edb6371cdb23c from commit 3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf.",
           "Construct the derived pre-fix benchmark baseline by replacing only the listed production path blobs with their exact objects from base commit 55747b3cd05cd8b60b4f3d6a6348e2c508069c12; preserve the fix-tree regression-test and naturally present ancillary content unchanged.",
           "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
-          "Use the exact fix tree as the fixed measured state so the baseline-to-fixed diff contains production changes only; regression-test paths must be byte-identical across the measured comparison."
+          "At T075, create a deterministic benchmark-local synthetic commit whose tree is the derived baseline tree and whose parent is the pinned base commit. Use fixed harness-owned author/committer identity, timestamp, message, parent order, and no signing so repeated materialization yields the same local HEAD; this synthetic commit is benchmark-derived and MUST NOT be represented as an upstream commit. Check out that synthetic commit with index and worktree exactly matching HEAD, then overlay only the listed production-path blobs from the exact fix commit into the worktree without staging them. Immediately before project-native selection or Ascout, require the index to remain identical to HEAD, require no non-runtime untracked files, require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, require the working tree to be non-clean, and require every regression-test path to remain byte-identical to HEAD."
         ],
         "measured_diff_contains_regression_test_change": false,
         "derived_identity": {
@@ -1105,6 +1105,7 @@
           ],
           "historical_basis": "Upstream fix commit 3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf / PR #5687 changes floatSafeRemainder exponent parsing and adds a regression test whose commit message explicitly states it fails before the regex fix for 1e-10 and 1e-15 multiples.",
           "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1124,7 +1125,8 @@
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
         "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
-        "Node 24.15.0 is a T073 reviewer-selected exact replay version justified by upstream lts/* policy, not an exact Node patch version pinned by the donor repository."
+        "Node 24.15.0 is a T073 reviewer-selected exact replay version justified by upstream lts/* policy, not an exact Node patch version pinned by the donor repository.",
+        "The benchmark-local synthetic HEAD is not an upstream identity. T075 must use one globally fixed, versioned commit-object recipe and record its resulting commit ID together with the already-required derived tree identity; any nondeterministic synthetic HEAD invalidates replay."
       ]
     },
     {
@@ -1184,7 +1186,7 @@
           "Materialize exact fix tree b74190ec22479c4500c64dcd49f70ed356c6f408 from commit b9b62c65357c2b0fed4ae046a30c8e84e4094202.",
           "Construct the derived pre-fix benchmark baseline by replacing only the listed production path blobs with their exact objects from base commit 584b1089e1fc7bfcc97797576eff8da85bcdf031; preserve the fix-tree regression-test and naturally present ancillary content unchanged.",
           "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
-          "Use the exact fix tree as the fixed measured state so the baseline-to-fixed diff contains production changes only; regression-test paths must be byte-identical across the measured comparison."
+          "At T075, create a deterministic benchmark-local synthetic commit whose tree is the derived baseline tree and whose parent is the pinned base commit. Use fixed harness-owned author/committer identity, timestamp, message, parent order, and no signing so repeated materialization yields the same local HEAD; this synthetic commit is benchmark-derived and MUST NOT be represented as an upstream commit. Check out that synthetic commit with index and worktree exactly matching HEAD, then overlay only the listed production-path blobs from the exact fix commit into the worktree without staging them. Immediately before project-native selection or Ascout, require the index to remain identical to HEAD, require no non-runtime untracked files, require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, require the working tree to be non-clean, and require every regression-test path to remain byte-identical to HEAD."
         ],
         "measured_diff_contains_regression_test_change": false,
         "derived_identity": {
@@ -1258,6 +1260,7 @@
           ],
           "historical_basis": "Upstream fix commit b9b62c65357c2b0fed4ae046a30c8e84e4094202 / PR #5864 closes #4461 and #5414, adds a dedicated isolated Vitest regression file, and changes allowsEval to skip new Function when globalConfig.jitless is true.",
           "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1279,7 +1282,8 @@
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
         "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
-        "Node 24.15.0 is a T073 reviewer-selected exact replay version justified by upstream lts/* policy, not an exact Node patch version pinned by the donor repository."
+        "Node 24.15.0 is a T073 reviewer-selected exact replay version justified by upstream lts/* policy, not an exact Node patch version pinned by the donor repository.",
+        "The benchmark-local synthetic HEAD is not an upstream identity. T075 must use one globally fixed, versioned commit-object recipe and record its resulting commit ID together with the already-required derived tree identity; any nondeterministic synthetic HEAD invalidates replay."
       ]
     },
     {
@@ -1338,7 +1342,7 @@
           "Materialize exact fix tree 49862717332d3cb2f3676bf3f0a2f59aa2539f16 from commit d576092e2ece4ca3936add3eb0da5234c1d82ed4.",
           "Construct the derived pre-fix benchmark baseline by replacing only the listed production path blobs with their exact objects from base commit f9fc56a9b8724bcfae46f8f6cb229123478eb4db; preserve the fix-tree regression-test and naturally present ancillary content unchanged.",
           "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
-          "Use the exact fix tree as the fixed measured state so the baseline-to-fixed diff contains production changes only; regression-test paths must be byte-identical across the measured comparison."
+          "At T075, create a deterministic benchmark-local synthetic commit whose tree is the derived baseline tree and whose parent is the pinned base commit. Use fixed harness-owned author/committer identity, timestamp, message, parent order, and no signing so repeated materialization yields the same local HEAD; this synthetic commit is benchmark-derived and MUST NOT be represented as an upstream commit. Check out that synthetic commit with index and worktree exactly matching HEAD, then overlay only the listed production-path blobs from the exact fix commit into the worktree without staging them. Immediately before project-native selection or Ascout, require the index to remain identical to HEAD, require no non-runtime untracked files, require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, require the working tree to be non-clean, and require every regression-test path to remain byte-identical to HEAD."
         ],
         "measured_diff_contains_regression_test_change": false,
         "derived_identity": {
@@ -1412,6 +1416,7 @@
           ],
           "historical_basis": "Upstream fix commit d576092e2ece4ca3936add3eb0da5234c1d82ed4 / PR #9970 changes streamedQuery so the reducer is invoked once per chunk and adds a regression test asserting the exact call sequence for replace refetch mode.",
           "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1431,7 +1436,8 @@
       },
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
-        "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED."
+        "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
+        "The benchmark-local synthetic HEAD is not an upstream identity. T075 must use one globally fixed, versioned commit-object recipe and record its resulting commit ID together with the already-required derived tree identity; any nondeterministic synthetic HEAD invalidates replay."
       ]
     },
     {
@@ -1489,7 +1495,7 @@
           "Materialize exact fix tree cea37eb9738d715d4400a8b6db06a626226c1872 from commit 6213fc11bdf096301a82ae5c236b5a666a4ee3ca.",
           "Construct the derived pre-fix benchmark baseline by replacing only the listed production path blobs with their exact objects from base commit a3869ca4eb1d397d8bf2a6f350661115fff18a5a; preserve the fix-tree regression-test and naturally present ancillary content unchanged.",
           "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
-          "Use the exact fix tree as the fixed measured state so the baseline-to-fixed diff contains production changes only; regression-test paths must be byte-identical across the measured comparison."
+          "At T075, create a deterministic benchmark-local synthetic commit whose tree is the derived baseline tree and whose parent is the pinned base commit. Use fixed harness-owned author/committer identity, timestamp, message, parent order, and no signing so repeated materialization yields the same local HEAD; this synthetic commit is benchmark-derived and MUST NOT be represented as an upstream commit. Check out that synthetic commit with index and worktree exactly matching HEAD, then overlay only the listed production-path blobs from the exact fix commit into the worktree without staging them. Immediately before project-native selection or Ascout, require the index to remain identical to HEAD, require no non-runtime untracked files, require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, require the working tree to be non-clean, and require every regression-test path to remain byte-identical to HEAD."
         ],
         "measured_diff_contains_regression_test_change": false,
         "derived_identity": {
@@ -1563,6 +1569,7 @@
           ],
           "historical_basis": "Upstream fix commit 6213fc11bdf096301a82ae5c236b5a666a4ee3ca / PR #3391 replaces the stale stateFromStorage callback value with get() and adds an async regression test that mutates state during hydration and asserts the callback receives the latest state.",
           "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1582,7 +1589,8 @@
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
         "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
-        "Node 24.15.0 is a T073 reviewer-selected exact replay version within the donor engines range, not an exact Node patch version pinned by the donor repository."
+        "Node 24.15.0 is a T073 reviewer-selected exact replay version within the donor engines range, not an exact Node patch version pinned by the donor repository.",
+        "The benchmark-local synthetic HEAD is not an upstream identity. T075 must use one globally fixed, versioned commit-object recipe and record its resulting commit ID together with the already-required derived tree identity; any nondeterministic synthetic HEAD invalidates replay."
       ]
     },
     {
@@ -1640,7 +1648,7 @@
           "Materialize exact fix tree 4df4511116d85a6003b36dddca79f56bab7bd53b from commit d7118f40a50aa7783481e9a9b77a703302b94814.",
           "Construct the derived pre-fix benchmark baseline by replacing only the listed production path blobs with their exact objects from base commit 47546bbc80557aa5cc4eb2daf2062a27c557137b; preserve the fix-tree regression-test and naturally present ancillary content unchanged.",
           "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
-          "Use the exact fix tree as the fixed measured state so the baseline-to-fixed diff contains production changes only; regression-test paths must be byte-identical across the measured comparison."
+          "At T075, create a deterministic benchmark-local synthetic commit whose tree is the derived baseline tree and whose parent is the pinned base commit. Use fixed harness-owned author/committer identity, timestamp, message, parent order, and no signing so repeated materialization yields the same local HEAD; this synthetic commit is benchmark-derived and MUST NOT be represented as an upstream commit. Check out that synthetic commit with index and worktree exactly matching HEAD, then overlay only the listed production-path blobs from the exact fix commit into the worktree without staging them. Immediately before project-native selection or Ascout, require the index to remain identical to HEAD, require no non-runtime untracked files, require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, require the working tree to be non-clean, and require every regression-test path to remain byte-identical to HEAD."
         ],
         "measured_diff_contains_regression_test_change": false,
         "derived_identity": {
@@ -1715,6 +1723,7 @@
           ],
           "historical_basis": "Upstream fix commit d7118f40a50aa7783481e9a9b77a703302b94814 / PR #13646 excludes Date objects from numeric min/max validation and adds a regression test covering both min and max errors when form values are already Date instances.",
           "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1734,7 +1743,8 @@
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
         "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
-        "Node 22.22.2 is the T073 exact replay pin chosen within the donor CI-selected Node 22 major; the donor CI metadata does not pin a Node 22 patch version."
+        "Node 22.22.2 is the T073 exact replay pin chosen within the donor CI-selected Node 22 major; the donor CI metadata does not pin a Node 22 patch version.",
+        "The benchmark-local synthetic HEAD is not an upstream identity. T075 must use one globally fixed, versioned commit-object recipe and record its resulting commit ID together with the already-required derived tree identity; any nondeterministic synthetic HEAD invalidates replay."
       ]
     },
     {
@@ -1793,7 +1803,7 @@
           "Materialize exact fix tree 4fe2394b59ea1011762e8ee639c9ada9fc71b8c2 from commit 2b8a4f826d3b22829343cebd9b23e163dfeecd09.",
           "Construct the derived pre-fix benchmark baseline by replacing only the listed production path blobs with their exact objects from base commit 59f2cdb3c58310733b06d3b2e16c94065fe0a9c3; preserve the fix-tree regression-test and naturally present ancillary content unchanged.",
           "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
-          "Use the exact fix tree as the fixed measured state so the baseline-to-fixed diff contains production changes only; regression-test paths must be byte-identical across the measured comparison."
+          "At T075, create a deterministic benchmark-local synthetic commit whose tree is the derived baseline tree and whose parent is the pinned base commit. Use fixed harness-owned author/committer identity, timestamp, message, parent order, and no signing so repeated materialization yields the same local HEAD; this synthetic commit is benchmark-derived and MUST NOT be represented as an upstream commit. Check out that synthetic commit with index and worktree exactly matching HEAD, then overlay only the listed production-path blobs from the exact fix commit into the worktree without staging them. Immediately before project-native selection or Ascout, require the index to remain identical to HEAD, require no non-runtime untracked files, require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, require the working tree to be non-clean, and require every regression-test path to remain byte-identical to HEAD."
         ],
         "measured_diff_contains_regression_test_change": false,
         "derived_identity": {
@@ -1867,6 +1877,7 @@
           ],
           "historical_basis": "Upstream fix commit 2b8a4f826d3b22829343cebd9b23e163dfeecd09 / PR #7286 changes resolveResponse streaming onError to unwrap cause.error, adds a dedicated regression test preserving message/cause, and updates existing streaming snapshots that previously encoded the buggy empty message.",
           "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the exact fixed state with the same regression-test bytes and execute the identical test identity; require the historical regression test to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1886,7 +1897,8 @@
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
         "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
-        "Node 24.15.0 is a T073 reviewer-selected exact replay version inside the donor ^24.0.0 engines constraint, not an upstream exact Node patch pin."
+        "Node 24.15.0 is a T073 reviewer-selected exact replay version inside the donor ^24.0.0 engines constraint, not an upstream exact Node patch pin.",
+        "The benchmark-local synthetic HEAD is not an upstream identity. T075 must use one globally fixed, versioned commit-object recipe and record its resulting commit ID together with the already-required derived tree identity; any nondeterministic synthetic HEAD invalidates replay."
       ]
     }
   ]
