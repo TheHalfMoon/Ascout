@@ -22,6 +22,7 @@ import {
   assertPathInside,
   canonicalJson,
   classifyLcov,
+  enforceMembershipPolicy,
   extractGapCommands,
   extractSelectionCommands,
   frozenInstallCommand,
@@ -543,9 +544,7 @@ async function runMembershipProof(caseRecord, repo, root, commandText, expectedE
   assertPathInside(root, proofPath);
   await mkdir(dirname(proofPath), { recursive: true });
   const variant = membershipProofCommand(commandText, runnerKind(caseRecord), proofPath);
-  const envBase = runtimeEnvironment(root);
-  const proofEnv = { ...envBase, ...variant.env };
-  assertControllerSecretsAbsent(proofEnv);
+  const proofEnv = runtimeEnvironment(root, variant.env);
   await clearIgnoredMembershipRuntimeCaches(repo, proofEnv);
   const proof = await runBounded({ file: variant.file, argv: variant.argv, cwd: repo, env: proofEnv });
   requireExited(proof, `${label} membership proof`);
@@ -594,20 +593,22 @@ async function runMembershipProof(caseRecord, repo, root, commandText, expectedE
     caseRecord.oracle.specification.regression_test_ids,
     caseRecord.paths.regression_tests,
   );
-  const reviewed_status = {
-    passed: proveReviewedAssertionStatus(
-      report,
-      caseRecord.oracle.specification.regression_test_ids,
-      caseRecord.paths.regression_tests,
-      "passed",
-    ),
-    failed: proveReviewedAssertionStatus(
-      report,
-      caseRecord.oracle.specification.regression_test_ids,
-      caseRecord.paths.regression_tests,
-      "failed",
-    ),
-  };
+  const reviewed_status = membership
+    ? {
+        passed: proveReviewedAssertionStatus(
+          report,
+          caseRecord.oracle.specification.regression_test_ids,
+          caseRecord.paths.regression_tests,
+          "passed",
+        ),
+        failed: proveReviewedAssertionStatus(
+          report,
+          caseRecord.oracle.specification.regression_test_ids,
+          caseRecord.paths.regression_tests,
+          "failed",
+        ),
+      }
+    : { passed: false, failed: false };
   return {
     membership,
     reviewed_status,
@@ -624,8 +625,7 @@ async function runMembershipProof(caseRecord, repo, root, commandText, expectedE
 async function runReviewed(caseRecord, repo, root, commandText, expected, label, expectedPaths) {
   const envBase = runtimeEnvironment(root);
   const parsed = parseRestrictedCommand(commandText);
-  const env = { ...envBase, ...parsed.env };
-  assertControllerSecretsAbsent(env);
+  const env = runtimeEnvironment(root, parsed.env);
   await assertMeasuredState(repo, expectedPaths, envBase);
   const exact = await runBounded({ file: parsed.file, argv: parsed.argv, cwd: repo, env });
   requireExited(exact, label);
@@ -646,13 +646,15 @@ async function runReviewed(caseRecord, repo, root, commandText, expected, label,
   };
 }
 
-async function runComparator(caseRecord, repo, root, commandText, label, requireMembership) {
+async function runComparator(caseRecord, repo, root, commandText, label, membershipPolicy) {
+  const proveMembership = membershipPolicy === "required" || membershipPolicy === "observed";
+  if (!proveMembership && membershipPolicy !== "none") fail("invalid_case", `unsupported membership policy: ${String(membershipPolicy)}`);
   const envBase = runtimeEnvironment(root);
   await assertMeasuredState(repo, caseRecord.paths.production, envBase);
   await clearIgnoredMembershipRuntimeCaches(repo, envBase);
   const sourceStateStartSha256 = await independentSourceStateDigest(repo, envBase);
   const parsed = parseRestrictedCommand(commandText);
-  const env = { ...envBase, ...parsed.env };
+  const env = runtimeEnvironment(root, parsed.env);
   const exact = await runBounded({ file: parsed.file, argv: parsed.argv, cwd: repo, env });
   requireExited(exact, label);
   const sourceStateEndSha256 = await independentSourceStateDigest(repo, envBase);
@@ -660,25 +662,25 @@ async function runComparator(caseRecord, repo, root, commandText, label, require
   if (sourceStability === "tree_drifted") {
     await restoreMeasuredSourceState(caseRecord, repo, root, sourceStateStartSha256);
   }
-  if (!requireMembership) rejectSetupFailure(textOutput(exact), label);
-  const proof = requireMembership
+  if (!proveMembership) rejectSetupFailure(textOutput(exact), label);
+  const proof = proveMembership
     ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label)
     : null;
   let proofSourceStability = null;
   let proofSourceStateEndSha256 = null;
-  if (requireMembership) {
+  if (proveMembership) {
     proofSourceStateEndSha256 = await independentSourceStateDigest(repo, envBase);
     proofSourceStability = sourceStateStartSha256 === proofSourceStateEndSha256 ? "stable" : "tree_drifted";
     if (proofSourceStability === "tree_drifted") {
       await restoreMeasuredSourceState(caseRecord, repo, root, sourceStateStartSha256);
     }
   }
-  if (requireMembership && !proof.membership) fail("oracle_membership", `${label} did not prove oracle membership`);
+  const oracleMembership = enforceMembershipPolicy(membershipPolicy, proof?.membership ?? null, label);
   await assertMeasuredState(repo, caseRecord.paths.production, envBase);
   return {
     status: exact.exitCode === 0 ? "passed" : "failed",
     exit_code: exact.exitCode,
-    oracle_membership: requireMembership ? true : null,
+    oracle_membership: oracleMembership,
     source_stability: sourceStability,
     source_state_start_sha256: sourceStateStartSha256,
     source_state_end_sha256: sourceStateEndSha256,
@@ -750,9 +752,9 @@ async function runSelectionObservation(caseRecord, cacheRepo, root, ascoutRoot) 
   const commands = extractSelectionCommands(caseRecord);
   const preOracle = await runReviewed(caseRecord, pre.repo, root, commands.targeted, "fail", "pre-fix oracle", []);
   const fixedOracle = await runReviewed(caseRecord, fixed.repo, root, commands.targeted, "pass", "measured fixed oracle", caseRecord.paths.production);
-  const full = await runComparator(caseRecord, fixed.repo, root, commands.full, "project-native full suite", true);
-  const plain = await runComparator(caseRecord, fixed.repo, root, commands.plain, "plain project test", false);
-  const related = await runComparator(caseRecord, fixed.repo, root, commands.related, "runner-native related selector", true);
+  const full = await runComparator(caseRecord, fixed.repo, root, commands.full, "project-native full suite", "required");
+  const plain = await runComparator(caseRecord, fixed.repo, root, commands.plain, "plain project test", "none");
+  const related = await runComparator(caseRecord, fixed.repo, root, commands.related, "runner-native related selector", "observed");
   const ascout = await runAscout(caseRecord, fixed.repo, root, ascoutRoot);
   return {
     reconstruction: { derived_tree: fixed.tree, synthetic_head: fixed.syntheticCommit },
@@ -777,7 +779,8 @@ async function runGapObservation(caseRecord, cacheRepo, root, ascoutRoot) {
   const env = runtimeEnvironment(root);
   await assertMeasuredState(measured.repo, caseRecord.paths.production, env);
   const coverageCommand = parseRestrictedCommand(commands.fullCoverage);
-  const coverageRun = await runBounded({ file: coverageCommand.file, argv: coverageCommand.argv, cwd: measured.repo, env: { ...env, ...coverageCommand.env }, timeoutMs: DEFAULT_TIMEOUT_MS });
+  const coverageEnv = runtimeEnvironment(root, coverageCommand.env);
+  const coverageRun = await runBounded({ file: coverageCommand.file, argv: coverageCommand.argv, cwd: measured.repo, env: coverageEnv, timeoutMs: DEFAULT_TIMEOUT_MS });
   requireExited(coverageRun, "gap full coverage oracle");
   rejectSetupFailure(textOutput(coverageRun), "gap full coverage oracle");
   await assertMeasuredState(measured.repo, caseRecord.paths.production, env);
@@ -792,14 +795,14 @@ async function runGapObservation(caseRecord, cacheRepo, root, ascoutRoot) {
   }
   const classifications = classifyLcov(artifactBytes.toString("utf8"), caseRecord.oracle.specification.gap_changed_executable_lines);
   const frozenCoverage = { artifact_sha256: sha256Bytes(artifactBytes), classifications };
-  const nativeCoverage = await runComparator(caseRecord, measured.repo, root, commands.nativeCoverage, "project-native coverage reference", false);
+  const nativeCoverage = await runComparator(caseRecord, measured.repo, root, commands.nativeCoverage, "project-native coverage reference", "none");
   const ascout = await runAscout(caseRecord, measured.repo, root, ascoutRoot);
   return {
     reconstruction: { derived_tree: measured.tree, synthetic_head: null },
     pre_fix_oracle: { status: preOracle.status, membership_proven: preOracle.membership_proven },
     fixed_oracle: { status: fixedOracle.status, membership_proven: fixedOracle.membership_proven },
     full_reference: { status: coverageRun.exitCode === 0 ? "passed" : "failed" },
-    plain: commands.reference === null ? null : await runComparator(caseRecord, measured.repo, root, commands.reference, "project-native test reference", false),
+    plain: commands.reference === null ? null : await runComparator(caseRecord, measured.repo, root, commands.reference, "project-native test reference", "none"),
     related: { status: "not_applicable" },
     ascout,
     gap_coverage: frozenCoverage,
