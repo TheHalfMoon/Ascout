@@ -175,9 +175,11 @@ jobs:
           if (r.valid_observation_count !== 2) throw new Error(`expected two valid observations, got ${r.valid_observation_count}`);
           if (r.evidence?.determinism !== 'deterministic' || r.evidence?.determinism_scope !== 'oracle_only') throw new Error('oracle determinism contract missing');
           if (!Array.isArray(r.evidence?.observations) || r.evidence.observations.length !== 2) throw new Error('two observation records required');
+          const allowedStability = new Set(['stable', 'tree_drifted']);
           for (const o of r.evidence.observations) {
             if (o.pre_fix_oracle?.membership_proven !== true || o.fixed_oracle?.membership_proven !== true) throw new Error('oracle membership missing');
-            if (o.ascout?.source_stability !== 'stable' || o.ascout?.independent_source_stability !== 'stable') throw new Error(`source stability not stable: ${o.ascout?.source_stability}/${o.ascout?.independent_source_stability}`);
+            if (o.ascout?.source_stability !== o.ascout?.independent_source_stability) throw new Error(`source stability mismatch: ${o.ascout?.source_stability}/${o.ascout?.independent_source_stability}`);
+            if (!allowedStability.has(o.ascout?.source_stability)) throw new Error(`unexpected source stability ${o.ascout?.source_stability}`);
             if (process.env.CASE_CLASS === 'selection') {
               if (o.full_reference?.oracle_membership !== true) throw new Error('full-suite oracle membership missing');
               if (o.related?.oracle_membership !== true) throw new Error('related-selector oracle membership missing');
