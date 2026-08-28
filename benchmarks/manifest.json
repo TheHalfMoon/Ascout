@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "ascout-founding-benchmark-v1",
-  "manifest_revision": 1,
+  "manifest_revision": 4,
   "policy": {
     "policy_path": "benchmarks/README.md",
     "manifest_task": "T072",
@@ -261,6 +261,121 @@
                     "type": "null"
                   }
                 ]
+              }
+            }
+          },
+          "synthetic_head": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "recipe_version",
+              "git_object_format",
+              "tree_source",
+              "parent_commit_ids",
+              "object_hash_algorithm",
+              "payload_template_utf8",
+              "payload_template_sha256",
+              "author",
+              "committer",
+              "message_utf8",
+              "encoding_header",
+              "signing",
+              "extra_headers",
+              "result_commit_id"
+            ],
+            "properties": {
+              "recipe_version": {
+                "const": "git-commit-object-v1"
+              },
+              "git_object_format": {
+                "const": "sha1"
+              },
+              "tree_source": {
+                "const": "reconstruction.derived_identity.expected_digest"
+              },
+              "parent_commit_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/git_object_id"
+                }
+              },
+              "object_hash_algorithm": {
+                "const": "sha1-git-object-header-plus-payload-v1"
+              },
+              "payload_template_utf8": {
+                "type": "string",
+                "minLength": 1
+              },
+              "payload_template_sha256": {
+                "$ref": "#/$defs/sha256"
+              },
+              "author": {
+                "$ref": "#/$defs/synthetic_git_identity"
+              },
+              "committer": {
+                "$ref": "#/$defs/synthetic_git_identity"
+              },
+              "message_utf8": {
+                "const": "Ascout benchmark synthetic baseline v1\n"
+              },
+              "encoding_header": {
+                "type": "null"
+              },
+              "signing": {
+                "const": "forbidden"
+              },
+              "extra_headers": {
+                "type": "array",
+                "maxItems": 0
+              },
+              "result_commit_id": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/git_object_id"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "ancillary_review": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "changed_paths",
+              "preserved_allowlist",
+              "excluded_from_derived_baseline",
+              "review_note"
+            ],
+            "properties": {
+              "changed_paths": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/repository_path"
+                }
+              },
+              "preserved_allowlist": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/repository_path"
+                }
+              },
+              "excluded_from_derived_baseline": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/repository_path"
+                }
+              },
+              "review_note": {
+                "type": "string",
+                "minLength": 1
               }
             }
           }
@@ -550,6 +665,101 @@
       }
     },
     "allOf": [
+      {
+        "if": {
+          "properties": {
+            "case_class": {
+              "const": "selection"
+            }
+          },
+          "required": [
+            "case_class"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reconstruction": {
+              "required": [
+                "synthetic_head",
+                "ancillary_review"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "case_class": {
+              "const": "selection"
+            },
+            "lifecycle_state": {
+              "enum": [
+                "CANDIDATE",
+                "IDENTITY_VERIFIED",
+                "LICENSE_CLEARED",
+                "RECONSTRUCTION_SPECIFIED",
+                "ORACLE_SPECIFIED",
+                "CASE_REVIEWED"
+              ]
+            }
+          },
+          "required": [
+            "case_class",
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reconstruction": {
+              "properties": {
+                "synthetic_head": {
+                  "properties": {
+                    "result_commit_id": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "case_class": {
+              "const": "selection"
+            },
+            "lifecycle_state": {
+              "enum": [
+                "RECONSTRUCTION_REPLAYED",
+                "ORACLE_VERIFIED",
+                "BENCHMARK_ACTIVE"
+              ]
+            }
+          },
+          "required": [
+            "case_class",
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reconstruction": {
+              "properties": {
+                "synthetic_head": {
+                  "properties": {
+                    "result_commit_id": {
+                      "$ref": "#/$defs/git_object_id"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       {
         "if": {
           "properties": {
@@ -972,8 +1182,1156 @@
             "minimum": 1
           }
         }
+      },
+      "synthetic_git_identity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "email",
+          "git_timestamp"
+        ],
+        "properties": {
+          "name": {
+            "const": "Ascout Benchmark Harness"
+          },
+          "email": {
+            "const": "ascout-benchmark@users.noreply.github.com"
+          },
+          "git_timestamp": {
+            "const": "946684800 +0000"
+          }
+        }
       }
     }
   },
-  "cases": []
+  "cases": [
+    {
+      "case_id": "zod-scientific-exponents",
+      "case_revision": 2,
+      "case_class": "selection",
+      "lifecycle_state": "CASE_REVIEWED",
+      "upstream": {
+        "canonical_url": "https://github.com/colinhacks/zod.git",
+        "repository_name": "colinhacks/zod",
+        "provenance_urls": [
+          "https://github.com/colinhacks/zod/commit/3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf",
+          "https://github.com/colinhacks/zod/pull/5687"
+        ]
+      },
+      "git": {
+        "base": {
+          "commit_id": "55747b3cd05cd8b60b4f3d6a6348e2c508069c12",
+          "tree_id": "53fddad63ae5840a236a34f1a41251ef8a292b31",
+          "required_parent_ids": [
+            "46cd10e76339c2f9cf8ad99df49b808e58e69879"
+          ]
+        },
+        "fix": {
+          "commit_id": "3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf",
+          "tree_id": "4eab9ccc2b94b6351b77c3b2597edb6371cdb23c",
+          "required_parent_ids": [
+            "55747b3cd05cd8b60b4f3d6a6348e2c508069c12"
+          ]
+        },
+        "oracle": {
+          "commit_id": "3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf",
+          "tree_id": "4eab9ccc2b94b6351b77c3b2597edb6371cdb23c",
+          "required_parent_ids": [
+            "55747b3cd05cd8b60b4f3d6a6348e2c508069c12"
+          ]
+        },
+        "relationship": {
+          "kind": "direct_parent",
+          "required_parent_commit_id": "55747b3cd05cd8b60b4f3d6a6348e2c508069c12",
+          "rationale": "The reviewed historical fix is a single-parent commit whose first and only parent is the pinned base; the oracle regression-test change is contained in the same pinned fix tree."
+        }
+      },
+      "paths": {
+        "production": [
+          "packages/zod/src/v4/core/util.ts"
+        ],
+        "regression_tests": [
+          "packages/zod/src/v4/classic/tests/number.test.ts"
+        ]
+      },
+      "reconstruction": {
+        "mode": "fix_tree_with_production_paths_reverted",
+        "steps": [
+          "Materialize exact fix tree 4eab9ccc2b94b6351b77c3b2597edb6371cdb23c from commit 3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf.",
+          "Construct the derived pre-fix benchmark baseline from the exact fix tree by replacing the listed production-path blobs with their exact base-commit objects, preserving the listed regression-test bytes, and applying reconstruction.ancillary_review exactly: every base-to-fix changed path outside production/regression paths must be classified; preserve only preserved_allowlist paths and restore excluded paths to exact base-state bytes/presence (delete when absent in base). No unclassified base-to-fix changed path may remain.",
+          "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
+          "At T075, after recording the derived Git tree identity, construct HEAD only from reconstruction.synthetic_head. Substitute the observed derived tree ID and pinned base commit ID into payload_template_utf8; the Git commit payload, parent order, author/committer identity and timestamp, message bytes, absence of encoding/signature/extra headers, and SHA-1 object hashing are fixed by that structured recipe. Record and require the deterministic resulting commit ID at RECONSTRUCTION_REPLAYED. Check out that HEAD with index/worktree equal to HEAD, overlay only listed production fix blobs unstaged, and require an exact production-only working-tree-vs-HEAD path set, unchanged regression-test bytes, no unexpected non-runtime untracked paths, and a non-clean worktree."
+        ],
+        "measured_diff_contains_regression_test_change": false,
+        "derived_identity": {
+          "algorithm": "git-tree",
+          "expected_digest": null
+        },
+        "synthetic_head": {
+          "recipe_version": "git-commit-object-v1",
+          "git_object_format": "sha1",
+          "tree_source": "reconstruction.derived_identity.expected_digest",
+          "parent_commit_ids": [
+            "55747b3cd05cd8b60b4f3d6a6348e2c508069c12"
+          ],
+          "object_hash_algorithm": "sha1-git-object-header-plus-payload-v1",
+          "payload_template_utf8": "tree {derived_tree_id}\nparent {base_commit_id}\nauthor Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\ncommitter Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\n\nAscout benchmark synthetic baseline v1\n",
+          "payload_template_sha256": "9c37f97af8617a0568a944e3e712d1fab54f8f39512c97ee63a44a6fe0cc06df",
+          "author": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "committer": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "message_utf8": "Ascout benchmark synthetic baseline v1\n",
+          "encoding_header": null,
+          "signing": "forbidden",
+          "extra_headers": [],
+          "result_commit_id": null
+        },
+        "ancillary_review": {
+          "changed_paths": [],
+          "preserved_allowlist": [],
+          "excluded_from_derived_baseline": [],
+          "review_note": "Exact fix metadata has no changed paths outside reviewed production/regression paths."
+        }
+      },
+      "runtime": {
+        "package_manager": "pnpm",
+        "package_manager_version": "10.12.1",
+        "package_manager_version_provenance": "package.json at fix commit 3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf, blob e95f7b9d5ceb484d72770f648bf6f2d8179cc6ea, declares packageManager pnpm@10.12.1.",
+        "lockfile": {
+          "path": "pnpm-lock.yaml",
+          "blob_id": "150ba21ebca376373d8d309a90014a83a1916881",
+          "sha256": "3698835c4a5ee5df5311cc0615b8aa5b4b1d7894ee6ac4908b7e5c4c53261b82"
+        },
+        "node_version": "24.15.0",
+        "node_constraint_provenance": [
+          ".github/workflows/test.yml at the pinned fix uses Node lts/* for the test job; the repository has no stricter engines pin at this commit.",
+          "T073 review selects exact Node 24.15.0 as a compatible Node 24 LTS replay identity; nodejs/node refs/tags/v24.15.0 was independently verified before manifest materialization."
+        ],
+        "immutable_harness_artifact": {
+          "required": false,
+          "sha256": null,
+          "reason": "T073 is non-executing and does not choose a packaged T075 image. If T075 uses an immutable packaged harness/toolchain artifact, the case definition must be revised and pinned before donor execution."
+        }
+      },
+      "licensing": {
+        "base": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "c06579627b432d09779094cd0166b7f37fe51db8",
+              "sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
+            }
+          ],
+          "review_note": "Base exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "fix": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "c06579627b432d09779094cd0166b7f37fe51db8",
+              "sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
+            }
+          ],
+          "review_note": "Fix exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "oracle": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "c06579627b432d09779094cd0166b7f37fe51db8",
+              "sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
+            }
+          ],
+          "review_note": "Oracle exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "file_level_review": {
+          "status": "CLEAR",
+          "notes": "GitHub Actions metadata-only audit run 33147551173 / job 98771832673 inspected required production/regression path blobs for SPDX/license notices and LFS pointers, confirmed no required submodules, and found no file-level term overriding the pinned MIT root license."
+        }
+      },
+      "oracle": {
+        "specification": {
+          "regression_test_ids": [
+            ".multipleOf() with scientific notation (multi-digit exponents)"
+          ],
+          "historical_basis": "Upstream fix commit 3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf / PR #5687 changes floatSafeRemainder exponent parsing and adds a regression test whose commit message explicitly states it fails before the regex fix for 1e-10 and 1e-15 multiples.",
+          "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob e95f7b9d5ceb484d72770f648bf6f2d8179cc6ea: targeted regression-file command = `pnpm test -- packages/zod/src/v4/classic/tests/number.test.ts`; project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm exec vitest related packages/zod/src/v4/core/util.ts --run`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
+            "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
+            "At T075, materialize the reviewed fixed measured state by applying only the listed production fix blobs to the same derived baseline, preserving identical regression-test bytes and enforcing reconstruction.ancillary_review; execute the identical pinned regression-test identity and require it to pass.",
+            "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
+            "Only after freezing independent oracle observations, compare plain project testing, project-native affected/related selection, and Ascout selection against the same production-only measured diff."
+          ],
+          "independence_statement": "Expected behavior is defined from pinned upstream fix history and upstream-authored regression tests, not from Ascout output, Ascout selection, Ascout LCOV normalization, or any benchmark-specific label injected into the donor tree."
+        },
+        "observation": null
+      },
+      "provenance": {
+        "issue_or_pr_urls": [
+          "https://github.com/colinhacks/zod/commit/3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf",
+          "https://github.com/colinhacks/zod/pull/5687"
+        ],
+        "review_notes": "Reviewed as a deterministic arithmetic selection case: one production file and one Vitest regression-test file changed; metadata audit found stable lock/license bytes and no external-service requirement in the test patch. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree."
+      },
+      "limitations": [
+        "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
+        "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
+        "Node 24.15.0 is a T073 reviewer-selected exact replay version justified by upstream lts/* policy, not an exact Node patch version pinned by the donor repository.",
+        "The structured reconstruction.synthetic_head recipe is fully pinned before T075, but result_commit_id remains null until isolated replay observes the derived tree and deterministically computes the local commit ID; fabricating it before replay is forbidden."
+      ]
+    },
+    {
+      "case_id": "zod-jitless-allows-eval",
+      "case_revision": 2,
+      "case_class": "selection",
+      "lifecycle_state": "CASE_REVIEWED",
+      "upstream": {
+        "canonical_url": "https://github.com/colinhacks/zod.git",
+        "repository_name": "colinhacks/zod",
+        "provenance_urls": [
+          "https://github.com/colinhacks/zod/commit/b9b62c65357c2b0fed4ae046a30c8e84e4094202",
+          "https://github.com/colinhacks/zod/pull/5864",
+          "https://github.com/colinhacks/zod/issues/4461",
+          "https://github.com/colinhacks/zod/issues/5414"
+        ]
+      },
+      "git": {
+        "base": {
+          "commit_id": "584b1089e1fc7bfcc97797576eff8da85bcdf031",
+          "tree_id": "747570aa46aee5a3dcac3f546b44d9b2ff6369b2",
+          "required_parent_ids": [
+            "15cafa13940b7055cc21e4ef440a6a0c6b7af72b"
+          ]
+        },
+        "fix": {
+          "commit_id": "b9b62c65357c2b0fed4ae046a30c8e84e4094202",
+          "tree_id": "b74190ec22479c4500c64dcd49f70ed356c6f408",
+          "required_parent_ids": [
+            "584b1089e1fc7bfcc97797576eff8da85bcdf031"
+          ]
+        },
+        "oracle": {
+          "commit_id": "b9b62c65357c2b0fed4ae046a30c8e84e4094202",
+          "tree_id": "b74190ec22479c4500c64dcd49f70ed356c6f408",
+          "required_parent_ids": [
+            "584b1089e1fc7bfcc97797576eff8da85bcdf031"
+          ]
+        },
+        "relationship": {
+          "kind": "direct_parent",
+          "required_parent_commit_id": "584b1089e1fc7bfcc97797576eff8da85bcdf031",
+          "rationale": "The reviewed historical fix is a single-parent commit whose first and only parent is the pinned base; the oracle regression-test change is contained in the same pinned fix tree."
+        }
+      },
+      "paths": {
+        "production": [
+          "packages/zod/src/v4/core/util.ts"
+        ],
+        "regression_tests": [
+          "packages/zod/src/v4/classic/tests/jitless-allows-eval.test.ts"
+        ]
+      },
+      "reconstruction": {
+        "mode": "fix_tree_with_production_paths_reverted",
+        "steps": [
+          "Materialize exact fix tree b74190ec22479c4500c64dcd49f70ed356c6f408 from commit b9b62c65357c2b0fed4ae046a30c8e84e4094202.",
+          "Construct the derived pre-fix benchmark baseline from the exact fix tree by replacing the listed production-path blobs with their exact base-commit objects, preserving the listed regression-test bytes, and applying reconstruction.ancillary_review exactly: every base-to-fix changed path outside production/regression paths must be classified; preserve only preserved_allowlist paths and restore excluded paths to exact base-state bytes/presence (delete when absent in base). No unclassified base-to-fix changed path may remain.",
+          "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
+          "At T075, after recording the derived Git tree identity, construct HEAD only from reconstruction.synthetic_head. Substitute the observed derived tree ID and pinned base commit ID into payload_template_utf8; the Git commit payload, parent order, author/committer identity and timestamp, message bytes, absence of encoding/signature/extra headers, and SHA-1 object hashing are fixed by that structured recipe. Record and require the deterministic resulting commit ID at RECONSTRUCTION_REPLAYED. Check out that HEAD with index/worktree equal to HEAD, overlay only listed production fix blobs unstaged, and require an exact production-only working-tree-vs-HEAD path set, unchanged regression-test bytes, no unexpected non-runtime untracked paths, and a non-clean worktree."
+        ],
+        "measured_diff_contains_regression_test_change": false,
+        "derived_identity": {
+          "algorithm": "git-tree",
+          "expected_digest": null
+        },
+        "synthetic_head": {
+          "recipe_version": "git-commit-object-v1",
+          "git_object_format": "sha1",
+          "tree_source": "reconstruction.derived_identity.expected_digest",
+          "parent_commit_ids": [
+            "584b1089e1fc7bfcc97797576eff8da85bcdf031"
+          ],
+          "object_hash_algorithm": "sha1-git-object-header-plus-payload-v1",
+          "payload_template_utf8": "tree {derived_tree_id}\nparent {base_commit_id}\nauthor Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\ncommitter Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\n\nAscout benchmark synthetic baseline v1\n",
+          "payload_template_sha256": "9c37f97af8617a0568a944e3e712d1fab54f8f39512c97ee63a44a6fe0cc06df",
+          "author": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "committer": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "message_utf8": "Ascout benchmark synthetic baseline v1\n",
+          "encoding_header": null,
+          "signing": "forbidden",
+          "extra_headers": [],
+          "result_commit_id": null
+        },
+        "ancillary_review": {
+          "changed_paths": [],
+          "preserved_allowlist": [],
+          "excluded_from_derived_baseline": [],
+          "review_note": "Exact fix metadata has no changed paths outside reviewed production/regression paths."
+        }
+      },
+      "runtime": {
+        "package_manager": "pnpm",
+        "package_manager_version": "10.12.1",
+        "package_manager_version_provenance": "package.json at fix commit b9b62c65357c2b0fed4ae046a30c8e84e4094202, blob fed9766ac0ac65bc51ab7f0aa733e9d54832e698, declares packageManager pnpm@10.12.1.",
+        "lockfile": {
+          "path": "pnpm-lock.yaml",
+          "blob_id": "89817036e6cfd61b98c52ea07c2f917729e41013",
+          "sha256": "eec7993e4fb885f528882c88f8fbe729555067e04a3ba1f8924c5d4df44d49e8"
+        },
+        "node_version": "24.15.0",
+        "node_constraint_provenance": [
+          "The pinned Zod test workflow uses Node lts/* and package.json does not impose a stricter exact Node patch pin.",
+          "T073 review selects exact Node 24.15.0 as a compatible Node 24 LTS replay identity; nodejs/node refs/tags/v24.15.0 was independently verified before manifest materialization."
+        ],
+        "immutable_harness_artifact": {
+          "required": false,
+          "sha256": null,
+          "reason": "T073 is non-executing and does not choose a packaged T075 image. If T075 uses an immutable packaged harness/toolchain artifact, the case definition must be revised and pinned before donor execution."
+        }
+      },
+      "licensing": {
+        "base": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "c06579627b432d09779094cd0166b7f37fe51db8",
+              "sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
+            }
+          ],
+          "review_note": "Base exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "fix": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "c06579627b432d09779094cd0166b7f37fe51db8",
+              "sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
+            }
+          ],
+          "review_note": "Fix exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "oracle": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "c06579627b432d09779094cd0166b7f37fe51db8",
+              "sha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
+            }
+          ],
+          "review_note": "Oracle exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "file_level_review": {
+          "status": "CLEAR",
+          "notes": "GitHub Actions metadata-only audit run 33147551173 / job 98771832673 inspected required production/regression path blobs for SPDX/license notices and LFS pointers, confirmed no required submodules, and found no file-level term overriding the pinned MIT root license."
+        }
+      },
+      "oracle": {
+        "specification": {
+          "regression_test_ids": [
+            "globalConfig.jitless=true short-circuits the allowsEval probe"
+          ],
+          "historical_basis": "Upstream fix commit b9b62c65357c2b0fed4ae046a30c8e84e4094202 / PR #5864 closes #4461 and #5414, adds a dedicated isolated Vitest regression file, and changes allowsEval to skip new Function when globalConfig.jitless is true.",
+          "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob fed9766ac0ac65bc51ab7f0aa733e9d54832e698: targeted regression-file command = `pnpm test -- packages/zod/src/v4/classic/tests/jitless-allows-eval.test.ts`; project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm exec vitest related packages/zod/src/v4/core/util.ts --run`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
+            "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
+            "At T075, materialize the reviewed fixed measured state by applying only the listed production fix blobs to the same derived baseline, preserving identical regression-test bytes and enforcing reconstruction.ancillary_review; execute the identical pinned regression-test identity and require it to pass.",
+            "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
+            "Only after freezing independent oracle observations, compare plain project testing, project-native affected/related selection, and Ascout selection against the same production-only measured diff."
+          ],
+          "independence_statement": "Expected behavior is defined from pinned upstream fix history and upstream-authored regression tests, not from Ascout output, Ascout selection, Ascout LCOV normalization, or any benchmark-specific label injected into the donor tree."
+        },
+        "observation": null
+      },
+      "provenance": {
+        "issue_or_pr_urls": [
+          "https://github.com/colinhacks/zod/commit/b9b62c65357c2b0fed4ae046a30c8e84e4094202",
+          "https://github.com/colinhacks/zod/pull/5864",
+          "https://github.com/colinhacks/zod/issues/4461",
+          "https://github.com/colinhacks/zod/issues/5414"
+        ],
+        "review_notes": "Reviewed as a CSP/JIT configuration selection case. The regression test is newly introduced in the fix tree, so the derived baseline deliberately preserves that exact test while reverting only the production path before T075. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree."
+      },
+      "limitations": [
+        "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
+        "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
+        "Node 24.15.0 is a T073 reviewer-selected exact replay version justified by upstream lts/* policy, not an exact Node patch version pinned by the donor repository.",
+        "The structured reconstruction.synthetic_head recipe is fully pinned before T075, but result_commit_id remains null until isolated replay observes the derived tree and deterministically computes the local commit ID; fabricating it before replay is forbidden."
+      ]
+    },
+    {
+      "case_id": "tanstack-streamed-query-reducer",
+      "case_revision": 3,
+      "case_class": "selection",
+      "lifecycle_state": "CASE_REVIEWED",
+      "upstream": {
+        "canonical_url": "https://github.com/TanStack/query.git",
+        "repository_name": "TanStack/query",
+        "provenance_urls": [
+          "https://github.com/TanStack/query/commit/d576092e2ece4ca3936add3eb0da5234c1d82ed4",
+          "https://github.com/TanStack/query/pull/9970",
+          "https://github.com/TanStack/query/issues/9787"
+        ]
+      },
+      "git": {
+        "base": {
+          "commit_id": "f9fc56a9b8724bcfae46f8f6cb229123478eb4db",
+          "tree_id": "f41225d29a7ef48c4d89a05e947bb8cb98132aee",
+          "required_parent_ids": [
+            "0b29b6f877d4b3a6d05b1c85fb9cb1e6ea736291"
+          ]
+        },
+        "fix": {
+          "commit_id": "d576092e2ece4ca3936add3eb0da5234c1d82ed4",
+          "tree_id": "49862717332d3cb2f3676bf3f0a2f59aa2539f16",
+          "required_parent_ids": [
+            "f9fc56a9b8724bcfae46f8f6cb229123478eb4db"
+          ]
+        },
+        "oracle": {
+          "commit_id": "d576092e2ece4ca3936add3eb0da5234c1d82ed4",
+          "tree_id": "49862717332d3cb2f3676bf3f0a2f59aa2539f16",
+          "required_parent_ids": [
+            "f9fc56a9b8724bcfae46f8f6cb229123478eb4db"
+          ]
+        },
+        "relationship": {
+          "kind": "direct_parent",
+          "required_parent_commit_id": "f9fc56a9b8724bcfae46f8f6cb229123478eb4db",
+          "rationale": "The reviewed historical fix is a single-parent commit whose first and only parent is the pinned base; the oracle regression-test change is contained in the same pinned fix tree."
+        }
+      },
+      "paths": {
+        "production": [
+          "packages/query-core/src/streamedQuery.ts"
+        ],
+        "regression_tests": [
+          "packages/query-core/src/__tests__/streamedQuery.test.tsx"
+        ]
+      },
+      "reconstruction": {
+        "mode": "fix_tree_with_production_paths_reverted",
+        "steps": [
+          "Materialize exact fix tree 49862717332d3cb2f3676bf3f0a2f59aa2539f16 from commit d576092e2ece4ca3936add3eb0da5234c1d82ed4.",
+          "Construct the derived pre-fix benchmark baseline from the exact fix tree by replacing the listed production-path blobs with their exact base-commit objects, preserving the listed regression-test bytes, and applying reconstruction.ancillary_review exactly: every base-to-fix changed path outside production/regression paths must be classified; preserve only preserved_allowlist paths and restore excluded paths to exact base-state bytes/presence (delete when absent in base). No unclassified base-to-fix changed path may remain.",
+          "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
+          "At T075, after recording the derived Git tree identity, construct HEAD only from reconstruction.synthetic_head. Substitute the observed derived tree ID and pinned base commit ID into payload_template_utf8; the Git commit payload, parent order, author/committer identity and timestamp, message bytes, absence of encoding/signature/extra headers, and SHA-1 object hashing are fixed by that structured recipe. Record and require the deterministic resulting commit ID at RECONSTRUCTION_REPLAYED. Check out that HEAD with index/worktree equal to HEAD, overlay only listed production fix blobs unstaged, and require an exact production-only working-tree-vs-HEAD path set, unchanged regression-test bytes, no unexpected non-runtime untracked paths, and a non-clean worktree."
+        ],
+        "measured_diff_contains_regression_test_change": false,
+        "derived_identity": {
+          "algorithm": "git-tree",
+          "expected_digest": null
+        },
+        "synthetic_head": {
+          "recipe_version": "git-commit-object-v1",
+          "git_object_format": "sha1",
+          "tree_source": "reconstruction.derived_identity.expected_digest",
+          "parent_commit_ids": [
+            "f9fc56a9b8724bcfae46f8f6cb229123478eb4db"
+          ],
+          "object_hash_algorithm": "sha1-git-object-header-plus-payload-v1",
+          "payload_template_utf8": "tree {derived_tree_id}\nparent {base_commit_id}\nauthor Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\ncommitter Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\n\nAscout benchmark synthetic baseline v1\n",
+          "payload_template_sha256": "9c37f97af8617a0568a944e3e712d1fab54f8f39512c97ee63a44a6fe0cc06df",
+          "author": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "committer": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "message_utf8": "Ascout benchmark synthetic baseline v1\n",
+          "encoding_header": null,
+          "signing": "forbidden",
+          "extra_headers": [],
+          "result_commit_id": null
+        },
+        "ancillary_review": {
+          "changed_paths": [
+            ".changeset/fair-peaches-deny.md"
+          ],
+          "preserved_allowlist": [],
+          "excluded_from_derived_baseline": [
+            ".changeset/fair-peaches-deny.md"
+          ],
+          "review_note": "The only changed ancillary path is newly added in fix, absent in base, and states the reducer defect; it leaks behavioral/oracle information and must be absent from the derived baseline."
+        }
+      },
+      "runtime": {
+        "package_manager": "pnpm",
+        "package_manager_version": "10.24.0",
+        "package_manager_version_provenance": "package.json at fix commit d576092e2ece4ca3936add3eb0da5234c1d82ed4, blob 431461d6ca5fd4a206819b8b105ee56503cfd53d, declares packageManager pnpm@10.24.0.",
+        "lockfile": {
+          "path": "pnpm-lock.yaml",
+          "blob_id": "202daee61957c3c270e85de610d56ff90d894483",
+          "sha256": "20e0aad83d1722ee1a277a79db160582d8529c2298a3c0e706792ba6233e2654"
+        },
+        "node_version": "24.8.0",
+        "node_constraint_provenance": [
+          ".nvmrc at fix commit d576092e2ece4ca3936add3eb0da5234c1d82ed4, blob b40402760432e1e60ce87646a294814866bfe195, pins 24.8.0 exactly.",
+          "nodejs/node refs/tags/v24.8.0 was independently verified before manifest materialization."
+        ],
+        "immutable_harness_artifact": {
+          "required": false,
+          "sha256": null,
+          "reason": "T073 is non-executing and does not choose a packaged T075 image. If T075 uses an immutable packaged harness/toolchain artifact, the case definition must be revised and pinned before donor execution."
+        }
+      },
+      "licensing": {
+        "base": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "1869e21fc3c80b3010c3e60c5ab6dda077ce1f22",
+              "sha256": "a405ee70c632bb938acb7ac5f210e814409b3760ea9d2329d8ed8ffcfd11a0e7"
+            }
+          ],
+          "review_note": "Base exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "fix": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "1869e21fc3c80b3010c3e60c5ab6dda077ce1f22",
+              "sha256": "a405ee70c632bb938acb7ac5f210e814409b3760ea9d2329d8ed8ffcfd11a0e7"
+            }
+          ],
+          "review_note": "Fix exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "oracle": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "1869e21fc3c80b3010c3e60c5ab6dda077ce1f22",
+              "sha256": "a405ee70c632bb938acb7ac5f210e814409b3760ea9d2329d8ed8ffcfd11a0e7"
+            }
+          ],
+          "review_note": "Oracle exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "file_level_review": {
+          "status": "CLEAR",
+          "notes": "GitHub Actions metadata-only audit run 33147551173 / job 98771832673 inspected required production/regression path blobs for SPDX/license notices and LFS pointers, confirmed no required submodules, and found no file-level term overriding the pinned MIT root license."
+        }
+      },
+      "oracle": {
+        "specification": {
+          "regression_test_ids": [
+            "streamedQuery > should not call reducer twice when refetchMode is replace"
+          ],
+          "historical_basis": "Upstream fix commit d576092e2ece4ca3936add3eb0da5234c1d82ed4 / PR #9970 changes streamedQuery so the reducer is invoked once per chunk and adds a regression test asserting the exact call sequence for replace refetch mode.",
+          "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact root package.json blob 431461d6ca5fd4a206819b8b105ee56503cfd53d and packages/query-core/package.json blob 272a6320c4ba790333e37cfb8d82fb6632ac9f33: targeted regression-file command = `pnpm --filter @tanstack/query-core test:lib --run src/__tests__/streamedQuery.test.tsx`; project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm --filter @tanstack/query-core exec vitest related src/streamedQuery.ts --run`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
+            "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
+            "At T075, materialize the reviewed fixed measured state by applying only the listed production fix blobs to the same derived baseline, preserving identical regression-test bytes and enforcing reconstruction.ancillary_review; execute the identical pinned regression-test identity and require it to pass.",
+            "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
+            "Only after freezing independent oracle observations, compare plain project testing, project-native affected/related selection, and Ascout selection against the same production-only measured diff."
+          ],
+          "independence_statement": "Expected behavior is defined from pinned upstream fix history and upstream-authored regression tests, not from Ascout output, Ascout selection, Ascout LCOV normalization, or any benchmark-specific label injected into the donor tree."
+        },
+        "observation": null
+      },
+      "provenance": {
+        "issue_or_pr_urls": [
+          "https://github.com/TanStack/query/commit/d576092e2ece4ca3936add3eb0da5234c1d82ed4",
+          "https://github.com/TanStack/query/pull/9970",
+          "https://github.com/TanStack/query/issues/9787"
+        ],
+        "review_notes": "Reviewed as an async streaming/reducer selection case. The historical changeset file is deleted from the derived baseline because it is absent in the base tree and is explicitly excluded by reconstruction.ancillary_review so the measured baseline-to-fix diff is restricted to the production path. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree."
+      },
+      "limitations": [
+        "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
+        "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
+        "The structured reconstruction.synthetic_head recipe is fully pinned before T075, but result_commit_id remains null until isolated replay observes the derived tree and deterministically computes the local commit ID; fabricating it before replay is forbidden."
+      ]
+    },
+    {
+      "case_id": "zustand-persist-latest-state",
+      "case_revision": 2,
+      "case_class": "selection",
+      "lifecycle_state": "CASE_REVIEWED",
+      "upstream": {
+        "canonical_url": "https://github.com/pmndrs/zustand.git",
+        "repository_name": "pmndrs/zustand",
+        "provenance_urls": [
+          "https://github.com/pmndrs/zustand/commit/6213fc11bdf096301a82ae5c236b5a666a4ee3ca",
+          "https://github.com/pmndrs/zustand/pull/3391"
+        ]
+      },
+      "git": {
+        "base": {
+          "commit_id": "a3869ca4eb1d397d8bf2a6f350661115fff18a5a",
+          "tree_id": "3015401823f4a0cf97dbc3745de0e52bd2a1b7e0",
+          "required_parent_ids": [
+            "c49df38eff64e90b2ecccea890cc097f5d63bb54"
+          ]
+        },
+        "fix": {
+          "commit_id": "6213fc11bdf096301a82ae5c236b5a666a4ee3ca",
+          "tree_id": "cea37eb9738d715d4400a8b6db06a626226c1872",
+          "required_parent_ids": [
+            "a3869ca4eb1d397d8bf2a6f350661115fff18a5a"
+          ]
+        },
+        "oracle": {
+          "commit_id": "6213fc11bdf096301a82ae5c236b5a666a4ee3ca",
+          "tree_id": "cea37eb9738d715d4400a8b6db06a626226c1872",
+          "required_parent_ids": [
+            "a3869ca4eb1d397d8bf2a6f350661115fff18a5a"
+          ]
+        },
+        "relationship": {
+          "kind": "direct_parent",
+          "required_parent_commit_id": "a3869ca4eb1d397d8bf2a6f350661115fff18a5a",
+          "rationale": "The reviewed historical fix is a single-parent commit whose first and only parent is the pinned base; the oracle regression-test change is contained in the same pinned fix tree."
+        }
+      },
+      "paths": {
+        "production": [
+          "src/middleware/persist.ts"
+        ],
+        "regression_tests": [
+          "tests/persistAsync.test.tsx"
+        ]
+      },
+      "reconstruction": {
+        "mode": "fix_tree_with_production_paths_reverted",
+        "steps": [
+          "Materialize exact fix tree cea37eb9738d715d4400a8b6db06a626226c1872 from commit 6213fc11bdf096301a82ae5c236b5a666a4ee3ca.",
+          "Construct the derived pre-fix benchmark baseline from the exact fix tree by replacing the listed production-path blobs with their exact base-commit objects, preserving the listed regression-test bytes, and applying reconstruction.ancillary_review exactly: every base-to-fix changed path outside production/regression paths must be classified; preserve only preserved_allowlist paths and restore excluded paths to exact base-state bytes/presence (delete when absent in base). No unclassified base-to-fix changed path may remain.",
+          "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
+          "At T075, after recording the derived Git tree identity, construct HEAD only from reconstruction.synthetic_head. Substitute the observed derived tree ID and pinned base commit ID into payload_template_utf8; the Git commit payload, parent order, author/committer identity and timestamp, message bytes, absence of encoding/signature/extra headers, and SHA-1 object hashing are fixed by that structured recipe. Record and require the deterministic resulting commit ID at RECONSTRUCTION_REPLAYED. Check out that HEAD with index/worktree equal to HEAD, overlay only listed production fix blobs unstaged, and require an exact production-only working-tree-vs-HEAD path set, unchanged regression-test bytes, no unexpected non-runtime untracked paths, and a non-clean worktree."
+        ],
+        "measured_diff_contains_regression_test_change": false,
+        "derived_identity": {
+          "algorithm": "git-tree",
+          "expected_digest": null
+        },
+        "synthetic_head": {
+          "recipe_version": "git-commit-object-v1",
+          "git_object_format": "sha1",
+          "tree_source": "reconstruction.derived_identity.expected_digest",
+          "parent_commit_ids": [
+            "a3869ca4eb1d397d8bf2a6f350661115fff18a5a"
+          ],
+          "object_hash_algorithm": "sha1-git-object-header-plus-payload-v1",
+          "payload_template_utf8": "tree {derived_tree_id}\nparent {base_commit_id}\nauthor Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\ncommitter Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\n\nAscout benchmark synthetic baseline v1\n",
+          "payload_template_sha256": "9c37f97af8617a0568a944e3e712d1fab54f8f39512c97ee63a44a6fe0cc06df",
+          "author": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "committer": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "message_utf8": "Ascout benchmark synthetic baseline v1\n",
+          "encoding_header": null,
+          "signing": "forbidden",
+          "extra_headers": [],
+          "result_commit_id": null
+        },
+        "ancillary_review": {
+          "changed_paths": [],
+          "preserved_allowlist": [],
+          "excluded_from_derived_baseline": [],
+          "review_note": "Exact fix metadata has no changed paths outside reviewed production/regression paths."
+        }
+      },
+      "runtime": {
+        "package_manager": "pnpm",
+        "package_manager_version": "10.18.3",
+        "package_manager_version_provenance": "package.json at fix commit 6213fc11bdf096301a82ae5c236b5a666a4ee3ca, blob 8a181ce0618eebf23fc3d55f7a1c91cc0eb7c16c, declares packageManager pnpm@10.18.3.",
+        "lockfile": {
+          "path": "pnpm-lock.yaml",
+          "blob_id": "717195c945fc7e57b3bd29e5348d9b2b82c7d40d",
+          "sha256": "3ade2a6132698b20a8699bd04ff40c75a4ca8012eb8d5854dd35a65fb918a201"
+        },
+        "node_version": "24.15.0",
+        "node_constraint_provenance": [
+          "package.json at the pinned fix declares engines.node >=12.20.0.",
+          "T073 review selects exact Node 24.15.0 within that declared range; nodejs/node refs/tags/v24.15.0 was independently verified before manifest materialization."
+        ],
+        "immutable_harness_artifact": {
+          "required": false,
+          "sha256": null,
+          "reason": "T073 is non-executing and does not choose a packaged T075 image. If T075 uses an immutable packaged harness/toolchain artifact, the case definition must be revised and pinned before donor execution."
+        }
+      },
+      "licensing": {
+        "base": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "a2c2649deec2aabf248294a60a6e2e63a58f4a2b",
+              "sha256": "c1e6e266563517467b1bf874817d23e426f3149252bd7d42758cd697514b8417"
+            }
+          ],
+          "review_note": "Base exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "fix": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "a2c2649deec2aabf248294a60a6e2e63a58f4a2b",
+              "sha256": "c1e6e266563517467b1bf874817d23e426f3149252bd7d42758cd697514b8417"
+            }
+          ],
+          "review_note": "Fix exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "oracle": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "a2c2649deec2aabf248294a60a6e2e63a58f4a2b",
+              "sha256": "c1e6e266563517467b1bf874817d23e426f3149252bd7d42758cd697514b8417"
+            }
+          ],
+          "review_note": "Oracle exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "file_level_review": {
+          "status": "CLEAR",
+          "notes": "GitHub Actions metadata-only audit run 33147551173 / job 98771832673 inspected required production/regression path blobs for SPDX/license notices and LFS pointers, confirmed no required submodules, and found no file-level term overriding the pinned MIT root license."
+        }
+      },
+      "oracle": {
+        "specification": {
+          "regression_test_ids": [
+            "persist middleware with async configuration > passes latest state to post-rehydration callback after hydration-triggered updates"
+          ],
+          "historical_basis": "Upstream fix commit 6213fc11bdf096301a82ae5c236b5a666a4ee3ca / PR #3391 replaces the stale stateFromStorage callback value with get() and adds an async regression test that mutates state during hydration and asserts the callback receives the latest state.",
+          "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob 8a181ce0618eebf23fc3d55f7a1c91cc0eb7c16c: targeted regression-file command = `pnpm test:spec -- tests/persistAsync.test.tsx`; project-native full-suite/reference command = `pnpm test:spec`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm exec vitest related src/middleware/persist.ts --run`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
+            "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
+            "At T075, materialize the reviewed fixed measured state by applying only the listed production fix blobs to the same derived baseline, preserving identical regression-test bytes and enforcing reconstruction.ancillary_review; execute the identical pinned regression-test identity and require it to pass.",
+            "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
+            "Only after freezing independent oracle observations, compare plain project testing, project-native affected/related selection, and Ascout selection against the same production-only measured diff."
+          ],
+          "independence_statement": "Expected behavior is defined from pinned upstream fix history and upstream-authored regression tests, not from Ascout output, Ascout selection, Ascout LCOV normalization, or any benchmark-specific label injected into the donor tree."
+        },
+        "observation": null
+      },
+      "provenance": {
+        "issue_or_pr_urls": [
+          "https://github.com/pmndrs/zustand/commit/6213fc11bdf096301a82ae5c236b5a666a4ee3ca",
+          "https://github.com/pmndrs/zustand/pull/3391"
+        ],
+        "review_notes": "Reviewed as an asynchronous state-hydration selection case with a single production path and a single Vitest regression path; no live service or credential is part of the test patch. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree."
+      },
+      "limitations": [
+        "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
+        "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
+        "Node 24.15.0 is a T073 reviewer-selected exact replay version within the donor engines range, not an exact Node patch version pinned by the donor repository.",
+        "The structured reconstruction.synthetic_head recipe is fully pinned before T075, but result_commit_id remains null until isolated replay observes the derived tree and deterministically computes the local commit ID; fabricating it before replay is forbidden."
+      ]
+    },
+    {
+      "case_id": "react-hook-form-value-as-date",
+      "case_revision": 2,
+      "case_class": "selection",
+      "lifecycle_state": "CASE_REVIEWED",
+      "upstream": {
+        "canonical_url": "https://github.com/react-hook-form/react-hook-form.git",
+        "repository_name": "react-hook-form/react-hook-form",
+        "provenance_urls": [
+          "https://github.com/react-hook-form/react-hook-form/commit/d7118f40a50aa7783481e9a9b77a703302b94814",
+          "https://github.com/react-hook-form/react-hook-form/pull/13646"
+        ]
+      },
+      "git": {
+        "base": {
+          "commit_id": "47546bbc80557aa5cc4eb2daf2062a27c557137b",
+          "tree_id": "80967ec8c33f541d823d6628335f65dc77cab52a",
+          "required_parent_ids": [
+            "c96ab19818519c7560b43cb712539a0c8cae48ac"
+          ]
+        },
+        "fix": {
+          "commit_id": "d7118f40a50aa7783481e9a9b77a703302b94814",
+          "tree_id": "4df4511116d85a6003b36dddca79f56bab7bd53b",
+          "required_parent_ids": [
+            "47546bbc80557aa5cc4eb2daf2062a27c557137b"
+          ]
+        },
+        "oracle": {
+          "commit_id": "d7118f40a50aa7783481e9a9b77a703302b94814",
+          "tree_id": "4df4511116d85a6003b36dddca79f56bab7bd53b",
+          "required_parent_ids": [
+            "47546bbc80557aa5cc4eb2daf2062a27c557137b"
+          ]
+        },
+        "relationship": {
+          "kind": "direct_parent",
+          "required_parent_commit_id": "47546bbc80557aa5cc4eb2daf2062a27c557137b",
+          "rationale": "The reviewed historical fix is a single-parent commit whose first and only parent is the pinned base; the oracle regression-test change is contained in the same pinned fix tree."
+        }
+      },
+      "paths": {
+        "production": [
+          "src/logic/validateField.ts"
+        ],
+        "regression_tests": [
+          "src/__tests__/logic/validateField.test.tsx"
+        ]
+      },
+      "reconstruction": {
+        "mode": "fix_tree_with_production_paths_reverted",
+        "steps": [
+          "Materialize exact fix tree 4df4511116d85a6003b36dddca79f56bab7bd53b from commit d7118f40a50aa7783481e9a9b77a703302b94814.",
+          "Construct the derived pre-fix benchmark baseline from the exact fix tree by replacing the listed production-path blobs with their exact base-commit objects, preserving the listed regression-test bytes, and applying reconstruction.ancillary_review exactly: every base-to-fix changed path outside production/regression paths must be classified; preserve only preserved_allowlist paths and restore excluded paths to exact base-state bytes/presence (delete when absent in base). No unclassified base-to-fix changed path may remain.",
+          "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
+          "At T075, after recording the derived Git tree identity, construct HEAD only from reconstruction.synthetic_head. Substitute the observed derived tree ID and pinned base commit ID into payload_template_utf8; the Git commit payload, parent order, author/committer identity and timestamp, message bytes, absence of encoding/signature/extra headers, and SHA-1 object hashing are fixed by that structured recipe. Record and require the deterministic resulting commit ID at RECONSTRUCTION_REPLAYED. Check out that HEAD with index/worktree equal to HEAD, overlay only listed production fix blobs unstaged, and require an exact production-only working-tree-vs-HEAD path set, unchanged regression-test bytes, no unexpected non-runtime untracked paths, and a non-clean worktree."
+        ],
+        "measured_diff_contains_regression_test_change": false,
+        "derived_identity": {
+          "algorithm": "git-tree",
+          "expected_digest": null
+        },
+        "synthetic_head": {
+          "recipe_version": "git-commit-object-v1",
+          "git_object_format": "sha1",
+          "tree_source": "reconstruction.derived_identity.expected_digest",
+          "parent_commit_ids": [
+            "47546bbc80557aa5cc4eb2daf2062a27c557137b"
+          ],
+          "object_hash_algorithm": "sha1-git-object-header-plus-payload-v1",
+          "payload_template_utf8": "tree {derived_tree_id}\nparent {base_commit_id}\nauthor Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\ncommitter Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\n\nAscout benchmark synthetic baseline v1\n",
+          "payload_template_sha256": "9c37f97af8617a0568a944e3e712d1fab54f8f39512c97ee63a44a6fe0cc06df",
+          "author": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "committer": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "message_utf8": "Ascout benchmark synthetic baseline v1\n",
+          "encoding_header": null,
+          "signing": "forbidden",
+          "extra_headers": [],
+          "result_commit_id": null
+        },
+        "ancillary_review": {
+          "changed_paths": [],
+          "preserved_allowlist": [],
+          "excluded_from_derived_baseline": [],
+          "review_note": "Exact fix metadata has no changed paths outside reviewed production/regression paths."
+        }
+      },
+      "runtime": {
+        "package_manager": "pnpm",
+        "package_manager_version": "11.7.0",
+        "package_manager_version_provenance": ".github/actions/install-dependencies/action.yml at fix commit d7118f40a50aa7783481e9a9b77a703302b94814, blob 4d5af5eef50eb1d6051a8d186f817bdbc972ab30, pins pnpm/action-setup version 11.7.0.",
+        "lockfile": {
+          "path": "pnpm-lock.yaml",
+          "blob_id": "49f6fde69682f104a2c65bec4552be4a6eeba643",
+          "sha256": "7acb3dc72842c76da85d5a9dd0e8c589c18250c2b2e46b0dbe4948798df0d14a"
+        },
+        "node_version": "22.22.2",
+        "node_constraint_provenance": [
+          "package.json at the pinned fix declares engines.node >=18.0.0.",
+          ".github/actions/install-dependencies/action.yml at the pinned fix selects Node 22 for CI dependency/test setup.",
+          "T073 review pins exact Node 22.22.2 within the upstream-selected major; nodejs/node refs/tags/v22.22.2 was independently verified before manifest materialization."
+        ],
+        "immutable_harness_artifact": {
+          "required": false,
+          "sha256": null,
+          "reason": "T073 is non-executing and does not choose a packaged T075 image. If T075 uses an immutable packaged harness/toolchain artifact, the case definition must be revised and pinned before donor execution."
+        }
+      },
+      "licensing": {
+        "base": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "139faf48e1b4926a8743bc7a5bd67287f43f0dd0",
+              "sha256": "e8eeb472f0a5889c2c51625b86a3f9b8630680adb9f49a125352e2e426392780"
+            }
+          ],
+          "review_note": "Base exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "fix": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "139faf48e1b4926a8743bc7a5bd67287f43f0dd0",
+              "sha256": "e8eeb472f0a5889c2c51625b86a3f9b8630680adb9f49a125352e2e426392780"
+            }
+          ],
+          "review_note": "Fix exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "oracle": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "139faf48e1b4926a8743bc7a5bd67287f43f0dd0",
+              "sha256": "e8eeb472f0a5889c2c51625b86a3f9b8630680adb9f49a125352e2e426392780"
+            }
+          ],
+          "review_note": "Oracle exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "file_level_review": {
+          "status": "CLEAR",
+          "notes": "GitHub Actions metadata-only audit run 33147551173 / job 98771832673 inspected required production/regression path blobs for SPDX/license notices and LFS pointers, confirmed no required submodules, and found no file-level term overriding the pinned MIT root license."
+        }
+      },
+      "oracle": {
+        "specification": {
+          "regression_test_ids": [
+            "validateField > should return min error when the field value is already a Date object (valueAsDate)"
+          ],
+          "historical_basis": "Upstream fix commit d7118f40a50aa7783481e9a9b77a703302b94814 / PR #13646 excludes Date objects from numeric min/max validation and adds a regression test covering both min and max errors when form values are already Date instances.",
+          "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob d3a4fcb72ccbe1178cd19a7eefeeadeab2ad3543: targeted regression-file command = `pnpm exec jest --config ./scripts/jest/jest.config.js src/__tests__/logic/validateField.test.tsx`; project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm exec jest --config ./scripts/jest/jest.config.js --findRelatedTests src/logic/validateField.ts`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
+            "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
+            "At T075, materialize the reviewed fixed measured state by applying only the listed production fix blobs to the same derived baseline, preserving identical regression-test bytes and enforcing reconstruction.ancillary_review; execute the identical pinned regression-test identity and require it to pass.",
+            "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
+            "Only after freezing independent oracle observations, compare plain project testing, project-native affected/related selection, and Ascout selection against the same production-only measured diff."
+          ],
+          "independence_statement": "Expected behavior is defined from pinned upstream fix history and upstream-authored regression tests, not from Ascout output, Ascout selection, Ascout LCOV normalization, or any benchmark-specific label injected into the donor tree."
+        },
+        "observation": null
+      },
+      "provenance": {
+        "issue_or_pr_urls": [
+          "https://github.com/react-hook-form/react-hook-form/commit/d7118f40a50aa7783481e9a9b77a703302b94814",
+          "https://github.com/react-hook-form/react-hook-form/pull/13646"
+        ],
+        "review_notes": "Reviewed as a Jest date-validation selection case. Exact pnpm provenance comes from the donor CI composite action because package.json does not declare packageManager at this commit. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree."
+      },
+      "limitations": [
+        "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
+        "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
+        "Node 22.22.2 is the T073 exact replay pin chosen within the donor CI-selected Node 22 major; the donor CI metadata does not pin a Node 22 patch version.",
+        "The structured reconstruction.synthetic_head recipe is fully pinned before T075, but result_commit_id remains null until isolated replay observes the derived tree and deterministically computes the local commit ID; fabricating it before replay is forbidden."
+      ]
+    },
+    {
+      "case_id": "trpc-streaming-onerror-cause",
+      "case_revision": 2,
+      "case_class": "selection",
+      "lifecycle_state": "CASE_REVIEWED",
+      "upstream": {
+        "canonical_url": "https://github.com/trpc/trpc.git",
+        "repository_name": "trpc/trpc",
+        "provenance_urls": [
+          "https://github.com/trpc/trpc/commit/2b8a4f826d3b22829343cebd9b23e163dfeecd09",
+          "https://github.com/trpc/trpc/pull/7286"
+        ]
+      },
+      "git": {
+        "base": {
+          "commit_id": "59f2cdb3c58310733b06d3b2e16c94065fe0a9c3",
+          "tree_id": "9cee7ab78dc7dea8a8e6514dcdfb5c065b4cf6c6",
+          "required_parent_ids": [
+            "66d5b5e722dc247ddd0c0f0a93aff935a3c208c8"
+          ]
+        },
+        "fix": {
+          "commit_id": "2b8a4f826d3b22829343cebd9b23e163dfeecd09",
+          "tree_id": "4fe2394b59ea1011762e8ee639c9ada9fc71b8c2",
+          "required_parent_ids": [
+            "59f2cdb3c58310733b06d3b2e16c94065fe0a9c3"
+          ]
+        },
+        "oracle": {
+          "commit_id": "2b8a4f826d3b22829343cebd9b23e163dfeecd09",
+          "tree_id": "4fe2394b59ea1011762e8ee639c9ada9fc71b8c2",
+          "required_parent_ids": [
+            "59f2cdb3c58310733b06d3b2e16c94065fe0a9c3"
+          ]
+        },
+        "relationship": {
+          "kind": "direct_parent",
+          "required_parent_commit_id": "59f2cdb3c58310733b06d3b2e16c94065fe0a9c3",
+          "rationale": "The reviewed historical fix is a single-parent commit whose first and only parent is the pinned base; the oracle regression-test change is contained in the same pinned fix tree."
+        }
+      },
+      "paths": {
+        "production": [
+          "packages/server/src/unstable-core-do-not-import/http/resolveResponse.ts"
+        ],
+        "regression_tests": [
+          "packages/tests/server/errors.test.ts",
+          "packages/tests/server/streaming.test.ts"
+        ]
+      },
+      "reconstruction": {
+        "mode": "fix_tree_with_production_paths_reverted",
+        "steps": [
+          "Materialize exact fix tree 4fe2394b59ea1011762e8ee639c9ada9fc71b8c2 from commit 2b8a4f826d3b22829343cebd9b23e163dfeecd09.",
+          "Construct the derived pre-fix benchmark baseline from the exact fix tree by replacing the listed production-path blobs with their exact base-commit objects, preserving the listed regression-test bytes, and applying reconstruction.ancillary_review exactly: every base-to-fix changed path outside production/regression paths must be classified; preserve only preserved_allowlist paths and restore excluded paths to exact base-state bytes/presence (delete when absent in base). No unclassified base-to-fix changed path may remain.",
+          "Record the resulting derived Git tree identity during T075 and refuse replay if a repeated reconstruction produces a different tree.",
+          "At T075, after recording the derived Git tree identity, construct HEAD only from reconstruction.synthetic_head. Substitute the observed derived tree ID and pinned base commit ID into payload_template_utf8; the Git commit payload, parent order, author/committer identity and timestamp, message bytes, absence of encoding/signature/extra headers, and SHA-1 object hashing are fixed by that structured recipe. Record and require the deterministic resulting commit ID at RECONSTRUCTION_REPLAYED. Check out that HEAD with index/worktree equal to HEAD, overlay only listed production fix blobs unstaged, and require an exact production-only working-tree-vs-HEAD path set, unchanged regression-test bytes, no unexpected non-runtime untracked paths, and a non-clean worktree."
+        ],
+        "measured_diff_contains_regression_test_change": false,
+        "derived_identity": {
+          "algorithm": "git-tree",
+          "expected_digest": null
+        },
+        "synthetic_head": {
+          "recipe_version": "git-commit-object-v1",
+          "git_object_format": "sha1",
+          "tree_source": "reconstruction.derived_identity.expected_digest",
+          "parent_commit_ids": [
+            "59f2cdb3c58310733b06d3b2e16c94065fe0a9c3"
+          ],
+          "object_hash_algorithm": "sha1-git-object-header-plus-payload-v1",
+          "payload_template_utf8": "tree {derived_tree_id}\nparent {base_commit_id}\nauthor Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\ncommitter Ascout Benchmark Harness <ascout-benchmark@users.noreply.github.com> 946684800 +0000\n\nAscout benchmark synthetic baseline v1\n",
+          "payload_template_sha256": "9c37f97af8617a0568a944e3e712d1fab54f8f39512c97ee63a44a6fe0cc06df",
+          "author": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "committer": {
+            "name": "Ascout Benchmark Harness",
+            "email": "ascout-benchmark@users.noreply.github.com",
+            "git_timestamp": "946684800 +0000"
+          },
+          "message_utf8": "Ascout benchmark synthetic baseline v1\n",
+          "encoding_header": null,
+          "signing": "forbidden",
+          "extra_headers": [],
+          "result_commit_id": null
+        },
+        "ancillary_review": {
+          "changed_paths": [],
+          "preserved_allowlist": [],
+          "excluded_from_derived_baseline": [],
+          "review_note": "Exact fix metadata has no changed paths outside reviewed production/regression paths."
+        }
+      },
+      "runtime": {
+        "package_manager": "pnpm",
+        "package_manager_version": "9.12.2",
+        "package_manager_version_provenance": "package.json at fix commit 2b8a4f826d3b22829343cebd9b23e163dfeecd09, blob 9bc25c538d2bf378c697e6198d68de0fe277230a, declares packageManager pnpm@9.12.2.",
+        "lockfile": {
+          "path": "pnpm-lock.yaml",
+          "blob_id": "82726bd0ab969e6214716740475eaefb240cecc3",
+          "sha256": "892d88f8e8e2a14cada11542df2162cfdd1bb2ec8ac513c6a058b6790d124ccd"
+        },
+        "node_version": "24.15.0",
+        "node_constraint_provenance": [
+          "package.json at the pinned fix declares engines.node ^24.0.0.",
+          "T073 review selects exact Node 24.15.0 within that declared major/range; nodejs/node refs/tags/v24.15.0 was independently verified before manifest materialization."
+        ],
+        "immutable_harness_artifact": {
+          "required": false,
+          "sha256": null,
+          "reason": "T073 is non-executing and does not choose a packaged T075 image. If T075 uses an immutable packaged harness/toolchain artifact, the case definition must be revised and pinned before donor execution."
+        }
+      },
+      "licensing": {
+        "base": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "f9ff685d4b60f34316f8ea28eb300351d3741725",
+              "sha256": "e714dd84c8fa242600844b05d317a31003423723178c1f1603dbfad1bc68d906"
+            }
+          ],
+          "review_note": "Base exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "fix": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "f9ff685d4b60f34316f8ea28eb300351d3741725",
+              "sha256": "e714dd84c8fa242600844b05d317a31003423723178c1f1603dbfad1bc68d906"
+            }
+          ],
+          "review_note": "Fix exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "oracle": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "f9ff685d4b60f34316f8ea28eb300351d3741725",
+              "sha256": "e714dd84c8fa242600844b05d317a31003423723178c1f1603dbfad1bc68d906"
+            }
+          ],
+          "review_note": "Oracle exact-commit root LICENSE bytes identify the MIT License; GitHub Actions metadata-only audit run 33147551173 / job 98771832673 verified the evidence blob/digest and found no more-specific SPDX/license notice on the required production/regression paths."
+        },
+        "file_level_review": {
+          "status": "CLEAR",
+          "notes": "GitHub Actions metadata-only audit run 33147551173 / job 98771832673 inspected required production/regression path blobs for SPDX/license notices and LFS pointers, confirmed no required submodules, and found no file-level term overriding the pinned MIT root license."
+        }
+      },
+      "oracle": {
+        "specification": {
+          "regression_test_ids": [
+            "onError > streaming onError should unwrap { error, path } and preserve error message and path"
+          ],
+          "historical_basis": "Upstream fix commit 2b8a4f826d3b22829343cebd9b23e163dfeecd09 / PR #7286 changes resolveResponse streaming onError to unwrap cause.error, adds a dedicated regression test preserving message/cause, and updates existing streaming snapshots that previously encoded the buggy empty message.",
+          "ground_truth_procedure": [
+            "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
+            "Pinned T075 project-native command contract from exact fix package.json blob 9bc25c538d2bf378c697e6198d68de0fe277230a: targeted regression-file command = `pnpm exec vitest run packages/tests/server/errors.test.ts`; project-native full-suite/reference command = `pnpm exec vitest run`; plain-project non-watch comparator = `pnpm test -- --run`; runner-native related selector = `pnpm exec vitest related packages/server/src/unstable-core-do-not-import/http/resolveResponse.ts --run`. The donor `test` script is `vitest` (watch-capable), so a completed benchmark run must use the recorded non-watch form. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
+            "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
+            "At T075, materialize the reviewed fixed measured state by applying only the listed production fix blobs to the same derived baseline, preserving identical regression-test bytes and enforcing reconstruction.ancillary_review; execute the identical pinned regression-test identity and require it to pass.",
+            "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
+            "Only after freezing independent oracle observations, compare plain project testing, project-native affected/related selection, and Ascout selection against the same production-only measured diff."
+          ],
+          "independence_statement": "Expected behavior is defined from pinned upstream fix history and upstream-authored regression tests, not from Ascout output, Ascout selection, Ascout LCOV normalization, or any benchmark-specific label injected into the donor tree."
+        },
+        "observation": null
+      },
+      "provenance": {
+        "issue_or_pr_urls": [
+          "https://github.com/trpc/trpc/commit/2b8a4f826d3b22829343cebd9b23e163dfeecd09",
+          "https://github.com/trpc/trpc/pull/7286"
+        ],
+        "review_notes": "Reviewed as a Vitest streaming-error propagation selection case. Both historically modified regression-test files are preserved in the derived baseline while only the production path is reverted for the pre-fix reconstruction. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree."
+      },
+      "limitations": [
+        "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
+        "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
+        "Node 24.15.0 is a T073 reviewer-selected exact replay version inside the donor ^24.0.0 engines constraint, not an upstream exact Node patch pin.",
+        "The structured reconstruction.synthetic_head recipe is fully pinned before T075, but result_commit_id remains null until isolated replay observes the derived tree and deterministically computes the local commit ID; fabricating it before replay is forbidden."
+      ]
+    }
+  ]
 }
