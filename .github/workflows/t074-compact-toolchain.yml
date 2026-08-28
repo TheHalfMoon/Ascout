@@ -1,0 +1,26 @@
+name: T074 compact toolchain audit
+
+on:
+  push:
+    branches:
+      - research/t074-candidate-metadata
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout helper
+        uses: actions/checkout@v4
+        with:
+          ref: research/t074-candidate-metadata
+          fetch-depth: 1
+      - name: Verify common Node/npm toolchain and Fastify lock
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/t074_compact_toolchain.py
