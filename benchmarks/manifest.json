@@ -51,7 +51,8 @@
     "observed_oracle_before_t075": false,
     "benchmark_active_requires_t075": true,
     "lifecycle_status_binding_required": true,
-    "license_clearance_required_from_state": "LICENSE_CLEARED"
+    "license_clearance_required_from_state": "LICENSE_CLEARED",
+    "derived_identity_observed_before_t075": false
   },
   "case_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -820,6 +821,40 @@
                     "valid_observation_count": {
                       "type": "integer",
                       "minimum": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "enum": [
+                "CANDIDATE",
+                "IDENTITY_VERIFIED",
+                "LICENSE_CLEARED",
+                "RECONSTRUCTION_SPECIFIED",
+                "ORACLE_SPECIFIED",
+                "CASE_REVIEWED"
+              ]
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reconstruction": {
+              "properties": {
+                "derived_identity": {
+                  "properties": {
+                    "expected_digest": {
+                      "type": "null"
                     }
                   }
                 }
