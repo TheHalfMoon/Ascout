@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
 import { isAbsolute, normalize, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FORBIDDEN_METACHARS = new Set(["|", "&", ";", "<", ">", "`", "$", "(", ")", "\n", "\r", "\0"]);
+const MEMBERSHIP_PROXY = fileURLToPath(new URL("./membership-proxy.mjs", import.meta.url));
 const SELECTION_COMMAND_PATTERNS = {
   targeted: /targeted[^`;]{0,120}command = `([^`]+)`/,
   full: /project-native full-suite\/reference command = `([^`]+)`/,
@@ -259,18 +261,18 @@ export function membershipProofCommand(commandText, kind, outputFile) {
   if (kind !== "vitest" && kind !== "jest") fail("invalid_command", `unsupported membership-proof runner: ${String(kind)}`);
   if (typeof outputFile !== "string" || !isAbsolute(outputFile)) fail("invalid_path", "membership proof output must be an absolute path");
   const parsed = parseRestrictedCommand(commandText);
-  const argv = [...parsed.argv];
-  const isPackageScript = ["npm", "pnpm", "yarn"].includes(parsed.file) && !argv.includes("exec");
-  if (argv.some((value) => value === "--json" || value.startsWith("--reporter") || value.startsWith("--outputFile"))) {
+  if (parsed.env.NODE_OPTIONS !== undefined) fail("invalid_command", "reviewed command must not control NODE_OPTIONS during membership proof");
+  for (const name of ["ASCOUT_MEMBERSHIP_KIND", "ASCOUT_MEMBERSHIP_OUTPUT", "ASCOUT_MEMBERSHIP_INSTRUMENTED"]) {
+    if (parsed.env[name] !== undefined) fail("invalid_command", `reviewed command must not control ${name}`);
+  }
+  if (parsed.argv.some((value) => value === "--json" || value === "--reporter" || value.startsWith("--reporter=") || value === "--outputFile" || value.startsWith("--outputFile="))) {
     fail("invalid_command", "reviewed command already controls reporter or output-file authority");
   }
-  if (isPackageScript && !argv.includes("--")) argv.push("--");
-  if (kind === "vitest") {
-    argv.push("--reporter=json", `--outputFile=${outputFile}`);
-  } else {
-    argv.push("--json", `--outputFile=${outputFile}`);
-  }
-  return { ...parsed, argv };
+  return {
+    file: process.execPath,
+    argv: [MEMBERSHIP_PROXY, "--kind", kind, "--output", outputFile, "--", parsed.file, ...parsed.argv],
+    env: parsed.env,
+  };
 }
 
 export function proveRunnerMembership(report, regressionTestIds, regressionTestPaths) {
