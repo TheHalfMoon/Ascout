@@ -1,0 +1,56 @@
+name: T075 structural membership v2
+on:
+  push:
+    branches:
+      - repair/t075-structural-membership-v2-03754ab8
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Patch structural membership
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '03754ab80bcb85bd57885c008451c4662af091d6'
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('benchmarks/harness-lib.mjs')
+          s = p.read_text(encoding='utf-8')
+          old = '      for (const field of [assertion.title, assertion.fullName]) {\n        if (typeof field === "string" && field.trim().length > 0) executedNames.add(field.trim());\n      }\n'
+          new = old + '      if (Array.isArray(assertion.ancestorTitles) && typeof assertion.title === "string") {\n        const ancestors = assertion.ancestorTitles.map((value) =>\n          typeof value === "string" ? value.trim() : null,\n        );\n        const title = assertion.title.trim();\n        if (ancestors.length > 0 && ancestors.every((value) => value !== null && value.length > 0) && title.length > 0) {\n          executedNames.add([...ancestors, title].join(" > "));\n        }\n      }\n'
+          if s.count(old) != 1:
+              raise SystemExit('membership loop target count is not one')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          p = Path('tests/benchmark-membership-proof.test.ts')
+          s = p.read_text(encoding='utf-8')
+          old = '            fullName: "number .multipleOf() with scientific notation (multi-digit exponents)",\n            status: "passed",\n'
+          new = '            fullName: "number .multipleOf() with scientific notation (multi-digit exponents)",\n            ancestorTitles: ["number"],\n            status: "passed",\n'
+          if s.count(old) != 1:
+              raise SystemExit('membership fixture target count is not one')
+          s = s.replace(old, new, 1)
+          marker = '  it("does not treat skipped or substring titles as execution", () => {\n'
+          block = '  it("accepts exact canonical suite ancestry", () => {\n    expect(\n      proveRunnerMembership(\n        report,\n        ["number > .multipleOf() with scientific notation (multi-digit exponents)"],\n        ["packages/zod/src/v4/classic/tests/number.test.ts"],\n      ),\n    ).toBe(true);\n  });\n\n  it("does not fuzzy-match canonical suite ancestry", () => {\n    expect(\n      proveRunnerMembership(\n        report,\n        ["number > scientific notation (multi-digit exponents)"],\n        ["packages/zod/src/v4/classic/tests/number.test.ts"],\n      ),\n    ).toBe(false);\n  });\n\n'
+          if s.count(marker) != 1:
+              raise SystemExit('membership insertion marker count is not one')
+          p.write_text(s.replace(marker, block + marker, 1), encoding='utf-8')
+          PY
+          git diff --check
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test -- tests/benchmark-membership-proof.test.ts
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add benchmarks/harness-lib.mjs tests/benchmark-membership-proof.test.ts
+          git commit -m 'fix(benchmark): match structured suite identities'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
