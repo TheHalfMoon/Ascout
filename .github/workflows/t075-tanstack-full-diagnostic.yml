@@ -49,7 +49,7 @@ jobs:
         run: |
           set -euo pipefail
           set +e
-          node benchmarks/run.mjs --case tanstack-streamed-query-reducer --run-id "diagnostic:${GITHUB_RUN_ID}:tanstack" --repetitions 1 --keep-temp > "$RUNNER_TEMP/harness.out" 2> "$RUNNER_TEMP/harness.err"
+          node benchmarks/run.mjs --case tanstack-streamed-query-reducer --run-id "diagnostic:${GITHUB_RUN_ID}:tanstack" --repetitions 2 --keep-temp > "$RUNNER_TEMP/harness.out" 2> "$RUNNER_TEMP/harness.err"
           harness_code=$?
           set -e
           echo "HARNESS_EXIT=$harness_code"
