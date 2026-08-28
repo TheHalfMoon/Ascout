@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "ascout-founding-benchmark-v1",
-  "manifest_revision": 7,
+  "manifest_revision": 11,
   "policy": {
     "policy_path": "benchmarks/README.md",
     "manifest_task": "T072",
@@ -1666,7 +1666,7 @@
     },
     {
       "case_id": "tanstack-streamed-query-reducer",
-      "case_revision": 3,
+      "case_revision": 4,
       "case_class": "selection",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -1831,7 +1831,7 @@
           "historical_basis": "Upstream fix commit d576092e2ece4ca3936add3eb0da5234c1d82ed4 / PR #9970 changes streamedQuery so the reducer is invoked once per chunk and adds a regression test asserting the exact call sequence for replace refetch mode.",
           "ground_truth_procedure": [
             "Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.",
-            "Pinned T075 project-native command contract from exact root package.json blob 431461d6ca5fd4a206819b8b105ee56503cfd53d and packages/query-core/package.json blob 272a6320c4ba790333e37cfb8d82fb6632ac9f33: targeted regression-file command = `pnpm --filter @tanstack/query-core test:lib --run src/__tests__/streamedQuery.test.tsx`; project-native full-suite/reference command = `pnpm test`; plain-project test comparator = `pnpm test`; runner-native related selector = `pnpm --filter @tanstack/query-core exec vitest related src/streamedQuery.ts --run`. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
+            "Pinned T075 project-native command contract from exact root package.json blob 431461d6ca5fd4a206819b8b105ee56503cfd53d and packages/query-core/package.json blob 272a6320c4ba790333e37cfb8d82fb6632ac9f33: targeted regression-file command = `pnpm --filter @tanstack/query-core test:lib --run src/__tests__/streamedQuery.test.tsx`; project-native full-suite/reference command = `pnpm --filter @tanstack/query-core test:lib --run`; plain-project test comparator = `pnpm --filter @tanstack/query-core test:lib --run`; runner-native related selector = `pnpm --filter @tanstack/query-core exec vitest related src/streamedQuery.ts --run`. T075 executable review supersedes the root `pnpm test` comparator because it expands through Nx across 88 workspace projects and produced unrelated setup/source-mutation evidence; the package-native query-core Vitest suite is the narrowest project-native full suite that still contains the complete reviewed package test corpus and the frozen regression oracle. T075 must additionally prove the recorded `regression_test_ids` member executed in targeted and full-suite evidence; file-level success alone is not oracle evidence.",
             "At T075, materialize the reviewed derived pre-fix baseline and execute only the pinned project-native regression-test identity; require it to expose the historical pre-fix behavior rather than treating a setup/runner error as oracle evidence.",
             "At T075, materialize the reviewed fixed measured state by applying only the listed production fix blobs to the same derived baseline, preserving identical regression-test bytes and enforcing reconstruction.ancillary_review; execute the identical pinned regression-test identity and require it to pass.",
             "Run the project-native full/related test scope required by the case and prove the oracle test is contained and executed; repeat valid observations according to the benchmark determinism protocol.",
@@ -1847,12 +1847,13 @@
           "https://github.com/TanStack/query/pull/9970",
           "https://github.com/TanStack/query/issues/9787"
         ],
-        "review_notes": "Reviewed as an async streaming/reducer selection case. The historical changeset file is deleted from the derived baseline because it is absent in the base tree and is explicitly excluded by reconstruction.ancillary_review so the measured baseline-to-fix diff is restricted to the production path. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree."
+        "review_notes": "Reviewed as an async streaming/reducer selection case. The historical changeset file is deleted from the derived baseline because it is absent in the base tree and is explicitly excluded by reconstruction.ancillary_review so the measured baseline-to-fix diff is restricted to the production path. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree. T075 executable diagnostics showed the root `pnpm test` command expands through Nx across 88 workspace projects and is not a valid stable package verification reference for this isolated query-core case. Case revision 4 therefore uses the exact package-native `test:lib` script from the pinned query-core package metadata as both the full package-suite reference and plain project test comparator; it still executes the complete query-core Vitest corpus and must prove frozen oracle membership."
       },
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
         "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
-        "The structured reconstruction.synthetic_head recipe is fully pinned before T075, but result_commit_id remains null until isolated replay observes the derived tree and deterministically computes the local commit ID; fabricating it before replay is forbidden."
+        "The structured reconstruction.synthetic_head recipe is fully pinned before T075, but result_commit_id remains null until isolated replay observes the derived tree and deterministically computes the local commit ID; fabricating it before replay is forbidden.",
+        "Case revision 4 supersedes the root `pnpm test` full/plain comparator after T075 executable diagnostics proved that command expands across 88 workspace projects and can fail or mutate source for unrelated examples. The replacement `pnpm --filter @tanstack/query-core test:lib --run` is the exact pinned package-native full query-core Vitest suite, not a targeted regression-only command, and must pass repeated T075 oracle-membership and source-integrity qualification before BENCHMARK_ACTIVE."
       ]
     },
     {
@@ -2417,7 +2418,7 @@
     },
     {
       "case_id": "immer-prototype-undefined",
-      "case_revision": 2,
+      "case_revision": 3,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -2488,10 +2489,11 @@
           "blob_id": "8f51dda0c55ae651ee39b7082ced081ac2c1d4e6",
           "sha256": "b5af47d91e57045fb18ee38a6f05d8405938c547f2fa2ce4f53f6970ea2b8b82"
         },
-        "node_version": "24.0.0",
+        "node_version": "24.15.0",
         "node_constraint_provenance": [
           "Exact donor CI blob 04250bbc1c6208f7669988547b6b7a779bc36db2 selects Node major 24.",
-          "Benchmark resolves that reviewed major deterministically to exact Node 24.0.0; nodejs/node v24.0.0 tag resolves to c5349f43cd66d2aa02d86414c9ed426f71d3ae48."
+          "T075 isolated dependency reconstruction rejected the previous exact Node 24.0.0 replay pin because the frozen dependency graph includes semantic-release@25.0.3, whose engine range requires ^22.14.0 or >=24.10.0.",
+          "Case revision 3 selects exact Node 24.15.0 within the reviewed donor CI major and the frozen dependency engine range; nodejs/node refs/tags/v24.15.0 resolves to annotated tag object a20a24415694b80361d661d6ecc1ea0e260d9c32."
         ],
         "immutable_harness_artifact": {
           "required": false,
@@ -2590,18 +2592,19 @@
           "https://github.com/immerjs/immer/commit/16e225b5a316d9ef6695e9aee45eab6e7bf4258a",
           "https://github.com/immerjs/immer/pull/1262"
         ],
-        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. Changed paths are exactly ['src/core/proxy.ts', '__tests__/regressions.js']; measured reconstruction withholds the historical regression-test change and applies only production blobs. Definition-only review used Git-object metadata; no donor checkout for execution, install, script, build, or test occurred."
+        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. Changed paths are exactly ['src/core/proxy.ts', '__tests__/regressions.js']; measured reconstruction withholds the historical regression-test change and applies only production blobs. Definition-only review used Git-object metadata; no donor checkout for execution, install, script, build, or test occurred. T075 isolated replay invalidated the prior Node 24.0.0 exact replay choice during frozen dependency reconstruction; case revision 3 corrects only the exact replay patch version to Node 24.15.0 while preserving the reviewed donor commit, lockfile, paths, reconstruction recipe, and oracle."
       },
       "limitations": [
         "T074 is definition-only: no donor code, dependency, script, build, or test execution has occurred; all oracle observations remain unknown until T075.",
         "The exact Node/package-manager selection is benchmark-owned but constrained by exact upstream CI/engine metadata and must be enforced fail-closed by T075.",
         "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition.",
-        "T074 now freezes a project-native full-suite LCOV oracle definition; no LCOV artifact, artifact digest, or line classification has been observed yet and T075 must establish them before Ascout runs."
+        "T074 now freezes a project-native full-suite LCOV oracle definition; no LCOV artifact, artifact digest, or line classification has been observed yet and T075 must establish them before Ascout runs.",
+        "Case revision 3 supersedes the definition-only Node 24.0.0 replay choice after T075 proved it incompatible with the frozen dependency engine graph; the corrected Node 24.15.0 pin must still pass isolated replay before this case can become BENCHMARK_ACTIVE."
       ]
     },
     {
       "case_id": "braintree-venmo-csp-nonce-web-login",
-      "case_revision": 1,
+      "case_revision": 3,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -2744,11 +2747,11 @@
             }
           ],
           "coverage_oracle": {
-            "full_test_coverage_command": "BRAINTREE_JS_ENV=development ./node_modules/.bin/jest --config=jest.config.json --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage",
-            "project_native_reference_command": "npm test",
+            "full_test_coverage_command": "BRAINTREE_JS_ENV=development npm_config_ignore_scripts=true ./node_modules/.bin/jest --config=jest.config.json --runInBand --ignoreProjects publishing --coverage --coverageReporters=lcov --coverageDirectory=coverage",
+            "project_native_reference_command": "BRAINTREE_JS_ENV=development npm_config_ignore_scripts=true ./node_modules/.bin/jest --config=jest.config.json --runInBand --ignoreProjects publishing",
             "artifact": {
               "format": "lcov",
-              "path": "coverage/lcov.info"
+              "path": "src/coverage/lcov.info"
             },
             "artifact_digest_algorithm": "sha256",
             "mapping": {
@@ -2780,12 +2783,14 @@
         "T074 is definition-only: no donor dependency, script, build, test, LCOV artifact, or line classification has been executed or observed; T075 is the first execution task.",
         "The exact Node 20.19.0 patch is benchmark-owned resolution of the donor .nvmrc v20 constraint and must be enforced fail-closed by T075.",
         "The historical fix also changes release/version/package-lock content; the measured benchmark intentionally preserves exact base dependency metadata and overlays only the reviewed production blob.",
-        "Only src/venmo/venmo.js:87 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs."
+        "Only src/venmo/venmo.js:87 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs.",
+        "Case revision 2 supersedes the definition-only coverage invocation after T075 executable replay proved that the root Jest publishing globalSetup invokes npm run build, whose unrelated prebuild formatter cannot parse historical YAML-style .eslintrc files under the reconstructed toolchain. The revised full 23-project coverage command preserves the root Jest project set while setting npm_config_ignore_scripts=true so npm runs the required build without lifecycle prebuild/postbuild scripts; T075 independently observed the resulting LCOV location as src/coverage/lcov.info. Historical unrelated test failures remain visible through the recorded coverage command exit status and are not normalized to PASS.",
+        "Case revision 3 supersedes revision 2 after T075 executable diagnostics proved that the root Jest publishing project is the only reviewed full-suite project that mutates tracked repository files during the independent coverage/native reference run. The revised commands retain all 22 runtime/test Jest projects, exclude only publishing, preserve the production-only measured diff under the exact sanitized T075 environment, and still emit src/coverage/lcov.info. Historical unrelated failures remain nonzero comparator evidence rather than being normalized to PASS."
       ]
     },
     {
       "case_id": "react-hook-form-valueasdate-minmax",
-      "case_revision": 1,
+      "case_revision": 2,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -2932,7 +2937,7 @@
             "project_native_reference_command": "pnpm test:coverage",
             "artifact": {
               "format": "lcov",
-              "path": "coverage/lcov.info"
+              "path": "scripts/jest/coverage/lcov.info"
             },
             "artifact_digest_algorithm": "sha256",
             "mapping": {
@@ -2958,12 +2963,13 @@
           "https://github.com/react-hook-form/react-hook-form/pull/13646",
           "https://github.com/react-hook-form/react-hook-form/commit/d7118f40a50aa7783481e9a9b77a703302b94814"
         ],
-        "review_notes": "Reviewed T074 gap case from merged upstream PR #13646 and exact direct-parent Git objects. Changed paths are exactly src/logic/validateField.ts and src/__tests__/logic/validateField.test.tsx; measured reconstruction withholds the regression-test change. Definition-only metadata review used Git objects and PR metadata without donor checkout/install/build/test execution."
+        "review_notes": "Reviewed T074 gap case from merged upstream PR #13646 and exact direct-parent Git objects. Changed paths are exactly src/logic/validateField.ts and src/__tests__/logic/validateField.test.tsx; measured reconstruction withholds the regression-test change. Definition-only metadata review used Git objects and PR metadata without donor checkout/install/build/test execution. T075 isolated replay proved that the reviewed Jest config resolves the relative coverage directory beneath scripts/jest, so case revision 2 corrects the frozen oracle artifact binding from coverage/lcov.info to scripts/jest/coverage/lcov.info without changing the reviewed command or expected line classifications."
       },
       "limitations": [
         "T074 is definition-only: no donor dependency, script, build, test, LCOV artifact, or line classification has been executed or observed; T075 is the first execution task.",
         "The exact Node 22.23.2 patch is benchmark-owned resolution of donor CI node-version 22 and must be enforced fail-closed by T075.",
-        "Only src/logic/validateField.ts:140 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs."
+        "Only src/logic/validateField.ts:140 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs.",
+        "Case revision 2 corrects the LCOV artifact path from T075 observed project-native behavior; the corrected binding must pass repeated isolated replay before this case can become BENCHMARK_ACTIVE."
       ]
     }
   ]
