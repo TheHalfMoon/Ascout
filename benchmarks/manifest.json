@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "ascout-founding-benchmark-v1",
+  "manifest_revision": 1,
   "policy": {
     "policy_path": "benchmarks/README.md",
     "manifest_task": "T072",
@@ -39,6 +40,16 @@
     "binding_integrity_violations_max": 0,
     "stable_material_exercise_gap_exit_zero_max": 0,
     "stable_material_exercise_gap_expected_exit": 4
+  },
+  "case_collection_contract": {
+    "items_schema_ref": "#/case_schema",
+    "unique_key": [
+      "case_id",
+      "case_revision"
+    ],
+    "case_revision_is_positive_integer": true,
+    "observed_oracle_before_t075": false,
+    "benchmark_active_requires_t075": true
   },
   "case_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
