@@ -1,0 +1,93 @@
+name: T075 oracle state repair
+
+on:
+  push:
+    branches:
+      - repair/t075-oracle-state-ad99b280
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Opening exact-head guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'ad99b28033906184242325f945cc85502f37eb32'
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = 'ad99b28033906184242325f945cc85502f37eb32'
+      - name: Bind each oracle checkout to its exact expected path set
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('benchmarks/run.mjs')
+          s = p.read_text()
+          old = '''async function runReviewed(caseRecord, repo, root, commandText, expected, label) {\n  const envBase = runtimeEnvironment(root);\n  const parsed = parseRestrictedCommand(commandText);\n  const env = { ...envBase, ...parsed.env };\n  assertControllerSecretsAbsent(env);\n  const expectedPaths = caseRecord.case_class === "selection" || label.includes("measured") ? caseRecord.paths.production : null;\n  if (expectedPaths) await assertMeasuredState(repo, expectedPaths, envBase);'''
+          new = '''async function runReviewed(caseRecord, repo, root, commandText, expected, label, expectedPaths) {\n  const envBase = runtimeEnvironment(root);\n  const parsed = parseRestrictedCommand(commandText);\n  const env = { ...envBase, ...parsed.env };\n  assertControllerSecretsAbsent(env);\n  await assertMeasuredState(repo, expectedPaths, envBase);'''
+          if old not in s:
+              raise SystemExit('runReviewed anchor not found')
+          s = s.replace(old, new, 1)
+          s = s.replace('''  if (expectedPaths) await assertMeasuredState(repo, expectedPaths, envBase);\n  return { status: expected === "pass" ? "passed" : "failed_as_expected",''', '''  await assertMeasuredState(repo, expectedPaths, envBase);\n  return { status: expected === "pass" ? "passed" : "failed_as_expected",''', 1)
+          replacements = {
+            '''runReviewed(caseRecord, pre.repo, root, commands.targeted, "fail", "pre-fix oracle")''': '''runReviewed(caseRecord, pre.repo, root, commands.targeted, "fail", "pre-fix oracle", [])''',
+            '''runReviewed(caseRecord, fixed.repo, root, commands.targeted, "pass", "measured fixed oracle")''': '''runReviewed(caseRecord, fixed.repo, root, commands.targeted, "pass", "measured fixed oracle", caseRecord.paths.production)''',
+            '''runReviewed(caseRecord, pre.repo, root, commands.targeted, "fail", "gap pre-fix oracle")''': '''runReviewed(caseRecord, pre.repo, root, commands.targeted, "fail", "gap pre-fix oracle", caseRecord.paths.regression_tests)''',
+            '''runReviewed(caseRecord, fixed.repo, root, commands.targeted, "pass", "gap fixed oracle")''': '''runReviewed(caseRecord, fixed.repo, root, commands.targeted, "pass", "gap fixed oracle", [...caseRecord.paths.production, ...caseRecord.paths.regression_tests])''',
+          }
+          for old_call, new_call in replacements.items():
+              if old_call not in s:
+                  raise SystemExit(f'call anchor not found: {old_call}')
+              s = s.replace(old_call, new_call, 1)
+          p.write_text(s)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/run.mjs'
+      - name: Qualify syntax plans and Ascout suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { spawnSync } from 'node:child_process';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          for (const c of manifest.cases) {
+            const r = spawnSync(process.execPath, ['benchmarks/run.mjs', '--case', c.case_id, '--plan'], { encoding: 'utf8' });
+            if (r.status !== 0) throw new Error(`${c.case_id} plan failed: ${r.stderr}`);
+            const plan = JSON.parse(r.stdout);
+            if (plan.case_id !== c.case_id || plan.isolation?.canonical_acquisition_cache_shared_with_measured_commands !== false) throw new Error(`${c.case_id} plan invariant failed`);
+            console.log('PLAN_OK', c.case_id);
+          }
+          NODE
+          npx vitest run tests/benchmark-harness.test.ts
+          npm test
+      - name: Guarded commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = 'ad99b28033906184242325f945cc85502f37eb32'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add benchmarks/run.mjs
+          git commit -m 'fix(benchmark): bind oracle checkout state'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
