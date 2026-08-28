@@ -1,0 +1,105 @@
+name: T072 pre-T075 derived identity repair
+
+on:
+  push:
+    branches:
+      - repair/t072-pre-t075-derived-identity-7bfdc429
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/072-benchmark-manifest
+          fetch-depth: 0
+
+      - name: Opening exact-head guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "7bfdc429d7ada925a2b192e00074ee141aa21213"
+          test -z "$(git status --short)"
+          test "$(git merge-base d4a9694f722acb9657c92b90f0d1832a295e3a3e HEAD)" = "d4a9694f722acb9657c92b90f0d1832a295e3a3e"
+
+      - name: Bind derived identity to T075+
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('benchmarks/manifest.json')
+          data = json.loads(path.read_text())
+          assert data['cases'] == []
+          contract = data['case_collection_contract']
+          assert 'derived_identity_observed_before_t075' not in contract
+          contract['derived_identity_observed_before_t075'] = False
+
+          pre_t075_states = [
+              'CANDIDATE',
+              'IDENTITY_VERIFIED',
+              'LICENSE_CLEARED',
+              'RECONSTRUCTION_SPECIFIED',
+              'ORACLE_SPECIFIED',
+              'CASE_REVIEWED',
+          ]
+          data['case_schema']['allOf'].append({
+              'if': {
+                  'properties': {'lifecycle_state': {'enum': pre_t075_states}},
+                  'required': ['lifecycle_state'],
+              },
+              'then': {
+                  'properties': {
+                      'reconstruction': {
+                          'properties': {
+                              'derived_identity': {
+                                  'properties': {
+                                      'expected_digest': {'type': 'null'}
+                                  }
+                              }
+                          }
+                      }
+                  }
+              },
+          })
+
+          path.write_text(json.dumps(data, indent=2) + '\n')
+          PY
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/manifest.json "
+
+      - name: Repair contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path('benchmarks/manifest.json').read_text())
+          assert d['case_collection_contract']['derived_identity_observed_before_t075'] is False
+          assert d['cases'] == []
+          rules = d['case_schema']['allOf']
+          matches = []
+          for rule in rules:
+              enum = rule.get('if', {}).get('properties', {}).get('lifecycle_state', {}).get('enum')
+              digest = rule.get('then', {}).get('properties', {}).get('reconstruction', {}).get('properties', {}).get('derived_identity', {}).get('properties', {}).get('expected_digest')
+              if enum and digest == {'type': 'null'}:
+                  matches.append((enum, digest))
+          assert len(matches) == 1
+          assert matches[0][0] == ['CANDIDATE','IDENTITY_VERIFIED','LICENSE_CLEARED','RECONSTRUCTION_SPECIFIED','ORACLE_SPECIFIED','CASE_REVIEWED']
+          PY
+
+      - name: Commit and push repaired product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add benchmarks/manifest.json
+          git commit -m "fix(benchmark): gate derived identity to T075"
+          git push origin HEAD:feat/072-benchmark-manifest
