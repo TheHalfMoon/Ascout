@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+if len(sys.argv) != 2:
+    raise SystemExit("usage: t075_final_harness_patch.py <candidate-root>")
+ROOT = Path(sys.argv[1]).resolve()
+if not (ROOT / "benchmarks" / "manifest.json").is_file():
+    raise SystemExit(f"candidate root is invalid: {ROOT}")
 
 
 def replace_once(path: Path, old: str, new: str) -> None:
@@ -35,7 +40,7 @@ replace_once(
 replace_once(
     run,
     '''async function gitText(repo, args, env) {\n  const result = await runGit(repo, args, env);\n  return result.stdout.toString("utf8").trim();\n}\n\nasync function objectExists''',
-    '''async function gitText(repo, args, env) {\n  const result = await runGit(repo, args, env);\n  return result.stdout.toString("utf8").trim();\n}\n\nasync function clearIgnoredMembershipRuntimeCaches(repo, env) {\n  for (const relativePath of MEMBERSHIP_RUNTIME_CACHE_PATHS) {\n    const absolutePath = resolve(repo, relativePath);\n    assertPathInside(repo, absolutePath);\n    let present = false;\n    try {\n      present = (await stat(absolutePath)).isDirectory() || (await stat(absolutePath)).isFile();\n    } catch {}\n    if (!present) continue;\n    const ignored = await runGit(repo, ["check-ignore", "-q", "--", relativePath], env, { allowFailure: true });\n    if (ignored.exitCode !== 0) {\n      fail("binding_integrity", `membership runtime cache path is not ignored by donor repository: ${relativePath}`);\n    }\n    await rm(absolutePath, { recursive: true, force: true });\n  }\n}\n\nasync function independentSourceStateDigest(repo, env) {\n  const status = await runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], env);\n  const unstaged = await runGit(repo, ["diff", "--binary", "--no-ext-diff", "HEAD", "--"], env);\n  const staged = await runGit(repo, ["diff", "--cached", "--binary", "--no-ext-diff", "HEAD", "--"], env);\n  return sha256Bytes(Buffer.concat([\n    Buffer.from("status\\0", "utf8"), status.stdout,\n    Buffer.from("\\0unstaged\\0", "utf8"), unstaged.stdout,\n    Buffer.from("\\0staged\\0", "utf8"), staged.stdout,\n  ]));\n}\n\nasync function objectExists''',
+    '''async function gitText(repo, args, env) {\n  const result = await runGit(repo, args, env);\n  return result.stdout.toString("utf8").trim();\n}\n\nasync function clearIgnoredMembershipRuntimeCaches(repo, env) {\n  for (const relativePath of MEMBERSHIP_RUNTIME_CACHE_PATHS) {\n    const absolutePath = resolve(repo, relativePath);\n    assertPathInside(repo, absolutePath);\n    let present = false;\n    try {\n      const cacheStat = await stat(absolutePath);\n      present = cacheStat.isDirectory() || cacheStat.isFile();\n    } catch {}\n    if (!present) continue;\n    const ignored = await runGit(repo, ["check-ignore", "-q", "--", relativePath], env, { allowFailure: true });\n    if (ignored.exitCode !== 0) {\n      fail("binding_integrity", `membership runtime cache path is not ignored by donor repository: ${relativePath}`);\n    }\n    await rm(absolutePath, { recursive: true, force: true });\n  }\n}\n\nasync function independentSourceStateDigest(repo, env) {\n  const status = await runGit(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=all"], env);\n  const unstaged = await runGit(repo, ["diff", "--binary", "--no-ext-diff", "HEAD", "--"], env);\n  const staged = await runGit(repo, ["diff", "--cached", "--binary", "--no-ext-diff", "HEAD", "--"], env);\n  return sha256Bytes(Buffer.concat([\n    Buffer.from("status\\0", "utf8"), status.stdout,\n    Buffer.from("\\0unstaged\\0", "utf8"), unstaged.stdout,\n    Buffer.from("\\0staged\\0", "utf8"), staged.stdout,\n  ]));\n}\n\nasync function objectExists''',
 )
 replace_once(
     run,
