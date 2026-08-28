@@ -1,0 +1,90 @@
+name: T076 canary qualification
+
+on:
+  push:
+    branches:
+      - qualification/t076-canary-6dc9eb56
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6dc9eb5607be2296d59a6eac81e7b0194a647ebc
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact product head and read canary runtime
+        id: runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "6dc9eb5607be2296d59a6eac81e7b0194a647ebc"
+          test "$(git rev-parse origin/main)" = "0037eaef0311c131a7596f3717b148c1f7f62038"
+          CASE_ID=zustand-persist-latest-state node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          const item = manifest.cases.find((candidate) => candidate.case_id === process.env.CASE_ID);
+          if (!item) throw new Error('canary case missing');
+          console.log(`node=${String(item.runtime.node_version).replace(/^v/, '')}`);
+          console.log(`pm=${item.runtime.package_manager}`);
+          console.log(`pm_version=${item.runtime.package_manager_version}`);
+          NODE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.runtime.outputs.node }}
+      - name: Provision exact package manager and product
+        shell: bash
+        env:
+          PM: ${{ steps.runtime.outputs.pm }}
+          PM_VERSION: ${{ steps.runtime.outputs.pm_version }}
+          NODE_VERSION: ${{ steps.runtime.outputs.node }}
+        run: |
+          set -euo pipefail
+          if [ "$PM" = pnpm ]; then
+            npm install --global "pnpm@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = yarn ]; then
+            npm install --global "yarn@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = npm ]; then
+            test "$(npm --version)" = "$PM_VERSION"
+          else
+            echo "unsupported package manager $PM" >&2
+            exit 2
+          fi
+          test "$(node --version)" = "v$NODE_VERSION"
+          test "$($PM --version)" = "$PM_VERSION"
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - name: Execute T076 canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node benchmarks/metrics.mjs \
+            --case zustand-persist-latest-state \
+            --run-id exact-canary-${GITHUB_RUN_ID} \
+            --repetitions 2 \
+            --output "$RUNNER_TEMP/t076-canary.json" \
+            > "$RUNNER_TEMP/t076-canary.stdout"
+          RESULT="$RUNNER_TEMP/t076-canary.json" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (result.task !== 'T076' || result.status !== 'BENCHMARK_METRICS_READY') throw new Error('T076 canary did not become metrics-ready');
+          if (result.case_id !== 'zustand-persist-latest-state') throw new Error('case identity mismatch');
+          if (!Array.isArray(result.baselines) || result.baselines.length < 8) throw new Error('metric baselines missing');
+          if (!Array.isArray(result.observations) || result.observations.length !== 2) throw new Error('raw repeated observations missing');
+          if (!result.metrics?.selection_recall?.related) throw new Error('selection recall missing');
+          if (!Array.isArray(result.metrics?.timing) || result.metrics.timing.length < 8) throw new Error('cold/warm timing missing');
+          if (!Array.isArray(result.metrics?.determinism) || result.metrics.determinism.length < 8) throw new Error('determinism metric missing');
+          console.log(JSON.stringify({
+            case_id: result.case_id,
+            t075_evidence_sha256: result.t075_evidence_sha256,
+            selection_recall: result.metrics.selection_recall,
+            false_pass: result.metrics.false_pass,
+            drift_detection: result.metrics.drift_detection,
+            determinism: result.metrics.determinism,
+          }));
+          NODE
