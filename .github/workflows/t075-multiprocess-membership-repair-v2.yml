@@ -1,0 +1,74 @@
+name: T075 multiprocess membership repair v2
+on:
+  push:
+    branches:
+      - repair/t075-multiprocess-membership-f6708304
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/t075-multiprocess-membership-f6708304
+          path: helper
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: f6708304fb5941cb85f7411f58ab6d3409d20e51
+          fetch-depth: 0
+          path: feature
+      - name: Guard and patch exact feature
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd feature
+          test "$(git rev-parse HEAD)" = 'f6708304fb5941cb85f7411f58ab6d3409d20e51'
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = 'f6708304fb5941cb85f7411f58ab6d3409d20e51'
+          cd ..
+          python3 helper/.github/repair/t075_multiprocess.py feature
+          cd feature
+          git diff --check
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-preload.cjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: feature/package-lock.json
+      - name: Qualify controller
+        shell: bash
+        working-directory: feature
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-proxy.mjs
+          node --check benchmarks/membership-preload.cjs
+      - name: Commit and fast-forward feature
+        shell: bash
+        working-directory: feature
+        run: |
+          set -euo pipefail
+          mapfile -t changed < <(git status --short | awk '{print $2}' | sort)
+          printf '%s\n' "${changed[@]}"
+          test "${#changed[@]}" -eq 3
+          test "${changed[0]}" = 'benchmarks/membership-preload.cjs'
+          test "${changed[1]}" = 'benchmarks/run.mjs'
+          test "${changed[2]}" = 'tests/benchmark-membership-preload.test.ts'
+          git config user.name 'Ascout Benchmark Bot'
+          git config user.email 'benchmark-bot@users.noreply.github.com'
+          git add benchmarks/membership-preload.cjs benchmarks/run.mjs tests/benchmark-membership-preload.test.ts
+          git commit -m 'fix(benchmark): aggregate multiprocess runner evidence'
+          git fetch origin feat/075-isolated-benchmark-harness
+          test "$(git rev-parse FETCH_HEAD)" = 'f6708304fb5941cb85f7411f58ab6d3409d20e51'
+          git push origin HEAD:refs/heads/feat/075-isolated-benchmark-harness
+          echo "FEATURE_HEAD=$(git rev-parse HEAD)"
