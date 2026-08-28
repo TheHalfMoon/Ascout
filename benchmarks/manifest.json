@@ -52,7 +52,10 @@
     "benchmark_active_requires_t075": true,
     "lifecycle_status_binding_required": true,
     "license_clearance_required_from_state": "LICENSE_CLEARED",
-    "derived_identity_observed_before_t075": false
+    "derived_identity_observed_before_t075": false,
+    "case_definition_required_state": "CASE_REVIEWED",
+    "manifest_revision_bump_required_on_case_set_change": true,
+    "case_revision_bump_required_on_identity_or_semantic_change": true
   },
   "case_schema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
