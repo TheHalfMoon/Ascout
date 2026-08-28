@@ -137,6 +137,18 @@ describe("T075 donor isolation contract", () => {
     expect(() => assertControllerSecretsAbsent(env)).not.toThrow();
   });
 
+  it.each(["PATH", "HOME", "TMPDIR", "GIT_CONFIG_GLOBAL", "NODE_OPTIONS", "XDG_CACHE_HOME", "npm_config_cache"])(
+    "rejects reviewed command overrides of protected isolation environment: %s",
+    (name) => {
+      expect(() => sanitizedDonorEnvironment({
+        pathValue: "/toolchain/bin:/usr/bin",
+        home: "/tmp/home",
+        temp: "/tmp/work",
+        commandEnv: { [name]: "override" },
+      })).toThrowError(/protected isolation environment/);
+    },
+  );
+
   it("fails if a forbidden credential name reaches a donor environment", () => {
     expect(() => assertControllerSecretsAbsent({ PATH: "/bin", GITHUB_TOKEN: "secret" })).toThrowError(/forbidden names/);
   });
