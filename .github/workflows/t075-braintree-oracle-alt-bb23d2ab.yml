@@ -31,26 +31,19 @@ jobs:
           set -euo pipefail
           probe() {
             label="$1"; shift
-            rm -rf coverage test/venmo/coverage
+            find . -type d -name coverage -prune -exec rm -rf {} + 2>/dev/null || true
             set +e
             "$@" >"$RUNNER_TEMP/${label}.out" 2>"$RUNNER_TEMP/${label}.err"
             code=$?
             set -e
             echo "${label}_EXIT=$code"
-            if [ -f coverage/lcov.info ]; then
-              echo "${label}_ROOT_LCOV=true"
-              sha256sum coverage/lcov.info
-              awk 'BEGIN{inside=0} /^SF:/{inside=($0 ~ /src\/venmo\/venmo\.js$/)} inside && /^DA:87,/{print "LINE87=" $0}' coverage/lcov.info
-            else
-              echo "${label}_ROOT_LCOV=false"
-            fi
-            if [ -f test/venmo/coverage/lcov.info ]; then
-              echo "${label}_VENMO_LCOV=true"
-              sha256sum test/venmo/coverage/lcov.info
-              awk 'BEGIN{inside=0} /^SF:/{inside=($0 ~ /src\/venmo\/venmo\.js$/)} inside && /^DA:87,/{print "VENMO_LINE87=" $0}' test/venmo/coverage/lcov.info
-            else
-              echo "${label}_VENMO_LCOV=false"
-            fi
+            mapfile -t artifacts < <(find . -type f -name lcov.info -print | sort)
+            echo "${label}_LCOV_COUNT=${#artifacts[@]}"
+            for artifact in "${artifacts[@]}"; do
+              echo "${label}_LCOV=$artifact"
+              sha256sum "$artifact"
+              awk 'BEGIN{inside=0} /^SF:/{inside=($0 ~ /src\/venmo\/venmo\.js$/)} inside && /^DA:87,/{print "LINE87=" $0}' "$artifact"
+            done
             echo "${label}_ERR_TAIL_BEGIN"
             tail -n 25 "$RUNNER_TEMP/${label}.err" || true
             echo "${label}_ERR_TAIL_END"
