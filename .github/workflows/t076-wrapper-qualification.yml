@@ -1,0 +1,43 @@
+name: T076 wrapper qualification
+
+on:
+  push:
+    branches:
+      - qualification/t076-wrapper-6dc9eb56
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 6dc9eb5607be2296d59a6eac81e7b0194a647ebc
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "6dc9eb5607be2296d59a6eac81e7b0194a647ebc"
+          test "$(git rev-parse origin/main)" = "0037eaef0311c131a7596f3717b148c1f7f62038"
+          git diff --check origin/main...HEAD
+          test "$(git diff --name-only origin/main...HEAD | sort | tr '\n' ' ')" = "benchmarks/metrics-lib.mjs benchmarks/metrics.mjs tests/benchmark-metrics.test.ts "
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Product and metric gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test -- --run tests/benchmark-metrics.test.ts
+          npm test
+          npm run build
+          node --check benchmarks/metrics-lib.mjs
+          node --check benchmarks/metrics.mjs
