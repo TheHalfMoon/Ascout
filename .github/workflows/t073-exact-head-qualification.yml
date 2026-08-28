@@ -1,0 +1,240 @@
+name: T073 exact-head qualification 7881afca
+
+on:
+  push:
+    branches:
+      - qualification/t073-exact-head-7881afca
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T073 head
+        uses: actions/checkout@v4
+        with:
+          ref: 7881afca715fd5526ceb90833fc83938aab225cc
+          fetch-depth: 0
+
+      - name: Opening exact-head, ancestry, scope, and cleanliness guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head='7881afca715fd5526ceb90833fc83938aab225cc'
+          expected_base='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$expected_head"
+          test -z "$(git status --porcelain)"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$expected_base"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$expected_head"
+          test "$(git merge-base HEAD origin/main)" = "$expected_base"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t1'
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          git diff --check origin/main...HEAD
+
+      - name: Validate T073 manifest and exact donor Git-object evidence
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import re
+          import shutil
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          manifest = json.loads(Path('benchmarks/manifest.json').read_text(encoding='utf-8'))
+          assert manifest['schema_version'] == 1
+          assert manifest['manifest_revision'] == 2
+          assert manifest['policy']['donor_execution_before_t075'] is False
+          assert manifest['policy']['read_only_git_object_inspection_before_t075'] is True
+          assert manifest['case_collection_contract']['case_definition_required_state'] == 'CASE_REVIEWED'
+          assert manifest['case_collection_contract']['derived_identity_observed_before_t075'] is False
+          assert manifest['case_collection_contract']['observed_oracle_before_t075'] is False
+          assert manifest['case_schema']['$id'] == 'urn:ascout:benchmark-case-schema:v1'
+
+          cases = manifest['cases']
+          expected_ids = {
+              'zod-scientific-exponents',
+              'zod-jitless-allows-eval',
+              'tanstack-streamed-query-reducer',
+              'zustand-persist-latest-state',
+              'react-hook-form-value-as-date',
+              'trpc-streaming-onerror-cause',
+          }
+          assert len(cases) == 6
+          assert {c['case_id'] for c in cases} == expected_ids
+          assert len({(c['case_id'], c['case_revision']) for c in cases}) == 6
+
+          case_required = set(manifest['case_schema']['required'])
+          case_allowed = set(manifest['case_schema']['properties'])
+          git_id = re.compile(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$')
+          sha256_re = re.compile(r'^[0-9a-f]{64}$')
+          semver = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$')
+          nodever = re.compile(r'^v?[0-9]+\.[0-9]+\.[0-9]+$')
+          path_bad = re.compile(r'(^/|^[A-Za-z]:|^[A-Za-z][A-Za-z0-9+.-]*://|\\|//|(^|/)\.\.?(/|$)|/$)')
+
+          def run(repo, *args, text=True):
+              cp = subprocess.run(['git', '-C', str(repo), *args], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              return cp.stdout.decode('utf-8', errors='strict') if text else cp.stdout
+
+          def cat_blob(repo, rev_path):
+              return run(repo, 'cat-file', 'blob', rev_path, text=False)
+
+          tmp_root = Path(tempfile.mkdtemp(prefix='t073-qual-'))
+          try:
+              for case in cases:
+                  cid = case['case_id']
+                  print(f'===== VERIFY {cid} =====')
+                  assert set(case) == case_required == case_allowed
+                  assert case['case_revision'] == 1
+                  assert case['case_class'] == 'selection'
+                  assert case['lifecycle_state'] == 'CASE_REVIEWED'
+                  assert case['oracle']['observation'] is None
+                  assert case['reconstruction']['mode'] == 'fix_tree_with_production_paths_reverted'
+                  assert case['reconstruction']['measured_diff_contains_regression_test_change'] is False
+                  assert case['reconstruction']['derived_identity'] == {'algorithm': 'git-tree', 'expected_digest': None}
+                  assert case['runtime']['package_manager'] == 'pnpm'
+                  assert semver.fullmatch(case['runtime']['package_manager_version'])
+                  assert nodever.fullmatch(case['runtime']['node_version'])
+                  assert case['runtime']['immutable_harness_artifact']['required'] is False
+                  assert case['runtime']['immutable_harness_artifact']['sha256'] is None
+                  assert case['licensing']['file_level_review']['status'] == 'CLEAR'
+                  assert case['oracle']['specification']['regression_test_ids']
+                  assert 'gap_changed_executable_lines' not in case['oracle']['specification']
+                  assert case['provenance']['issue_or_pr_urls']
+                  assert case['limitations']
+
+                  url = case['upstream']['canonical_url']
+                  assert re.fullmatch(r'https://[^@/?#]+(?:/[^/?#]*)+', url)
+                  assert '?' not in url and '#' not in url
+                  all_paths = case['paths']['production'] + case['paths']['regression_tests'] + [case['runtime']['lockfile']['path']]
+                  assert len(all_paths) == len(set(all_paths))
+                  for p in all_paths:
+                      assert p and not path_bad.search(p), p
+                  assert set(case['paths']['production']).isdisjoint(case['paths']['regression_tests'])
+
+                  repo = tmp_root / cid
+                  subprocess.run(['git', 'init', '-q', str(repo)], check=True)
+                  subprocess.run(['git', '-C', str(repo), 'remote', 'add', 'origin', url], check=True)
+                  fix = case['git']['fix']['commit_id']
+                  subprocess.run(['git', '-C', str(repo), 'fetch', '-q', '--depth=3', '--filter=blob:none', 'origin', fix], check=True)
+
+                  for role in ('base', 'fix', 'oracle'):
+                      r = case['git'][role]
+                      assert git_id.fullmatch(r['commit_id']) and git_id.fullmatch(r['tree_id'])
+                      run(repo, 'cat-file', '-e', r['commit_id'] + '^{commit}')
+                      actual_tree = run(repo, 'rev-parse', r['commit_id'] + '^{tree}').strip()
+                      assert actual_tree == r['tree_id'], (cid, role, actual_tree, r['tree_id'])
+                      actual_parents = run(repo, 'show', '-s', '--format=%P', r['commit_id']).strip().split()
+                      assert actual_parents == r['required_parent_ids'], (cid, role, actual_parents, r['required_parent_ids'])
+
+                  base = case['git']['base']['commit_id']
+                  assert case['git']['relationship']['kind'] == 'direct_parent'
+                  assert case['git']['relationship']['required_parent_commit_id'] == base
+                  assert case['git']['fix']['required_parent_ids'] == [base]
+                  assert case['git']['oracle'] == case['git']['fix']
+
+                  changed = set(run(repo, 'diff', '--name-only', base, fix).splitlines())
+                  for p in case['paths']['production'] + case['paths']['regression_tests']:
+                      assert p in changed, (cid, p, changed)
+                      run(repo, 'cat-file', '-e', f'{fix}:{p}')
+                      content = cat_blob(repo, f'{fix}:{p}')
+                      assert not content.startswith(b'version https://git-lfs.github.com/spec/v1')
+                  for p in case['paths']['production']:
+                      run(repo, 'cat-file', '-e', f'{base}:{p}')
+
+                  lock = case['runtime']['lockfile']
+                  lock_blob = run(repo, 'rev-parse', f'{fix}:{lock["path"]}').strip()
+                  assert lock_blob == lock['blob_id']
+                  lock_bytes = cat_blob(repo, lock_blob)
+                  assert hashlib.sha256(lock_bytes).hexdigest() == lock['sha256']
+                  assert sha256_re.fullmatch(lock['sha256'])
+
+                  for role in ('base', 'fix', 'oracle'):
+                      lr = case['licensing'][role]
+                      assert lr['spdx_expression'] == 'MIT'
+                      assert lr['evidence']
+                      ref = case['git'][role]['commit_id']
+                      for ev in lr['evidence']:
+                          actual_blob = run(repo, 'rev-parse', f'{ref}:{ev["path"]}').strip()
+                          assert actual_blob == ev['blob_id']
+                          b = cat_blob(repo, actual_blob)
+                          assert hashlib.sha256(b).hexdigest() == ev['sha256']
+                          assert b.startswith(b'MIT License')
+
+                  submodules = [line for line in run(repo, 'ls-tree', '-r', fix).splitlines() if line.startswith('160000 ')]
+                  assert not submodules, (cid, submodules)
+
+                  # Verify the reviewed human test identity is present in pinned upstream test text.
+                  for test_id in case['oracle']['specification']['regression_test_ids']:
+                      leaf = test_id.split(' > ')[-1]
+                      assert any(leaf in cat_blob(repo, f'{fix}:{p}').decode('utf-8', errors='strict') for p in case['paths']['regression_tests']), (cid, test_id)
+
+                  pkg = json.loads(cat_blob(repo, f'{fix}:package.json').decode('utf-8'))
+                  pm = case['runtime']['package_manager_version']
+                  if cid == 'react-hook-form-value-as-date':
+                      action = cat_blob(repo, f'{fix}:.github/actions/install-dependencies/action.yml').decode('utf-8')
+                      assert 'version: 11.7.0' in action
+                      assert 'node-version: 22' in action
+                      assert case['runtime']['node_version'] == '22.22.2'
+                  else:
+                      assert pkg.get('packageManager') == f'pnpm@{pm}', (cid, pkg.get('packageManager'), pm)
+
+                  if cid == 'tanstack-streamed-query-reducer':
+                      assert cat_blob(repo, f'{fix}:.nvmrc').decode('utf-8').strip() == '24.8.0'
+                      assert case['runtime']['node_version'] == '24.8.0'
+                  elif cid == 'trpc-streaming-onerror-cause':
+                      assert pkg.get('engines', {}).get('node') == '^24.0.0'
+                      assert case['runtime']['node_version'].startswith('24.')
+                  elif cid == 'zustand-persist-latest-state':
+                      assert pkg.get('engines', {}).get('node') == '>=12.20.0'
+                      assert case['runtime']['node_version'].startswith('24.')
+                  elif cid.startswith('zod-'):
+                      workflow = cat_blob(repo, f'{fix}:.github/workflows/test.yml').decode('utf-8')
+                      assert 'lts/*' in workflow
+                      assert case['runtime']['node_version'].startswith('24.')
+
+              # Exact replay runtimes selected by T073 must correspond to real Node release tags.
+              for version in sorted({c['runtime']['node_version'] for c in cases}):
+                  cp = subprocess.run(['git', 'ls-remote', '--tags', 'https://github.com/nodejs/node.git', f'refs/tags/v{version}'], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                  assert cp.stdout.strip(), version
+
+              print('T073 exact donor Git-object / license / runtime / oracle-definition audit PASS')
+          finally:
+              shutil.rmtree(tmp_root, ignore_errors=True)
+          PY
+          echo 'AUDIT_MODE=GIT_OBJECT_METADATA_ONLY'
+          echo 'DONOR_CHECKOUT=NO'
+          echo 'DONOR_DEPENDENCY_INSTALL=NO'
+          echo 'DONOR_SCRIPT_EXECUTION=NO'
+          echo 'DONOR_TEST_EXECUTION=NO'
+
+      - name: Verify Ascout typecheck build and full suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+
+      - name: Closing exact-head and clean-tree guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head='7881afca715fd5526ceb90833fc83938aab225cc'
+          expected_base='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$expected_head"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$expected_base"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$expected_head"
+          test "$(git merge-base HEAD origin/main)" = "$expected_base"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          test -z "$(git status --porcelain)"
