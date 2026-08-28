@@ -1,0 +1,92 @@
+name: T075 source namespace diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-source-namespace-92a964f
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/t075-braintree-semantic-a0466508
+          path: helper
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: candidate/t075-final-harness-a0466508
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Apply exact candidate patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = 'a0466508dce843cbbdf8f722e814ac15a2f71b9b'
+          python3 helper/.github/repair/t075_final_harness_patch.py candidate
+          python3 helper/.github/repair/t075_braintree_semantic_patch.py candidate
+          python3 helper/.github/repair/t075_comparator_isolation_patch.py candidate
+          git -C candidate diff --check
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build controller
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          npm install --global pnpm@10.18.3 --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = '10.18.3'
+      - name: Preserve failing Zustand source state and inspect namespace
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          node benchmarks/run.mjs \
+            --case zustand-persist-latest-state \
+            --run-id "diagnostic:${GITHUB_RUN_ID}:source-namespace" \
+            --repetitions 2 \
+            --keep-temp \
+            > "$RUNNER_TEMP/zustand.stdout" \
+            2> "$RUNNER_TEMP/zustand.stderr"
+          code=$?
+          set -e
+          echo "HARNESS_EXIT=$code"
+          cat "$RUNNER_TEMP/zustand.stderr"
+          test "$code" -eq 2
+          mapfile -t roots < <(find /tmp -maxdepth 1 -type d -name 'ascout-t075-zustand-persist-latest-state-*' -print | sort)
+          test "${#roots[@]}" -ge 1
+          for root in "${roots[@]}"; do
+            echo "ROOT=$(basename "$root")"
+            find "$root" -maxdepth 3 -type d -name measured -print | sort | while read -r repo; do
+              echo "MEASURED_BEGIN"
+              echo "PATH=${repo#$root/}"
+              echo "STATUS_ALL_BEGIN"
+              git -C "$repo" status --porcelain=v1 --untracked-files=all || true
+              echo "STATUS_ALL_END"
+              echo "STATUS_WITH_ASCOUT_EXCLUDED_BEGIN"
+              git -C "$repo" status --porcelain=v1 --untracked-files=all -- . ':(exclude).ascout' ':(exclude).ascout/**' || true
+              echo "STATUS_WITH_ASCOUT_EXCLUDED_END"
+              echo "UNSTAGED_TRACKED_BEGIN"
+              git -C "$repo" diff --name-status --no-ext-diff HEAD -- || true
+              echo "UNSTAGED_TRACKED_END"
+              echo "STAGED_BEGIN"
+              git -C "$repo" diff --cached --name-status --no-ext-diff HEAD -- || true
+              echo "STAGED_END"
+              echo "ASCOUT_FILES_BEGIN"
+              if [ -d "$repo/.ascout" ]; then
+                find "$repo/.ascout" -maxdepth 3 -type f -printf '%P\n' | sort | head -100
+              fi
+              echo "ASCOUT_FILES_END"
+              echo "ASCOUT_IGNORE_BEGIN"
+              git -C "$repo" check-ignore -v .ascout .ascout/run.lock 2>/dev/null || true
+              echo "ASCOUT_IGNORE_END"
+              echo "MEASURED_END"
+            done
+          done
