@@ -1,0 +1,61 @@
+name: T075 membership proxy smoke
+
+on:
+  push:
+    branches:
+      - diagnostic/t075-proxy-smoke-359264a
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 359264abc13153fe37ef7bcd164addc1534d38af
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Reproduce exact historical pre-fix proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '359264abc13153fe37ef7bcd164addc1534d38af'
+          npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+          donor="$RUNNER_TEMP/zod"
+          report="$RUNNER_TEMP/membership.json"
+          git clone --no-tags https://github.com/colinhacks/zod.git "$donor"
+          git -C "$donor" checkout --detach 3a818de145dc2fa9b5753bc8bf97b0b8484cfbaf
+          cd "$donor"
+          pnpm install --frozen-lockfile --ignore-scripts
+          git show 55747b3cd05cd8b60b4f3d6a6348e2c508069c12:packages/zod/src/v4/core/util.ts > packages/zod/src/v4/core/util.ts
+          set +e
+          node "$GITHUB_WORKSPACE/benchmarks/membership-proxy.mjs" \
+            --kind vitest \
+            --output "$report" \
+            -- pnpm test -- packages/zod/src/v4/classic/tests/number.test.ts
+          exit_code=$?
+          set -e
+          test "$exit_code" -eq 1
+          test -s "$report"
+          REPORT="$report" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync(process.env.REPORT, 'utf8'));
+          const expectedPath = 'packages/zod/src/v4/classic/tests/number.test.ts';
+          const expectedTitle = '.multipleOf() with scientific notation (multi-digit exponents)';
+          const matching = (report.testResults ?? []).filter((result) => String(result.name ?? '').replaceAll('\\', '/').endsWith(expectedPath));
+          if (matching.length !== 1) throw new Error(`expected one reviewed file result, got ${matching.length}`);
+          const assertions = matching[0].assertionResults ?? [];
+          const assertion = assertions.find((item) => item.title === expectedTitle || item.fullName === expectedTitle);
+          if (!assertion) throw new Error('reviewed regression_test_id is absent from structured report');
+          if (assertion.status !== 'failed') throw new Error(`historical pre-fix assertion status is ${assertion.status}`);
+          console.log(JSON.stringify({
+            numTotalTestSuites: report.numTotalTestSuites,
+            numTotalTests: report.numTotalTests,
+            regression_test_id: expectedTitle,
+            regression_status: assertion.status,
+          }));
+          NODE
