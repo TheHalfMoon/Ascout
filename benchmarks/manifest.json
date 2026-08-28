@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "ascout-founding-benchmark-v1",
-  "manifest_revision": 6,
+  "manifest_revision": 7,
   "policy": {
     "policy_path": "benchmarks/README.md",
     "manifest_task": "T072",
@@ -589,6 +589,87 @@
                   "$ref": "#/$defs/changed_line"
                 },
                 "uniqueItems": true
+              },
+              "coverage_oracle": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "full_test_coverage_command",
+                  "project_native_reference_command",
+                  "artifact",
+                  "artifact_digest_algorithm",
+                  "mapping",
+                  "freeze_before_ascout"
+                ],
+                "properties": {
+                  "full_test_coverage_command": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "project_native_reference_command": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "artifact": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "format",
+                      "path"
+                    ],
+                    "properties": {
+                      "format": {
+                        "const": "lcov"
+                      },
+                      "path": {
+                        "$ref": "#/$defs/repository_path"
+                      }
+                    }
+                  },
+                  "artifact_digest_algorithm": {
+                    "const": "sha256"
+                  },
+                  "mapping": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "source_identity",
+                      "line_set_source",
+                      "positive_hits",
+                      "zero_hits",
+                      "missing_or_ambiguous",
+                      "procedure"
+                    ],
+                    "properties": {
+                      "source_identity": {
+                        "const": "repository-relative-path-and-line-v1"
+                      },
+                      "line_set_source": {
+                        "const": "oracle.specification.gap_changed_executable_lines"
+                      },
+                      "positive_hits": {
+                        "const": "EXERCISED"
+                      },
+                      "zero_hits": {
+                        "const": "NOT_EXERCISED"
+                      },
+                      "missing_or_ambiguous": {
+                        "const": "UNRESOLVED"
+                      },
+                      "procedure": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  },
+                  "freeze_before_ascout": {
+                    "const": true
+                  }
+                }
               }
             }
           },
@@ -777,7 +858,8 @@
               "properties": {
                 "specification": {
                   "required": [
-                    "gap_changed_executable_lines"
+                    "gap_changed_executable_lines",
+                    "coverage_oracle"
                   ],
                   "properties": {
                     "gap_changed_executable_lines": {
@@ -2335,7 +2417,7 @@
     },
     {
       "case_id": "immer-prototype-undefined",
-      "case_revision": 1,
+      "case_revision": 2,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -2476,7 +2558,30 @@
               "path": "src/core/proxy.ts",
               "line": 244
             }
-          ]
+          ],
+          "coverage_oracle": {
+            "full_test_coverage_command": "./node_modules/.bin/vitest run --coverage",
+            "project_native_reference_command": "yarn coverage",
+            "artifact": {
+              "format": "lcov",
+              "path": "coverage/lcov.info"
+            },
+            "artifact_digest_algorithm": "sha256",
+            "mapping": {
+              "source_identity": "repository-relative-path-and-line-v1",
+              "line_set_source": "oracle.specification.gap_changed_executable_lines",
+              "positive_hits": "EXERCISED",
+              "zero_hits": "NOT_EXERCISED",
+              "missing_or_ambiguous": "UNRESOLVED",
+              "procedure": [
+                "T075 runs the exact full-test coverage command in the isolated measured reconstruction before any Ascout invocation and refuses network-backed executable resolution or an unexpected toolchain.",
+                "T075 canonicalizes each LCOV SF record to one repository-relative production path and maps only the reviewed oracle.specification.gap_changed_executable_lines entries; duplicate, escaping, missing, or ambiguous source identities are UNRESOLVED.",
+                "For each reviewed line, an exact LCOV DA hit count greater than zero is EXERCISED, an exact zero hit count is NOT_EXERCISED, and a missing/non-numeric/ambiguous DA record is UNRESOLVED; no selector output participates in this classification.",
+                "T075 hashes the complete LCOV artifact with SHA-256 and freezes both the artifact identity and the line classifications before invoking Ascout; later selector results cannot modify the frozen oracle."
+              ]
+            },
+            "freeze_before_ascout": true
+          }
         },
         "observation": null
       },
@@ -2490,67 +2595,68 @@
       "limitations": [
         "T074 is definition-only: no donor code, dependency, script, build, or test execution has occurred; all oracle observations remain unknown until T075.",
         "The exact Node/package-manager selection is benchmark-owned but constrained by exact upstream CI/engine metadata and must be enforced fail-closed by T075.",
-        "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition."
+        "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition.",
+        "T074 now freezes a project-native full-suite LCOV oracle definition; no LCOV artifact, artifact digest, or line classification has been observed yet and T075 must establish them before Ascout runs."
       ]
     },
     {
-      "case_id": "axios-tojson-dag",
+      "case_id": "braintree-venmo-csp-nonce-web-login",
       "case_revision": 1,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
-        "canonical_url": "https://github.com/axios/axios.git",
-        "repository_name": "axios/axios",
+        "canonical_url": "https://github.com/braintree/braintree-web.git",
+        "repository_name": "braintree/braintree-web",
         "provenance_urls": [
-          "https://github.com/axios/axios/commit/f2b903fceaa0a02cefd77f6b4b123c679605aae9",
-          "https://github.com/axios/axios/pull/10832",
-          "https://github.com/axios/axios/issues/10807"
+          "https://github.com/braintree/braintree-web/commit/234edb7f3d541ad2df5c7a0d88db6135371c5090",
+          "https://github.com/braintree/braintree-web/blob/234edb7f3d541ad2df5c7a0d88db6135371c5090/CHANGELOG.md"
         ]
       },
       "git": {
         "base": {
-          "commit_id": "5061879649bb59df593423b1bc782dff734fd13d",
-          "tree_id": "024112d794fb873b1dbc9b0427a5cb9d8d64d34e",
+          "commit_id": "ba7327135aa757aab5534d41d5871723bd06103a",
+          "tree_id": "8926b6f79c45621f84b4cfa08cc61e55a835f929",
           "required_parent_ids": [
-            "78e8dcf8754ed9d1219628540d69d09bdba5a9be"
+            "c095ba789822fd2070a9d4beff8606e4a795d0d4"
           ]
         },
         "fix": {
-          "commit_id": "f2b903fceaa0a02cefd77f6b4b123c679605aae9",
-          "tree_id": "e0435fd997b0ab0714dfa4a3fc6c3c61472fa042",
+          "commit_id": "234edb7f3d541ad2df5c7a0d88db6135371c5090",
+          "tree_id": "eb6faa1527c504c03bb6051bad43be3d27f391fe",
           "required_parent_ids": [
-            "5061879649bb59df593423b1bc782dff734fd13d"
+            "ba7327135aa757aab5534d41d5871723bd06103a"
           ]
         },
         "oracle": {
-          "commit_id": "f2b903fceaa0a02cefd77f6b4b123c679605aae9",
-          "tree_id": "e0435fd997b0ab0714dfa4a3fc6c3c61472fa042",
+          "commit_id": "234edb7f3d541ad2df5c7a0d88db6135371c5090",
+          "tree_id": "eb6faa1527c504c03bb6051bad43be3d27f391fe",
           "required_parent_ids": [
-            "5061879649bb59df593423b1bc782dff734fd13d"
+            "ba7327135aa757aab5534d41d5871723bd06103a"
           ]
         },
         "relationship": {
           "kind": "direct_parent",
-          "required_parent_commit_id": "5061879649bb59df593423b1bc782dff734fd13d",
-          "rationale": "The benchmark definition measures exactly the reviewed direct-parent production delta; the pinned fix commit has the exact base commit as its sole parent."
+          "required_parent_commit_id": "ba7327135aa757aab5534d41d5871723bd06103a",
+          "rationale": "The reviewed fix commit has the exact benchmark base as its sole parent; the measured state applies only its Venmo production blob and withholds every other fix path."
         }
       },
       "paths": {
         "production": [
-          "lib/utils.js"
+          "src/venmo/venmo.js"
         ],
         "regression_tests": [
-          "tests/unit/utils.test.js"
+          "test/venmo/unit/venmo.js"
         ]
       },
       "reconstruction": {
         "mode": "base_plus_production_fix",
         "steps": [
-          "Checkout exact base commit 5061879649bb59df593423b1bc782dff734fd13d as measured HEAD with index and worktree equal to HEAD.",
-          "Overlay only the exact listed production-path blobs from the pinned fix commit into the measured worktree without staging them.",
-          "Keep every listed regression-test path byte-identical to its exact base blob; do not apply the historical regression-test change to the measured repository.",
-          "Require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly; reject staged changes, regression-test changes, ancillary fix content, or unexpected non-runtime untracked paths.",
-          "At T075 record the deterministic derived Git tree identity and refuse replay if a repeated reconstruction differs."
+          "Checkout exact base commit ba7327135aa757aab5534d41d5871723bd06103a as measured HEAD with index and worktree equal to HEAD.",
+          "Install only from the exact base package-lock under the pinned Node/npm identities at T075; the fix-side version/package-lock changes are ancillary release content and are not part of the measured reconstruction.",
+          "Overlay only the exact src/venmo/venmo.js blob from fix commit 234edb7f3d541ad2df5c7a0d88db6135371c5090 as an unstaged production change.",
+          "Keep test/venmo/unit/venmo.js byte-identical to its exact base blob and withhold CHANGELOG.md, package-lock.json, package.json, scripts/release, and every other fix-side byte from the measured repository.",
+          "Require the complete worktree-vs-HEAD changed-path set to equal src/venmo/venmo.js exactly and reject staged or unexpected non-runtime untracked paths.",
+          "At T075 record the deterministic derived Git tree identity and refuse replay if reconstruction identity, base lock bytes, or changed-path scope differs."
         ],
         "measured_diff_contains_regression_test_change": false,
         "derived_identity": {
@@ -2560,22 +2666,22 @@
       },
       "runtime": {
         "package_manager": "npm",
-        "package_manager_version": "11.3.0",
-        "package_manager_version_provenance": "Exact npm 11.3.0 is bundled by nodejs/node v24.0.0 commit c5349f43cd66d2aa02d86414c9ed426f71d3ae48 (deps/npm/package.json) and independently pinned by npm/cli v11.3.0 tag commit 5bd086babba5f5b41548609405218c5e892bca7f.",
+        "package_manager_version": "10.8.2",
+        "package_manager_version_provenance": "Exact benchmark Node 20.19.0 commit bb1a61d8737feff534bb85368dab3b7c554c863d bundles npm 10.8.2; T075 must use that bundled npm and refuse any package-manager mismatch.",
         "lockfile": {
           "path": "package-lock.json",
-          "blob_id": "1241eaf3d50e1dabd9c45cb3e2339abcc7222666",
-          "sha256": "fc21f9bd297600a9a2093974120d55b72a2975e238ba811509aad161f94ed005"
+          "blob_id": "73ea6577e2620d3cdf2273a67b8b982bfc277b5a",
+          "sha256": "c24158baff68b62ce78928e80d232f503b5d16ae6cf1f5fd8f839aadec0c2717"
         },
-        "node_version": "24.0.0",
+        "node_version": "20.19.0",
         "node_constraint_provenance": [
-          "Exact donor CI blob bc12947acce17be957e73ee8f43baf111f1faccb selects Node 24.x and npm ci --ignore-scripts.",
-          "Benchmark resolves 24.x deterministically to exact Node 24.0.0; nodejs/node v24.0.0 tag resolves to c5349f43cd66d2aa02d86414c9ed426f71d3ae48."
+          "Exact base .nvmrc blob 9a2a0e219c9b280eea2627cdcaa1bb40bc8351b3 selects Node v20.",
+          "Benchmark resolves that major deterministically to Node 20.19.0, released before the historical fix; nodejs/node v20.19.0 resolves to commit bb1a61d8737feff534bb85368dab3b7c554c863d."
         ],
         "immutable_harness_artifact": {
           "required": false,
           "sha256": null,
-          "reason": "The reviewed donor state is reproducible from exact Git objects, exact lockfile bytes, and exact Node/package-manager identities; T075 must refuse any toolchain mismatch rather than rely on a floating packaged image."
+          "reason": "Exact base Git objects, exact base package-lock bytes, exact Node/npm identities, and local Jest are sufficient; T075 must fail closed instead of substituting a floating image or downloaded executable."
         }
       },
       "licensing": {
@@ -2584,157 +2690,157 @@
           "evidence": [
             {
               "path": "LICENSE",
-              "blob_id": "05006a51eb888282323883df740cd90ad72d0700",
-              "sha256": "82761059eaedacb3356803aea8a170d8298609f91b14fc32ee1bfb40d690183c"
+              "blob_id": "acda283de3dbf565711ceefac9ce0a1c8dcb57d5",
+              "sha256": "0368c2fe9950c9a838bf4dc1a6ee010e661accd7ce4b98b1203a921415f6e81c"
             }
           ],
-          "review_note": "Exact base Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+          "review_note": "Exact base Git object contains the repository MIT license; target source/test files contain no narrower SPDX marker."
         },
         "fix": {
           "spdx_expression": "MIT",
           "evidence": [
             {
               "path": "LICENSE",
-              "blob_id": "05006a51eb888282323883df740cd90ad72d0700",
-              "sha256": "82761059eaedacb3356803aea8a170d8298609f91b14fc32ee1bfb40d690183c"
+              "blob_id": "acda283de3dbf565711ceefac9ce0a1c8dcb57d5",
+              "sha256": "0368c2fe9950c9a838bf4dc1a6ee010e661accd7ce4b98b1203a921415f6e81c"
             }
           ],
-          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+          "review_note": "Exact fix Git object retains the same reviewed MIT license; target source/test files contain no narrower SPDX marker."
         },
         "oracle": {
           "spdx_expression": "MIT",
           "evidence": [
             {
               "path": "LICENSE",
-              "blob_id": "05006a51eb888282323883df740cd90ad72d0700",
-              "sha256": "82761059eaedacb3356803aea8a170d8298609f91b14fc32ee1bfb40d690183c"
+              "blob_id": "acda283de3dbf565711ceefac9ce0a1c8dcb57d5",
+              "sha256": "0368c2fe9950c9a838bf4dc1a6ee010e661accd7ce4b98b1203a921415f6e81c"
             }
           ],
-          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+          "review_note": "Oracle revision is the exact reviewed fix state under the same MIT license."
         },
         "file_level_review": {
           "status": "CLEAR",
-          "notes": "Reviewed target production and regression-test paths are covered by the repository MIT license at the exact base/fix/oracle states; T074 redistributes no donor source or patch content."
+          "notes": "Reviewed Venmo production and unit-test paths are covered by the repository MIT license; T074 redistributes no donor source or patch content."
         }
       },
       "oracle": {
         "specification": {
           "regression_test_ids": [
-            "should serialize a shared sibling object at every occurrence (DAG, not cycle)",
-            "should serialize a shared sibling array at every occurrence (DAG, not cycle)",
-            "should serialize shared sibling that itself contains a self-cycle",
-            "should serialize non-cyclic structures deeper than the old Array(10) cap"
+            "passes style nonce with web login"
           ],
-          "historical_basis": "Upstream direct-parent fix #10832 replaces path-cycle tracking in toJSONObject and adds four unit regressions for shared DAG siblings, self-cycles inside shared nodes, and deep non-cyclic structures. The exact historical test change is independent upstream evidence and is withheld from the measured tree.",
+          "historical_basis": "Upstream direct-parent release commit 234edb7f3d541ad2df5c7a0d88db6135371c5090 changes Venmo CSP-nonce gating from _allowDesktop to _allowDesktopWebLogin, adds the named unit regression, and records the cspNonce web-login fix in CHANGELOG 3.117.1. The test change is independent upstream evidence and is withheld from the measured tree.",
           "ground_truth_procedure": [
-            "Pinned T075 targeted oracle command: `npm run test:vitest:unit -- tests/unit/utils.test.js`. Pinned project-native reference command: `npm test`. T075 must prove every listed regression_test_id executed; file-level success alone is not oracle evidence.",
-            "Measured reconstruction: checkout exact base commit as HEAD with index/worktree equal to HEAD; overlay only the listed production fix blobs as unstaged changes; preserve the regression-test path at its exact base blob in the measured repository; require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, with no staged or unexpected non-runtime untracked paths.",
-            "Pre-fix oracle reconstruction: use a physically separate repository/worktree inaccessible to Ascout measurement, start from the same exact base state, apply only the exact historical regression-test change from the pinned fix commit while leaving production at base bytes, execute the pinned targeted oracle command, and require the historical regression to fail as a valid test observation rather than setup/runner failure.",
-            "Fixed oracle reconstruction: in the same isolated oracle protocol, apply the identical historical regression-test bytes plus only the exact listed production fix blobs, execute the identical targeted command, and require the historical regression to pass.",
-            "Repeat valid pre-fix/fixed oracle observations according to the benchmark determinism protocol. Destroy or quarantine oracle worktrees and evidence before selector/Ascout measurement; never copy the historical regression-test patch, expected assertions, or oracle-only metadata into the measured repository.",
-            "At T075 record the measured derived tree identity and refuse replay if reconstruction identity, exact toolchain identity, regression-test withholding, changed-path set, or oracle isolation differs from this reviewed definition."
+            "Pinned T075 targeted oracle command: `BRAINTREE_JS_ENV=development ./node_modules/.bin/jest --config=test/venmo/jest.config.json --runInBand test/venmo/unit/venmo.js`. T075 must prove the named regression_test_id executed; file-level success alone is not oracle evidence.",
+            "Measured reconstruction uses exact base HEAD and base package-lock bytes, overlays only src/venmo/venmo.js from the fix as an unstaged change, and leaves the historical regression-test file at exact base bytes; all ancillary release/version/lock changes from the fix remain withheld.",
+            "Pre-fix oracle reconstruction is physically separate from the measured repository: apply only the exact historical test change to exact base production and require the named regression to fail as a valid test observation rather than setup/runner failure.",
+            "Fixed oracle reconstruction applies the identical historical test bytes plus only the reviewed production blob and requires the named regression to pass under the identical pinned targeted command.",
+            "Repeat valid pre-fix/fixed observations under the T075 determinism protocol, quarantine oracle-only worktrees/evidence, and never expose historical test assertions or oracle-only metadata to Ascout measurement."
           ],
-          "independence_statement": "Ground truth is defined solely from exact upstream Git history and the upstream-authored regression test change. It is not derived from Ascout selection, coverage, receipts, or benchmark outcomes.",
+          "independence_statement": "Ground truth is defined solely from exact upstream Git history, the upstream-authored regression, and a separately frozen full-suite coverage oracle; it is not derived from Ascout selection, coverage, receipts, or benchmark outcomes.",
           "gap_changed_executable_lines": [
             {
-              "path": "lib/utils.js",
-              "line": 766
-            },
-            {
-              "path": "lib/utils.js",
-              "line": 770
-            },
-            {
-              "path": "lib/utils.js",
-              "line": 781
-            },
-            {
-              "path": "lib/utils.js",
-              "line": 785
-            },
-            {
-              "path": "lib/utils.js",
-              "line": 789
-            },
-            {
-              "path": "lib/utils.js",
-              "line": 798
+              "path": "src/venmo/venmo.js",
+              "line": 87
             }
-          ]
+          ],
+          "coverage_oracle": {
+            "full_test_coverage_command": "BRAINTREE_JS_ENV=development ./node_modules/.bin/jest --config=jest.config.json --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage",
+            "project_native_reference_command": "npm test",
+            "artifact": {
+              "format": "lcov",
+              "path": "coverage/lcov.info"
+            },
+            "artifact_digest_algorithm": "sha256",
+            "mapping": {
+              "source_identity": "repository-relative-path-and-line-v1",
+              "line_set_source": "oracle.specification.gap_changed_executable_lines",
+              "positive_hits": "EXERCISED",
+              "zero_hits": "NOT_EXERCISED",
+              "missing_or_ambiguous": "UNRESOLVED",
+              "procedure": [
+                "T075 runs the exact full-test coverage command in the isolated measured reconstruction before any Ascout invocation and refuses network-backed executable resolution or an unexpected toolchain.",
+                "T075 canonicalizes each LCOV SF record to one repository-relative production path and maps only the reviewed oracle.specification.gap_changed_executable_lines entries; duplicate, escaping, missing, or ambiguous source identities are UNRESOLVED.",
+                "For each reviewed line, an exact LCOV DA hit count greater than zero is EXERCISED, an exact zero hit count is NOT_EXERCISED, and a missing/non-numeric/ambiguous DA record is UNRESOLVED; no selector output participates in this classification.",
+                "T075 hashes the complete LCOV artifact with SHA-256 and freezes both the artifact identity and the line classifications before invoking Ascout; later selector results cannot modify the frozen oracle."
+              ]
+            },
+            "freeze_before_ascout": true
+          }
         },
         "observation": null
       },
       "provenance": {
         "issue_or_pr_urls": [
-          "https://github.com/axios/axios/commit/f2b903fceaa0a02cefd77f6b4b123c679605aae9",
-          "https://github.com/axios/axios/pull/10832",
-          "https://github.com/axios/axios/issues/10807"
+          "https://github.com/braintree/braintree-web/commit/234edb7f3d541ad2df5c7a0d88db6135371c5090",
+          "https://github.com/braintree/braintree-web/blob/234edb7f3d541ad2df5c7a0d88db6135371c5090/CHANGELOG.md"
         ],
-        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. Changed paths are exactly ['lib/utils.js', 'tests/unit/utils.test.js']; measured reconstruction withholds the historical regression-test change and applies only production blobs. Definition-only review used Git-object metadata; no donor checkout for execution, install, script, build, or test occurred."
+        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. The fix has six changed paths, but measured reconstruction deliberately applies only the single production blob and withholds the regression test plus release/version/lock ancillary content. Definition-only metadata review performed without donor checkout/install/build/test execution."
       },
       "limitations": [
-        "T074 is definition-only: no donor code, dependency, script, build, or test execution has occurred; all oracle observations remain unknown until T075.",
-        "The exact Node/package-manager selection is benchmark-owned but constrained by exact upstream CI/engine metadata and must be enforced fail-closed by T075.",
-        "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition."
+        "T074 is definition-only: no donor dependency, script, build, test, LCOV artifact, or line classification has been executed or observed; T075 is the first execution task.",
+        "The exact Node 20.19.0 patch is benchmark-owned resolution of the donor .nvmrc v20 constraint and must be enforced fail-closed by T075.",
+        "The historical fix also changes release/version/package-lock content; the measured benchmark intentionally preserves exact base dependency metadata and overlays only the reviewed production blob.",
+        "Only src/venmo/venmo.js:87 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs."
       ]
     },
     {
-      "case_id": "undici-h2-late-response",
-      "case_revision": 2,
+      "case_id": "react-hook-form-valueasdate-minmax",
+      "case_revision": 1,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
-        "canonical_url": "https://github.com/nodejs/undici.git",
-        "repository_name": "nodejs/undici",
+        "canonical_url": "https://github.com/react-hook-form/react-hook-form.git",
+        "repository_name": "react-hook-form/react-hook-form",
         "provenance_urls": [
-          "https://github.com/nodejs/undici/commit/e5b3364ddc620c0d1c61424d1278fc0965207477",
-          "https://github.com/nodejs/undici/pull/5440"
+          "https://github.com/react-hook-form/react-hook-form/commit/d7118f40a50aa7783481e9a9b77a703302b94814",
+          "https://github.com/react-hook-form/react-hook-form/pull/13646"
         ]
       },
       "git": {
         "base": {
-          "commit_id": "c0007f4b7998c5547ead5eda39e0dfd18a545639",
-          "tree_id": "92011798ec7b53aa68f1f4ceb2087acb11164e20",
+          "commit_id": "47546bbc80557aa5cc4eb2daf2062a27c557137b",
+          "tree_id": "80967ec8c33f541d823d6628335f65dc77cab52a",
           "required_parent_ids": [
-            "e529cabb88e3cf315cf3007af15db195fb649a45"
+            "c96ab19818519c7560b43cb712539a0c8cae48ac"
           ]
         },
         "fix": {
-          "commit_id": "e5b3364ddc620c0d1c61424d1278fc0965207477",
-          "tree_id": "d35627de7ccef2cf3ff6ff3e412fa62a052ecb7c",
+          "commit_id": "d7118f40a50aa7783481e9a9b77a703302b94814",
+          "tree_id": "4df4511116d85a6003b36dddca79f56bab7bd53b",
           "required_parent_ids": [
-            "c0007f4b7998c5547ead5eda39e0dfd18a545639"
+            "47546bbc80557aa5cc4eb2daf2062a27c557137b"
           ]
         },
         "oracle": {
-          "commit_id": "e5b3364ddc620c0d1c61424d1278fc0965207477",
-          "tree_id": "d35627de7ccef2cf3ff6ff3e412fa62a052ecb7c",
+          "commit_id": "d7118f40a50aa7783481e9a9b77a703302b94814",
+          "tree_id": "4df4511116d85a6003b36dddca79f56bab7bd53b",
           "required_parent_ids": [
-            "c0007f4b7998c5547ead5eda39e0dfd18a545639"
+            "47546bbc80557aa5cc4eb2daf2062a27c557137b"
           ]
         },
         "relationship": {
           "kind": "direct_parent",
-          "required_parent_commit_id": "c0007f4b7998c5547ead5eda39e0dfd18a545639",
-          "rationale": "The benchmark definition measures exactly the reviewed direct-parent production delta; the pinned fix commit has the exact base commit as its sole parent."
+          "required_parent_commit_id": "47546bbc80557aa5cc4eb2daf2062a27c557137b",
+          "rationale": "Merged PR #13646 produced a direct-parent fix commit whose exact parent is the reviewed benchmark base and whose changed paths are only one production file and one regression-test file."
         }
       },
       "paths": {
         "production": [
-          "lib/dispatcher/client-h2.js"
+          "src/logic/validateField.ts"
         ],
         "regression_tests": [
-          "test/http2-response-after-completion.js"
+          "src/__tests__/logic/validateField.test.tsx"
         ]
       },
       "reconstruction": {
         "mode": "base_plus_production_fix",
         "steps": [
-          "Checkout exact base commit c0007f4b7998c5547ead5eda39e0dfd18a545639 as measured HEAD with index and worktree equal to HEAD.",
-          "Overlay only the exact listed production-path blobs from the pinned fix commit into the measured worktree without staging them.",
-          "Keep every listed regression-test path absent because it is new in the fix; do not create the historical regression-test file in the measured repository.",
-          "Require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly; reject staged changes, regression-test changes, ancillary fix content, or unexpected non-runtime untracked paths.",
-          "At T075 record the deterministic derived Git tree identity and refuse replay if a repeated reconstruction differs."
+          "Checkout exact base commit 47546bbc80557aa5cc4eb2daf2062a27c557137b as measured HEAD with index and worktree equal to HEAD.",
+          "Install only from exact base pnpm-lock.yaml under pinned pnpm 11.7.0 and exact Node 22.23.2 at T075.",
+          "Overlay only the exact src/logic/validateField.ts blob from fix commit d7118f40a50aa7783481e9a9b77a703302b94814 as an unstaged production change.",
+          "Keep src/__tests__/logic/validateField.test.tsx byte-identical to its exact base blob; do not apply the historical regression-test change to the measured repository.",
+          "Require the complete worktree-vs-HEAD changed-path set to equal src/logic/validateField.ts exactly and reject staged or unexpected non-runtime untracked paths.",
+          "At T075 record the deterministic derived Git tree identity and refuse replay if reconstruction identity, exact toolchain identity, lockfile bytes, or changed-path scope differs."
         ],
         "measured_diff_contains_regression_test_change": false,
         "derived_identity": {
@@ -2743,24 +2849,23 @@
         }
       },
       "runtime": {
-        "package_manager": "npm",
-        "package_manager_version": "11.3.0",
-        "package_manager_version_provenance": "Exact npm 11.3.0 is bundled by nodejs/node v24.0.0 commit c5349f43cd66d2aa02d86414c9ed426f71d3ae48 (deps/npm/package.json) and independently pinned by npm/cli v11.3.0 tag commit 5bd086babba5f5b41548609405218c5e892bca7f.",
+        "package_manager": "pnpm",
+        "package_manager_version": "11.7.0",
+        "package_manager_version_provenance": "Exact donor CI composite-action blob 4d5af5eef50eb1d6051a8d186f817bdbc972ab30 pins pnpm 11.7.0; pnpm/pnpm v11.7.0 resolves to commit 1e82e001cd5316fa2ab792a7c19bdeb0c498084b.",
         "lockfile": {
-          "path": "package-lock.json",
-          "blob_id": "810d7d173185686e6399eed89ebd1fef86db085b",
-          "sha256": "6fcb9750cec57b720de4abbfd096e26bd26636cc0633d0e3e8297bcdfbf94d2b"
+          "path": "pnpm-lock.yaml",
+          "blob_id": "49f6fde69682f104a2c65bec4552be4a6eeba643",
+          "sha256": "7acb3dc72842c76da85d5a9dd0e8c589c18250c2b2e46b0dbe4948798df0d14a"
         },
-        "node_version": "24.0.0",
+        "node_version": "22.23.2",
         "node_constraint_provenance": [
-          "Exact donor package.json blob d44a283e563e9c7aa9ba682cb42d84d8e5b4f5ce requires Node >=22.19.0.",
-          "Exact donor CI blob 81a6041478440edd900c7ad9e9dda1c5946f503d includes Node 24 in its test matrix.",
-          "Benchmark selects exact Node 24.0.0, whose tag resolves to c5349f43cd66d2aa02d86414c9ed426f71d3ae48, satisfying both constraints."
+          "Exact donor CI composite-action blob 4d5af5eef50eb1d6051a8d186f817bdbc972ab30 selects Node 22 and pnpm 11.7.0; package.json engines permit Node >=18.0.0.",
+          "Benchmark resolves Node 22 deterministically to v22.23.2, published 2026-07-29 before PR #13646 merged; nodejs/node v22.23.2 resolves to commit aa4c77582be995286fc6e00aaf530dc7ade102a9."
         ],
         "immutable_harness_artifact": {
           "required": false,
           "sha256": null,
-          "reason": "The reviewed donor state is reproducible from exact Git objects, exact lockfile bytes, and exact Node/package-manager identities; T075 must refuse any toolchain mismatch rather than rely on a floating packaged image."
+          "reason": "Exact donor CI constraints, exact pnpm lock bytes, exact Node/pnpm identities, and local Jest are sufficient; T075 must fail closed rather than resolve a floating package-manager/runtime or downloaded executable."
         }
       },
       "licensing": {
@@ -2769,75 +2874,96 @@
           "evidence": [
             {
               "path": "LICENSE",
-              "blob_id": "e7323bb52ec35279e2df7d728a6dd5a10b99afd8",
-              "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+              "blob_id": "139faf48e1b4926a8743bc7a5bd67287f43f0dd0",
+              "sha256": "e8eeb472f0a5889c2c51625b86a3f9b8630680adb9f49a125352e2e426392780"
             }
           ],
-          "review_note": "Exact base Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+          "review_note": "Exact base Git object contains the repository MIT license; target source/test files contain no narrower SPDX marker."
         },
         "fix": {
           "spdx_expression": "MIT",
           "evidence": [
             {
               "path": "LICENSE",
-              "blob_id": "e7323bb52ec35279e2df7d728a6dd5a10b99afd8",
-              "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+              "blob_id": "139faf48e1b4926a8743bc7a5bd67287f43f0dd0",
+              "sha256": "e8eeb472f0a5889c2c51625b86a3f9b8630680adb9f49a125352e2e426392780"
             }
           ],
-          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+          "review_note": "Exact fix Git object retains the same reviewed MIT license; target source/test files contain no narrower SPDX marker."
         },
         "oracle": {
           "spdx_expression": "MIT",
           "evidence": [
             {
               "path": "LICENSE",
-              "blob_id": "e7323bb52ec35279e2df7d728a6dd5a10b99afd8",
-              "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+              "blob_id": "139faf48e1b4926a8743bc7a5bd67287f43f0dd0",
+              "sha256": "e8eeb472f0a5889c2c51625b86a3f9b8630680adb9f49a125352e2e426392780"
             }
           ],
-          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+          "review_note": "Oracle revision is the exact reviewed fix state under the same MIT license."
         },
         "file_level_review": {
           "status": "CLEAR",
-          "notes": "Reviewed target production and regression-test paths are covered by the repository MIT license at the exact base/fix/oracle states; T074 redistributes no donor source or patch content."
+          "notes": "Reviewed validateField production and regression-test paths are covered by the repository MIT license; T074 redistributes no donor source or patch content."
         }
       },
       "oracle": {
         "specification": {
           "regression_test_ids": [
-            "Should ignore a late http2 \"response\" delivered after request completion"
+            "should return min error when the field value is already a Date object (valueAsDate)"
           ],
-          "historical_basis": "Upstream direct-parent fix #5440 adds a completed-request guard in the HTTP/2 response handler and a new regression test driven by fake socket/session/stream objects. The new historical test file is independent upstream evidence and remains absent from the measured tree until a physically separate T075 oracle reconstruction.",
+          "historical_basis": "Merged upstream PR #13646 fixes valueAsDate min/max validation by excluding Date instances from the numeric branch and adds the named regression. The PR records that the new test fails on old code and passes with the fix and that upstream used Node 22 plus pnpm 11.7.0; T074 treats those statements as historical provenance, not as T075 observations.",
           "ground_truth_procedure": [
-            "Pinned T075 targeted oracle command: `./node_modules/.bin/borp --timeout 180000 -p \"test/http2-response-after-completion.js\"`. The command MUST use that exact lockfile-installed local binary and MUST refuse execution if it is absent; no npm exec/npx/package download fallback is allowed. Pinned project-native reference command: `npm run test:h2:core`. T075 must prove every listed regression_test_id executed; file-level success alone is not oracle evidence.",
-            "Measured reconstruction: checkout exact base commit as HEAD with index/worktree equal to HEAD; overlay only the listed production fix blobs as unstaged changes; preserve the regression-test path as absent in the measured repository because the historical test file is new in the fix; require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, with no staged or unexpected non-runtime untracked paths.",
-            "Pre-fix oracle reconstruction: use a physically separate repository/worktree inaccessible to Ascout measurement, start from the same exact base state, apply only the exact historical regression-test change from the pinned fix commit while leaving production at base bytes, execute the pinned targeted oracle command, and require the historical regression to fail as a valid test observation rather than setup/runner failure.",
-            "Fixed oracle reconstruction: in the same isolated oracle protocol, apply the identical historical regression-test bytes plus only the exact listed production fix blobs, execute the identical targeted command, and require the historical regression to pass.",
-            "Repeat valid pre-fix/fixed oracle observations according to the benchmark determinism protocol. Destroy or quarantine oracle worktrees and evidence before selector/Ascout measurement; never copy the historical regression-test patch, expected assertions, or oracle-only metadata into the measured repository.",
-            "At T075 record the measured derived tree identity and refuse replay if reconstruction identity, exact toolchain identity, regression-test withholding, changed-path set, or oracle isolation differs from this reviewed definition."
+            "Pinned T075 targeted oracle command: `./node_modules/.bin/jest --config ./scripts/jest/jest.config.js --runInBand src/__tests__/logic/validateField.test.tsx`. T075 must prove the named regression_test_id executed; file-level success alone is not oracle evidence.",
+            "Measured reconstruction uses exact base HEAD and base pnpm-lock bytes, overlays only src/logic/validateField.ts from the fix as an unstaged change, and leaves the historical regression-test path at exact base bytes.",
+            "Pre-fix oracle reconstruction is physically separate from the measured repository: apply only the exact historical regression-test change to base production and require the named regression to fail as a valid test observation rather than setup/runner failure.",
+            "Fixed oracle reconstruction applies the identical historical test bytes plus only the reviewed production blob and requires the named regression to pass under the identical pinned targeted command.",
+            "Repeat valid pre-fix/fixed observations under the T075 determinism protocol, quarantine oracle-only worktrees/evidence, and never expose historical test assertions or oracle-only metadata to Ascout measurement."
           ],
-          "independence_statement": "Ground truth is defined solely from exact upstream Git history and the upstream-authored regression test change. It is not derived from Ascout selection, coverage, receipts, or benchmark outcomes.",
+          "independence_statement": "Ground truth is defined solely from exact upstream Git/PR history, the upstream-authored regression, and a separately frozen full-suite coverage oracle; it is not derived from Ascout selection, coverage, receipts, or benchmark outcomes.",
           "gap_changed_executable_lines": [
             {
-              "path": "lib/dispatcher/client-h2.js",
-              "line": 1256
+              "path": "src/logic/validateField.ts",
+              "line": 140
             }
-          ]
+          ],
+          "coverage_oracle": {
+            "full_test_coverage_command": "./node_modules/.bin/jest --config ./scripts/jest/jest.config.js --runInBand --coverage --coverageReporters=lcov --coverageDirectory=coverage",
+            "project_native_reference_command": "pnpm test:coverage",
+            "artifact": {
+              "format": "lcov",
+              "path": "coverage/lcov.info"
+            },
+            "artifact_digest_algorithm": "sha256",
+            "mapping": {
+              "source_identity": "repository-relative-path-and-line-v1",
+              "line_set_source": "oracle.specification.gap_changed_executable_lines",
+              "positive_hits": "EXERCISED",
+              "zero_hits": "NOT_EXERCISED",
+              "missing_or_ambiguous": "UNRESOLVED",
+              "procedure": [
+                "T075 runs the exact full-test coverage command in the isolated measured reconstruction before any Ascout invocation and refuses network-backed executable resolution or an unexpected toolchain.",
+                "T075 canonicalizes each LCOV SF record to one repository-relative production path and maps only the reviewed oracle.specification.gap_changed_executable_lines entries; duplicate, escaping, missing, or ambiguous source identities are UNRESOLVED.",
+                "For each reviewed line, an exact LCOV DA hit count greater than zero is EXERCISED, an exact zero hit count is NOT_EXERCISED, and a missing/non-numeric/ambiguous DA record is UNRESOLVED; no selector output participates in this classification.",
+                "T075 hashes the complete LCOV artifact with SHA-256 and freezes both the artifact identity and the line classifications before invoking Ascout; later selector results cannot modify the frozen oracle."
+              ]
+            },
+            "freeze_before_ascout": true
+          }
         },
         "observation": null
       },
       "provenance": {
         "issue_or_pr_urls": [
-          "https://github.com/nodejs/undici/commit/e5b3364ddc620c0d1c61424d1278fc0965207477",
-          "https://github.com/nodejs/undici/pull/5440"
+          "https://github.com/react-hook-form/react-hook-form/pull/13646",
+          "https://github.com/react-hook-form/react-hook-form/commit/d7118f40a50aa7783481e9a9b77a703302b94814"
         ],
-        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. Changed paths are exactly ['lib/dispatcher/client-h2.js', 'test/http2-response-after-completion.js']; measured reconstruction withholds the historical regression-test change and applies only production blobs. Definition-only review used Git-object metadata; no donor checkout for execution, install, script, build, or test occurred."
+        "review_notes": "Reviewed T074 gap case from merged upstream PR #13646 and exact direct-parent Git objects. Changed paths are exactly src/logic/validateField.ts and src/__tests__/logic/validateField.test.tsx; measured reconstruction withholds the regression-test change. Definition-only metadata review used Git objects and PR metadata without donor checkout/install/build/test execution."
       },
       "limitations": [
-        "T074 is definition-only: no donor code, dependency, script, build, or test execution has occurred; all oracle observations remain unknown until T075.",
-        "The exact Node/package-manager selection is benchmark-owned but constrained by exact upstream CI/engine metadata and must be enforced fail-closed by T075.",
-        "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition.",
-        "The targeted Undici oracle command is intentionally bound to the exact local node_modules/.bin/borp installed from the pinned package-lock; network-backed executable resolution is forbidden."
+        "T074 is definition-only: no donor dependency, script, build, test, LCOV artifact, or line classification has been executed or observed; T075 is the first execution task.",
+        "The exact Node 22.23.2 patch is benchmark-owned resolution of donor CI node-version 22 and must be enforced fail-closed by T075.",
+        "Only src/logic/validateField.ts:140 is claimed as the reviewed material exercise-gap target; T075 must classify it from the independently frozen LCOV artifact before Ascout runs."
       ]
     }
   ]
