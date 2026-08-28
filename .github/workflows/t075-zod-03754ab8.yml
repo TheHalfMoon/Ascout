@@ -1,0 +1,79 @@
+name: T075 Zod semantic replay qualification
+on:
+  push:
+    branches:
+      - qualification/t075-zod-03754ab8
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 03754ab80bcb85bd57885c008451c4662af091d6
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Exact-head and controller gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '03754ab80bcb85bd57885c008451c4662af091d6'
+          git fetch https://github.com/TheHalfMoon/Ascout.git main
+          test "$(git rev-parse FETCH_HEAD)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          git fetch https://github.com/TheHalfMoon/Ascout.git feat/075-isolated-benchmark-harness
+          test "$(git rev-parse FETCH_HEAD)" = '03754ab80bcb85bd57885c008451c4662af091d6'
+          test "$(git merge-base HEAD eecdd3f5be693f4fa5d607790090836a3158014f)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          git diff --check eecdd3f5be693f4fa5d607790090836a3158014f...HEAD
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-proxy.mjs
+          node --check benchmarks/membership-preload.cjs
+          npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+          test "$(node --version)" = 'v24.15.0'
+          test "$(pnpm --version)" = '10.12.1'
+      - name: Replay Zod twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/zod.json"
+          node benchmarks/run.mjs \
+            --case zod-scientific-exponents \
+            --run-id "github:${GITHUB_RUN_ID}:zod-scientific-exponents" \
+            --repetitions 2 \
+            --output "$result" \
+            > "$RUNNER_TEMP/stdout.json"
+          RESULT="$result" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (result.status !== 'BENCHMARK_ACTIVE') throw new Error(`unexpected status ${result.status}`);
+          if (result.valid_observation_count !== 2) throw new Error('expected two valid observations');
+          if (result.evidence?.determinism !== 'deterministic') throw new Error(`unexpected determinism ${result.evidence?.determinism}`);
+          if (result.synthetic_head !== '494f9a53d0d45be1a07ea8c1ab9ff0121ca0853f') throw new Error(`unexpected synthetic head ${result.synthetic_head}`);
+          for (const observation of result.evidence.observations) {
+            if (observation.pre_fix_oracle?.membership_proven !== true) throw new Error('missing pre-fix membership');
+            if (observation.fixed_oracle?.membership_proven !== true) throw new Error('missing fixed membership');
+            if (observation.ascout?.source?.repository_id_kind !== 'remote') throw new Error('Ascout source identity is not remote');
+            if (observation.ascout?.source?.portable !== true) throw new Error('Ascout source identity is not portable');
+            if (observation.ascout?.source?.head_sha !== result.synthetic_head) throw new Error('Ascout source head mismatch');
+            if (!Array.isArray(observation.ascout?.tasks)) throw new Error('semantic task outcomes missing');
+            if (!/^[0-9a-f]{64}$/.test(observation.ascout?.receipt_sha256 ?? '')) throw new Error('raw receipt digest missing');
+          }
+          console.log(JSON.stringify({status: result.status, determinism: result.evidence.determinism, evidence_sha256: result.evidence_sha256}));
+          NODE
+      - name: Closing source guard
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '03754ab80bcb85bd57885c008451c4662af091d6'
+          test -z "$(git status --porcelain)"
