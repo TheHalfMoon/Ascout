@@ -1,0 +1,23 @@
+name: T075 Trpc stage diagnostic 5d5ab61f
+on:
+  push:
+    branches:
+      - diagnostic/t075-trpc-stages-5d5ab61f
+permissions:
+  contents: read
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5d5ab61f5ad12198d746b54e9f2890fafc390692
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Print reviewed Trpc plan
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '5d5ab61f5ad12198d746b54e9f2890fafc390692'
+          node benchmarks/run.mjs --case trpc-streaming-onerror-cause --plan
