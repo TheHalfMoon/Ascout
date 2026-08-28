@@ -1,0 +1,96 @@
+name: T075 assemble final candidate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BASE_HEAD: a0466508dce843cbbdf8f722e814ac15a2f71b9b
+  MAIN_HEAD: eecdd3f5be693f4fa5d607790090836a3158014f
+  FEATURE_BRANCH: feat/075-isolated-benchmark-harness
+  CANDIDATE_BRANCH: candidate/t075-final-harness-a0466508
+
+jobs:
+  assemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: assembly/t075-final-candidate-a0466508
+          path: helper
+          persist-credentials: false
+
+      - uses: actions/checkout@v4
+        with:
+          ref: candidate/t075-final-harness-a0466508
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Guard live refs and apply qualified patch stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = "$BASE_HEAD"
+          git -C candidate fetch origin main "$FEATURE_BRANCH" "$CANDIDATE_BRANCH"
+          test "$(git -C candidate rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git -C candidate rev-parse "origin/$FEATURE_BRANCH")" = "$BASE_HEAD"
+          test "$(git -C candidate rev-parse "origin/$CANDIDATE_BRANCH")" = "$BASE_HEAD"
+
+          python3 helper/.github/repair/t075_final_harness_patch.py candidate
+          python3 helper/.github/repair/t075_braintree_semantic_patch.py candidate
+          python3 helper/.github/repair/t075_comparator_isolation_patch.py candidate
+          python3 helper/.github/repair/t075_source_namespace_patch.py candidate
+          python3 helper/.github/repair/t075_tanstack_package_suite_patch.py candidate
+
+          git -C candidate diff --check
+          test "$(git -C candidate status --short | awk '{print $2}' | sort | tr '\n' ' ')" = "benchmarks/harness-lib.mjs benchmarks/manifest.json benchmarks/run.mjs tests/benchmark-harness.test.ts "
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: candidate/package-lock.json
+
+      - name: Qualify assembled bytes
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-proxy.mjs
+          node --check benchmarks/membership-preload.cjs
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          if (manifest.manifest_revision !== 11) throw new Error(`expected manifest revision 11, got ${manifest.manifest_revision}`);
+          if (manifest.cases.length !== 9) throw new Error(`expected 9 cases, got ${manifest.cases.length}`);
+          const braintree = manifest.cases.find((c) => c.case_id === 'braintree-venmo-csp-nonce-web-login');
+          const tanstack = manifest.cases.find((c) => c.case_id === 'tanstack-streamed-query-reducer');
+          if (braintree?.case_revision !== 3) throw new Error('Braintree revision 3 missing');
+          if (tanstack?.case_revision !== 4) throw new Error('TanStack revision 4 missing');
+          NODE
+
+      - name: Commit and fast-forward candidate
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BASE_HEAD"
+          git config user.name "Ascout Automation"
+          git config user.email "ascout-automation@users.noreply.github.com"
+          git add benchmarks/harness-lib.mjs benchmarks/manifest.json benchmarks/run.mjs tests/benchmark-harness.test.ts
+          test -n "$(git diff --cached --name-only)"
+          git commit -m "feat(benchmark): finalize isolated harness replay"
+          new_head="$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD^)" = "$BASE_HEAD"
+          git push origin "HEAD:refs/heads/$CANDIDATE_BRANCH"
+          echo "candidate_head=$new_head" >> "$GITHUB_STEP_SUMMARY"
