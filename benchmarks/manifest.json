@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "ascout-founding-benchmark-v1",
-  "manifest_revision": 3,
+  "manifest_revision": 4,
   "policy": {
     "policy_path": "benchmarks/README.md",
     "manifest_task": "T072",
@@ -1584,7 +1584,7 @@
     },
     {
       "case_id": "tanstack-streamed-query-reducer",
-      "case_revision": 2,
+      "case_revision": 3,
       "case_class": "selection",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -1765,7 +1765,7 @@
           "https://github.com/TanStack/query/pull/9970",
           "https://github.com/TanStack/query/issues/9787"
         ],
-        "review_notes": "Reviewed as an async streaming/reducer selection case. The historical changeset file remains naturally present in the derived baseline so the measured baseline-to-fix diff is restricted to the production path. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree."
+        "review_notes": "Reviewed as an async streaming/reducer selection case. The historical changeset file is deleted from the derived baseline because it is absent in the base tree and is explicitly excluded by reconstruction.ancillary_review so the measured baseline-to-fix diff is restricted to the production path. T073 command review pins the targeted, full-suite/reference, plain-project, and runner-native related invocations from exact donor metadata for T075. T073 anti-leakage review explicitly classifies every base-to-fix ancillary changed path and restores excluded paths to base-state presence/bytes before recording the derived tree."
       },
       "limitations": [
         "T073 is definition-only: no donor dependency installation, donor script execution, donor test execution, or runtime PASS/FAIL claim has occurred; oracle observation remains null until T075.",
