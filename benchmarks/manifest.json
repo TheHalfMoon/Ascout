@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "ascout-founding-benchmark-v1",
-  "manifest_revision": 4,
+  "manifest_revision": 5,
   "policy": {
     "policy_path": "benchmarks/README.md",
     "manifest_task": "T072",
@@ -2331,6 +2331,512 @@
         "The derived pre-fix tree identity is intentionally unobserved before T075 and must be materialized and pinned by the isolated harness before the case can advance beyond CASE_REVIEWED.",
         "Node 24.15.0 is a T073 reviewer-selected exact replay version inside the donor ^24.0.0 engines constraint, not an upstream exact Node patch pin.",
         "The structured reconstruction.synthetic_head recipe is fully pinned before T075, but result_commit_id remains null until isolated replay observes the derived tree and deterministically computes the local commit ID; fabricating it before replay is forbidden."
+      ]
+    },
+    {
+      "case_id": "immer-prototype-undefined",
+      "case_revision": 1,
+      "case_class": "gap",
+      "lifecycle_state": "CASE_REVIEWED",
+      "upstream": {
+        "canonical_url": "https://github.com/immerjs/immer.git",
+        "repository_name": "immerjs/immer",
+        "provenance_urls": [
+          "https://github.com/immerjs/immer/commit/16e225b5a316d9ef6695e9aee45eab6e7bf4258a",
+          "https://github.com/immerjs/immer/pull/1262"
+        ]
+      },
+      "git": {
+        "base": {
+          "commit_id": "48fc3788609ce46dd789c313768bae4f48b00ec5",
+          "tree_id": "cf3bd4bcdca6b3aec6cd7da07ad4318dc3b6109f",
+          "required_parent_ids": [
+            "bf2d15439259887f98f2737cf7ebde4234d5adea"
+          ]
+        },
+        "fix": {
+          "commit_id": "16e225b5a316d9ef6695e9aee45eab6e7bf4258a",
+          "tree_id": "b72889f1148cbdc4274539a779d522c6528a8d90",
+          "required_parent_ids": [
+            "48fc3788609ce46dd789c313768bae4f48b00ec5"
+          ]
+        },
+        "oracle": {
+          "commit_id": "16e225b5a316d9ef6695e9aee45eab6e7bf4258a",
+          "tree_id": "b72889f1148cbdc4274539a779d522c6528a8d90",
+          "required_parent_ids": [
+            "48fc3788609ce46dd789c313768bae4f48b00ec5"
+          ]
+        },
+        "relationship": {
+          "kind": "direct_parent",
+          "required_parent_commit_id": "48fc3788609ce46dd789c313768bae4f48b00ec5",
+          "rationale": "The benchmark definition measures exactly the reviewed direct-parent production delta; the pinned fix commit has the exact base commit as its sole parent."
+        }
+      },
+      "paths": {
+        "production": [
+          "src/core/proxy.ts"
+        ],
+        "regression_tests": [
+          "__tests__/regressions.js"
+        ]
+      },
+      "reconstruction": {
+        "mode": "base_plus_production_fix",
+        "steps": [
+          "Checkout exact base commit 48fc3788609ce46dd789c313768bae4f48b00ec5 as measured HEAD with index and worktree equal to HEAD.",
+          "Overlay only the exact listed production-path blobs from the pinned fix commit into the measured worktree without staging them.",
+          "Keep every listed regression-test path byte-identical to its exact base blob; do not apply the historical regression-test change to the measured repository.",
+          "Require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly; reject staged changes, regression-test changes, ancillary fix content, or unexpected non-runtime untracked paths.",
+          "At T075 record the deterministic derived Git tree identity and refuse replay if a repeated reconstruction differs."
+        ],
+        "measured_diff_contains_regression_test_change": false,
+        "derived_identity": {
+          "algorithm": "git-tree",
+          "expected_digest": null
+        }
+      },
+      "runtime": {
+        "package_manager": "yarn",
+        "package_manager_version": "1.22.22",
+        "package_manager_version_provenance": "Benchmark exact Yarn Classic pin 1.22.22, proven by yarnpkg/yarn tag v1.22.22 at 740c38c3a962c30ddb344a919bbfb7065620714b; exact donor yarn.lock is v1 and exact CI blob 04250bbc1c6208f7669988547b6b7a779bc36db2 uses yarn install.",
+        "lockfile": {
+          "path": "yarn.lock",
+          "blob_id": "8f51dda0c55ae651ee39b7082ced081ac2c1d4e6",
+          "sha256": "b5af47d91e57045fb18ee38a6f05d8405938c547f2fa2ce4f53f6970ea2b8b82"
+        },
+        "node_version": "24.0.0",
+        "node_constraint_provenance": [
+          "Exact donor CI blob 04250bbc1c6208f7669988547b6b7a779bc36db2 selects Node major 24.",
+          "Benchmark resolves that reviewed major deterministically to exact Node 24.0.0; nodejs/node v24.0.0 tag resolves to c5349f43cd66d2aa02d86414c9ed426f71d3ae48."
+        ],
+        "immutable_harness_artifact": {
+          "required": false,
+          "sha256": null,
+          "reason": "The reviewed donor state is reproducible from exact Git objects, exact lockfile bytes, and exact Node/package-manager identities; T075 must refuse any toolchain mismatch rather than rely on a floating packaged image."
+        }
+      },
+      "licensing": {
+        "base": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "c01411588adb07c56b6bb0cbf50aa112589df1eb",
+              "sha256": "99cf22f6960a6fe228ec84ea9aefb0d75b27999ece83a3a9801e1c2081fa270b"
+            }
+          ],
+          "review_note": "Exact base Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+        },
+        "fix": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "c01411588adb07c56b6bb0cbf50aa112589df1eb",
+              "sha256": "99cf22f6960a6fe228ec84ea9aefb0d75b27999ece83a3a9801e1c2081fa270b"
+            }
+          ],
+          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+        },
+        "oracle": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "c01411588adb07c56b6bb0cbf50aa112589df1eb",
+              "sha256": "99cf22f6960a6fe228ec84ea9aefb0d75b27999ece83a3a9801e1c2081fa270b"
+            }
+          ],
+          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+        },
+        "file_level_review": {
+          "status": "CLEAR",
+          "notes": "Reviewed target production and regression-test paths are covered by the repository MIT license at the exact base/fix/oracle states; T074 redistributes no donor source or patch content."
+        }
+      },
+      "oracle": {
+        "specification": {
+          "regression_test_ids": [
+            "#1160 assigning undefined to a key only present on the prototype is still stored as an own property"
+          ],
+          "historical_basis": "Upstream direct-parent fix #1262 changes one production predicate and adds a regression in __tests__/regressions.js for assigning undefined to a key inherited from the prototype. The historical regression test is independent upstream evidence and is withheld from the measured tree.",
+          "ground_truth_procedure": [
+            "Pinned T075 targeted oracle command: `yarn test:src __tests__/regressions.js`. Pinned project-native reference command: `yarn test`. T075 must prove every listed regression_test_id executed; file-level success alone is not oracle evidence.",
+            "Measured reconstruction: checkout exact base commit as HEAD with index/worktree equal to HEAD; overlay only the listed production fix blobs as unstaged changes; preserve the regression-test path at its exact base blob in the measured repository; require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, with no staged or unexpected non-runtime untracked paths.",
+            "Pre-fix oracle reconstruction: use a physically separate repository/worktree inaccessible to Ascout measurement, start from the same exact base state, apply only the exact historical regression-test change from the pinned fix commit while leaving production at base bytes, execute the pinned targeted oracle command, and require the historical regression to fail as a valid test observation rather than setup/runner failure.",
+            "Fixed oracle reconstruction: in the same isolated oracle protocol, apply the identical historical regression-test bytes plus only the exact listed production fix blobs, execute the identical targeted command, and require the historical regression to pass.",
+            "Repeat valid pre-fix/fixed oracle observations according to the benchmark determinism protocol. Destroy or quarantine oracle worktrees and evidence before selector/Ascout measurement; never copy the historical regression-test patch, expected assertions, or oracle-only metadata into the measured repository.",
+            "At T075 record the measured derived tree identity and refuse replay if reconstruction identity, exact toolchain identity, regression-test withholding, changed-path set, or oracle isolation differs from this reviewed definition."
+          ],
+          "independence_statement": "Ground truth is defined solely from exact upstream Git history and the upstream-authored regression test change. It is not derived from Ascout selection, coverage, receipts, or benchmark outcomes.",
+          "gap_changed_executable_lines": [
+            {
+              "path": "src/core/proxy.ts",
+              "line": 244
+            }
+          ]
+        },
+        "observation": null
+      },
+      "provenance": {
+        "issue_or_pr_urls": [
+          "https://github.com/immerjs/immer/commit/16e225b5a316d9ef6695e9aee45eab6e7bf4258a",
+          "https://github.com/immerjs/immer/pull/1262"
+        ],
+        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. Changed paths are exactly ['src/core/proxy.ts', '__tests__/regressions.js']; measured reconstruction withholds the historical regression-test change and applies only production blobs. Definition-only review used Git-object metadata; no donor checkout for execution, install, script, build, or test occurred."
+      },
+      "limitations": [
+        "T074 is definition-only: no donor code, dependency, script, build, or test execution has occurred; all oracle observations remain unknown until T075.",
+        "The exact Node/package-manager selection is benchmark-owned but constrained by exact upstream CI/engine metadata and must be enforced fail-closed by T075.",
+        "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition."
+      ]
+    },
+    {
+      "case_id": "axios-tojson-dag",
+      "case_revision": 1,
+      "case_class": "gap",
+      "lifecycle_state": "CASE_REVIEWED",
+      "upstream": {
+        "canonical_url": "https://github.com/axios/axios.git",
+        "repository_name": "axios/axios",
+        "provenance_urls": [
+          "https://github.com/axios/axios/commit/f2b903fceaa0a02cefd77f6b4b123c679605aae9",
+          "https://github.com/axios/axios/pull/10832",
+          "https://github.com/axios/axios/issues/10807"
+        ]
+      },
+      "git": {
+        "base": {
+          "commit_id": "5061879649bb59df593423b1bc782dff734fd13d",
+          "tree_id": "024112d794fb873b1dbc9b0427a5cb9d8d64d34e",
+          "required_parent_ids": [
+            "78e8dcf8754ed9d1219628540d69d09bdba5a9be"
+          ]
+        },
+        "fix": {
+          "commit_id": "f2b903fceaa0a02cefd77f6b4b123c679605aae9",
+          "tree_id": "e0435fd997b0ab0714dfa4a3fc6c3c61472fa042",
+          "required_parent_ids": [
+            "5061879649bb59df593423b1bc782dff734fd13d"
+          ]
+        },
+        "oracle": {
+          "commit_id": "f2b903fceaa0a02cefd77f6b4b123c679605aae9",
+          "tree_id": "e0435fd997b0ab0714dfa4a3fc6c3c61472fa042",
+          "required_parent_ids": [
+            "5061879649bb59df593423b1bc782dff734fd13d"
+          ]
+        },
+        "relationship": {
+          "kind": "direct_parent",
+          "required_parent_commit_id": "5061879649bb59df593423b1bc782dff734fd13d",
+          "rationale": "The benchmark definition measures exactly the reviewed direct-parent production delta; the pinned fix commit has the exact base commit as its sole parent."
+        }
+      },
+      "paths": {
+        "production": [
+          "lib/utils.js"
+        ],
+        "regression_tests": [
+          "tests/unit/utils.test.js"
+        ]
+      },
+      "reconstruction": {
+        "mode": "base_plus_production_fix",
+        "steps": [
+          "Checkout exact base commit 5061879649bb59df593423b1bc782dff734fd13d as measured HEAD with index and worktree equal to HEAD.",
+          "Overlay only the exact listed production-path blobs from the pinned fix commit into the measured worktree without staging them.",
+          "Keep every listed regression-test path byte-identical to its exact base blob; do not apply the historical regression-test change to the measured repository.",
+          "Require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly; reject staged changes, regression-test changes, ancillary fix content, or unexpected non-runtime untracked paths.",
+          "At T075 record the deterministic derived Git tree identity and refuse replay if a repeated reconstruction differs."
+        ],
+        "measured_diff_contains_regression_test_change": false,
+        "derived_identity": {
+          "algorithm": "git-tree",
+          "expected_digest": null
+        }
+      },
+      "runtime": {
+        "package_manager": "npm",
+        "package_manager_version": "11.3.0",
+        "package_manager_version_provenance": "Exact npm 11.3.0 is bundled by nodejs/node v24.0.0 commit c5349f43cd66d2aa02d86414c9ed426f71d3ae48 (deps/npm/package.json) and independently pinned by npm/cli v11.3.0 tag commit 5bd086babba5f5b41548609405218c5e892bca7f.",
+        "lockfile": {
+          "path": "package-lock.json",
+          "blob_id": "1241eaf3d50e1dabd9c45cb3e2339abcc7222666",
+          "sha256": "fc21f9bd297600a9a2093974120d55b72a2975e238ba811509aad161f94ed005"
+        },
+        "node_version": "24.0.0",
+        "node_constraint_provenance": [
+          "Exact donor CI blob bc12947acce17be957e73ee8f43baf111f1faccb selects Node 24.x and npm ci --ignore-scripts.",
+          "Benchmark resolves 24.x deterministically to exact Node 24.0.0; nodejs/node v24.0.0 tag resolves to c5349f43cd66d2aa02d86414c9ed426f71d3ae48."
+        ],
+        "immutable_harness_artifact": {
+          "required": false,
+          "sha256": null,
+          "reason": "The reviewed donor state is reproducible from exact Git objects, exact lockfile bytes, and exact Node/package-manager identities; T075 must refuse any toolchain mismatch rather than rely on a floating packaged image."
+        }
+      },
+      "licensing": {
+        "base": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "05006a51eb888282323883df740cd90ad72d0700",
+              "sha256": "82761059eaedacb3356803aea8a170d8298609f91b14fc32ee1bfb40d690183c"
+            }
+          ],
+          "review_note": "Exact base Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+        },
+        "fix": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "05006a51eb888282323883df740cd90ad72d0700",
+              "sha256": "82761059eaedacb3356803aea8a170d8298609f91b14fc32ee1bfb40d690183c"
+            }
+          ],
+          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+        },
+        "oracle": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "05006a51eb888282323883df740cd90ad72d0700",
+              "sha256": "82761059eaedacb3356803aea8a170d8298609f91b14fc32ee1bfb40d690183c"
+            }
+          ],
+          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+        },
+        "file_level_review": {
+          "status": "CLEAR",
+          "notes": "Reviewed target production and regression-test paths are covered by the repository MIT license at the exact base/fix/oracle states; T074 redistributes no donor source or patch content."
+        }
+      },
+      "oracle": {
+        "specification": {
+          "regression_test_ids": [
+            "should serialize a shared sibling object at every occurrence (DAG, not cycle)",
+            "should serialize a shared sibling array at every occurrence (DAG, not cycle)",
+            "should serialize shared sibling that itself contains a self-cycle",
+            "should serialize non-cyclic structures deeper than the old Array(10) cap"
+          ],
+          "historical_basis": "Upstream direct-parent fix #10832 replaces path-cycle tracking in toJSONObject and adds four unit regressions for shared DAG siblings, self-cycles inside shared nodes, and deep non-cyclic structures. The exact historical test change is independent upstream evidence and is withheld from the measured tree.",
+          "ground_truth_procedure": [
+            "Pinned T075 targeted oracle command: `npm run test:vitest:unit -- tests/unit/utils.test.js`. Pinned project-native reference command: `npm test`. T075 must prove every listed regression_test_id executed; file-level success alone is not oracle evidence.",
+            "Measured reconstruction: checkout exact base commit as HEAD with index/worktree equal to HEAD; overlay only the listed production fix blobs as unstaged changes; preserve the regression-test path at its exact base blob in the measured repository; require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, with no staged or unexpected non-runtime untracked paths.",
+            "Pre-fix oracle reconstruction: use a physically separate repository/worktree inaccessible to Ascout measurement, start from the same exact base state, apply only the exact historical regression-test change from the pinned fix commit while leaving production at base bytes, execute the pinned targeted oracle command, and require the historical regression to fail as a valid test observation rather than setup/runner failure.",
+            "Fixed oracle reconstruction: in the same isolated oracle protocol, apply the identical historical regression-test bytes plus only the exact listed production fix blobs, execute the identical targeted command, and require the historical regression to pass.",
+            "Repeat valid pre-fix/fixed oracle observations according to the benchmark determinism protocol. Destroy or quarantine oracle worktrees and evidence before selector/Ascout measurement; never copy the historical regression-test patch, expected assertions, or oracle-only metadata into the measured repository.",
+            "At T075 record the measured derived tree identity and refuse replay if reconstruction identity, exact toolchain identity, regression-test withholding, changed-path set, or oracle isolation differs from this reviewed definition."
+          ],
+          "independence_statement": "Ground truth is defined solely from exact upstream Git history and the upstream-authored regression test change. It is not derived from Ascout selection, coverage, receipts, or benchmark outcomes.",
+          "gap_changed_executable_lines": [
+            {
+              "path": "lib/utils.js",
+              "line": 766
+            },
+            {
+              "path": "lib/utils.js",
+              "line": 770
+            },
+            {
+              "path": "lib/utils.js",
+              "line": 781
+            },
+            {
+              "path": "lib/utils.js",
+              "line": 785
+            },
+            {
+              "path": "lib/utils.js",
+              "line": 789
+            },
+            {
+              "path": "lib/utils.js",
+              "line": 798
+            }
+          ]
+        },
+        "observation": null
+      },
+      "provenance": {
+        "issue_or_pr_urls": [
+          "https://github.com/axios/axios/commit/f2b903fceaa0a02cefd77f6b4b123c679605aae9",
+          "https://github.com/axios/axios/pull/10832",
+          "https://github.com/axios/axios/issues/10807"
+        ],
+        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. Changed paths are exactly ['lib/utils.js', 'tests/unit/utils.test.js']; measured reconstruction withholds the historical regression-test change and applies only production blobs. Definition-only review used Git-object metadata; no donor checkout for execution, install, script, build, or test occurred."
+      },
+      "limitations": [
+        "T074 is definition-only: no donor code, dependency, script, build, or test execution has occurred; all oracle observations remain unknown until T075.",
+        "The exact Node/package-manager selection is benchmark-owned but constrained by exact upstream CI/engine metadata and must be enforced fail-closed by T075.",
+        "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition."
+      ]
+    },
+    {
+      "case_id": "undici-h2-late-response",
+      "case_revision": 1,
+      "case_class": "gap",
+      "lifecycle_state": "CASE_REVIEWED",
+      "upstream": {
+        "canonical_url": "https://github.com/nodejs/undici.git",
+        "repository_name": "nodejs/undici",
+        "provenance_urls": [
+          "https://github.com/nodejs/undici/commit/e5b3364ddc620c0d1c61424d1278fc0965207477",
+          "https://github.com/nodejs/undici/pull/5440"
+        ]
+      },
+      "git": {
+        "base": {
+          "commit_id": "c0007f4b7998c5547ead5eda39e0dfd18a545639",
+          "tree_id": "92011798ec7b53aa68f1f4ceb2087acb11164e20",
+          "required_parent_ids": [
+            "e529cabb88e3cf315cf3007af15db195fb649a45"
+          ]
+        },
+        "fix": {
+          "commit_id": "e5b3364ddc620c0d1c61424d1278fc0965207477",
+          "tree_id": "d35627de7ccef2cf3ff6ff3e412fa62a052ecb7c",
+          "required_parent_ids": [
+            "c0007f4b7998c5547ead5eda39e0dfd18a545639"
+          ]
+        },
+        "oracle": {
+          "commit_id": "e5b3364ddc620c0d1c61424d1278fc0965207477",
+          "tree_id": "d35627de7ccef2cf3ff6ff3e412fa62a052ecb7c",
+          "required_parent_ids": [
+            "c0007f4b7998c5547ead5eda39e0dfd18a545639"
+          ]
+        },
+        "relationship": {
+          "kind": "direct_parent",
+          "required_parent_commit_id": "c0007f4b7998c5547ead5eda39e0dfd18a545639",
+          "rationale": "The benchmark definition measures exactly the reviewed direct-parent production delta; the pinned fix commit has the exact base commit as its sole parent."
+        }
+      },
+      "paths": {
+        "production": [
+          "lib/dispatcher/client-h2.js"
+        ],
+        "regression_tests": [
+          "test/http2-response-after-completion.js"
+        ]
+      },
+      "reconstruction": {
+        "mode": "base_plus_production_fix",
+        "steps": [
+          "Checkout exact base commit c0007f4b7998c5547ead5eda39e0dfd18a545639 as measured HEAD with index and worktree equal to HEAD.",
+          "Overlay only the exact listed production-path blobs from the pinned fix commit into the measured worktree without staging them.",
+          "Keep every listed regression-test path absent because it is new in the fix; do not create the historical regression-test file in the measured repository.",
+          "Require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly; reject staged changes, regression-test changes, ancillary fix content, or unexpected non-runtime untracked paths.",
+          "At T075 record the deterministic derived Git tree identity and refuse replay if a repeated reconstruction differs."
+        ],
+        "measured_diff_contains_regression_test_change": false,
+        "derived_identity": {
+          "algorithm": "git-tree",
+          "expected_digest": null
+        }
+      },
+      "runtime": {
+        "package_manager": "npm",
+        "package_manager_version": "11.3.0",
+        "package_manager_version_provenance": "Exact npm 11.3.0 is bundled by nodejs/node v24.0.0 commit c5349f43cd66d2aa02d86414c9ed426f71d3ae48 (deps/npm/package.json) and independently pinned by npm/cli v11.3.0 tag commit 5bd086babba5f5b41548609405218c5e892bca7f.",
+        "lockfile": {
+          "path": "package-lock.json",
+          "blob_id": "810d7d173185686e6399eed89ebd1fef86db085b",
+          "sha256": "6fcb9750cec57b720de4abbfd096e26bd26636cc0633d0e3e8297bcdfbf94d2b"
+        },
+        "node_version": "24.0.0",
+        "node_constraint_provenance": [
+          "Exact donor package.json blob d44a283e563e9c7aa9ba682cb42d84d8e5b4f5ce requires Node >=22.19.0.",
+          "Exact donor CI blob 81a6041478440edd900c7ad9e9dda1c5946f503d includes Node 24 in its test matrix.",
+          "Benchmark selects exact Node 24.0.0, whose tag resolves to c5349f43cd66d2aa02d86414c9ed426f71d3ae48, satisfying both constraints."
+        ],
+        "immutable_harness_artifact": {
+          "required": false,
+          "sha256": null,
+          "reason": "The reviewed donor state is reproducible from exact Git objects, exact lockfile bytes, and exact Node/package-manager identities; T075 must refuse any toolchain mismatch rather than rely on a floating packaged image."
+        }
+      },
+      "licensing": {
+        "base": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "e7323bb52ec35279e2df7d728a6dd5a10b99afd8",
+              "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+            }
+          ],
+          "review_note": "Exact base Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+        },
+        "fix": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "e7323bb52ec35279e2df7d728a6dd5a10b99afd8",
+              "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+            }
+          ],
+          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+        },
+        "oracle": {
+          "spdx_expression": "MIT",
+          "evidence": [
+            {
+              "path": "LICENSE",
+              "blob_id": "e7323bb52ec35279e2df7d728a6dd5a10b99afd8",
+              "sha256": "a6db8096b2707bc0102d256917d4d33f298ba36d8c3f25de067a2b5bb379db27"
+            }
+          ],
+          "review_note": "Exact fix Git object contains the reviewed MIT license text; no license path changes in the target direct-parent delta."
+        },
+        "file_level_review": {
+          "status": "CLEAR",
+          "notes": "Reviewed target production and regression-test paths are covered by the repository MIT license at the exact base/fix/oracle states; T074 redistributes no donor source or patch content."
+        }
+      },
+      "oracle": {
+        "specification": {
+          "regression_test_ids": [
+            "Should ignore a late http2 \"response\" delivered after request completion"
+          ],
+          "historical_basis": "Upstream direct-parent fix #5440 adds a completed-request guard in the HTTP/2 response handler and a new regression test driven by fake socket/session/stream objects. The new historical test file is independent upstream evidence and remains absent from the measured tree until a physically separate T075 oracle reconstruction.",
+          "ground_truth_procedure": [
+            "Pinned T075 targeted oracle command: `npm exec -- borp --timeout 180000 -p \"test/http2-response-after-completion.js\"`. Pinned project-native reference command: `npm run test:h2:core`. T075 must prove every listed regression_test_id executed; file-level success alone is not oracle evidence.",
+            "Measured reconstruction: checkout exact base commit as HEAD with index/worktree equal to HEAD; overlay only the listed production fix blobs as unstaged changes; preserve the regression-test path as absent in the measured repository because the historical test file is new in the fix; require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, with no staged or unexpected non-runtime untracked paths.",
+            "Pre-fix oracle reconstruction: use a physically separate repository/worktree inaccessible to Ascout measurement, start from the same exact base state, apply only the exact historical regression-test change from the pinned fix commit while leaving production at base bytes, execute the pinned targeted oracle command, and require the historical regression to fail as a valid test observation rather than setup/runner failure.",
+            "Fixed oracle reconstruction: in the same isolated oracle protocol, apply the identical historical regression-test bytes plus only the exact listed production fix blobs, execute the identical targeted command, and require the historical regression to pass.",
+            "Repeat valid pre-fix/fixed oracle observations according to the benchmark determinism protocol. Destroy or quarantine oracle worktrees and evidence before selector/Ascout measurement; never copy the historical regression-test patch, expected assertions, or oracle-only metadata into the measured repository.",
+            "At T075 record the measured derived tree identity and refuse replay if reconstruction identity, exact toolchain identity, regression-test withholding, changed-path set, or oracle isolation differs from this reviewed definition."
+          ],
+          "independence_statement": "Ground truth is defined solely from exact upstream Git history and the upstream-authored regression test change. It is not derived from Ascout selection, coverage, receipts, or benchmark outcomes.",
+          "gap_changed_executable_lines": [
+            {
+              "path": "lib/dispatcher/client-h2.js",
+              "line": 1256
+            }
+          ]
+        },
+        "observation": null
+      },
+      "provenance": {
+        "issue_or_pr_urls": [
+          "https://github.com/nodejs/undici/commit/e5b3364ddc620c0d1c61424d1278fc0965207477",
+          "https://github.com/nodejs/undici/pull/5440"
+        ],
+        "review_notes": "Reviewed T074 gap case from exact direct-parent upstream history. Changed paths are exactly ['lib/dispatcher/client-h2.js', 'test/http2-response-after-completion.js']; measured reconstruction withholds the historical regression-test change and applies only production blobs. Definition-only review used Git-object metadata; no donor checkout for execution, install, script, build, or test occurred."
+      },
+      "limitations": [
+        "T074 is definition-only: no donor code, dependency, script, build, or test execution has occurred; all oracle observations remain unknown until T075.",
+        "The exact Node/package-manager selection is benchmark-owned but constrained by exact upstream CI/engine metadata and must be enforced fail-closed by T075.",
+        "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition."
       ]
     }
   ]
