@@ -1,0 +1,100 @@
+name: T073 CodeRabbit conflict repair
+
+on:
+  push:
+    branches:
+      - repair/t073-coderabbit-conflict-f553b76c
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact product head
+        uses: actions/checkout@v4
+        with:
+          ref: f553b76c7ed43c1c9506bbcd169ea71d20f7d7b0
+          fetch-depth: 0
+
+      - name: Guard canonical base head and scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD='f553b76c7ed43c1c9506bbcd169ea71d20f7d7b0'
+          BASE='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$OLD"
+          test -z "$(git status --porcelain)"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$OLD"
+          test "$(git merge-base HEAD origin/main)" = "$BASE"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+
+      - name: Repair conflicting TanStack provenance note and revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('benchmarks/manifest.json')
+          m=json.loads(p.read_text())
+          assert m['manifest_revision']==3
+          target=next(c for c in m['cases'] if c['case_id']=='tanstack-streamed-query-reducer')
+          assert target['case_revision']==2
+          old='The historical changeset file remains naturally present in the derived baseline'
+          notes=target['provenance']['review_notes']
+          assert old in notes
+          notes=notes.replace(old,'The historical changeset file is deleted from the derived baseline because it is absent in the base tree and is explicitly excluded by reconstruction.ancillary_review')
+          assert old not in notes
+          target['provenance']['review_notes']=notes
+          target['case_revision']=3
+          m['manifest_revision']=4
+          p.write_text(json.dumps(m,indent=2,ensure_ascii=False)+'\n')
+          PY
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+          git diff --check
+          python3 - <<'PY'
+          import json
+          m=json.load(open('benchmarks/manifest.json'))
+          assert m['manifest_revision']==4
+          t=next(c for c in m['cases'] if c['case_id']=='tanstack-streamed-query-reducer')
+          assert t['case_revision']==3
+          assert t['reconstruction']['ancillary_review']['excluded_from_derived_baseline']==['.changeset/fair-peaches-deny.md']
+          assert 'deleted from the derived baseline because it is absent in the base tree' in t['provenance']['review_notes']
+          assert 'remains naturally present in the derived baseline' not in t['provenance']['review_notes']
+          for c in m['cases']:
+              if c['case_id']!='tanstack-streamed-query-reducer': assert c['case_revision']==2
+          print('T073 TanStack provenance conflict repair PASS')
+          PY
+
+      - name: Verify Ascout health before guarded push
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+
+      - name: Commit and guarded fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          OLD='f553b76c7ed43c1c9506bbcd169ea71d20f7d7b0'
+          BASE='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$BASE"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$OLD"
+          test "$(git rev-parse HEAD)" = "$OLD"
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+          git config user.name 'Ascout Qualification Helper'
+          git config user.email 'ascout-helper@users.noreply.github.com'
+          git add benchmarks/manifest.json
+          git commit -m 'fix(benchmark): remove T073 ancillary provenance conflict'
+          NEW="$(git rev-parse HEAD)"
+          test "$(git diff --name-only "$OLD"..."$NEW")" = 'benchmarks/manifest.json'
+          git push origin "HEAD:refs/heads/feat/073-benchmark-selection-cases"
+          echo "NEW_FEATURE_HEAD=$NEW"
