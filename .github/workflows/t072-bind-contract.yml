@@ -1,0 +1,92 @@
+name: T072 bind case collection contract
+
+on:
+  push:
+    branches:
+      - qualification/t072-bind-5f852c87
+
+permissions:
+  contents: write
+
+jobs:
+  bind:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5f852c87f709a8ac9e4dbd78a7400c6a8551d847
+          fetch-depth: 0
+
+      - name: Opening exact-head guard
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "5f852c87f709a8ac9e4dbd78a7400c6a8551d847"
+          test -z "$(git status --short)"
+          test "$(git merge-base d4a9694f722acb9657c92b90f0d1832a295e3a3e HEAD)" = "d4a9694f722acb9657c92b90f0d1832a295e3a3e"
+          test "$(git ls-remote origin refs/heads/feat/072-benchmark-manifest | awk '{print $1}')" = "5f852c87f709a8ac9e4dbd78a7400c6a8551d847"
+          test "$(git diff --name-only d4a9694f722acb9657c92b90f0d1832a295e3a3e...HEAD | tr '\n' ' ')" = "benchmarks/manifest.json "
+
+      - name: Add collection binding
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('benchmarks/manifest.json')
+          data = json.loads(path.read_text())
+          if data.get('schema_version') != 1 or data.get('manifest_id') != 'ascout-founding-benchmark-v1':
+              raise SystemExit('unexpected manifest identity')
+          if data.get('cases') != []:
+              raise SystemExit('T072 must not add donor cases')
+          if 'manifest_revision' in data or 'case_collection_contract' in data:
+              raise SystemExit('collection binding already exists unexpectedly')
+
+          out = {}
+          out['schema_version'] = data['schema_version']
+          out['manifest_id'] = data['manifest_id']
+          out['manifest_revision'] = 1
+          out['policy'] = data['policy']
+          out['corpus_contract'] = data['corpus_contract']
+          out['integrity_gates'] = data['integrity_gates']
+          out['case_collection_contract'] = {
+              'items_schema_ref': '#/case_schema',
+              'unique_key': ['case_id', 'case_revision'],
+              'case_revision_is_positive_integer': True,
+              'observed_oracle_before_t075': False,
+              'benchmark_active_requires_t075': True,
+          }
+          out['case_schema'] = data['case_schema']
+          out['cases'] = []
+          path.write_text(json.dumps(out, indent=2, ensure_ascii=False) + '\n')
+          PY
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/manifest.json "
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: Contract sanity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          d = json.loads(Path('benchmarks/manifest.json').read_text())
+          assert d['manifest_revision'] == 1
+          assert d['case_collection_contract']['items_schema_ref'] == '#/case_schema'
+          assert d['case_collection_contract']['unique_key'] == ['case_id', 'case_revision']
+          assert d['case_collection_contract']['observed_oracle_before_t075'] is False
+          assert d['case_collection_contract']['benchmark_active_requires_t075'] is True
+          assert d['cases'] == []
+          PY
+
+      - name: Commit and push product head
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/feat/072-benchmark-manifest | awk '{print $1}')" = "5f852c87f709a8ac9e4dbd78a7400c6a8551d847"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add benchmarks/manifest.json
+          git commit -m "feat(benchmark): bind T072 case collection"
+          test "$(git rev-parse HEAD^)" = "5f852c87f709a8ac9e4dbd78a7400c6a8551d847"
+          git push origin HEAD:refs/heads/feat/072-benchmark-manifest
+          echo "BOUND_HEAD=$(git rev-parse HEAD)"
