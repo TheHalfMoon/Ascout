@@ -130,6 +130,19 @@ describe("T076 benchmark metrics", () => {
     expect(metrics.false_pass.find((item) => item.comparator === "related")).toMatchObject({ available: true, false_pass: true, material_oracle_omission: true });
   });
 
+  it("keeps plain recall and false-PASS unavailable without membership evidence", () => {
+    const input = selectionInput(["oracle A", "oracle B"]);
+    for (const observation of input.observations) {
+      for (const cacheClass of ["cold", "warm"] as const) {
+        observation.comparators.plain[cacheClass].membership_available = false;
+        observation.comparators.plain[cacheClass].oracle_test_ids_observed = [];
+      }
+    }
+    const metrics = computeCaseMetrics(input);
+    expect(metrics.selection_recall?.plain).toMatchObject({ available: false, numerator: null, recall: null });
+    expect(metrics.false_pass.find((item) => item.comparator === "plain")).toMatchObject({ available: false, false_pass: null, clean_success: null });
+  });
+
   it("makes recall unavailable when repeated membership evidence is contradictory", () => {
     const input = selectionInput(["oracle A"]);
     input.observations[1]!.comparators.related.cold.oracle_test_ids_observed = ["oracle A", "oracle B"];

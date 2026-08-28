@@ -806,7 +806,7 @@ async function runT075(caseRecord, options, metricsRoot) {
 
 async function collectSelectionObservation(caseRecord, repo, root, ascoutRoot, commands) {
   const full = await externalComparator(caseRecord, repo, root, commands.full, "project-native full suite", "full", true);
-  const plain = await externalComparator(caseRecord, repo, root, commands.plain, "plain project test", "configured", true);
+  const plain = await externalComparator(caseRecord, repo, root, commands.plain, "plain project test", "configured", false);
   const related = await externalComparator(caseRecord, repo, root, commands.related, "runner-native related selector", "native_related", true);
   const ascout = await ascoutComparator(caseRecord, repo, root, ascoutRoot);
   return { comparators: { full, plain, related, ascout } };
