@@ -1,0 +1,66 @@
+name: T073 independent JSON Schema validation
+
+on:
+  push:
+    branches:
+      - qualification/t073-jsonschema-5e73c7fa
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 5e73c7faf594eaba6c413c7f71cb734e683b7a9e
+          fetch-depth: 0
+
+      - name: Guard exact product head and manifest-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'
+          B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          test -z "$(git status --porcelain)"
+
+      - name: Extract embedded case schema and cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs');
+          const m=JSON.parse(fs.readFileSync('benchmarks/manifest.json','utf8'));
+          if(m.cases.length!==6)throw Error('expected six T073 cases');
+          fs.writeFileSync('/tmp/t073-case-schema.json', JSON.stringify(m.case_schema,null,2));
+          for(const c of m.cases) fs.writeFileSync(`/tmp/${c.case_id}.json`, JSON.stringify(c,null,2));
+          NODE
+
+      - name: Validate every case with pinned Ajv 2020-12 engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm exec --yes --package=ajv-cli@5.0.0 -- ajv compile --spec=draft2020 -s /tmp/t073-case-schema.json
+          for f in /tmp/zod-scientific-exponents.json /tmp/zod-jitless-allows-eval.json /tmp/tanstack-streamed-query-reducer.json /tmp/zustand-persist-latest-state.json /tmp/react-hook-form-value-as-date.json /tmp/trpc-streaming-onerror-cause.json; do
+            npm exec --yes --package=ajv-cli@5.0.0 -- ajv validate --spec=draft2020 -s /tmp/t073-case-schema.json -d "$f"
+          done
+          echo 'T073_AJV_DRAFT2020_CASE_VALIDATION=PASS'
+
+      - name: Closing exact-head clean-tree guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'; B='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test -z "$(git status --porcelain)"
