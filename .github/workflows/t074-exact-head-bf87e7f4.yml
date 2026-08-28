@@ -1,0 +1,74 @@
+name: T074 exact-head qualification bf87e7f4
+
+on:
+  push:
+    branches:
+      - qualification/t074-exact-head-bf87e7f4
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout qualification helper
+        uses: actions/checkout@v4
+        with:
+          ref: qualification/t074-exact-head-bf87e7f4
+          path: helper
+          fetch-depth: 1
+      - name: Checkout exact product head
+        uses: actions/checkout@v4
+        with:
+          ref: bf87e7f47f8bd5a40628f80207fbff6cf6062821
+          path: product
+          fetch-depth: 0
+      - name: Opening exact-head ancestry scope and cleanliness guards
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='bf87e7f47f8bd5a40628f80207fbff6cf6062821'
+          B='261f04ced40622567e34487b896cd5f08b1a251f'
+          test "$(git rev-parse HEAD)" = "$H"
+          test -z "$(git status --porcelain)"
+          git fetch origin main feat/074-benchmark-gap-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/074-benchmark-gap-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t2'
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          git diff --check origin/main...HEAD
+      - name: Exact schema donor withholding toolchain and command qualification
+        working-directory: product
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --quiet 'jsonschema[format]==4.23.0'
+          python3 ../helper/.github/scripts/t074_exact_qualify.py
+      - name: Verify Ascout typecheck build and full suite
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+      - name: Closing exact-head and clean-tree guards
+        working-directory: product
+        shell: bash
+        run: |
+          set -euo pipefail
+          H='bf87e7f47f8bd5a40628f80207fbff6cf6062821'
+          B='261f04ced40622567e34487b896cd5f08b1a251f'
+          test "$(git rev-parse HEAD)" = "$H"
+          git fetch origin main feat/074-benchmark-gap-cases
+          test "$(git rev-parse origin/main)" = "$B"
+          test "$(git rev-parse origin/feat/074-benchmark-gap-cases)" = "$H"
+          test "$(git merge-base HEAD origin/main)" = "$B"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          test -z "$(git status --porcelain)"
