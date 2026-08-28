@@ -3,8 +3,14 @@ import { isAbsolute, normalize, relative, sep } from "node:path";
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const FORBIDDEN_METACHARS = new Set(["|", "&", ";", "<", ">", "`", "$", "(", ")", "\n", "\r", "\0"]);
-const SELECTION_COMMAND_PATTERN = /targeted regression-file command = `([^`]+)`; project-native full-suite\/reference command = `([^`]+)`; plain-project test comparator = `([^`]+)`; runner-native related selector = `([^`]+)`\./;
-const GAP_TARGETED_PATTERN = /Pinned T075 targeted oracle command: `([^`]+)`\. Pinned project-native reference command: `([^`]+)`\./;
+const SELECTION_COMMAND_PATTERNS = {
+  targeted: /targeted[^`;]{0,120}command = `([^`]+)`/,
+  full: /project-native full-suite\/reference command = `([^`]+)`/,
+  plain: /plain-project[^`;]{0,120}comparator = `([^`]+)`/,
+  related: /runner-native related selector = `([^`]+)`/,
+};
+const GAP_TARGETED_PATTERN = /Pinned T075 targeted oracle command: `([^`]+)`\./;
+const GAP_REFERENCE_PATTERN = /Pinned project-native reference command: `([^`]+)`\./;
 
 export class BenchmarkHarnessError extends Error {
   constructor(code, message) {
@@ -137,12 +143,19 @@ export function extractSelectionCommands(caseRecord) {
   if (caseRecord?.case_class !== "selection") fail("invalid_case", "selection command extraction requires a selection case");
   const procedure = caseRecord?.oracle?.specification?.ground_truth_procedure;
   if (!Array.isArray(procedure)) fail("invalid_case", "selection ground_truth_procedure is missing");
-  const matches = procedure.map((line) => SELECTION_COMMAND_PATTERN.exec(line)).filter(Boolean);
-  if (matches.length !== 1) {
-    fail("invalid_case", `selection case ${caseRecord.case_id} must contain exactly one canonical T075 command-contract sentence`);
-  }
-  const [, targeted, full, plain, related] = matches[0];
-  const result = { targeted, full, plain, related };
+  const extractOne = (label, pattern) => {
+    const matches = procedure.map((line) => pattern.exec(line)).filter(Boolean);
+    if (matches.length !== 1) {
+      fail("invalid_case", `selection case ${caseRecord.case_id} must contain exactly one explicit ${label} command label`);
+    }
+    return matches[0][1];
+  };
+  const result = {
+    targeted: extractOne("targeted", SELECTION_COMMAND_PATTERNS.targeted),
+    full: extractOne("full-suite/reference", SELECTION_COMMAND_PATTERNS.full),
+    plain: extractOne("plain-project comparator", SELECTION_COMMAND_PATTERNS.plain),
+    related: extractOne("runner-native related", SELECTION_COMMAND_PATTERNS.related),
+  };
   for (const value of Object.values(result)) parseRestrictedCommand(value);
   return result;
 }
@@ -152,14 +165,20 @@ export function extractGapCommands(caseRecord) {
   const procedure = caseRecord?.oracle?.specification?.ground_truth_procedure;
   const coverage = caseRecord?.oracle?.specification?.coverage_oracle;
   if (!Array.isArray(procedure) || coverage === undefined) fail("invalid_case", "gap oracle specification is incomplete");
-  const matches = procedure.map((line) => GAP_TARGETED_PATTERN.exec(line)).filter(Boolean);
-  if (matches.length !== 1) {
-    fail("invalid_case", `gap case ${caseRecord.case_id} must contain exactly one canonical targeted/reference sentence`);
+  const targetedMatches = procedure.map((line) => GAP_TARGETED_PATTERN.exec(line)).filter(Boolean);
+  if (targetedMatches.length !== 1) {
+    fail("invalid_case", `gap case ${caseRecord.case_id} must contain exactly one explicit targeted oracle command`);
   }
-  const [, targeted, reference] = matches[0];
+  const referenceMatches = procedure.map((line) => GAP_REFERENCE_PATTERN.exec(line)).filter(Boolean);
+  if (referenceMatches.length > 1) {
+    fail("invalid_case", `gap case ${caseRecord.case_id} must not contain more than one explicit project-native test reference`);
+  }
+  const targeted = targetedMatches[0][1];
+  const reference = referenceMatches.length === 1 ? referenceMatches[0][1] : null;
   const fullCoverage = coverage.full_test_coverage_command;
   const nativeCoverage = coverage.project_native_reference_command;
-  for (const value of [targeted, reference, fullCoverage, nativeCoverage]) parseRestrictedCommand(value);
+  for (const value of [targeted, fullCoverage, nativeCoverage]) parseRestrictedCommand(value);
+  if (reference !== null) parseRestrictedCommand(reference);
   if (coverage.freeze_before_ascout !== true) fail("invalid_case", "gap coverage oracle must freeze before Ascout");
   if (coverage?.artifact?.format !== "lcov") fail("invalid_case", "gap coverage artifact must be LCOV");
   if (coverage?.artifact_digest_algorithm !== "sha256") fail("invalid_case", "gap coverage artifact must use SHA-256");

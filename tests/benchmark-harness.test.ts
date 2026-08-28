@@ -98,6 +98,18 @@ describe("T075 restricted command contract", () => {
       nativeCoverage: "npm test",
       artifact: "coverage/lcov.info",
     });
+
+    const noTestReference = gapCase();
+    noTestReference.oracle.specification.ground_truth_procedure = [
+      "Pinned T075 targeted oracle command: `npm test -- tests/a.test.ts`. T075 must prove execution.",
+    ];
+    expect(extractGapCommands(noTestReference)).toEqual({
+      targeted: "npm test -- tests/a.test.ts",
+      reference: null,
+      fullCoverage: "NODE_ENV=test ./node_modules/.bin/jest --coverage",
+      nativeCoverage: "npm test",
+      artifact: "coverage/lcov.info",
+    });
   });
 });
 
