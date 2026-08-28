@@ -1,0 +1,105 @@
+name: T075 TanStack package suite diagnostic
+on:
+  push:
+    branches:
+      - diagnostic/t075-tanstack-package-suite-06954f3
+permissions:
+  contents: read
+
+env:
+  BASE_HEAD: a0466508dce843cbbdf8f722e814ac15a2f71b9b
+  MAIN_HEAD: eecdd3f5be693f4fa5d607790090836a3158014f
+  FEATURE_BRANCH: feat/075-isolated-benchmark-harness
+  CANDIDATE_BRANCH: candidate/t075-final-harness-a0466508
+
+jobs:
+  tanstack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: diagnostic/t075-tanstack-package-suite-06954f3
+          path: helper
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: candidate/t075-final-harness-a0466508
+          path: candidate
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard and apply diagnostic candidate stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C candidate rev-parse HEAD)" = "$BASE_HEAD"
+          git -C candidate fetch origin main "$FEATURE_BRANCH" "$CANDIDATE_BRANCH"
+          test "$(git -C candidate rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git -C candidate rev-parse "origin/$FEATURE_BRANCH")" = "$BASE_HEAD"
+          test "$(git -C candidate rev-parse "origin/$CANDIDATE_BRANCH")" = "$BASE_HEAD"
+          python3 helper/.github/repair/t075_final_harness_patch.py candidate
+          python3 helper/.github/repair/t075_braintree_semantic_patch.py candidate
+          python3 helper/.github/repair/t075_comparator_isolation_patch.py candidate
+          python3 helper/.github/repair/t075_source_namespace_patch.py candidate
+          python3 helper/.github/repair/t075_tanstack_package_suite_patch.py candidate
+          git -C candidate diff --check
+          test "$(git -C candidate status --short | awk '{print $2}' | sort | tr '\n' ' ')" = "benchmarks/harness-lib.mjs benchmarks/manifest.json benchmarks/run.mjs tests/benchmark-harness.test.ts "
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build candidate and validate revision
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npx vitest run tests/benchmark-harness.test.ts tests/benchmark-membership-proof.test.ts tests/benchmark-membership-preload.test.ts
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+          node benchmarks/run.mjs --case tanstack-streamed-query-reducer --plan > "$RUNNER_TEMP/tanstack-plan.json"
+          PLAN="$RUNNER_TEMP/tanstack-plan.json" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const p = JSON.parse(fs.readFileSync(process.env.PLAN, 'utf8'));
+          if (p.case_revision !== 4) throw new Error(`expected TanStack revision 4, got ${p.case_revision}`);
+          const expected = 'pnpm --filter @tanstack/query-core test:lib --run';
+          if (p.commands.full !== expected || p.commands.plain !== expected) throw new Error(`unexpected package suite commands: ${JSON.stringify(p.commands)}`);
+          NODE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.8.0
+      - name: Provision exact TanStack package manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global pnpm@10.24.0 --ignore-scripts --no-audit --no-fund
+          test "$(node --version)" = 'v24.8.0'
+          test "$(pnpm --version)" = '10.24.0'
+      - name: Replay TanStack revision 4 twice
+        working-directory: candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/tanstack.json"
+          node benchmarks/run.mjs \
+            --case tanstack-streamed-query-reducer \
+            --run-id "diagnostic:${GITHUB_RUN_ID}:tanstack-package-suite" \
+            --repetitions 2 \
+            --output "$result" \
+            > "$RUNNER_TEMP/tanstack.stdout"
+          RESULT="$result" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const r = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (r.case_revision !== 4) throw new Error(`unexpected case revision ${r.case_revision}`);
+          if (r.status !== 'BENCHMARK_ACTIVE' || r.lifecycle_state !== 'BENCHMARK_ACTIVE') throw new Error(`unexpected lifecycle ${r.status}/${r.lifecycle_state}`);
+          if (r.valid_observation_count !== 2) throw new Error(`expected 2 observations, got ${r.valid_observation_count}`);
+          if (r.evidence?.determinism !== 'deterministic' || r.evidence?.determinism_scope !== 'oracle_only') throw new Error('oracle determinism contract missing');
+          for (const o of r.evidence.observations) {
+            if (o.pre_fix_oracle?.membership_proven !== true || o.fixed_oracle?.membership_proven !== true) throw new Error('targeted oracle membership missing');
+            if (o.full_reference?.oracle_membership !== true) throw new Error('package full-suite oracle membership missing');
+            if (o.related?.oracle_membership !== true) throw new Error('related selector oracle membership missing');
+            if (o.ascout?.source_stability !== o.ascout?.independent_source_stability) throw new Error(`source stability mismatch ${o.ascout?.source_stability}/${o.ascout?.independent_source_stability}`);
+          }
+          console.log(JSON.stringify({case_id:r.case_id,case_revision:r.case_revision,status:r.status,determinism:r.evidence.determinism,scope:r.evidence.determinism_scope,full:r.evidence.observations.map((o)=>o.full_reference),plain:r.evidence.observations.map((o)=>o.plain),related:r.evidence.observations.map((o)=>o.related),ascout:r.evidence.observations.map((o)=>({exit_code:o.ascout.exit_code,source_stability:o.ascout.source_stability}))}));
+          NODE
