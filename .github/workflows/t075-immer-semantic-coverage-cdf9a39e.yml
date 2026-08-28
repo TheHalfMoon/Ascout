@@ -29,9 +29,10 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
-          git fetch https://github.com/TheHalfMoon/Ascout.git main feat/075-isolated-benchmark-harness
+          git fetch https://github.com/TheHalfMoon/Ascout.git main
+          test "$(git rev-parse FETCH_HEAD)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          git fetch https://github.com/TheHalfMoon/Ascout.git feat/075-isolated-benchmark-harness
           test "$(git rev-parse FETCH_HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
-          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
           python3 - <<'PY'
           from pathlib import Path
           p = Path('benchmarks/run.mjs')
