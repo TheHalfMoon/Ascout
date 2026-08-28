@@ -1,0 +1,172 @@
+name: T073 exact-head qualification 5e73c7fa
+
+on:
+  push:
+    branches:
+      - qualification/t073-exact-head-5e73c7fa
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact T073 head
+        uses: actions/checkout@v4
+        with:
+          ref: 5e73c7faf594eaba6c413c7f71cb734e683b7a9e
+          fetch-depth: 0
+
+      - name: Opening exact-head ancestry scope and cleanliness guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          head='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'
+          base='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$head"
+          test -z "$(git status --porcelain)"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$base"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$head"
+          test "$(git merge-base HEAD origin/main)" = "$base"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t2'
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          git diff --check origin/main...HEAD
+
+      - name: Validate T073 case definitions and measured-head contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('fs');
+          const m = JSON.parse(fs.readFileSync('benchmarks/manifest.json','utf8'));
+          if (m.manifest_revision !== 2 || m.cases.length !== 6) throw new Error('unexpected T073 corpus');
+          const expected = new Set([
+            'zod-scientific-exponents','zod-jitless-allows-eval','tanstack-streamed-query-reducer',
+            'zustand-persist-latest-state','react-hook-form-value-as-date','trpc-streaming-onerror-cause'
+          ]);
+          for (const c of m.cases) {
+            if (!expected.delete(c.case_id)) throw new Error(`unexpected/duplicate case ${c.case_id}`);
+            if (c.case_class !== 'selection' || c.lifecycle_state !== 'CASE_REVIEWED') throw new Error(`${c.case_id}: lifecycle`);
+            if (c.oracle.observation !== null) throw new Error(`${c.case_id}: pre-T075 observation`);
+            if (c.reconstruction.derived_identity.expected_digest !== null) throw new Error(`${c.case_id}: pre-T075 derived digest`);
+            if (c.reconstruction.mode !== 'fix_tree_with_production_paths_reverted') throw new Error(`${c.case_id}: reconstruction mode`);
+            if (c.reconstruction.measured_diff_contains_regression_test_change !== false) throw new Error(`${c.case_id}: test leakage flag`);
+            if (c.licensing.file_level_review.status !== 'CLEAR') throw new Error(`${c.case_id}: license state`);
+            const s = c.reconstruction.steps[3];
+            for (const token of [
+              'deterministic benchmark-local synthetic commit',
+              'parent is the pinned base commit',
+              'fixed harness-owned author/committer identity, timestamp, message, parent order, and no signing',
+              'index and worktree exactly matching HEAD',
+              'without staging them',
+              'working-tree-vs-HEAD changed-path set to equal the listed production paths exactly',
+              'working tree to be non-clean',
+              'regression-test path to remain byte-identical to HEAD'
+            ]) if (!s.includes(token)) throw new Error(`${c.case_id}: missing measured-head token: ${token}`);
+            if (c.oracle.specification.ground_truth_procedure.length !== 5) throw new Error(`${c.case_id}: oracle procedure length`);
+            if (!c.oracle.specification.ground_truth_procedure[0].includes('only the reviewed production paths are present as unstaged working-tree changes')) throw new Error(`${c.case_id}: oracle worktree guard`);
+            if (!c.limitations.some(x => x.includes('synthetic HEAD') && x.includes('globally fixed, versioned commit-object recipe'))) throw new Error(`${c.case_id}: synthetic-head limitation`);
+            if ('gap_changed_executable_lines' in c.oracle.specification) throw new Error(`${c.case_id}: selection contains gap field`);
+          }
+          if (expected.size) throw new Error('missing expected cases');
+          console.log('T073 case-definition + synthetic measured HEAD contract PASS');
+          NODE
+
+      - name: Reverify exact donor Git-object license runtime and oracle metadata
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, re, shutil, subprocess, tempfile
+          from pathlib import Path
+          m=json.loads(Path('benchmarks/manifest.json').read_text())
+          gitid=re.compile(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$')
+          sha=re.compile(r'^[0-9a-f]{64}$')
+          semver=re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$')
+          nodever=re.compile(r'^v?[0-9]+\.[0-9]+\.[0-9]+$')
+          root=Path(tempfile.mkdtemp(prefix='t073-qual2-'))
+          def run(repo,*args,binary=False):
+              p=subprocess.run(['git','-C',str(repo),*args],check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+              return p.stdout if binary else p.stdout.decode()
+          try:
+              for c in m['cases']:
+                  cid=c['case_id']; print('VERIFY',cid)
+                  assert semver.fullmatch(c['runtime']['package_manager_version'])
+                  assert nodever.fullmatch(c['runtime']['node_version'])
+                  repo=root/cid; subprocess.run(['git','init','-q',str(repo)],check=True)
+                  subprocess.run(['git','-C',str(repo),'remote','add','origin',c['upstream']['canonical_url']],check=True)
+                  fix=c['git']['fix']['commit_id']; subprocess.run(['git','-C',str(repo),'fetch','-q','--depth=3','--filter=blob:none','origin',fix],check=True)
+                  for role in ('base','fix','oracle'):
+                      r=c['git'][role]; assert gitid.fullmatch(r['commit_id']) and gitid.fullmatch(r['tree_id'])
+                      run(repo,'cat-file','-e',r['commit_id']+'^{commit}')
+                      assert run(repo,'rev-parse',r['commit_id']+'^{tree}').strip()==r['tree_id']
+                      assert run(repo,'show','-s','--format=%P',r['commit_id']).strip().split()==r['required_parent_ids']
+                  base=c['git']['base']['commit_id']
+                  assert c['git']['fix']['required_parent_ids']==[base]
+                  assert c['git']['oracle']==c['git']['fix']
+                  assert c['git']['relationship']['kind']=='direct_parent'
+                  assert c['git']['relationship']['required_parent_commit_id']==base
+                  changed=set(run(repo,'diff','--name-only',base,fix).splitlines())
+                  for p in c['paths']['production']+c['paths']['regression_tests']:
+                      assert p in changed
+                      run(repo,'cat-file','-e',f'{fix}:{p}')
+                      b=run(repo,'cat-file','blob',f'{fix}:{p}',binary=True)
+                      assert not b.startswith(b'version https://git-lfs.github.com/spec/v1')
+                  for p in c['paths']['production']: run(repo,'cat-file','-e',f'{base}:{p}')
+                  lock=c['runtime']['lockfile']; blob=run(repo,'rev-parse',f'{fix}:{lock["path"]}').strip(); assert blob==lock['blob_id']
+                  lb=run(repo,'cat-file','blob',blob,binary=True); assert hashlib.sha256(lb).hexdigest()==lock['sha256'] and sha.fullmatch(lock['sha256'])
+                  for role in ('base','fix','oracle'):
+                      ref=c['git'][role]['commit_id']; lr=c['licensing'][role]; assert lr['spdx_expression']=='MIT'
+                      for ev in lr['evidence']:
+                          eb=run(repo,'rev-parse',f'{ref}:{ev["path"]}').strip(); assert eb==ev['blob_id']
+                          data=run(repo,'cat-file','blob',eb,binary=True); assert hashlib.sha256(data).hexdigest()==ev['sha256']; assert data.startswith(b'MIT License')
+                  assert not [x for x in run(repo,'ls-tree','-r',fix).splitlines() if x.startswith('160000 ')]
+                  for test_id in c['oracle']['specification']['regression_test_ids']:
+                      leaf=test_id.split(' > ')[-1]
+                      assert any(leaf in run(repo,'cat-file','blob',f'{fix}:{p}').decode() for p in c['paths']['regression_tests'])
+                  pkg=json.loads(run(repo,'cat-file','blob',f'{fix}:package.json'))
+                  if cid=='react-hook-form-value-as-date':
+                      action=run(repo,'cat-file','blob',f'{fix}:.github/actions/install-dependencies/action.yml'); assert 'version: 11.7.0' in action and 'node-version: 22' in action
+                  else: assert pkg.get('packageManager')==f"pnpm@{c['runtime']['package_manager_version']}"
+                  if cid=='tanstack-streamed-query-reducer': assert run(repo,'cat-file','blob',f'{fix}:.nvmrc').strip()=='24.8.0'
+                  if cid=='trpc-streaming-onerror-cause': assert pkg.get('engines',{}).get('node')=='^24.0.0'
+                  if cid=='zustand-persist-latest-state': assert pkg.get('engines',{}).get('node')=='>=12.20.0'
+                  if cid.startswith('zod-'): assert 'lts/*' in run(repo,'cat-file','blob',f'{fix}:.github/workflows/test.yml')
+              for version in sorted({c['runtime']['node_version'] for c in m['cases']}):
+                  out=subprocess.run(['git','ls-remote','--tags','https://github.com/nodejs/node.git',f'refs/tags/v{version}'],check=True,stdout=subprocess.PIPE,text=True).stdout
+                  assert out.strip(), version
+              print('T073 exact donor evidence requalification PASS')
+          finally: shutil.rmtree(root,ignore_errors=True)
+          PY
+          echo 'AUDIT_MODE=GIT_OBJECT_METADATA_ONLY'
+          echo 'DONOR_CHECKOUT=NO'
+          echo 'DONOR_DEPENDENCY_INSTALL=NO'
+          echo 'DONOR_SCRIPT_EXECUTION=NO'
+          echo 'DONOR_TEST_EXECUTION=NO'
+
+      - name: Verify Ascout typecheck build and full suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+
+      - name: Closing exact-head and clean-tree guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          head='5e73c7faf594eaba6c413c7f71cb734e683b7a9e'
+          base='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          test "$(git rev-parse HEAD)" = "$head"
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$base"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$head"
+          test "$(git merge-base HEAD origin/main)" = "$base"
+          test "$(git diff --name-only origin/main...HEAD)" = 'benchmarks/manifest.json'
+          test -z "$(git status --porcelain)"
