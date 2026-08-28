@@ -1,0 +1,979 @@
+{
+  "schema_version": 1,
+  "manifest_id": "ascout-founding-benchmark-v1",
+  "manifest_revision": 1,
+  "policy": {
+    "policy_path": "benchmarks/README.md",
+    "manifest_task": "T072",
+    "case_definition_tasks": [
+      "T073",
+      "T074"
+    ],
+    "first_executable_task": "T075",
+    "metrics_tasks": [
+      "T076",
+      "T077",
+      "T078"
+    ],
+    "donor_execution_before_t075": false,
+    "read_only_git_object_inspection_before_t075": true,
+    "spdx_expression_validation": {
+      "canonical_spdx_expression_required": true,
+      "specification": "SPDX-3.0.1-license-expressions",
+      "license_list_required": true
+    }
+  },
+  "corpus_contract": {
+    "selection": {
+      "minimum_cases": 5,
+      "maximum_cases": 6
+    },
+    "gap": {
+      "minimum_cases": 3,
+      "maximum_cases": 4
+    },
+    "metrics_case_state": "BENCHMARK_ACTIVE",
+    "no_pre_data_recall_threshold": true
+  },
+  "integrity_gates": {
+    "cross_tree_evidence_leakage_max": 0,
+    "binding_integrity_violations_max": 0,
+    "stable_material_exercise_gap_exit_zero_max": 0,
+    "stable_material_exercise_gap_expected_exit": 4
+  },
+  "case_collection_contract": {
+    "items_schema_ref": "#/case_schema",
+    "unique_key": [
+      "case_id",
+      "case_revision"
+    ],
+    "case_revision_is_positive_integer": true,
+    "observed_oracle_before_t075": false,
+    "benchmark_active_requires_t075": true,
+    "lifecycle_status_binding_required": true,
+    "license_clearance_required_from_state": "LICENSE_CLEARED",
+    "derived_identity_observed_before_t075": false,
+    "case_definition_required_state": "CASE_REVIEWED",
+    "manifest_revision_bump_required_on_case_set_change": true,
+    "case_revision_bump_required_on_identity_or_semantic_change": true
+  },
+  "case_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:ascout:benchmark-case-schema:v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "case_id",
+      "case_revision",
+      "case_class",
+      "lifecycle_state",
+      "upstream",
+      "git",
+      "paths",
+      "reconstruction",
+      "runtime",
+      "licensing",
+      "oracle",
+      "provenance",
+      "limitations"
+    ],
+    "properties": {
+      "case_id": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+        "minLength": 3,
+        "maxLength": 96
+      },
+      "case_revision": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "case_class": {
+        "enum": [
+          "selection",
+          "gap"
+        ]
+      },
+      "lifecycle_state": {
+        "enum": [
+          "CANDIDATE",
+          "IDENTITY_VERIFIED",
+          "LICENSE_CLEARED",
+          "RECONSTRUCTION_SPECIFIED",
+          "ORACLE_SPECIFIED",
+          "CASE_REVIEWED",
+          "RECONSTRUCTION_REPLAYED",
+          "ORACLE_VERIFIED",
+          "BENCHMARK_ACTIVE"
+        ]
+      },
+      "upstream": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "canonical_url"
+        ],
+        "properties": {
+          "canonical_url": {
+            "type": "string",
+            "format": "uri",
+            "pattern": "^https://[^@/?#]+(?:/[^/?#]*)+$"
+          },
+          "repository_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provenance_urls": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uri"
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "git": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "base",
+          "fix",
+          "oracle",
+          "relationship"
+        ],
+        "properties": {
+          "base": {
+            "$ref": "#/$defs/git_revision"
+          },
+          "fix": {
+            "$ref": "#/$defs/git_revision"
+          },
+          "oracle": {
+            "$ref": "#/$defs/git_revision"
+          },
+          "relationship": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "required_parent_commit_id",
+              "rationale"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "direct_parent",
+                  "ancestor",
+                  "merge_parent"
+                ]
+              },
+              "required_parent_commit_id": {
+                "$ref": "#/$defs/git_object_id"
+              },
+              "rationale": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      },
+      "paths": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "production",
+          "regression_tests"
+        ],
+        "properties": {
+          "production": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/repository_path"
+            }
+          },
+          "regression_tests": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/repository_path"
+            }
+          }
+        }
+      },
+      "reconstruction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "steps",
+          "measured_diff_contains_regression_test_change",
+          "derived_identity"
+        ],
+        "properties": {
+          "mode": {
+            "enum": [
+              "base_plus_production_fix",
+              "fix_tree_with_production_paths_reverted",
+              "other_reviewed_exact_object_recipe"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "measured_diff_contains_regression_test_change": {
+            "const": false
+          },
+          "derived_identity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "algorithm",
+              "expected_digest"
+            ],
+            "properties": {
+              "algorithm": {
+                "enum": [
+                  "git-tree",
+                  "sha256-canonical-reconstruction-v1"
+                ]
+              },
+              "expected_digest": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/git_object_id"
+                  },
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "runtime": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "package_manager",
+          "package_manager_version",
+          "package_manager_version_provenance",
+          "lockfile",
+          "node_version",
+          "node_constraint_provenance",
+          "immutable_harness_artifact"
+        ],
+        "properties": {
+          "package_manager": {
+            "enum": [
+              "npm",
+              "pnpm",
+              "yarn"
+            ]
+          },
+          "package_manager_version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+          },
+          "package_manager_version_provenance": {
+            "type": "string",
+            "minLength": 1
+          },
+          "lockfile": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "blob_id",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/repository_path"
+              },
+              "blob_id": {
+                "$ref": "#/$defs/git_object_id"
+              },
+              "sha256": {
+                "$ref": "#/$defs/sha256"
+              }
+            }
+          },
+          "node_version": {
+            "type": "string",
+            "pattern": "^v?[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "node_constraint_provenance": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "immutable_harness_artifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "required",
+              "sha256",
+              "reason"
+            ],
+            "properties": {
+              "required": {
+                "type": "boolean"
+              },
+              "sha256": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "required": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "required"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "sha256": {
+                      "$ref": "#/$defs/sha256"
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "sha256": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "licensing": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "base",
+          "fix",
+          "oracle",
+          "file_level_review"
+        ],
+        "properties": {
+          "base": {
+            "$ref": "#/$defs/license_review"
+          },
+          "fix": {
+            "$ref": "#/$defs/license_review"
+          },
+          "oracle": {
+            "$ref": "#/$defs/license_review"
+          },
+          "file_level_review": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "status",
+              "notes"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "CLEAR",
+                  "REJECTED"
+                ]
+              },
+              "notes": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      },
+      "oracle": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "specification",
+          "observation"
+        ],
+        "properties": {
+          "specification": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "regression_test_ids",
+              "historical_basis",
+              "ground_truth_procedure",
+              "independence_statement"
+            ],
+            "properties": {
+              "regression_test_ids": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "historical_basis": {
+                "type": "string",
+                "minLength": 1
+              },
+              "ground_truth_procedure": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "independence_statement": {
+                "type": "string",
+                "minLength": 1
+              },
+              "gap_changed_executable_lines": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/changed_line"
+                },
+                "uniqueItems": true
+              }
+            }
+          },
+          "observation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "t075_run_id",
+                  "evidence_sha256",
+                  "valid_observation_count",
+                  "status"
+                ],
+                "properties": {
+                  "t075_run_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "evidence_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "valid_observation_count": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "status": {
+                    "enum": [
+                      "RECONSTRUCTION_REPLAYED",
+                      "ORACLE_VERIFIED",
+                      "BENCHMARK_ACTIVE"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "provenance": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issue_or_pr_urls",
+          "review_notes"
+        ],
+        "properties": {
+          "issue_or_pr_urls": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          "review_notes": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "limitations": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uniqueItems": true,
+        "minItems": 1
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "case_class": {
+              "const": "gap"
+            }
+          },
+          "required": [
+            "case_class"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "specification": {
+                  "required": [
+                    "gap_changed_executable_lines"
+                  ],
+                  "properties": {
+                    "gap_changed_executable_lines": {
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "enum": [
+                "CANDIDATE",
+                "IDENTITY_VERIFIED",
+                "LICENSE_CLEARED",
+                "RECONSTRUCTION_SPECIFIED",
+                "ORACLE_SPECIFIED",
+                "CASE_REVIEWED"
+              ]
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "observation": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "enum": [
+                "RECONSTRUCTION_REPLAYED",
+                "ORACLE_VERIFIED",
+                "BENCHMARK_ACTIVE"
+              ]
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "observation": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "enum": [
+                "RECONSTRUCTION_REPLAYED",
+                "ORACLE_VERIFIED",
+                "BENCHMARK_ACTIVE"
+              ]
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reconstruction": {
+              "properties": {
+                "derived_identity": {
+                  "properties": {
+                    "expected_digest": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/$defs/git_object_id"
+                        },
+                        {
+                          "$ref": "#/$defs/sha256"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "enum": [
+                "ORACLE_VERIFIED",
+                "BENCHMARK_ACTIVE"
+              ]
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "observation": {
+                  "type": "object",
+                  "properties": {
+                    "valid_observation_count": {
+                      "type": "integer",
+                      "minimum": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "enum": [
+                "LICENSE_CLEARED",
+                "RECONSTRUCTION_SPECIFIED",
+                "ORACLE_SPECIFIED",
+                "CASE_REVIEWED",
+                "RECONSTRUCTION_REPLAYED",
+                "ORACLE_VERIFIED",
+                "BENCHMARK_ACTIVE"
+              ]
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "licensing": {
+              "properties": {
+                "file_level_review": {
+                  "properties": {
+                    "status": {
+                      "const": "CLEAR"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "const": "RECONSTRUCTION_REPLAYED"
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "observation": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "RECONSTRUCTION_REPLAYED"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "const": "ORACLE_VERIFIED"
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "observation": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "ORACLE_VERIFIED"
+                    },
+                    "valid_observation_count": {
+                      "type": "integer",
+                      "minimum": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "const": "BENCHMARK_ACTIVE"
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "oracle": {
+              "properties": {
+                "observation": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "const": "BENCHMARK_ACTIVE"
+                    },
+                    "valid_observation_count": {
+                      "type": "integer",
+                      "minimum": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "lifecycle_state": {
+              "enum": [
+                "CANDIDATE",
+                "IDENTITY_VERIFIED",
+                "LICENSE_CLEARED",
+                "RECONSTRUCTION_SPECIFIED",
+                "ORACLE_SPECIFIED",
+                "CASE_REVIEWED"
+              ]
+            }
+          },
+          "required": [
+            "lifecycle_state"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reconstruction": {
+              "properties": {
+                "derived_identity": {
+                  "properties": {
+                    "expected_digest": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "git_object_id": {
+        "type": "string",
+        "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "repository_path": {
+        "type": "string",
+        "pattern": "^(?!/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*://)(?!.*\\\\)(?!.*//)(?!\\.\\.?(?:/|$))(?!.*\\/\\.\\.?(?:/|$))(?!.*\\/$)[^\\u0000]+$",
+        "minLength": 1
+      },
+      "git_revision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "commit_id",
+          "tree_id",
+          "required_parent_ids"
+        ],
+        "properties": {
+          "commit_id": {
+            "$ref": "#/$defs/git_object_id"
+          },
+          "tree_id": {
+            "$ref": "#/$defs/git_object_id"
+          },
+          "required_parent_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/git_object_id"
+            },
+            "uniqueItems": true
+          }
+        }
+      },
+      "license_review": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "spdx_expression",
+          "evidence",
+          "review_note"
+        ],
+        "properties": {
+          "spdx_expression": {
+            "type": "string",
+            "minLength": 1,
+            "not": {
+              "enum": [
+                "NONE",
+                "NOASSERTION"
+              ]
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "blob_id",
+                "sha256"
+              ],
+              "properties": {
+                "path": {
+                  "$ref": "#/$defs/repository_path"
+                },
+                "blob_id": {
+                  "$ref": "#/$defs/git_object_id"
+                },
+                "sha256": {
+                  "$ref": "#/$defs/sha256"
+                }
+              }
+            }
+          },
+          "review_note": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "changed_line": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "line"
+        ],
+        "properties": {
+          "path": {
+            "$ref": "#/$defs/repository_path"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    }
+  },
+  "cases": []
+}
