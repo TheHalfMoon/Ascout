@@ -1,0 +1,64 @@
+name: T071 CodeRabbit repair
+
+on:
+  push:
+    branches:
+      - repair/t071-coderabbit-review-edb3baee
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare exact reviewed head
+        run: |
+          set -euo pipefail
+          git show "$GITHUB_SHA:.github/qualification/t071_coderabbit_repair.py" > /tmp/t071_coderabbit_repair.py
+          git checkout --detach edb3baeec3d56372a9e551f9f63848883a62d534
+          test "$(git rev-parse HEAD)" = "edb3baeec3d56372a9e551f9f63848883a62d534"
+          test -z "$(git status --short)"
+          test "$(git merge-base 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca HEAD)" = "5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca"
+          test "$(git ls-remote origin refs/heads/docs/071-benchmark-corpus-policy | awk '{print $1}')" = "edb3baeec3d56372a9e551f9f63848883a62d534"
+          test "$(git diff --name-only 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca...HEAD | tr '\n' ' ')" = "benchmarks/README.md "
+
+      - name: Apply guarded CodeRabbit repairs
+        run: |
+          set -euo pipefail
+          python3 /tmp/t071_coderabbit_repair.py
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/README.md "
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Commit repaired product head
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "edb3baeec3d56372a9e551f9f63848883a62d534"
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/README.md "
+          test -z "$(git ls-files --others --exclude-standard)"
+          test "$(git ls-remote origin refs/heads/docs/071-benchmark-corpus-policy | awk '{print $1}')" = "edb3baeec3d56372a9e551f9f63848883a62d534"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add benchmarks/README.md
+          git commit -m "docs(benchmark): repair T071 CodeRabbit findings"
+          test "$(git rev-parse HEAD^)" = "edb3baeec3d56372a9e551f9f63848883a62d534"
+          git push origin HEAD:refs/heads/docs/071-benchmark-corpus-policy
+          echo "REPAIRED_HEAD=$(git rev-parse HEAD)"
