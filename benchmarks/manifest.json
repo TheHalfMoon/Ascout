@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "manifest_id": "ascout-founding-benchmark-v1",
-  "manifest_revision": 5,
+  "manifest_revision": 6,
   "policy": {
     "policy_path": "benchmarks/README.md",
     "manifest_task": "T072",
@@ -2680,7 +2680,7 @@
     },
     {
       "case_id": "undici-h2-late-response",
-      "case_revision": 1,
+      "case_revision": 2,
       "case_class": "gap",
       "lifecycle_state": "CASE_REVIEWED",
       "upstream": {
@@ -2809,7 +2809,7 @@
           ],
           "historical_basis": "Upstream direct-parent fix #5440 adds a completed-request guard in the HTTP/2 response handler and a new regression test driven by fake socket/session/stream objects. The new historical test file is independent upstream evidence and remains absent from the measured tree until a physically separate T075 oracle reconstruction.",
           "ground_truth_procedure": [
-            "Pinned T075 targeted oracle command: `npm exec -- borp --timeout 180000 -p \"test/http2-response-after-completion.js\"`. Pinned project-native reference command: `npm run test:h2:core`. T075 must prove every listed regression_test_id executed; file-level success alone is not oracle evidence.",
+            "Pinned T075 targeted oracle command: `./node_modules/.bin/borp --timeout 180000 -p \"test/http2-response-after-completion.js\"`. The command MUST use that exact lockfile-installed local binary and MUST refuse execution if it is absent; no npm exec/npx/package download fallback is allowed. Pinned project-native reference command: `npm run test:h2:core`. T075 must prove every listed regression_test_id executed; file-level success alone is not oracle evidence.",
             "Measured reconstruction: checkout exact base commit as HEAD with index/worktree equal to HEAD; overlay only the listed production fix blobs as unstaged changes; preserve the regression-test path as absent in the measured repository because the historical test file is new in the fix; require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, with no staged or unexpected non-runtime untracked paths.",
             "Pre-fix oracle reconstruction: use a physically separate repository/worktree inaccessible to Ascout measurement, start from the same exact base state, apply only the exact historical regression-test change from the pinned fix commit while leaving production at base bytes, execute the pinned targeted oracle command, and require the historical regression to fail as a valid test observation rather than setup/runner failure.",
             "Fixed oracle reconstruction: in the same isolated oracle protocol, apply the identical historical regression-test bytes plus only the exact listed production fix blobs, execute the identical targeted command, and require the historical regression to pass.",
@@ -2836,7 +2836,8 @@
       "limitations": [
         "T074 is definition-only: no donor code, dependency, script, build, or test execution has occurred; all oracle observations remain unknown until T075.",
         "The exact Node/package-manager selection is benchmark-owned but constrained by exact upstream CI/engine metadata and must be enforced fail-closed by T075.",
-        "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition."
+        "Only the listed changed executable production lines are claimed as the historical material exercise-gap target; T075 must determine actual stable exercise evidence without inferring it from this definition.",
+        "The targeted Undici oracle command is intentionally bound to the exact local node_modules/.bin/borp installed from the pinned package-lock; network-backed executable resolution is forbidden."
       ]
     }
   ]
