@@ -1,0 +1,111 @@
+name: T073 measured-head repair
+
+on:
+  push:
+    branches:
+      - repair/t073-measured-head-7881afca
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout helper branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Guard old exact feature head and canonical main
+        shell: bash
+        run: |
+          set -euo pipefail
+          old_head='7881afca715fd5526ceb90833fc83938aab225cc'
+          base='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$base"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$old_head"
+
+      - name: Repair measured working-tree reconstruction contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          git switch -C feat/073-benchmark-selection-cases origin/feat/073-benchmark-selection-cases
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('benchmarks/manifest.json')
+          m = json.loads(path.read_text(encoding='utf-8'))
+          assert m['manifest_revision'] == 2
+          assert len(m['cases']) == 6
+
+          old_suffix = 'Use the exact fix tree as the fixed measured state so the baseline-to-fixed diff contains production changes only; regression-test paths must be byte-identical across the measured comparison.'
+          replacement = (
+              'At T075, create a deterministic benchmark-local synthetic commit whose tree is the derived baseline tree and whose parent is the pinned base commit. '
+              'Use fixed harness-owned author/committer identity, timestamp, message, parent order, and no signing so repeated materialization yields the same local HEAD; this synthetic commit is benchmark-derived and MUST NOT be represented as an upstream commit. '
+              'Check out that synthetic commit with index and worktree exactly matching HEAD, then overlay only the listed production-path blobs from the exact fix commit into the worktree without staging them. '
+              'Immediately before project-native selection or Ascout, require the index to remain identical to HEAD, require no non-runtime untracked files, require the complete working-tree-vs-HEAD changed-path set to equal the listed production paths exactly, require the working tree to be non-clean, and require every regression-test path to remain byte-identical to HEAD.'
+          )
+          for c in m['cases']:
+              steps = c['reconstruction']['steps']
+              assert len(steps) == 4
+              assert steps[3] == old_suffix, (c['case_id'], steps[3])
+              steps[3] = replacement
+              proc = c['oracle']['specification']['ground_truth_procedure']
+              assert len(proc) == 4
+              proc.insert(0,
+                  'Before any T075 selector comparison, prove the measured repository is rooted at the deterministic benchmark-local synthetic HEAD for the reviewed derived baseline and that only the reviewed production paths are present as unstaged working-tree changes relative to that HEAD; any staged, regression-test, ancillary, or unexpected non-runtime untracked change invalidates the case observation.'
+              )
+              c['limitations'].append(
+                  'The benchmark-local synthetic HEAD is not an upstream identity. T075 must use one globally fixed, versioned commit-object recipe and record its resulting commit ID together with the already-required derived tree identity; any nondeterministic synthetic HEAD invalidates replay.'
+              )
+
+          path.write_text(json.dumps(m, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+          node - <<'NODE'
+          const fs = require('fs');
+          const m = JSON.parse(fs.readFileSync('benchmarks/manifest.json','utf8'));
+          if (m.cases.length !== 6) process.exit(1);
+          for (const c of m.cases) {
+            const s = c.reconstruction.steps[3];
+            for (const token of ['synthetic commit','index and worktree exactly matching HEAD','without staging them','working-tree-vs-HEAD changed-path set','working tree to be non-clean','regression-test path to remain byte-identical to HEAD']) {
+              if (!s.includes(token)) throw new Error(`${c.case_id}: missing ${token}`);
+            }
+            if (c.oracle.specification.ground_truth_procedure.length !== 5) throw new Error(`${c.case_id}: oracle procedure not strengthened`);
+            if (!c.limitations.some(x => x.includes('synthetic HEAD'))) throw new Error(`${c.case_id}: synthetic HEAD limitation missing`);
+            if (c.oracle.observation !== null) throw new Error(`${c.case_id}: pre-T075 observation`);
+            if (c.reconstruction.derived_identity.expected_digest !== null) throw new Error(`${c.case_id}: pre-T075 derived digest`);
+          }
+          console.log('T073 measured-head repair contract PASS');
+          NODE
+
+      - name: Verify Ascout repository health
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npm test
+
+      - name: Commit and guarded fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          old_head='7881afca715fd5526ceb90833fc83938aab225cc'
+          base='8d743268cc52664b19bac3c0d2c3ee115b1ba74d'
+          git fetch origin main feat/073-benchmark-selection-cases
+          test "$(git rev-parse origin/main)" = "$base"
+          test "$(git rev-parse origin/feat/073-benchmark-selection-cases)" = "$old_head"
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add benchmarks/manifest.json
+          git commit -m 'fix(benchmark): bind T073 measured worktree to derived HEAD'
+          new_head="$(git rev-parse HEAD)"
+          git push origin "HEAD:refs/heads/feat/073-benchmark-selection-cases"
+          echo "T073_REPAIRED_HEAD=$new_head"
