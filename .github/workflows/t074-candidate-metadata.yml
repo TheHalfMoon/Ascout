@@ -1,0 +1,27 @@
+name: T074 candidate metadata audit
+
+on:
+  push:
+    branches:
+      - research/t074-candidate-metadata
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout helper
+        uses: actions/checkout@v4
+        with:
+          ref: research/t074-candidate-metadata
+          fetch-depth: 1
+      - name: Audit candidates by Git objects only
+        shell: bash
+        env:
+          GIT_TERMINAL_PROMPT: '0'
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '0208466f24d22419d863025addab35d10d48b14f'
+          python3 .github/scripts/t074_candidate_metadata.py
