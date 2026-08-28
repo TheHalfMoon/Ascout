@@ -1,0 +1,345 @@
+name: T075 oracle comparator proof repair
+on:
+  push:
+    branches:
+      - repair/t075-oracle-comparator-proof-8dffddf
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Patch exact T075 feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '8dffddf49b8453688d46034e3f5793bd1259560f'
+          python3 - <<'PY'
+          from pathlib import Path
+
+          lib = Path('benchmarks/harness-lib.mjs')
+          s = lib.read_text(encoding='utf-8')
+
+          old = '''  if (parsed.argv.some((value) => value === "--json" || value === "--reporter" || value.startsWith("--reporter=") || value === "--outputFile" || value.startsWith("--outputFile="))) {
+    fail("invalid_command", "reviewed command already controls reporter or output-file authority");
+  }
+  return {
+    file: process.execPath,
+    argv: [MEMBERSHIP_PROXY, "--kind", kind, "--output", outputFile, "--", parsed.file, ...parsed.argv],
+    env: parsed.env,
+  };
+}
+'''
+          new = '''  if (parsed.argv.some((value) => value === "--json" || value === "--reporter" || value.startsWith("--reporter=") || value === "--outputFile" || value.startsWith("--outputFile="))) {
+    fail("invalid_command", "reviewed command already controls reporter or output-file authority");
+  }
+
+  if (parsed.file === "pnpm") {
+    const execIndex = parsed.argv.indexOf("exec");
+    if (execIndex !== -1) {
+      let runnerIndex = execIndex + 1;
+      if (parsed.argv[runnerIndex] === "--") runnerIndex += 1;
+      const runner = parsed.argv[runnerIndex];
+      const runnerBase = typeof runner === "string" ? runner.replaceAll("\\\\", "/").split("/").at(-1)?.toLowerCase() : null;
+      const matchesRunner =
+        (kind === "vitest" && (runnerBase === "vitest" || runnerBase === "vitest.mjs" || runnerBase === "vitest.js")) ||
+        (kind === "jest" && (runnerBase === "jest" || runnerBase === "jest.js" || runnerBase === "jest.mjs"));
+      if (matchesRunner) {
+        const instrumentation =
+          kind === "vitest"
+            ? ["--reporter=json", `--outputFile=${outputFile}`]
+            : ["--json", `--outputFile=${outputFile}`];
+        const argv = [...parsed.argv];
+        argv.splice(runnerIndex + 1, 0, ...instrumentation);
+        return { file: parsed.file, argv, env: parsed.env };
+      }
+    }
+  }
+
+  return {
+    file: process.execPath,
+    argv: [MEMBERSHIP_PROXY, "--kind", kind, "--output", outputFile, "--", parsed.file, ...parsed.argv],
+    env: parsed.env,
+  };
+}
+'''
+          if s.count(old) != 1:
+              raise SystemExit('membershipProofCommand return block target count is not one')
+          s = s.replace(old, new, 1)
+
+          marker = '''export function classifyLcov(lcovText, reviewedLines) {
+'''
+          addition = '''export function proveReviewedAssertionStatus(report, regressionTestIds, regressionTestPaths, expectedStatus) {
+  if (expectedStatus !== "passed" && expectedStatus !== "failed") {
+    fail("oracle_membership", `unsupported reviewed assertion status: ${String(expectedStatus)}`);
+  }
+  if (!proveRunnerMembership(report, regressionTestIds, regressionTestPaths)) return false;
+
+  const expectedIds = new Map(regressionTestIds.map((id) => [id.trim(), new Set()]));
+  for (const result of report.testResults) {
+    if (!result || typeof result !== "object" || typeof result.name !== "string") continue;
+    if (!pathMatchesReviewed(result.name, regressionTestPaths)) continue;
+    if (!Array.isArray(result.assertionResults)) continue;
+    for (const assertion of result.assertionResults) {
+      if (!assertion || typeof assertion !== "object") continue;
+      if (assertion.status !== "passed" && assertion.status !== "failed") continue;
+      const names = new Set();
+      for (const field of [assertion.title, assertion.fullName]) {
+        if (typeof field === "string" && field.trim().length > 0) names.add(field.trim());
+      }
+      if (Array.isArray(assertion.ancestorTitles) && typeof assertion.title === "string") {
+        const ancestors = assertion.ancestorTitles.map((value) =>
+          typeof value === "string" ? value.trim() : null,
+        );
+        const title = assertion.title.trim();
+        if (ancestors.length > 0 && ancestors.every((value) => value !== null && value.length > 0) && title.length > 0) {
+          names.add([...ancestors, title].join(" > "));
+        }
+      }
+      for (const [id, statuses] of expectedIds) {
+        if (names.has(id)) statuses.add(assertion.status);
+      }
+    }
+  }
+
+  return [...expectedIds.values()].every(
+    (statuses) => statuses.size === 1 && statuses.has(expectedStatus),
+  );
+}
+
+'''
+          if s.count(marker) != 1:
+              raise SystemExit('classifyLcov insertion marker count is not one')
+          s = s.replace(marker, addition + marker, 1)
+          lib.write_text(s, encoding='utf-8')
+
+          run = Path('benchmarks/run.mjs')
+          s = run.read_text(encoding='utf-8')
+          old = '''  proveRunnerMembership,
+  sanitizedDonorEnvironment,
+'''
+          new = '''  proveReviewedAssertionStatus,
+  proveRunnerMembership,
+  sanitizedDonorEnvironment,
+'''
+          if s.count(old) != 1:
+              raise SystemExit('run import marker count is not one')
+          s = s.replace(old, new, 1)
+
+          old = '''  const membership = proveRunnerMembership(
+    report,
+    caseRecord.oracle.specification.regression_test_ids,
+    caseRecord.paths.regression_tests,
+  );
+  return {
+    membership,
+    evidence: {
+'''
+          new = '''  const membership = proveRunnerMembership(
+    report,
+    caseRecord.oracle.specification.regression_test_ids,
+    caseRecord.paths.regression_tests,
+  );
+  const reviewed_status = {
+    passed: proveReviewedAssertionStatus(
+      report,
+      caseRecord.oracle.specification.regression_test_ids,
+      caseRecord.paths.regression_tests,
+      "passed",
+    ),
+    failed: proveReviewedAssertionStatus(
+      report,
+      caseRecord.oracle.specification.regression_test_ids,
+      caseRecord.paths.regression_tests,
+      "failed",
+    ),
+  };
+  return {
+    membership,
+    reviewed_status,
+    evidence: {
+'''
+          if s.count(old) != 1:
+              raise SystemExit('runMembershipProof membership block target count is not one')
+          s = s.replace(old, new, 1)
+
+          old = '''  if (expected === "pass" && exact.exitCode !== 0) fail("oracle", `${label} expected pass, got ${exact.exitCode}`);
+  if (expected === "fail" && exact.exitCode === 0) fail("oracle", `${label} expected historical failure, got exit 0`);
+  const proof = await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label);
+  if (!proof.membership) fail("oracle_membership", `${label} did not prove all reviewed regression_test_ids executed`);
+  await assertMeasuredState(repo, expectedPaths, envBase);
+  return { status: expected === "pass" ? "passed" : "failed_as_expected", membership_proven: true, exact: outputDigest(exact), proof: proof.evidence };
+'''
+          new = '''  const proof = await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label);
+  if (!proof.membership) fail("oracle_membership", `${label} did not prove all reviewed regression_test_ids executed`);
+  const expectedStatus = expected === "pass" ? "passed" : "failed";
+  if (proof.reviewed_status[expectedStatus] !== true) {
+    fail("oracle", `${label} did not prove every reviewed regression_test_id was ${expectedStatus}`);
+  }
+  await assertMeasuredState(repo, expectedPaths, envBase);
+  return {
+    status: expected === "pass" ? "passed" : "failed_as_expected",
+    membership_proven: true,
+    reviewed_assertion_status: expectedStatus,
+    command_exit_code: exact.exitCode,
+    exact: outputDigest(exact),
+    proof: proof.evidence,
+  };
+'''
+          if s.count(old) != 1:
+              raise SystemExit('runReviewed exit semantics block target count is not one')
+          s = s.replace(old, new, 1)
+
+          old = '''  if (exact.exitCode !== 0) fail("comparator", `${label} failed with exit ${exact.exitCode}`);
+  const proof = requireMembership
+    ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label)
+    : null;
+  if (requireMembership && !proof.membership) fail("oracle_membership", `${label} did not prove oracle membership`);
+  await assertMeasuredState(repo, caseRecord.paths.production, envBase);
+  return { status: "passed", oracle_membership: requireMembership ? true : null, exact: outputDigest(exact), proof: proof?.evidence ?? null };
+'''
+          new = '''  const proof = requireMembership
+    ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label)
+    : null;
+  if (requireMembership && !proof.membership) fail("oracle_membership", `${label} did not prove oracle membership`);
+  await assertMeasuredState(repo, caseRecord.paths.production, envBase);
+  return {
+    status: exact.exitCode === 0 ? "passed" : "failed",
+    exit_code: exact.exitCode,
+    oracle_membership: requireMembership ? true : null,
+    exact: outputDigest(exact),
+    proof: proof?.evidence ?? null,
+  };
+'''
+          if s.count(old) != 1:
+              raise SystemExit('runComparator exit block target count is not one')
+          s = s.replace(old, new, 1)
+          run.write_text(s, encoding='utf-8')
+
+          tests = Path('tests/benchmark-membership-proof.test.ts')
+          s = tests.read_text(encoding='utf-8')
+          old = '''  membershipProofCommand,
+  proveRunnerMembership,
+} from "../benchmarks/harness-lib.mjs";
+'''
+          new = '''  membershipProofCommand,
+  proveReviewedAssertionStatus,
+  proveRunnerMembership,
+} from "../benchmarks/harness-lib.mjs";
+'''
+          if s.count(old) != 1:
+              raise SystemExit('membership test import marker count is not one')
+          s = s.replace(old, new, 1)
+
+          marker = '''  it("does not treat skipped or substring titles as execution", () => {
+'''
+          block = '''  it("proves reviewed assertion status independently from unrelated failures", () => {
+    const mixed = {
+      testResults: [
+        {
+          name: "/tmp/repo/packages/zod/src/v4/classic/tests/number.test.ts",
+          assertionResults: [
+            {
+              title: ".multipleOf() with scientific notation (multi-digit exponents)",
+              fullName: "number .multipleOf() with scientific notation (multi-digit exponents)",
+              ancestorTitles: ["number"],
+              status: "passed",
+            },
+            {
+              title: "unrelated historical failure",
+              fullName: "number unrelated historical failure",
+              ancestorTitles: ["number"],
+              status: "failed",
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      proveReviewedAssertionStatus(
+        mixed,
+        ["number > .multipleOf() with scientific notation (multi-digit exponents)"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+        "passed",
+      ),
+    ).toBe(true);
+    expect(
+      proveReviewedAssertionStatus(
+        mixed,
+        ["number > .multipleOf() with scientific notation (multi-digit exponents)"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+        "failed",
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects contradictory reviewed assertion statuses", () => {
+    const contradictory = {
+      testResults: [
+        {
+          name: "/tmp/repo/packages/zod/src/v4/classic/tests/number.test.ts",
+          assertionResults: [
+            { title: "reviewed", fullName: "suite reviewed", ancestorTitles: ["suite"], status: "passed" },
+            { title: "reviewed", fullName: "suite reviewed", ancestorTitles: ["suite"], status: "failed" },
+          ],
+        },
+      ],
+    };
+    expect(
+      proveReviewedAssertionStatus(
+        contradictory,
+        ["suite > reviewed"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+        "passed",
+      ),
+    ).toBe(false);
+  });
+
+  it("injects reporter-only proof flags directly through pnpm exec", () => {
+    const output = "/tmp/ascout-membership.json";
+    const proof = membershipProofCommand(
+      "FOO=bar pnpm --filter @trpc/tests exec vitest run server/errors.test.ts",
+      "vitest",
+      output,
+    );
+    expect(proof.file).toBe("pnpm");
+    expect(proof.env).toEqual({ FOO: "bar" });
+    expect(proof.argv).toEqual([
+      "--filter",
+      "@trpc/tests",
+      "exec",
+      "vitest",
+      "--reporter=json",
+      `--outputFile=${output}`,
+      "run",
+      "server/errors.test.ts",
+    ]);
+  });
+
+'''
+          if s.count(marker) != 1:
+              raise SystemExit('membership test insertion marker count is not one')
+          s = s.replace(marker, block + marker, 1)
+          tests.write_text(s, encoding='utf-8')
+          PY
+
+          git diff --check
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-proxy.mjs
+          node --check benchmarks/membership-preload.cjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add benchmarks/harness-lib.mjs benchmarks/run.mjs tests/benchmark-membership-proof.test.ts
+          git commit -m 'fix(benchmark): bind oracle to reviewed assertions'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
