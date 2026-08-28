@@ -10,6 +10,10 @@ def api(path):
     p=subprocess.run(['gh','api',path],check=True,text=True,capture_output=True)
     return json.loads(p.stdout)
 
+def content_at(repo, path, ref):
+    p=subprocess.run(['gh','api',f'repos/{repo}/contents/{path}','--method','GET','-f',f'ref={ref}'],check=True,text=True,capture_output=True)
+    return json.loads(p.stdout)
+
 def blob_bytes(sha):
     b=api(f'repos/{REPO}/git/blobs/{sha}')
     return base64.b64decode(b['content'])
@@ -47,22 +51,19 @@ assert 'collectCoverageFrom' in jest_cfg and "projects: getProjects()" in jest_c
 assert lock['importers']['.']['devDependencies']['jest']['version'].startswith('30.4.2')
 assert "should return min error when the field value is already a Date object (valueAsDate)" in test_fix
 lines=prod_fix.splitlines()
-# Material changed executable condition lines in fixed source.
 changed_exec=[]
 for i,line in enumerate(lines,1):
     if '!isDateObject(inputValue)' in line:
         changed_exec.append(i)
 assert changed_exec and len(changed_exec)==1
 
-# Exact Node 22.23.2 and pnpm 11.7.0 identities are pinned independently.
-node_pkg=api(f'repos/nodejs/node/contents/package.json?ref={NODE_COMMIT}')
+node_pkg=content_at('nodejs/node','package.json',NODE_COMMIT)
 node_pkg=json.loads(base64.b64decode(node_pkg['content']))
 assert node_pkg['version']=='22.23.2'
-pnpm_pkg=api(f'repos/pnpm/pnpm/contents/pnpm/package.json?ref={PNPM_COMMIT}')
+pnpm_pkg=content_at('pnpm/pnpm','pnpm/package.json',PNPM_COMMIT)
 pnpm_pkg=json.loads(base64.b64decode(pnpm_pkg['content']))
 assert pnpm_pkg['version']=='11.7.0'
 
-# MIT root license unchanged across the direct-parent delta; no narrower SPDX header in target files.
 for tm in (bt,ft):
     lic=blob_bytes(tm['LICENSE']['sha'])
     assert b'Permission is hereby granted, free of charge' in lic
