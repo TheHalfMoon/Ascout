@@ -1,0 +1,151 @@
+name: T072 semantic lifecycle repair
+
+on:
+  push:
+    branches:
+      - repair/t072-semantic-lifecycle-fc6c8677
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/072-benchmark-manifest
+          fetch-depth: 0
+
+      - name: Opening exact-head guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "fc6c867714412bacf65b6300ffee0e47b180c362"
+          test -z "$(git status --short)"
+          test "$(git merge-base d4a9694f722acb9657c92b90f0d1832a295e3a3e HEAD)" = "d4a9694f722acb9657c92b90f0d1832a295e3a3e"
+
+      - name: Repair semantic lifecycle invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('benchmarks/manifest.json')
+          data = json.loads(path.read_text())
+          assert data['schema_version'] == 1
+          assert data['manifest_revision'] == 1
+          assert data['cases'] == []
+
+          contract = data['case_collection_contract']
+          assert 'lifecycle_status_binding_required' not in contract
+          assert 'license_clearance_required_from_state' not in contract
+          contract['lifecycle_status_binding_required'] = True
+          contract['license_clearance_required_from_state'] = 'LICENSE_CLEARED'
+
+          schema = data['case_schema']
+          all_of = schema['allOf']
+
+          cleared_states = [
+              'LICENSE_CLEARED',
+              'RECONSTRUCTION_SPECIFIED',
+              'ORACLE_SPECIFIED',
+              'CASE_REVIEWED',
+              'RECONSTRUCTION_REPLAYED',
+              'ORACLE_VERIFIED',
+              'BENCHMARK_ACTIVE',
+          ]
+          all_of.append({
+              'if': {
+                  'properties': {'lifecycle_state': {'enum': cleared_states}},
+                  'required': ['lifecycle_state'],
+              },
+              'then': {
+                  'properties': {
+                      'licensing': {
+                          'properties': {
+                              'file_level_review': {
+                                  'properties': {'status': {'const': 'CLEAR'}}
+                              }
+                          }
+                      }
+                  }
+              },
+          })
+
+          for state in ['RECONSTRUCTION_REPLAYED', 'ORACLE_VERIFIED', 'BENCHMARK_ACTIVE']:
+              observation_properties = {'status': {'const': state}}
+              if state in {'ORACLE_VERIFIED', 'BENCHMARK_ACTIVE'}:
+                  observation_properties['valid_observation_count'] = {
+                      'type': 'integer',
+                      'minimum': 2,
+                  }
+              all_of.append({
+                  'if': {
+                      'properties': {'lifecycle_state': {'const': state}},
+                      'required': ['lifecycle_state'],
+                  },
+                  'then': {
+                      'properties': {
+                          'oracle': {
+                              'properties': {
+                                  'observation': {
+                                      'type': 'object',
+                                      'properties': observation_properties,
+                                  }
+                              }
+                          }
+                      }
+                  },
+              })
+
+          path.write_text(json.dumps(data, indent=2) + '\n')
+          PY
+
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/manifest.json "
+
+      - name: Semantic repair contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          d = json.loads(Path('benchmarks/manifest.json').read_text())
+          c = d['case_collection_contract']
+          assert c['lifecycle_status_binding_required'] is True
+          assert c['license_clearance_required_from_state'] == 'LICENSE_CLEARED'
+          assert d['cases'] == []
+
+          all_of = d['case_schema']['allOf']
+          serialized = json.dumps(all_of)
+          assert 'license_clearance_required_from_state' not in serialized
+          for state in ['RECONSTRUCTION_REPLAYED', 'ORACLE_VERIFIED', 'BENCHMARK_ACTIVE']:
+              matches = [x for x in all_of if x.get('if', {}).get('properties', {}).get('lifecycle_state', {}).get('const') == state]
+              assert len(matches) == 1, (state, len(matches))
+              obs = matches[0]['then']['properties']['oracle']['properties']['observation']
+              assert obs['properties']['status']['const'] == state
+              if state in {'ORACLE_VERIFIED', 'BENCHMARK_ACTIVE'}:
+                  assert obs['properties']['valid_observation_count']['minimum'] == 2
+
+          clearance = [x for x in all_of if x.get('then', {}).get('properties', {}).get('licensing')]
+          assert len(clearance) == 1
+          states = clearance[0]['if']['properties']['lifecycle_state']['enum']
+          assert states[0] == 'LICENSE_CLEARED'
+          assert 'BENCHMARK_ACTIVE' in states
+          assert clearance[0]['then']['properties']['licensing']['properties']['file_level_review']['properties']['status']['const'] == 'CLEAR'
+          PY
+
+      - name: Commit and push repaired product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add benchmarks/manifest.json
+          git commit -m "fix(benchmark): bind T072 lifecycle semantics"
+          git push origin HEAD:feat/072-benchmark-manifest
