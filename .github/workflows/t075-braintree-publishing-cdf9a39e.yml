@@ -28,13 +28,12 @@ jobs:
           console.log(`BASE=${c.git.base.commit_id}`);
           console.log(`FIX=${c.git.fix.commit_id}`);
           console.log(`PROD=${c.paths.production[0]}`);
-          console.log(`NODE_VERSION=${String(c.runtime.node_version).replace(/^v/,'')}`);
           console.log(`NPM_VERSION=${c.runtime.package_manager_version}`);
           console.log(`LINE=${c.oracle.specification.gap_changed_executable_lines[0].line}`);
           NODE
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: 20.19.0
       - name: Reconstruct production-only measured state
         shell: bash
         run: |
@@ -45,6 +44,7 @@ jobs:
           git -C donor checkout "$FIX" -- "$PROD"
           git -C donor reset
           cd donor
+          test "$(node --version)" = 'v20.19.0'
           test "$(npm --version)" = "$NPM_VERSION"
           npm ci --ignore-scripts --no-audit --no-fund
           test "$(git diff --name-only)" = "$PROD"
