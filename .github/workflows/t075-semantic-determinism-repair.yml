@@ -1,0 +1,111 @@
+name: T075 semantic determinism repair
+on:
+  push:
+    branches:
+      - repair/t075-semantic-determinism-d6f44295
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Patch exact T075 feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'd6f442951c577965c59a04332680f78b3681f0b8'
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('benchmarks/run.mjs')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  '  } catch {\n    fail("oracle_membership", `${label} membership proof did not produce its external JSON report`);\n  }',
+                  '  } catch {\n'
+                  '    const boundedOutput = textOutput(proof).slice(0, 2000);\n'
+                  '    fail("oracle_membership", `${label} membership proof did not produce its external JSON report (exit ${proof.exitCode}); output=${boundedOutput}`);\n'
+                  '  }'
+              ),
+              (
+                  '    selection: receipt?.selection ?? null,\n    receipt_sha256: sha256Bytes(result.stdout),',
+                  '    selection: receipt?.selection ?? null,\n'
+                  '    tasks: Array.isArray(receipt?.tasks)\n'
+                  '      ? receipt.tasks.map((task) => ({\n'
+                  '          task_id: task.task_id,\n'
+                  '          task_type: task.task_type,\n'
+                  '          status: task.status,\n'
+                  '          reason_code: task.reason_code,\n'
+                  '          exit_code: task.exit_code,\n'
+                  '          command_surface_changed: task.command_surface_changed,\n'
+                  '          changed_authority_paths: task.changed_authority_paths,\n'
+                  '          execution_admission: task.execution_admission,\n'
+                  '          observations: task.observations,\n'
+                  '          cache_state: task.cache_state,\n'
+                  '          selected_test_count: task.selected_test_count ?? null,\n'
+                  '          deselected_test_count: task.deselected_test_count ?? null,\n'
+                  '          output_truncated: task.output_truncated,\n'
+                  '        }))\n'
+                  '      : [],\n'
+                  '    receipt_sha256: sha256Bytes(result.stdout),'
+              ),
+              (
+                  '  const artifactBytes = await readFile(artifactPath);',
+                  '  let artifactBytes;\n'
+                  '  try {\n'
+                  '    artifactBytes = await readFile(artifactPath);\n'
+                  '  } catch (error) {\n'
+                  '    const detail = error instanceof Error ? error.message : String(error);\n'
+                  '    fail("coverage_oracle", `full coverage command succeeded but required LCOV artifact ${commands.artifact} is unavailable: ${detail}`);\n'
+                  '  }'
+              ),
+              (
+                  'function stableObservation(observation) {\n  return {\n    reconstruction: observation.reconstruction,\n    pre_fix_oracle: observation.pre_fix_oracle,\n    fixed_oracle: observation.fixed_oracle,\n    full_reference: observation.full_reference,\n    related: observation.related,\n    ascout: observation.ascout,\n    gap_coverage: observation.gap_coverage,\n  };\n}',
+                  'function stableObservation(observation) {\n'
+                  '  const semanticAscout = observation.ascout === null\n'
+                  '    ? null\n'
+                  '    : {\n'
+                  '        exit_code: observation.ascout.exit_code,\n'
+                  '        completeness: observation.ascout.completeness,\n'
+                  '        source_stability: observation.ascout.source_stability,\n'
+                  '        source: observation.ascout.source,\n'
+                  '        selection: observation.ascout.selection,\n'
+                  '        exercise: observation.ascout.exercise,\n'
+                  '        tasks: observation.ascout.tasks,\n'
+                  '      };\n'
+                  '  return {\n'
+                  '    reconstruction: observation.reconstruction,\n'
+                  '    pre_fix_oracle: observation.pre_fix_oracle,\n'
+                  '    fixed_oracle: observation.fixed_oracle,\n'
+                  '    full_reference: observation.full_reference,\n'
+                  '    related: observation.related,\n'
+                  '    ascout: semanticAscout,\n'
+                  '    gap_coverage: observation.gap_coverage,\n'
+                  '  };\n'
+                  '}'
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one replacement target, found {count}: {old[:90]!r}')
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+          node --check benchmarks/run.mjs
+          git diff --check
+          git diff -- benchmarks/run.mjs
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add benchmarks/run.mjs
+          git commit -m 'fix(benchmark): compare semantic replay outcomes'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
