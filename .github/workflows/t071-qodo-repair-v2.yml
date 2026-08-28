@@ -1,0 +1,64 @@
+name: T071 Qodo repair v2
+
+on:
+  push:
+    branches:
+      - repair/t071-qodo-review-v2-2f0cf933
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare exact reviewed head
+        run: |
+          set -euo pipefail
+          git show "$GITHUB_SHA:.github/qualification/t071_qodo_repair.py" > /tmp/t071_qodo_repair.py
+          git checkout --detach 2f0cf9336e99fb5221be0ce403346a7ff5e4d223
+          test "$(git rev-parse HEAD)" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          test -z "$(git status --short)"
+          test "$(git merge-base 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca HEAD)" = "5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca"
+          test "$(git ls-remote origin refs/heads/docs/071-benchmark-corpus-policy | awk '{print $1}')" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          test "$(git diff --name-only 5b1c67bbfd2b2903ffafb9b1c1b48d4769bfefca...HEAD | tr '\n' ' ')" = "benchmarks/README.md "
+
+      - name: Apply guarded repair
+        run: |
+          set -euo pipefail
+          python3 /tmp/t071_qodo_repair.py
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/README.md "
+          test -z "$(git ls-files --others --exclude-standard)"
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full suite
+        run: npm test
+
+      - name: Commit repaired product head
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          git diff --check
+          test "$(git diff --name-only | tr '\n' ' ')" = "benchmarks/README.md "
+          test -z "$(git ls-files --others --exclude-standard)"
+          test "$(git ls-remote origin refs/heads/docs/071-benchmark-corpus-policy | awk '{print $1}')" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add benchmarks/README.md
+          git commit -m "docs(benchmark): repair T071 review findings"
+          test "$(git rev-parse HEAD^)" = "2f0cf9336e99fb5221be0ce403346a7ff5e4d223"
+          git push origin HEAD:refs/heads/docs/071-benchmark-corpus-policy
+          echo "REPAIRED_HEAD=$(git rev-parse HEAD)"
