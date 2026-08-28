@@ -1,0 +1,278 @@
+name: T076 full-corpus qualification
+
+on:
+  push:
+    branches:
+      - qualification/t076-full-corpus-2d0d57d8
+
+permissions:
+  contents: read
+
+env:
+  MAIN_HEAD: 0037eaef0311c131a7596f3717b148c1f7f62038
+  CANDIDATE_HEAD: 2d0d57d8d6fe30d6a7d84f31590948693043d259
+  PRE_REPAIR_HEAD: 6dc9eb5607be2296d59a6eac81e7b0194a647ebc
+  FEATURE_BRANCH: feat/076-benchmark-metrics
+  REPAIR_BRANCH: repair/t076-baseline-contract-6dc9eb56
+
+jobs:
+  controller:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          git fetch origin main "$FEATURE_BRANCH" "$REPAIR_BRANCH"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git rev-parse "origin/$FEATURE_BRANCH")" = "$PRE_REPAIR_HEAD"
+          test "$(git rev-parse "origin/$REPAIR_BRANCH")" = "$CANDIDATE_HEAD"
+          test "$(git merge-base origin/main HEAD)" = "$MAIN_HEAD"
+          git merge-base --is-ancestor "$PRE_REPAIR_HEAD" HEAD
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t6'
+          expected=$'benchmarks/metrics-lib.mjs\nbenchmarks/metrics.mjs\ntests/benchmark-metrics.test.ts'
+          actual="$(git diff --name-only origin/main...HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check origin/main...HEAD
+          test -z "$(git status --short)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Full controller gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npx vitest run tests/benchmark-metrics.test.ts
+          npm test
+          npm run build
+          node --check benchmarks/metrics-lib.mjs
+          node --check benchmarks/metrics.mjs
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          if (manifest.manifest_revision !== 11) throw new Error(`expected manifest revision 11, got ${manifest.manifest_revision}`);
+          if (manifest.cases.length !== 9) throw new Error(`expected 9 cases, got ${manifest.cases.length}`);
+          if (manifest.cases.filter((item) => item.case_class === 'selection').length !== 6) throw new Error('expected six selection cases');
+          if (manifest.cases.filter((item) => item.case_class === 'gap').length !== 3) throw new Error('expected three gap cases');
+          NODE
+          test -z "$(git status --short)"
+
+  metrics:
+    needs: controller
+    strategy:
+      fail-fast: false
+      max-parallel: 9
+      matrix:
+        case_id:
+          - zod-scientific-exponents
+          - zod-jitless-allows-eval
+          - tanstack-streamed-query-reducer
+          - zustand-persist-latest-state
+          - react-hook-form-value-as-date
+          - trpc-streaming-onerror-cause
+          - braintree-venmo-csp-nonce-web-login
+          - immer-prototype-undefined
+          - react-hook-form-valueasdate-minmax
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    name: metrics / ${{ matrix.case_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact candidate and read runtime
+        id: runtime
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          CASE_ID="$CASE_ID" node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          const item = manifest.cases.find((candidate) => candidate.case_id === process.env.CASE_ID);
+          if (!item) throw new Error(`missing case ${process.env.CASE_ID}`);
+          console.log(`node=${String(item.runtime.node_version).replace(/^v/, '')}`);
+          console.log(`pm=${item.runtime.package_manager}`);
+          console.log(`pm_version=${item.runtime.package_manager_version}`);
+          console.log(`case_revision=${item.case_revision}`);
+          console.log(`case_class=${item.case_class}`);
+          NODE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build exact Ascout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          node --check benchmarks/metrics-lib.mjs
+          node --check benchmarks/metrics.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.runtime.outputs.node }}
+      - name: Provision exact donor package manager
+        shell: bash
+        env:
+          PM: ${{ steps.runtime.outputs.pm }}
+          PM_VERSION: ${{ steps.runtime.outputs.pm_version }}
+          NODE_VERSION: ${{ steps.runtime.outputs.node }}
+        run: |
+          set -euo pipefail
+          if [ "$PM" = pnpm ]; then
+            npm install --global "pnpm@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = yarn ]; then
+            npm install --global "yarn@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = npm ]; then
+            test "$(npm --version)" = "$PM_VERSION"
+          else
+            echo "unsupported package manager $PM" >&2
+            exit 2
+          fi
+          test "$(node --version)" = "v$NODE_VERSION"
+          test "$($PM --version)" = "$PM_VERSION"
+      - name: Execute T076 case twice
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+          EXPECTED_REVISION: ${{ steps.runtime.outputs.case_revision }}
+          CASE_CLASS: ${{ steps.runtime.outputs.case_class }}
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/t076-${CASE_ID}.json"
+          node benchmarks/metrics.mjs \
+            --case "$CASE_ID" \
+            --run-id "full-corpus-${GITHUB_RUN_ID}-${CASE_ID}" \
+            --repetitions 2 \
+            --output "$result" \
+            > "$RUNNER_TEMP/t076-${CASE_ID}.stdout"
+          RESULT="$result" CASE_ID="$CASE_ID" EXPECTED_REVISION="$EXPECTED_REVISION" CASE_CLASS="$CASE_CLASS" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (result.task !== 'T076' || result.status !== 'BENCHMARK_METRICS_READY') throw new Error('case is not T076 metrics-ready');
+          if (result.case_id !== process.env.CASE_ID || result.case_revision !== Number(process.env.EXPECTED_REVISION)) throw new Error('case identity/revision mismatch');
+          if (!Array.isArray(result.observations) || result.observations.length !== 2) throw new Error('two raw observations required');
+          if (result.t075_oracle_determinism !== 'deterministic') throw new Error('T075 oracle determinism missing');
+          if (typeof result.t075_evidence_sha256 !== 'string' || result.t075_evidence_sha256.length !== 64) throw new Error('T075 evidence binding missing');
+          if (!Array.isArray(result.baselines) || result.baselines.length === 0 || result.baselines.some((item) => typeof item.baseline_id !== 'string' || item.baseline_id.length !== 64)) throw new Error('baseline binding invalid');
+          if (!Array.isArray(result.metrics?.timing) || result.metrics.timing.some((item) => typeof item.baseline_id !== 'string')) throw new Error('timing metric baseline missing');
+          if (!Array.isArray(result.metrics?.determinism) || result.metrics.determinism.some((item) => typeof item.baseline_id !== 'string')) throw new Error('determinism metric baseline missing');
+          if (typeof result.metrics?.drift_detection?.baseline_id !== 'string') throw new Error('drift metric baseline missing');
+          if (typeof result.metrics?.flake_classification_behavior?.baseline_id !== 'string') throw new Error('flake metric baseline missing');
+          if (process.env.CASE_CLASS === 'selection') {
+            for (const comparator of ['full', 'plain', 'related', 'ascout']) {
+              const metric = result.metrics?.selection_recall?.[comparator];
+              if (!metric || typeof metric.baseline_id !== 'string') throw new Error(`selection baseline missing for ${comparator}`);
+            }
+            if (!Array.isArray(result.metrics.false_pass) || result.metrics.false_pass.length !== 4) throw new Error('selection false-PASS metrics missing');
+          } else {
+            if (!result.metrics?.gap_classification || typeof result.metrics.gap_classification.accuracy_baseline_id !== 'string' || typeof result.metrics.gap_classification.unresolved_baseline_id !== 'string') throw new Error('gap accuracy/unresolved baselines missing');
+            if (!Array.isArray(result.metrics.false_pass) || result.metrics.false_pass.length !== 1) throw new Error('gap false-PASS metric missing');
+          }
+          console.log(JSON.stringify({
+            case_id: result.case_id,
+            case_revision: result.case_revision,
+            case_class: process.env.CASE_CLASS,
+            selection_recall: result.metrics.selection_recall,
+            false_pass: result.metrics.false_pass,
+            gap_classification: result.metrics.gap_classification,
+            drift_detection: result.metrics.drift_detection,
+            determinism: result.metrics.determinism,
+            flake_classification_behavior: result.metrics.flake_classification_behavior,
+          }));
+          NODE
+          cp "$result" "t076-${CASE_ID}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t076-result-${{ matrix.case_id }}
+          path: t076-${{ matrix.case_id }}.json
+          if-no-files-found: error
+          retention-days: 1
+
+  aggregate:
+    needs: metrics
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: t076-result-*
+          path: t076-results
+          merge-multiple: true
+      - name: Aggregate all nine T076 cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          mapfile -t files < <(find t076-results -maxdepth 1 -type f -name 't076-*.json' -print | sort)
+          test "${#files[@]}" -eq 9
+          args=()
+          for file in "${files[@]}"; do args+=(--aggregate-input "$file"); done
+          node benchmarks/metrics.mjs "${args[@]}" --output "$RUNNER_TEMP/t076-aggregate.json" > "$RUNNER_TEMP/t076-aggregate.stdout"
+          RESULT="$RUNNER_TEMP/t076-aggregate.json" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const aggregate = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (aggregate.task !== 'T076' || aggregate.schema_version !== 1) throw new Error('aggregate contract mismatch');
+          if (!Array.isArray(aggregate.case_set) || aggregate.case_set.length !== 9) throw new Error('aggregate case set must contain nine cases');
+          if (!Array.isArray(aggregate.raw_cases) || aggregate.raw_cases.length !== 9) throw new Error('aggregate must retain nine raw cases');
+          if (aggregate.raw_cases.some((item) => !Array.isArray(item.baselines) || !Array.isArray(item.observations) || item.observations.length !== 2)) throw new Error('aggregate raw evidence incomplete');
+          const selection = aggregate.metrics?.selection_recall;
+          for (const comparator of ['full', 'plain', 'related', 'ascout']) {
+            if (!selection?.[comparator] || !Array.isArray(selection[comparator].baseline_ids)) throw new Error(`aggregate selection metric missing for ${comparator}`);
+          }
+          for (const key of ['false_pass', 'gap_classification_accuracy', 'unresolved_rate', 'drift_detection', 'determinism', 'flake_classification_behavior']) {
+            if (!aggregate.metrics?.[key] || !Array.isArray(aggregate.metrics[key].baseline_ids)) throw new Error(`aggregate metric missing baseline IDs: ${key}`);
+          }
+          if (!Array.isArray(aggregate.metrics?.timing) || aggregate.metrics.timing.some((item) => typeof item.baseline_id !== 'string' || !Array.isArray(item.raw_samples))) throw new Error('aggregate timing contract invalid');
+          console.log(JSON.stringify({ case_set: aggregate.case_set, metrics: aggregate.metrics }));
+          NODE
+
+  closing:
+    needs: [controller, metrics, aggregate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Closing exact-head guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          git fetch origin main "$FEATURE_BRANCH" "$REPAIR_BRANCH"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git rev-parse "origin/$FEATURE_BRANCH")" = "$PRE_REPAIR_HEAD"
+          test "$(git rev-parse "origin/$REPAIR_BRANCH")" = "$CANDIDATE_HEAD"
+          test "$(git merge-base origin/main HEAD)" = "$MAIN_HEAD"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t6'
+          expected=$'benchmarks/metrics-lib.mjs\nbenchmarks/metrics.mjs\ntests/benchmark-metrics.test.ts'
+          actual="$(git diff --name-only origin/main...HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check origin/main...HEAD
+          test -z "$(git status --short)"
