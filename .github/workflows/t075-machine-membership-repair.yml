@@ -1,0 +1,190 @@
+name: T075 machine membership proof repair
+
+on:
+  push:
+    branches:
+      - repair/t075-machine-membership-0f73fa8a
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Opening exact-head guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '0f73fa8a91f40a0ec8aebb889a9a6ef419afc3bb'
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '0f73fa8a91f40a0ec8aebb889a9a6ef419afc3bb'
+          test "$(git merge-base HEAD origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+      - name: Replace console substring proof with machine-readable runner proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('benchmarks/run.mjs')
+          s = p.read_text()
+          old_import = '''import { dirname, join, resolve } from "node:path";'''
+          new_import = '''import { dirname, isAbsolute, join, relative, resolve } from "node:path";'''
+          if old_import not in s:
+              raise SystemExit('path import anchor missing')
+          s = s.replace(old_import, new_import, 1)
+
+          start = s.index('function proofVariant(commandText, kind) {')
+          end = s.index('function rejectSetupFailure(output, label) {')
+          replacement = r'''function proofVariant(commandText, kind, outputFile) {
+  const parsed = parseRestrictedCommand(commandText);
+  const argv = [...parsed.argv];
+  const isPackageScript = ["npm", "pnpm", "yarn"].includes(parsed.file) && !argv.includes("exec");
+  if (isPackageScript && !argv.includes("--")) argv.push("--");
+  if (kind === "vitest") {
+    argv.push("--reporter=json", `--outputFile=${outputFile}`);
+  } else {
+    argv.push("--json", `--outputFile=${outputFile}`);
+  }
+  return { ...parsed, argv };
+}
+
+function runnerReportFiles(report, repo) {
+  const testResults = Array.isArray(report?.testResults) ? report.testResults : [];
+  const files = [];
+  const assertions = [];
+  for (const result of testResults) {
+    const rawFile = result?.name ?? result?.testFilePath ?? result?.testFile;
+    let file = null;
+    if (typeof rawFile === "string" && rawFile.length > 0) {
+      const absolute = isAbsolute(rawFile) ? rawFile : resolve(repo, rawFile);
+      const rel = relative(repo, absolute).replaceAll("\\", "/");
+      if (rel !== "" && rel !== ".." && !rel.startsWith("../") && !isAbsolute(rel)) file = rel;
+    }
+    if (file !== null) files.push(file);
+    const assertionResults = Array.isArray(result?.assertionResults) ? result.assertionResults : [];
+    for (const assertion of assertionResults) {
+      const identifiers = new Set();
+      for (const candidate of [assertion?.title, assertion?.fullName, assertion?.name]) {
+        if (typeof candidate === "string" && candidate.length > 0) identifiers.add(candidate);
+      }
+      if (Array.isArray(assertion?.ancestorTitles) && typeof assertion?.title === "string") {
+        const hierarchy = [...assertion.ancestorTitles, assertion.title];
+        if (hierarchy.every((value) => typeof value === "string" && value.length > 0)) identifiers.add(hierarchy.join(" > "));
+      }
+      assertions.push({ file, identifiers: [...identifiers] });
+    }
+  }
+  return { files: [...new Set(files)].sort(), assertions };
+}
+
+async function runMembershipProof(caseRecord, repo, root, commandText, label, expectedExit, targetedScope) {
+  const proofDir = join(root, "controller-proof");
+  await mkdir(proofDir, { recursive: true });
+  const outputFile = join(proofDir, `${randomUUID()}.json`);
+  const variant = proofVariant(commandText, runnerKind(caseRecord), outputFile);
+  const envBase = runtimeEnvironment(root);
+  const proof = await runBounded({ file: variant.file, argv: variant.argv, cwd: repo, env: { ...envBase, ...variant.env } });
+  requireExited(proof, `${label} membership proof`);
+  if (proof.exitCode !== expectedExit) fail("oracle", `${label} machine membership proof changed exit behavior`);
+  let report;
+  try {
+    report = JSON.parse(await readFile(outputFile, "utf8"));
+  } catch (error) {
+    fail("oracle_membership", `${label} machine membership proof did not produce parseable JSON: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    await rm(outputFile, { force: true });
+  }
+  const parsed = runnerReportFiles(report, repo);
+  for (const id of caseRecord.oracle.specification.regression_test_ids) {
+    if (!parsed.assertions.some((assertion) => assertion.identifiers.includes(id))) {
+      fail("oracle_membership", `${label} machine membership proof did not report reviewed test id: ${id}`);
+    }
+  }
+  if (targetedScope) {
+    const allowed = new Set(caseRecord.paths.regression_tests);
+    const unexpected = parsed.files.filter((file) => !allowed.has(file));
+    if (unexpected.length > 0) {
+      fail("oracle_scope", `${label} targeted membership proof executed unexpected test files: ${unexpected.slice(0, 8).join(", ")}`);
+    }
+    const matchedFiles = new Set(
+      parsed.assertions
+        .filter((assertion) => caseRecord.oracle.specification.regression_test_ids.some((id) => assertion.identifiers.includes(id)))
+        .map((assertion) => assertion.file)
+        .filter((file) => file !== null),
+    );
+    if (matchedFiles.size === 0 || [...matchedFiles].some((file) => !allowed.has(file))) {
+      fail("oracle_scope", `${label} reviewed test id was not bound to a reviewed regression-test path`);
+    }
+  }
+  return {
+    machine_report_sha256: sha256Bytes(Buffer.from(canonicalJson(report), "utf8")),
+    executed_test_files: parsed.files,
+    reviewed_ids_proven: true,
+    process: outputDigest(proof),
+  };
+}
+
+'''
+          s = s[:start] + replacement + s[end:]
+
+          old_reviewed = '''  let proof = null;\n  let membership = mentionsAllIds(exactText, caseRecord.oracle.specification.regression_test_ids);\n  if (!membership) {\n    const variant = proofVariant(commandText, runnerKind(caseRecord));\n    const proofEnv = { ...envBase, ...variant.env };\n    proof = await runBounded({ file: variant.file, argv: variant.argv, cwd: repo, env: proofEnv });\n    requireExited(proof, `${label} membership proof`);\n    const proofText = textOutput(proof);\n    rejectSetupFailure(proofText, `${label} membership proof`);\n    if (proof.exitCode !== exact.exitCode) fail("oracle", `${label} reporter-only proof changed exit behavior`);\n    membership = mentionsAllIds(proofText, caseRecord.oracle.specification.regression_test_ids);\n  }\n  if (!membership) fail("oracle_membership", `${label} did not prove all reviewed regression_test_ids executed`);\n  await assertMeasuredState(repo, expectedPaths, envBase);\n  return { status: expected === "pass" ? "passed" : "failed_as_expected", membership_proven: true, exact: outputDigest(exact), proof: proof ? outputDigest(proof) : null };'''
+          new_reviewed = '''  const proof = await runMembershipProof(caseRecord, repo, root, commandText, label, exact.exitCode, true);\n  await assertMeasuredState(repo, expectedPaths, envBase);\n  return { status: expected === "pass" ? "passed" : "failed_as_expected", membership_proven: true, exact: outputDigest(exact), proof };'''
+          if old_reviewed not in s:
+              raise SystemExit('runReviewed membership anchor missing')
+          s = s.replace(old_reviewed, new_reviewed, 1)
+
+          old_comparator = '''  let membership = mentionsAllIds(exactText, caseRecord.oracle.specification.regression_test_ids);\n  let proof = null;\n  if (requireMembership && !membership) {\n    const variant = proofVariant(commandText, runnerKind(caseRecord));\n    proof = await runBounded({ file: variant.file, argv: variant.argv, cwd: repo, env: { ...envBase, ...variant.env } });\n    requireExited(proof, `${label} membership proof`);\n    if (proof.exitCode !== 0) fail("comparator", `${label} membership proof failed`);\n    membership = mentionsAllIds(textOutput(proof), caseRecord.oracle.specification.regression_test_ids);\n  }\n  if (requireMembership && !membership) fail("oracle_membership", `${label} did not prove oracle membership`);\n  await assertMeasuredState(repo, caseRecord.paths.production, envBase);\n  return { status: "passed", oracle_membership: requireMembership ? membership : null, exact: outputDigest(exact), proof: proof ? outputDigest(proof) : null };'''
+          new_comparator = '''  const proof = requireMembership\n    ? await runMembershipProof(caseRecord, repo, root, commandText, label, exact.exitCode, false)\n    : null;\n  await assertMeasuredState(repo, caseRecord.paths.production, envBase);\n  return { status: "passed", oracle_membership: requireMembership ? true : null, exact: outputDigest(exact), proof };'''
+          if old_comparator not in s:
+              raise SystemExit('runComparator membership anchor missing')
+          s = s.replace(old_comparator, new_comparator, 1)
+          p.write_text(s)
+          PY
+          node --check benchmarks/run.mjs
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/run.mjs'
+      - name: Qualify product suite and prove Zod scope mismatch fail-closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npx vitest run tests/benchmark-harness.test.ts
+          npm test
+          npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = '10.12.1'
+          set +e
+          node benchmarks/run.mjs \
+            --case zod-scientific-exponents \
+            --run-id "qualification:${GITHUB_RUN_ID}:zod-scientific-exponents" \
+            --repetitions 2 \
+            > "$RUNNER_TEMP/zod.out" 2> "$RUNNER_TEMP/zod.err"
+          code=$?
+          set -e
+          test "$code" -eq 2
+          grep -F 'oracle_scope:' "$RUNNER_TEMP/zod.err"
+          grep -F 'targeted membership proof executed unexpected test files' "$RUNNER_TEMP/zod.err"
+          ! grep -F 'oracle_membership:' "$RUNNER_TEMP/zod.err"
+      - name: Guarded commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '0f73fa8a91f40a0ec8aebb889a9a6ef419afc3bb'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add benchmarks/run.mjs
+          git commit -m 'fix(benchmark): prove runner membership structurally'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
