@@ -1,0 +1,79 @@
+name: T075 TanStack qualification cdf9a39e
+on:
+  push:
+    branches:
+      - qualification/t075-tanstack-cdf9a39e
+permissions:
+  contents: read
+jobs:
+  replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: cdf9a39e93e1ce655184078cb469f08b9111d3c2
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+          git fetch https://github.com/TheHalfMoon/Ascout.git main
+          test "$(git rev-parse FETCH_HEAD)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          git fetch https://github.com/TheHalfMoon/Ascout.git feat/075-isolated-benchmark-harness
+          test "$(git rev-parse FETCH_HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Build exact controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-preload.cjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.8.0
+      - name: Provision exact donor package manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global pnpm@10.24.0 --ignore-scripts --no-audit --no-fund
+          test "$(node --version)" = 'v24.8.0'
+          test "$(pnpm --version)" = '10.24.0'
+      - name: Replay TanStack twice
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/tanstack.json"
+          node benchmarks/run.mjs \
+            --case tanstack-streamed-query-reducer \
+            --run-id "github:${GITHUB_RUN_ID}:tanstack" \
+            --repetitions 2 \
+            --output "$result" \
+            > "$RUNNER_TEMP/tanstack.stdout.json"
+          RESULT="$result" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const r = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (r.status !== 'BENCHMARK_ACTIVE' || r.valid_observation_count !== 2) throw new Error('TanStack did not become BENCHMARK_ACTIVE with two observations');
+          if (r.evidence?.determinism !== 'deterministic') throw new Error('TanStack evidence is not deterministic');
+          for (const o of r.evidence.observations) {
+            if (o.full_reference?.oracle_membership !== true) throw new Error('full-suite membership missing');
+            if (o.related?.oracle_membership !== true) throw new Error('related membership missing');
+            if (o.pre_fix_oracle?.membership_proven !== true || o.fixed_oracle?.membership_proven !== true) throw new Error('oracle membership missing');
+            if ((o.evidence?.full?.proof?.report_count ?? 0) < 1) throw new Error('full membership report count missing');
+          }
+          console.log(JSON.stringify({case_id:r.case_id,status:r.status,determinism:r.evidence.determinism,full_report_counts:r.evidence.observations.map((o)=>o.evidence.full.proof.report_count)}));
+          NODE
+      - name: Closing source guard
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = 'cdf9a39e93e1ce655184078cb469f08b9111d3c2'
+          test -z "$(git status --porcelain)"
