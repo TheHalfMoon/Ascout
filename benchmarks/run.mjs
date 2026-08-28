@@ -183,6 +183,10 @@ function requireExited(result, label) {
   if (result.stdoutTruncated || result.stderrTruncated) fail("process", `${label} output exceeded capture cap`);
 }
 
+function shortNxDir(root) {
+  return join(tmpdir(), `a75-nx-${sha256Bytes(Buffer.from(root, "utf8")).slice(0, 16)}`);
+}
+
 function runtimeEnvironment(root, commandEnv = {}) {
   const pathValue = process.env.PATH;
   if (!pathValue) fail("environment", "controller PATH is unavailable");
@@ -193,7 +197,7 @@ function runtimeEnvironment(root, commandEnv = {}) {
     XDG_CACHE_HOME: join(root, "cache", "xdg"),
     npm_config_cache: join(root, "cache", "npm"),
     COREPACK_HOME: join(root, "cache", "corepack"),
-    NX_SOCKET_DIR: join(root, "nx"),
+    NX_SOCKET_DIR: shortNxDir(root),
   });
   assertControllerSecretsAbsent(env);
   return env;
@@ -206,7 +210,7 @@ async function ensureRuntimeDirs(root) {
     mkdir(join(root, "cache", "xdg"), { recursive: true }),
     mkdir(join(root, "cache", "npm"), { recursive: true }),
     mkdir(join(root, "cache", "corepack"), { recursive: true }),
-    mkdir(join(root, "nx"), { recursive: true }),
+    mkdir(shortNxDir(root), { recursive: true }),
   ]);
 }
 
@@ -742,6 +746,7 @@ function assertCrossObservationIdentity(observations, caseRecord) {
 async function executeCase(caseRecord, options) {
   if (process.platform !== "linux") fail("platform", "T075 executable replay is currently authorized only on Linux; T079 owns cross-platform hardening");
   const controllerRoot = await mkdtemp(join(tmpdir(), `ascout-t075-${caseRecord.case_id}-`));
+  const runtimeRoots = [controllerRoot];
   try {
     await ensureRuntimeDirs(controllerRoot);
     const toolchain = await verifyToolchain(caseRecord, controllerRoot, options.ascoutRoot);
@@ -749,6 +754,7 @@ async function executeCase(caseRecord, options) {
     const observations = [];
     for (let index = 0; index < options.repetitions; index += 1) {
       const observationRoot = join(controllerRoot, `observation-${index + 1}`);
+      runtimeRoots.push(observationRoot);
       await ensureRuntimeDirs(observationRoot);
       const observation = caseRecord.case_class === "selection"
         ? await runSelectionObservation(caseRecord, cacheRepo, observationRoot, options.ascoutRoot)
@@ -804,6 +810,7 @@ async function executeCase(caseRecord, options) {
     if (options.keepTemp) process.stderr.write(`T075_TEMP_ROOT=${controllerRoot}\n`);
     return;
   } finally {
+    await Promise.all(runtimeRoots.map((runtimeRoot) => rm(shortNxDir(runtimeRoot), { recursive: true, force: true })));
     if (!options.keepTemp) await rm(controllerRoot, { recursive: true, force: true });
   }
 }
