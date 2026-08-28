@@ -1,0 +1,122 @@
+name: T075 structural membership repair
+on:
+  push:
+    branches:
+      - repair/t075-structural-membership-03754ab8
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/075-isolated-benchmark-harness
+          fetch-depth: 0
+      - name: Guard and patch exact feature head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '03754ab80bcb85bd57885c008451c4662af091d6'
+          python3 - <<'PY'
+          from pathlib import Path
+
+          harness = Path('benchmarks/harness-lib.mjs')
+          text = harness.read_text()
+          old = '''      for (const field of [assertion.title, assertion.fullName]) {
+                if (typeof field === "string" && field.trim().length > 0) executedNames.add(field.trim());
+              }
+          '''
+          # Preserve exact indentation from source if the compact replacement above does not match.
+          if old not in text:
+              old = '''      for (const field of [assertion.title, assertion.fullName]) {
+                if (typeof field === "string" && field.trim().length > 0) executedNames.add(field.trim());
+              }'''
+          if old not in text:
+              old = '''      for (const field of [assertion.title, assertion.fullName]) {
+                if (typeof field === "string" && field.trim().length > 0) executedNames.add(field.trim());
+              }'''
+          # Source uses six-space body indentation; use a direct literal from the file.
+          needle = '''      for (const field of [assertion.title, assertion.fullName]) {
+        if (typeof field === "string" && field.trim().length > 0) executedNames.add(field.trim());
+      }
+'''
+          if needle not in text:
+              raise SystemExit('membership field loop not found exactly once')
+          replacement = '''      for (const field of [assertion.title, assertion.fullName]) {
+        if (typeof field === "string" && field.trim().length > 0) executedNames.add(field.trim());
+      }
+      if (Array.isArray(assertion.ancestorTitles) && typeof assertion.title === "string") {
+        const ancestors = assertion.ancestorTitles.map((value) =>
+          typeof value === "string" ? value.trim() : null,
+        );
+        const title = assertion.title.trim();
+        if (ancestors.length > 0 && ancestors.every((value) => value !== null && value.length > 0) && title.length > 0) {
+          executedNames.add([...ancestors, title].join(" > "));
+        }
+      }
+'''
+          text = text.replace(needle, replacement, 1)
+          harness.write_text(text)
+
+          tests = Path('tests/benchmark-membership-proof.test.ts')
+          text = tests.read_text()
+          assertion_needle = '''            fullName: "number .multipleOf() with scientific notation (multi-digit exponents)",
+            status: "passed",
+'''
+          assertion_replacement = '''            fullName: "number .multipleOf() with scientific notation (multi-digit exponents)",
+            ancestorTitles: ["number"],
+            status: "passed",
+'''
+          if assertion_needle not in text:
+              raise SystemExit('membership fixture assertion not found')
+          text = text.replace(assertion_needle, assertion_replacement, 1)
+          test_needle = '''  it("accepts an exact fullName when the reviewed id includes suite ancestry", () => {
+    expect(
+      proveRunnerMembership(
+        report,
+        ["number .multipleOf() with scientific notation (multi-digit exponents)"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+      ),
+    ).toBe(true);
+  });
+'''
+          new_tests = test_needle + '''
+  it("accepts an exact canonical suite > test identity from structured ancestry", () => {
+    expect(
+      proveRunnerMembership(
+        report,
+        ["number > .multipleOf() with scientific notation (multi-digit exponents)"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+      ),
+    ).toBe(true);
+  });
+
+  it("does not fuzzy-match a canonical suite > test identity", () => {
+    expect(
+      proveRunnerMembership(
+        report,
+        ["number > scientific notation (multi-digit exponents)"],
+        ["packages/zod/src/v4/classic/tests/number.test.ts"],
+      ),
+    ).toBe(false);
+  });
+'''
+          if test_needle not in text:
+              raise SystemExit('membership fullName test block not found')
+          text = text.replace(test_needle, new_tests, 1)
+          tests.write_text(text)
+          PY
+          git diff --check
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test -- tests/benchmark-membership-proof.test.ts
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          git status --short
+          git config user.name 'Ascout Repository Automation'
+          git config user.email 'ascout-repository-automation@users.noreply.github.com'
+          git add benchmarks/harness-lib.mjs tests/benchmark-membership-proof.test.ts
+          git commit -m 'fix(benchmark): match structured suite identities'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
