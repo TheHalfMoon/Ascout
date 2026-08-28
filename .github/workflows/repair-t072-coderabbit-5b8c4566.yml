@@ -1,0 +1,131 @@
+name: T072 CodeRabbit repair 5b8c4566
+
+on:
+  push:
+    branches:
+      - repair/t072-coderabbit-5b8c4566
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feat/072-benchmark-manifest
+          fetch-depth: 0
+
+      - name: Guard exact pre-repair state
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head='5b8c456650ef1775fb47992cf8bcbf4989763fe6'
+          expected_base='d4a9694f722acb9657c92b90f0d1832a295e3a3e'
+          test "$(git rev-parse HEAD)" = "$expected_head"
+          test -z "$(git status --porcelain)"
+          git fetch origin main
+          test "$(git merge-base HEAD origin/main)" = "$expected_base"
+          test "$(git rev-parse origin/main)" = "$expected_base"
+          test "$(git diff --name-only "$expected_base"...HEAD)" = 'benchmarks/manifest.json'
+
+      - name: Apply bounded schema repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          path = Path('benchmarks/manifest.json')
+          text = path.read_text(encoding='utf-8')
+
+          schema_anchor = (
+              '  "case_schema": {\n'
+              '    "$schema": "https://json-schema.org/draft/2020-12/schema",\n'
+          )
+          schema_replacement = (
+              '  "case_schema": {\n'
+              '    "$schema": "https://json-schema.org/draft/2020-12/schema",\n'
+              '    "$id": "urn:ascout:benchmark-case-schema:v1",\n'
+          )
+          if text.count(schema_anchor) != 1:
+              raise SystemExit('unexpected case_schema anchor count')
+          text = text.replace(schema_anchor, schema_replacement, 1)
+
+          pattern = re.compile(r'("expected_digest": \{\n\s+)"oneOf": \[')
+          text, replacement_count = pattern.subn(r'\1"anyOf": [', text)
+          if replacement_count != 2:
+              raise SystemExit(f'expected exactly 2 expected_digest oneOf replacements, got {replacement_count}')
+
+          path.write_text(text, encoding='utf-8')
+
+          doc = json.loads(text)
+          case = doc['case_schema']
+          assert case['$schema'] == 'https://json-schema.org/draft/2020-12/schema'
+          assert case['$id'] == 'urn:ascout:benchmark-case-schema:v1'
+          assert '#' not in case['$id']
+          assert '$defs' in case
+          assert doc['case_collection_contract']['items_schema_ref'] == '#/case_schema'
+
+          expected_digest = case['properties']['reconstruction']['properties']['derived_identity']['properties']['expected_digest']
+          assert 'anyOf' in expected_digest and 'oneOf' not in expected_digest
+          assert len(expected_digest['anyOf']) == 3
+          assert expected_digest['anyOf'][0]['$ref'] == '#/$defs/git_object_id'
+          assert expected_digest['anyOf'][1]['$ref'] == '#/$defs/sha256'
+          assert expected_digest['anyOf'][2] == {'type': 'null'}
+
+          replay_gate = case['allOf'][4]['then']['properties']['reconstruction']['properties']['derived_identity']['properties']['expected_digest']
+          assert 'anyOf' in replay_gate and 'oneOf' not in replay_gate
+          assert len(replay_gate['anyOf']) == 2
+          assert replay_gate['anyOf'][0]['$ref'] == '#/$defs/git_object_id'
+          assert replay_gate['anyOf'][1]['$ref'] == '#/$defs/sha256'
+
+          git_id = re.compile(case['$defs']['git_object_id']['pattern'])
+          sha256 = re.compile(case['$defs']['sha256']['pattern'])
+          digest64 = 'a' * 64
+          assert git_id.fullmatch(digest64)
+          assert sha256.fullmatch(digest64)
+          assert sum(bool(rx.fullmatch(digest64)) for rx in (git_id, sha256)) == 2
+          assert 'anyOf' in expected_digest
+          PY
+
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+          test "$(git diff --numstat | wc -l | tr -d ' ')" = '1'
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Full test suite
+        run: npm test
+
+      - name: Commit and guarded push
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_head='5b8c456650ef1775fb47992cf8bcbf4989763fe6'
+          branch='feat/072-benchmark-manifest'
+          remote_head="$(git ls-remote origin "refs/heads/$branch" | awk '{print $1}')"
+          test "$remote_head" = "$expected_head"
+          test "$(git diff --name-only)" = 'benchmarks/manifest.json'
+          git config user.name 'Ascout Repair Bot'
+          git config user.email 'ascout-repair-bot@users.noreply.github.com'
+          git add benchmarks/manifest.json
+          git commit -m 'fix(benchmark): repair T072 schema resolution'
+          git push origin "HEAD:$branch"
