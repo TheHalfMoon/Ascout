@@ -1,0 +1,68 @@
+name: T075 machine membership proof repair v2
+
+on:
+  push:
+    branches:
+      - repair/t075-machine-membership-0f73fa8a
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/t075-machine-membership-0f73fa8a
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Return to clean product head and apply helper patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp tools/t075-machine-membership-patch.py "$RUNNER_TEMP/patch.py"
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '0f73fa8a91f40a0ec8aebb889a9a6ef419afc3bb'
+          git switch -C t075-product origin/feat/075-isolated-benchmark-harness
+          test "$(git rev-parse HEAD)" = '0f73fa8a91f40a0ec8aebb889a9a6ef419afc3bb'
+          python3 "$RUNNER_TEMP/patch.py"
+          node --check benchmarks/run.mjs
+          git diff --check
+          test "$(git diff --name-only)" = 'benchmarks/run.mjs'
+      - name: Qualify Ascout and machine proof behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm run build
+          npx vitest run tests/benchmark-harness.test.ts
+          npm test
+          npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = '10.12.1'
+          set +e
+          node benchmarks/run.mjs --case zod-scientific-exponents --run-id "qualification:${GITHUB_RUN_ID}:zod-scientific-exponents" --repetitions 2 > "$RUNNER_TEMP/zod.out" 2> "$RUNNER_TEMP/zod.err"
+          code=$?
+          set -e
+          test "$code" -eq 2
+          grep -F 'oracle_scope:' "$RUNNER_TEMP/zod.err"
+          grep -F 'targeted membership proof executed unexpected test files' "$RUNNER_TEMP/zod.err"
+          if grep -F 'oracle_membership:' "$RUNNER_TEMP/zod.err"; then exit 1; fi
+      - name: Guarded product-only commit and fast-forward push
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main feat/075-isolated-benchmark-harness
+          test "$(git rev-parse origin/main)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          test "$(git rev-parse origin/feat/075-isolated-benchmark-harness)" = '0f73fa8a91f40a0ec8aebb889a9a6ef419afc3bb'
+          test "$(git diff --name-only)" = 'benchmarks/run.mjs'
+          git config user.name 'Abdulaziz M. Shehri'
+          git config user.email 'alshehriofficial@gmail.com'
+          git add benchmarks/run.mjs
+          git commit -m 'fix(benchmark): prove runner membership structurally'
+          git push origin HEAD:feat/075-isolated-benchmark-harness
