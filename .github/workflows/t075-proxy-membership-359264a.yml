@@ -1,0 +1,101 @@
+name: T075 exact-command membership qualification
+
+on:
+  push:
+    branches:
+      - qualification/t075-proxy-membership-359264a
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 359264abc13153fe37ef7bcd164addc1534d38af
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Exact-head guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '359264abc13153fe37ef7bcd164addc1534d38af'
+          git fetch https://github.com/TheHalfMoon/Ascout.git main
+          test "$(git rev-parse FETCH_HEAD)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          git fetch https://github.com/TheHalfMoon/Ascout.git feat/075-isolated-benchmark-harness
+          test "$(git rev-parse FETCH_HEAD)" = '359264abc13153fe37ef7bcd164addc1534d38af'
+          test "$(git merge-base HEAD eecdd3f5be693f4fa5d607790090836a3158014f)" = 'eecdd3f5be693f4fa5d607790090836a3158014f'
+          git diff --check eecdd3f5be693f4fa5d607790090836a3158014f...HEAD
+      - name: Qualify Ascout controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npm test
+          npm run build
+          node --check benchmarks/harness-lib.mjs
+          node --check benchmarks/run.mjs
+          node --check benchmarks/membership-proxy.mjs
+          node --check benchmarks/membership-preload.cjs
+      - name: Provision exact donor package manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global pnpm@10.12.1 --ignore-scripts --no-audit --no-fund
+          test "$(node --version)" = 'v24.15.0'
+          test "$(pnpm --version)" = '10.12.1'
+      - name: Execute isolated T075 canary
+        shell: bash
+        run: |
+          set -euo pipefail
+          result="$RUNNER_TEMP/zod-scientific-exponents.json"
+          node benchmarks/run.mjs \
+            --case zod-scientific-exponents \
+            --run-id "github:${GITHUB_RUN_ID}:zod-scientific-exponents" \
+            --repetitions 2 \
+            --output "$result" \
+            > "$RUNNER_TEMP/zod.stdout.json"
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const path = `${process.env.RUNNER_TEMP}/zod-scientific-exponents.json`;
+          const result = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (result.status !== 'BENCHMARK_ACTIVE') throw new Error(`unexpected status ${result.status}`);
+          if (result.valid_observation_count !== 2) throw new Error('expected two valid observations');
+          if (result.evidence?.determinism !== 'deterministic') throw new Error('canary is not deterministic');
+          if (result.evidence?.network?.isolation_claimed !== false) throw new Error('network isolation claim must remain false');
+          for (const observation of result.evidence.observations) {
+            for (const proof of [
+              observation.evidence.preOracle.proof,
+              observation.evidence.fixedOracle.proof,
+              observation.evidence.full.proof,
+              observation.evidence.related.proof,
+            ]) {
+              if (proof?.evidence_kind !== 'runner-json-assertion-results') throw new Error('membership proof is not structured runner JSON');
+              if (!/^[0-9a-f]{64}$/.test(proof.report_sha256 ?? '')) throw new Error('membership proof report digest missing');
+              if (!(proof.report_bytes > 0)) throw new Error('membership proof report size missing');
+            }
+          }
+          console.log(JSON.stringify({
+            status: result.status,
+            case_id: result.case_id,
+            derived_identity: result.derived_identity,
+            synthetic_head: result.synthetic_head,
+            valid_observation_count: result.valid_observation_count,
+            evidence_sha256: result.evidence_sha256,
+            determinism: result.evidence.determinism,
+            ascout_exit_codes: result.evidence.observations.map((o) => o.ascout.exit_code),
+          }));
+          NODE
+      - name: Closing source guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '359264abc13153fe37ef7bcd164addc1534d38af'
+          test -z "$(git status --porcelain)"
