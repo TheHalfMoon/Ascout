@@ -244,3 +244,64 @@ describe("T075 structured runner membership evidence", () => {
     );
   });
 });
+
+
+describe("T075 Vitest typecheck pseudo-results", () => {
+  const reviewedPath = "packages/zod/src/v4/classic/tests/number.test.ts";
+  const reviewedId = ".multipleOf() with scientific notation (multi-digit exponents)";
+
+  it("ignores a path-echo typecheck pseudo-result when a real reviewed assertion fails", () => {
+    const report = {
+      testResults: [
+        {
+          name: `/tmp/repo/${reviewedPath}`,
+          status: "failed",
+          assertionResults: [{ title: reviewedId, fullName: reviewedId, ancestorTitles: [], status: "failed" }],
+        },
+        {
+          name: `/tmp/repo/${reviewedPath}`,
+          status: "passed",
+          assertionResults: [{
+            title: reviewedId,
+            fullName: `src/v4/classic/tests/number.test.ts ${reviewedId}`,
+            ancestorTitles: ["src/v4/classic/tests/number.test.ts"],
+            status: "passed",
+          }],
+        },
+      ],
+    };
+    expect(proveRunnerMembership(report, [reviewedId], [reviewedPath])).toBe(true);
+    expect(proveReviewedAssertionStatus(report, [reviewedId], [reviewedPath], "failed")).toBe(true);
+    expect(proveReviewedAssertionStatus(report, [reviewedId], [reviewedPath], "passed")).toBe(false);
+  });
+
+  it("does not allow a path-echo pseudo-result to prove execution by itself", () => {
+    const report = {
+      testResults: [{
+        name: `/tmp/repo/${reviewedPath}`,
+        status: "passed",
+        assertionResults: [{
+          title: reviewedId,
+          fullName: `src/v4/classic/tests/number.test.ts ${reviewedId}`,
+          ancestorTitles: ["src/v4/classic/tests/number.test.ts"],
+          status: "passed",
+        }],
+      }],
+    };
+    expect(proveRunnerMembership(report, [reviewedId], [reviewedPath])).toBe(false);
+  });
+
+  it("keeps genuine contradictory reviewed statuses fail-closed", () => {
+    const report = {
+      testResults: [{
+        name: `/tmp/repo/${reviewedPath}`,
+        assertionResults: [
+          { title: reviewedId, fullName: reviewedId, ancestorTitles: [], status: "failed" },
+          { title: reviewedId, fullName: reviewedId, ancestorTitles: [], status: "passed" },
+        ],
+      }],
+    };
+    expect(proveReviewedAssertionStatus(report, [reviewedId], [reviewedPath], "failed")).toBe(false);
+    expect(proveReviewedAssertionStatus(report, [reviewedId], [reviewedPath], "passed")).toBe(false);
+  });
+});

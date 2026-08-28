@@ -257,6 +257,25 @@ function pathMatchesReviewed(sourcePath, reviewedPaths) {
   });
 }
 
+function isVitestTypecheckPseudoAssertion(result, assertion, regressionTestIds, regressionTestPaths) {
+  if (!result || typeof result !== "object" || typeof result.name !== "string") return false;
+  if (!assertion || typeof assertion !== "object") return false;
+  if (!Array.isArray(assertion.ancestorTitles) || assertion.ancestorTitles.length !== 1) return false;
+  if (typeof assertion.title !== "string" || typeof assertion.fullName !== "string") return false;
+  const title = assertion.title.trim();
+  if (!regressionTestIds.some((id) => id.trim() === title)) return false;
+  const rawAncestor = assertion.ancestorTitles[0];
+  if (typeof rawAncestor !== "string") return false;
+  const ancestor = canonicalRepoPath(rawAncestor.trim());
+  if (!ancestor.includes("/") || ancestor.length === 0) return false;
+  if (assertion.fullName.trim() !== `${rawAncestor.trim()} ${title}`) return false;
+  return regressionTestPaths.some((path) => {
+    const reviewed = canonicalRepoPath(path);
+    return pathMatchesReviewed(result.name, [path]) &&
+      (reviewed === ancestor || reviewed.endsWith(`/${ancestor}`));
+  });
+}
+
 export function membershipProofCommand(commandText, kind, outputFile) {
   if (kind !== "vitest" && kind !== "jest") fail("invalid_command", `unsupported membership-proof runner: ${String(kind)}`);
   if (typeof outputFile !== "string" || !isAbsolute(outputFile)) fail("invalid_path", "membership proof output must be an absolute path");
@@ -319,6 +338,7 @@ export function proveRunnerMembership(report, regressionTestIds, regressionTestP
     for (const assertion of result.assertionResults) {
       if (!assertion || typeof assertion !== "object") continue;
       if (assertion.status !== "passed" && assertion.status !== "failed") continue;
+      if (isVitestTypecheckPseudoAssertion(result, assertion, regressionTestIds, regressionTestPaths)) continue;
       for (const field of [assertion.title, assertion.fullName]) {
         if (typeof field === "string" && field.trim().length > 0) executedNames.add(field.trim());
       }
@@ -351,6 +371,7 @@ export function proveReviewedAssertionStatus(report, regressionTestIds, regressi
     for (const assertion of result.assertionResults) {
       if (!assertion || typeof assertion !== "object") continue;
       if (assertion.status !== "passed" && assertion.status !== "failed") continue;
+      if (isVitestTypecheckPseudoAssertion(result, assertion, regressionTestIds, regressionTestPaths)) continue;
       const names = new Set();
       for (const field of [assertion.title, assertion.fullName]) {
         if (typeof field === "string" && field.trim().length > 0) names.add(field.trim());

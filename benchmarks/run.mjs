@@ -193,6 +193,7 @@ function runtimeEnvironment(root, commandEnv = {}) {
     XDG_CACHE_HOME: join(root, "cache", "xdg"),
     npm_config_cache: join(root, "cache", "npm"),
     COREPACK_HOME: join(root, "cache", "corepack"),
+    NX_SOCKET_DIR: join(root, "nx"),
   });
   assertControllerSecretsAbsent(env);
   return env;
@@ -205,6 +206,7 @@ async function ensureRuntimeDirs(root) {
     mkdir(join(root, "cache", "xdg"), { recursive: true }),
     mkdir(join(root, "cache", "npm"), { recursive: true }),
     mkdir(join(root, "cache", "corepack"), { recursive: true }),
+    mkdir(join(root, "nx"), { recursive: true }),
   ]);
 }
 
