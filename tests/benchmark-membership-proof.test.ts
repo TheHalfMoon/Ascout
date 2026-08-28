@@ -7,39 +7,63 @@ import {
 } from "../benchmarks/harness-lib.mjs";
 
 describe("T075 structured membership proof command", () => {
-  it("writes Vitest JSON evidence outside the donor command surface", () => {
-    expect(
-      membershipProofCommand(
-        "pnpm test -- packages/zod/src/v4/classic/tests/number.test.ts",
-        "vitest",
-        "/tmp/ascout-proof.json",
-      ),
-    ).toEqual({
-      file: "pnpm",
-      argv: [
-        "test",
-        "--",
-        "packages/zod/src/v4/classic/tests/number.test.ts",
-        "--reporter=json",
-        "--outputFile=/tmp/ascout-proof.json",
-      ],
-      env: {},
-    });
+  it("proxies the exact reviewed Vitest command without rewriting its argv", () => {
+    const proof = membershipProofCommand(
+      "pnpm test -- packages/zod/src/v4/classic/tests/number.test.ts",
+      "vitest",
+      "/tmp/ascout-proof.json",
+    );
+
+    expect(proof.file).toBe(process.execPath);
+    expect(proof.argv[0]).toMatch(/membership-proxy\.mjs$/);
+    expect(proof.argv.slice(1)).toEqual([
+      "--kind",
+      "vitest",
+      "--output",
+      "/tmp/ascout-proof.json",
+      "--",
+      "pnpm",
+      "test",
+      "--",
+      "packages/zod/src/v4/classic/tests/number.test.ts",
+    ]);
+    expect(proof.env).toEqual({});
   });
 
-  it("uses Jest JSON output without a shell", () => {
-    expect(membershipProofCommand("npm test -- tests/a.test.ts", "jest", "/tmp/jest-proof.json")).toEqual({
-      file: "npm",
-      argv: ["test", "--", "tests/a.test.ts", "--json", "--outputFile=/tmp/jest-proof.json"],
-      env: {},
-    });
+  it("preserves reviewed Jest command environment and argv exactly behind the proxy", () => {
+    const proof = membershipProofCommand(
+      "BRAINTREE_JS_ENV=development ./node_modules/.bin/jest --config=test/venmo/jest.config.json --runInBand test/venmo/unit/venmo.js",
+      "jest",
+      "/tmp/jest-proof.json",
+    );
+
+    expect(proof.file).toBe(process.execPath);
+    expect(proof.argv[0]).toMatch(/membership-proxy\.mjs$/);
+    expect(proof.argv.slice(1)).toEqual([
+      "--kind",
+      "jest",
+      "--output",
+      "/tmp/jest-proof.json",
+      "--",
+      "./node_modules/.bin/jest",
+      "--config=test/venmo/jest.config.json",
+      "--runInBand",
+      "test/venmo/unit/venmo.js",
+    ]);
+    expect(proof.env).toEqual({ BRAINTREE_JS_ENV: "development" });
   });
 
-  it("rejects relative proof paths and reviewed reporter overrides", () => {
+  it("rejects relative proof paths, reviewed reporter overrides, and instrumentation authority collisions", () => {
     expect(() => membershipProofCommand("pnpm test", "vitest", "proof.json")).toThrow(BenchmarkHarnessError);
     expect(() => membershipProofCommand("pnpm test -- --reporter=verbose", "vitest", "/tmp/proof.json")).toThrow(
       /already controls reporter/,
     );
+    expect(() => membershipProofCommand("NODE_OPTIONS=--trace-warnings pnpm test", "vitest", "/tmp/proof.json")).toThrow(
+      /must not control NODE_OPTIONS/,
+    );
+    expect(() =>
+      membershipProofCommand("ASCOUT_MEMBERSHIP_KIND=jest pnpm test", "vitest", "/tmp/proof.json"),
+    ).toThrow(/must not control ASCOUT_MEMBERSHIP_KIND/);
   });
 });
 
