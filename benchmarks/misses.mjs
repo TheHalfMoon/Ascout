@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
@@ -48,10 +49,17 @@ function parseArgs(argv) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const input = JSON.parse(await readFile(options.input, "utf8"));
+  const inputBytes = await readFile(options.input);
+  const measuredInputSha256 = createHash("sha256").update(inputBytes).digest("hex");
+  if (measuredInputSha256 !== options.t076AggregateSha256) {
+    fail(
+      `T076 aggregate SHA-256 mismatch: expected ${options.t076AggregateSha256}, measured ${measuredInputSha256}`,
+    );
+  }
+  const input = JSON.parse(inputBytes.toString("utf8"));
   const result = publishSelectorMisses(input, {
     qualification_run_id: options.qualificationRunId,
-    t076_aggregate_sha256: options.t076AggregateSha256,
+    t076_aggregate_sha256: measuredInputSha256,
     t077_aggregate_sha256: options.t077AggregateSha256,
     aggregate_artifact_digest: options.aggregateArtifactDigest,
   });
