@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -35,7 +35,9 @@ function writeWindowsNodeShim(
   script: string,
 ): string {
   const scriptPath = join(directory, `${name}.cjs`);
-  const shimPath = join(directory, `${name}.cmd`);
+  const shimDirectory = join(directory, "node_modules", ".bin");
+  const shimPath = join(shimDirectory, `${name}.cmd`);
+  mkdirSync(shimDirectory, { recursive: true });
   writeFileSync(scriptPath, script, "utf8");
   writeFileSync(
     shimPath,
