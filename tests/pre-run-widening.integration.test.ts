@@ -32,6 +32,7 @@ function rootFiles(runner: "vitest" | "jest", extra: DiscoveryFileMap = {}): Dis
   return {
     "package.json": JSON.stringify({ private: true, devDependencies: { [runner]: "1.0.0" } }),
     [`node_modules/.bin/${runner}`]: "",
+    [`node_modules/.bin/${runner}.cmd`]: "",
     [`${runner}.config.mjs`]: "",
     ...extra,
   };
@@ -45,6 +46,7 @@ function packageScopedFiles(runner: "vitest" | "jest"): DiscoveryFileMap {
       devDependencies: { [runner]: "1.0.0" },
     }),
     [`packages/a/node_modules/.bin/${runner}`]: "",
+    [`packages/a/node_modules/.bin/${runner}.cmd`]: "",
     [`packages/a/${runner}.config.mjs`]: "",
   };
 }
