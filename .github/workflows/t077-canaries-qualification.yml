@@ -1,0 +1,195 @@
+name: T077 executable canaries
+
+on:
+  push:
+    branches:
+      - qualification/t077-canaries-e8571e3c
+
+permissions:
+  contents: read
+
+env:
+  MAIN_HEAD: b05edc53cceb9ef0c3eb21158657dd94195116a5
+  CANDIDATE_HEAD: e8571e3cebfa44c61929d5b397d4fddb812c026a
+  FEATURE_BRANCH: feat/077-benchmark-absolute-assertions
+
+jobs:
+  controller:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          git fetch origin main "$FEATURE_BRANCH"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git rev-parse "origin/$FEATURE_BRANCH")" = "$CANDIDATE_HEAD"
+          test "$(git merge-base origin/main HEAD)" = "$MAIN_HEAD"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t4'
+          expected=$'benchmarks/assertions-lib.mjs\nbenchmarks/assertions.mjs\nbenchmarks/metrics.mjs\ntests/benchmark-assertions.test.ts'
+          actual="$(git diff --name-only origin/main...HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check origin/main...HEAD
+          test -z "$(git status --short)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Product and T077 gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npx vitest run tests/benchmark-assertions.test.ts
+          npm test
+          npm run build
+          node --check benchmarks/assertions-lib.mjs
+          node --check benchmarks/assertions.mjs
+          node --check benchmarks/metrics.mjs
+          test -z "$(git status --short)"
+
+  canary:
+    needs: controller
+    strategy:
+      fail-fast: false
+      matrix:
+        case_id:
+          - zustand-persist-latest-state
+          - immer-prototype-undefined
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    name: canary / ${{ matrix.case_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact candidate and read runtime
+        id: runtime
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          CASE_ID="$CASE_ID" node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          const item = manifest.cases.find((candidate) => candidate.case_id === process.env.CASE_ID);
+          if (!item) throw new Error(`missing case ${process.env.CASE_ID}`);
+          console.log(`node=${String(item.runtime.node_version).replace(/^v/, '')}`);
+          console.log(`pm=${item.runtime.package_manager}`);
+          console.log(`pm_version=${item.runtime.package_manager_version}`);
+          console.log(`case_revision=${item.case_revision}`);
+          console.log(`case_class=${item.case_class}`);
+          NODE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build exact Ascout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          node --check benchmarks/assertions-lib.mjs
+          node --check benchmarks/assertions.mjs
+          node --check benchmarks/metrics.mjs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.runtime.outputs.node }}
+      - name: Provision exact donor package manager
+        shell: bash
+        env:
+          PM: ${{ steps.runtime.outputs.pm }}
+          PM_VERSION: ${{ steps.runtime.outputs.pm_version }}
+          NODE_VERSION: ${{ steps.runtime.outputs.node }}
+        run: |
+          set -euo pipefail
+          if [ "$PM" = pnpm ]; then
+            npm install --global "pnpm@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = yarn ]; then
+            npm install --global "yarn@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = npm ]; then
+            test "$(npm --version)" = "$PM_VERSION"
+          else
+            echo "unsupported package manager $PM" >&2
+            exit 2
+          fi
+          test "$(node --version)" = "v$NODE_VERSION"
+          test "$($PM --version)" = "$PM_VERSION"
+      - name: Execute T076 evidence and T077 assertions
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+          EXPECTED_REVISION: ${{ steps.runtime.outputs.case_revision }}
+        run: |
+          set -euo pipefail
+          metrics="$RUNNER_TEMP/t076-${CASE_ID}.json"
+          assertions="$RUNNER_TEMP/t077-${CASE_ID}.json"
+          node benchmarks/metrics.mjs \
+            --case "$CASE_ID" \
+            --run-id "t077-canary-${GITHUB_RUN_ID}-${CASE_ID}" \
+            --repetitions 2 \
+            --output "$metrics" \
+            > "$RUNNER_TEMP/t076-${CASE_ID}.stdout"
+          node benchmarks/assertions.mjs --input "$metrics" --output "$assertions" > "$RUNNER_TEMP/t077-${CASE_ID}.stdout"
+          RESULT="$assertions" CASE_ID="$CASE_ID" EXPECTED_REVISION="$EXPECTED_REVISION" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (result.task !== 'T077' || result.status !== 'ABSOLUTE_ASSERTIONS_SATISFIED') throw new Error('T077 canary assertions are not satisfied');
+          if (result.case_id !== process.env.CASE_ID || result.case_revision !== Number(process.env.EXPECTED_REVISION)) throw new Error('T077 canary identity mismatch');
+          if (result.evaluated_run_count !== 4 || !Array.isArray(result.raw_runs) || result.raw_runs.length !== 4) throw new Error('T077 must evaluate two cold/warm observations');
+          for (const [name, assertion] of Object.entries(result.assertions)) {
+            if (assertion.required_count !== 0 || assertion.observed_count !== 0) throw new Error(`${name} absolute assertion is nonzero`);
+          }
+          for (const run of result.raw_runs) {
+            if (run.semantic_valid !== true || run.semantic_issue_count !== 0) throw new Error('canonical receipt semantic validation is not clean');
+            if (run.cross_tree_evidence_leakage_count !== 0) throw new Error('cross-tree evidence leakage detected');
+            if (!['stable', 'tree_drifted'].includes(run.independent_source_stability)) throw new Error('independent source stability unavailable');
+            if (![0,1,2,3,4].includes(run.canonical_exit_code)) throw new Error('canonical exit decision unavailable');
+          }
+          NODE
+          cp "$assertions" "t077-${CASE_ID}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t077-canary-${{ matrix.case_id }}
+          path: t077-${{ matrix.case_id }}.json
+          if-no-files-found: error
+          retention-days: 1
+
+  closing:
+    needs: [controller, canary]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Closing exact-head guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          git fetch origin main "$FEATURE_BRANCH"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git rev-parse "origin/$FEATURE_BRANCH")" = "$CANDIDATE_HEAD"
+          test "$(git merge-base origin/main HEAD)" = "$MAIN_HEAD"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t4'
+          expected=$'benchmarks/assertions-lib.mjs\nbenchmarks/assertions.mjs\nbenchmarks/metrics.mjs\ntests/benchmark-assertions.test.ts'
+          actual="$(git diff --name-only origin/main...HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check origin/main...HEAD
+          test -z "$(git status --short)"
