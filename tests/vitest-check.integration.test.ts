@@ -1,4 +1,4 @@
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -9,6 +9,7 @@ import { runCheck } from "../src/check.js";
 import { normalizeLcovLineCoverage } from "../src/coverage/lcov.js";
 import { UNSAFE_SELECTION_LIMITATION, validateReceiptSemantics } from "../src/receipt/model.js";
 import { SELECTION_COUNTS_NOT_OBSERVED_LIMITATION } from "../src/selection.js";
+import { writePackageNodeCommandShim } from "./helpers/native-command-shim.js";
 
 function run(root: string, file: string, argv: readonly string[]): void {
   const result = spawnSync(file, argv, { cwd: root, encoding: "utf8" });
@@ -24,10 +25,7 @@ function initializeFixture(): string {
   cpSync(resolve("node_modules"), join(root, "node_modules"), { recursive: true });
   const binRoot = join(root, "node_modules", ".bin");
   rmSync(binRoot, { recursive: true, force: true });
-  mkdirSync(binRoot, { recursive: true });
-  const vitestShim = join(binRoot, "vitest");
-  writeFileSync(vitestShim, '#!/bin/sh\nexec node "$(dirname "$0")/../vitest/vitest.mjs" "$@"\n');
-  chmodSync(vitestShim, 0o755);
+  writePackageNodeCommandShim(binRoot, "vitest", "../vitest/vitest.mjs");
   writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
   writeFileSync(
     join(root, "package.json"),
