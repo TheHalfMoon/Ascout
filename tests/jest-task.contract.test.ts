@@ -13,7 +13,7 @@ function changed(path: string): GitChangedFile {
     path,
     change_kind: "modified",
     line_semantics: "text",
-    changed_new_line_ranges: [{ start: 1, end: 1 }],
+    changed_new_line_ranges: [[1, 1]],
   };
 }
 
