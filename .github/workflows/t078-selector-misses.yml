@@ -63,7 +63,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: t077-binding-full-corpus-aggregate
-          path: t077-evidence
+          path: ${{ runner.temp }}/t077-evidence
           github-token: ${{ github.token }}
           repository: TheHalfMoon/Ascout
           run-id: ${{ env.SOURCE_RUN_ID }}
@@ -71,9 +71,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "$T076_AGGREGATE_SHA256  t077-evidence/t076-aggregate.json" | sha256sum -c -
-          echo "$T077_AGGREGATE_SHA256  t077-evidence/t077-aggregate.json" | sha256sum -c -
-          RESULT=t077-evidence/t077-aggregate.json node --input-type=module <<'NODE'
+          evidence="$RUNNER_TEMP/t077-evidence"
+          echo "$T076_AGGREGATE_SHA256  $evidence/t076-aggregate.json" | sha256sum -c -
+          echo "$T077_AGGREGATE_SHA256  $evidence/t077-aggregate.json" | sha256sum -c -
+          RESULT="$evidence/t077-aggregate.json" node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const result = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
           if (result.task !== 'T077' || result.status !== 'ABSOLUTE_ASSERTIONS_SATISFIED') throw new Error('source T077 aggregate is not satisfied');
@@ -84,7 +85,7 @@ jobs:
           NODE
           generated="$RUNNER_TEMP/t078-selector-misses.json"
           node benchmarks/misses.mjs \
-            --input t077-evidence/t076-aggregate.json \
+            --input "$evidence/t076-aggregate.json" \
             --output "$generated" \
             --qualification-run-id "$SOURCE_RUN_ID" \
             --t076-aggregate-sha256 "$T076_AGGREGATE_SHA256" \
