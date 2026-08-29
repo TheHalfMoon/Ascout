@@ -227,7 +227,7 @@ describe("T051 project-local Vitest planning", () => {
         config: { version: 1 },
         discovery: discoverProjectFromFiles(files),
         files,
-        changedFiles: [changed("src/used.js")],
+        changedFiles: [changed("src/used.ts")],
       });
 
       expect(plan).toMatchObject({ state: "not_applicable", reasonCode: "runner_not_vitest" });
