@@ -1,0 +1,279 @@
+name: T077 repaired full-corpus qualification
+
+on:
+  push:
+    branches:
+      - qualification/t077-binding-full-corpus-246d9950
+
+permissions:
+  contents: read
+
+env:
+  MAIN_HEAD: b05edc53cceb9ef0c3eb21158657dd94195116a5
+  CANDIDATE_HEAD: 246d9950059ee5986bdf67640ee40fda81a54be1
+  FEATURE_BRANCH: feat/077-benchmark-absolute-assertions
+
+jobs:
+  controller:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          git fetch origin main "$FEATURE_BRANCH"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git rev-parse "origin/$FEATURE_BRANCH")" = "$CANDIDATE_HEAD"
+          test "$(git merge-base origin/main HEAD)" = "$MAIN_HEAD"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t5'
+          expected=$'benchmarks/assertions-lib.mjs\nbenchmarks/assertions.mjs\nbenchmarks/metrics.mjs\ntests/benchmark-assertions.test.ts'
+          actual="$(git diff --name-only origin/main...HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check origin/main...HEAD
+          test -z "$(git status --short)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Full controller gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npx vitest run tests/benchmark-assertions.test.ts tests/benchmark-metrics.test.ts tests/benchmark-membership-proof.test.ts
+          npm test
+          npm run build
+          node --check benchmarks/assertions-lib.mjs
+          node --check benchmarks/assertions.mjs
+          node --check benchmarks/metrics.mjs
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          if (manifest.manifest_revision !== 11) throw new Error(`expected manifest revision 11, got ${manifest.manifest_revision}`);
+          if (manifest.cases.length !== 9) throw new Error(`expected 9 cases, got ${manifest.cases.length}`);
+          if (manifest.cases.filter((item) => item.case_class === 'selection').length !== 6) throw new Error('expected six selection cases');
+          if (manifest.cases.filter((item) => item.case_class === 'gap').length !== 3) throw new Error('expected three gap cases');
+          NODE
+          test -z "$(git status --short)"
+
+  assertions:
+    needs: controller
+    strategy:
+      fail-fast: false
+      max-parallel: 9
+      matrix:
+        case_id:
+          - zod-scientific-exponents
+          - zod-jitless-allows-eval
+          - tanstack-streamed-query-reducer
+          - zustand-persist-latest-state
+          - react-hook-form-value-as-date
+          - trpc-streaming-onerror-cause
+          - braintree-venmo-csp-nonce-web-login
+          - immer-prototype-undefined
+          - react-hook-form-valueasdate-minmax
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    name: assertions / ${{ matrix.case_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact candidate and read runtime
+        id: runtime
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          CASE_ID="$CASE_ID" node --input-type=module <<'NODE' >> "$GITHUB_OUTPUT"
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          const item = manifest.cases.find((candidate) => candidate.case_id === process.env.CASE_ID);
+          if (!item) throw new Error(`missing case ${process.env.CASE_ID}`);
+          console.log(`node=${String(item.runtime.node_version).replace(/^v/, '')}`);
+          console.log(`pm=${item.runtime.package_manager}`);
+          console.log(`pm_version=${item.runtime.package_manager_version}`);
+          console.log(`case_revision=${item.case_revision}`);
+          NODE
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - name: Build exact Ascout candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.runtime.outputs.node }}
+      - name: Provision exact donor package manager
+        shell: bash
+        env:
+          PM: ${{ steps.runtime.outputs.pm }}
+          PM_VERSION: ${{ steps.runtime.outputs.pm_version }}
+          NODE_VERSION: ${{ steps.runtime.outputs.node }}
+        run: |
+          set -euo pipefail
+          if [ "$PM" = pnpm ]; then
+            npm install --global "pnpm@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = yarn ]; then
+            npm install --global "yarn@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          elif [ "$PM" = npm ]; then
+            test "$(npm --version)" = "$PM_VERSION"
+          else
+            echo "unsupported package manager $PM" >&2
+            exit 2
+          fi
+          test "$(node --version)" = "v$NODE_VERSION"
+          test "$($PM --version)" = "$PM_VERSION"
+      - name: Execute repaired T077 case
+        shell: bash
+        env:
+          CASE_ID: ${{ matrix.case_id }}
+          EXPECTED_REVISION: ${{ steps.runtime.outputs.case_revision }}
+        run: |
+          set -euo pipefail
+          metrics="$RUNNER_TEMP/t076-${CASE_ID}.json"
+          assertions="$RUNNER_TEMP/t077-${CASE_ID}.json"
+          node benchmarks/metrics.mjs \
+            --case "$CASE_ID" \
+            --run-id "t077-binding-full-${GITHUB_RUN_ID}-${CASE_ID}" \
+            --repetitions 2 \
+            --output "$metrics" \
+            > "$RUNNER_TEMP/t076-${CASE_ID}.stdout"
+          METRICS="$metrics" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.METRICS, 'utf8'));
+          if (!Array.isArray(result.observations) || result.observations.length !== 2) throw new Error('expected two metric observations');
+          for (const observation of result.observations) {
+            for (const cacheClass of ['cold', 'warm']) {
+              const run = observation?.comparators?.ascout?.[cacheClass];
+              const b = run?.binding;
+              if (!b) throw new Error(`missing ${cacheClass} binding proof`);
+              if (b.measured_head_start !== b.receipt_start_head_sha || b.measured_head_start !== b.receipt_comparison_base_ref) throw new Error(`${cacheClass} start/base binding mismatch`);
+              if (b.measured_head_end !== b.receipt_end_head_sha || b.measured_head_start !== b.measured_head_end) throw new Error(`${cacheClass} HEAD binding mismatch`);
+              if (b.measured_tree_start_digest !== b.receipt_start_tree_digest || b.measured_tree_end_digest !== b.receipt_end_tree_digest) throw new Error(`${cacheClass} tree binding mismatch`);
+              if (run.source_stability !== run.reported_source_stability) throw new Error(`${cacheClass} stability binding mismatch`);
+              if (b.artifact_binding_verified !== true || !Number.isInteger(b.artifact_count)) throw new Error(`${cacheClass} artifact binding unavailable`);
+              if (JSON.stringify([...b.measured_paths].sort()) !== JSON.stringify([...b.receipt_changed_paths].sort())) throw new Error(`${cacheClass} changed-path binding mismatch`);
+            }
+          }
+          NODE
+          node benchmarks/assertions.mjs --input "$metrics" --output "$assertions" > "$RUNNER_TEMP/t077-${CASE_ID}.stdout"
+          RESULT="$assertions" CASE_ID="$CASE_ID" EXPECTED_REVISION="$EXPECTED_REVISION" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (result.task !== 'T077' || result.status !== 'ABSOLUTE_ASSERTIONS_SATISFIED') throw new Error('T077 assertions are not satisfied');
+          if (result.case_id !== process.env.CASE_ID || result.case_revision !== Number(process.env.EXPECTED_REVISION)) throw new Error('T077 case identity mismatch');
+          if (result.evaluated_run_count !== 4 || !Array.isArray(result.raw_runs) || result.raw_runs.length !== 4) throw new Error('T077 requires four Ascout runs per case');
+          for (const [name, assertion] of Object.entries(result.assertions)) {
+            if (assertion.required_count !== 0 || assertion.observed_count !== 0) throw new Error(`${name} absolute assertion is nonzero`);
+          }
+          NODE
+          cp "$metrics" "t076-${CASE_ID}.json"
+          cp "$assertions" "t077-${CASE_ID}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t077-binding-case-${{ matrix.case_id }}
+          path: |
+            t076-${{ matrix.case_id }}.json
+            t077-${{ matrix.case_id }}.json
+          if-no-files-found: error
+          retention-days: 1
+
+  aggregate:
+    needs: assertions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: t077-binding-case-*
+          path: t077-results
+          merge-multiple: true
+      - name: Aggregate all nine repaired T076 and T077 cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          mapfile -t metric_files < <(find t077-results -maxdepth 1 -type f -name 't076-*.json' -print | sort)
+          mapfile -t assertion_files < <(find t077-results -maxdepth 1 -type f -name 't077-*.json' -print | sort)
+          test "${#metric_files[@]}" -eq 9
+          test "${#assertion_files[@]}" -eq 9
+          metric_args=(); for file in "${metric_files[@]}"; do metric_args+=(--aggregate-input "$file"); done
+          assertion_args=(); for file in "${assertion_files[@]}"; do assertion_args+=(--aggregate-input "$file"); done
+          node benchmarks/metrics.mjs "${metric_args[@]}" --output "$RUNNER_TEMP/t076-aggregate.json" > "$RUNNER_TEMP/t076-aggregate.stdout"
+          node benchmarks/assertions.mjs "${assertion_args[@]}" --output "$RUNNER_TEMP/t077-aggregate.json" > "$RUNNER_TEMP/t077-aggregate.stdout"
+          RESULT="$RUNNER_TEMP/t077-aggregate.json" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (result.task !== 'T077' || result.status !== 'ABSOLUTE_ASSERTIONS_SATISFIED') throw new Error('T077 aggregate is not satisfied');
+          if (!Array.isArray(result.case_set) || result.case_set.length !== 9 || !Array.isArray(result.raw_cases) || result.raw_cases.length !== 9) throw new Error('T077 aggregate must retain all nine cases');
+          if (result.evaluated_run_count !== 36) throw new Error(`expected 36 evaluated runs, got ${result.evaluated_run_count}`);
+          for (const [name, assertion] of Object.entries(result.assertions)) {
+            if (assertion.required_count !== 0 || assertion.observed_count !== 0) throw new Error(`${name} aggregate absolute assertion is nonzero`);
+          }
+          NODE
+          METRICS="$RUNNER_TEMP/t076-aggregate.json" node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.METRICS, 'utf8'));
+          if (result.task !== 'T076' || !Array.isArray(result.case_set) || result.case_set.length !== 9 || !Array.isArray(result.raw_cases) || result.raw_cases.length !== 9) throw new Error('T076 companion aggregate is incomplete');
+          NODE
+          cp "$RUNNER_TEMP/t076-aggregate.json" t076-aggregate.json
+          cp "$RUNNER_TEMP/t077-aggregate.json" t077-aggregate.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t077-binding-full-corpus-aggregate
+          path: |
+            t076-aggregate.json
+            t077-aggregate.json
+          if-no-files-found: error
+          retention-days: 1
+
+  closing:
+    needs: [controller, assertions, aggregate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Closing exact-head guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          git fetch origin main "$FEATURE_BRANCH"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git rev-parse "origin/$FEATURE_BRANCH")" = "$CANDIDATE_HEAD"
+          test "$(git merge-base origin/main HEAD)" = "$MAIN_HEAD"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t5'
+          expected=$'benchmarks/assertions-lib.mjs\nbenchmarks/assertions.mjs\nbenchmarks/metrics.mjs\ntests/benchmark-assertions.test.ts'
+          actual="$(git diff --name-only origin/main...HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check origin/main...HEAD
+          test -z "$(git status --short)"
