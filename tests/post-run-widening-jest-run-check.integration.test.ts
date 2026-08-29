@@ -1,4 +1,4 @@
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { runCheck } from "../src/check.js";
 import { validateReceiptSemantics } from "../src/receipt/model.js";
 import { SELECTION_COUNTS_NOT_OBSERVED_LIMITATION } from "../src/selection.js";
+import { writeNodeCommandShim } from "./helpers/native-command-shim.js";
 
 function run(root: string, file: string, argv: readonly string[]): void {
   const result = spawnSync(file, argv, { cwd: root, encoding: "utf8" });
@@ -23,12 +24,10 @@ function initializeFixture(): string {
 
   const binRoot = join(root, "node_modules", ".bin");
   rmSync(binRoot, { recursive: true, force: true });
-  mkdirSync(binRoot, { recursive: true });
-  const jestShim = join(binRoot, "jest");
-  writeFileSync(
-    jestShim,
-    `#!/usr/bin/env node
-const fs = require("node:fs");
+  writeNodeCommandShim(
+    binRoot,
+    "jest",
+    `const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
 const outputArg = args.find((arg) => arg.startsWith("--outputFile="));
@@ -46,7 +45,6 @@ fs.writeFileSync(path.join(coverageDirectory, "lcov.info"), lcov);
 process.stdout.write(related ? "narrow\\n" : "full\\n");
 `,
   );
-  chmodSync(jestShim, 0o755);
 
   writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
   writeFileSync(
