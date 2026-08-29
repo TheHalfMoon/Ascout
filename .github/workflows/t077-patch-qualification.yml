@@ -1,0 +1,104 @@
+name: T077 patch qualification
+
+on:
+  push:
+    branches:
+      - qualification/t077-patch-6d14c080
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-qualify:
+    runs-on: ubuntu-latest
+    env:
+      EXPECTED_MAIN: b05edc53cceb9ef0c3eb21158657dd94195116a5
+      EXPECTED_FEATURE: 6d14c080f989b1ace8882d25d7ab6ddad0592c7f
+      FEATURE_BRANCH: feat/077-benchmark-absolute-assertions
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/077-benchmark-absolute-assertions
+          fetch-depth: 0
+
+      - name: Guard exact repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$EXPECTED_MAIN"
+          test "$(git ls-remote origin refs/heads/$FEATURE_BRANCH | cut -f1)" = "$EXPECTED_FEATURE"
+          test "$(git status --porcelain)" = ""
+
+      - name: Apply guarded T077 integrity projection patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("benchmarks/metrics.mjs")
+          text = path.read_text()
+
+          replacements = [
+              (
+                  'import { basename, dirname, join, resolve } from "node:path";\n',
+                  'import { basename, dirname, join, resolve } from "node:path";\nimport { pathToFileURL } from "node:url";\n',
+              ),
+              (
+                  '\n}\n\nasync function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {\n',
+                  '''\n}\n\nasync function projectReceiptIntegrity(receipt, ascoutRoot) {\n  const moduleUrl = pathToFileURL(resolve(ascoutRoot, "dist/receipt/model.js")).href;\n  const receiptModel = await import(moduleUrl);\n  if (typeof receiptModel.validateReceiptSemantics !== "function" || typeof receiptModel.decideReceiptExitCode !== "function") {\n    fail("binding_integrity", "canonical receipt semantic validator exports are unavailable");\n  }\n  const validation = receiptModel.validateReceiptSemantics(receipt);\n  return {\n    semantic_valid: validation.valid,\n    semantic_issues: validation.issues.map((issue) => ({ code: issue.code, path: issue.path })),\n    run_id: receipt?.run?.run_id ?? null,\n    evidence_run_ids: Array.isArray(receipt?.evidence) ? receipt.evidence.map((item) => item.run_id) : [],\n    source_binding: {\n      start_repository_id: receipt?.source?.start?.repository_id ?? null,\n      end_repository_id: receipt?.source?.end?.repository_id ?? null,\n      start_head_sha: receipt?.source?.start?.head_sha ?? null,\n      comparison_base_ref: receipt?.comparison?.base_ref ?? null,\n      start_tree_digest: receipt?.source?.start?.tree_digest ?? null,\n      end_tree_digest: receipt?.source?.end?.tree_digest ?? null,\n    },\n    canonical_exit_code: validation.valid ? receiptModel.decideReceiptExitCode(receipt) : null,\n  };\n}\n\nasync function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {\n''',
+              ),
+              (
+                  '  const projection = projectReceipt(receipt);\n',
+                  '  const projection = projectReceipt(receipt);\n  const integrity = await projectReceiptIntegrity(receipt, ascoutRoot);\n',
+              ),
+              (
+                  '    reported_source_stability: projection.reported_source_stability,\n',
+                  '    reported_source_stability: projection.reported_source_stability,\n    integrity,\n',
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"guarded replacement expected exactly once, got {count}: {old[:80]!r}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+          PY
+          test "$(git diff --name-only)" = "benchmarks/metrics.mjs"
+          git diff --check
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+
+      - name: Qualify patched T077 product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run typecheck
+          npx vitest run tests/benchmark-assertions.test.ts
+          npm test
+          npm run build
+          node --check benchmarks/assertions-lib.mjs
+          node --check benchmarks/assertions.mjs
+          node --check benchmarks/metrics.mjs
+          git diff --check
+          test "$(git diff --name-only)" = "benchmarks/metrics.mjs"
+
+      - name: Commit exact qualified patch to feature branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_FEATURE"
+          test "$(git ls-remote origin refs/heads/$FEATURE_BRANCH | cut -f1)" = "$EXPECTED_FEATURE"
+          test "$(git diff --name-only)" = "benchmarks/metrics.mjs"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/metrics.mjs
+          git commit -m "feat(benchmark): project canonical T077 integrity evidence"
+          git push origin HEAD:refs/heads/$FEATURE_BRANCH
