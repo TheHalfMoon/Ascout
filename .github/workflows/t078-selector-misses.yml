@@ -1,0 +1,136 @@
+name: T078 selector-miss qualification
+
+on:
+  push:
+    branches:
+      - qualification/t078-publish-misses-c44479b1
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  MAIN_HEAD: a9ac8538aa2b5323cb7e92c8c6822b3c895bae95
+  CANDIDATE_HEAD: c44479b1f20b8ed6260a347aca96ba47c7bb16bd
+  FEATURE_BRANCH: feat/078-publish-selector-misses
+  SOURCE_RUN_ID: "33236015286"
+  T076_AGGREGATE_SHA256: e629afb287d9a0c3b5d6bfc37cda5790b45d2d3d0b229caf4cd0f975762bb9f1
+  T077_AGGREGATE_SHA256: 847c573a69e2b6140f9eeac42a696af02dbe1016bb9d390351f4af18cec7c8ab
+  AGGREGATE_ARTIFACT_DIGEST: sha256:a2f3eafc407fd9ea4e12dd6c273214cc6eeac6a925bdb7f5ee560dc6361ce114
+  PUBLISHED_RESULT_SHA256: 2c62cd54c5700fa76ffbcf549390d4695a2f76f4afd46a521207065d261cf2a5
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Guard exact T078 candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          git fetch origin main "$FEATURE_BRANCH"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git rev-parse "origin/$FEATURE_BRANCH")" = "$CANDIDATE_HEAD"
+          test "$(git merge-base origin/main HEAD)" = "$MAIN_HEAD"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t4'
+          expected=$'benchmarks/misses-lib.mjs\nbenchmarks/misses.mjs\nbenchmarks/results/t078-selector-misses.json\ntests/benchmark-misses.test.ts'
+          actual="$(git diff --name-only origin/main...HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check origin/main...HEAD
+          test -z "$(git status --short)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+      - name: Project and focused gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run typecheck
+          npx vitest run tests/benchmark-misses.test.ts
+          npm test
+          npm run build
+          node --check benchmarks/misses-lib.mjs
+          node --check benchmarks/misses.mjs
+          test -z "$(git status --short)"
+      - uses: actions/download-artifact@v4
+        with:
+          name: t077-binding-full-corpus-aggregate
+          path: t077-evidence
+          github-token: ${{ github.token }}
+          repository: TheHalfMoon/Ascout
+          run-id: ${{ env.SOURCE_RUN_ID }}
+      - name: Reproduce exact published selector misses
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$T076_AGGREGATE_SHA256  t077-evidence/t076-aggregate.json" | sha256sum -c -
+          echo "$T077_AGGREGATE_SHA256  t077-evidence/t077-aggregate.json" | sha256sum -c -
+          RESULT=t077-evidence/t077-aggregate.json node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (result.task !== 'T077' || result.status !== 'ABSOLUTE_ASSERTIONS_SATISFIED') throw new Error('source T077 aggregate is not satisfied');
+          if (!Array.isArray(result.case_set) || result.case_set.length !== 9 || result.evaluated_run_count !== 36) throw new Error('source T077 aggregate corpus is incomplete');
+          for (const [name, assertion] of Object.entries(result.assertions)) {
+            if (assertion.required_count !== 0 || assertion.observed_count !== 0) throw new Error(`${name} source absolute assertion is nonzero`);
+          }
+          NODE
+          generated="$RUNNER_TEMP/t078-selector-misses.json"
+          node benchmarks/misses.mjs \
+            --input t077-evidence/t076-aggregate.json \
+            --output "$generated" \
+            --qualification-run-id "$SOURCE_RUN_ID" \
+            --t076-aggregate-sha256 "$T076_AGGREGATE_SHA256" \
+            --t077-aggregate-sha256 "$T077_AGGREGATE_SHA256" \
+            --aggregate-artifact-digest "$AGGREGATE_ARTIFACT_DIGEST" \
+            > "$RUNNER_TEMP/t078-selector-misses.stdout.json"
+          cmp "$generated" "$RUNNER_TEMP/t078-selector-misses.stdout.json"
+          cmp "$generated" benchmarks/results/t078-selector-misses.json
+          echo "$PUBLISHED_RESULT_SHA256  benchmarks/results/t078-selector-misses.json" | sha256sum -c -
+          RESULT=benchmarks/results/t078-selector-misses.json node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const result = JSON.parse(fs.readFileSync(process.env.RESULT, 'utf8'));
+          if (result.task !== 'T078' || result.status !== 'SELECTOR_MISSES_PUBLISHED') throw new Error('T078 publication status is invalid');
+          if (result.threshold_policy?.acceptance_threshold !== null) throw new Error('T078 invented an acceptance threshold');
+          if (result.summary?.selection_case_count !== 6 || result.summary?.comparator_outcome_count !== 24) throw new Error('T078 selection corpus accounting mismatch');
+          if (result.summary?.published_selector_miss_count !== 1 || result.summary?.unavailable_outcome_count !== 9) throw new Error('T078 miss/unavailable accounting mismatch');
+          if (!Array.isArray(result.selector_misses) || result.selector_misses.length !== 1) throw new Error('T078 must publish exactly the observed miss in this corpus');
+          const miss = result.selector_misses[0];
+          if (miss.case_id !== 'react-hook-form-value-as-date' || miss.case_revision !== 2 || miss.comparator !== 'ascout') throw new Error('unexpected published selector miss identity');
+          if (miss.oracle_test_id !== 'validateField > should return min error when the field value is already a Date object (valueAsDate)') throw new Error('unexpected published oracle miss');
+          if (!Array.isArray(result.selector_unavailable) || result.selector_unavailable.length !== 9) throw new Error('unavailable selector outcomes were not preserved');
+          NODE
+          test -z "$(git status --short)"
+
+  closing:
+    needs: qualify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Closing exact-head guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+          git fetch origin main "$FEATURE_BRANCH"
+          test "$(git rev-parse origin/main)" = "$MAIN_HEAD"
+          test "$(git rev-parse "origin/$FEATURE_BRANCH")" = "$CANDIDATE_HEAD"
+          test "$(git merge-base origin/main HEAD)" = "$MAIN_HEAD"
+          test "$(git rev-list --left-right --count origin/main...HEAD)" = $'0\t4'
+          expected=$'benchmarks/misses-lib.mjs\nbenchmarks/misses.mjs\nbenchmarks/results/t078-selector-misses.json\ntests/benchmark-misses.test.ts'
+          actual="$(git diff --name-only origin/main...HEAD | sort)"
+          test "$actual" = "$expected"
+          git diff --check origin/main...HEAD
+          test -z "$(git status --short)"
