@@ -1,0 +1,346 @@
+name: T077 independent binding repair
+
+on:
+  push:
+    branches:
+      - qualification/t077-binding-repair-e8571e3c
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: repair/t077-independent-binding-e8571e3c
+          fetch-depth: 0
+
+      - name: Guard exact repair base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "e8571e3cebfa44c61929d5b397d4fddb812c026a"
+          test "$(git merge-base HEAD origin/main)" = "b05edc53cceb9ef0c3eb21158657dd94195116a5"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: npm
+
+      - name: Install exact repository dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Apply guarded T077 binding repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly one guarded replacement, found {count}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace_once(
+              "benchmarks/metrics.mjs",
+              "async function assertMeasuredPaths(caseRecord, repo, env) {",
+              '''async function measuredHeadSha(repo, env) {
+            const result = await runGit(repo, ["rev-parse", "--verify", "HEAD^{commit}"], env);
+            const value = result.stdout.toString("utf8").trim();
+            if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(value)) fail("binding_integrity", "measured HEAD is not a full lowercase Git object ID");
+            return value;
+          }
+
+          async function measuredTreeDigest(repo, ascoutRoot) {
+            const moduleUrl = pathToFileURL(resolve(ascoutRoot, "dist/git.js")).href;
+            const gitModule = await import(moduleUrl);
+            if (typeof gitModule.readTreeDigestV1 !== "function") fail("binding_integrity", "canonical tree-digest primitive is unavailable");
+            const observed = gitModule.readTreeDigestV1(repo);
+            if (observed?.tree_digest_version !== 1 || typeof observed.tree_digest !== "string" || !/^[a-f0-9]{64}$/u.test(observed.tree_digest)) {
+              fail("binding_integrity", "measured canonical tree digest is unavailable");
+            }
+            return observed.tree_digest;
+          }
+
+          async function assertMeasuredPaths(caseRecord, repo, env) {''',
+          )
+
+          replace_once(
+              "benchmarks/metrics.mjs",
+              "async function auditReceiptMachineResults(caseRecord, repo, receipt) {",
+              '''async function auditReceiptArtifacts(repo, receipt) {
+            if (!receipt?.run?.run_id || !Array.isArray(receipt?.artifacts)) fail("artifact_integrity", "Ascout receipt artifact inventory is unavailable");
+            if (!/^[A-Za-z0-9._-]+$/u.test(receipt.run.run_id)) fail("artifact_integrity", "Ascout receipt run id is not safe for artifact lookup");
+            const runRoot = resolve(repo, ".ascout", "runs", receipt.run.run_id);
+            const seen = new Set();
+            const verified = [];
+            for (const artifact of receipt.artifacts) {
+              if (typeof artifact?.artifact_id !== "string" || artifact.artifact_id.length === 0 || seen.has(artifact.artifact_id)) {
+                fail("artifact_integrity", "Ascout receipt artifact identity is invalid or duplicated");
+              }
+              seen.add(artifact.artifact_id);
+              if (typeof artifact.relative_run_path !== "string" || !Number.isSafeInteger(artifact.byte_length) || artifact.byte_length < 0 || typeof artifact.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(artifact.sha256)) {
+                fail("artifact_integrity", `Ascout receipt artifact metadata is invalid: ${artifact.artifact_id}`);
+              }
+              const path = resolve(runRoot, artifact.relative_run_path);
+              assertPathInside(runRoot, path);
+              const info = await stat(path);
+              if (!info.isFile() || info.size !== artifact.byte_length) fail("artifact_integrity", `Ascout artifact size mismatch: ${artifact.artifact_id}`);
+              const bytes = await readFile(path);
+              if (sha256Bytes(bytes) !== artifact.sha256) fail("artifact_integrity", `Ascout artifact digest mismatch: ${artifact.artifact_id}`);
+              verified.push({ artifact_id: artifact.artifact_id, relative_run_path: artifact.relative_run_path, sha256: artifact.sha256, byte_length: artifact.byte_length });
+            }
+            return { verified: true, artifact_count: verified.length, artifacts: verified };
+          }
+
+          async function auditReceiptMachineResults(caseRecord, repo, receipt) {''',
+          )
+
+          replace_once(
+              "benchmarks/metrics.mjs",
+              '      start_head_sha: receipt?.source?.start?.head_sha ?? null,\n      comparison_base_ref: receipt?.comparison?.base_ref ?? null,',
+              '      start_head_sha: receipt?.source?.start?.head_sha ?? null,\n      end_head_sha: receipt?.source?.end?.head_sha ?? null,\n      comparison_base_ref: receipt?.comparison?.base_ref ?? null,',
+          )
+
+          replace_once(
+              "benchmarks/metrics.mjs",
+              '  const sourceStart = await sourceStateDigest(repo, env);\n  const cli = resolve(ascoutRoot, "dist/cli.js");',
+              '  const sourceStart = await sourceStateDigest(repo, env);\n  const measuredHeadStart = await measuredHeadSha(repo, env);\n  const measuredTreeStart = await measuredTreeDigest(repo, ascoutRoot);\n  const cli = resolve(ascoutRoot, "dist/cli.js");',
+          )
+
+          replace_once(
+              "benchmarks/metrics.mjs",
+              '  const sourceEnd = await sourceStateDigest(repo, env);\n  const projection = projectReceipt(receipt);',
+              '  const sourceEnd = await sourceStateDigest(repo, env);\n  const measuredHeadEnd = await measuredHeadSha(repo, env);\n  const measuredTreeEnd = await measuredTreeDigest(repo, ascoutRoot);\n  const projection = projectReceipt(receipt);',
+          )
+
+          replace_once(
+              "benchmarks/metrics.mjs",
+              '  const integrity = await projectReceiptIntegrity(receipt, ascoutRoot);\n',
+              '''  const integrity = await projectReceiptIntegrity(receipt, ascoutRoot);
+            const artifactBinding = await auditReceiptArtifacts(repo, receipt);
+            const receiptChangedPaths = Array.isArray(receipt?.comparison?.changed_files)
+              ? receipt.comparison.changed_files.map((item) => item?.path).filter((value) => typeof value === "string").sort()
+              : [];
+          ''',
+          )
+
+          replace_once(
+              "benchmarks/metrics.mjs",
+              '    integrity,\n    membership_available: membership.membership_available,',
+              '''    integrity,
+            binding: {
+              measured_head_start: measuredHeadStart,
+              measured_head_end: measuredHeadEnd,
+              measured_tree_start_digest: measuredTreeStart,
+              measured_tree_end_digest: measuredTreeEnd,
+              independent_source_start_digest: sourceStart,
+              independent_source_end_digest: sourceEnd,
+              receipt_start_head_sha: integrity.source_binding.start_head_sha,
+              receipt_end_head_sha: integrity.source_binding.end_head_sha,
+              receipt_comparison_base_ref: integrity.source_binding.comparison_base_ref,
+              receipt_start_tree_digest: integrity.source_binding.start_tree_digest,
+              receipt_end_tree_digest: integrity.source_binding.end_tree_digest,
+              measured_paths: [...caseRecord.paths.production].sort(),
+              receipt_changed_paths: receiptChangedPaths,
+              artifact_binding_verified: artifactBinding.verified,
+              artifact_count: artifactBinding.artifact_count,
+            },
+            membership_available: membership.membership_available,''',
+          )
+
+          replace_once(
+              "benchmarks/assertions-lib.mjs",
+              'function requireT076Case(input) {',
+              '''const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
+          const SHA256 = /^[a-f0-9]{64}$/u;
+
+          function requireBinding(run, label) {
+            const binding = run?.binding;
+            if (!isObject(binding)) fail(`${label} is missing independent source-binding proof`);
+            for (const field of ["measured_head_start", "measured_head_end", "receipt_start_head_sha", "receipt_end_head_sha", "receipt_comparison_base_ref"]) {
+              if (typeof binding[field] !== "string" || !FULL_GIT_OBJECT_ID.test(binding[field])) fail(`${label} binding ${field} is unavailable`);
+            }
+            for (const field of ["measured_tree_start_digest", "measured_tree_end_digest", "independent_source_start_digest", "independent_source_end_digest", "receipt_start_tree_digest", "receipt_end_tree_digest"]) {
+              if (typeof binding[field] !== "string" || !SHA256.test(binding[field])) fail(`${label} binding ${field} is unavailable`);
+            }
+            if (!Array.isArray(binding.measured_paths) || binding.measured_paths.some((value) => typeof value !== "string")) fail(`${label} measured path proof is unavailable`);
+            if (!Array.isArray(binding.receipt_changed_paths) || binding.receipt_changed_paths.some((value) => typeof value !== "string")) fail(`${label} receipt path proof is unavailable`);
+            if (typeof binding.artifact_binding_verified !== "boolean" || !isNonNegativeInteger(binding.artifact_count)) fail(`${label} artifact binding proof is unavailable`);
+            return binding;
+          }
+
+          function sameStrings(left, right) {
+            return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
+          }
+
+          function requireT076Case(input) {''',
+          )
+
+          replace_once(
+              "benchmarks/assertions-lib.mjs",
+              '  const integrity = requireIntegrity(run, label);\n  if (![0, 1, 2, 3, 4].includes(run.exit_code))',
+              '  const integrity = requireIntegrity(run, label);\n  const binding = requireBinding(run, label);\n  if (![0, 1, 2, 3, 4].includes(run.exit_code))',
+          )
+
+          replace_once(
+              "benchmarks/assertions-lib.mjs",
+              '''  const evidenceRunMismatches = integrity.evidence_run_ids.filter((runId) => runId !== integrity.run_id);
+            const bindingIssues = integrity.semantic_issues.map((issue) => ({
+              code: typeof issue?.code === "string" ? issue.code : "unknown",
+              path: typeof issue?.path === "string" ? issue.path : "unknown",
+            }));
+            if (!integrity.semantic_valid && bindingIssues.length === 0) {
+              bindingIssues.push({ code: "semantic_validation_failed_without_issue", path: "receipt" });
+            }
+          ''',
+              '''  const evidenceRunMismatches = integrity.evidence_run_ids.filter((runId) => runId !== integrity.run_id);
+            const crossTreeEvidence = evidenceRunMismatches.map((evidenceRunId) => ({ kind: "cross_run_evidence", receipt_run_id: integrity.run_id, evidence_run_id: evidenceRunId }));
+            const bindingIssues = integrity.semantic_issues.map((issue) => ({
+              code: typeof issue?.code === "string" ? issue.code : "unknown",
+              path: typeof issue?.path === "string" ? issue.path : "unknown",
+            }));
+            if (!integrity.semantic_valid && bindingIssues.length === 0) {
+              bindingIssues.push({ code: "semantic_validation_failed_without_issue", path: "receipt" });
+            }
+            const recordBindingIssue = (code, path, crossTree = false) => {
+              bindingIssues.push({ code, path });
+              if (crossTree) crossTreeEvidence.push({ kind: code, path });
+            };
+            if (binding.measured_head_start !== binding.receipt_start_head_sha) recordBindingIssue("measured_receipt_start_head_mismatch", "source.start.head_sha", true);
+            if (binding.measured_head_start !== binding.receipt_comparison_base_ref) recordBindingIssue("measured_comparison_base_mismatch", "comparison.base_ref", true);
+            if (binding.measured_head_end !== binding.receipt_end_head_sha) recordBindingIssue("measured_receipt_end_head_mismatch", "source.end.head_sha", true);
+            if (binding.measured_head_start !== binding.measured_head_end) recordBindingIssue("measured_head_changed_during_run", "source", true);
+            if (binding.measured_tree_start_digest !== binding.receipt_start_tree_digest) recordBindingIssue("measured_receipt_start_tree_mismatch", "source.start.tree_digest", true);
+            if (binding.measured_tree_end_digest !== binding.receipt_end_tree_digest) recordBindingIssue("measured_receipt_end_tree_mismatch", "source.end.tree_digest", true);
+            if (run.reported_source_stability !== run.source_stability) recordBindingIssue("independent_reported_stability_mismatch", "stability");
+            if (!sameStrings(binding.measured_paths, binding.receipt_changed_paths)) recordBindingIssue("measured_receipt_changed_paths_mismatch", "comparison.changed_files");
+            if (!binding.artifact_binding_verified) recordBindingIssue("artifact_binding_unverified", "artifacts");
+          ''',
+          )
+
+          replace_once(
+              "benchmarks/assertions-lib.mjs",
+              '''    cross_tree_evidence_leakage_count: evidenceRunMismatches.length,
+              cross_tree_evidence_leakage: evidenceRunMismatches.map((evidenceRunId) => ({
+                receipt_run_id: integrity.run_id,
+                evidence_run_id: evidenceRunId,
+              })),''',
+              '''    cross_tree_evidence_leakage_count: crossTreeEvidence.length,
+              cross_tree_evidence_leakage: crossTreeEvidence,''',
+          )
+
+          replace_once(
+              "tests/benchmark-assertions.test.ts",
+              '      start_head_sha: "a".repeat(40),\n      comparison_base_ref: "a".repeat(40),',
+              '      start_head_sha: "a".repeat(40),\n      end_head_sha: "a".repeat(40),\n      comparison_base_ref: "a".repeat(40),',
+          )
+
+          replace_once(
+              "tests/benchmark-assertions.test.ts",
+              '''    exit_code: exitCode,
+              source_stability: sourceStability,
+              exercise: exercise(notExercised, unresolved),
+              integrity: integrity(runId, canonicalExitCode),
+            };''',
+              '''    exit_code: exitCode,
+              source_stability: sourceStability,
+              reported_source_stability: sourceStability,
+              exercise: exercise(notExercised, unresolved),
+              integrity: integrity(runId, canonicalExitCode),
+              binding: {
+                measured_head_start: "a".repeat(40),
+                measured_head_end: "a".repeat(40),
+                measured_tree_start_digest: "b".repeat(64),
+                measured_tree_end_digest: "b".repeat(64),
+                independent_source_start_digest: "c".repeat(64),
+                independent_source_end_digest: "c".repeat(64),
+                receipt_start_head_sha: "a".repeat(40),
+                receipt_end_head_sha: "a".repeat(40),
+                receipt_comparison_base_ref: "a".repeat(40),
+                receipt_start_tree_digest: "b".repeat(64),
+                receipt_end_tree_digest: "b".repeat(64),
+                measured_paths: ["src/file.ts"],
+                receipt_changed_paths: ["src/file.ts"],
+                artifact_binding_verified: true,
+                artifact_count: 1,
+              },
+            };''',
+          )
+
+          replace_once(
+              "tests/benchmark-assertions.test.ts",
+              '''  it.each([
+              { label: "NOT_EXERCISED", notExercised: 1, unresolved: 0 },''',
+              '''  it("counts measured tree binding that disagrees with the receipt", () => {
+              const input = caseInput();
+              input.observations[0]!.comparators.ascout.cold.binding.receipt_start_tree_digest = "d".repeat(64);
+              const result = evaluateCaseAssertions(input);
+              expect(result.status).toBe("ABSOLUTE_ASSERTIONS_VIOLATED");
+              expect(result.assertions.cross_tree_evidence_leakage.observed_count).toBe(1);
+              expect(result.assertions.binding_integrity_violations.observed_count).toBe(1);
+            });
+
+            it("counts independent/report stability disagreement as binding-integrity violation", () => {
+              const input = caseInput();
+              input.observations[0]!.comparators.ascout.cold.reported_source_stability = "tree_drifted";
+              const result = evaluateCaseAssertions(input);
+              expect(result.status).toBe("ABSOLUTE_ASSERTIONS_VIOLATED");
+              expect(result.assertions.binding_integrity_violations.observed_count).toBe(1);
+            });
+
+            it("counts measured/receipt changed-path disagreement as binding-integrity violation", () => {
+              const input = caseInput();
+              input.observations[0]!.comparators.ascout.cold.binding.receipt_changed_paths = ["src/other.ts"];
+              const result = evaluateCaseAssertions(input);
+              expect(result.status).toBe("ABSOLUTE_ASSERTIONS_VIOLATED");
+              expect(result.assertions.binding_integrity_violations.observed_count).toBe(1);
+            });
+
+            it("fails closed when independent binding proof is missing", () => {
+              const input = caseInput();
+              delete (input.observations[0]!.comparators.ascout.cold as { binding?: unknown }).binding;
+              expect(() => evaluateCaseAssertions(input)).toThrow(/missing independent source-binding proof/);
+            });
+
+            it.each([
+              { label: "NOT_EXERCISED", notExercised: 1, unresolved: 0 },''',
+          )
+          PY
+
+      - name: Verify repaired product gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          npm run typecheck
+          npx vitest run tests/benchmark-assertions.test.ts tests/benchmark-metrics.test.ts
+          npm test
+          npm run build
+          node --check benchmarks/metrics.mjs
+          node --check benchmarks/assertions-lib.mjs
+          node --check benchmarks/assertions.mjs
+
+      - name: Commit repaired T077 product head
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/metrics.mjs benchmarks/assertions-lib.mjs tests/benchmark-assertions.test.ts
+          printf '%s\n' \
+            benchmarks/assertions-lib.mjs \
+            benchmarks/metrics.mjs \
+            tests/benchmark-assertions.test.ts > /tmp/expected-files
+          git diff --cached --name-only | sort > /tmp/actual-files
+          sort -o /tmp/expected-files /tmp/expected-files
+          diff -u /tmp/expected-files /tmp/actual-files
+          git commit -m "fix(benchmark): bind T077 assertions to measured source"
+          git push origin HEAD:repair/t077-independent-binding-e8571e3c
