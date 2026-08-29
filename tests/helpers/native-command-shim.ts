@@ -1,13 +1,8 @@
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-export function nativeCommandShimName(command: string): string {
+function nativeCommandShimName(command: string): string {
   return process.platform === "win32" ? `${command}.cmd` : command;
-}
-
-export function nativeCommandShimRepositoryPath(command: string, prefix = ""): string {
-  const root = prefix === "" ? "" : `${prefix}/`;
-  return `${root}node_modules/.bin/${nativeCommandShimName(command)}`;
 }
 
 export function writeNodeCommandShim(
