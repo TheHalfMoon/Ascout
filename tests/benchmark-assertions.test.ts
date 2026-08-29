@@ -10,6 +10,7 @@ function integrity(runId = "run-1", canonicalExitCode = 0) {
     evidence_run_ids: [runId, runId],
     source_binding: {
       start_head_sha: "a".repeat(40),
+      end_head_sha: "a".repeat(40),
       comparison_base_ref: "a".repeat(40),
       start_tree_digest: "b".repeat(64),
       end_tree_digest: "b".repeat(64),
@@ -47,8 +48,26 @@ function ascoutRun({
   return {
     exit_code: exitCode,
     source_stability: sourceStability,
+    reported_source_stability: sourceStability,
     exercise: exercise(notExercised, unresolved),
     integrity: integrity(runId, canonicalExitCode),
+    binding: {
+      measured_head_start: "a".repeat(40),
+      measured_head_end: "a".repeat(40),
+      measured_tree_start_digest: "b".repeat(64),
+      measured_tree_end_digest: "b".repeat(64),
+      independent_source_start_digest: "c".repeat(64),
+      independent_source_end_digest: "c".repeat(64),
+      receipt_start_head_sha: "a".repeat(40),
+      receipt_end_head_sha: "a".repeat(40),
+      receipt_comparison_base_ref: "a".repeat(40),
+      receipt_start_tree_digest: "b".repeat(64),
+      receipt_end_tree_digest: "b".repeat(64),
+      measured_paths: ["src/file.ts"],
+      receipt_changed_paths: ["src/file.ts"],
+      artifact_binding_verified: true,
+      artifact_count: 1,
+    },
   };
 }
 
@@ -96,6 +115,37 @@ describe("T077 benchmark absolute assertions", () => {
     const result = evaluateCaseAssertions(input);
     expect(result.status).toBe("ABSOLUTE_ASSERTIONS_VIOLATED");
     expect(result.assertions.binding_integrity_violations.observed_count).toBe(1);
+  });
+
+  it("counts measured tree binding that disagrees with the receipt", () => {
+    const input = caseInput();
+    input.observations[0]!.comparators.ascout.cold.binding.receipt_start_tree_digest = "d".repeat(64);
+    const result = evaluateCaseAssertions(input);
+    expect(result.status).toBe("ABSOLUTE_ASSERTIONS_VIOLATED");
+    expect(result.assertions.cross_tree_evidence_leakage.observed_count).toBe(1);
+    expect(result.assertions.binding_integrity_violations.observed_count).toBe(1);
+  });
+
+  it("counts independent/report stability disagreement as binding-integrity violation", () => {
+    const input = caseInput();
+    input.observations[0]!.comparators.ascout.cold.reported_source_stability = "tree_drifted";
+    const result = evaluateCaseAssertions(input);
+    expect(result.status).toBe("ABSOLUTE_ASSERTIONS_VIOLATED");
+    expect(result.assertions.binding_integrity_violations.observed_count).toBe(1);
+  });
+
+  it("counts measured/receipt changed-path disagreement as binding-integrity violation", () => {
+    const input = caseInput();
+    input.observations[0]!.comparators.ascout.cold.binding.receipt_changed_paths = ["src/other.ts"];
+    const result = evaluateCaseAssertions(input);
+    expect(result.status).toBe("ABSOLUTE_ASSERTIONS_VIOLATED");
+    expect(result.assertions.binding_integrity_violations.observed_count).toBe(1);
+  });
+
+  it("fails closed when independent binding proof is missing", () => {
+    const input = caseInput();
+    delete (input.observations[0]!.comparators.ascout.cold as { binding?: unknown }).binding;
+    expect(() => evaluateCaseAssertions(input)).toThrow(/missing independent source-binding proof/);
   });
 
   it.each([

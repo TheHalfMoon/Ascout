@@ -238,6 +238,24 @@ async function sourceStateDigest(repo, env) {
   ]));
 }
 
+async function measuredHeadSha(repo, env) {
+  const result = await runGit(repo, ["rev-parse", "--verify", "HEAD^{commit}"], env);
+  const value = result.stdout.toString("utf8").trim();
+  if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u.test(value)) fail("binding_integrity", "measured HEAD is not a full lowercase Git object ID");
+  return value;
+}
+
+async function measuredTreeDigest(repo, ascoutRoot) {
+  const moduleUrl = pathToFileURL(resolve(ascoutRoot, "dist/git.js")).href;
+  const gitModule = await import(moduleUrl);
+  if (typeof gitModule.readTreeDigestV1 !== "function") fail("binding_integrity", "canonical tree-digest primitive is unavailable");
+  const observed = gitModule.readTreeDigestV1(repo);
+  if (observed?.tree_digest_version !== 1 || typeof observed.tree_digest !== "string" || !/^[a-f0-9]{64}$/u.test(observed.tree_digest)) {
+    fail("binding_integrity", "measured canonical tree digest is unavailable");
+  }
+  return observed.tree_digest;
+}
+
 async function assertMeasuredPaths(caseRecord, repo, env) {
   const unstaged = (await runGit(repo, ["diff", "--name-only", "--no-renames", "HEAD", "--"], env)).stdout.toString("utf8").trim().split("\n").filter(Boolean).sort();
   const staged = (await runGit(repo, ["diff", "--cached", "--name-only", "--no-renames", "HEAD", "--"], env)).stdout.toString("utf8").trim().split("\n").filter(Boolean);
@@ -489,6 +507,31 @@ async function externalComparator(caseRecord, repo, root, commandText, label, mo
   return timed;
 }
 
+async function auditReceiptArtifacts(repo, receipt) {
+  if (!receipt?.run?.run_id || !Array.isArray(receipt?.artifacts)) fail("artifact_integrity", "Ascout receipt artifact inventory is unavailable");
+  if (!/^[A-Za-z0-9._-]+$/u.test(receipt.run.run_id)) fail("artifact_integrity", "Ascout receipt run id is not safe for artifact lookup");
+  const runRoot = resolve(repo, ".ascout", "runs", receipt.run.run_id);
+  const seen = new Set();
+  const verified = [];
+  for (const artifact of receipt.artifacts) {
+    if (typeof artifact?.artifact_id !== "string" || artifact.artifact_id.length === 0 || seen.has(artifact.artifact_id)) {
+      fail("artifact_integrity", "Ascout receipt artifact identity is invalid or duplicated");
+    }
+    seen.add(artifact.artifact_id);
+    if (typeof artifact.relative_run_path !== "string" || !Number.isSafeInteger(artifact.byte_length) || artifact.byte_length < 0 || typeof artifact.sha256 !== "string" || !/^[a-f0-9]{64}$/u.test(artifact.sha256)) {
+      fail("artifact_integrity", `Ascout receipt artifact metadata is invalid: ${artifact.artifact_id}`);
+    }
+    const path = resolve(runRoot, artifact.relative_run_path);
+    assertPathInside(runRoot, path);
+    const info = await stat(path);
+    if (!info.isFile() || info.size !== artifact.byte_length) fail("artifact_integrity", `Ascout artifact size mismatch: ${artifact.artifact_id}`);
+    const bytes = await readFile(path);
+    if (sha256Bytes(bytes) !== artifact.sha256) fail("artifact_integrity", `Ascout artifact digest mismatch: ${artifact.artifact_id}`);
+    verified.push({ artifact_id: artifact.artifact_id, relative_run_path: artifact.relative_run_path, sha256: artifact.sha256, byte_length: artifact.byte_length });
+  }
+  return { verified: true, artifact_count: verified.length, artifacts: verified };
+}
+
 async function auditReceiptMachineResults(caseRecord, repo, receipt) {
   const testTask = Array.isArray(receipt?.tasks) ? receipt.tasks.find((task) => task.task_type === "test") : null;
   if (!testTask || !Array.isArray(testTask.artifact_refs) || !receipt?.run?.run_id || !Array.isArray(receipt?.artifacts)) {
@@ -570,6 +613,7 @@ async function projectReceiptIntegrity(receipt, ascoutRoot) {
       start_repository_id: receipt?.source?.start?.repository_id ?? null,
       end_repository_id: receipt?.source?.end?.repository_id ?? null,
       start_head_sha: receipt?.source?.start?.head_sha ?? null,
+      end_head_sha: receipt?.source?.end?.head_sha ?? null,
       comparison_base_ref: receipt?.comparison?.base_ref ?? null,
       start_tree_digest: receipt?.source?.start?.tree_digest ?? null,
       end_tree_digest: receipt?.source?.end?.tree_digest ?? null,
@@ -581,6 +625,8 @@ async function projectReceiptIntegrity(receipt, ascoutRoot) {
 async function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {
   const env = await runtimeEnvironment(root);
   const sourceStart = await sourceStateDigest(repo, env);
+  const measuredHeadStart = await measuredHeadSha(repo, env);
+  const measuredTreeStart = await measuredTreeDigest(repo, ascoutRoot);
   const cli = resolve(ascoutRoot, "dist/cli.js");
   const result = await runProcess({ file: process.execPath, argv: [cli, "check", "--format", "json"], cwd: repo, env });
   requireExited(result, label);
@@ -588,8 +634,14 @@ async function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {
   try { receipt = JSON.parse(result.stdout.toString("utf8")); } catch { fail("ascout", `${label} did not produce parseable JSON`); }
   if (receipt?.summary?.exit_code !== result.exitCode) fail("ascout", `${label} process exit does not match receipt summary exit`);
   const sourceEnd = await sourceStateDigest(repo, env);
+  const measuredHeadEnd = await measuredHeadSha(repo, env);
+  const measuredTreeEnd = await measuredTreeDigest(repo, ascoutRoot);
   const projection = projectReceipt(receipt);
   const integrity = await projectReceiptIntegrity(receipt, ascoutRoot);
+  const artifactBinding = await auditReceiptArtifacts(repo, receipt);
+  const receiptChangedPaths = Array.isArray(receipt?.comparison?.changed_files)
+    ? receipt.comparison.changed_files.map((item) => item?.path).filter((value) => typeof value === "string").sort()
+    : [];
   const membership = caseRecord.case_class === "selection"
     ? await auditReceiptMachineResults(caseRecord, repo, receipt)
     : { membership_available: false, oracle_test_ids_observed: [], oracle_membership: null, evidence: [] };
@@ -601,7 +653,24 @@ async function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {
     source_stability: sourceStart === sourceEnd ? "stable" : "tree_drifted",
     reported_source_stability: projection.reported_source_stability,
     integrity,
-    membership_available: membership.membership_available,
+  binding: {
+    measured_head_start: measuredHeadStart,
+    measured_head_end: measuredHeadEnd,
+    measured_tree_start_digest: measuredTreeStart,
+    measured_tree_end_digest: measuredTreeEnd,
+    independent_source_start_digest: sourceStart,
+    independent_source_end_digest: sourceEnd,
+    receipt_start_head_sha: integrity.source_binding.start_head_sha,
+    receipt_end_head_sha: integrity.source_binding.end_head_sha,
+    receipt_comparison_base_ref: integrity.source_binding.comparison_base_ref,
+    receipt_start_tree_digest: integrity.source_binding.start_tree_digest,
+    receipt_end_tree_digest: integrity.source_binding.end_tree_digest,
+    measured_paths: [...caseRecord.paths.production].sort(),
+    receipt_changed_paths: receiptChangedPaths,
+    artifact_binding_verified: artifactBinding.verified,
+    artifact_count: artifactBinding.artifact_count,
+  },
+  membership_available: membership.membership_available,
     oracle_test_ids_observed: membership.oracle_test_ids_observed,
     oracle_membership: membership.oracle_membership,
     membership_evidence: membership.evidence,

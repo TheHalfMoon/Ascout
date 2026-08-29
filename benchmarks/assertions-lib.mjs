@@ -37,6 +37,28 @@ function requireIntegrity(run, label) {
   return integrity;
 }
 
+const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
+const SHA256 = /^[a-f0-9]{64}$/u;
+
+function requireBinding(run, label) {
+  const binding = run?.binding;
+  if (!isObject(binding)) fail(`${label} is missing independent source-binding proof`);
+  for (const field of ["measured_head_start", "measured_head_end", "receipt_start_head_sha", "receipt_end_head_sha", "receipt_comparison_base_ref"]) {
+    if (typeof binding[field] !== "string" || !FULL_GIT_OBJECT_ID.test(binding[field])) fail(`${label} binding ${field} is unavailable`);
+  }
+  for (const field of ["measured_tree_start_digest", "measured_tree_end_digest", "independent_source_start_digest", "independent_source_end_digest", "receipt_start_tree_digest", "receipt_end_tree_digest"]) {
+    if (typeof binding[field] !== "string" || !SHA256.test(binding[field])) fail(`${label} binding ${field} is unavailable`);
+  }
+  if (!Array.isArray(binding.measured_paths) || binding.measured_paths.some((value) => typeof value !== "string")) fail(`${label} measured path proof is unavailable`);
+  if (!Array.isArray(binding.receipt_changed_paths) || binding.receipt_changed_paths.some((value) => typeof value !== "string")) fail(`${label} receipt path proof is unavailable`);
+  if (typeof binding.artifact_binding_verified !== "boolean" || !isNonNegativeInteger(binding.artifact_count)) fail(`${label} artifact binding proof is unavailable`);
+  return binding;
+}
+
+function sameStrings(left, right) {
+  return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
+}
+
 function requireT076Case(input) {
   if (!isObject(input)) fail("input must be an object");
   if (input.task !== "T076" || input.status !== "BENCHMARK_METRICS_READY") fail("input must be one completed T076 case result");
@@ -48,10 +70,12 @@ function runAssertionFacts(run, observationOrdinal, cacheClass) {
   const label = `observation ${observationOrdinal} Ascout ${cacheClass}`;
   if (!isObject(run)) fail(`${label} run is unavailable`);
   const integrity = requireIntegrity(run, label);
+  const binding = requireBinding(run, label);
   if (![0, 1, 2, 3, 4].includes(run.exit_code)) fail(`${label} exit code is invalid`);
   if (run.source_stability !== "stable" && run.source_stability !== "tree_drifted") fail(`${label} independent source stability is unavailable`);
 
   const evidenceRunMismatches = integrity.evidence_run_ids.filter((runId) => runId !== integrity.run_id);
+  const crossTreeEvidence = evidenceRunMismatches.map((evidenceRunId) => ({ kind: "cross_run_evidence", receipt_run_id: integrity.run_id, evidence_run_id: evidenceRunId }));
   const bindingIssues = integrity.semantic_issues.map((issue) => ({
     code: typeof issue?.code === "string" ? issue.code : "unknown",
     path: typeof issue?.path === "string" ? issue.path : "unknown",
@@ -59,6 +83,19 @@ function runAssertionFacts(run, observationOrdinal, cacheClass) {
   if (!integrity.semantic_valid && bindingIssues.length === 0) {
     bindingIssues.push({ code: "semantic_validation_failed_without_issue", path: "receipt" });
   }
+  const recordBindingIssue = (code, path, crossTree = false) => {
+    bindingIssues.push({ code, path });
+    if (crossTree) crossTreeEvidence.push({ kind: code, path });
+  };
+  if (binding.measured_head_start !== binding.receipt_start_head_sha) recordBindingIssue("measured_receipt_start_head_mismatch", "source.start.head_sha", true);
+  if (binding.measured_head_start !== binding.receipt_comparison_base_ref) recordBindingIssue("measured_comparison_base_mismatch", "comparison.base_ref", true);
+  if (binding.measured_head_end !== binding.receipt_end_head_sha) recordBindingIssue("measured_receipt_end_head_mismatch", "source.end.head_sha", true);
+  if (binding.measured_head_start !== binding.measured_head_end) recordBindingIssue("measured_head_changed_during_run", "source", true);
+  if (binding.measured_tree_start_digest !== binding.receipt_start_tree_digest) recordBindingIssue("measured_receipt_start_tree_mismatch", "source.start.tree_digest", true);
+  if (binding.measured_tree_end_digest !== binding.receipt_end_tree_digest) recordBindingIssue("measured_receipt_end_tree_mismatch", "source.end.tree_digest", true);
+  if (run.reported_source_stability !== run.source_stability) recordBindingIssue("independent_reported_stability_mismatch", "stability");
+  if (!sameStrings(binding.measured_paths, binding.receipt_changed_paths)) recordBindingIssue("measured_receipt_changed_paths_mismatch", "comparison.changed_files");
+  if (!binding.artifact_binding_verified) recordBindingIssue("artifact_binding_unverified", "artifacts");
 
   const materialGap = materialExerciseGap(run);
   if (materialGap === null) fail(`${label} material exercise-gap evidence is unavailable`);
@@ -74,11 +111,8 @@ function runAssertionFacts(run, observationOrdinal, cacheClass) {
     semantic_valid: integrity.semantic_valid,
     semantic_issue_count: bindingIssues.length,
     semantic_issues: bindingIssues,
-    cross_tree_evidence_leakage_count: evidenceRunMismatches.length,
-    cross_tree_evidence_leakage: evidenceRunMismatches.map((evidenceRunId) => ({
-      receipt_run_id: integrity.run_id,
-      evidence_run_id: evidenceRunId,
-    })),
+    cross_tree_evidence_leakage_count: crossTreeEvidence.length,
+    cross_tree_evidence_leakage: crossTreeEvidence,
     independent_source_stability: run.source_stability,
     material_exercise_gap: materialGap,
     actual_exit_code: run.exit_code,
