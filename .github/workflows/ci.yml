@@ -14,6 +14,8 @@ jobs:
     name: project / ${{ matrix.os }} / node-${{ matrix.node }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    env:
+      TMPDIR: ${{ runner.temp }}
     strategy:
       fail-fast: false
       matrix:
@@ -27,7 +29,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Guard exact source
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node -e "const cp=require('node:child_process');const h=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();if(h!==process.env.EXPECTED_SHA)throw new Error('expected '+process.env.EXPECTED_SHA+', got '+h)"
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -39,4 +46,5 @@ jobs:
       - name: Test
         run: npm test
       - name: Build
+        if: ${{ !cancelled() }}
         run: npm run build
