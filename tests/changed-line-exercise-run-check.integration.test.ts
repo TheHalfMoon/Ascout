@@ -1,4 +1,4 @@
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { runCheck } from "../src/check.js";
 import { validateReceiptSemantics } from "../src/receipt/model.js";
+import { writeNodeCommandShim } from "./helpers/native-command-shim.js";
 
 function run(root: string, file: string, argv: readonly string[]): void {
   const result = spawnSync(file, argv, { cwd: root, encoding: "utf8" });
@@ -22,12 +23,10 @@ function initializeFixture(): string {
 
   const binRoot = join(root, "node_modules", ".bin");
   rmSync(binRoot, { recursive: true, force: true });
-  mkdirSync(binRoot, { recursive: true });
-  const vitestShim = join(binRoot, "vitest");
-  writeFileSync(
-    vitestShim,
-    `#!/usr/bin/env node
-const fs = require("node:fs");
+  writeNodeCommandShim(
+    binRoot,
+    "vitest",
+    `const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
 const outputArg = args.find((arg) => arg.startsWith("--outputFile="));
@@ -41,7 +40,6 @@ fs.writeFileSync(outputPath, JSON.stringify({ testResults: [{ name: "exercise.te
 fs.writeFileSync(path.join(coverageDirectory, "lcov.info"), "SF:src/a.js\\nDA:1,1\\nDA:2,0\\nend_of_record\\n");
 `,
   );
-  chmodSync(vitestShim, 0o755);
 
   writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
   writeFileSync(
