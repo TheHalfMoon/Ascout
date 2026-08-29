@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   assertControllerSecretsAbsent,
@@ -553,6 +554,30 @@ function projectReceipt(receipt) {
   };
 }
 
+async function projectReceiptIntegrity(receipt, ascoutRoot) {
+  const moduleUrl = pathToFileURL(resolve(ascoutRoot, "dist/receipt/model.js")).href;
+  const receiptModel = await import(moduleUrl);
+  if (typeof receiptModel.validateReceiptSemantics !== "function" || typeof receiptModel.decideReceiptExitCode !== "function") {
+    fail("binding_integrity", "canonical receipt semantic validator exports are unavailable");
+  }
+  const validation = receiptModel.validateReceiptSemantics(receipt);
+  return {
+    semantic_valid: validation.valid,
+    semantic_issues: validation.issues.map((issue) => ({ code: issue.code, path: issue.path })),
+    run_id: receipt?.run?.run_id ?? null,
+    evidence_run_ids: Array.isArray(receipt?.evidence) ? receipt.evidence.map((item) => item.run_id) : [],
+    source_binding: {
+      start_repository_id: receipt?.source?.start?.repository_id ?? null,
+      end_repository_id: receipt?.source?.end?.repository_id ?? null,
+      start_head_sha: receipt?.source?.start?.head_sha ?? null,
+      comparison_base_ref: receipt?.comparison?.base_ref ?? null,
+      start_tree_digest: receipt?.source?.start?.tree_digest ?? null,
+      end_tree_digest: receipt?.source?.end?.tree_digest ?? null,
+    },
+    canonical_exit_code: validation.valid ? receiptModel.decideReceiptExitCode(receipt) : null,
+  };
+}
+
 async function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {
   const env = await runtimeEnvironment(root);
   const sourceStart = await sourceStateDigest(repo, env);
@@ -564,6 +589,7 @@ async function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {
   if (receipt?.summary?.exit_code !== result.exitCode) fail("ascout", `${label} process exit does not match receipt summary exit`);
   const sourceEnd = await sourceStateDigest(repo, env);
   const projection = projectReceipt(receipt);
+  const integrity = await projectReceiptIntegrity(receipt, ascoutRoot);
   const membership = caseRecord.case_class === "selection"
     ? await auditReceiptMachineResults(caseRecord, repo, receipt)
     : { membership_available: false, oracle_test_ids_observed: [], oracle_membership: null, evidence: [] };
@@ -574,6 +600,7 @@ async function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {
     duration_ms: result.durationMs,
     source_stability: sourceStart === sourceEnd ? "stable" : "tree_drifted",
     reported_source_stability: projection.reported_source_stability,
+    integrity,
     membership_available: membership.membership_available,
     oracle_test_ids_observed: membership.oracle_test_ids_observed,
     oracle_membership: membership.oracle_membership,
