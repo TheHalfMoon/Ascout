@@ -89,6 +89,9 @@ describe("T052 runCheck Jest integration", () => {
       expect(resultArtifact && existsSync(join(root, ".ascout", "runs", receipt.run.run_id, resultArtifact.relative_run_path))).toBe(true);
       expect(coverageArtifact && existsSync(join(root, ".ascout", "runs", receipt.run.run_id, coverageArtifact.relative_run_path))).toBe(true);
 
+      // Jest's CLI --json output is the formatted result shape: suite paths are
+      // emitted as `name`, even though the internal testResultsProcessor shape
+      // uses `testFilePath` before formatting.
       const resultJson = JSON.parse(
         readFileSync(join(root, ".ascout", "runs", receipt.run.run_id, resultArtifact!.relative_run_path), "utf8"),
       ) as { testResults?: readonly { name?: string }[] };
