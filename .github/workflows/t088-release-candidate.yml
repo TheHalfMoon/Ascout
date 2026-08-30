@@ -52,6 +52,22 @@ jobs:
       - name: Install exact lockfile
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Diagnose Windows native-related selection accounting
+        if: ${{ matrix.os == 'windows-2025' }}
+        continue-on-error: true
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          node -e "const fs=require('node:fs');for(const f of ['tests/vitest-check.integration.test.ts','tests/jest-check.integration.test.ts']){let s=fs.readFileSync(f,'utf8');const needle='expect(receipt.selection.limitations).not.toContain(UNSAFE_SELECTION_LIMITATION);';const replacement='console.error(JSON.stringify({diagnostic_file:'+JSON.stringify(f)+',selection:receipt.selection,summary:receipt.summary,test_task:receipt.tasks.find((task)=>task.task_type===\"test\")},null,2));\n      '+needle;if(!s.includes(needle))throw new Error('diagnostic needle missing in '+f);fs.writeFileSync(f,s.replace(needle,replacement),'utf8');}"
+          npx vitest run tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
+          git reset --hard $env:CANDIDATE_SHA
+
+      - name: Restore exact candidate after diagnostics
+        if: ${{ matrix.os == 'windows-2025' && !cancelled() }}
+        run: |
+          git reset --hard $env:CANDIDATE_SHA
+          git clean -fd
+
       - name: Typecheck
         run: npm run typecheck
 
