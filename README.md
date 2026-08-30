@@ -9,7 +9,7 @@ Ascout's M1 goal is deliberately narrow: make changed-code verification harder t
 
 ## Status
 
-Ascout is in **M1 release hardening** and has not published a stable npm release. The repository package is currently `private: true` and version `0.0.0`; do not treat the unscoped `ascout` npm name as released or owned by this project yet. Canonical task T087 will verify package ownership or choose the scoped fallback while preserving the `ascout` executable name.
+Ascout is in **M1 release hardening** and has not published a stable npm release. Canonical T087 selected the repository package identity `@thehalfmoon/ascout` while preserving the executable name `ascout`. The package remains version `0.0.0`, `private: true`, and unpublished. The scoped identity is a repository decision, not a claim that authenticated npm scope ownership or publication authority has been proven; any future publication requires separate authenticated npm scope/ownership evidence and separate release/publication authority.
 
 GitHub `main`, the canonical Spec Kit artifacts under `specs/001-changed-code-verification-receipt/`, and merged task PRs are the source of current implementation truth. The simplified builder map is in `specs/001-changed-code-verification-receipt/IMPLEMENTATION_RUNBOOK.md`.
 
@@ -69,7 +69,7 @@ Project CI runs Node 22 and Node 24 on Linux, macOS, and Windows Server 2025. Su
 
 ## Use from the repository today
 
-Until T087 resolves the publishable package identity, use an exact source checkout rather than installing an unverified npm name.
+The canonical package identity is selected, but the package remains private and unpublished. Use an exact source checkout until a future publication is separately authorized and proven.
 
 ```sh
 git clone https://github.com/TheHalfMoon/Ascout.git
@@ -89,17 +89,27 @@ ascout check [--allow-changed-command-surface] [--format json|agent]
 
 When running directly from this repository before package publication, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
 
-### Install after package identity is resolved
+### Package identity and future installation
 
-T087, not this README, is authoritative for the eventual npm package identity. After T087 is canonically closed and an actual release is separately authorized/published, this section can be replaced with the exact verified install command. Until then, **do not install a registry package merely because it is named `ascout`**.
+The canonical repository package identity is:
 
-The executable name is locked to:
+```text
+@thehalfmoon/ascout
+```
+
+The executable name remains:
 
 ```text
 ascout
 ```
 
-A scoped package fallback may therefore still expose the same `ascout` binary.
+This identity selection does not prove authenticated ownership of the npm scope and does not mean the package has been published. Do not run a registry install based only on this repository decision. If a future task separately proves npm scope ownership, authorizes publication, and publishes the package, the expected global-install shape is:
+
+```sh
+npm install --global @thehalfmoon/ascout
+```
+
+Until that separate publication evidence exists, use the source-checkout workflow above.
 
 ## Quickstart in a trusted project
 
@@ -241,7 +251,7 @@ Consumers should use the receipt fields together with the exit status instead of
 
 T082 added a positive npm `files` allowlist and a real package-content gate. The current release surface is limited to the built `dist` tree plus npm-mandated metadata; tests, source, specs, benchmarks, `.ascout/`, fixtures, logs, secrets, and coverage output are not intended package contents.
 
-That packaging proof does **not** mean a package has been published. `package.json` remains `private: true` until the canonical package-identity task resolves the release name.
+T087 selected `@thehalfmoon/ascout` as the canonical repository package identity while preserving `bin.ascout = "./dist/cli.js"`. That packaging and identity proof does **not** mean a package has been published: `package.json` remains `private: true`, and future publication still requires separate authenticated npm scope/ownership evidence and separate publication authority.
 
 ## Benchmarks
 
@@ -262,7 +272,7 @@ npm run build
 
 Project CI runs this matrix on Linux, macOS, and Windows with Node 22 and Node 24. Release hardening records supported-platform debt explicitly instead of skipping or suppressing it.
 
-The final T088 release-candidate rehearsal will run the canonical quickstart, contract/semantic/integration gates, package inspection, benchmarks, and platform evidence from a clean exact candidate checkout. It records evidence only; it does not publish npm or create a release by itself.
+T088 performs the final clean-checkout release-candidate rehearsal across the canonical quickstart, contract/semantic/integration gates, package inspection, benchmark evidence, and supported-platform proof. It records evidence only; it does not publish npm or create a release.
 
 ## Contributing and security
 
@@ -274,7 +284,7 @@ For vulnerabilities and the trusted-local execution boundary, see [`SECURITY.md`
 
 Ascout is licensed under Apache-2.0. See [`LICENSE`](LICENSE).
 
-Third-party dependency/code provenance is tracked in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`docs/legal/CODE_PROVENANCE.md`](docs/legal/CODE_PROVENANCE.md). T086 will reconcile those records against the exact release-candidate lockfile before release readiness can be claimed.
+Third-party dependency/code provenance is tracked in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and [`docs/legal/CODE_PROVENANCE.md`](docs/legal/CODE_PROVENANCE.md). T086 reconciled those records against the exact release-hardening dependency graph; the canonical lockfile remains the machine-readable transitive dependency source for the current candidate.
 
 The founding specification workflow is pinned in [`.specify/PROVENANCE.md`](.specify/PROVENANCE.md).
 

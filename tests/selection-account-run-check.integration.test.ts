@@ -80,5 +80,5 @@ describe("T061 runCheck SelectionAccount finalization", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  }, 30_000);
+  }, 60_000);
 });

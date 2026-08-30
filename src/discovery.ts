@@ -761,7 +761,7 @@ function containedByRoot(root: string, realPath: string): boolean {
 function realPathWithinRoot(root: string, absolutePath: string, sourcePath: string): string {
   let realPath: string;
   try {
-    realPath = realpathSync(absolutePath);
+    realPath = realpathSync.native(absolutePath);
   } catch {
     throw new DiscoveryError("repository_read_error", `unable to resolve ${sourcePath}`, sourcePath);
   }
@@ -899,7 +899,7 @@ export function collectDiscoveredProject(repositoryRoot: string): DiscoveredProj
   const requestedRoot = resolve(repositoryRoot);
   let root: string;
   try {
-    root = realpathSync(requestedRoot);
+    root = realpathSync.native(requestedRoot);
     if (!statSync(root).isDirectory()) {
       throw new DiscoveryError("invalid_repository_root", "repository root must be an existing directory");
     }

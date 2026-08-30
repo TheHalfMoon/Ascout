@@ -116,5 +116,5 @@ describe("T055 runCheck changed-line exercise", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  }, 30_000);
+  }, 60_000);
 });

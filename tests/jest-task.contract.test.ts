@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -33,7 +33,7 @@ function fixtureRoot(version = "30.4.2"): string {
   writeFileSync(join(root, "node_modules", ".bin", "jest"), "");
   writeFileSync(join(root, "node_modules", ".bin", "jest.cmd"), "");
   writeFileSync(join(root, "node_modules", "jest", "package.json"), JSON.stringify({ name: "jest", version }));
-  return root;
+  return realpathSync.native(root);
 }
 
 function rootFiles(extra: DiscoveryFileMap = {}): DiscoveryFileMap {
