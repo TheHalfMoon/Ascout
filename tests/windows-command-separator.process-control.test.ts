@@ -33,44 +33,50 @@ afterEach(() => {
   }
 });
 
-describe.skipIf(process.platform !== "win32")("T080 Windows command-separator boundary", () => {
-  it("rejects CR and LF argv independently before a native command shim launches", async () => {
-    for (const [label, separator] of [["CR", "\r"], ["LF", "\n"]] as const) {
-      const directory = mkdtempSync(join(tmpdir(), `ascout-t080-${label.toLowerCase()}-argv-`));
-      temporaryDirectories.push(directory);
-      const marker = join(directory, "shim-launched.txt");
-      const shim = writeNodeCommandShim(
-        join(directory, "node_modules", ".bin"),
-        "must-not-launch",
-        `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'launched')`,
-      );
+describe("T080 Windows command-separator boundary", () => {
+  it.skipIf(process.platform !== "win32")(
+    "rejects CR and LF argv independently before a native command shim launches",
+    async () => {
+      for (const [label, separator] of [["CR", "\r"], ["LF", "\n"]] as const) {
+        const directory = mkdtempSync(join(tmpdir(), `ascout-t080-${label.toLowerCase()}-argv-`));
+        temporaryDirectories.push(directory);
+        const marker = join(directory, "shim-launched.txt");
+        const shim = writeNodeCommandShim(
+          join(directory, "node_modules", ".bin"),
+          "must-not-launch",
+          `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'launched')`,
+        );
 
-      await expect(runProcess(request(
-        shim,
-        [`safe${separator}echo injected`],
-        directory,
-      ))).rejects.toBeInstanceOf(ProcessControlError);
-      expect(existsSync(marker), `${label} argv must be rejected before launch`).toBe(false);
-    }
-  });
+        await expect(runProcess(request(
+          shim,
+          [`safe${separator}echo injected`],
+          directory,
+        ))).rejects.toBeInstanceOf(ProcessControlError);
+        expect(existsSync(marker)).toBe(false);
+      }
+    },
+  );
 
-  it("rejects CR and LF command paths independently before a native command shim launches", async () => {
-    for (const [label, separator] of [["CR", "\r"], ["LF", "\n"]] as const) {
-      const directory = mkdtempSync(join(tmpdir(), `ascout-t080-${label.toLowerCase()}-file-`));
-      temporaryDirectories.push(directory);
-      const marker = join(directory, "shim-launched.txt");
-      const shim = writeNodeCommandShim(
-        join(directory, "node_modules", ".bin"),
-        "must-not-launch",
-        `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'launched')`,
-      );
+  it.skipIf(process.platform !== "win32")(
+    "rejects CR and LF command paths independently before a native command shim launches",
+    async () => {
+      for (const [label, separator] of [["CR", "\r"], ["LF", "\n"]] as const) {
+        const directory = mkdtempSync(join(tmpdir(), `ascout-t080-${label.toLowerCase()}-file-`));
+        temporaryDirectories.push(directory);
+        const marker = join(directory, "shim-launched.txt");
+        const shim = writeNodeCommandShim(
+          join(directory, "node_modules", ".bin"),
+          "must-not-launch",
+          `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'launched')`,
+        );
 
-      await expect(runProcess(request(
-        `${shim}${separator}suffix`,
-        [],
-        directory,
-      ))).rejects.toBeInstanceOf(ProcessControlError);
-      expect(existsSync(marker), `${label} file must be rejected before launch`).toBe(false);
-    }
-  });
+        await expect(runProcess(request(
+          `${shim}${separator}suffix`,
+          [],
+          directory,
+        ))).rejects.toBeInstanceOf(ProcessControlError);
+        expect(existsSync(marker)).toBe(false);
+      }
+    },
+  );
 });
