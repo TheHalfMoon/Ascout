@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -66,7 +66,7 @@ function fixtureRoot(runner: "vitest" | "jest", packageRoot = ""): string {
   } else {
     writePackage(root, `${prefix}node_modules/jest/package.json`, "jest", "30.4.2");
   }
-  return root;
+  return realpathSync.native(root);
 }
 
 describe("T053 pre-run conservative widening", () => {
