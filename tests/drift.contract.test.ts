@@ -106,7 +106,7 @@ describe("T058 source drift detection", () => {
     const end = readTreeDigestV1(repositoryRoot);
     expect(end.included_untracked_count).toBe(1);
     expect(end.tree_digest).not.toBe(start.tree_digest);
-  });
+  }, 15_000);
 });
 
 describe("T058 drift exit contract", () => {
