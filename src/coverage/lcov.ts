@@ -71,20 +71,23 @@ function mapSourcePath(repositoryRoot: string, sourcePath: string): string | nul
   const windowsStyle = WINDOWS_ABSOLUTE.test(repositoryRoot) || WINDOWS_ABSOLUTE.test(sourcePath);
   if (windowsStyle) {
     if (!win32.isAbsolute(repositoryRoot)) return null;
-    const candidate = win32.isAbsolute(sourcePath)
-      ? win32.relative(win32.resolve(repositoryRoot), win32.resolve(sourcePath))
-      : sourcePath;
-    const repositoryRelative = candidate.replaceAll("\\", "/");
+    const root = win32.resolve(repositoryRoot);
+    const resolvedSource = win32.isAbsolute(sourcePath)
+      ? win32.resolve(sourcePath)
+      : win32.resolve(root, sourcePath);
+    const repositoryRelative = win32.relative(root, resolvedSource).replaceAll("\\", "/");
     if (!isContainedRelativePath(repositoryRelative)) return null;
     return canonicalRepositoryPath(repositoryRelative);
   }
 
   if (!posix.isAbsolute(repositoryRoot)) return null;
-  const candidate = posix.isAbsolute(sourcePath)
-    ? posix.relative(posix.resolve(repositoryRoot), posix.resolve(sourcePath))
-    : sourcePath;
-  if (!isContainedRelativePath(candidate)) return null;
-  return canonicalRepositoryPath(candidate);
+  const root = posix.resolve(repositoryRoot);
+  const resolvedSource = posix.isAbsolute(sourcePath)
+    ? posix.resolve(sourcePath)
+    : posix.resolve(root, sourcePath);
+  const repositoryRelative = posix.relative(root, resolvedSource);
+  if (!isContainedRelativePath(repositoryRelative)) return null;
+  return canonicalRepositoryPath(repositoryRelative);
 }
 
 function parsePositiveSafeInteger(token: string): number | null {
