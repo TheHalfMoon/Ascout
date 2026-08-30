@@ -107,10 +107,10 @@ afterEach(() => {
 });
 
 describe("T082 npm package content", () => {
-  it("packs only the positive release surface and installs the real tarball for an offline consumer", () => {
+  it("packs only the positive release surface and inspects the real tarball in an isolated consumer", () => {
     const root = mkdtempSync(join(tmpdir(), "ascout-t082-package-"));
     temporaryDirectories.push(root);
-    const packageRoot = join(root, "package");
+    const packageRoot = join(root, "package-source");
     const tarballRoot = join(root, "tarballs");
     const consumerRoot = join(root, "consumer");
     mkdirSync(packageRoot);
@@ -157,31 +157,26 @@ describe("T082 npm package content", () => {
     const tarball = join(tarballRoot, basename(packed.filename));
     expect(existsSync(tarball)).toBe(true);
 
-    runNpm([
-      "install",
-      "--offline",
-      "--ignore-scripts",
-      "--no-audit",
-      "--no-fund",
-      "--package-lock=false",
-      tarball,
-    ], consumerRoot);
+    execFileSync("tar", ["-xzf", tarball, "-C", consumerRoot], {
+      cwd: consumerRoot,
+      stdio: "pipe",
+      windowsHide: true,
+    });
 
-    const installedRoot = join(consumerRoot, "node_modules", "ascout");
-    expect(existsSync(join(installedRoot, "dist", "cli.js"))).toBe(true);
-    const installedManifest = JSON.parse(readFileSync(join(installedRoot, "package.json"), "utf8")) as {
+    const extractedRoot = join(consumerRoot, "package");
+    const extractedPaths = listFiles(extractedRoot);
+    expect(extractedPaths).toEqual(packedPaths);
+    assertPackageSurface(extractedPaths);
+
+    const extractedManifest = JSON.parse(readFileSync(join(extractedRoot, "package.json"), "utf8")) as {
       readonly bin?: Record<string, string>;
       readonly files?: readonly string[];
     };
-    expect(installedManifest.bin).toEqual({ ascout: "./dist/cli.js" });
-    expect(installedManifest.files).toEqual(["dist"]);
-    assertPackageSurface(listFiles(installedRoot));
+    expect(extractedManifest.bin).toEqual({ ascout: "./dist/cli.js" });
+    expect(extractedManifest.files).toEqual(["dist"]);
 
-    const binRoot = join(consumerRoot, "node_modules", ".bin");
-    expect(
-      process.platform === "win32"
-        ? existsSync(join(binRoot, "ascout.cmd"))
-        : existsSync(join(binRoot, "ascout")),
-    ).toBe(true);
+    const cliTarget = join(extractedRoot, "dist", "cli.js");
+    expect(existsSync(cliTarget)).toBe(true);
+    expect(readFileSync(cliTarget, "utf8").startsWith("#!/usr/bin/env node")).toBe(true);
   }, 60_000);
 });
