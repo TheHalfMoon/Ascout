@@ -80,7 +80,7 @@ jobs:
       - name: Verify T078 published selector-miss truth
         if: ${{ !cancelled() }}
         run: >-
-          node -e "const fs=require('node:fs');const x=JSON.parse(fs.readFileSync('benchmarks/results/t078-selector-misses.json','utf8'));const text=JSON.stringify(x);for(const required of ['react-hook-form-value-as-date','no_pre_data_threshold'])if(!text.includes(required))throw new Error('missing T078 truth: '+required);console.log('t078 selector-miss publication present and parseable')"
+          node -e "const fs=require('node:fs');const x=JSON.parse(fs.readFileSync('benchmarks/results/t078-selector-misses.json','utf8'));if(x.task!=='T078')throw new Error('wrong benchmark task');if(x.threshold_policy?.acceptance_threshold!==null)throw new Error('T078 must retain null pre-data threshold');if(!Array.isArray(x.selector_misses)||x.selector_misses.length!==1||x.selector_misses[0]?.case_id!=='react-hook-form-value-as-date')throw new Error('published selector-miss truth mismatch');if(x.summary?.published_selector_miss_count!==1)throw new Error('selector miss total mismatch');console.log('t078 selector-miss publication and null-threshold policy verified')"
 
       - name: CLI startup contract
         if: ${{ !cancelled() }}
