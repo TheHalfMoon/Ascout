@@ -64,7 +64,7 @@ interface CrossSpawnLike {
     options: SpawnSyncOptions,
   ): {
     readonly status: number | null;
-    readonly error?: Error;
+    readonly error?: Error | null;
   };
 }
 
@@ -249,7 +249,6 @@ async function waitForProcessGroupGone(
   while (true) {
     const exists = processGroupExists(processGroupId);
     if (exists === false) return true;
-    if (exists === null) return false;
 
     const remaining = deadline - Date.now();
     if (remaining <= 0) return false;
@@ -265,7 +264,12 @@ async function terminatePosixProcessGroup(
   if (graceful === "gone") return true;
   if (graceful === "error") return false;
 
-  if (await waitForProcessGroupGone(processGroupId, graceMs)) return true;
+  // A just-signaled process group can transiently return EPERM to the signal-0 probe on
+  // macOS while the group is collapsing. Keep that state fail-closed, but allow one bounded
+  // polling interval even when caller grace is zero before escalating to SIGKILL.
+  if (await waitForProcessGroupGone(processGroupId, Math.max(graceMs, PROCESS_GROUP_POLL_MS))) {
+    return true;
+  }
 
   const forceful = signalProcessGroup(processGroupId, "SIGKILL");
   if (forceful === "gone") return true;
@@ -303,10 +307,13 @@ function terminateWindowsProcessTree(rootPid: number): boolean {
     },
   );
 
-  // taskkill may return 128 when /T /F wins a race with a process that has already
-  // disappeared. With no spawn/control error, both 0 and 128 mean there is no
-  // remaining target for this tree-termination attempt; all other statuses fail closed.
-  return result.error === undefined && (result.status === 0 || result.status === 128);
+  // cross-spawn@7.0.6 normalizes a successful sync call to error=null. Absence of a
+  // spawn/control error is therefore null or undefined. taskkill may also return 128 when
+  // /T /F wins an already-gone race; all other statuses remain fail-closed.
+  return (
+    (result.error === undefined || result.error === null) &&
+    (result.status === 0 || result.status === 128)
+  );
 }
 
 async function terminateProcessTree(rootPid: number, graceMs: number): Promise<boolean> {
