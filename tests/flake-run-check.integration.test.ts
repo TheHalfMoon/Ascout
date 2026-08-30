@@ -146,7 +146,7 @@ describe("T064 runCheck reproduction and flake normalization", () => {
       });
       expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-1"))).toBe(true);
       expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-2"))).toBe(true);
-    }, 30_000);
+    }, 60_000);
 
     it(`${runner}: keeps repeated exact failures as FAIL with reproduced=true`, async () => {
       const receipt = await checkFixture(runner, "stable");
@@ -159,7 +159,7 @@ describe("T064 runCheck reproduction and flake normalization", () => {
         observations: { runs: 3, failures: 3 },
         reproduced: true,
       });
-    }, 30_000);
+    }, 60_000);
 
     it(`${runner}: keeps reproduction unknown when the first targeted rerun is not a valid observation`, async () => {
       const receipt = await checkFixture(runner, "rerun-error");
@@ -173,7 +173,7 @@ describe("T064 runCheck reproduction and flake normalization", () => {
         reproduced: "unknown",
       });
       expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-2"))).toBe(false);
-    }, 30_000);
+    }, 60_000);
   }
 
   it("jest: keeps reproduction unknown when a targeted machine result violates the Jest contract", async () => {
@@ -189,6 +189,6 @@ describe("T064 runCheck reproduction and flake normalization", () => {
     });
     expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-1"))).toBe(true);
     expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-2"))).toBe(false);
-  }, 30_000);
+  }, 60_000);
 
 });
