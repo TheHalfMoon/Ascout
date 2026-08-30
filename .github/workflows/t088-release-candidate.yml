@@ -9,10 +9,20 @@ permissions:
   contents: read
 
 jobs:
-  windows-coverage-regression:
-    name: t088 focused / windows-2025 / node-22
-    runs-on: windows-2025
-    timeout-minutes: 20
+  candidate:
+    name: t088 / ${{ matrix.os }} / node-${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-14
+          - windows-2025
+        node:
+          - "22"
+          - "24"
     env:
       CANDIDATE_SHA: 13af99d0551b71a62a02e4f07057a8553e4673df
     steps:
@@ -24,28 +34,57 @@ jobs:
           clean: true
 
       - name: Guard exact source
-        shell: pwsh
+        run: node -e "const cp=require('node:child_process'); const head=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); if(head!==process.env.CANDIDATE_SHA) throw new Error('candidate mismatch: '+head); const s=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8'}); if(s!=='') throw new Error('candidate checkout is dirty: '+JSON.stringify(s)); console.log('candidate '+head+' clean');"
+
+      - name: Record environment
         run: |
-          $head = git rev-parse HEAD
-          if ($head -ne $env:CANDIDATE_SHA) { throw "candidate mismatch: $head" }
-          $status = git status --porcelain=v1 --untracked-files=all
-          if ($status) { throw "candidate checkout is dirty: $status" }
+          git --version
+          node --version
+          npm --version
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: ${{ matrix.node }}
           cache: npm
+
+      - name: Record selected runtime
+        run: |
+          node --version
+          npm --version
 
       - name: Install exact lockfile
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Focused Windows coverage regressions
-        run: npx vitest run tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
+      - name: Typecheck
+        run: npm run typecheck
 
-      - name: Final cleanliness
-        shell: pwsh
-        run: |
-          git clean -fd
-          $status = git status --porcelain=v1 --untracked-files=all
-          if ($status) { throw "candidate became dirty: $status" }
+      - name: Full test suite
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Focused T080 process-control gate
+        run: npx vitest run tests/process-control.test.ts tests/windows-command-separator.process-control.test.ts --no-file-parallelism
+
+      - name: Focused T081 receipt and Git object-format gate
+        run: npx vitest run tests/t081-cross-platform-receipt-golden.test.ts --no-file-parallelism
+
+      - name: Focused T082 package-content gate
+        run: npx vitest run tests/npm-package-content.test.ts --no-file-parallelism
+
+      - name: Inspect actual npm dry-run manifest
+        run: npm pack --dry-run --json --ignore-scripts > pack-dry-run.json
+
+      - name: Enforce package identity and forbidden-surface exclusions
+        run: node -e "const fs=require('node:fs'); const report=JSON.parse(fs.readFileSync('pack-dry-run.json','utf8')); if(!Array.isArray(report)||report.length!==1) throw new Error('unexpected npm pack report'); const p=report[0]; if(p.name!=='@thehalfmoon/ascout'||p.version!=='0.0.0') throw new Error('unexpected package identity '+JSON.stringify({name:p.name,version:p.version})); const names=(p.files||[]).map(f=>f.path); const forbidden=[/^\.ascout\//,/^src\//,/^tests\//,/^specs\//,/^benchmarks\//,/fixtures?/i,/coverage/i,/\.log$/i,/secret/i]; for(const name of names){ if(forbidden.some(r=>r.test(name))) throw new Error('forbidden packed path: '+name); if(!(name==='package.json'||name==='README.md'||name==='LICENSE'||name.startsWith('dist/'))) throw new Error('unexpected packed path: '+name); } if(!names.includes('dist/cli.js')) throw new Error('dist/cli.js missing from npm pack'); console.log(JSON.stringify({name:p.name,version:p.version,fileCount:names.length}));"
+
+      - name: Validate committed T078 selector-miss publication
+        run: node -e "const fs=require('node:fs'); const p=JSON.parse(fs.readFileSync('benchmarks/results/t078-selector-misses.json','utf8')); if(p.task!=='T078'||p.status!=='SELECTOR_MISSES_PUBLISHED') throw new Error('invalid T078 publication status'); if(p.summary?.published_selector_miss_count!==1||p.selector_misses?.length!==1) throw new Error('unexpected T078 miss publication'); if(p.threshold_policy?.acceptance_threshold!==null) throw new Error('invented T078 acceptance threshold'); console.log(JSON.stringify({task:p.task,status:p.status,misses:p.selector_misses.length}));"
+
+      - name: CLI startup and usage contract
+        run: node dist/cli.js --help
+
+      - name: Final candidate cleanliness
+        run: node -e "const cp=require('node:child_process'); cp.execFileSync('git',['diff','--exit-code'],{stdio:'inherit'}); const s=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8'}); if(s!==''&&!s.split(/\r?\n/).filter(Boolean).every(line=>line.endsWith(' pack-dry-run.json'))) throw new Error('candidate tracked/source state changed: '+JSON.stringify(s)); console.log('candidate tracked/source state clean');"
