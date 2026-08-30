@@ -30,7 +30,11 @@ describe("T051 managed generated-artifact I/O", () => {
 
       const handle = openManagedGeneratedArtifact(runPath, "raw/test/vitest-results.json");
       try {
-        expect(handle.expectedPath).toBe(realpathSync.native(artifact));
+        // Windows may expose the same physical temporary directory through its DOS 8.3 alias
+        // (for example RUNNER~1) while the caller spelling uses the long user-profile name.
+        // The managed handle's security contract is self-canonical physical binding, not textual
+        // equality with an alternate host alias supplied by the caller.
+        expect(handle.expectedPath).toBe(realpathSync(handle.expectedPath));
         expect(handle.readBounded().toString("utf8")).toBe("{}\n");
         expect(() => handle.assertStillBound()).not.toThrow();
       } finally {
