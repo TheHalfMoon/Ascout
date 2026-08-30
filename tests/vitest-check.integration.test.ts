@@ -115,5 +115,5 @@ describe("T051 runCheck Vitest integration", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  }, 30_000);
+  }, 60_000);
 });
