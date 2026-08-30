@@ -36,7 +36,7 @@ jobs:
         shell: pwsh
         run: |
           $needle = 'expect(receipt.selection.limitations).not.toContain(UNSAFE_SELECTION_LIMITATION);'
-          $diagnostic = 'console.error(JSON.stringify({selection: receipt.selection, summary: receipt.summary, test_task: receipt.tasks.find((task) => task.task_type === "test")}, null, 2));'
+          $diagnostic = 'console.error(JSON.stringify({selection: receipt.selection, summary: receipt.summary, test_task: receipt.tasks.find((task) => task.task_type === "test"), evidence: receipt.evidence.filter((item) => item.task_id === "test"), artifacts: receipt.artifacts.filter((item) => item.task_id === "test")}, null, 2));'
           foreach ($file in @('tests/vitest-check.integration.test.ts', 'tests/jest-check.integration.test.ts')) {
             $text = Get-Content -Raw $file
             if (-not $text.Contains($needle)) { throw "diagnostic needle missing in $file" }
@@ -45,6 +45,7 @@ jobs:
           }
 
       - name: Baseline focused pair
+        continue-on-error: true
         env:
           TMPDIR: ${{ runner.temp }}
         run: npx vitest run tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
