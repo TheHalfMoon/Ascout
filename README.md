@@ -24,7 +24,7 @@ For a supported trusted local repository, `ascout check` can:
 - execute project-local commands without constructing an arbitrary shell command string;
 - bound command runtime, captured output, widening, flake observations, run retention, and agent-receipt size;
 - refuse changed effective command/configuration surfaces by default until the human caller explicitly admits that surface for one invocation;
-- record task PASS/FAIL/ERROR/BLOCKED/N/A/NOT_RUN distinctions instead of collapsing omissions into green;
+- record task `PASS`/`FAIL`/`FLAKY`/`BLOCKED`/`ERROR`/`NOT_APPLICABLE`/`NOT_RUN` distinctions instead of collapsing omissions into green;
 - use native related-test selection where supported, with at most one bounded widening pass when evidence requires it;
 - normalize LCOV line evidence and report changed executable lines as `EXERCISED`, `NOT_EXERCISED`, or `UNRESOLVED`;
 - detect source drift between the beginning and end of a check;
@@ -65,7 +65,7 @@ For the current source build:
 - npm for the committed lockfile workflow;
 - project-local verification tools required by the tasks you expect Ascout to run.
 
-Project CI currently qualifies Node 22 and Node 24 on Linux, macOS, and Windows Server 2025. Supported-platform evidence is kept explicit: platform-specific test debt is not converted into a false green result.
+Project CI runs Node 22 and Node 24 on Linux, macOS, and Windows Server 2025. Supported-platform evidence is kept explicit: platform-specific test debt is not converted into a false green result.
 
 ## Use from the repository today
 
