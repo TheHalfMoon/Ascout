@@ -55,12 +55,12 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Full test suite
+      - name: Full test suite serialized for contention diagnosis
         id: full_tests
         continue-on-error: true
         env:
           TMPDIR: ${{ runner.temp }}
-        run: npm test
+        run: npm test -- --no-file-parallelism
 
       - name: Build
         if: ${{ !cancelled() }}
