@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -29,7 +29,7 @@ function fixtureRoot(withCoverage = true): string {
   if (withCoverage) {
     writeInstalledPackage(root, "node_modules/@vitest/coverage-v8/package.json", "@vitest/coverage-v8");
   }
-  return root;
+  return realpathSync.native(root);
 }
 
 function rootFiles(extra: DiscoveryFileMap = {}): DiscoveryFileMap {
