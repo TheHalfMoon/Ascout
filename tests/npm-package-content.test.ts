@@ -106,8 +106,8 @@ afterEach(() => {
   }
 });
 
-describe("T082 npm package content", () => {
-  it("packs only the positive release surface and inspects the real tarball in an isolated consumer", () => {
+describe("T082/T087 npm package content and identity", () => {
+  it("packs only the positive release surface with the scoped fallback and preserves the ascout binary", () => {
     const root = mkdtempSync(join(tmpdir(), "ascout-t082-package-"));
     temporaryDirectories.push(root);
     const packageRoot = join(root, "package-source");
@@ -169,9 +169,13 @@ describe("T082 npm package content", () => {
     assertPackageSurface(extractedPaths);
 
     const extractedManifest = JSON.parse(readFileSync(join(extractedRoot, "package.json"), "utf8")) as {
+      readonly name?: string;
+      readonly private?: boolean;
       readonly bin?: Record<string, string>;
       readonly files?: readonly string[];
     };
+    expect(extractedManifest.name).toBe("@thehalfmoon/ascout");
+    expect(extractedManifest.private).toBe(true);
     expect(extractedManifest.bin).toEqual({ ascout: "./dist/cli.js" });
     expect(extractedManifest.files).toEqual(["dist"]);
 
