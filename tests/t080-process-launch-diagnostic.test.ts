@@ -56,62 +56,80 @@ function closeObservation(child: import("node:child_process").ChildProcess): Pro
 
 describe("T080 process launch diagnostics", () => {
   it.skipIf(process.platform !== "win32")(
-    "reports taskkill result for a cross-spawn target after the production timeout interval",
+    "samples taskkill results for cross-spawn targets with production lifecycle listeners",
     async () => {
-      const child = crossSpawn(
-        process.execPath,
-        ["-e", "setInterval(() => {}, 1000)"],
-        {
-          cwd: process.cwd(),
-          shell: false,
-          detached: false,
-          windowsHide: true,
-          stdio: ["ignore", "pipe", "pipe"],
-        },
-      );
-      const close = closeObservation(child);
-      await waitForSpawn(child);
-      const pid = child.pid;
-      if (pid === undefined) throw new Error("T080 diagnostic: cross-spawn child PID is undefined");
-      await sleep(100);
-
       const systemRoot = process.env.SystemRoot;
       if (systemRoot === undefined) throw new Error("T080 diagnostic: SystemRoot is undefined");
       const taskkillPath = pathWin32.join(systemRoot, "System32", "taskkill.exe");
-      const result = crossSpawn.sync(
-        taskkillPath,
-        ["/PID", String(pid), "/T", "/F"],
-        {
-          shell: false,
-          windowsHide: true,
-          stdio: "ignore",
-          timeout: 5_000,
-        },
-      );
-      const closed = await close;
-      const errorCode = (result.error as NodeJS.ErrnoException | undefined)?.code;
-      throw new Error(`T080 cross-spawn taskkill diagnostic: ${JSON.stringify({
-        status: result.status,
-        errorCode,
-        errorMessage: result.error?.message,
-        childExitCode: closed.exitCode,
-        childSignal: closed.signal,
-      })}`);
+      const observations: Array<{
+        readonly status: number | null;
+        readonly errorCode?: string;
+        readonly childExitCode: number | null;
+        readonly childSignal: NodeJS.Signals | null;
+      }> = [];
+
+      for (let iteration = 0; iteration < 12; iteration += 1) {
+        const child = crossSpawn(
+          process.execPath,
+          ["-e", "setInterval(() => {}, 1000)"],
+          {
+            cwd: process.cwd(),
+            shell: false,
+            detached: false,
+            windowsHide: true,
+            stdio: ["ignore", "pipe", "pipe"],
+          },
+        );
+        child.stdout?.on("data", () => undefined);
+        child.stdout?.on("error", () => undefined);
+        child.stderr?.on("data", () => undefined);
+        child.stderr?.on("error", () => undefined);
+        child.on("error", () => undefined);
+        const close = closeObservation(child);
+        await waitForSpawn(child);
+        const pid = child.pid;
+        if (pid === undefined) throw new Error("T080 diagnostic: cross-spawn child PID is undefined");
+        await sleep(100);
+
+        const result = crossSpawn.sync(
+          taskkillPath,
+          ["/PID", String(pid), "/T", "/F"],
+          {
+            shell: false,
+            windowsHide: true,
+            stdio: "ignore",
+            timeout: 5_000,
+          },
+        );
+        const closed = await close;
+        const errorCode = (result.error as NodeJS.ErrnoException | undefined)?.code;
+        observations.push({
+          status: result.status,
+          ...(errorCode === undefined ? {} : { errorCode }),
+          childExitCode: closed.exitCode,
+          childSignal: closed.signal,
+        });
+      }
+
+      throw new Error(`T080 taskkill sample: ${JSON.stringify(observations)}`);
     },
   );
 
   it.skipIf(process.platform === "win32")(
-    "reports the full one-millisecond timeout result on POSIX",
+    "samples one-millisecond timeout outcomes on POSIX",
     async () => {
-      const result = await runProcess({
-        file: process.execPath,
-        argv: ["-e", "setInterval(() => {}, 1000)"],
-        cwd: process.cwd(),
-        timeout_ms: 1,
-        termination_grace_ms: 0,
-        capture_cap_bytes: 64 * 1024,
-      });
-      throw new Error(`T080 one-millisecond diagnostic: ${JSON.stringify(result)}`);
+      const observations = [];
+      for (let iteration = 0; iteration < 12; iteration += 1) {
+        observations.push(await runProcess({
+          file: process.execPath,
+          argv: ["-e", "setInterval(() => {}, 1000)"],
+          cwd: process.cwd(),
+          timeout_ms: 1,
+          termination_grace_ms: 0,
+          capture_cap_bytes: 64 * 1024,
+        }));
+      }
+      throw new Error(`T080 one-millisecond sample: ${JSON.stringify(observations)}`);
     },
   );
 });
