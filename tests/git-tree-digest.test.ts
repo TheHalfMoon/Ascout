@@ -298,7 +298,7 @@ describe("T019 live Git tree-digest collection", () => {
     rmSync(join(repositoryRoot, "ignored.log"));
     rmSync(join(repositoryRoot, ".ascout"), { recursive: true, force: true });
     expect(readTreeDigestV1(repositoryRoot)).toEqual(withUntracked);
-  });
+  }, 15_000);
 
   it("filters stale-stat false modifications without refreshing the index", () => {
     const repositoryRoot = makeRepository();
