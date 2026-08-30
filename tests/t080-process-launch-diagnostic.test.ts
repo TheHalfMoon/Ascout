@@ -7,6 +7,9 @@ interface CrossSpawnSyncObservation {
   readonly file: string;
   readonly argv: readonly string[];
   readonly status: number | null;
+  readonly errorIsUndefined: boolean;
+  readonly errorIsNull: boolean;
+  readonly cleanupPredicate: boolean;
   readonly errorCode?: string;
   readonly errorMessage?: string;
 }
@@ -38,6 +41,9 @@ describe("T080 process cleanup diagnostics", () => {
           file,
           argv: [...argv],
           status: result.status,
+          errorIsUndefined: result.error === undefined,
+          errorIsNull: result.error === null,
+          cleanupPredicate: result.error === undefined && (result.status === 0 || result.status === 128),
           ...(errorCode === undefined ? {} : { errorCode }),
           ...(result.error?.message === undefined ? {} : { errorMessage: result.error.message }),
         });
