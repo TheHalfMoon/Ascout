@@ -12,14 +12,11 @@ interface CrossSpawnSyncLike {
     options: {
       readonly shell: false;
       readonly windowsHide: true;
-      readonly stdio: "pipe";
+      readonly stdio: "ignore";
       readonly timeout: number;
-      readonly encoding: "utf8";
     },
   ): {
     readonly status: number | null;
-    readonly stdout?: string | Buffer | null;
-    readonly stderr?: string | Buffer | null;
     readonly error?: Error;
   };
 }
@@ -61,7 +58,7 @@ describe("T080 Windows timeout diagnostic", () => {
   );
 
   it.skipIf(process.platform !== "win32")(
-    "reports the exact native taskkill result",
+    "reports the exact native taskkill result with production sync options",
     async () => {
       const systemRoot = process.env.SystemRoot;
       if (systemRoot === undefined) throw new Error("T080 diagnostic: SystemRoot is undefined");
@@ -80,9 +77,8 @@ describe("T080 Windows timeout diagnostic", () => {
         {
           shell: false,
           windowsHide: true,
-          stdio: "pipe",
+          stdio: "ignore",
           timeout: 5_000,
-          encoding: "utf8",
         },
       );
       await waitForClose(child);
@@ -92,8 +88,6 @@ describe("T080 Windows timeout diagnostic", () => {
         status: result.status,
         errorCode,
         errorMessage: result.error?.message,
-        stdout: result.stdout?.toString(),
-        stderr: result.stderr?.toString(),
       })}`);
     },
   );
