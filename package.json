@@ -5,6 +5,9 @@
   "description": "Verify everything AI ships.",
   "license": "Apache-2.0",
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "bin": {
     "ascout": "./dist/cli.js"
   },
