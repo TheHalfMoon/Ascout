@@ -12,7 +12,7 @@ jobs:
   diagnose-windows-selection:
     name: t088 diagnostic / windows-2025 / node-22
     runs-on: windows-2025
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       CANDIDATE_SHA: d7bb3a416f2eb3b2b4cf89c74d2a5cd97275c9bf
     steps:
@@ -34,18 +34,30 @@ jobs:
 
       - name: Instrument receipt diagnostics
         run: >-
-          node -e "const fs=require('node:fs');for(const f of ['tests/vitest-check.integration.test.ts','tests/jest-check.integration.test.ts']){let s=fs.readFileSync(f,'utf8');const needle='expect(receipt.selection.limitations).not.toContain(UNSAFE_SELECTION_LIMITATION);';const replacement='console.error(\"ASCOUT_T088_DIAGNOSTIC \"+JSON.stringify({diagnostic_file:'+JSON.stringify(f)+',selection:receipt.selection,summary:receipt.summary,test_task:receipt.tasks.find((task)=>task.task_type===\"test\")}));\n      '+needle;if(!s.includes(needle))throw new Error('diagnostic needle missing in '+f);fs.writeFileSync(f,s.replace(needle,replacement),'utf8');}"
+          node -e "const fs=require('node:fs');for(const f of ['tests/vitest-check.integration.test.ts','tests/jest-check.integration.test.ts']){let s=fs.readFileSync(f,'utf8');const needle='expect(receipt.selection.limitations).not.toContain(UNSAFE_SELECTION_LIMITATION);';const replacement='console.error(JSON.stringify({diagnostic_file:'+JSON.stringify(f)+',selection:receipt.selection,summary:receipt.summary,test_task:receipt.tasks.find((task)=>task.task_type===\"test\")},null,2));\n      '+needle;if(!s.includes(needle))throw new Error('diagnostic needle missing in '+f);fs.writeFileSync(f,s.replace(needle,replacement),'utf8');}"
 
       - name: Baseline focused pair
         env:
           TMPDIR: ${{ runner.temp }}
         run: npx vitest run tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
 
-      - name: Run suspected predecessors then focused pair in one worker
+      - name: Git tree predecessor plus focused pair
         continue-on-error: true
         env:
           TMPDIR: ${{ runner.temp }}
-        run: npx vitest run tests/git-tree-digest.test.ts tests/pr41-p0-regressions.contract.test.ts tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
+        run: npx vitest run tests/git-tree-digest.test.ts tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
+
+      - name: PR41 predecessor plus focused pair
+        continue-on-error: true
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: npx vitest run tests/pr41-p0-regressions.contract.test.ts tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
+
+      - name: Flake integration predecessor plus focused pair
+        continue-on-error: true
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: npx vitest run tests/flake-run-check.integration.test.ts tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
 
       - name: Restore exact candidate
         if: ${{ !cancelled() }}
