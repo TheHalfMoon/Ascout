@@ -1,0 +1,51 @@
+name: T088 Release Candidate Rehearsal
+
+on:
+  push:
+    branches:
+      - release/088-clean-candidate-rehearsal
+
+permissions:
+  contents: read
+
+jobs:
+  windows-coverage-regression:
+    name: t088 focused / windows-2025 / node-22
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      CANDIDATE_SHA: 13af99d0551b71a62a02e4f07057a8553e4673df
+    steps:
+      - name: Checkout exact release candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+          clean: true
+
+      - name: Guard exact source
+        shell: pwsh
+        run: |
+          $head = git rev-parse HEAD
+          if ($head -ne $env:CANDIDATE_SHA) { throw "candidate mismatch: $head" }
+          $status = git status --porcelain=v1 --untracked-files=all
+          if ($status) { throw "candidate checkout is dirty: $status" }
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Focused Windows coverage regressions
+        run: npx vitest run tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
+
+      - name: Final cleanliness
+        shell: pwsh
+        run: |
+          git clean -fd
+          $status = git status --porcelain=v1 --untracked-files=all
+          if ($status) { throw "candidate became dirty: $status" }
