@@ -64,7 +64,7 @@ interface CrossSpawnLike {
     options: SpawnSyncOptions,
   ): {
     readonly status: number | null;
-    readonly error?: Error;
+    readonly error?: Error | null;
   };
 }
 
@@ -108,6 +108,10 @@ function requireNonEmptyNoNul(value: string, field: string): void {
   }
 }
 
+function containsWindowsCommandSeparator(value: string): boolean {
+  return value.includes("\r") || value.includes("\n");
+}
+
 function requireIntegerAtLeast(value: number, minimum: number, field: string): void {
   if (!Number.isSafeInteger(value) || value < minimum) {
     throw new ProcessControlError(`${field} must be a safe integer >= ${minimum}`);
@@ -121,6 +125,10 @@ function validateRequest(request: ProcessRunRequest): void {
   requireIntegerAtLeast(request.termination_grace_ms, 0, "termination_grace_ms");
   requireIntegerAtLeast(request.capture_cap_bytes, 0, "capture_cap_bytes");
 
+  if (process.platform === "win32" && containsWindowsCommandSeparator(request.file)) {
+    throw new ProcessControlError("file must not contain CR or LF on Windows");
+  }
+
   for (let index = 0; index < request.argv.length; index += 1) {
     const value = request.argv[index];
     if (typeof value !== "string") {
@@ -128,6 +136,9 @@ function validateRequest(request: ProcessRunRequest): void {
     }
     if (value.includes("\0")) {
       throw new ProcessControlError(`argv[${index}] must not contain NUL`);
+    }
+    if (process.platform === "win32" && containsWindowsCommandSeparator(value)) {
+      throw new ProcessControlError(`argv[${index}] must not contain CR or LF on Windows`);
     }
   }
 }
@@ -197,6 +208,11 @@ function processErrorDetail(error: Error): ProcessErrorDetail {
     : { message: error.message };
 }
 
+function processErrorCode(error: Error): string | undefined {
+  const code = (error as NodeJS.ErrnoException).code;
+  return typeof code === "string" ? code : undefined;
+}
+
 function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds);
@@ -233,7 +249,6 @@ async function waitForProcessGroupGone(
   while (true) {
     const exists = processGroupExists(processGroupId);
     if (exists === false) return true;
-    if (exists === null) return false;
 
     const remaining = deadline - Date.now();
     if (remaining <= 0) return false;
@@ -249,7 +264,12 @@ async function terminatePosixProcessGroup(
   if (graceful === "gone") return true;
   if (graceful === "error") return false;
 
-  if (await waitForProcessGroupGone(processGroupId, graceMs)) return true;
+  // A just-signaled process group can transiently return EPERM to the signal-0 probe on
+  // macOS while the group is collapsing. Keep that state fail-closed, but allow one bounded
+  // polling interval even when caller grace is zero before escalating to SIGKILL.
+  if (await waitForProcessGroupGone(processGroupId, Math.max(graceMs, PROCESS_GROUP_POLL_MS))) {
+    return true;
+  }
 
   const forceful = signalProcessGroup(processGroupId, "SIGKILL");
   if (forceful === "gone") return true;
@@ -286,7 +306,14 @@ function terminateWindowsProcessTree(rootPid: number): boolean {
       timeout: WINDOWS_TREE_KILL_TIMEOUT_MS,
     },
   );
-  return result.error === undefined && result.status === 0;
+
+  // cross-spawn@7.0.6 normalizes a successful sync call to error=null. Absence of a
+  // spawn/control error is therefore null or undefined. taskkill may also return 128 when
+  // /T /F wins an already-gone race; all other statuses remain fail-closed.
+  return (
+    (result.error === undefined || result.error === null) &&
+    (result.status === 0 || result.status === 128)
+  );
 }
 
 async function terminateProcessTree(rootPid: number, graceMs: number): Promise<boolean> {
@@ -375,6 +402,8 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   }
 
   let runtimeError: Error | null = null;
+  let preTimeoutRuntimeError: Error | null = null;
+  let timeoutObserved = false;
   let resolveRuntimeError: ((observation: TimedObservation) => void) | null = null;
   const runtimeErrorPromise = new Promise<TimedObservation>((resolve) => {
     resolveRuntimeError = resolve;
@@ -382,6 +411,8 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   const recordRuntimeError = (error: Error): void => {
     if (runtimeError !== null) return;
     runtimeError = error;
+    if (timeoutObserved) return;
+    preTimeoutRuntimeError = error;
     resolveRuntimeError?.({ kind: "control_error", error });
   };
 
@@ -448,7 +479,10 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
 
   let timeoutHandle: NodeJS.Timeout | null = null;
   const timeoutPromise = new Promise<TimedObservation>((resolve) => {
-    timeoutHandle = setTimeout(() => resolve({ kind: "timeout" }), request.timeout_ms);
+    timeoutHandle = setTimeout(() => {
+      timeoutObserved = true;
+      resolve({ kind: "timeout" });
+    }, request.timeout_ms);
   });
 
   const completion = await Promise.race([
@@ -459,10 +493,10 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   if (timeoutHandle !== null) clearTimeout(timeoutHandle);
 
   if (completion.kind === "closed") {
-    if (runtimeError !== null) {
+    if (preTimeoutRuntimeError !== null) {
       return errorResult(
         target,
-        runtimeError,
+        preTimeoutRuntimeError,
         finalizeCapture(stdoutCapture),
         finalizeCapture(stderrCapture),
         false,
@@ -483,6 +517,20 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   }
 
   if (completion.kind === "control_error") {
+    if (processErrorCode(completion.error) === "ENOENT") {
+      const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
+      if (close !== null) {
+        return errorResult(
+          target,
+          completion.error,
+          finalizeCapture(stdoutCapture),
+          finalizeCapture(stderrCapture),
+          false,
+          true,
+        );
+      }
+    }
+
     const cleanupComplete = await terminateProcessTree(rootPid, request.termination_grace_ms);
     const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
     return errorResult(
@@ -499,10 +547,10 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   const cleanupComplete = await terminateProcessTree(rootPid, request.termination_grace_ms);
   const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
 
-  if (!cleanupComplete || close === null || runtimeError !== null) {
+  if (!cleanupComplete || close === null || preTimeoutRuntimeError !== null) {
     return errorResult(
       target,
-      runtimeError ?? new Error("process timeout cleanup did not complete"),
+      preTimeoutRuntimeError ?? new Error("process timeout cleanup did not complete"),
       finalizeCapture(stdoutCapture),
       finalizeCapture(stderrCapture),
       true,

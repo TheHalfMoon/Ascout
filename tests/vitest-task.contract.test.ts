@@ -39,8 +39,25 @@ function rootFiles(extra: DiscoveryFileMap = {}): DiscoveryFileMap {
       devDependencies: { vitest: "4.1.10", "@vitest/coverage-v8": "4.1.10" },
     }),
     "node_modules/.bin/vitest": "",
+    "node_modules/.bin/vitest.cmd": "",
     "vitest.config.mjs": "",
     ...extra,
+  };
+}
+
+function nativeVitestPath(prefix = ""): string {
+  const root = prefix === "" ? "" : `${prefix}/`;
+  return `${root}node_modules/.bin/vitest${process.platform === "win32" ? ".cmd" : ""}`;
+}
+
+function posixOnlyRootFiles(): DiscoveryFileMap {
+  return {
+    "package.json": JSON.stringify({
+      private: true,
+      devDependencies: { vitest: "4.1.10", "@vitest/coverage-v8": "4.1.10" },
+    }),
+    "node_modules/.bin/vitest": "",
+    "vitest.config.mjs": "",
   };
 }
 
@@ -69,7 +86,7 @@ describe("T051 project-local Vitest planning", () => {
       expect(plan.machineResultPath).toBe(".ascout/runs/run-051/raw/test/vitest-results.json");
       expect(plan.lcovPath).toBe(".ascout/runs/run-051/raw/test/coverage/lcov.info");
       expect(plan.argv).toEqual([
-        "node_modules/.bin/vitest",
+        nativeVitestPath(),
         "related",
         "src/used.ts",
         "--run",
@@ -128,6 +145,7 @@ describe("T051 project-local Vitest planning", () => {
           devDependencies: { vitest: "4.1.10" },
         }),
         "node_modules/.bin/vitest": "",
+        "node_modules/.bin/vitest.cmd": "",
         "packages/a/vitest.config.mjs": "",
       };
       const plan = planVitestTask({
@@ -143,7 +161,7 @@ describe("T051 project-local Vitest planning", () => {
       if (plan.state !== "planned") return;
       expect(plan.workingDirectory).toBe("packages/a");
       expect(plan.configPath).toBe("packages/a/vitest.config.mjs");
-      expect(plan.argv[0]).toBe("../../node_modules/.bin/vitest");
+      expect(plan.argv[0]).toBe(`../../${nativeVitestPath()}`);
       expect(plan.argv.slice(1, 3)).toEqual(["related", "src/used.ts"]);
       expect(plan.argv).toContain("--outputFile=../../.ascout/runs/run-051/raw/test/vitest-results.json");
       expect(plan.argv).toContain("--coverage.reportsDirectory=../../.ascout/runs/run-051/raw/test/coverage");
@@ -201,6 +219,7 @@ describe("T051 project-local Vitest planning", () => {
       const files: DiscoveryFileMap = {
         "package.json": JSON.stringify({ private: true, devDependencies: { jest: "30.0.0" } }),
         "node_modules/.bin/jest": "",
+        "node_modules/.bin/jest.cmd": "",
       };
       const plan = planVitestTask({
         repositoryRoot: root,
@@ -216,6 +235,7 @@ describe("T051 project-local Vitest planning", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
   it("keeps option-like changed Vitest paths positional instead of letting them become CLI options", () => {
     const root = fixtureRoot();
     try {
@@ -244,7 +264,7 @@ describe("T051 project-local Vitest planning", () => {
   it("prefers the npm .cmd Vitest launcher on Windows when both shim forms are present", () => {
     const root = fixtureRoot();
     try {
-      const files = rootFiles({ "node_modules/.bin/vitest.cmd": "" });
+      const files = rootFiles();
       const plan = planVitestTask({
         repositoryRoot: root,
         runId: "run-051",
@@ -262,10 +282,11 @@ describe("T051 project-local Vitest planning", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
   it("fails closed on Windows when only the POSIX unsuffixed Vitest shim is available", () => {
     const root = fixtureRoot();
     try {
-      const files = rootFiles();
+      const files = posixOnlyRootFiles();
       const plan = planVitestTask({
         repositoryRoot: root,
         runId: "run-051",

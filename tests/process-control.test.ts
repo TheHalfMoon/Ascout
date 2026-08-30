@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -27,6 +27,24 @@ function request(
 
 function sleep(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function writeWindowsNodeShim(
+  directory: string,
+  name: string,
+  script: string,
+): string {
+  const scriptPath = join(directory, `${name}.cjs`);
+  const shimDirectory = join(directory, "node_modules", ".bin");
+  const shimPath = join(shimDirectory, `${name}.cmd`);
+  mkdirSync(shimDirectory, { recursive: true });
+  writeFileSync(scriptPath, script, "utf8");
+  writeFileSync(
+    shimPath,
+    `@echo off\r\n"${process.execPath}" "${scriptPath}" %*\r\n`,
+    "utf8",
+  );
+  return shimPath;
 }
 
 afterEach(() => {
@@ -62,6 +80,61 @@ describe("T021 process control", () => {
     expect(result).not.toHaveProperty("argv");
     expect(result).not.toHaveProperty("command_string");
   });
+
+  it.skipIf(process.platform !== "win32")(
+    "preserves argv through a native Windows command shim without shell:true",
+    async () => {
+      const directory = mkdtempSync(join(tmpdir(), "ascout-t080-shim-"));
+      temporaryDirectories.push(directory);
+      const shim = writeWindowsNodeShim(
+        directory,
+        "echo-argv",
+        "process.stdout.write(JSON.stringify(process.argv.slice(2)))",
+      );
+      const literalArgs = [
+        "hello world",
+        "semi;colon",
+        "a&b|c>d<e",
+        "%TEMP%",
+        "^caret",
+        "paren(value)",
+        'quote"inside',
+        "C:\\Program Files\\Ascout\\fixture.js",
+      ];
+
+      const result = await runProcess(request(literalArgs, {
+        file: shim,
+        cwd: directory,
+      }));
+
+      expect(result.outcome).toBe("exited");
+      expect(result.exit_code).toBe(0);
+      expect(result.timed_out).toBe(false);
+      expect(result.cleanup_complete).toBe(true);
+      expect(result.termination_target).toBe("native_process_tree");
+      expect(JSON.parse(result.stdout.bytes.toString("utf8"))).toEqual(literalArgs);
+    },
+  );
+
+  it.skipIf(process.platform !== "win32")(
+    "rejects CR/LF command-shim arguments before process launch",
+    async () => {
+      const directory = mkdtempSync(join(tmpdir(), "ascout-t080-crlf-"));
+      temporaryDirectories.push(directory);
+      const marker = join(directory, "shim-launched.txt");
+      const shim = writeWindowsNodeShim(
+        directory,
+        "must-not-launch",
+        `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'launched')`,
+      );
+
+      await expect(runProcess(request(
+        ["safe\r\necho injected"],
+        { file: shim, cwd: directory },
+      ))).rejects.toBeInstanceOf(ProcessControlError);
+      expect(existsSync(marker)).toBe(false);
+    },
+  );
 
   it("captures stdout/stderr by bytes and keeps draining after the cap", async () => {
     const script = [
@@ -178,6 +251,40 @@ describe("T021 process control", () => {
       expect(result.outcome).toBe("timed_out");
       expect(result.cleanup_complete).toBe(true);
       await sleep(700);
+      expect(existsSync(marker)).toBe(false);
+    },
+  );
+
+  it.skipIf(process.platform !== "win32")(
+    "kills a descendant tree launched through a native Windows command shim",
+    async () => {
+      const directory = mkdtempSync(join(tmpdir(), "ascout-t080-tree-shim-"));
+      temporaryDirectories.push(directory);
+      const marker = join(directory, "descendant-survived.txt");
+      const descendantScript = [
+        "const fs = require('node:fs');",
+        `setTimeout(() => fs.writeFileSync(${JSON.stringify(marker)}, 'leaked'), 900);`,
+        "setInterval(() => {}, 1000);",
+      ].join("");
+      const parentScript = [
+        "const { spawn } = require('node:child_process');",
+        `spawn(process.execPath, ['-e', ${JSON.stringify(descendantScript)}], { stdio: 'ignore', windowsHide: true });`,
+        "setInterval(() => {}, 1000);",
+      ].join("");
+      const shim = writeWindowsNodeShim(directory, "tree-parent", parentScript);
+
+      const result = await runProcess(request([], {
+        file: shim,
+        cwd: directory,
+        timeout_ms: 300,
+        termination_grace_ms: 0,
+      }));
+
+      expect(result.outcome).toBe("timed_out");
+      expect(result.timed_out).toBe(true);
+      expect(result.cleanup_complete).toBe(true);
+      expect(result.termination_target).toBe("native_process_tree");
+      await sleep(1_100);
       expect(existsSync(marker)).toBe(false);
     },
   );

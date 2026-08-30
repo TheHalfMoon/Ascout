@@ -17,11 +17,21 @@ function changed(path: string): GitChangedFile {
   };
 }
 
+function nativeJestName(): string {
+  return process.platform === "win32" ? "jest.cmd" : "jest";
+}
+
+function nativeJestPath(prefix = ""): string {
+  const root = prefix === "" ? "" : `${prefix}/`;
+  return `${root}node_modules/.bin/${nativeJestName()}`;
+}
+
 function fixtureRoot(version = "30.4.2"): string {
   const root = mkdtempSync(join(tmpdir(), "ascout-t052-jest-plan-"));
   mkdirSync(join(root, "node_modules", ".bin"), { recursive: true });
   mkdirSync(join(root, "node_modules", "jest"), { recursive: true });
   writeFileSync(join(root, "node_modules", ".bin", "jest"), "");
+  writeFileSync(join(root, "node_modules", ".bin", "jest.cmd"), "");
   writeFileSync(join(root, "node_modules", "jest", "package.json"), JSON.stringify({ name: "jest", version }));
   return root;
 }
@@ -30,8 +40,17 @@ function rootFiles(extra: DiscoveryFileMap = {}): DiscoveryFileMap {
   return {
     "package.json": JSON.stringify({ private: true, devDependencies: { jest: "30.4.2" } }),
     "node_modules/.bin/jest": "",
+    "node_modules/.bin/jest.cmd": "",
     "jest.config.cjs": "",
     ...extra,
+  };
+}
+
+function posixOnlyRootFiles(): DiscoveryFileMap {
+  return {
+    "package.json": JSON.stringify({ private: true, devDependencies: { jest: "30.4.2" } }),
+    "node_modules/.bin/jest": "",
+    "jest.config.cjs": "",
   };
 }
 
@@ -56,7 +75,7 @@ describe("T052 Jest task planner", () => {
       expect(plan.toolVersion).toBe("30.4.2");
       expect(plan.selectionMode).toBe("native_related");
       expect(plan.selectedPaths).toEqual(["src/used.js"]);
-      expect(plan.argv[0]).toBe("node_modules/.bin/jest");
+      expect(plan.argv[0]).toBe(nativeJestPath());
       expect(plan.argv.slice(1, 3)).toEqual(["--findRelatedTests", "src/used.js"]);
       expect(plan.argv).toContain("--ci");
       expect(plan.argv).toContain("--json");
@@ -80,6 +99,7 @@ describe("T052 Jest task planner", () => {
         "package.json": JSON.stringify({ private: true, workspaces: ["packages/*"] }),
         "packages/a/package.json": JSON.stringify({ private: true, devDependencies: { jest: "30.4.2" } }),
         "node_modules/.bin/jest": "",
+        "node_modules/.bin/jest.cmd": "",
         "packages/a/jest.config.cjs": "",
       };
       const plan = planJestTask({
@@ -95,7 +115,7 @@ describe("T052 Jest task planner", () => {
       if (plan.state !== "planned") return;
       expect(plan.workingDirectory).toBe("packages/a");
       expect(plan.configPath).toBe("packages/a/jest.config.cjs");
-      expect(plan.argv[0]).toBe("../../node_modules/.bin/jest");
+      expect(plan.argv[0]).toBe(`../../${nativeJestPath()}`);
       expect(plan.argv.slice(1, 3)).toEqual(["--findRelatedTests", "src/used.js"]);
       expect(plan.argv).toContain("--outputFile=../../.ascout/runs/run-052/raw/test/jest-results.json");
       expect(plan.argv).toContain("--coverageDirectory=../../.ascout/runs/run-052/raw/test/coverage");
@@ -170,6 +190,7 @@ describe("T052 Jest task planner", () => {
       const files: DiscoveryFileMap = {
         "package.json": JSON.stringify({ private: true, devDependencies: { vitest: "4.1.10" } }),
         "node_modules/.bin/vitest": "",
+        "node_modules/.bin/vitest.cmd": "",
         "vitest.config.mjs": "",
       };
       const plan = planJestTask({
@@ -185,6 +206,7 @@ describe("T052 Jest task planner", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
   it("keeps option-like changed Jest paths positional instead of letting them become CLI options", () => {
     const root = fixtureRoot();
     try {
@@ -213,8 +235,7 @@ describe("T052 Jest task planner", () => {
   it("prefers the npm .cmd Jest launcher on Windows when both shim forms are present", () => {
     const root = fixtureRoot();
     try {
-      writeFileSync(join(root, "node_modules", ".bin", "jest.cmd"), "");
-      const files = rootFiles({ "node_modules/.bin/jest.cmd": "" });
+      const files = rootFiles();
       const plan = planJestTask({
         repositoryRoot: root,
         runId: "run-052",
@@ -232,10 +253,11 @@ describe("T052 Jest task planner", () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
   it("fails closed on Windows when only the POSIX unsuffixed Jest shim is available", () => {
     const root = fixtureRoot();
     try {
-      const files = rootFiles();
+      const files = posixOnlyRootFiles();
       const plan = planJestTask({
         repositoryRoot: root,
         runId: "run-052",
