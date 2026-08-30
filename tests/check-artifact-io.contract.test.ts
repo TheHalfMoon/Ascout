@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   symlinkSync,
@@ -29,7 +30,7 @@ describe("T051 managed generated-artifact I/O", () => {
 
       const handle = openManagedGeneratedArtifact(runPath, "raw/test/vitest-results.json");
       try {
-        expect(handle.expectedPath).toBe(artifact);
+        expect(handle.expectedPath).toBe(realpathSync.native(artifact));
         expect(handle.readBounded().toString("utf8")).toBe("{}\n");
         expect(() => handle.assertStillBound()).not.toThrow();
       } finally {
