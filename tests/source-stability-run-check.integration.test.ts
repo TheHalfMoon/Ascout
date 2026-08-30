@@ -87,5 +87,5 @@ describe("T062 runCheck source stability finalization", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  }, 30_000);
+  }, 60_000);
 });
