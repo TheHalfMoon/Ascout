@@ -117,7 +117,6 @@ function requireIntegerAtLeast(value: number, minimum: number, field: string): v
     throw new ProcessControlError(`${field} must be a safe integer >= ${minimum}`);
   }
 }
-
 function validateRequest(request: ProcessRunRequest): void {
   requireNonEmptyNoNul(request.file, "file");
   requireNonEmptyNoNul(request.cwd, "cwd");
@@ -302,7 +301,11 @@ function terminateWindowsProcessTree(rootPid: number): boolean {
       timeout: WINDOWS_TREE_KILL_TIMEOUT_MS,
     },
   );
-  return result.error === undefined && result.status === 0;
+
+  // taskkill may return 128 when /T /F wins a race with a process that has already
+  // disappeared. With no spawn/control error, both 0 and 128 mean there is no
+  // remaining target for this tree-termination attempt; all other statuses fail closed.
+  return result.error === undefined && (result.status === 0 || result.status === 128);
 }
 
 async function terminateProcessTree(rootPid: number, graceMs: number): Promise<boolean> {
