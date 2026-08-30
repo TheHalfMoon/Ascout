@@ -32,6 +32,9 @@ jobs:
       - name: Install exact lockfile
         run: npm ci --ignore-scripts --no-audit --no-fund
 
+      - name: Probe Windows temp path canonicalization
+        run: node -e "const fs=require('node:fs'),os=require('node:os'),path=require('node:path');const d=fs.mkdtempSync(path.join(os.tmpdir(),'ascout-realpath-'));console.log('ASCOUT_T088_REALPATH '+JSON.stringify({tmp:os.tmpdir(),directory:d,real:fs.realpathSync(d),native:fs.realpathSync.native(d)}));fs.rmSync(d,{recursive:true,force:true});"
+
       - name: Instrument coverage execution context
         shell: pwsh
         run: |
@@ -46,8 +49,6 @@ jobs:
 
       - name: Focused pair
         continue-on-error: true
-        env:
-          TMPDIR: ${{ runner.temp }}
         run: npx vitest run tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
 
       - name: Restore exact candidate
