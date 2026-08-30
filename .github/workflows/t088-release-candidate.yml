@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 20
     env:
-      CANDIDATE_SHA: d7bb3a416f2eb3b2b4cf89c74d2a5cd97275c9bf
+      CANDIDATE_SHA: a8b9cfec67bb442edccc2035829e75bc9ebd2d91
     steps:
       - name: Checkout exact release candidate
         uses: actions/checkout@v4
