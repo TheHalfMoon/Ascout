@@ -1,16 +1,15 @@
 {
-  "name": "ascout",
+  "name": "@thehalfmoon/ascout",
   "version": "0.0.0",
   "private": true,
   "description": "Verify everything AI ships.",
-  "license": "Apache-2.0",
   "type": "module",
-  "files": [
-    "dist"
-  ],
   "bin": {
     "ascout": "./dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -29,5 +28,6 @@
     "typescript": "6.0.3",
     "vite": "6.4.3",
     "vitest": "4.1.10"
-  }
+  },
+  "license": "Apache-2.0"
 }
