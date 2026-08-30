@@ -1,0 +1,90 @@
+name: T088 Release Candidate Rehearsal
+
+on:
+  push:
+    branches:
+      - release/088-clean-candidate-rehearsal
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    name: t088 / ${{ matrix.os }} / node-${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-14
+          - windows-2025
+        node:
+          - "22"
+          - "24"
+    env:
+      CANDIDATE_SHA: 982fb95c55005814fbd7d172c8c14f6b861e67db
+    steps:
+      - name: Checkout exact release candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+          clean: true
+
+      - name: Guard exact source
+        run: >-
+          node -e "const cp=require('node:child_process'); const head=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(); if(head!==process.env.CANDIDATE_SHA) throw new Error('candidate mismatch '+head); const s=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8'}); if(s!=='') throw new Error('candidate checkout is dirty '+JSON.stringify(s)); console.log('candidate '+head+' clean');"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Record environment
+        run: |
+          git --version
+          node --version
+          npm --version
+
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Full test suite
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Focused T080 process-control gate
+        run: npx vitest run tests/process-control.test.ts tests/windows-command-separator.process-control.test.ts --no-file-parallelism
+
+      - name: Focused T081 receipt and Git object-format gate
+        run: npx vitest run tests/t081-cross-platform-receipt-golden.test.ts --no-file-parallelism
+
+      - name: Focused T082 package-content gate
+        run: npx vitest run tests/npm-package-content.test.ts --no-file-parallelism
+
+      - name: Inspect actual npm dry-run manifest
+        run: npm pack --dry-run --json --ignore-scripts > pack-dry-run.json
+
+      - name: Enforce package identity and forbidden-surface exclusions
+        run: >-
+          node -e "const fs=require('node:fs'); const report=JSON.parse(fs.readFileSync('pack-dry-run.json','utf8')); if(!Array.isArray(report)||report.length!==1) throw new Error('unexpected npm pack report'); const p=report[0]; if(p.name!=='@thehalfmoon/ascout'||p.version!=='0.0.0') throw new Error('unexpected package identity '+JSON.stringify({name:p.name,version:p.version})); const names=(p.files||[]).map(f=>f.path); const forbidden=[/^\.ascout\//,/^src\//,/^tests\//,/^specs\//,/^benchmarks\//,/^coverage\//,/fixtures?/i,/\.log$/i,/secret/i]; for(const name of names){ if(forbidden.some(r=>r.test(name))) throw new Error('forbidden packed path '+name); if(!(name==='package.json'||name==='README.md'||name==='LICENSE'||name.startsWith('dist/'))) throw new Error('unexpected packed path '+name); } if(!names.includes('dist/cli.js')) throw new Error('dist/cli.js missing from npm pack'); console.log(JSON.stringify({name:p.name,version:p.version,fileCount:names.length}));"
+
+      - name: Validate committed T078 selector-miss publication
+        run: >-
+          node -e "const fs=require('node:fs'); const p=JSON.parse(fs.readFileSync('benchmarks/results/t078-selector-misses.json','utf8')); if(p.task!=='T078'||p.status!=='SELECTOR_MISSES_PUBLISHED') throw new Error('invalid T078 publication status'); if(p.summary?.published_selector_miss_count!==1||p.selector_misses?.length!==1) throw new Error('unexpected T078 miss publication'); if(p.threshold_policy?.acceptance_threshold!==null) throw new Error('invented T078 acceptance threshold'); console.log(JSON.stringify({task:p.task,status:p.status,misses:p.selector_misses.length}));"
+
+      - name: CLI startup and usage contract
+        run: >-
+          node -e "const cp=require('node:child_process'); const r=cp.spawnSync(process.execPath,['dist/cli.js','--help'],{encoding:'utf8'}); const text=(r.stdout||'')+(r.stderr||''); if(r.status!==2) throw new Error('expected unsupported --help to exit 2, got '+r.status); if(!text.includes('Unknown command: --help')||!text.includes('Usage:')||!text.includes('ascout doctor')) throw new Error('usage contract missing '+JSON.stringify(text)); console.log('CLI startup and usage contract observed');"
+
+      - name: Final candidate cleanliness
+        run: >-
+          node -e "const cp=require('node:child_process'); cp.execFileSync('git',['diff','--exit-code'],{stdio:'inherit'}); const s=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8'}); const dirty=s.split(/\r?\n/).filter(Boolean).filter(line=>!line.endsWith(' pack-dry-run.json')); if(dirty.length>0) throw new Error('candidate tracked/source state changed '+JSON.stringify(dirty)); console.log('candidate tracked/source state clean');"
