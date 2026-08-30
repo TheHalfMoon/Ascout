@@ -42,12 +42,6 @@ function makeRepository(objectFormat: "sha1" | "sha256"): string {
   git(root, ["config", "user.email", "t081@example.invalid"]);
   git(root, ["config", "commit.gpgsign", "false"]);
   git(root, ["config", "core.autocrlf", "false"]);
-  git(root, ["config", "core.excludesFile", join(root, ".empty-excludes")]);
-  git(root, ["config", "core.attributesFile", join(root, ".empty-attributes")]);
-  git(root, ["config", "core.hooksPath", join(root, ".empty-hooks")]);
-  writeFileSync(join(root, ".empty-excludes"), "");
-  writeFileSync(join(root, ".empty-attributes"), "");
-  mkdirSync(join(root, ".empty-hooks"));
   mkdirSync(join(root, "src"));
   writeFileSync(join(root, "src", "a.ts"), "export const value = 1;\n", "utf8");
   git(root, ["add", "src/a.ts"]);
