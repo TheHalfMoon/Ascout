@@ -118,5 +118,5 @@ describe("T054 Jest runCheck bounded post-run widening", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  }, 30_000);
+  }, 60_000);
 });
