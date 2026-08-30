@@ -1,15 +1,27 @@
 # Third-Party Notices
 
-**Status:** T003 direct-dependency provenance ledger  
-**Scope:** direct dependencies intentionally selected for Ascout M1.
+**Status:** T086 exact-version dependency license/provenance review  
+**Scope:** direct dependencies intentionally selected for Ascout M1, bound to the current committed manifest and lockfile.
 
 This file records the exact direct third-party packages selected by Ascout and the evidence used to bind those selections to the committed lockfile. Exact transitive versions, registry locations, integrity digests, and license metadata are recorded in `package-lock.json` where npm provides those fields.
+
+## Current candidate binding
+
+T086 revalidated this ledger against canonical `main` at `a9bae09a71b4ff92097182a8d97f5ff6a0511603`.
+
+- `package.json` blob: `e5d99fcd1bb87fa3adec2629d949bde933000bf7`
+- `package-lock.json` blob: `e51f0bddb953235c1a391718eabfab5a6c680832`
+- Product runtime dependency count: 1 (`cross-spawn@7.0.6`)
+- Direct development dependency count: 6 (`@types/node`, `@vitest/coverage-v8`, `jest`, `typescript`, `vite`, `vitest`)
+- Direct manifest/lockfile reconciliation: complete; no direct dependency is omitted from this notice ledger.
+
+The committed npm lockfile is the canonical machine-readable graph for this candidate. The T086 review does not upgrade dependencies, regenerate the lockfile, alter package identity, publish to npm, or claim that a point-in-time security audit is permanent.
 
 ## Lock generation evidence
 
 - Evidence branch: `evidence/t003-lockgen-2026-08-22` (the date component is the Asia/Riyadh local date; the corresponding GitHub Actions timestamps are on 2026-08-21 UTC).
 - Evidence commit containing the generated lockfile: `81e2850e06a097abed5a7566aded39fceb330800`
-- `package-lock.json` blob: `751fdf89c10d26a1875844626ad6c336b28d051b`
+- Original generated `package-lock.json` blob: `751fdf89c10d26a1875844626ad6c336b28d051b`
 - GitHub Actions generation run: `32535056565`
 - Runner OS: Ubuntu 24.04
 - Node: `22.0.0`
@@ -36,6 +48,12 @@ The stricter engine range of an omitted optional package therefore does not rede
 
 Security/audit results are evidence for the specific resolved graph at the cited runs; they are not permanent security claims.
 
+## T086 license/provenance reconciliation
+
+All seven direct packages declared by the current candidate are represented below at their exact locked versions. The current direct set contains Apache-2.0 and MIT licenses only. No direct copyleft, source-available, non-commercial, field-of-use, database, or data-license restriction was identified in the manifest/lockfile evidence reviewed for T086.
+
+This conclusion is scoped to the exact direct package versions below. Transitive packages remain separately represented by the committed lockfile and may use other permissive SPDX licenses. A future dependency/version change requires a fresh provenance/license reconciliation before release claims are updated.
+
 ## Direct dependencies
 
 ### `cross-spawn` 7.0.6
@@ -53,6 +71,22 @@ Security/audit results are evidence for the specific resolved graph at the cited
 - Upstream: `DefinitelyTyped/DefinitelyTyped`, package path `types/node`
 - Registry tarball: `https://registry.npmjs.org/@types/node/-/node-22.20.1.tgz`
 - SRI: `sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==`
+
+### `@vitest/coverage-v8` 4.1.10
+
+- Role: development-only V8 coverage provider used by the Vitest integration and changed-code exercise tests
+- License: MIT
+- Upstream: `vitest-dev/vitest`, tag `v4.1.10`, package path `packages/coverage-v8`
+- Registry tarball: `https://registry.npmjs.org/@vitest/coverage-v8/-/coverage-v8-4.1.10.tgz`
+- SRI: `sha512-IM49HmthevbgAO4anp1hwtoT9wYe59w0LR00gr+eagHE+ZJ5lK4sLPeO0ubgoJcwLk6dehU3R24N+FbEEKDc8g==`
+
+### `jest` 30.4.2
+
+- Role: development-only Jest runner used to qualify Ascout's supported Jest integration
+- License: MIT
+- Upstream: `jestjs/jest`, tag `v30.4.2`
+- Registry tarball: `https://registry.npmjs.org/jest/-/jest-30.4.2.tgz`
+- SRI: `sha512-Yi1jqNC/Oq0N4hBgNH/YvBpP1P57QqundgytzYqy3yqAa7NZPNjSoi4SGbRAXDMdBzNE6xBCi5U7RgfrvMEUVQ==`
 
 ### `typescript` 6.0.3
 
@@ -80,4 +114,8 @@ Security/audit results are evidence for the specific resolved graph at the cited
 
 ## Transitive dependencies
 
-`package-lock.json` is the canonical machine-readable record for the exact resolved transitive graph used by this revision, including registry `resolved` URLs, SRI `integrity` values, and license metadata where npm records it. Optional entries can legitimately remain recorded even when npm omits them on a particular platform or Node version. This file does not replace any license text or attribution that a future packaged distribution is legally required to carry.
+`package-lock.json` is the canonical machine-readable record for the exact resolved transitive graph used by this revision, including registry `resolved` URLs, SRI `integrity` values, and license metadata where npm records it. Optional entries can legitimately remain recorded even when npm omits them on a particular platform or Node version.
+
+The T086 review does not treat process isolation, development-only status, or npm registry availability as a substitute for license terms. It also does not assume that a permissive direct package makes every possible future bundled artifact attribution-free. The T082 package-content gate proves the current Ascout tarball surface separately; any future bundling/vendor change must re-evaluate redistribution and notice obligations.
+
+This file does not replace any third-party license text or attribution that a future packaged distribution is legally required to carry.
