@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  diagnose-windows-selection:
+  diagnose-windows-lcov:
     name: t088 diagnostic / windows-2025 / node-22
     runs-on: windows-2025
     timeout-minutes: 20
@@ -32,11 +32,11 @@ jobs:
       - name: Install exact lockfile
         run: npm ci --ignore-scripts --no-audit --no-fund
 
-      - name: Instrument receipt diagnostics
+      - name: Instrument LCOV diagnostics
         shell: pwsh
         run: |
           $needle = 'expect(receipt.selection.limitations).not.toContain(UNSAFE_SELECTION_LIMITATION);'
-          $diagnostic = 'console.error(JSON.stringify({selection: receipt.selection, summary: receipt.summary, test_task: receipt.tasks.find((task) => task.task_type === "test"), evidence: receipt.evidence.filter((item) => item.task_id === "test"), artifacts: receipt.artifacts.filter((item) => item.task_id === "test")}, null, 2));'
+          $diagnostic = 'const diagnosticCoverageArtifact = receipt.artifacts.find((artifact) => artifact.artifact_id === "test.lcov"); if (diagnosticCoverageArtifact !== undefined) { const diagnosticLcov = readFileSync(join(root, ".ascout", "runs", receipt.run.run_id, diagnosticCoverageArtifact.relative_run_path), "utf8"); console.error("ASCOUT_T088_LCOV\n" + diagnosticLcov); console.error("ASCOUT_T088_NORMALIZED " + JSON.stringify(normalizeLcovLineCoverage(diagnosticLcov, root))); } console.error("ASCOUT_T088_TASK " + JSON.stringify(receipt.tasks.find((task) => task.task_type === "test")));'
           foreach ($file in @('tests/vitest-check.integration.test.ts', 'tests/jest-check.integration.test.ts')) {
             $text = Get-Content -Raw $file
             if (-not $text.Contains($needle)) { throw "diagnostic needle missing in $file" }
@@ -44,29 +44,23 @@ jobs:
             Set-Content -Path $file -Value $text.Replace($needle, $replacement) -Encoding utf8
           }
 
-      - name: Baseline focused pair
+      - name: Focused pair attempt 1
         continue-on-error: true
         env:
           TMPDIR: ${{ runner.temp }}
         run: npx vitest run tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
 
-      - name: Git tree predecessor plus focused pair
+      - name: Focused pair attempt 2
         continue-on-error: true
         env:
           TMPDIR: ${{ runner.temp }}
-        run: npx vitest run tests/git-tree-digest.test.ts tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
+        run: npx vitest run tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
 
-      - name: PR41 predecessor plus focused pair
+      - name: Focused pair attempt 3
         continue-on-error: true
         env:
           TMPDIR: ${{ runner.temp }}
-        run: npx vitest run tests/pr41-p0-regressions.contract.test.ts tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
-
-      - name: Flake integration predecessor plus focused pair
-        continue-on-error: true
-        env:
-          TMPDIR: ${{ runner.temp }}
-        run: npx vitest run tests/flake-run-check.integration.test.ts tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
+        run: npx vitest run tests/vitest-check.integration.test.ts tests/jest-check.integration.test.ts --no-file-parallelism
 
       - name: Restore exact candidate
         if: ${{ !cancelled() }}
