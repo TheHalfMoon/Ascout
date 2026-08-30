@@ -1,0 +1,86 @@
+name: T088 Release Candidate Rehearsal
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rehearse:
+    name: t088 / ${{ matrix.os }} / node-${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-14
+          - windows-2025
+        node:
+          - "22"
+          - "24"
+    env:
+      CANDIDATE_SHA: d7bb3a416f2eb3b2b4cf89c74d2a5cd97275c9bf
+    steps:
+      - name: Checkout exact release candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_SHA }}
+          persist-credentials: false
+          clean: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Guard exact clean source
+        run: node -e "const cp=require('node:child_process');const head=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();if(head!==process.env.CANDIDATE_SHA)throw new Error('candidate mismatch: '+head);const s=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8'});if(s!=='')throw new Error('candidate checkout not clean: '+JSON.stringify(s));console.log('candidate='+head);console.log(cp.execFileSync('git',['rev-parse','HEAD^{tree}'],{encoding:'utf8'}).trim());console.log(process.platform,process.arch,process.version);console.log(cp.execFileSync(process.platform==='win32'?'npm.cmd':'npm',['--version'],{encoding:'utf8'}).trim());console.log(cp.execFileSync('git',['--version'],{encoding:'utf8'}).trim())"
+
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Full test suite
+        id: full_tests
+        continue-on-error: true
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: npm test
+
+      - name: Build
+        if: ${{ !cancelled() }}
+        run: npm run build
+
+      - name: Focused release-hardening contracts
+        if: ${{ !cancelled() }}
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: npx vitest run tests/process-control.test.ts tests/windows-command-separator.process-control.test.ts tests/t081-cross-platform-receipt-golden.test.ts tests/npm-package-content.test.ts
+
+      - name: Inspect actual package manifest without publishing
+        if: ${{ !cancelled() }}
+        run: node -e "const cp=require('node:child_process'),fs=require('node:fs'),path=require('node:path');const npm=process.platform==='win32'?'npm.cmd':'npm';const r=cp.spawnSync(npm,['pack','--dry-run','--json','--ignore-scripts'],{encoding:'utf8'});if(r.status!==0)throw new Error(r.stderr||'npm pack dry-run failed');const a=JSON.parse(r.stdout);if(!Array.isArray(a)||a.length!==1)throw new Error('unexpected pack json');const p=a[0];if(p.name!=='@thehalfmoon/ascout'||p.version!=='0.0.0')throw new Error('package identity mismatch');const names=new Set((p.files||[]).map(x=>x.path));for(const required of ['package.json','README.md','LICENSE','dist/cli.js'])if(!names.has(required))throw new Error('missing '+required);for(const forbidden of ['src/','tests/','specs/','benchmarks/','.ascout/','coverage/'])for(const name of names)if(name===forbidden.slice(0,-1)||name.startsWith(forbidden))throw new Error('forbidden package path '+name);console.log(JSON.stringify({name:p.name,version:p.version,file_count:names.size,size:p.size,unpackedSize:p.unpackedSize}))"
+
+      - name: Verify T078 published selector-miss truth
+        if: ${{ !cancelled() }}
+        run: node -e "const fs=require('node:fs');const x=JSON.parse(fs.readFileSync('benchmarks/results/t078-selector-misses.json','utf8'));const text=JSON.stringify(x);for(const required of ['react-hook-form-value-as-date','no_pre_data_threshold'])if(!text.includes(required))throw new Error('missing T078 truth: '+required);console.log('t078 selector-miss publication present and parseable')"
+
+      - name: CLI startup contract
+        if: ${{ !cancelled() }}
+        run: node -e "const cp=require('node:child_process');const r=cp.spawnSync(process.execPath,['dist/cli.js'],{encoding:'utf8'});if(r.status===0)throw new Error('CLI without command unexpectedly succeeded');const out=(r.stdout||'')+(r.stderr||'');if(!/init|doctor|check/i.test(out))throw new Error('CLI usage surface missing');console.log('usage_exit='+r.status)"
+
+      - name: Guard final tracked source cleanliness
+        if: ${{ !cancelled() }}
+        run: node -e "const cp=require('node:child_process');const s=cp.execFileSync('git',['status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8'});if(s!=='')throw new Error('release rehearsal drifted tracked/included source: '+JSON.stringify(s));console.log('final source clean')"
+
+      - name: Enforce full-suite result
+        if: ${{ !cancelled() }}
+        env:
+          FULL_TEST_OUTCOME: ${{ steps.full_tests.outcome }}
+        run: node -e "if(process.env.FULL_TEST_OUTCOME!=='success')throw new Error('full test suite outcome='+process.env.FULL_TEST_OUTCOME)"
