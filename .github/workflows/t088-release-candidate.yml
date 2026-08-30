@@ -33,8 +33,16 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Instrument receipt diagnostics
-        run: >-
-          node -e "const fs=require('node:fs');for(const f of ['tests/vitest-check.integration.test.ts','tests/jest-check.integration.test.ts']){let s=fs.readFileSync(f,'utf8');const needle='expect(receipt.selection.limitations).not.toContain(UNSAFE_SELECTION_LIMITATION);';const replacement='console.error(JSON.stringify({diagnostic_file:'+JSON.stringify(f)+',selection:receipt.selection,summary:receipt.summary,test_task:receipt.tasks.find((task)=>task.task_type===\"test\")},null,2));\n      '+needle;if(!s.includes(needle))throw new Error('diagnostic needle missing in '+f);fs.writeFileSync(f,s.replace(needle,replacement),'utf8');}"
+        shell: pwsh
+        run: |
+          $needle = 'expect(receipt.selection.limitations).not.toContain(UNSAFE_SELECTION_LIMITATION);'
+          $diagnostic = 'console.error(JSON.stringify({selection: receipt.selection, summary: receipt.summary, test_task: receipt.tasks.find((task) => task.task_type === "test")}, null, 2));'
+          foreach ($file in @('tests/vitest-check.integration.test.ts', 'tests/jest-check.integration.test.ts')) {
+            $text = Get-Content -Raw $file
+            if (-not $text.Contains($needle)) { throw "diagnostic needle missing in $file" }
+            $replacement = $diagnostic + [Environment]::NewLine + '      ' + $needle
+            Set-Content -Path $file -Value $text.Replace($needle, $replacement) -Encoding utf8
+          }
 
       - name: Baseline focused pair
         env:
