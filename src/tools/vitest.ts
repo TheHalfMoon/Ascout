@@ -366,7 +366,10 @@ function resolveInstalledVitest(
 function configAtScope(configPaths: readonly string[], scopeRoot: string): string | null | "ambiguous" {
   const matching = configPaths.filter((path) => dirname(path) === scopeRoot);
   if (matching.length > 1) return "ambiguous";
-  return matching[0] ?? null;
+  if (matching.length === 1) return matching[0]!;
+  if (scopeRoot !== "") return null;
+  if (configPaths.length > 1) return "ambiguous";
+  return configPaths[0] ?? null;
 }
 
 function assertRunId(runId: string): boolean {

@@ -431,28 +431,49 @@ function scopeRoots(workspace: WorkspaceDiscovery): readonly string[] {
   );
 }
 
+function matchesToolConfig(tool: keyof typeof TOOL_METADATA, name: string): boolean {
+  if (tool === "typescript") return /^tsconfig(?:\.[^/]+)?\.json$/u.test(name);
+  if (tool === "eslint") {
+    return /^eslint\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name) ||
+      /^\.eslintrc(?:\.(?:js|cjs|json|yaml|yml))?$/u.test(name);
+  }
+  if (tool === "vitest") return /^vitest\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name);
+  return /^jest\.config\.(?:js|mjs|cjs|ts|json)$/u.test(name);
+}
+
 function configPaths(
   files: Readonly<Record<string, string>>,
   tool: keyof typeof TOOL_METADATA,
   allManifests: readonly PackageManifest[],
   roots: readonly string[],
+  allowNestedRunnerFallback: boolean,
 ): readonly string[] {
-  const result = Object.keys(files).filter((path) => {
-    if (!roots.includes(dirname(path))) return false;
-    const name = basename(path);
-    if (tool === "typescript") return /^tsconfig(?:\.[^/]+)?\.json$/u.test(name);
-    if (tool === "eslint") {
-      return /^eslint\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name) ||
-        /^\.eslintrc(?:\.(?:js|cjs|json|yaml|yml))?$/u.test(name);
-    }
-    if (tool === "vitest") return /^vitest\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name);
-    return /^jest\.config\.(?:js|mjs|cjs|ts|json)$/u.test(name);
-  });
+  const result = Object.keys(files).filter((path) =>
+    roots.includes(dirname(path)) && matchesToolConfig(tool, basename(path)),
+  );
   if (tool === "jest") {
     for (const manifest of allManifests) {
       if (Object.prototype.hasOwnProperty.call(manifest.value, "jest")) result.push(manifest.path);
     }
   }
+
+  if (
+    result.length === 0 &&
+    allowNestedRunnerFallback &&
+    (tool === "jest" || tool === "vitest")
+  ) {
+    const metadata = TOOL_METADATA[tool];
+    const rootDeclaresTool = allManifests.some(
+      (manifest) => manifest.path === "package.json" && dependencyNames(manifest).has(metadata.packageName),
+    );
+    if (rootDeclaresTool) {
+      for (const path of Object.keys(files)) {
+        if (roots.includes(dirname(path))) continue;
+        if (matchesToolConfig(tool, basename(path))) result.push(path);
+      }
+    }
+  }
+
   return sortedUnique(result);
 }
 
@@ -477,6 +498,7 @@ function discoverNodeTool(
   allManifests: readonly PackageManifest[],
   tool: keyof typeof TOOL_METADATA,
   roots: readonly string[],
+  allowNestedRunnerFallback: boolean,
 ): LocalNodeToolDiscovery {
   const metadata = TOOL_METADATA[tool];
   return {
@@ -487,7 +509,7 @@ function discoverNodeTool(
       .map(({ path }) => path)
       .sort(compareStrings),
     localExecutablePaths: executablePaths(files, metadata.binName, roots),
-    configPaths: configPaths(files, tool, allManifests, roots),
+    configPaths: configPaths(files, tool, allManifests, roots, allowNestedRunnerFallback),
   };
 }
 
@@ -545,6 +567,7 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
     );
   }
   const roots = scopeRoots(workspace);
+  const allowNestedRunnerFallback = workspace.state === "resolved" && workspace.kind === "single";
 
   return {
     semanticTasks: FIXED_SEMANTIC_TASKS,
@@ -554,10 +577,10 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
     jsTestRunner: discoverRunner(scopedManifests),
     pytestBasic: discoverPytest(normalized, roots),
     tools: {
-      typescript: discoverNodeTool(normalized, scopedManifests, "typescript", roots),
-      eslint: discoverNodeTool(normalized, scopedManifests, "eslint", roots),
-      vitest: discoverNodeTool(normalized, scopedManifests, "vitest", roots),
-      jest: discoverNodeTool(normalized, scopedManifests, "jest", roots),
+      typescript: discoverNodeTool(normalized, scopedManifests, "typescript", roots, false),
+      eslint: discoverNodeTool(normalized, scopedManifests, "eslint", roots, false),
+      vitest: discoverNodeTool(normalized, scopedManifests, "vitest", roots, allowNestedRunnerFallback),
+      jest: discoverNodeTool(normalized, scopedManifests, "jest", roots, allowNestedRunnerFallback),
     },
   };
 }
