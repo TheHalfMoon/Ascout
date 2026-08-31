@@ -327,7 +327,14 @@ function discoverWorkspace(
   let sourcePaths: readonly string[] = patterns === null ? [] : ["package.json"];
 
   if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {
-    patterns = pnpmWorkspacePatterns(files["pnpm-workspace.yaml"]);
+  const pnpmWorkspaceRaw = files["pnpm-workspace.yaml"];
+  const declaresPackages = pnpmWorkspaceRaw.split(/\r?\n/u).some((line) => {
+    if (line.trimStart().startsWith("#")) return false;
+    const cleaned = line.replace(/\s+#.*$/u, "").trimEnd();
+    return /^packages\s*:/u.test(cleaned);
+  });
+  if (declaresPackages) {
+    patterns = pnpmWorkspacePatterns(pnpmWorkspaceRaw);
     sourcePaths = ["pnpm-workspace.yaml"];
     if (patterns === null) {
       return {
@@ -341,6 +348,7 @@ function discoverWorkspace(
       };
     }
   }
+}
 
   if (patterns === null) {
     return {
