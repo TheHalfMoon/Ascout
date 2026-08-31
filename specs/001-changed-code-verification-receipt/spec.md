@@ -3,8 +3,10 @@
 **Feature Branch**: `planning/000-ascout-foundation`  
 **Feature ID**: `001-changed-code-verification-receipt`  
 **Created**: 2026-08-21  
-**Status**: Draft — planning only; implementation not authorized  
+**Status**: M1 IMPLEMENTED / QUALIFIED / FOUNDER_RATIFIED — governance reconciled 2026-08-31  
 **Input**: Founding requirement: after an AI coding change, provide a source-bound receipt showing what verification actually exercised, what failed, and what was not verified.
+
+> Governance note: this specification was originally merged as planning-only and did not itself authorize implementation. The repository did not retain a durable pre-T001 implementation-authorization artifact. The implemented and qualified M1 state is currently founder-ratified through Issue #93 and `docs/founding/M1_GOVERNANCE_RECONCILIATION_2026-08-31.md`; no retroactive authorization event is claimed. The requirements below remain the normative founding M1 contract.
 
 ## User Scenarios & Testing
 
