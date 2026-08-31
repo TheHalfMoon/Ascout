@@ -331,7 +331,7 @@ function discoverWorkspace(
   const declaresPackages = pnpmWorkspaceRaw.split(/\r?\n/u).some((line) => {
     if (line.trimStart().startsWith("#")) return false;
     const cleaned = line.replace(/\s+#.*$/u, "").trimEnd();
-    return /^packages\s*:/u.test(cleaned);
+    return /(?:^|[\s{,])(?:packages|"packages"|'packages')\s*:/u.test(cleaned);
   });
   if (declaresPackages) {
     patterns = pnpmWorkspacePatterns(pnpmWorkspaceRaw);
