@@ -46,7 +46,7 @@ jobs:
             tests/discovery-hardening.contract.test.ts
           npm run build
 
-      - name: Read frozen donor runtime
+      - name: Read frozen donor Node
         id: runtime
         shell: bash
         run: |
@@ -57,7 +57,7 @@ jobs:
           const item = manifest.cases.find((candidate) => candidate.case_id === process.env.CASE_ID);
           if (!item || item.case_class !== 'selection') throw new Error('focused selection case is unavailable');
           if (item.runtime.package_manager !== 'pnpm') throw new Error(`unexpected package manager: ${item.runtime.package_manager}`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `node=${item.runtime.node_version}\npm_version=${item.runtime.package_manager_version}\nrevision=${item.case_revision}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `node=${item.runtime.node_version}\n`);
           NODE
 
       - name: Set up frozen donor Node
@@ -69,8 +69,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install --global --force "pnpm@${{ steps.runtime.outputs.npm_version }}" --ignore-scripts --no-audit --no-fund
-          test "$(pnpm --version)" = "${{ steps.runtime.outputs.npm_version }}"
+          PM_VERSION="$(node -e 'const m=require("./benchmarks/manifest.json"); const c=m.cases.find(x=>x.case_id===process.env.CASE_ID); if(!c) process.exit(2); process.stdout.write(c.runtime.package_manager_version)')"
+          test -n "$PM_VERSION"
+          npm install --global --force "pnpm@$PM_VERSION" --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = "$PM_VERSION"
           test "$(node --version | sed 's/^v//')" = "${{ steps.runtime.outputs.node }}"
 
       - name: Replay focused frozen benchmark
@@ -102,9 +104,7 @@ jobs:
           const ascout = metrics.metrics?.selection_recall?.ascout;
           if (!ascout || ascout.available !== true) throw new Error('Ascout selection membership is unavailable');
           const observed = [...ascout.observed_oracle_test_ids].sort();
-          for (const oracleId of required) {
-            if (!observed.includes(oracleId)) throw new Error(`missing frozen oracle test: ${oracleId}`);
-          }
+          for (const oracleId of required) if (!observed.includes(oracleId)) throw new Error(`missing frozen oracle test: ${oracleId}`);
           if (ascout.recall !== 1) throw new Error(`focused Ascout recall is ${ascout.recall}`);
           fs.writeFileSync('out/focused-oracle-proof.json', JSON.stringify({
             schema_version: 1,
