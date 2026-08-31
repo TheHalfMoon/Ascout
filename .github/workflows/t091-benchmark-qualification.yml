@@ -57,7 +57,7 @@ jobs:
           const item = manifest.cases.find((candidate) => candidate.case_id === process.env.CASE_ID);
           if (!item || item.case_class !== 'selection') throw new Error('focused selection case is unavailable');
           if (item.runtime.package_manager !== 'pnpm') throw new Error(`unexpected package manager: ${item.runtime.package_manager}`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `node=${item.runtime.node_version}\npm=${item.runtime.package_manager_version}\nrevision=${item.case_revision}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `node=${item.runtime.node_version}\npm_version=${item.runtime.package_manager_version}\nrevision=${item.case_revision}\n`);
           NODE
 
       - name: Set up frozen donor Node
@@ -69,8 +69,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install --global --force "pnpm@${{ steps.runtime.outputs.npm }}" --ignore-scripts --no-audit --no-fund
-          test "$(pnpm --version)" = "${{ steps.runtime.outputs.npm }}"
+          npm install --global --force "pnpm@${{ steps.runtime.outputs.npm_version }}" --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = "${{ steps.runtime.outputs.npm_version }}"
           test "$(node --version | sed 's/^v//')" = "${{ steps.runtime.outputs.node }}"
 
       - name: Replay focused frozen benchmark
