@@ -1,4 +1,4 @@
-name: T091 React Hook Form Diagnostic
+name: T091 Discovery Repair Applicator
 
 on:
   push:
@@ -6,119 +6,119 @@ on:
       - feat/091-m2-benchmark-replay
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  diagnose-react-hook-form:
+  apply-repair:
+    if: github.event.head_commit.message == 'ci(002): arm T091 discovery repair'
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    env:
-      CASE_ID: react-hook-form-value-as-date
-      ASCOUT_CONTROLLER_NODE: 24.15.0
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          persist-credentials: true
+          fetch-depth: 0
 
       - name: Guard exact source
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git status --short)" = ""
 
-      - name: Set up controller Node
+      - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.ASCOUT_CONTROLLER_NODE }}
+          node-version: 24.15.0
           cache: npm
 
-      - name: Install and build Ascout
+      - name: Install Ascout dependencies
         shell: bash
         run: |
           set -euo pipefail
           npm ci --ignore-scripts --no-audit --no-fund
-          npm run build
 
-      - name: Read frozen donor runtime
-        id: runtime
+      - name: Apply bounded discovery repair and regression proof
         shell: bash
         run: |
           set -euo pipefail
-          node <<'NODE'
-          const fs = require('node:fs');
-          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
-          const item = manifest.cases.find((candidate) => candidate.case_id === process.env.CASE_ID);
-          if (!item || item.case_class !== 'selection') throw new Error('focused selection case is unavailable');
-          if (item.runtime.package_manager !== 'pnpm') throw new Error(`unexpected package manager: ${item.runtime.package_manager}`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `node=${item.runtime.node_version}\npm_version=${item.runtime.package_manager_version}\n`);
-          NODE
+          python <<'PY'
+          from pathlib import Path
 
-      - name: Set up frozen donor Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ steps.runtime.outputs.node }}
+          discovery = Path('src/discovery.ts')
+          text = discovery.read_text(encoding='utf-8')
+          old = '''  if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {
+            patterns = pnpmWorkspacePatterns(files["pnpm-workspace.yaml"]);
+            sourcePaths = ["pnpm-workspace.yaml"];
+            if (patterns === null) {
+              return {
+                state: "unsupported",
+                kind: null,
+                patterns: [],
+                packageJsonPaths: root === undefined ? [] : ["package.json"],
+                sourcePaths,
+                reasonCode: "workspace_declaration_unsupported",
+                reasonText: "pnpm-workspace.yaml exceeds the supported basic packages-list grammar.",
+              };
+            }
+          }
+          '''
+          new = '''  if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {
+            const pnpmWorkspaceRaw = files["pnpm-workspace.yaml"];
+            const declaresPackages = pnpmWorkspaceRaw.split(/\\r?\\n/u).some((line) => {
+              if (line.trimStart().startsWith("#")) return false;
+              const cleaned = line.replace(/\\s+#.*$/u, "").trimEnd();
+              return /^packages\\s*:/u.test(cleaned);
+            });
+            if (declaresPackages) {
+              patterns = pnpmWorkspacePatterns(pnpmWorkspaceRaw);
+              sourcePaths = ["pnpm-workspace.yaml"];
+              if (patterns === null) {
+                return {
+                  state: "unsupported",
+                  kind: null,
+                  patterns: [],
+                  packageJsonPaths: root === undefined ? [] : ["package.json"],
+                  sourcePaths,
+                  reasonCode: "workspace_declaration_unsupported",
+                  reasonText: "pnpm-workspace.yaml exceeds the supported basic packages-list grammar.",
+                };
+              }
+            }
+          }
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f'expected exactly one workspace block, found {text.count(old)}')
+          discovery.write_text(text.replace(old, new), encoding='utf-8')
 
-      - name: Install frozen donor package manager
+          test = Path('tests/t091-pnpm-settings-only-workspace.contract.test.ts')
+          if test.exists():
+              raise SystemExit('T091 regression test already exists')
+          test.write_text('''import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";\nimport { tmpdir } from "node:os";\nimport { join } from "node:path";\n\nimport { describe, expect, it } from "vitest";\n\nimport { discoverProjectFromFiles, type DiscoveryFileMap } from "../src/discovery.js";\nimport type { GitChangedFile } from "../src/git.js";\nimport { planJestTask } from "../src/tools/jest.js";\n\nfunction changed(path: string): GitChangedFile {\n  return {\n    path,\n    change_kind: "modified",\n    line_semantics: "text",\n    changed_new_line_ranges: [{ start: 1, end: 1 }],\n  };\n}\n\nfunction fixtureRoot(): string {\n  const root = mkdtempSync(join(tmpdir(), "ascout-t091-pnpm-settings-"));\n  mkdirSync(join(root, "node_modules", ".bin"), { recursive: true });\n  mkdirSync(join(root, "node_modules", "jest"), { recursive: true });\n  writeFileSync(join(root, "node_modules", ".bin", "jest"), "");\n  writeFileSync(\n    join(root, "node_modules", "jest", "package.json"),\n    JSON.stringify({ name: "jest", version: "30.4.2" }),\n  );\n  return realpathSync.native(root);\n}\n\nfunction settingsOnlyFiles(): DiscoveryFileMap {\n  return {\n    "package.json": JSON.stringify({\n      name: "react-hook-form",\n      private: true,\n      devDependencies: { jest: "30.4.2" },\n    }),\n    "pnpm-workspace.yaml": [\n      "allowBuilds:",\n      "  '@swc/core': false",\n      "  esbuild: false",\n      "  unrs-resolver: false",\n      "",\n    ].join("\\n"),\n    "app/package.json": JSON.stringify({ name: "react-hook-form-app", private: true }),\n    "scripts/jest/jest.config.js": "module.exports = {};\\n",\n    "node_modules/.bin/jest": "",\n  };\n}\n\ndescribe("T091 pnpm settings-only single-package fidelity", () => {\n  it("does not promote a settings-only pnpm-workspace file into workspace ownership", () => {\n    const files = settingsOnlyFiles();\n    const discovery = discoverProjectFromFiles(files);\n\n    expect(discovery.workspace).toEqual({\n      state: "resolved",\n      kind: "single",\n      patterns: [],\n      packageJsonPaths: ["package.json"],\n      sourcePaths: [],\n      reasonCode: null,\n      reasonText: null,\n    });\n    expect(discovery.tools.jest.configPaths).toEqual(["scripts/jest/jest.config.js"]);\n  });\n\n  it("passes the nested Jest config through the existing argv for the pinned RHF repository shape", () => {\n    const root = fixtureRoot();\n    try {\n      const files = settingsOnlyFiles();\n      const discovery = discoverProjectFromFiles(files);\n      const plan = planJestTask({\n        repositoryRoot: root,\n        runId: "run-091-rhf",\n        config: { version: 1 },\n        discovery,\n        files,\n        changedFiles: [changed("src/logic/validateField.ts")],\n      });\n\n      expect(plan.state).toBe("planned");\n      if (plan.state !== "planned") return;\n      expect(plan.workingDirectory).toBeNull();\n      expect(plan.configPath).toBe("scripts/jest/jest.config.js");\n      expect(plan.argv).toContain("--findRelatedTests");\n      expect(plan.argv).toContain("src/logic/validateField.ts");\n      const configIndex = plan.argv.indexOf("--config");\n      expect(configIndex).toBeGreaterThanOrEqual(0);\n      expect(plan.argv[configIndex + 1]).toBe("scripts/jest/jest.config.js");\n    } finally {\n      rmSync(root, { recursive: true, force: true });\n    }\n  });\n\n  it("still fails closed when a packages declaration exists but exceeds the supported grammar", () => {\n    const files: DiscoveryFileMap = {\n      ...settingsOnlyFiles(),\n      "pnpm-workspace.yaml": [\n        "allowBuilds:",\n        "  '@swc/core': false",\n        "packages:",\n        "  - packages/*",\n        "",\n      ].join("\\n"),\n      "packages/a/package.json": JSON.stringify({ name: "a", private: true }),\n    };\n    const discovery = discoverProjectFromFiles(files);\n\n    expect(discovery.workspace).toMatchObject({\n      state: "unsupported",\n      kind: null,\n      reasonCode: "workspace_declaration_unsupported",\n      sourcePaths: ["pnpm-workspace.yaml"],\n    });\n    expect(discovery.tools.jest.configPaths).toEqual([]);\n  });\n});\n''', encoding='utf-8')
+          PY
+
+      - name: Qualify focused repair locally on the runner
         shell: bash
         run: |
           set -euo pipefail
-          npm install --global --force "pnpm@${{ steps.runtime.outputs.pm_version }}" --ignore-scripts --no-audit --no-fund
-          test "$(pnpm --version)" = "${{ steps.runtime.outputs.pm_version }}"
-          test "$(node --version | sed 's/^v//')" = "${{ steps.runtime.outputs.node }}"
+          npm run typecheck
+          ./node_modules/.bin/vitest run \
+            tests/t091-pnpm-settings-only-workspace.contract.test.ts \
+            tests/t089-nested-runner-config.contract.test.ts \
+            tests/discovery-hardening.contract.test.ts
+          git diff --check
+          mapfile -t changed < <(git status --short | sed -E 's/^.. //' | sort)
+          printf '%s\n' "${changed[@]}"
+          test "${#changed[@]}" -eq 2
+          test "${changed[0]}" = "src/discovery.ts"
+          test "${changed[1]}" = "tests/t091-pnpm-settings-only-workspace.contract.test.ts"
 
-      - name: Reconstruct frozen case and retain diagnostic checkout
-        id: replay
+      - name: Commit bounded T091 repair
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p out
-          node benchmarks/run.mjs \
-            --case "$CASE_ID" \
-            --manifest benchmarks/manifest.json \
-            --ascout-root . \
-            --run-id "t091-diagnostic-${GITHUB_RUN_ID}" \
-            --repetitions 2 \
-            --keep-temp \
-            --output out/t075-diagnostic.json \
-            > out/t075-stdout.json \
-            2> out/t075-stderr.txt
-          temp_root="$(sed -n 's/^T075_TEMP_ROOT=//p' out/t075-stderr.txt | tail -n 1)"
-          test -n "$temp_root"
-          test -d "$temp_root"
-          echo "temp_root=$temp_root" >> "$GITHUB_OUTPUT"
-
-      - name: Inspect persisted Ascout Jest diagnostics
-        shell: bash
-        env:
-          TEMP_ROOT: ${{ steps.replay.outputs.temp_root }}
-        run: |
-          set -euo pipefail
-          mkdir -p out/ascout-diagnostics
-          mapfile -t stderr_files < <(find "$TEMP_ROOT" -type f -path '*/.ascout/runs/*/raw/test-stderr.log' | sort)
-          mapfile -t stdout_files < <(find "$TEMP_ROOT" -type f -path '*/.ascout/runs/*/raw/test-stdout.log' | sort)
-          mapfile -t root_lcov < <(find "$TEMP_ROOT" -type f -path '*/.ascout/runs/*/raw/test/coverage/lcov.info' | sort)
-          mapfile -t nested_lcov < <(find "$TEMP_ROOT" -type f -path '*/scripts/jest/.ascout/runs/*/raw/test/coverage/lcov.info' | sort)
-          printf 'stderr_count=%s\nstdout_count=%s\nroot_lcov_count=%s\nnested_lcov_count=%s\n' \
-            "${#stderr_files[@]}" "${#stdout_files[@]}" "${#root_lcov[@]}" "${#nested_lcov[@]}" \
-            | tee out/ascout-diagnostics/path-counts.txt
-          test "${#stderr_files[@]}" -ge 1
-          for index in "${!stderr_files[@]}"; do
-            file="${stderr_files[$index]}"
-            cp "$file" "out/ascout-diagnostics/test-stderr-${index}.log"
-            echo "--- persisted test stderr ${index} ---"
-            sed -n '1,260p' "$file"
-          done
-          for index in "${!stdout_files[@]}"; do
-            cp "${stdout_files[$index]}" "out/ascout-diagnostics/test-stdout-${index}.log"
-          done
-          find "$TEMP_ROOT" -type f \( -path '*/.ascout/runs/*/raw/test/jest-results.json' -o -path '*/scripts/jest/.ascout/runs/*/raw/test/jest-results.json' \) \
-            -print | sort | tee out/ascout-diagnostics/jest-result-paths.txt
-          find "$TEMP_ROOT" -type f -path '*/lcov.info' -print | sort | tee out/ascout-diagnostics/lcov-paths.txt
-
-      - name: Upload diagnostic evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: t091-rhf-diagnostic
-          path: out/
-          if-no-files-found: error
-          retention-days: 7
+          git config user.name "Abdulaziz M. Shehri"
+          git config user.email "alshehriofficial@gmail.com"
+          git add src/discovery.ts tests/t091-pnpm-settings-only-workspace.contract.test.ts
+          git commit -m "fix(002): preserve settings-only pnpm single-package fidelity"
+          git push origin HEAD:feat/091-m2-benchmark-replay
