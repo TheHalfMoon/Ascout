@@ -1,4 +1,4 @@
-name: T091 Discovery Repair Applicator
+name: T091 Focused RHF Qualification
 
 on:
   push:
@@ -6,17 +6,20 @@ on:
       - feat/091-m2-benchmark-replay
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  CASE_ID: react-hook-form-value-as-date
+  ASCOUT_CONTROLLER_NODE: 24.15.0
 
 jobs:
-  apply-repair:
+  focused-rhf:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: true
-          fetch-depth: 0
+          persist-credentials: false
 
       - name: Guard exact source
         shell: bash
@@ -25,78 +28,102 @@ jobs:
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           test "$(git status --short)" = ""
 
-      - uses: actions/setup-node@v4
+      - name: Set up controller Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 24.15.0
+          node-version: ${{ env.ASCOUT_CONTROLLER_NODE }}
           cache: npm
 
-      - name: Install
-        shell: bash
-        run: npm ci --ignore-scripts --no-audit --no-fund
-
-      - name: Apply bounded source repair
+      - name: Install build and focused contracts
         shell: bash
         run: |
           set -euo pipefail
-          python <<'PY'
-          from pathlib import Path
-
-          path = Path('src/discovery.ts')
-          text = path.read_text(encoding='utf-8')
-          start_marker = '  if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {\n'
-          end_marker = '\n  if (patterns === null) {\n'
-          if text.count(start_marker) != 1:
-              raise SystemExit(f'expected one pnpm workspace block start, found {text.count(start_marker)}')
-          start = text.index(start_marker)
-          end = text.index(end_marker, start)
-          replacement = '''  if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {
-            const pnpmWorkspaceRaw = files["pnpm-workspace.yaml"];
-            const declaresPackages = pnpmWorkspaceRaw.split(/\\r?\\n/u).some((line) => {
-              if (line.trimStart().startsWith("#")) return false;
-              const cleaned = line.replace(/\\s+#.*$/u, "").trimEnd();
-              return /^packages\\s*:/u.test(cleaned);
-            });
-            if (declaresPackages) {
-              patterns = pnpmWorkspacePatterns(pnpmWorkspaceRaw);
-              sourcePaths = ["pnpm-workspace.yaml"];
-              if (patterns === null) {
-                return {
-                  state: "unsupported",
-                  kind: null,
-                  patterns: [],
-                  packageJsonPaths: root === undefined ? [] : ["package.json"],
-                  sourcePaths,
-                  reasonCode: "workspace_declaration_unsupported",
-                  reasonText: "pnpm-workspace.yaml exceeds the supported basic packages-list grammar.",
-                };
-              }
-            }
-          }
-          '''
-          updated = text[:start] + replacement + text[end:]
-          path.write_text(updated, encoding='utf-8')
-          PY
-          git diff --check
-          git diff -- src/discovery.ts
-
-      - name: Qualify focused repair
-        shell: bash
-        run: |
-          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
           npm run typecheck
           ./node_modules/.bin/vitest run \
             tests/t091-pnpm-settings-only-workspace.contract.test.ts \
             tests/t089-nested-runner-config.contract.test.ts \
             tests/discovery-hardening.contract.test.ts
-          test -n "$(git diff -- src/discovery.ts)"
-          test "$(git status --short | grep -c '^ M src/discovery.ts$')" -eq 1
+          npm run build
 
-      - name: Commit source repair
+      - name: Read frozen donor runtime
+        id: runtime
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name "Abdulaziz M. Shehri"
-          git config user.email "alshehriofficial@gmail.com"
-          git add src/discovery.ts
-          git commit -m "fix(002): preserve settings-only pnpm single-package fidelity"
-          git push origin HEAD:feat/091-m2-benchmark-replay
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          const item = manifest.cases.find((candidate) => candidate.case_id === process.env.CASE_ID);
+          if (!item || item.case_class !== 'selection') throw new Error('focused selection case is unavailable');
+          if (item.runtime.package_manager !== 'pnpm') throw new Error(`unexpected package manager: ${item.runtime.package_manager}`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `node=${item.runtime.node_version}\npm=${item.runtime.package_manager_version}\nrevision=${item.case_revision}\n`);
+          NODE
+
+      - name: Set up frozen donor Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.runtime.outputs.node }}
+
+      - name: Install exact frozen pnpm
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --force "pnpm@${{ steps.runtime.outputs.npm }}" --ignore-scripts --no-audit --no-fund
+          test "$(pnpm --version)" = "${{ steps.runtime.outputs.npm }}"
+          test "$(node --version | sed 's/^v//')" = "${{ steps.runtime.outputs.node }}"
+
+      - name: Replay focused frozen benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          node benchmarks/metrics.mjs \
+            --case "$CASE_ID" \
+            --manifest benchmarks/manifest.json \
+            --ascout-root . \
+            --run-id "t091-focused-${GITHUB_RUN_ID}" \
+            --repetitions 2 \
+            --output out/focused.metrics.json
+          node benchmarks/assertions.mjs \
+            --input out/focused.metrics.json \
+            --output out/focused.assertions.json
+
+      - name: Prove repaired Ascout oracle membership
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync('benchmarks/manifest.json', 'utf8'));
+          const metrics = JSON.parse(fs.readFileSync('out/focused.metrics.json', 'utf8'));
+          const item = manifest.cases.find((candidate) => candidate.case_id === process.env.CASE_ID);
+          const required = [...item.oracle.specification.regression_test_ids].sort();
+          const ascout = metrics.metrics?.selection_recall?.ascout;
+          if (!ascout || ascout.available !== true) throw new Error('Ascout selection membership is unavailable');
+          const observed = [...ascout.observed_oracle_test_ids].sort();
+          for (const oracleId of required) {
+            if (!observed.includes(oracleId)) throw new Error(`missing frozen oracle test: ${oracleId}`);
+          }
+          if (ascout.recall !== 1) throw new Error(`focused Ascout recall is ${ascout.recall}`);
+          fs.writeFileSync('out/focused-oracle-proof.json', JSON.stringify({
+            schema_version: 1,
+            task: 'T091',
+            candidate_sha: process.env.GITHUB_SHA,
+            qualification_run_id: process.env.GITHUB_RUN_ID,
+            case_id: item.case_id,
+            case_revision: item.case_revision,
+            required_oracle_test_ids: required,
+            observed_oracle_test_ids: observed,
+            ascout_recall: ascout.recall,
+            ascout_oracle_membership: 'PROVEN'
+          }, null, 2) + '\n');
+          NODE
+
+      - name: Upload focused evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: t091-focused-rhf
+          path: out/
+          if-no-files-found: error
+          retention-days: 14
