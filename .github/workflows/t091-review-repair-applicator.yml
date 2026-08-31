@@ -1,0 +1,58 @@
+name: T091 Review Repair Applicator
+
+on:
+  push:
+    branches:
+      - feat/091-m2-benchmark-replay
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Guard exact source
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - name: Apply bounded fail-closed review repair
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const discoveryPath = 'src/discovery.ts';
+          const discovery = fs.readFileSync(discoveryPath, 'utf8');
+          const oldDiscovery = `    const declaresPackages = pnpmWorkspaceRaw.split(/\\r?\\n/u).some((line) => {\n      if (line.trimStart().startsWith("#")) return false;\n      const cleaned = line.replace(/\\s+#.*$/u, "").trimEnd();\n      return /(?:^|[\\s{,])(?:packages|"packages"|'packages')\\s*:/u.test(cleaned);\n    });`;
+          const newDiscovery = `    const declaresPackages = pnpmWorkspaceRaw.split(/\\r?\\n/u).some((line) => {\n      if (line.trimStart().startsWith("#")) return false;\n      const cleaned = line.replace(/\\s+#.*$/u, "").trimEnd();\n      return (\n        /(?:^|[\\s{,])(?:packages|"packages"|'packages')\\s*:/u.test(cleaned) ||\n        /^\\s*\\?\\s*(?:packages|"packages"|'packages')\\s*$/u.test(cleaned)\n      );\n    });`;
+          if (!discovery.includes(oldDiscovery)) {
+            throw new Error('expected discovery detector block was not found');
+          }
+          fs.writeFileSync(discoveryPath, discovery.replace(oldDiscovery, newDiscovery));
+
+          const testPath = 'tests/t091-pnpm-settings-only-workspace.contract.test.ts';
+          const test = fs.readFileSync(testPath, 'utf8');
+          const anchor = `  it.each([\n    ['"packages":', "double-quoted"],\n    ["'packages':", "single-quoted"],\n  ])("fails closed for a %s workspace key instead of treating it as settings-only (%s)", (packagesKey) => {`;
+          if (!test.includes(anchor)) {
+            throw new Error('expected quoted-key test anchor was not found');
+          }
+          const addition = `  it.each([\n    ["? packages\\n:\\n  - packages/*\\n", "plain explicit"],\n    ['? "packages"\\n:\\n  - packages/*\\n', "double-quoted explicit"],\n    ["? 'packages'\\n:\\n  - packages/*\\n", "single-quoted explicit"],\n  ])("fails closed for a %s packages mapping key", (workspaceYaml) => {\n    const files: DiscoveryFileMap = {\n      ...settingsOnlyFiles(),\n      "pnpm-workspace.yaml": workspaceYaml,\n      "packages/a/package.json": JSON.stringify({ name: "a", private: true }),\n    };\n    const discovery = discoverProjectFromFiles(files);\n\n    expect(discovery.workspace).toMatchObject({\n      state: "unsupported",\n      kind: null,\n      reasonCode: "workspace_declaration_unsupported",\n      sourcePaths: ["pnpm-workspace.yaml"],\n    });\n    expect(discovery.tools.jest.configPaths).toEqual([]);\n  });\n\n`;
+          if (!test.includes(addition)) {
+            fs.writeFileSync(testPath, test.replace(anchor, addition + anchor));
+          }
+          NODE
+      - name: Commit bounded repair
+        run: |
+          git diff --check
+          git diff -- src/discovery.ts tests/t091-pnpm-settings-only-workspace.contract.test.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/discovery.ts tests/t091-pnpm-settings-only-workspace.contract.test.ts
+          git commit -m "fix(002): fail closed on explicit pnpm packages keys"
+          git push origin HEAD:feat/091-m2-benchmark-replay
