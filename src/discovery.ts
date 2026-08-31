@@ -327,18 +327,29 @@ function discoverWorkspace(
   let sourcePaths: readonly string[] = patterns === null ? [] : ["package.json"];
 
   if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {
-    patterns = pnpmWorkspacePatterns(files["pnpm-workspace.yaml"]);
-    sourcePaths = ["pnpm-workspace.yaml"];
-    if (patterns === null) {
-      return {
-        state: "unsupported",
-        kind: null,
-        patterns: [],
-        packageJsonPaths: root === undefined ? [] : ["package.json"],
-        sourcePaths,
-        reasonCode: "workspace_declaration_unsupported",
-        reasonText: "pnpm-workspace.yaml exceeds the supported basic packages-list grammar.",
-      };
+    const pnpmWorkspaceRaw = files["pnpm-workspace.yaml"];
+    const declaresPackages = pnpmWorkspaceRaw.split(/\r?\n/u).some((line) => {
+      if (line.trimStart().startsWith("#")) return false;
+      const cleaned = line.replace(/\s+#.*$/u, "").trimEnd();
+      return (
+        /(?:^|[\s{,])(?:packages|"packages"|'packages')\s*:/u.test(cleaned) ||
+        /^\s*\?\s*(?:packages|"packages"|'packages')\s*$/u.test(cleaned)
+      );
+    });
+    if (declaresPackages) {
+      patterns = pnpmWorkspacePatterns(pnpmWorkspaceRaw);
+      sourcePaths = ["pnpm-workspace.yaml"];
+      if (patterns === null) {
+        return {
+          state: "unsupported",
+          kind: null,
+          patterns: [],
+          packageJsonPaths: root === undefined ? [] : ["package.json"],
+          sourcePaths,
+          reasonCode: "workspace_declaration_unsupported",
+          reasonText: "pnpm-workspace.yaml exceeds the supported basic packages-list grammar.",
+        };
+      }
     }
   }
 
