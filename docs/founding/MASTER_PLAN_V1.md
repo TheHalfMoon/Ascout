@@ -1,13 +1,13 @@
 # Ascout Master Plan v1
 
-**Status:** FOUNDING CANDIDATE / READY FOR SPEC-KIT CANONICALIZATION  
+**Status:** M1 IMPLEMENTED / QUALIFIED / FOUNDER_RATIFIED — governance reconciled 2026-08-31  
 **Repository:** `TheHalfMoon/Ascout`  
 **Identity:** **Ascout — Verify everything AI ships.**  
 **Required subheadline:** **Know exactly what passed, failed, and was never checked.**
 
-No product implementation is authorized by this document.
+The original founding version of this document was planning-only and did not itself authorize implementation. M1 has since been implemented and qualified. The repository did not retain a durable pre-T001 implementation-authorization artifact, so current founder ratification and the forward-only governance repair are recorded explicitly in `docs/founding/M1_GOVERNANCE_RECONCILIATION_2026-08-31.md` and Issue #93. No retroactive authorization event is claimed.
 
-This is the reconciled founding source produced from Master Plan v0, Claude adversarial review, GLM 5.3 reconciliation, and final founder-side reconciliation. Spec Kit artifacts derived from it become implementation-authorizing only after their own gates pass.
+This is the reconciled founding source produced from Master Plan v0, Claude adversarial review, GLM 5.3 reconciliation, and final founder-side reconciliation. Its product constraints remain normative for the implemented founding M1 scope; future material implementation requires a new canonical Spec Kit authority chain and explicit durable implementation authorization before mutation.
 
 ## 1. Product Thesis
 
@@ -333,4 +333,4 @@ Master Plan v1
   → explicit implementation authorization
 ```
 
-Ponytail is a complexity gate, not an architecture generator. A stale audit never authorizes implementation. No implementation begins before all gates pass.
+Ponytail is a complexity gate, not an architecture generator. A stale audit never authorizes implementation. Future material implementation does not begin before all gates pass and the explicit authorization is durably recorded. Founding M1's missing historical authorization record is disclosed and currently ratified by `M1_GOVERNANCE_RECONCILIATION_2026-08-31.md`; it must not become precedent for future work.
