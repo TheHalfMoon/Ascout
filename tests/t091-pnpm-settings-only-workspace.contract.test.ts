@@ -120,6 +120,27 @@ describe("T091 pnpm settings-only single-package fidelity", () => {
   });
 
   it.each([
+    ["? packages\n:\n  - packages/*\n", "plain explicit"],
+    ['? "packages"\n:\n  - packages/*\n', "double-quoted explicit"],
+    ["? 'packages'\n:\n  - packages/*\n", "single-quoted explicit"],
+  ])("fails closed for a %s packages mapping key", (workspaceYaml) => {
+    const files: DiscoveryFileMap = {
+      ...settingsOnlyFiles(),
+      "pnpm-workspace.yaml": workspaceYaml,
+      "packages/a/package.json": JSON.stringify({ name: "a", private: true }),
+    };
+    const discovery = discoverProjectFromFiles(files);
+
+    expect(discovery.workspace).toMatchObject({
+      state: "unsupported",
+      kind: null,
+      reasonCode: "workspace_declaration_unsupported",
+      sourcePaths: ["pnpm-workspace.yaml"],
+    });
+    expect(discovery.tools.jest.configPaths).toEqual([]);
+  });
+
+  it.each([
     ['"packages":', "double-quoted"],
     ["'packages':", "single-quoted"],
   ])("fails closed for a %s workspace key instead of treating it as settings-only (%s)", (packagesKey) => {
