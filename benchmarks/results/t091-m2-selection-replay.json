@@ -2,8 +2,8 @@
   "schema_version": 1,
   "task": "T091",
   "status": "M2_SELECTION_REPLAY_QUALIFIED",
-  "qualification_head": "dcfc67d9f3083c8ecc94945df3c812218545a01a",
-  "qualification_run_id": "33418175913",
+  "qualification_head": "c2323f5edf48c808621b3f50e6cccfaa6b50f886",
+  "qualification_run_id": "33428011206",
   "product_repair_commit": "979d8fecc260f1aa428dfc9020e0e3d8e1d42af9",
   "corpus": {
     "kind": "founding_selection",
@@ -12,49 +12,49 @@
       {
         "case_id": "react-hook-form-value-as-date",
         "case_revision": 2,
-        "t075_evidence_sha256": "79b5ad398bb1445259f53bfec4461d892cd21b04b272a14d71027484e43e5189"
+        "t075_evidence_sha256": "ff8aa6b3ba1bede7402ede205dee6e694b0c0849ffd74606f2c6293e07564f5e"
       },
       {
         "case_id": "tanstack-streamed-query-reducer",
         "case_revision": 4,
-        "t075_evidence_sha256": "6e953fae88e0030715a9161c10bb767e2b6d887537b49363ab1cdbd2a37987c2"
+        "t075_evidence_sha256": "744c7755628c1d7cb83bd8e83574002540eb091dbf582b14798e4a077019cc9d"
       },
       {
         "case_id": "trpc-streaming-onerror-cause",
         "case_revision": 2,
-        "t075_evidence_sha256": "7337cad24fefd79c601b634f95e9f8645381baea87012e5df84555ffd9036bb6"
+        "t075_evidence_sha256": "113d67cc0fa995c444f8fc02c8158798e47835271dfee9bdbcceadce439bf91f"
       },
       {
         "case_id": "zod-jitless-allows-eval",
         "case_revision": 2,
-        "t075_evidence_sha256": "3e5983b83805eaed1b4a58941f34839f83743ef4c113a8a716939b5b56d7bde6"
+        "t075_evidence_sha256": "d3dce0524158cf1ea750727913f0887c3cf6364c473fb67732916437ed6cddfc"
       },
       {
         "case_id": "zod-scientific-exponents",
         "case_revision": 2,
-        "t075_evidence_sha256": "c4ba56ed0bc275263262dac96d4463e325d4307138d0fb3dba940e0a3adeccde"
+        "t075_evidence_sha256": "9b3a56f7d1bdc466d5b588edd02acb0589fbf57d1acde0f3effe1c20a513a32b"
       },
       {
         "case_id": "zustand-persist-latest-state",
         "case_revision": 2,
-        "t075_evidence_sha256": "b9576b092b14912fdf9132af05455cad6be3029c864e4362a1de3ed3988cddef"
+        "t075_evidence_sha256": "9070d9b96a769c0c51263e0910533db1c73e90034109eb291bd14e4e4c98e74e"
       }
     ]
   },
   "focused_replay": {
     "case_id": "react-hook-form-value-as-date",
     "case_revision": 2,
-    "qualification_head": "58af5f4fd034c16798b9d27ea57b0fcf07236c7c",
-    "qualification_run_id": "33406629285",
-    "artifact_digest": "sha256:50070ba9f8c5fc3f238f0bfeb3db765ffd83c80893ccf4ad72d59919e4036ec9",
+    "qualification_head": "c2323f5edf48c808621b3f50e6cccfaa6b50f886",
+    "qualification_run_id": "33428011206",
+    "artifact_digest": "sha256:91da0e164ff527e6070f5b68b619c3d8210ed3ea6750eaba0ac32fe32bc454b2",
     "ascout_oracle_membership": "PROVEN"
   },
   "current_replay": {
-    "t076_aggregate_sha256": "0c72ec8c536811a913b68c15dba51923be8783ae54134555d5d3c8925596e5ac",
-    "t077_assertions_sha256": "bb0e9d082abb1b3eda5432618bb5a800733f4676818408ffa4ba4b825ebf61e6",
-    "aggregate_artifact_digest": "sha256:5b9f853fa5378489c83fc1c440c3f867c71a5c4c1d73ab81713d3b3a0dd1faae",
-    "evidence_artifact_digest": "sha256:3fd80e5900ca2b9126911462eaa61cb8d3bc55433a0ece9f8cdce58d96ae30f2",
-    "focused_artifact_digest": "sha256:5f881eaae33505db0d8e085b92b99da79be30cce53b2025396e30723263a23ee",
+    "t076_aggregate_sha256": "dde466007c91ba21c31266b7da849bc424e1ee077af6038d7227303a295407f1",
+    "t077_assertions_sha256": "ee4338e1d426dd19e25b027efe32fc67c5ffbd4cec233b2ed81a5096ffbf2de5",
+    "aggregate_artifact_digest": "sha256:e544d8d9bb00552c65a54f601ad3f57a78ddfa030edcfb87af3549748de13665",
+    "evidence_artifact_digest": "sha256:7bfd839cd8e17c39d3d4f10b4d6c43f0721d708646bb4c00fca91e0ae712025e",
+    "focused_artifact_digest": "sha256:91da0e164ff527e6070f5b68b619c3d8210ed3ea6750eaba0ac32fe32bc454b2",
     "selector_summary": {
       "comparator_outcome_count": 24,
       "comparators": {
@@ -90,112 +90,112 @@
     "selector_misses": [],
     "selector_unavailable": [
       {
-        "baseline_id": "bc022b848558c1cb900679e52d22f253fa11fd08341cd8c8f1805f4e24110235",
+        "baseline_id": "9f10a098ed3a9f27208330378803052d4b98697129b254be4ea2e76843a6201e",
         "case_id": "react-hook-form-value-as-date",
         "case_revision": 2,
         "comparator": "plain",
         "reason": "required oracle membership evidence is unavailable for one or more repeated cold observations",
-        "reference_evidence_sha256": "79b5ad398bb1445259f53bfec4461d892cd21b04b272a14d71027484e43e5189",
+        "reference_evidence_sha256": "ff8aa6b3ba1bede7402ede205dee6e694b0c0849ffd74606f2c6293e07564f5e",
         "required_oracle_test_ids": [
           "validateField > should return min error when the field value is already a Date object (valueAsDate)"
         ],
-        "t075_evidence_sha256": "79b5ad398bb1445259f53bfec4461d892cd21b04b272a14d71027484e43e5189"
+        "t075_evidence_sha256": "ff8aa6b3ba1bede7402ede205dee6e694b0c0849ffd74606f2c6293e07564f5e"
       },
       {
-        "baseline_id": "018f6c23aacd3c7d684dcf84ed1074d2c3e160a87a718ed71220926c898ec249",
+        "baseline_id": "8c2fd88ee76537fd2e298fb0e7c5d23ecce7ddeb4758183b68ac12e63a3301a5",
         "case_id": "tanstack-streamed-query-reducer",
         "case_revision": 4,
         "comparator": "ascout",
         "reason": "required oracle membership evidence is unavailable for one or more repeated cold observations",
-        "reference_evidence_sha256": "6e953fae88e0030715a9161c10bb767e2b6d887537b49363ab1cdbd2a37987c2",
+        "reference_evidence_sha256": "744c7755628c1d7cb83bd8e83574002540eb091dbf582b14798e4a077019cc9d",
         "required_oracle_test_ids": [
           "streamedQuery > should not call reducer twice when refetchMode is replace"
         ],
-        "t075_evidence_sha256": "6e953fae88e0030715a9161c10bb767e2b6d887537b49363ab1cdbd2a37987c2"
+        "t075_evidence_sha256": "744c7755628c1d7cb83bd8e83574002540eb091dbf582b14798e4a077019cc9d"
       },
       {
-        "baseline_id": "74f36288e50fd3928bfc1072035102c30e644f777c8fdf7ac538ef8a2956e12e",
+        "baseline_id": "896b91ad4661e28456b0169b70bb0b57ce82c1d7a9ac4c6edbdc035ff6d2fd08",
         "case_id": "tanstack-streamed-query-reducer",
         "case_revision": 4,
         "comparator": "plain",
         "reason": "required oracle membership evidence is unavailable for one or more repeated cold observations",
-        "reference_evidence_sha256": "6e953fae88e0030715a9161c10bb767e2b6d887537b49363ab1cdbd2a37987c2",
+        "reference_evidence_sha256": "744c7755628c1d7cb83bd8e83574002540eb091dbf582b14798e4a077019cc9d",
         "required_oracle_test_ids": [
           "streamedQuery > should not call reducer twice when refetchMode is replace"
         ],
-        "t075_evidence_sha256": "6e953fae88e0030715a9161c10bb767e2b6d887537b49363ab1cdbd2a37987c2"
+        "t075_evidence_sha256": "744c7755628c1d7cb83bd8e83574002540eb091dbf582b14798e4a077019cc9d"
       },
       {
-        "baseline_id": "9fdc836bc4f5fd64249f8eaaf5008acb2f886af69ec6d4bf3df40aa6ea71e405",
+        "baseline_id": "656fea8c37ba4f2960c54ec43084768ac51eab660a039332cbed75cceba2b61a",
         "case_id": "trpc-streaming-onerror-cause",
         "case_revision": 2,
         "comparator": "plain",
         "reason": "required oracle membership evidence is unavailable for one or more repeated cold observations",
-        "reference_evidence_sha256": "7337cad24fefd79c601b634f95e9f8645381baea87012e5df84555ffd9036bb6",
+        "reference_evidence_sha256": "113d67cc0fa995c444f8fc02c8158798e47835271dfee9bdbcceadce439bf91f",
         "required_oracle_test_ids": [
           "onError > streaming onError should unwrap { error, path } and preserve error message and path"
         ],
-        "t075_evidence_sha256": "7337cad24fefd79c601b634f95e9f8645381baea87012e5df84555ffd9036bb6"
+        "t075_evidence_sha256": "113d67cc0fa995c444f8fc02c8158798e47835271dfee9bdbcceadce439bf91f"
       },
       {
-        "baseline_id": "187b7cb3871522c2d217c0926bd92c064818dd0756f0f30e52429955cecec24e",
+        "baseline_id": "a1ccfcc75991a0c53a9b2c047646696b27ca1cf75073cdd41bd584fd09e8ae5e",
         "case_id": "zod-jitless-allows-eval",
         "case_revision": 2,
         "comparator": "ascout",
         "reason": "required oracle membership evidence is unavailable for one or more repeated cold observations",
-        "reference_evidence_sha256": "3e5983b83805eaed1b4a58941f34839f83743ef4c113a8a716939b5b56d7bde6",
+        "reference_evidence_sha256": "d3dce0524158cf1ea750727913f0887c3cf6364c473fb67732916437ed6cddfc",
         "required_oracle_test_ids": [
           "globalConfig.jitless=true short-circuits the allowsEval probe"
         ],
-        "t075_evidence_sha256": "3e5983b83805eaed1b4a58941f34839f83743ef4c113a8a716939b5b56d7bde6"
+        "t075_evidence_sha256": "d3dce0524158cf1ea750727913f0887c3cf6364c473fb67732916437ed6cddfc"
       },
       {
-        "baseline_id": "af7cf7c60771ed0a0f105596975cab2c1ee1ade230c08f061f80fdddbb2b5805",
+        "baseline_id": "7fcd2ebfd0cf78d89271667f2b42e3b72810cfc41dc7219378c4a0063ed9de6e",
         "case_id": "zod-jitless-allows-eval",
         "case_revision": 2,
         "comparator": "plain",
         "reason": "required oracle membership evidence is unavailable for one or more repeated cold observations",
-        "reference_evidence_sha256": "3e5983b83805eaed1b4a58941f34839f83743ef4c113a8a716939b5b56d7bde6",
+        "reference_evidence_sha256": "d3dce0524158cf1ea750727913f0887c3cf6364c473fb67732916437ed6cddfc",
         "required_oracle_test_ids": [
           "globalConfig.jitless=true short-circuits the allowsEval probe"
         ],
-        "t075_evidence_sha256": "3e5983b83805eaed1b4a58941f34839f83743ef4c113a8a716939b5b56d7bde6"
+        "t075_evidence_sha256": "d3dce0524158cf1ea750727913f0887c3cf6364c473fb67732916437ed6cddfc"
       },
       {
-        "baseline_id": "99d0e8a84850f3cb8bf9d51e20d60567690f69eb9fd614699d8ddc05b32fdfa6",
+        "baseline_id": "529b834b4567c1a853edf15263ac112575047266e005bc59d56b963dae1e22b8",
         "case_id": "zod-scientific-exponents",
         "case_revision": 2,
         "comparator": "ascout",
         "reason": "required oracle membership evidence is unavailable for one or more repeated cold observations",
-        "reference_evidence_sha256": "c4ba56ed0bc275263262dac96d4463e325d4307138d0fb3dba940e0a3adeccde",
+        "reference_evidence_sha256": "9b3a56f7d1bdc466d5b588edd02acb0589fbf57d1acde0f3effe1c20a513a32b",
         "required_oracle_test_ids": [
           ".multipleOf() with scientific notation (multi-digit exponents)"
         ],
-        "t075_evidence_sha256": "c4ba56ed0bc275263262dac96d4463e325d4307138d0fb3dba940e0a3adeccde"
+        "t075_evidence_sha256": "9b3a56f7d1bdc466d5b588edd02acb0589fbf57d1acde0f3effe1c20a513a32b"
       },
       {
-        "baseline_id": "a1c78d16ad972bdf5b69de343a3909efd4fd766715abf1c0446dbaa285310a22",
+        "baseline_id": "beac8924c6efcefab22dac80b2e803e5e95ae5ce1f98f58813df8a59b8e8dfa0",
         "case_id": "zod-scientific-exponents",
         "case_revision": 2,
         "comparator": "plain",
         "reason": "required oracle membership evidence is unavailable for one or more repeated cold observations",
-        "reference_evidence_sha256": "c4ba56ed0bc275263262dac96d4463e325d4307138d0fb3dba940e0a3adeccde",
+        "reference_evidence_sha256": "9b3a56f7d1bdc466d5b588edd02acb0589fbf57d1acde0f3effe1c20a513a32b",
         "required_oracle_test_ids": [
           ".multipleOf() with scientific notation (multi-digit exponents)"
         ],
-        "t075_evidence_sha256": "c4ba56ed0bc275263262dac96d4463e325d4307138d0fb3dba940e0a3adeccde"
+        "t075_evidence_sha256": "9b3a56f7d1bdc466d5b588edd02acb0589fbf57d1acde0f3effe1c20a513a32b"
       },
       {
-        "baseline_id": "9965669b2ffe942dd144dd3532efe6b797b6aee164e28891241fe12be052e2f2",
+        "baseline_id": "5297e64f903f66f34cea931845751f102665d2e7998d58450aa1f44dd175ee65",
         "case_id": "zustand-persist-latest-state",
         "case_revision": 2,
         "comparator": "plain",
         "reason": "required oracle membership evidence is unavailable for one or more repeated cold observations",
-        "reference_evidence_sha256": "b9576b092b14912fdf9132af05455cad6be3029c864e4362a1de3ed3988cddef",
+        "reference_evidence_sha256": "9070d9b96a769c0c51263e0910533db1c73e90034109eb291bd14e4e4c98e74e",
         "required_oracle_test_ids": [
           "persist middleware with async configuration > passes latest state to post-rehydration callback after hydration-triggered updates"
         ],
-        "t075_evidence_sha256": "b9576b092b14912fdf9132af05455cad6be3029c864e4362a1de3ed3988cddef"
+        "t075_evidence_sha256": "9070d9b96a769c0c51263e0910533db1c73e90034109eb291bd14e4e4c98e74e"
       }
     ],
     "absolute_assertions_status": "ABSOLUTE_ASSERTIONS_SATISFIED"
