@@ -42,9 +42,15 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
       - name: Test
+        if: ${{ runner.os != 'Windows' }}
         env:
           TMPDIR: ${{ runner.temp }}
         run: npm test
+      - name: Test (Windows bounded workers)
+        if: ${{ runner.os == 'Windows' }}
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: npm test -- --maxWorkers=1
       - name: Build
         if: ${{ !cancelled() }}
         run: npm run build
