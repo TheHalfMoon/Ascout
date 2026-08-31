@@ -1,0 +1,79 @@
+name: T092 Focused Closeout Qualification
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  focused:
+    name: focused / ubuntu-24.04 / node-24
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Guard exact source
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node -e "const cp=require('node:child_process');const h=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();if(h!==process.env.EXPECTED_SHA)throw new Error('expected '+process.env.EXPECTED_SHA+', got '+h)"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run focused Spec 002 contracts
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: >-
+          npx vitest run
+          tests/t089-nested-runner-config.contract.test.ts
+          tests/t090-nested-config-command-surface.contract.test.ts
+          tests/t090-nested-config-admission.integration.test.ts
+          tests/t091-pnpm-settings-only-workspace.contract.test.ts
+      - name: Validate benchmark and frozen invariants
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const cp = require('node:child_process');
+
+          const fail = (message) => { throw new Error(message); };
+          const t091 = JSON.parse(fs.readFileSync('benchmarks/results/t091-m2-selection-replay.json', 'utf8'));
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const gitBlob = (path) => cp.execFileSync('git', ['hash-object', path], { encoding: 'utf8' }).trim();
+          const gitTree = (path) => cp.execFileSync('git', ['rev-parse', `HEAD:${path}`], { encoding: 'utf8' }).trim();
+          const sha256 = (path) => crypto.createHash('sha256').update(fs.readFileSync(path)).digest('hex');
+
+          if (t091.schema_version !== 1) fail('unexpected T091 schema version');
+          if (t091.task !== 'T091' || t091.status !== 'M2_SELECTION_REPLAY_QUALIFIED') fail('T091 status binding invalid');
+          if (t091.focused_replay?.ascout_oracle_membership !== 'PROVEN') fail('RHF oracle membership is not PROVEN');
+          if (t091.current_replay?.selector_summary?.selection_case_count !== 6) fail('selection case count changed');
+          if (t091.current_replay?.selector_summary?.comparators?.ascout?.miss_case_count !== 0) fail('Ascout selector miss count is nonzero');
+          if (t091.current_replay?.selector_summary?.unavailable_outcome_count !== 9) fail('unavailable outcome count changed');
+          if (t091.current_replay?.absolute_assertions_status !== 'ABSOLUTE_ASSERTIONS_SATISFIED') fail('absolute assertions are not satisfied');
+          if (t091.historical_evidence?.path !== 'benchmarks/results/t078-selector-misses.json') fail('historical evidence path changed');
+          if (t091.historical_evidence?.overwritten !== false) fail('historical evidence overwrite flag changed');
+          if (t091.constraints?.historical_result_overwritten !== false) fail('historical result overwrite constraint changed');
+          if (t091.constraints?.unavailable_evidence_invented !== false) fail('unavailable evidence constraint changed');
+          if (t091.constraints?.release_or_publish_performed !== false) fail('release/publication constraint changed');
+
+          const expectedT078Sha256 = '2c62cd54c5700fa76ffbcf549390d4695a2f76f4afd46a521207065d261cf2a5';
+          if (t091.historical_evidence.sha256 !== expectedT078Sha256) fail('T091 historical T078 digest binding changed');
+          if (sha256('benchmarks/results/t078-selector-misses.json') !== expectedT078Sha256) fail('historical T078 bytes changed');
+          if (gitBlob('benchmarks/results/t078-selector-misses.json') !== '06894f909426d5920fb8dc707b9707e86a70da31') fail('historical T078 Git blob changed');
+
+          if (pkg.name !== '@thehalfmoon/ascout') fail('package identity changed');
+          if (pkg.version !== '0.0.0' || pkg.private !== true) fail('package release state changed');
+          if (JSON.stringify(pkg.dependencies) !== JSON.stringify({ 'cross-spawn': '7.0.6' })) fail('runtime dependencies changed');
+          if (gitBlob('package.json') !== 'ec23827186d2ff4eeb43137eb2f0a82d340dc4bc') fail('package.json blob changed');
+          if (gitBlob('package-lock.json') !== 'e51f0bddb953235c1a391718eabfab5a6c680832') fail('package-lock.json blob changed');
+          if (gitTree('src/receipt') !== 'f3346a98a946a098d2580e407783e62a22bc2a1e') fail('receipt implementation tree changed');
+          if (gitBlob('src/receipt/model.ts') !== '1a6b8358bcc3bdb8b078c567c3e671f55462ffe2') fail('receipt v1 model changed');
+
+          console.log('T092 focused invariants: PASS');
+          NODE
