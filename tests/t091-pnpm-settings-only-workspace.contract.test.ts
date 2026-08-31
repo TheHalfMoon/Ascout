@@ -22,6 +22,7 @@ function fixtureRoot(): string {
   mkdirSync(join(root, "node_modules", ".bin"), { recursive: true });
   mkdirSync(join(root, "node_modules", "jest"), { recursive: true });
   writeFileSync(join(root, "node_modules", ".bin", "jest"), "");
+  writeFileSync(join(root, "node_modules", ".bin", "jest.cmd"), "");
   writeFileSync(
     join(root, "node_modules", "jest", "package.json"),
     JSON.stringify({ name: "jest", version: "30.4.2" }),
@@ -46,6 +47,7 @@ function settingsOnlyFiles(): DiscoveryFileMap {
     "app/package.json": JSON.stringify({ name: "react-hook-form-app", private: true }),
     "scripts/jest/jest.config.js": "module.exports = {};\n",
     "node_modules/.bin/jest": "",
+    "node_modules/.bin/jest.cmd": "",
   };
 }
 
