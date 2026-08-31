@@ -1,13 +1,15 @@
 # Ascout Master Plan v1
 
-**Status:** M1 IMPLEMENTED / QUALIFIED / FOUNDER_RATIFIED — governance reconciled 2026-08-31  
+**Status:** M1 IMPLEMENTED / QUALIFIED / FOUNDER_RATIFIED; M2 SELECTION-CONFIG FIDELITY IMPLEMENTED / QUALIFIED — governance reconciled 2026-08-31  
 **Repository:** `TheHalfMoon/Ascout`  
 **Identity:** **Ascout — Verify everything AI ships.**  
 **Required subheadline:** **Know exactly what passed, failed, and was never checked.**
 
 The original founding version of this document was planning-only and did not itself authorize implementation. M1 has since been implemented and qualified. The repository did not retain a durable pre-T001 implementation-authorization artifact, so current founder ratification and the forward-only governance repair are recorded explicitly in `docs/founding/M1_GOVERNANCE_RECONCILIATION_2026-08-31.md` and Issue #93. No retroactive authorization event is claimed.
 
-This is the reconciled founding source produced from Master Plan v0, Claude adversarial review, GLM 5.3 reconciliation, and final founder-side reconciliation. Its product constraints remain normative for the implemented founding M1 scope; future material implementation requires a new canonical Spec Kit authority chain and explicit durable implementation authorization before mutation.
+The bounded M2 selection-configuration-fidelity slice was separately planned and authorized under Spec 002 and Issue #96. It preserves the founding product constraints while adding benchmark-backed single-package nested Jest/Vitest configuration fidelity only. Broader post-M1 roadmap ideas remain non-canonical research until separately planned and authorized.
+
+This is the reconciled founding source produced from Master Plan v0, Claude adversarial review, GLM 5.3 reconciliation, and final founder-side reconciliation. Its product constraints remain normative for the implemented founding M1 scope and the bounded Spec 002 M2 slice; future material implementation requires a new canonical Spec Kit authority chain and explicit durable implementation authorization before mutation.
 
 ## 1. Product Thesis
 
@@ -198,6 +200,12 @@ Use native Vitest/Jest related/changed semantics. Widen on dependency/package-ma
 
 Selection mode, known/null selected/deselected counts, limitations, and widening triggers remain visible.
 
+### M2 selection-config fidelity
+
+Spec 002 hardens this existing affected-test path for supported **single-package** JavaScript/TypeScript repositories. Existing root-level Jest/Vitest configuration keeps precedence. Only when no root effective config exists may exactly one recognized nested Jest or Vitest config become the explicit runner `--config` authority; multiple nested candidates fail closed. A changed selected nested config remains subject to the existing explicit, receipt-visible, per-invocation command-surface admission contract.
+
+The repair is benchmark-backed by the frozen `react-hook-form-value-as-date@2` case and does not authorize arbitrary package-script execution, generic command reconstruction, basic-workspace nested-config ownership, dependency/import graphs, new runtime dependencies, receipt changes, persistent trust, or untrusted-repository execution.
+
 ## 13. Changed-Code Exercise
 
 Intersect changed executable lines with coverage from tests that actually ran.
@@ -278,6 +286,8 @@ stable material exercise gap returning exit 0 = 0
 
 No invented pre-data 98% threshold.
 
+The M2 Spec 002 replay is additive evidence, not a rewrite of the historical T078 publication. The frozen React Hook Form oracle test became an Ascout selector hit while unavailable comparator outcomes remained unavailable and all absolute integrity assertions remained satisfied.
+
 ## 19. Roadmap
 
 ### M0 — Canonical specification
@@ -286,11 +296,13 @@ Constitution, feature spec, trust/evidence/config/benchmark contracts, plan, tas
 
 ### M1 — Changed-code verification receipt
 
-The smallest daily-use product defined above.
+The smallest daily-use product defined above. **Implemented and qualified.**
 
 ### M2 — Selection hardening / ecosystem expansion
 
-Potential first-class Python affected verification, stronger monorepo delegation, binary packaging if adoption friction proves need, richer run delta, untrusted sandbox research, benchmark-driven targeted parsing.
+**Implemented canonical slice:** benchmark-backed single-package nested Jest/Vitest configuration fidelity under Spec 002, including fail-closed ambiguity and preservation of explicit changed-command admission.
+
+**Not implemented by Spec 002:** first-class Python affected verification, stronger monorepo delegation, binary packaging, richer run delta, untrusted sandboxing, generic parsing, dependency/import graphs, or other ecosystem expansion. Those remain research/planning candidates and require their own canonical authority before implementation.
 
 ### M3 — Behavioral / broader verification
 
