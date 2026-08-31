@@ -4,7 +4,9 @@ description: "Implementation tasks for Ascout changed-code verification receipt"
 
 # Tasks: Changed-Code Verification Receipt
 
-**Status**: Planning only. No implementation authorization.
+**Status**: M1 IMPLEMENTED / QUALIFIED / FOUNDER_RATIFIED — governance reconciled 2026-08-31.
+
+> Execution-state note: this file is the frozen ordered T001–T088 implementation-plan definition created before implementation. Its original unchecked task-box syntax is intentionally preserved rather than rewritten into fabricated historical completion timestamps. Canonical execution evidence is the merged task/closeout PR history and repository-native evidence ledgers, culminating in T088/PR #92 and Issue #80. The repository did not retain a durable pre-T001 implementation-authorization artifact; current founder ratification and this forward-only governance repair are recorded in Issue #93 and `docs/founding/M1_GOVERNANCE_RECONCILIATION_2026-08-31.md`. No retroactive authorization event is claimed.
 
 ## Phase 1 — Repository Setup
 
