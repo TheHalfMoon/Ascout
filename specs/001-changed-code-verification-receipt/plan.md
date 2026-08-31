@@ -2,7 +2,9 @@
 
 **Branch**: `planning/000-ascout-foundation` | **Date**: 2026-08-21  
 **Spec**: `specs/001-changed-code-verification-receipt/spec.md`  
-**Status**: Plan candidate. No implementation is authorized.
+**Status**: M1 IMPLEMENTED / QUALIFIED / FOUNDER_RATIFIED — governance reconciled 2026-08-31
+
+> Governance note: this plan was originally a pre-implementation candidate and did not itself authorize product mutation. M1 was subsequently implemented and qualified, but the repository did not retain a durable pre-T001 implementation-authorization artifact. Current founder ratification and the forward-only reconciliation are recorded in Issue #93 and `docs/founding/M1_GOVERNANCE_RECONCILIATION_2026-08-31.md`; no retroactive authorization event is claimed. The architecture and constraints below remain the normative founding M1 design contract.
 
 ## Summary
 
