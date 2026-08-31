@@ -9,9 +9,11 @@ Ascout's M1 goal is deliberately narrow: make changed-code verification harder t
 
 ## Status
 
-Ascout is in **M1 release hardening** and has not published a stable npm release. Canonical T087 selected the repository package identity `@thehalfmoon/ascout` while preserving the executable name `ascout`. The package remains version `0.0.0`, `private: true`, and unpublished. The scoped identity is a repository decision, not a claim that authenticated npm scope ownership or publication authority has been proven; any future publication requires separate authenticated npm scope/ownership evidence and separate release/publication authority.
+Ascout has completed canonical **M1 release hardening** and the bounded **M2 selection-configuration fidelity** milestone. M2 adds benchmark-backed single-package nested Jest/Vitest configuration fidelity while preserving the M1 receipt, trust, admission, dependency, and publication boundaries. The package remains version `0.0.0`, `private: true`, and unpublished.
 
-GitHub `main`, the canonical Spec Kit artifacts under `specs/001-changed-code-verification-receipt/`, and merged task PRs are the source of current implementation truth. The simplified builder map is in `specs/001-changed-code-verification-receipt/IMPLEMENTATION_RUNBOOK.md`.
+Canonical T087 selected the repository package identity `@thehalfmoon/ascout` while preserving the executable name `ascout`. The scoped identity is a repository decision, not a claim that authenticated npm scope ownership or publication authority has been proven; any future publication requires separate authenticated npm scope/ownership evidence and separate release/publication authority.
+
+GitHub `main`, the canonical Spec Kit artifacts under `specs/001-changed-code-verification-receipt/` and `specs/002-selection-config-fidelity/`, and merged task PRs are the source of current implementation truth. The simplified M1 builder map remains in `specs/001-changed-code-verification-receipt/IMPLEMENTATION_RUNBOOK.md`.
 
 ## What M1 does
 
@@ -32,9 +34,15 @@ For a supported trusted local repository, `ascout check` can:
 - emit terminal, JSON, or bounded agent receipts from one semantically validated truth model;
 - persist evidence under `.ascout/` with bounded completed-run retention and documented redaction/truncation facts.
 
-## What M1 does not claim
+## What M2 adds
 
-Ascout M1 does **not** claim to be:
+M2 is deliberately narrower than the broader post-M1 research roadmap. For a supported **single-package** JavaScript/TypeScript repository, when no existing root-level Jest/Vitest configuration is effective, Ascout may use exactly one recognized nested Jest or Vitest config as the runner's explicit `--config` authority. Root configuration keeps precedence, multiple nested candidates fail closed, and a changed selected nested config still requires explicit per-invocation changed-command-surface admission.
+
+The founding `react-hook-form-value-as-date@2` selector miss was replayed after the repair: the frozen oracle test became an Ascout selector hit, historical T078 publication remained unchanged, and unavailable benchmark evidence remained unavailable. M2 did not add arbitrary package-script execution, generic command reconstruction, dependency/import graphs, basic-workspace nested-config ownership, a new runtime dependency, a receipt version, persistent trust, npm publication, a GitHub Release, or a release tag.
+
+## What M1/M2 do not claim
+
+Ascout M1/M2 do **not** claim to be:
 
 - an untrusted-repository sandbox or malware containment system;
 - a child-process network isolation layer;
@@ -272,7 +280,7 @@ npm run build
 
 Project CI runs this matrix on Linux, macOS, and Windows with Node 22 and Node 24. Release hardening records supported-platform debt explicitly instead of skipping or suppressing it.
 
-T088 performs the final clean-checkout release-candidate rehearsal across the canonical quickstart, contract/semantic/integration gates, package inspection, benchmark evidence, and supported-platform proof. It records evidence only; it does not publish npm or create a release.
+T088 performs the final clean-checkout M1 release-candidate rehearsal across the canonical quickstart, contract/semantic/integration gates, package inspection, benchmark evidence, and supported-platform proof. T092 performs the bounded M2 selection-config-fidelity closeout against the same six-lane platform matrix and Spec 002 benchmark evidence. Neither task publishes npm or creates a GitHub Release/tag.
 
 ## Contributing and security
 
@@ -290,4 +298,4 @@ The founding specification workflow is pinned in [`.specify/PROVENANCE.md`](.spe
 
 ## Strategic research
 
-The 2026-08-26 major product/testing review and post-M1 roadmap are preserved under [`docs/strategy/`](docs/strategy/README.md). These documents are **non-authoritative research/planning inputs**. They do not reorder or expand the current M1 Spec Kit plan, and future capabilities require separate canonicalization and authorization before implementation.
+The 2026-08-26 major product/testing review and post-M1 roadmap are preserved under [`docs/strategy/`](docs/strategy/README.md). These documents are **non-authoritative research/planning inputs**. They do not reorder or expand the current canonical Spec Kit authority chain, and future capabilities require separate canonicalization and authorization before implementation.
