@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   repair:
-    if: ${{ github.event.head_commit.message != 'fix(002) fail closed on quoted pnpm workspace declarations' }}
+    if: ${{ github.event.head_commit.message != 'style(002) normalize pnpm workspace detection block' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -23,7 +23,7 @@ jobs:
           node-version: 24.15.0
           cache: npm
 
-      - name: Apply bounded discovery repair
+      - name: Normalize exact discovery block
         shell: bash
         run: |
           set -euo pipefail
@@ -31,39 +31,11 @@ jobs:
           from pathlib import Path
           path = Path('src/discovery.ts')
           text = path.read_text()
-          old = '''  if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {
-            const pnpmWorkspaceRaw = files["pnpm-workspace.yaml"];
-            const declaresPackages = pnpmWorkspaceRaw.split(/\\r?\\n/u).some((line) => {
-              if (line.trimStart().startsWith("#")) return false;
-              const cleaned = line.replace(/\\s+#.*$/u, "").trimEnd();
-              return /^packages\\s*:/u.test(cleaned);
-            });
-            if (declaresPackages) {
-              patterns = pnpmWorkspacePatterns(pnpmWorkspaceRaw);
-              sourcePaths = ["pnpm-workspace.yaml"];
-              if (patterns === null) {
-                return {
-                  state: "unsupported",
-                  kind: null,
-                  patterns: [],
-                  packageJsonPaths: root === undefined ? [] : ["package.json"],
-                  sourcePaths,
-                  reasonCode: "workspace_declaration_unsupported",
-                  reasonText: "pnpm-workspace.yaml exceeds the supported basic packages-list grammar.",
-                };
-              }
-            }
-          }
-          '''
-          # Accept the exact current malformed-indentation block only.
-          old = old.replace('            const', '  const').replace('            const declares', '  const declares').replace('              if (line', '    if (line').replace('              const cleaned', '    const cleaned').replace('              return /^packages', '    return /^packages').replace('            });', '  });').replace('            if (declaresPackages)', '  if (declaresPackages)').replace('              patterns =', '    patterns =').replace('              sourcePaths =', '    sourcePaths =').replace('              if (patterns === null)', '    if (patterns === null)').replace('                return {', '      return {').replace('                  state:', '        state:').replace('                  kind:', '        kind:').replace('                  patterns:', '        patterns:').replace('                  packageJsonPaths:', '        packageJsonPaths:').replace('                  sourcePaths,', '        sourcePaths,').replace('                  reasonCode:', '        reasonCode:').replace('                  reasonText:', '        reasonText:').replace('                };', '      };').replace('              }', '    }').replace('            }', '  }').replace('          }\n', '}\n')
-          # Use a literal block from the current file to avoid whitespace ambiguity.
           start = text.index('  if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {')
           end = text.index('\n\n  if (patterns === null) {', start)
           current = text[start:end]
-          expected_marker = 'return /^packages\\s*:/u.test(cleaned);'
-          if expected_marker not in current:
-              raise SystemExit('unexpected discovery block; refusing repair')
+          if 'return /(?:^|[\\s{,])(?:packages|"packages"|\'packages\')\\s*:/u.test(cleaned);' not in current:
+              raise SystemExit('unexpected discovery block; refusing formatting repair')
           new = '''  if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {
             const pnpmWorkspaceRaw = files["pnpm-workspace.yaml"];
             const declaresPackages = pnpmWorkspaceRaw.split(/\\r?\\n/u).some((line) => {
@@ -87,13 +59,40 @@ jobs:
               }
             }
           }'''
-          # Restore repository indentation style (two spaces inside the outer if).
-          new = new.replace('            const', '    const').replace('            const declares', '    const declares').replace('              if (line', '      if (line').replace('              const cleaned', '      const cleaned').replace('              return /', '      return /').replace('            });', '    });').replace('            if (declaresPackages)', '    if (declaresPackages)').replace('              patterns =', '      patterns =').replace('              sourcePaths =', '      sourcePaths =').replace('              if (patterns === null)', '      if (patterns === null)').replace('                return {', '        return {').replace('                  state:', '          state:').replace('                  kind:', '          kind:').replace('                  patterns:', '          patterns:').replace('                  packageJsonPaths:', '          packageJsonPaths:').replace('                  sourcePaths,', '          sourcePaths,').replace('                  reasonCode:', '          reasonCode:').replace('                  reasonText:', '          reasonText:').replace('                };', '        };').replace('              }', '      }').replace('            }', '    }').replace('          }', '  }')
-          text = text[:start] + new + text[end:]
+          # Dedent from Python heredoc presentation to repository TypeScript style.
+          lines = new.splitlines()
+          normalized = [lines[0]] + [line[10:] if line.startswith('          ') else line for line in lines[1:]]
+          # Apply explicit TypeScript indentation relative to the outer block.
+          normalized = [
+            '  if (patterns === null && files["pnpm-workspace.yaml"] !== undefined) {',
+            '    const pnpmWorkspaceRaw = files["pnpm-workspace.yaml"];',
+            '    const declaresPackages = pnpmWorkspaceRaw.split(/\\r?\\n/u).some((line) => {',
+            '      if (line.trimStart().startsWith("#")) return false;',
+            '      const cleaned = line.replace(/\\s+#.*$/u, "").trimEnd();',
+            '      return /(?:^|[\\s{,])(?:packages|"packages"|\'packages\')\\s*:/u.test(cleaned);',
+            '    });',
+            '    if (declaresPackages) {',
+            '      patterns = pnpmWorkspacePatterns(pnpmWorkspaceRaw);',
+            '      sourcePaths = ["pnpm-workspace.yaml"];',
+            '      if (patterns === null) {',
+            '        return {',
+            '          state: "unsupported",',
+            '          kind: null,',
+            '          patterns: [],',
+            '          packageJsonPaths: root === undefined ? [] : ["package.json"],',
+            '          sourcePaths,',
+            '          reasonCode: "workspace_declaration_unsupported",',
+            '          reasonText: "pnpm-workspace.yaml exceeds the supported basic packages-list grammar.",',
+            '        };',
+            '      }',
+            '    }',
+            '  }',
+          ]
+          text = text[:start] + '\n'.join(normalized) + text[end:]
           path.write_text(text)
           PY
 
-      - name: Qualify repair
+      - name: Qualify formatting repair
         shell: bash
         run: |
           set -euo pipefail
@@ -101,15 +100,15 @@ jobs:
           npm run typecheck
           ./node_modules/.bin/vitest run tests/t091-pnpm-settings-only-workspace.contract.test.ts tests/t089-nested-runner-config.contract.test.ts tests/discovery-hardening.contract.test.ts
           npm run build
+          git diff --check
 
-      - name: Commit forward-only repair
+      - name: Commit forward-only formatting repair
         shell: bash
         run: |
           set -euo pipefail
-          git diff --check
           test -n "$(git status --short src/discovery.ts)"
           git config user.name "TheHalfMoon"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/discovery.ts
-          git commit -m "fix(002) fail closed on quoted pnpm workspace declarations"
+          git commit -m "style(002) normalize pnpm workspace detection block"
           git push origin HEAD:feat/091-m2-benchmark-replay
