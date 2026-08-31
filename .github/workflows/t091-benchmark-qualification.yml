@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   apply-repair:
-    if: github.event.head_commit.message == 'ci(002): arm T091 discovery repair'
+    if: ${{ github.event.head_commit.message == 'ci(002): fix T091 repair workflow' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
