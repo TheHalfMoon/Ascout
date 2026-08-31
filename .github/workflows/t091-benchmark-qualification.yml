@@ -71,13 +71,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          corepack enable
-          corepack prepare "pnpm@${{ steps.runtime.outputs.pm_version }}" --activate
+          npm install --global --force "pnpm@${{ steps.runtime.outputs.pm_version }}" --ignore-scripts --no-audit --no-fund
           test "$(pnpm --version)" = "${{ steps.runtime.outputs.pm_version }}"
-          test "${node_version#v}" = "${node_version#v}" 2>/dev/null || true
           test "$(node --version | sed 's/^v//')" = "${{ steps.runtime.outputs.node }}"
-        env:
-          node_version: ${{ steps.runtime.outputs.node }}
 
       - name: Replay focused React Hook Form case
         shell: bash
@@ -193,8 +189,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          corepack enable
-          corepack prepare "pnpm@${{ steps.runtime.outputs.pm_version }}" --activate
+          npm install --global --force "pnpm@${{ steps.runtime.outputs.pm_version }}" --ignore-scripts --no-audit --no-fund
           test "$(pnpm --version)" = "${{ steps.runtime.outputs.pm_version }}"
           test "$(node --version | sed 's/^v//')" = "${{ steps.runtime.outputs.node }}"
 
