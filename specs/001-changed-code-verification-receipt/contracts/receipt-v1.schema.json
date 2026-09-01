@@ -263,6 +263,25 @@
         }
       ]
     },
+    "branchRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "line", "block_id", "branch_id", "taken", "state"],
+      "properties": {
+        "path": {"$ref": "#/$defs/canonicalRelativePath"},
+        "line": {"type": "integer", "minimum": 1},
+        "block_id": {"type": "string", "minLength": 1},
+        "branch_id": {"type": "string", "minLength": 1},
+        "taken": {"type": ["integer", "null"], "minimum": 0},
+        "state": {"enum": ["EXERCISED", "NOT_EXERCISED", "UNRESOLVED"]},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {"if": {"properties": {"state": {"const": "UNRESOLVED"}}, "required": ["state"]}, "then": {"properties": {"taken": {"type": "null"}}, "required": ["reason"]}},
+        {"if": {"properties": {"state": {"const": "EXERCISED"}}, "required": ["state"]}, "then": {"properties": {"taken": {"type": "integer", "minimum": 1}}}},
+        {"if": {"properties": {"state": {"const": "NOT_EXERCISED"}}, "required": ["state"]}, "then": {"properties": {"taken": {"const": 0}}}}
+      ]
+    },
     "exercise": {
       "type": "object",
       "additionalProperties": false,
@@ -273,7 +292,12 @@
         "not_exercised_lines": {"type": "integer", "minimum": 0},
         "unresolved_lines": {"type": "integer", "minimum": 0},
         "changed_files_with_zero_exercised_lines": {"type": "integer", "minimum": 0},
-        "records": {"type": "array", "items": {"$ref": "#/$defs/exerciseRecord"}}
+        "records": {"type": "array", "items": {"$ref": "#/$defs/exerciseRecord"}},
+        "branch_records": {"type": "array", "items": {"$ref": "#/$defs/branchRecord"}},
+        "exercised_branches": {"type": "integer", "minimum": 0},
+        "not_exercised_branches": {"type": "integer", "minimum": 0},
+        "unresolved_branches": {"type": "integer", "minimum": 0},
+        "changed_files_with_zero_exercised_branches": {"type": "integer", "minimum": 0}
       }
     },
     "changedCode": {
