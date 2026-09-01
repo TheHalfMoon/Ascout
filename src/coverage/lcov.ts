@@ -307,4 +307,9 @@ export function normalizeLcovBranchCoverage(input: string, repositoryRoot: strin
   return { outcome: "resolved", observations: normalized };
 }
 
-export const __test = { compareText, mapSourcePath, stateFor: (taken) => taken === null ? "BRANCH_UNRESOLVED" : taken > 0 ? "BRANCH_EXERCISED" : "BRANCH_NOT_EXERCISED" };
+export const __test = {
+  compareText,
+  mapSourcePath,
+  stateFor: (taken: number | null): "BRANCH_UNRESOLVED" | "BRANCH_EXERCISED" | "BRANCH_NOT_EXERCISED" =>
+    taken === null ? "BRANCH_UNRESOLVED" : taken > 0 ? "BRANCH_EXERCISED" : "BRANCH_NOT_EXERCISED",
+};
