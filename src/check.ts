@@ -1720,7 +1720,7 @@ export async function runCheck(
         artifacts.push(...executed.artifacts);
       }
 
-      const exercise = exerciseCoveragePoints === null
+      const fullExercise = exerciseCoveragePoints === null
         ? emptyExercise()
         : buildChangedLineExercise(
             gitComparison.changed_files,
@@ -1728,6 +1728,14 @@ export async function runCheck(
             "test",
             exerciseBranchPoints ?? [],
           );
+      const exercise: ExerciseV1 = {
+        changed_executable_lines: fullExercise.changed_executable_lines,
+        exercised_lines: fullExercise.exercised_lines,
+        not_exercised_lines: fullExercise.not_exercised_lines,
+        unresolved_lines: fullExercise.unresolved_lines,
+        changed_files_with_zero_exercised_lines: fullExercise.changed_files_with_zero_exercised_lines,
+        records: fullExercise.records,
+      };
       const sourceEnd = composeSourceState(root);
 
       const receipt = buildReceipt({
