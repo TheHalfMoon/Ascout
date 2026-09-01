@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "branch-only-gap-shape",
+      "repoRoot": "/repo",
+      "input": "SF:/repo/src/choice.ts\nDA:10,1\nBRDA:10,0,0,1\nBRDA:10,0,1,0\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "observations": [
+          {"path":"src/choice.ts","line":10,"block_id":"0","branch_id":"0","taken":1,"state":"BRANCH_EXERCISED"},
+          {"path":"src/choice.ts","line":10,"block_id":"0","branch_id":"1","taken":0,"state":"BRANCH_NOT_EXERCISED"}
+        ]
+      }
+    },
+    {
+      "id": "fully-exercised-shape",
+      "repoRoot": "/repo",
+      "input": "SF:/repo/src/full.ts\nBRDA:7,a,left,2\nBRDA:7,a,right,1\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "observations": [
+          {"path":"src/full.ts","line":7,"block_id":"a","branch_id":"left","taken":2,"state":"BRANCH_EXERCISED"},
+          {"path":"src/full.ts","line":7,"block_id":"a","branch_id":"right","taken":1,"state":"BRANCH_EXERCISED"}
+        ]
+      }
+    },
+    {
+      "id": "unknown-remains-unresolved",
+      "repoRoot": "/repo",
+      "input": "SF:/repo/src/unknown.ts\nBRDA:4,b,0,-\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "observations": [
+          {"path":"src/unknown.ts","line":4,"block_id":"b","branch_id":"0","taken":null,"state":"BRANCH_UNRESOLVED","reason":"LCOV branch taken count is unknown"}
+        ]
+      }
+    },
+    {
+      "id": "repeated-numeric-aggregation",
+      "repoRoot": "/repo",
+      "input": "SF:/repo/src/repeat.ts\nBRDA:3,block,branch,2\nend_of_record\nSF:/repo/src/repeat.ts\nBRDA:3,block,branch,3\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "observations": [
+          {"path":"src/repeat.ts","line":3,"block_id":"block","branch_id":"branch","taken":5,"state":"BRANCH_EXERCISED"}
+        ]
+      }
+    },
+    {
+      "id": "repeated-unknown-is-sticky",
+      "repoRoot": "/repo",
+      "input": "SF:/repo/src/sticky.ts\nBRDA:8,x,y,4\nend_of_record\nSF:/repo/src/sticky.ts\nBRDA:8,x,y,-\nend_of_record\nSF:/repo/src/sticky.ts\nBRDA:8,x,y,9\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "observations": [
+          {"path":"src/sticky.ts","line":8,"block_id":"x","branch_id":"y","taken":null,"state":"BRANCH_UNRESOLVED","reason":"LCOV branch taken count is unknown"}
+        ]
+      }
+    },
+    {
+      "id": "deterministic-tuple-order",
+      "repoRoot": "/repo",
+      "input": "SF:/repo/src/z.ts\nBRDA:9,2,b,1\nBRDA:2,10,a,1\nBRDA:2,2,a,1\nend_of_record\nSF:/repo/src/a.ts\nBRDA:7,k,z,1\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "observations": [
+          {"path":"src/a.ts","line":7,"block_id":"k","branch_id":"z","taken":1,"state":"BRANCH_EXERCISED"},
+          {"path":"src/z.ts","line":2,"block_id":"10","branch_id":"a","taken":1,"state":"BRANCH_EXERCISED"},
+          {"path":"src/z.ts","line":2,"block_id":"2","branch_id":"a","taken":1,"state":"BRANCH_EXERCISED"},
+          {"path":"src/z.ts","line":9,"block_id":"2","branch_id":"b","taken":1,"state":"BRANCH_EXERCISED"}
+        ]
+      }
+    },
+    {
+      "id": "windows-source-mapping",
+      "repoRoot": "C:\\repo",
+      "input": "SF:C:\\repo\\src\\windows.ts\nBRDA:3,0,0,2\nend_of_record\n",
+      "expected": {
+        "outcome": "resolved",
+        "observations": [
+          {"path":"src/windows.ts","line":3,"block_id":"0","branch_id":"0","taken":2,"state":"BRANCH_EXERCISED"}
+        ]
+      }
+    },
+    {
+      "id": "malformed-branch-record",
+      "repoRoot": "/repo",
+      "input": "SF:/repo/src/bad.ts\nBRDA:3,0,1\nend_of_record\n",
+      "expected": {"outcome":"unresolved","observations":null,"reason":"LCOV branch record is malformed"}
+    },
+    {
+      "id": "outside-repository-source",
+      "repoRoot": "/repo",
+      "input": "SF:/outside.ts\nBRDA:1,0,0,1\nend_of_record\n",
+      "expected": {"outcome":"unresolved","observations":null,"reason":"source path cannot be mapped inside the repository"}
+    },
+    {
+      "id": "safe-integer-overflow",
+      "repoRoot": "/repo",
+      "input": "SF:/repo/src/overflow.ts\nBRDA:1,0,0,9007199254740991\nend_of_record\nSF:/repo/src/overflow.ts\nBRDA:1,0,0,1\nend_of_record\n",
+      "expected": {"outcome":"unresolved","observations":null,"reason":"LCOV branch taken count is invalid"}
+    },
+    {
+      "id": "incomplete-source-record",
+      "repoRoot": "/repo",
+      "input": "SF:/repo/src/incomplete.ts\nBRDA:1,0,0,1\n",
+      "expected": {"outcome":"unresolved","observations":null,"reason":"LCOV source record is incomplete"}
+    }
+  ]
+}
