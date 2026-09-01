@@ -2,13 +2,16 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { normalizeLcovBranchCoverage } from "../benchmarks/branch-coverage-lib.mjs";
+import {
+  normalizeLcovBranchCoverage,
+  type LcovBranchCoverageResult,
+} from "../src/coverage/lcov.js";
 
 type BranchFixtureCase = {
   readonly id: string;
   readonly repoRoot: string;
   readonly input: string;
-  readonly expected: unknown;
+  readonly expected: LcovBranchCoverageResult;
 };
 
 type BranchFixtureCatalog = {
@@ -35,7 +38,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
   it("fails closed when BRDA appears outside a source record", () => {
     expect(normalizeLcovBranchCoverage("BRDA:1,0,0,1\n", "/repo")).toEqual({
       outcome: "unresolved",
-      observations: null,
+      count: null,
       reason: "LCOV branch record is malformed",
     });
   });
@@ -48,7 +51,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
       ),
     ).toEqual({
       outcome: "unresolved",
-      observations: null,
+      count: null,
       reason: "LCOV source record is malformed",
     });
   });
@@ -57,7 +60,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
     const input = "SF:/repo/src/a.ts\nBRDA:1,0,0,1\nSF:/repo/src/b.ts\nBRDA:2,0,0,1\nend_of_record\n";
     expect(normalizeLcovBranchCoverage(input, "/repo")).toEqual({
       outcome: "unresolved",
-      observations: null,
+      count: null,
       reason: "LCOV source record is incomplete",
     });
   });
@@ -65,7 +68,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
   it("does not invent branch evidence when an LCOV input has no usable BRDA records", () => {
     expect(normalizeLcovBranchCoverage("SF:/repo/src/line-only.ts\nDA:1,1\nend_of_record\n", "/repo")).toEqual({
       outcome: "unresolved",
-      observations: null,
+      count: null,
       reason: "no usable branch coverage records",
     });
   });
@@ -77,7 +80,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
         taken,
       ).toEqual({
         outcome: "unresolved",
-        observations: null,
+        count: null,
         reason: "LCOV branch taken count is invalid",
       });
     }
