@@ -2,6 +2,7 @@ import { posix, win32 } from "node:path";
 
 const REASON_SOURCE_UNMAPPABLE = "source path cannot be mapped inside the repository";
 const REASON_MALFORMED_BRANCH = "LCOV branch record is malformed";
+const REASON_MALFORMED_SOURCE = "LCOV source record is malformed";
 const REASON_INVALID_TAKEN = "LCOV branch taken count is invalid";
 const REASON_INCOMPLETE_RECORD = "LCOV source record is incomplete";
 const REASON_NO_BRANCH_DATA = "no usable branch coverage records";
@@ -138,6 +139,7 @@ export function normalizeLcovBranchCoverage(input, repositoryRoot) {
     }
 
     if (rawLine === "end_of_record") {
+      if (currentSource === null) return unresolved(REASON_MALFORMED_SOURCE);
       currentSource = null;
       continue;
     }
