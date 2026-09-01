@@ -2,13 +2,16 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { normalizeLcovBranchCoverage } from "../benchmarks/branch-coverage-lib.mjs";
+import {
+  normalizeLcovBranchCoverage,
+  type LcovBranchCoverageResult,
+} from "../src/coverage/lcov.js";
 
 type BranchFixtureCase = {
   readonly id: string;
   readonly repoRoot: string;
   readonly input: string;
-  readonly expected: unknown;
+  readonly expected: LcovBranchCoverageResult;
 };
 
 type BranchFixtureCatalog = {
@@ -35,21 +38,22 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
   it("fails closed when BRDA appears outside a source record", () => {
     expect(normalizeLcovBranchCoverage("BRDA:1,0,0,1\n", "/repo")).toEqual({
       outcome: "unresolved",
-      observations: null,
+      count: null,
       reason: "LCOV branch record is malformed",
     });
   });
 
-  it("fails closed when end_of_record appears without an open source record", () => {
+  it("ignores leading end_of_record when no source record is open", () => {
     expect(
       normalizeLcovBranchCoverage(
         "end_of_record\nSF:/repo/src/later.ts\nBRDA:1,0,0,1\nend_of_record\n",
         "/repo",
       ),
     ).toEqual({
-      outcome: "unresolved",
-      observations: null,
-      reason: "LCOV source record is malformed",
+      outcome: "resolved",
+      observations: [
+        { path: "src/later.ts", line: 1, block_id: "0", branch_id: "0", taken: 1, state: "BRANCH_EXERCISED" },
+      ],
     });
   });
 
@@ -57,7 +61,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
     const input = "SF:/repo/src/a.ts\nBRDA:1,0,0,1\nSF:/repo/src/b.ts\nBRDA:2,0,0,1\nend_of_record\n";
     expect(normalizeLcovBranchCoverage(input, "/repo")).toEqual({
       outcome: "unresolved",
-      observations: null,
+      count: null,
       reason: "LCOV source record is incomplete",
     });
   });
@@ -65,7 +69,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
   it("does not invent branch evidence when an LCOV input has no usable BRDA records", () => {
     expect(normalizeLcovBranchCoverage("SF:/repo/src/line-only.ts\nDA:1,1\nend_of_record\n", "/repo")).toEqual({
       outcome: "unresolved",
-      observations: null,
+      count: null,
       reason: "no usable branch coverage records",
     });
   });
@@ -77,7 +81,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
         taken,
       ).toEqual({
         outcome: "unresolved",
-        observations: null,
+        count: null,
         reason: "LCOV branch taken count is invalid",
       });
     }
@@ -117,7 +121,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
     for (const record of ["BRDA:1,,0,1", "BRDA:1,0,,1"]) {
       expect(normalizeLcovBranchCoverage(`SF:/repo/src/empty.ts\n${record}\nend_of_record\n`, "/repo")).toEqual({
         outcome: "unresolved",
-        observations: null,
+        count: null,
         reason: "LCOV branch record is malformed",
       });
     }
