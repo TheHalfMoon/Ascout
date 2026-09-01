@@ -1536,6 +1536,7 @@ export async function runCheck(
       const artifacts: ArtifactV1[] = [];
       const findings: FindingV1[] = [];
       let exerciseCoveragePoints: readonly LcovLinePoint[] | null = null;
+      let exerciseBranchPoints: readonly LcovBranchPoint[] | null = null;
 
       for (const task of FIXED_SEMANTIC_TASKS) {
         const decision = decisions[task];
@@ -1700,6 +1701,7 @@ export async function runCheck(
           finalExecuted = normalizedTestExecution.executed;
           findings.push(...normalizedTestExecution.findings);
           exerciseCoveragePoints = finalExecuted.coveragePoints;
+          exerciseBranchPoints = finalExecuted.branchPoints;
           executed = finalExecuted;
         } else {
           executed = await executePlannedTask(
@@ -1720,7 +1722,12 @@ export async function runCheck(
 
       const exercise = exerciseCoveragePoints === null
         ? emptyExercise()
-        : buildChangedLineExercise(gitComparison.changed_files, exerciseCoveragePoints, "test");
+        : buildChangedLineExercise(
+            gitComparison.changed_files,
+            exerciseCoveragePoints,
+            "test",
+            exerciseBranchPoints ?? [],
+          );
       const sourceEnd = composeSourceState(root);
 
       const receipt = buildReceipt({
