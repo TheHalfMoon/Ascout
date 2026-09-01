@@ -79,6 +79,11 @@ function parseNonnegativeSafeInteger(token) {
   return Number.isSafeInteger(value) && value >= 0 ? value : null;
 }
 
+function compareText(left, right) {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
 function identityKey(path, line, blockId, branchId) {
   return JSON.stringify([path, line, blockId, branchId]);
 }
@@ -182,13 +187,13 @@ export function normalizeLcovBranchCoverage(input, repositoryRoot) {
     })
     .sort(
       (left, right) =>
-        left.path.localeCompare(right.path) ||
+        compareText(left.path, right.path) ||
         left.line - right.line ||
-        left.block_id.localeCompare(right.block_id) ||
-        left.branch_id.localeCompare(right.branch_id),
+        compareText(left.block_id, right.block_id) ||
+        compareText(left.branch_id, right.branch_id),
     );
 
   return { outcome: "resolved", observations: normalized };
 }
 
-export const __test = { mapSourcePath, stateFor };
+export const __test = { compareText, mapSourcePath, stateFor };
