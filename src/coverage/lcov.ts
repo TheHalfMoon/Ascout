@@ -293,7 +293,7 @@ export function normalizeLcovBranchCoverage(input: string, repositoryRoot: strin
   if (observations.size === 0) return unresolvedBranch(REASON_NO_BRANCH_DATA);
 
   const normalized: LcovBranchPoint[] = [...observations.values()]
-    .map((observation) => {
+    .map((observation): LcovBranchPoint => {
       const taken = observation.unresolved ? null : observation.taken;
       return {
         path: observation.path,
@@ -302,7 +302,7 @@ export function normalizeLcovBranchCoverage(input: string, repositoryRoot: strin
         branch_id: observation.branch_id,
         taken,
         state: taken === null ? "UNRESOLVED" : taken > 0 ? "EXERCISED" : "NOT_EXERCISED",
-        ...(taken === null ? { reason: "LCOV branch taken count is unknown" } : {}),
+        reason: taken === null ? "LCOV branch taken count is unknown" : undefined,
       };
     })
     .sort(
