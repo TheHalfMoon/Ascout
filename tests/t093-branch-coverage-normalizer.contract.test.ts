@@ -40,6 +40,19 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
     });
   });
 
+  it("fails closed when end_of_record appears without an open source record", () => {
+    expect(
+      normalizeLcovBranchCoverage(
+        "end_of_record\nSF:/repo/src/later.ts\nBRDA:1,0,0,1\nend_of_record\n",
+        "/repo",
+      ),
+    ).toEqual({
+      outcome: "unresolved",
+      observations: null,
+      reason: "LCOV source record is malformed",
+    });
+  });
+
   it("fails closed when a second SF record begins before the first ends", () => {
     const input = "SF:/repo/src/a.ts\nBRDA:1,0,0,1\nSF:/repo/src/b.ts\nBRDA:2,0,0,1\nend_of_record\n";
     expect(normalizeLcovBranchCoverage(input, "/repo")).toEqual({
