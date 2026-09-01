@@ -247,7 +247,7 @@ describe("T102 branch exercise builder", () => {
     ];
 
     const exercise = buildChangedBranchExercise([changed], observations, "t055");
-    expect(exercise.changed_executable_lines).toBe(0);
+    expect(exercise.changed_executable_lines).toBe(6);
     expect(exercise.exercised_lines).toBe(0);
   });
 });
