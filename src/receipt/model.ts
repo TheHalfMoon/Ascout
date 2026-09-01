@@ -156,6 +156,16 @@ export interface ExerciseRecordV1 {
   readonly reason?: string;
 }
 
+export interface BranchRecordV1 {
+  readonly path: string;
+  readonly line: number;
+  readonly block_id: string;
+  readonly branch_id: string;
+  readonly taken: number | null;
+  readonly state: "EXERCISED" | "NOT_EXERCISED" | "UNRESOLVED";
+  readonly reason?: string;
+}
+
 export interface ExerciseV1 {
   readonly changed_executable_lines: number;
   readonly exercised_lines: number;
@@ -163,6 +173,11 @@ export interface ExerciseV1 {
   readonly unresolved_lines: number;
   readonly changed_files_with_zero_exercised_lines: number;
   readonly records: readonly ExerciseRecordV1[];
+  readonly branch_records?: readonly BranchRecordV1[];
+  readonly exercised_branches?: number;
+  readonly not_exercised_branches?: number;
+  readonly unresolved_branches?: number;
+  readonly changed_files_with_zero_exercised_branches?: number;
 }
 
 export interface TestChangeV1 {
@@ -320,7 +335,14 @@ function selectionPolicySatisfied(selection: SelectionV1): boolean {
 }
 
 function exerciseHasMaterialGap(exercise: ExerciseV1): boolean {
-  return exercise.not_exercised_lines > 0 || exercise.unresolved_lines > 0;
+  return (
+    exercise.not_exercised_lines > 0 ||
+    exercise.unresolved_lines > 0 ||
+    (
+      exercise.branch_records !== undefined &&
+      ((exercise.not_exercised_branches ?? 0) > 0 || (exercise.unresolved_branches ?? 0) > 0)
+    )
+  );
 }
 
 export function deriveReceiptCompleteness(receipt: ReceiptV1): Completeness {
@@ -425,6 +447,9 @@ function validateOriginalPathSpellings(receipt: ReceiptV1, issues: ReceiptSemant
   }
   for (const [i, record] of receipt.exercise.records.entries()) {
     validatePathCandidate(issues, "repository", record.path, `exercise.records[${i}].path`);
+  }
+  for (const [i, record] of (receipt.exercise.branch_records ?? []).entries()) {
+    validatePathCandidate(issues, "repository", record.path, `exercise.branch_records[${i}].path`);
   }
   for (const [i, change] of receipt.test_changes.entries()) {
     validatePathCandidate(issues, "repository", change.path, `test_changes[${i}].path`);
@@ -1029,6 +1054,87 @@ function validateExercise(
   if (receipt.exercise.unresolved_lines !== unresolved) addIssue(issues, "exercise_summary_mismatch", "exercise.unresolved_lines", "unresolved_lines does not match exercise records");
   if (receipt.exercise.changed_files_with_zero_exercised_lines !== zeroPaths) {
     addIssue(issues, "exercise_summary_mismatch", "exercise.changed_files_with_zero_exercised_lines", "zero-exercised file count does not match exercise records");
+  }
+
+  if (receipt.exercise.branch_records === undefined) return;
+
+  let exercisedBranches = 0;
+  let notExercisedBranches = 0;
+  let unresolvedBranches = 0;
+  const branchIds = new Set<string>();
+  const branchRecordsByPath = new Map<string, BranchRecordV1[]>();
+
+  for (const [i, record] of receipt.exercise.branch_records.entries()) {
+    const base = `exercise.branch_records[${i}]`;
+    const branchId = `${record.path}\u0000${record.line}\u0000${record.block_id}\u0000${record.branch_id}`;
+    if (branchIds.has(branchId)) {
+      addIssue(issues, "duplicate_exercise_branch", base, "each changed branch identity may have only one branch exercise record");
+    }
+    branchIds.add(branchId);
+
+    const records = branchRecordsByPath.get(record.path) ?? [];
+    records.push(record);
+    branchRecordsByPath.set(record.path, records);
+
+    if (!isPositiveInteger(record.line)) {
+      addIssue(issues, "invalid_exercise_branch_line", `${base}.line`, "branch exercise line must be a positive integer");
+    } else if (rangesValid) {
+      const ranges = changedRanges.get(record.path);
+      if (ranges === undefined || !ranges.some(([start, end]) => start <= record.line && record.line <= end)) {
+        addIssue(issues, "exercise_branch_outside_changed_scope", base, "branch exercise record must identify a line in the changed new-line scope");
+      }
+    }
+
+    if (!isNonEmpty(record.block_id)) {
+      addIssue(issues, "invalid_exercise_branch_identity", `${base}.block_id`, "branch block_id must be a non-empty string");
+    }
+    if (!isNonEmpty(record.branch_id)) {
+      addIssue(issues, "invalid_exercise_branch_identity", `${base}.branch_id`, "branch branch_id must be a non-empty string");
+    }
+
+    const takenIsValid = record.taken === null ||
+      (typeof record.taken === "number" && Number.isSafeInteger(record.taken) && record.taken >= 0);
+    if (!takenIsValid) {
+      addIssue(issues, "invalid_exercise_branch_taken", `${base}.taken`, "branch taken must be a non-negative safe integer or null");
+    }
+
+    if (record.state === "EXERCISED") {
+      exercisedBranches += 1;
+      if (record.taken === null || !Number.isSafeInteger(record.taken) || record.taken <= 0) {
+        addIssue(issues, "exercise_branch_state_taken", base, "EXERCISED branch requires taken > 0");
+      }
+    } else if (record.state === "NOT_EXERCISED") {
+      notExercisedBranches += 1;
+      if (record.taken !== 0) {
+        addIssue(issues, "exercise_branch_state_taken", base, "NOT_EXERCISED branch requires taken = 0");
+      }
+    } else {
+      unresolvedBranches += 1;
+      if (record.taken !== null || !isNonEmpty(record.reason)) {
+        addIssue(issues, "exercise_branch_state_taken", base, "UNRESOLVED branch requires null taken and a non-empty reason");
+      }
+    }
+  }
+
+  const zeroBranchPaths = [...branchRecordsByPath.values()]
+    .filter((records) => !records.some((record) => record.state === "EXERCISED"))
+    .length;
+  if (receipt.exercise.exercised_branches !== exercisedBranches) {
+    addIssue(issues, "exercise_branch_summary_mismatch", "exercise.exercised_branches", "exercised_branches does not match branch records");
+  }
+  if (receipt.exercise.not_exercised_branches !== notExercisedBranches) {
+    addIssue(issues, "exercise_branch_summary_mismatch", "exercise.not_exercised_branches", "not_exercised_branches does not match branch records");
+  }
+  if (receipt.exercise.unresolved_branches !== unresolvedBranches) {
+    addIssue(issues, "exercise_branch_summary_mismatch", "exercise.unresolved_branches", "unresolved_branches does not match branch records");
+  }
+  if (receipt.exercise.changed_files_with_zero_exercised_branches !== zeroBranchPaths) {
+    addIssue(
+      issues,
+      "exercise_branch_summary_mismatch",
+      "exercise.changed_files_with_zero_exercised_branches",
+      "zero-exercised branch file count does not match branch records",
+    );
   }
 }
 
