@@ -89,6 +89,7 @@ function buildChangedBranchExerciseRecord(
     state,
     execution_count,
     source_task_ids: [sourceTaskId],
+    branch: true,
     ...(state === "UNRESOLVED" && observation.reason !== undefined ? { reason: observation.reason } : {}),
   };
 }
