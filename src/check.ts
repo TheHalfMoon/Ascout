@@ -463,6 +463,7 @@ interface TestMachineResultRecord {
 
 interface ExecutedTestTask extends ExecutedTask {
   readonly coveragePoints: readonly LcovLinePoint[] | null;
+  readonly branchPoints: readonly LcovBranchPoint[] | null;
   readonly selectedTestCounts: readonly (number | null)[];
   readonly machineResults: readonly TestMachineResultRecord[];
 }
@@ -919,13 +920,14 @@ async function executeVitestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null], machineResults: [] };
+  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, branchPoints: null, selectedTestCounts: [null], machineResults: [] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withVitestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
   const generatedSequenceStart = passOrdinal === 1 ? 3 : 7;
   const artifactPrefix = passOrdinal === 1 ? "test" : "test.pass-2";
   let coveragePoints: readonly LcovLinePoint[] | null = null;
+  let branchPoints: readonly LcovBranchPoint[] | null = null;
   let selectedTestCount: number | null = null;
   let machineResult: TestMachineResultRecord | null = null;
   try {
@@ -957,9 +959,11 @@ async function executeVitestTask(
       secrets,
     );
     generated.push(coverage);
-    const normalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
-    if (normalized.outcome !== "resolved") return withVitestEvidenceError(executed, generated);
-    coveragePoints = normalized.points;
+    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
+    if (lineNormalized.outcome !== "resolved") return withVitestEvidenceError(executed, generated);
+    coveragePoints = lineNormalized.points;
+    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
+    branchPoints = branchNormalized.outcome === "resolved" ? branchNormalized.points : [];
   } catch {
     return withVitestEvidenceError(executed, generated);
   }
@@ -973,6 +977,7 @@ async function executeVitestTask(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints,
+    branchPoints,
     selectedTestCounts: [selectedTestCount],
     machineResults: machineResult === null ? [] : [machineResult],
   };
