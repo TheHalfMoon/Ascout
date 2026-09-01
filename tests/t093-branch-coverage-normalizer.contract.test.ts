@@ -85,6 +85,21 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
     });
   });
 
+  it("orders opaque Unicode identifiers by deterministic UTF-16 code units instead of locale collation", () => {
+    expect(
+      normalizeLcovBranchCoverage(
+        "SF:/repo/src/unicode.ts\nBRDA:1,ä,0,1\nBRDA:1,z,0,1\nend_of_record\n",
+        "/repo",
+      ),
+    ).toEqual({
+      outcome: "resolved",
+      observations: [
+        { path: "src/unicode.ts", line: 1, block_id: "z", branch_id: "0", taken: 1, state: "BRANCH_EXERCISED" },
+        { path: "src/unicode.ts", line: 1, block_id: "ä", branch_id: "0", taken: 1, state: "BRANCH_EXERCISED" },
+      ],
+    });
+  });
+
   it("rejects empty block or branch identifiers", () => {
     for (const record of ["BRDA:1,,0,1", "BRDA:1,0,,1"]) {
       expect(normalizeLcovBranchCoverage(`SF:/repo/src/empty.ts\n${record}\nend_of_record\n`, "/repo")).toEqual({
