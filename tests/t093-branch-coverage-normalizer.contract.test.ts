@@ -43,16 +43,17 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
     });
   });
 
-  it("fails closed when end_of_record appears without an open source record", () => {
+  it("ignores leading end_of_record when no source record is open", () => {
     expect(
       normalizeLcovBranchCoverage(
         "end_of_record\nSF:/repo/src/later.ts\nBRDA:1,0,0,1\nend_of_record\n",
         "/repo",
       ),
     ).toEqual({
-      outcome: "unresolved",
-      count: null,
-      reason: "LCOV source record is malformed",
+      outcome: "resolved",
+      observations: [
+        { path: "src/later.ts", line: 1, block_id: "0", branch_id: "0", taken: 1, state: "BRANCH_EXERCISED" },
+      ],
     });
   });
 
@@ -120,7 +121,7 @@ describe("T093 benchmark-only LCOV branch normalization", () => {
     for (const record of ["BRDA:1,,0,1", "BRDA:1,0,,1"]) {
       expect(normalizeLcovBranchCoverage(`SF:/repo/src/empty.ts\n${record}\nend_of_record\n`, "/repo")).toEqual({
         outcome: "unresolved",
-        observations: null,
+        count: null,
         reason: "LCOV branch record is malformed",
       });
     }

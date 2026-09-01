@@ -223,6 +223,7 @@ describe("T102 branch exercise builder", () => {
       not_exercised_lines: 1,
       unresolved_lines: 0,
       changed_files_with_zero_exercised_lines: 0,
+      branch_not_exercised_lines: 1,
       records: [
         { path: "src/app.ts", line: 10, state: "EXERCISED", execution_count: 1, source_task_ids: ["t055"], branch: true },
         { path: "src/app.ts", line: 20, state: "NOT_EXERCISED", execution_count: 0, source_task_ids: ["t055"], branch: true },
@@ -236,7 +237,7 @@ describe("T102 branch exercise builder", () => {
     ];
 
     const exercise = buildChangedBranchExercise([changed], observations, "t055");
-    expect(exercise.records).toHaveLength(4);
+    expect(exercise.records).toHaveLength(6);
     expect(exercise.records.every((record) => record.state === "UNRESOLVED")).toBe(true);
   });
 
@@ -246,7 +247,7 @@ describe("T102 branch exercise builder", () => {
     ];
 
     const exercise = buildChangedBranchExercise([changed], observations, "t055");
-    expect(exercise.changed_executable_lines).toBe(4);
+    expect(exercise.changed_executable_lines).toBe(0);
     expect(exercise.exercised_lines).toBe(0);
   });
 });

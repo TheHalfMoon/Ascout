@@ -30,6 +30,7 @@ export interface ResolvedLcovBranchCoverage {
 export interface UnresolvedLcovCoverage {
   readonly outcome: "unresolved";
   readonly count: null;
+  readonly observations?: null;
   readonly reason: string;
 }
 
@@ -49,8 +50,8 @@ const UNSIGNED_DECIMAL = /^\d+$/u;
 const WINDOWS_ABSOLUTE = /^(?:[A-Za-z]:[\\/]|\\)/u;
 const URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
 
-function unresolved(reason: string): UnresolvedLcovCoverage {
-  return { outcome: "unresolved", count: null, reason };
+function unresolved(reason: string, overrides: { observations?: null } = {}): UnresolvedLcovCoverage {
+  return { outcome: "unresolved", count: null, reason, ...overrides };
 }
 
 function isContainedRelativePath(path: string): boolean {
