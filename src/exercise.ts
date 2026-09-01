@@ -71,13 +71,25 @@ export function buildChangedLineExercise(
   coveragePoints: readonly LcovLinePoint[],
   sourceTaskId: string,
   branchPoints?: readonly LcovBranchPoint[],
-): ExerciseV1 {
+): ExerciseV1 & BranchExerciseV1 {
   const pointsByPath = new Map<string, LcovLinePoint[]>();
   for (const point of coveragePoints) {
     const points = pointsByPath.get(point.path) ?? [];
     points.push(point);
     pointsByPath.set(point.path, points);
   }
+
+  const branchPointsByPath = branchPoints === undefined
+    ? new Map<string, readonly LcovBranchPoint[]>()
+    : (() => {
+        const map = new Map<string, LcovBranchPoint[]>();
+        for (const point of branchPoints) {
+          const points = map.get(point.path) ?? [];
+          points.push(point);
+          map.set(point.path, points);
+        }
+        return map;
+      })();
 
   const records: ExerciseRecordV1[] = [];
   for (const file of changedFiles) {
@@ -95,8 +107,28 @@ export function buildChangedLineExercise(
       continue;
     }
 
+    const branchPointsForFile = branchPointsByPath.get(file.path);
+    const changedRanges = file.changed_new_line_ranges;
+
     for (const point of points) {
-      if (!lineInRanges(point.line, file.changed_new_line_ranges)) continue;
+      if (!lineInRanges(point.line, changedRanges)) continue;
+
+      if (branchPointsForFile !== undefined) {
+        const branchesForLine = branchPointsForFile.filter((bp) => bp.line === point.line);
+        if (branchesForLine.length > 0) {
+          const hasExercised = branchesForLine.some((bp) => bp.state === "EXERCISED");
+          const hasUnresolved = branchesForLine.some((bp) => bp.state === "UNRESOLVED");
+          records.push({
+            path: file.path,
+            line: point.line,
+            state: hasExercised ? "EXERCISED" : hasUnresolved ? "UNRESOLVED" : "NOT_EXERCISED",
+            execution_count: hasExercised ? Math.max(...branchesForLine.filter((bp) => bp.state === "EXERCISED").map((bp) => bp.taken ?? 0)) : null,
+            source_task_ids: [sourceTaskId],
+          });
+          continue;
+        }
+      }
+
       records.push({
         path: file.path,
         line: point.line,
@@ -122,6 +154,16 @@ export function buildChangedLineExercise(
     .filter((pathRecords) => !pathRecords.some(({ state }) => state === "EXERCISED"))
     .length;
 
+  const branchExercise = branchPoints === undefined
+    ? {
+        exercised_branches: 0,
+        not_exercised_branches: 0,
+        unresolved_branches: 0,
+        changed_files_with_zero_exercised_branches: 0,
+        branch_records: [],
+      } as BranchExerciseV1
+    : buildBranchExercise(changedFiles, branchPoints, sourceTaskId);
+
   return {
     changed_executable_lines: records.length,
     exercised_lines: exercisedLines,
@@ -129,6 +171,7 @@ export function buildChangedLineExercise(
     unresolved_lines: unresolvedLines,
     changed_files_with_zero_exercised_lines: changedFilesWithZeroExercisedLines,
     records,
+    ...branchExercise,
   };
 }
 
@@ -193,7 +236,7 @@ export function buildBranchExercise(
 
     for (const point of points) {
       if (!lineInRanges(point.line, ranges)) continue;
-      const reason = point.state === "UNRESOLVED" ? BRANCH_EVIDENCE_UNRESOLVED : undefined;
+      const resolvedReason = point.state === "UNRESOLVED" ? BRANCH_EVIDENCE_UNRESOLVED : undefined;
       records.push({
         path: point.path,
         line: point.line,
@@ -201,7 +244,7 @@ export function buildBranchExercise(
         branch_id: point.branch_id,
         taken: point.taken,
         state: point.state,
-        reason,
+        ...(resolvedReason === undefined ? {} : { reason: resolvedReason }),
       });
     }
   }

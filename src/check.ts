@@ -12,7 +12,7 @@ import {
   type SemanticTaskType,
 } from "./discovery.js";
 import { configDigestV1, parseConfigV1Json, type ConfigV1 } from "./config.js";
-import { normalizeLcovLineCoverage, type LcovLinePoint } from "./coverage/lcov.js";
+import { normalizeLcovLineCoverage, normalizeLcovBranchCoverage, type LcovLinePoint, type LcovBranchPoint } from "./coverage/lcov.js";
 import { buildChangedLineExercise } from "./exercise.js";
 import {
   readGitHeadState,
@@ -881,6 +881,7 @@ function withVitestEvidenceError(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints: null,
+    branchPoints: null,
     selectedTestCounts: [null],
     machineResults: [],
   };
@@ -963,7 +964,7 @@ async function executeVitestTask(
     if (lineNormalized.outcome !== "resolved") return withVitestEvidenceError(executed, generated);
     coveragePoints = lineNormalized.points;
     const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
-    branchPoints = branchNormalized.outcome === "resolved" ? branchNormalized.points : [];
+    branchPoints = branchNormalized.outcome === "resolved" ? branchNormalized.observations : [];
   } catch {
     return withVitestEvidenceError(executed, generated);
   }
@@ -1017,6 +1018,7 @@ function withJestEvidenceError(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints: null,
+    branchPoints: null,
     selectedTestCounts: [null],
     machineResults: [],
   };
@@ -1056,13 +1058,14 @@ async function executeJestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null], machineResults: [] };
+  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, branchPoints: null, selectedTestCounts: [null], machineResults: [] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withJestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
   const generatedSequenceStart = passOrdinal === 1 ? 3 : 7;
   const artifactPrefix = passOrdinal === 1 ? "test" : "test.pass-2";
   let coveragePoints: readonly LcovLinePoint[] | null = null;
+  let branchPoints: readonly LcovBranchPoint[] | null = null;
   let selectedTestCount: number | null = null;
   let machineResult: TestMachineResultRecord | null = null;
   try {
@@ -1094,9 +1097,11 @@ async function executeJestTask(
       secrets,
     );
     generated.push(coverage);
-    const normalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
-    if (normalized.outcome !== "resolved") return withJestEvidenceError(executed, generated);
-    coveragePoints = normalized.points;
+    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
+    if (lineNormalized.outcome !== "resolved") return withJestEvidenceError(executed, generated);
+    coveragePoints = lineNormalized.points;
+    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
+    branchPoints = branchNormalized.outcome === "resolved" ? branchNormalized.observations : [];
   } catch {
     return withJestEvidenceError(executed, generated);
   }
@@ -1110,6 +1115,7 @@ async function executeJestTask(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints,
+    branchPoints,
     selectedTestCounts: [selectedTestCount],
     machineResults: machineResult === null ? [] : [machineResult],
   };
@@ -1151,6 +1157,7 @@ function combineTestPasses(first: ExecutedTestTask, second: ExecutedTestTask): E
     evidence: [...first.evidence, ...second.evidence],
     artifacts: [...first.artifacts, ...second.artifacts],
     coveragePoints: second.coveragePoints,
+    branchPoints: second.branchPoints,
     selectedTestCounts: [...first.selectedTestCounts, ...second.selectedTestCounts],
     machineResults: [...first.machineResults, ...second.machineResults],
   };

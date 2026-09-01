@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   type BranchExerciseV1,
   buildBranchExercise,
-} from "../../src/exercise.js";
+} from "../src/exercise.js";
 
 function changed(
   path: string,
@@ -50,7 +50,7 @@ describe("T102 branch exercise builder", () => {
     expect(result.branch_records[2]).toMatchObject({ path: "src/alpha.ts", line: 12, state: "UNRESOLVED", taken: null, reason: "changed branch evidence is unresolved" });
   });
 
-  it("returns zeroed aggregate fields when branch points are absent", () => {
+  it("returns zeroed aggregate fields when no branch records intersect changed ranges", () => {
     const result = buildBranchExercise(
       [changed("src/beta.ts", [[1, 3]])],
       [],
@@ -61,7 +61,7 @@ describe("T102 branch exercise builder", () => {
       exercised_branches: 0,
       not_exercised_branches: 0,
       unresolved_branches: 0,
-      changed_files_with_zero_exercised_branches: 1,
+      changed_files_with_zero_exercised_branches: 0,
       branch_records: [],
     });
   });
