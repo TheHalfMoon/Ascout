@@ -65,6 +65,10 @@ function unresolvedRecords(file: GitChangedFile, sourceTaskId: string): Exercise
  * are not invented as executable. If a changed production source has no LCOV
  * relationship at all after permitted selection/widening, its changed text
  * lines remain UNRESOLVED rather than being silently omitted or assigned zero.
+ *
+ * T102 accepts branch observations so the branch builder is exercised through
+ * the canonical run path, but line records remain derived exclusively from DA
+ * points. Receipt-facing branch projection remains reserved for T103.
  */
 export function buildChangedLineExercise(
   changedFiles: readonly GitChangedFile[],
@@ -78,18 +82,6 @@ export function buildChangedLineExercise(
     points.push(point);
     pointsByPath.set(point.path, points);
   }
-
-  const branchPointsByPath = branchPoints === undefined
-    ? new Map<string, readonly LcovBranchPoint[]>()
-    : (() => {
-        const map = new Map<string, LcovBranchPoint[]>();
-        for (const point of branchPoints) {
-          const points = map.get(point.path) ?? [];
-          points.push(point);
-          map.set(point.path, points);
-        }
-        return map;
-      })();
 
   const records: ExerciseRecordV1[] = [];
   for (const file of changedFiles) {
@@ -107,28 +99,8 @@ export function buildChangedLineExercise(
       continue;
     }
 
-    const branchPointsForFile = branchPointsByPath.get(file.path);
-    const changedRanges = file.changed_new_line_ranges;
-
     for (const point of points) {
-      if (!lineInRanges(point.line, changedRanges)) continue;
-
-      if (branchPointsForFile !== undefined) {
-        const branchesForLine = branchPointsForFile.filter((bp) => bp.line === point.line);
-        if (branchesForLine.length > 0) {
-          const hasExercised = branchesForLine.some((bp) => bp.state === "EXERCISED");
-          const hasUnresolved = branchesForLine.some((bp) => bp.state === "UNRESOLVED");
-          records.push({
-            path: file.path,
-            line: point.line,
-            state: hasExercised ? "EXERCISED" : hasUnresolved ? "UNRESOLVED" : "NOT_EXERCISED",
-            execution_count: hasExercised ? Math.max(...branchesForLine.filter((bp) => bp.state === "EXERCISED").map((bp) => bp.taken ?? 0)) : null,
-            source_task_ids: [sourceTaskId],
-          });
-          continue;
-        }
-      }
-
+      if (!lineInRanges(point.line, file.changed_new_line_ranges)) continue;
       records.push({
         path: file.path,
         line: point.line,
@@ -216,6 +188,8 @@ export function buildBranchExercise(
   branchPoints: readonly LcovBranchPoint[],
   sourceTaskId: string,
 ): BranchExerciseV1 {
+  void sourceTaskId;
+
   const pointsByPath = new Map<string, LcovBranchPoint[]>();
   for (const point of branchPoints) {
     const points = pointsByPath.get(point.path) ?? [];
