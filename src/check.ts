@@ -200,6 +200,7 @@ const DEFAULT_TASK_TIMEOUT_MS = 600_000;
 const DEFAULT_TERMINATION_GRACE_MS = 5_000;
 const TASK_CAPTURE_CAP_BYTES = 8 * 1024 * 1024;
 const MIN_SECRET_VALUE_BYTES = 8;
+const LCOV_NO_BRANCH_DATA_REASON = "no usable branch coverage records";
 
 export interface CheckRunOptions {
   /**
@@ -964,7 +965,13 @@ async function executeVitestTask(
     if (lineNormalized.outcome !== "resolved") return withVitestEvidenceError(executed, generated);
     coveragePoints = lineNormalized.points;
     const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
-    branchPoints = branchNormalized.outcome === "resolved" ? branchNormalized.observations : [];
+    if (branchNormalized.outcome === "resolved") {
+      branchPoints = branchNormalized.observations;
+    } else if (branchNormalized.reason === LCOV_NO_BRANCH_DATA_REASON) {
+      branchPoints = null;
+    } else {
+      return withVitestEvidenceError(executed, generated);
+    }
   } catch {
     return withVitestEvidenceError(executed, generated);
   }
@@ -1101,7 +1108,13 @@ async function executeJestTask(
     if (lineNormalized.outcome !== "resolved") return withJestEvidenceError(executed, generated);
     coveragePoints = lineNormalized.points;
     const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
-    branchPoints = branchNormalized.outcome === "resolved" ? branchNormalized.observations : [];
+    if (branchNormalized.outcome === "resolved") {
+      branchPoints = branchNormalized.observations;
+    } else if (branchNormalized.reason === LCOV_NO_BRANCH_DATA_REASON) {
+      branchPoints = null;
+    } else {
+      return withJestEvidenceError(executed, generated);
+    }
   } catch {
     return withJestEvidenceError(executed, generated);
   }
@@ -1722,12 +1735,18 @@ export async function runCheck(
 
       const fullExercise = exerciseCoveragePoints === null
         ? emptyExercise()
-        : buildChangedLineExercise(
-            gitComparison.changed_files,
-            exerciseCoveragePoints,
-            "test",
-            exerciseBranchPoints ?? [],
-          );
+        : exerciseBranchPoints === null
+          ? buildChangedLineExercise(
+              gitComparison.changed_files,
+              exerciseCoveragePoints,
+              "test",
+            )
+          : buildChangedLineExercise(
+              gitComparison.changed_files,
+              exerciseCoveragePoints,
+              "test",
+              exerciseBranchPoints,
+            );
       const exercise: ExerciseV1 = {
         changed_executable_lines: fullExercise.changed_executable_lines,
         exercised_lines: fullExercise.exercised_lines,
@@ -1735,6 +1754,15 @@ export async function runCheck(
         unresolved_lines: fullExercise.unresolved_lines,
         changed_files_with_zero_exercised_lines: fullExercise.changed_files_with_zero_exercised_lines,
         records: fullExercise.records,
+        ...(exerciseCoveragePoints !== null && exerciseBranchPoints !== null
+          ? {
+              branch_records: fullExercise.branch_records,
+              exercised_branches: fullExercise.exercised_branches,
+              not_exercised_branches: fullExercise.not_exercised_branches,
+              unresolved_branches: fullExercise.unresolved_branches,
+              changed_files_with_zero_exercised_branches: fullExercise.changed_files_with_zero_exercised_branches,
+            }
+          : {}),
       };
       const sourceEnd = composeSourceState(root);
 
