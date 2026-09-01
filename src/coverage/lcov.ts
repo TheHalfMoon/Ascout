@@ -20,18 +20,50 @@ export interface UnresolvedLcovLineCoverage {
 
 export type LcovLineCoverageResult = ResolvedLcovLineCoverage | UnresolvedLcovLineCoverage;
 
+export interface LcovBranchPoint {
+  readonly path: string;
+  readonly line: number;
+  readonly block_id: string;
+  readonly branch_id: string;
+  readonly taken: number | null;
+  readonly state: "EXERCISED" | "NOT_EXERCISED" | "UNRESOLVED";
+  readonly reason?: string;
+}
+
+export interface ResolvedLcovBranchCoverage {
+  readonly outcome: "resolved";
+  readonly observations: readonly LcovBranchPoint[];
+}
+
+export interface UnresolvedLcovBranchCoverage {
+  readonly outcome: "unresolved";
+  readonly count: null;
+  readonly observations: null;
+  readonly reason: string;
+}
+
+export type LcovBranchCoverageResult = ResolvedLcovBranchCoverage | UnresolvedLcovBranchCoverage;
+
 const REASON_SOURCE_UNMAPPABLE = "source path cannot be mapped inside the repository";
 const REASON_MALFORMED_LINE = "LCOV line record is malformed";
 const REASON_INVALID_COUNT = "LCOV execution count is invalid";
 const REASON_INCOMPLETE_RECORD = "LCOV source record is incomplete";
 const REASON_NO_LINE_DATA = "no usable line coverage records";
+const REASON_MALFORMED_BRANCH = "LCOV branch record is malformed";
+const REASON_INVALID_TAKEN = "LCOV branch taken count is invalid";
+const REASON_NO_BRANCH_DATA = "no usable branch coverage records";
+const REASON_MALFORMED_SOURCE = "LCOV source record is malformed";
 
 const UNSIGNED_DECIMAL = /^\d+$/u;
 const WINDOWS_ABSOLUTE = /^(?:[A-Za-z]:[\\/]|\\\\)/u;
 const URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
 
-function unresolved(reason: string): UnresolvedLcovLineCoverage {
+function unresolvedLine(reason: string): UnresolvedLcovLineCoverage {
   return { outcome: "unresolved", count: null, reason };
+}
+
+function unresolvedBranch(reason: string): UnresolvedLcovBranchCoverage {
+  return { outcome: "unresolved", count: null, observations: null, reason };
 }
 
 function isContainedRelativePath(path: string): boolean {
@@ -113,6 +145,11 @@ function addCount(
   return true;
 }
 
+function compareText(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
 export function normalizeLcovLineCoverage(input: string, repositoryRoot: string): LcovLineCoverageResult {
   const counts = new Map<string, Map<number, number>>();
   let currentSource: string | null = null;
@@ -122,9 +159,9 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
   const lines = input.split(/\r?\n/u);
   for (const rawLine of lines) {
     if (rawLine.startsWith("SF:")) {
-      if (currentSource !== null) return unresolved(REASON_INCOMPLETE_RECORD);
+      if (currentSource !== null) return unresolvedLine(REASON_INCOMPLETE_RECORD);
       const mapped = mapSourcePath(repositoryRoot, rawLine.slice(3));
-      if (mapped === null) return unresolved(REASON_SOURCE_UNMAPPABLE);
+      if (mapped === null) return unresolvedLine(REASON_SOURCE_UNMAPPABLE);
       currentSource = mapped;
       currentRecordHadLineData = false;
       continue;
@@ -132,7 +169,7 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
 
     if (rawLine === "end_of_record") {
       if (currentSource === null) continue;
-      if (!currentRecordHadLineData) return unresolved(REASON_NO_LINE_DATA);
+      if (!currentRecordHadLineData) return unresolvedLine(REASON_NO_LINE_DATA);
       sawCompleteSourceRecord = true;
       currentSource = null;
       currentRecordHadLineData = false;
@@ -140,7 +177,7 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
     }
 
     if (!rawLine.startsWith("DA:")) continue;
-    if (currentSource === null) return unresolved(REASON_MALFORMED_LINE);
+    if (currentSource === null) return unresolvedLine(REASON_MALFORMED_LINE);
 
     const fields = rawLine.slice(3).split(",");
     if (
@@ -150,21 +187,21 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
       fields[1] === undefined ||
       (fields.length === 3 && fields[2]?.length === 0)
     ) {
-      return unresolved(REASON_MALFORMED_LINE);
+      return unresolvedLine(REASON_MALFORMED_LINE);
     }
 
     const line = parsePositiveSafeInteger(fields[0]);
-    if (line === null) return unresolved(REASON_MALFORMED_LINE);
+    if (line === null) return unresolvedLine(REASON_MALFORMED_LINE);
 
     const count = parseNonnegativeSafeInteger(fields[1]);
-    if (count === null) return unresolved(REASON_INVALID_COUNT);
+    if (count === null) return unresolvedLine(REASON_INVALID_COUNT);
 
-    if (!addCount(counts, currentSource, line, count)) return unresolved(REASON_INVALID_COUNT);
+    if (!addCount(counts, currentSource, line, count)) return unresolvedLine(REASON_INVALID_COUNT);
     currentRecordHadLineData = true;
   }
 
-  if (currentSource !== null) return unresolved(REASON_INCOMPLETE_RECORD);
-  if (!sawCompleteSourceRecord || counts.size === 0) return unresolved(REASON_NO_LINE_DATA);
+  if (currentSource !== null) return unresolvedLine(REASON_INCOMPLETE_RECORD);
+  if (!sawCompleteSourceRecord || counts.size === 0) return unresolvedLine(REASON_NO_LINE_DATA);
 
   const points: LcovLinePoint[] = [];
   for (const path of [...counts.keys()].sort()) {
@@ -180,4 +217,110 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
   }
 
   return { outcome: "resolved", points };
+}
+
+export function normalizeLcovBranchCoverage(input: string, repositoryRoot: string): LcovBranchCoverageResult {
+  const observations = new Map<string, { path: string; line: number; block_id: string; branch_id: string; taken: number | null; unresolved: boolean }>();
+  let currentSource: string | null = null;
+
+  const lines = input.split(/\r?\n/u);
+  for (const rawLine of lines) {
+    if (rawLine.startsWith("SF:")) {
+      if (currentSource !== null) return unresolvedBranch(REASON_INCOMPLETE_RECORD);
+      const mapped = mapSourcePath(repositoryRoot, rawLine.slice(3));
+      if (mapped === null) return unresolvedBranch(REASON_SOURCE_UNMAPPABLE);
+      currentSource = mapped;
+      continue;
+    }
+
+    if (rawLine === "end_of_record") {
+      if (currentSource === null) return unresolvedBranch(REASON_MALFORMED_SOURCE);
+      currentSource = null;
+      continue;
+    }
+
+    if (!rawLine.startsWith("BRDA:")) continue;
+    if (currentSource === null) return unresolvedBranch(REASON_MALFORMED_BRANCH);
+
+    const fields = rawLine.slice(5).split(",");
+    if (
+      fields.length !== 4 ||
+      fields[0] === undefined ||
+      fields[1] === undefined ||
+      fields[2] === undefined ||
+      fields[3] === undefined ||
+      fields[1].length === 0 ||
+      fields[2].length === 0
+    ) {
+      return unresolvedBranch(REASON_MALFORMED_BRANCH);
+    }
+
+    const line = parsePositiveSafeInteger(fields[0]);
+    if (line === null) return unresolvedBranch(REASON_MALFORMED_BRANCH);
+
+    const taken = fields[3] === "-" ? null : parseNonnegativeSafeInteger(fields[3]);
+    if (fields[3] !== "-" && taken === null) return unresolvedBranch(REASON_INVALID_TAKEN);
+
+    const key = `${currentSource}\0${line}\0${fields[1]}\0${fields[2]}`;
+    const existing = observations.get(key);
+    if (taken === null) {
+      observations.set(key, {
+        path: currentSource,
+        line,
+        block_id: fields[1],
+        branch_id: fields[2],
+        taken: null,
+        unresolved: true,
+      });
+      continue;
+    }
+
+    if (existing?.unresolved === true) continue;
+    const next = (existing?.taken ?? 0) + taken;
+    if (!Number.isSafeInteger(next) || next < 0) return unresolvedBranch(REASON_INVALID_TAKEN);
+
+    observations.set(key, {
+      path: currentSource,
+      line,
+      block_id: fields[1],
+      branch_id: fields[2],
+      taken: next,
+      unresolved: false,
+    });
+  }
+
+  if (currentSource !== null) return unresolvedBranch(REASON_INCOMPLETE_RECORD);
+  if (observations.size === 0) return unresolvedBranch(REASON_NO_BRANCH_DATA);
+
+  const normalized: LcovBranchPoint[] = [...observations.values()]
+    .map((observation): LcovBranchPoint => {
+      const taken = observation.unresolved ? null : observation.taken;
+      return taken === null
+        ? ({
+            path: observation.path,
+            line: observation.line,
+            block_id: observation.block_id,
+            branch_id: observation.branch_id,
+            taken: null,
+            state: "UNRESOLVED",
+            reason: "LCOV branch taken count is unknown",
+          } as LcovBranchPoint)
+        : {
+            path: observation.path,
+            line: observation.line,
+            block_id: observation.block_id,
+            branch_id: observation.branch_id,
+            taken,
+            state: taken > 0 ? "EXERCISED" : "NOT_EXERCISED",
+          };
+    })
+    .sort(
+      (left, right) =>
+        compareText(left.path, right.path) ||
+        left.line - right.line ||
+        compareText(left.block_id, right.block_id) ||
+        compareText(left.branch_id, right.branch_id),
+    );
+
+  return { outcome: "resolved", observations: normalized };
 }
