@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LcovBranchPoint, LcovLinePoint } from "../src/coverage/lcov.js";
 import type { GitChangedFile } from "../src/git.js";
-import { buildChangedLineExercise, buildBranchExercise, type BranchExerciseV1 } from "../src/exercise.js";
+import { buildBranchExercise, buildChangedLineExercise } from "../src/exercise.js";
 
 function changed(
   path: string,
@@ -18,11 +18,7 @@ function changed(
   };
 }
 
-function linePoint(
-  path: string,
-  line: number,
-  count: number,
-): LcovLinePoint {
+function linePoint(path: string, line: number, count: number): LcovLinePoint {
   return { path, line, count };
 }
 
@@ -42,19 +38,33 @@ function branch(
   };
 }
 
-describe("T102 branch exercise builder contracts", () => {
-  it("identifies a branch-only gap when the changed line is line-exercised and at least one changed branch is not exercised", () => {
-    const exercise = buildChangedLineExercise(
-      [changed("src/choice.ts", [[10, 10]])],
-      [linePoint("src/choice.ts", 10, 3)],
-      "test",
-      [branch("src/choice.ts", 10, { branch_id: "0", taken: 3, state: "EXERCISED" }), branch("src/choice.ts", 10, { branch_id: "1", taken: 0, state: "NOT_EXERCISED" })],
-    );
+describe("T102 branch exercise contracts", () => {
+  it("identifies a branch-only gap while preserving the line-level exercised record", () => {
+    const changedFiles = [changed("src/choice.ts", [[10, 10]])];
+    const linePoints = [linePoint("src/choice.ts", 10, 3)];
+    const branchPoints = [
+      branch("src/choice.ts", 10, { branch_id: "0", taken: 3, state: "EXERCISED" }),
+      branch("src/choice.ts", 10, { branch_id: "1", taken: 0, state: "NOT_EXERCISED" }),
+    ];
 
-    expect(exercise).toMatchObject({
+    const lineExercise = buildChangedLineExercise(changedFiles, linePoints, "test", branchPoints);
+    const branchExercise = buildBranchExercise(changedFiles, branchPoints, "test");
+
+    expect(lineExercise).toMatchObject({
       exercised_lines: 1,
       not_exercised_lines: 0,
       unresolved_lines: 0,
+    });
+    expect(lineExercise.records).toEqual([
+      {
+        path: "src/choice.ts",
+        line: 10,
+        state: "EXERCISED",
+        execution_count: 3,
+        source_task_ids: ["test"],
+      },
+    ]);
+    expect(branchExercise).toMatchObject({
       exercised_branches: 1,
       not_exercised_branches: 1,
       unresolved_branches: 0,
@@ -62,15 +72,13 @@ describe("T102 branch exercise builder contracts", () => {
   });
 
   it("yields no branch gap when all changed branches are fully exercised", () => {
-    const exercise = buildChangedLineExercise(
-      [changed("src/choice.ts", [[10, 10]])],
-      [linePoint("src/choice.ts", 10, 1)],
-      "test",
-      [
-        branch("src/choice.ts", 10, { branch_id: "0", taken: 1, state: "EXERCISED" }),
-        branch("src/choice.ts", 10, { branch_id: "1", taken: 1, state: "EXERCISED" }),
-      ],
-    );
+    const changedFiles = [changed("src/choice.ts", [[10, 10]])];
+    const branchPoints = [
+      branch("src/choice.ts", 10, { branch_id: "0", taken: 1, state: "EXERCISED" }),
+      branch("src/choice.ts", 10, { branch_id: "1", taken: 1, state: "EXERCISED" }),
+    ];
+
+    const exercise = buildBranchExercise(changedFiles, branchPoints, "test");
 
     expect(exercise).toMatchObject({
       exercised_branches: 2,
@@ -79,15 +87,23 @@ describe("T102 branch exercise builder contracts", () => {
     });
   });
 
-  it("keeps unknown branches unresolved", () => {
-    const exercise = buildChangedLineExercise(
-      [changed("src/choice.ts", [[10, 10]])],
-      [linePoint("src/choice.ts", 10, 1)],
-      "test",
-      [branch("src/choice.ts", 10, { branch_id: "0", taken: null, state: "UNRESOLVED", reason: "LCOV branch taken count is unknown" })],
-    );
+  it("keeps unknown branches unresolved without changing line-level state", () => {
+    const changedFiles = [changed("src/choice.ts", [[10, 10]])];
+    const linePoints = [linePoint("src/choice.ts", 10, 1)];
+    const branchPoints = [
+      branch("src/choice.ts", 10, {
+        branch_id: "0",
+        taken: null,
+        state: "UNRESOLVED",
+        reason: "LCOV branch taken count is unknown",
+      }),
+    ];
 
-    expect(exercise).toMatchObject({
+    const lineExercise = buildChangedLineExercise(changedFiles, linePoints, "test", branchPoints);
+    const branchExercise = buildBranchExercise(changedFiles, branchPoints, "test");
+
+    expect(lineExercise.records[0]).toMatchObject({ state: "EXERCISED", execution_count: 1 });
+    expect(branchExercise).toMatchObject({
       unresolved_branches: 1,
       exercised_branches: 0,
       not_exercised_branches: 0,
@@ -95,11 +111,10 @@ describe("T102 branch exercise builder contracts", () => {
   });
 
   it("does not count branches outside changed ranges as changed-branch gaps", () => {
-    const exercise = buildChangedLineExercise(
+    const exercise = buildBranchExercise(
       [changed("src/choice.ts", [[10, 10]])],
-      [linePoint("src/choice.ts", 10, 1)],
-      "test",
       [branch("src/choice.ts", 11, { branch_id: "0", taken: 0, state: "NOT_EXERCISED" })],
+      "test",
     );
 
     expect(exercise.branch_records).toHaveLength(0);
@@ -111,15 +126,14 @@ describe("T102 branch exercise builder contracts", () => {
   });
 
   it("orders branch records deterministically by path, line, block_id, branch_id", () => {
-    const exercise = buildChangedLineExercise(
+    const exercise = buildBranchExercise(
       [changed("src/z.ts", [[1, 1]])],
-      [linePoint("src/z.ts", 1, 1)],
-      "test",
       [
         branch("src/z.ts", 1, { block_id: "b", branch_id: "1", taken: 0, state: "NOT_EXERCISED" }),
         branch("src/z.ts", 1, { block_id: "a", branch_id: "0", taken: 1, state: "EXERCISED" }),
         branch("src/z.ts", 1, { block_id: "a", branch_id: "1", taken: 0, state: "NOT_EXERCISED" }),
       ],
+      "test",
     );
 
     expect(exercise.branch_records).toEqual([
@@ -225,42 +239,22 @@ describe("T102 branch exercise builder contracts", () => {
       "src/z.ts:2",
     ]);
   });
-});
 
-describe("T102 buildBranchExercise contracts", () => {
-  it("produces an empty branch exercise when no changed range contains a branch point", () => {
-    const result = buildBranchExercise(
+  it("does not expose T103 branch fields on the receipt-visible T102 ExerciseV1 projection", () => {
+    const exercise = buildChangedLineExercise(
       [changed("src/choice.ts", [[10, 10]])],
-      [branch("src/choice.ts", 11, { branch_id: "0", taken: 0, state: "NOT_EXERCISED" })],
+      [linePoint("src/choice.ts", 10, 1)],
       "test",
+      [branch("src/choice.ts", 10, { branch_id: "1", taken: 0, state: "NOT_EXERCISED" })],
     );
 
-    expect(result).toEqual<BranchExerciseV1>({
-      exercised_branches: 0,
-      not_exercised_branches: 0,
-      unresolved_branches: 0,
-      changed_files_with_zero_exercised_branches: 0,
-      branch_records: [],
-    });
-  });
-
-  it("marks UNRESOLVED branch evidence with the unresolved reason", () => {
-    const result = buildBranchExercise(
-      [changed("src/choice.ts", [[10, 10]])],
-      [branch("src/choice.ts", 10, { branch_id: "0", taken: null, state: "UNRESOLVED" })],
-      "test",
-    );
-
-    expect(result.branch_records).toEqual([
-      {
-        path: "src/choice.ts",
-        line: 10,
-        block_id: "0",
-        branch_id: "0",
-        taken: null,
-        state: "UNRESOLVED",
-        reason: "changed branch evidence is unresolved",
-      },
+    expect(Object.keys(exercise)).toEqual([
+      "changed_executable_lines",
+      "exercised_lines",
+      "not_exercised_lines",
+      "unresolved_lines",
+      "changed_files_with_zero_exercised_lines",
+      "records",
     ]);
   });
 });
