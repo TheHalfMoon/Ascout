@@ -296,7 +296,7 @@ export function normalizeLcovBranchCoverage(input: string, repositoryRoot: strin
     .map((observation): LcovBranchPoint => {
       const taken = observation.unresolved ? null : observation.taken;
       return taken === null
-        ? {
+        ? ({
             path: observation.path,
             line: observation.line,
             block_id: observation.block_id,
@@ -304,7 +304,7 @@ export function normalizeLcovBranchCoverage(input: string, repositoryRoot: strin
             taken: null,
             state: "UNRESOLVED",
             reason: "LCOV branch taken count is unknown",
-          }
+          } as LcovBranchPoint)
         : {
             path: observation.path,
             line: observation.line,

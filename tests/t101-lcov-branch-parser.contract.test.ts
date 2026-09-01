@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   LcovBranchCoverageResult,
   normalizeLcovBranchCoverage,
+  normalizeLcovLineCoverage,
   type LcovBranchPoint,
 } from "../src/coverage/lcov.js";
 
