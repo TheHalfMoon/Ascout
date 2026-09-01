@@ -95,3 +95,25 @@ This slice parses an existing coverage interchange format from project-native te
 `NEXT_STEP = SPEC_003_BRANCH_EXERCISE_QUALIFICATION`
 
 `PRODUCT_INTEGRATION = NOT_AUTHORIZED_BY_THIS_REVIEW`
+
+## Spec 003 Closeout Record
+
+**Closeout date:** 2026-09-01
+**Canonical closeout head:** `c9df2b47c9b4b59c02274adc79397495363c7eb1`
+**T095 merge tree:** `f1489cbc6755e56e91838eb547343dc4886a43a4`
+**Qualification result:** `GO`
+**Scope limit:** future planning only
+**product_integration_authorized:** `false`
+**function_coverage_qualified:** `false`
+
+The benchmark-only qualification proved that deterministic LCOV branch evidence can reveal material changed-code exercise gaps that line-only evidence cannot, with fail-closed parsing and acceptable ambiguity. All promotion gates are satisfied:
+
+- at least one deterministic branch-only gap detected while line-only evidence reports the changed line exercised;
+- fully exercised fixtures produce zero false branch gaps;
+- unknown branch data remains unresolved rather than pass/fail fabrication;
+- malformed/path-unsafe evidence fails closed;
+- result serialization is deterministic;
+- six-lane Project CI is green on the exact closeout head;
+- no product/receipt/package/dependency surface changed during qualification.
+
+A future product-integration Spec Kit package may be planned, but product branch-coverage semantics remain unauthorized until a separate canonical Spec Kit chain and explicit implementation authorization are complete.
