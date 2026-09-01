@@ -154,7 +154,6 @@ export interface ExerciseRecordV1 {
   readonly execution_count: number | null;
   readonly source_task_ids: readonly string[];
   readonly reason?: string;
-  readonly branch?: true;
 }
 
 export interface ExerciseV1 {
@@ -163,8 +162,6 @@ export interface ExerciseV1 {
   readonly not_exercised_lines: number;
   readonly unresolved_lines: number;
   readonly changed_files_with_zero_exercised_lines: number;
-  readonly branch_not_exercised_lines?: number;
-  readonly branch_unresolved_lines?: number;
   readonly records: readonly ExerciseRecordV1[];
 }
 
