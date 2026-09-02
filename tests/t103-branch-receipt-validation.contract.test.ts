@@ -29,6 +29,14 @@ type BranchField = (typeof BRANCH_FIELDS)[number];
 type MutableExercise = Record<string, unknown>;
 type Schema = Record<string, any>;
 
+const PARTIAL_BRANCH_FIELD_SETS: readonly (readonly BranchField[])[] = Array.from(
+  { length: (1 << BRANCH_FIELDS.length) - 2 },
+  (_, index) => {
+    const mask = index + 1;
+    return BRANCH_FIELDS.filter((_, fieldIndex) => (mask & (1 << fieldIndex)) !== 0);
+  },
+);
+
 function baseReceipt(line = 10): ReceiptV1 {
   const head = "a".repeat(40);
   const tree = "b".repeat(64);
@@ -247,17 +255,17 @@ function issueCodes(receipt: ReceiptV1): string[] {
   return validateReceiptSemantics(receipt).issues.map(({ code }) => code);
 }
 
-function partialBranchReceipt(field: BranchField): ReceiptV1 {
+function partialBranchReceipt(fields: readonly BranchField[]): ReceiptV1 {
   const receipt = structuredClone(baseReceipt()) as ReceiptV1;
   const exercise = receipt.exercise as unknown as MutableExercise;
   const values: Record<BranchField, unknown> = {
     branch_records: [],
     exercised_branches: 0,
-    not_exercised_branches: field === "not_exercised_branches" ? 1 : 0,
-    unresolved_branches: field === "unresolved_branches" ? 1 : 0,
+    not_exercised_branches: 1,
+    unresolved_branches: 1,
     changed_files_with_zero_exercised_branches: 0,
   };
-  exercise[field] = values[field];
+  for (const field of fields) exercise[field] = values[field];
   return receipt;
 }
 
@@ -271,15 +279,25 @@ describe("T103 strict optional branch receipt contract", () => {
     expect(decideReceiptExitCode(receipt)).toBe(0);
   });
 
-  it.each(BRANCH_FIELDS)("rejects partial branch-group presence from %s semantically and by JSON Schema", (field) => {
-    const receipt = partialBranchReceipt(field);
-    expect(issueCodes(receipt)).toContain("exercise_branch_group_partial");
-    expect(validateReceiptJsonSchema(receipt).valid).toBe(false);
-    if (field === "not_exercised_branches" || field === "unresolved_branches") {
-      expect(deriveReceiptCompleteness(receipt)).toBe("materially_incomplete");
-      expect(decideReceiptExitCode(receipt)).toBe(4);
+  it("rejects all 30 partial branch-group subsets semantically and by JSON Schema", () => {
+    expect(PARTIAL_BRANCH_FIELD_SETS).toHaveLength(30);
+    for (const fields of PARTIAL_BRANCH_FIELD_SETS) {
+      expect(fields.length).toBeGreaterThan(0);
+      expect(fields.length).toBeLessThan(BRANCH_FIELDS.length);
+      const receipt = partialBranchReceipt(fields);
+      expect(issueCodes(receipt)).toContain("exercise_branch_group_partial");
+      expect(validateReceiptJsonSchema(receipt).valid).toBe(false);
     }
   });
+
+  it.each(["not_exercised_branches", "unresolved_branches"] as const)(
+    "keeps a partial material branch gap from %s materially incomplete with exit 4",
+    (field) => {
+      const receipt = partialBranchReceipt([field]);
+      expect(deriveReceiptCompleteness(receipt)).toBe("materially_incomplete");
+      expect(decideReceiptExitCode(receipt)).toBe(4);
+    },
+  );
 
   it("makes a branch-only gap materially incomplete with exit 4 without changing line evidence", () => {
     const receipt = withBranches([
