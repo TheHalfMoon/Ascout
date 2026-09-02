@@ -7,6 +7,7 @@
 - `docs/strategy/POST_M1_VERIFICATION_ROADMAP.md`
 - `specs/005-environment-identity-hardening/spec.md`
 - `clarifications.md`
+- `COMPATIBILITY_POLICY.md`
 - `ponytail-review.md`
 - `plan.md`
 - `plan-ponytail-review.md`
@@ -35,9 +36,18 @@
 
 `PASS`. The specification prohibits raw host/user/path/network/env/secret identity and constrains paths to repository-relative canonical form.
 
-### A6 — Compatibility
+### A6 — Receipt compatibility policy
 
-`PASS`. Receipt v1 stays at schema `1.0`; `environment` is optional for legacy receipt acceptance. New receipts are expected to emit it only after implementation wiring succeeds.
+`PASS_AFTER_RECONCILIATION`. The prior claim that additive optional fields imply generic forward compatibility was unsafe under strict `additionalProperties: false`. The explicit policy is now `RECEIPT_V1_ADDITIVE_LOCKSTEP`:
+
+- updated validators accept canonical older v1 receipts;
+- updated validators accept new environment-bearing receipts;
+- prior strict schema rejection of a new environment-bearing receipt is expected unsupported version skew and must be proven;
+- all repository-supported consumers/validators in a producing revision move together;
+- `run.ascout_version` is the producer-revision signal;
+- no receipt 1.1/v2 negotiation is introduced.
+
+This policy matches the canonical additive-v1 direction established by Spec 004 while correcting its overly broad old-parser assumption for strict validators.
 
 ### A7 — Package-manager provenance
 
@@ -57,18 +67,22 @@
 
 ### A11 — Task ordering
 
-`PASS`. T104 establishes schema/model first, T105 establishes observer without publication, T106 wires publication last.
+`PASS`. T104 establishes schema/model and compatibility proof first, T105 establishes observer without publication, T106 wires publication last.
 
 ### A12 — Mutation surface
 
-`PASS`. Expected product scope is four paths at most across the specification, plus focused proof paths. No package/dependency/workflow/benchmark-result mutation is planned.
+`PASS`. Expected product scope is four paths at most across the specification, plus focused proof paths/current consumer tests. No package/dependency/workflow/benchmark-result mutation is planned.
 
 ### A13 — Benchmark-driven growth
 
 `PASS`. The measured gap is concrete: product receipt lacks run-level environment identity while existing benchmark evidence models environment identity as reproducibility context. No broader feature is promoted from this observation.
 
+### A14 — Reviewer findings reconciliation
+
+`PASS_PENDING_FRESH_HEAD_REVIEW`. Independent review found two material planning concerns across stale heads: package-manager/lockfile provenance and strict-validator compatibility. Both are now explicitly reconciled in canonical planning artifacts. Because the planning head changed, neither prior review qualifies the repaired head; fresh exact-head independent review remains mandatory.
+
 ## Cross-artifact consistency result
 
-`PASS / NO_MATERIAL_CONFLICTS_AFTER_PROVENANCE_RECONCILIATION`
+`PASS / NO_MATERIAL_CONFLICTS_AFTER_PROVENANCE_AND_COMPATIBILITY_RECONCILIATION`
 
 No implementation authority is granted by this analysis.
