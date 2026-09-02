@@ -1,4 +1,4 @@
-import type { LcovLinePoint } from "./coverage/lcov.js";
+import type { LcovBranchPoint, LcovLinePoint } from "./coverage/lcov.js";
 import type { GitChangedFile } from "./git.js";
 import type { ExerciseRecordV1, ExerciseV1 } from "./receipt/model.js";
 
@@ -9,6 +9,7 @@ const DEFAULT_JS_TEST_SURFACE =
 const VITEST_CONFIG_NAME = /^vitest\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u;
 const JEST_CONFIG_NAME = /^jest\.config\.(?:js|mjs|cjs|ts|json)$/u;
 const COVERAGE_SOURCE_MAPPING_UNRESOLVED = "coverage_source_mapping_unresolved" as const;
+const BRANCH_EVIDENCE_UNRESOLVED = "changed branch evidence is unresolved" as const;
 
 function compareStrings(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -56,20 +57,135 @@ function unresolvedRecords(file: GitChangedFile, sourceTaskId: string): Exercise
   return records;
 }
 
+export interface BranchExerciseRecord {
+  readonly path: string;
+  readonly line: number;
+  readonly block_id: string;
+  readonly branch_id: string;
+  readonly taken: number | null;
+  readonly state: "EXERCISED" | "NOT_EXERCISED" | "UNRESOLVED";
+  readonly reason?: string;
+}
+
+export interface BranchExercise {
+  readonly exercised_branches: number;
+  readonly not_exercised_branches: number;
+  readonly unresolved_branches: number;
+  readonly changed_files_with_zero_exercised_branches: number;
+  readonly branch_records: readonly BranchExerciseRecord[];
+}
+
+function branchRecordState(state: LcovBranchPoint["state"]): BranchExerciseRecord["state"] {
+  switch (state) {
+    case "BRANCH_EXERCISED":
+      return "EXERCISED";
+    case "BRANCH_NOT_EXERCISED":
+      return "NOT_EXERCISED";
+    case "BRANCH_UNRESOLVED":
+      return "UNRESOLVED";
+  }
+}
+
+function buildChangedRangeMap(
+  changedFiles: readonly GitChangedFile[],
+): Map<string, readonly (readonly [number, number])[]> {
+  const rangesByPath = new Map<string, readonly (readonly [number, number])[]>();
+  for (const file of changedFiles) {
+    if (
+      file.change_kind === "deleted" ||
+      file.line_semantics !== "text" ||
+      file.changed_new_line_ranges.length === 0
+    ) {
+      continue;
+    }
+    const sorted = [...file.changed_new_line_ranges].sort(([aStart], [bStart]) => aStart - bStart);
+    rangesByPath.set(file.path, sorted);
+  }
+  return rangesByPath;
+}
+
+function buildBranchExercise(
+  changedFiles: readonly GitChangedFile[],
+  branchPoints: readonly LcovBranchPoint[],
+  sourceTaskId: string,
+): BranchExercise {
+  void sourceTaskId;
+
+  const pointsByPath = new Map<string, LcovBranchPoint[]>();
+  for (const point of branchPoints) {
+    const points = pointsByPath.get(point.path) ?? [];
+    points.push(point);
+    pointsByPath.set(point.path, points);
+  }
+
+  const changedRanges = buildChangedRangeMap(changedFiles);
+  const records: BranchExerciseRecord[] = [];
+  for (const file of changedFiles) {
+    const ranges = changedRanges.get(file.path);
+    if (ranges === undefined || ranges.length === 0) continue;
+
+    const points = pointsByPath.get(file.path);
+    if (points === undefined || points.length === 0) continue;
+
+    for (const point of points) {
+      if (!lineInRanges(point.line, ranges)) continue;
+      const state = branchRecordState(point.state);
+      const reason = state === "UNRESOLVED" ? (point.reason ?? BRANCH_EVIDENCE_UNRESOLVED) : undefined;
+      records.push({
+        path: point.path,
+        line: point.line,
+        block_id: point.block_id,
+        branch_id: point.branch_id,
+        taken: point.taken,
+        state,
+        ...(reason === undefined ? {} : { reason }),
+      });
+    }
+  }
+
+  records.sort(
+    (left, right) =>
+      compareStrings(left.path, right.path) ||
+      left.line - right.line ||
+      compareStrings(left.block_id, right.block_id) ||
+      compareStrings(left.branch_id, right.branch_id),
+  );
+
+  const exercisedBranches = records.filter(({ state }) => state === "EXERCISED").length;
+  const notExercisedBranches = records.filter(({ state }) => state === "NOT_EXERCISED").length;
+  const unresolvedBranches = records.filter(({ state }) => state === "UNRESOLVED").length;
+  const recordsByPath = new Map<string, BranchExerciseRecord[]>();
+  for (const record of records) {
+    const pathRecords = recordsByPath.get(record.path) ?? [];
+    pathRecords.push(record);
+    recordsByPath.set(record.path, pathRecords);
+  }
+  const changedFilesWithZeroExercisedBranches = [...recordsByPath.values()]
+    .filter((pathRecords) => !pathRecords.some(({ state }) => state === "EXERCISED"))
+    .length;
+
+  return {
+    exercised_branches: exercisedBranches,
+    not_exercised_branches: notExercisedBranches,
+    unresolved_branches: unresolvedBranches,
+    changed_files_with_zero_exercised_branches: changedFilesWithZeroExercisedBranches,
+    branch_records: records,
+  };
+}
+
 /**
  * Intersects normalized current-run LCOV with changed new-line ranges.
  *
- * LCOV DA points define the executable/instrumentable line set for a source
- * that has a usable coverage relationship. Changed lines absent from that set
- * are not invented as executable. If a changed production source has no LCOV
- * relationship at all after permitted selection/widening, its changed text
- * lines remain UNRESOLVED rather than being silently omitted or assigned zero.
+ * LCOV DA points remain the exclusive source for line-level exercise records.
+ * T102 adds normalized BRDA observations as an independent internal dimension;
+ * receipt-facing branch publication remains reserved for T103.
  */
 export function buildChangedLineExercise(
   changedFiles: readonly GitChangedFile[],
   coveragePoints: readonly LcovLinePoint[],
   sourceTaskId: string,
-): ExerciseV1 {
+  branchPoints?: readonly LcovBranchPoint[],
+): ExerciseV1 & BranchExercise {
   const pointsByPath = new Map<string, LcovLinePoint[]>();
   for (const point of coveragePoints) {
     const points = pointsByPath.get(point.path) ?? [];
@@ -120,6 +236,16 @@ export function buildChangedLineExercise(
     .filter((pathRecords) => !pathRecords.some(({ state }) => state === "EXERCISED"))
     .length;
 
+  const branchExercise = branchPoints === undefined
+    ? {
+        exercised_branches: 0,
+        not_exercised_branches: 0,
+        unresolved_branches: 0,
+        changed_files_with_zero_exercised_branches: 0,
+        branch_records: [],
+      } satisfies BranchExercise
+    : buildBranchExercise(changedFiles, branchPoints, sourceTaskId);
+
   return {
     changed_executable_lines: records.length,
     exercised_lines: exercisedLines,
@@ -127,5 +253,6 @@ export function buildChangedLineExercise(
     unresolved_lines: unresolvedLines,
     changed_files_with_zero_exercised_lines: changedFilesWithZeroExercisedLines,
     records,
+    ...branchExercise,
   };
 }
