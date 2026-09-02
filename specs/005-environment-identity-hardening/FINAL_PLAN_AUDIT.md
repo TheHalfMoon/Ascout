@@ -1,76 +1,63 @@
 # Specification 005 Final Plan Audit Dossier
 
-**Audit role:** repository-side dossier for independent exact-head review; this file is not itself independent approval.
+**Audit role:** repository-side dossier for independent exact-head review; not independent approval.
 
 ## Audit questions
 
-1. Is the measured gap real on canonical `main`?
-   - Yes: receipt run identity lacks environment identity while benchmark evidence already models OS/Node/package-manager context.
-2. Is this the narrowest roadmap-aligned next capability?
-   - Yes: M1.1-B only; function coverage and M2+ remain deferred.
-3. Does the plan add execution authority?
-   - No: no new process spawn, install, command, hook, or trust grant.
-4. Does the plan weaken source binding or no-green-by-omission?
-   - No: environment metadata is additive current-run context and cannot substitute for source-bound verification evidence.
-5. Is receipt-v1 compatibility explicit rather than assumed?
-   - Yes: `COMPATIBILITY_POLICY.md` defines `RECEIPT_V1_ADDITIVE_LOCKSTEP`. New validators accept old/new receipts; the exact prior strict schema is expected to reject environment-bearing receipts and must be tested as unsupported version skew. Same-source/build supported consumers cannot pin stale schemas.
-6. Does the plan falsely claim that `run.ascout_version` uniquely identifies producer revision?
-   - No. It is explicitly treated only as a product-version label. Exact compatibility proof binds repository/source revisions directly; Spec 005 does not use receipt fields to select or negotiate schema revisions.
-7. Does declaration-led package-manager authority preserve the exact version already validated by discovery?
-   - Yes. `package_manager_source=package_json` requires the same resolved manager plus the exact non-null `x.y.z` version recovered from the same authoritative root `package.json`. Missing, unreadable, malformed, or manager-mismatched authoritative declaration state is an integrity failure, never a null-version fallback.
-8. Does it create a second package-manager resolver?
-   - No: `discovery.packageManager` is the sole manager-authority decision. The observer may derive version only from the exact already-authoritative package.json source and may not choose another manager.
-9. Can lockfile evidence alter manager authority?
-   - No. Lockfile identity is supplemental only. Lockfile-derived authority uses its exact discovery source; package-json-derived authority may inspect only the matching fixed root lockfile after the manager is already resolved.
-10. Is discovery itself being widened?
-   - No. `src/discovery.ts` is outside the expected implementation surface; insufficiency requires `NO_GO` and replanning.
-11. Is privacy bounded?
-   - Yes: no raw absolute paths, hostname, username, machine ID, network identity, environment inventory, credentials, or secrets.
-12. Is task ordering dependency-valid?
-   - Yes: contract/compatibility proof → observer → publication.
-13. Are implementation surfaces bounded?
-   - Yes: expected `src/environment.ts`, `src/check.ts`, `src/receipt/model.ts`, receipt-v1 schema, and focused tests/current-consumer proof only.
-14. Are CI/review/merge gates explicit?
-   - Yes: exact-head six-lane CI, independent review, zero unresolved material threads, guarded expected-head merge, post-merge verification.
+1. Is the measured gap real? — Yes; product receipt lacks run-level environment identity already represented in benchmark context.
+2. Is scope minimal? — Yes; M1.1-B only, no function coverage/M2.
+3. New execution authority? — No.
+4. Source binding/no-green weakened? — No.
+5. Compatibility explicit? — Yes; additive lockstep with expected stale strict-schema rejection.
+6. False exact revision binding via `ascout_version`? — No; it is only a product-version label and exact repository identities bind proof.
+7. Declaration-led manager exact version preserved? — Yes; exact non-null x.y.z comes from discovery's package.json content snapshot; contradiction fails integrity.
+8. Package.json re-read creates TOCTOU source? — No; version derivation uses the exact discovery snapshot rather than disk reread.
+9. Can lockfile discovery sentinel be mistaken for bytes? — No; planning explicitly records that recognized lockfile map values are empty presence sentinels and prohibits hashing them.
+10. Where do lockfile digest bytes come from? — Exact filesystem bytes at the already-authorized repository-relative path under canonical root, with realpath/symlink containment rechecked and bounded-memory hashing.
+11. What if lockfile authority source cannot be re-read? — Integrity failure; manager authority cannot be emitted with an unobservable authority source.
+12. What if package-json supplemental lockfile cannot be read? — Null supplemental identity, no fallback, no authority change.
+13. Second package-manager resolver? — No; discovery remains sole authority.
+14. Discovery widening? — No; `src/discovery.ts` excluded; insufficiency => NO_GO/replan.
+15. Privacy bounded? — Yes.
+16. Task order valid? — Yes; contract → observer → publication.
+17. Implementation surfaces bounded? — Yes.
+18. CI/review/merge gates explicit? — Yes.
 
 ## Findings ledger
 
 ### F1 — package-manager / lockfile provenance
-
-`RECONCILED_IN_PLAN`. Manager authority is discovery-only; package version and lockfile rules are derivations/supplemental evidence with explicit fail-closed boundaries.
+`RECONCILED_IN_PLAN`.
 
 ### F2 — stale strict receipt-v1 validator compatibility
-
-`RECONCILED_IN_COMPATIBILITY_POLICY`. The plan no longer claims forward compatibility. It defines supported lockstep pairings and requires the exact prior schema rejection case as proof.
+`RECONCILED_IN_COMPATIBILITY_POLICY`.
 
 ### F3 — false exact producer-revision binding via `run.ascout_version`
-
-`RECONCILED_IN_COMPATIBILITY_POLICY_AND_PLAN`. Current product versions may span multiple commits/builds, so `ascout_version` cannot honestly serve as a unique source/schema-revision key. The repaired policy binds compatibility proof to exact repository/source revisions and prohibits schema selection or negotiation from `ascout_version` alone.
+`RECONCILED_IN_COMPATIBILITY_POLICY_AND_PLAN`.
 
 ### F4 — declaration-led manager authority could degrade to `package_manager_version=null`
+`RECONCILED_IN_SPEC_PLAN_TASKS`.
 
-`RECONCILED_IN_SPEC_PLAN_TASKS`. Existing discovery resolves root `package.json` authority only after validating exact `manager@x.y.z`. The repaired contract therefore requires `package_manager_source=package_json` to carry that exact non-null version from the same authoritative declaration. Missing/unreadable/malformed declaration state or a manager mismatch is an integrity failure. Only lockfile-derived authority legitimately carries `package_manager_version=null`.
+### F5 — discovery lockfile sentinel could be hashed as bytes / lockfile authority reread semantics underspecified
+`RECONCILED_IN_SPEC_PLAN_TASKS`. `collectDiscoveredProject.files` retains recognized lockfiles as empty-string presence sentinels, not contents. T105 must never hash the sentinel. Package.json version comes from discovery's retained content snapshot. Lockfile digest comes from exact filesystem bytes at the already-authorized path with containment rechecked. Failure to re-read a lockfile authority source is integrity failure; supplemental matching lockfile failure is nullable and never causes fallback.
 
-Because these repairs changed the planning head, a fresh independent review of the complete repaired diff is mandatory before merge.
+Every repair changed planning head; all earlier independent review evidence is stale.
 
 ## Known fresh-review focus
 
 Independent review must challenge:
 
-- whether the additive-lockstep policy is sufficiently explicit and bounded for the current unreleased project;
-- whether exact old/new repository-bound compatibility proof is sufficient without an in-receipt schema-revision identifier;
-- whether explicitly treating `run.ascout_version` as non-unique avoids false compatibility claims without silently adding negotiation;
-- whether the compatibility test matrix proves both supported and unsupported pairings honestly;
-- whether package-json-derived authority can always reproduce the exact declaration version from the same authoritative file and correctly fails integrity otherwise;
-- whether recovering package-manager version from the exact discovery-authoritative package.json is genuinely derivation rather than a second resolver;
-- whether lockfile-derived authority correctly retains `version=null` while declaration-led authority never does;
-- whether lockfile evidence is strictly supplemental and cannot override package-manager authority;
-- whether excluding `src/discovery.ts` is viable and insufficiency is explicitly fail-closed to planning;
-- whether any proposed field leaks sensitive host identity;
-- whether T104–T106 surfaces are narrow enough.
+- additive-lockstep policy and exact repository-bound compatibility proof;
+- non-unique `ascout_version` treatment;
+- package-json exact-version snapshot derivation and no disk reread;
+- lockfile sentinel-not-bytes rule;
+- distinction between authority lockfile read failure (integrity) and supplemental lockfile read failure (null);
+- realpath/symlink containment and bounded-memory exact-byte hashing;
+- no second resolver/discovery mutation;
+- privacy and no-execution boundaries;
+- T104–T106 surface/order.
 
 ## Internal dossier result
 
-`READY_FOR_INDEPENDENT_EXACT_HEAD_PLAN_REVIEW_AFTER_F1_F2_F3_F4_RECONCILIATION`
+`READY_FOR_INDEPENDENT_EXACT_HEAD_PLAN_REVIEW_AFTER_F1_F2_F3_F4_F5_RECONCILIATION`
 
 No implementation authorization is granted here.

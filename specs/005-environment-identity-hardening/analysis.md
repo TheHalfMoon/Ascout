@@ -5,7 +5,7 @@
 - `.specify/memory/constitution.md`
 - `docs/founding/MASTER_PLAN_V1.md`
 - `docs/strategy/POST_M1_VERIFICATION_ROADMAP.md`
-- `specs/005-environment-identity-hardening/spec.md`
+- `spec.md`
 - `clarifications.md`
 - `COMPATIBILITY_POLICY.md`
 - `ponytail-review.md`
@@ -18,72 +18,66 @@
 
 ### A1 — Roadmap alignment
 
-`PASS`. The scope implements only M1.1-B environment/tool identity depth. Task-level tool identity already exists and is not redesigned.
+`PASS`. Only M1.1-B environment/tool identity depth; task-level tool identity is not redesigned.
 
-### A2 — Constitutional evidence integrity
+### A2 — Evidence integrity / no-green-by-omission
 
-`PASS`. Environment identity is additional current-run metadata and cannot substitute for source-bound evidence or missing verification.
+`PASS`. Environment metadata cannot substitute for source-bound verification or missing evidence and does not change completeness solely by absence of optional supplemental metadata.
 
-### A3 — No-green-by-omission
+### A3 — Trust / execution authority
 
-`PASS`. No requirement converts missing environment sub-observations into PASS. Existing completeness semantics remain unchanged.
+`PASS`. No new process execution/install. `discovery.packageManager` remains the sole manager authority.
 
-### A4 — Trust/authority
+### A4 — Privacy
 
-`PASS`. No new process execution or implicit install is authorized. `discovery.packageManager` remains the sole package-manager authority decision and the observer cannot repair, replace, or broaden it.
+`PASS`. Raw host/user/network/env/secret identity is prohibited; paths remain canonical repository-relative and filesystem hash reads re-check realpath containment.
 
-### A5 — Privacy
+### A5 — Receipt compatibility
 
-`PASS`. The specification prohibits raw host/user/path/network/env/secret identity and constrains paths to repository-relative canonical form.
+`PASS_AFTER_RECONCILIATION`. `RECEIPT_V1_ADDITIVE_LOCKSTEP` explicitly supports old receipts under new validators and new receipts under same-source/build validators while treating prior strict-schema rejection as expected unsupported skew. `run.ascout_version` is not a unique source/schema revision key; exact repository revisions bind compatibility proof. No negotiation/v2 expansion.
 
-### A6 — Receipt compatibility policy
+### A6 — Package-manager provenance
 
-`PASS_AFTER_RECONCILIATION`. The prior claim that additive optional fields imply generic forward compatibility was unsafe under strict `additionalProperties: false`. The explicit policy is now `RECEIPT_V1_ADDITIVE_LOCKSTEP`:
+`PASS_WITH_EXPLICIT_RULE`. Discovery is sole manager authority. Declaration-led authority resolves only after exact `manager@x.y.z` validation; environment version is recovered from the same `DiscoveryFileMap["package.json"]` snapshot and must be exact/non-null. Contradictory snapshot state is integrity failure. No package.json disk reread or second resolver.
 
-- updated validators accept canonical older v1 receipts;
-- updated validators accept new environment-bearing receipts;
-- prior strict schema rejection of a new environment-bearing receipt is expected unsupported version skew and must be proven;
-- all repository-supported consumers/validators from a producing canonical source/build revision move together;
-- `run.ascout_version` is explicitly **not** treated as a unique source/schema-revision identifier or schema-selection key;
-- compatibility proof binds exact old/new repository identities directly;
-- no receipt 1.1/v2 negotiation or new in-receipt revision field is introduced.
+### A7 — Lockfile sentinel / byte-source boundary
 
-This policy matches the canonical additive-v1 direction established by Spec 004 while correcting both its overly broad old-parser assumption and the later overclaim that `ascout_version` uniquely binds producer revision.
+`PASS_AFTER_RECONCILIATION`. Discovery records recognized lockfiles as empty-string presence sentinels because they are not content-required metadata. Those values are not file bytes and must never be hashed. T105 uses the canonical root plus the already-authorized repository-relative path to re-read exact filesystem bytes with realpath/symlink containment rechecked and bounded-memory hashing.
 
-### A7 — Package-manager provenance
+### A8 — Lockfile authority vs supplemental identity
 
-`PASS_WITH_EXPLICIT_RULE`. Current discovery stores the resolved manager and exact source paths but does not retain declaration version. Version recovery is permitted only from the same authoritative root `package.json` already named by discovery, with a required same-manager consistency check. Declaration-led discovery resolves only after exact `manager@x.y.z` validation, so a package-json-derived environment identity MUST carry that exact non-null version. Missing/unreadable/malformed authoritative declaration state or a manager mismatch is integrity failure, never `version=null` fallback.
-
-### A8 — Lockfile provenance
-
-`PASS_WITH_EXPLICIT_RULE`. Lockfile identity is supplemental evidence only. A lockfile-derived manager hashes only the exact discovery source lockfile. A package-json-derived manager may inspect only the fixed root lockfile matching that already-resolved manager. Non-matching lockfiles cannot affect authority. Absent/unsafe/unreadable supplemental identity remains null.
+`PASS_WITH_EXPLICIT_RULE`. If a lockfile supplied manager authority, inability to safely re-read/hash that exact authority source is integrity failure. If package.json supplied authority, only the fixed matching root lockfile present in the discovery snapshot may supply supplemental identity; absent/unsafe/missing/unreadable supplemental state becomes null and cannot trigger fallback or authority change.
 
 ### A9 — Discovery mutation boundary
 
-`PASS`. `src/discovery.ts` is intentionally excluded from the expected implementation surface. If T105 cannot satisfy provenance from current discovery truth plus its exact authoritative source files, the task must stop `NO_GO` and return to planning.
+`PASS`. `src/discovery.ts` remains excluded. Existing `root + files + discovery` is the full T105 input boundary; insufficiency is `NO_GO` + replanning.
 
-### A10 — Integrity failure vs optional absence
+### A10 — Task ordering
 
-`PASS_WITH_EXPLICIT_RULE`. Optional absence is limited to genuinely optional states: unresolved manager discovery and supplemental lockfile identity. A declaration-led resolved manager without its exact recoverable version is contradictory state and fails integrity rather than silently reducing evidence depth.
+`PASS`. T104 contract/compatibility → T105 observation → T106 publication.
 
-### A11 — Task ordering
+### A11 — Mutation surface
 
-`PASS`. T104 establishes schema/model and compatibility proof first, T105 establishes observer without publication, T106 wires publication last.
+`PASS`. Expected product scope remains `src/environment.ts`, `src/check.ts`, `src/receipt/model.ts`, receipt-v1 schema, plus focused proof paths. No package/dependency/workflow/benchmark mutation.
 
-### A12 — Mutation surface
+### A12 — Benchmark-driven growth
 
-`PASS`. Expected product scope is four paths at most across the specification, plus focused proof paths/current consumer tests. No package/dependency/workflow/benchmark-result mutation is planned.
+`PASS`. Gap is directly measured against existing benchmark environment evidence; no unrelated capability promoted.
 
-### A13 — Benchmark-driven growth
+### A13 — Findings reconciliation
 
-`PASS`. The measured gap is concrete: product receipt lacks run-level environment identity while existing benchmark evidence models environment identity as reproducibility context. No broader feature is promoted from this observation.
+`PASS_PENDING_FRESH_HEAD_REVIEW`. Reconciled findings:
 
-### A14 — Findings reconciliation
+- F1 package-manager/lockfile authority provenance;
+- F2 strict-validator compatibility;
+- F3 false exact revision binding via `ascout_version`;
+- F4 declaration-led manager could degrade to null version;
+- F5 discovery lockfile sentinel could be mistaken for bytes / lockfile authority reread semantics were underspecified.
 
-`PASS_PENDING_FRESH_HEAD_REVIEW`. Independent review found two material planning concerns across stale heads: package-manager/lockfile provenance and strict-validator compatibility. Subsequent fresh self-audits found two more overclaims/weaknesses: `run.ascout_version` is not guaranteed to distinguish commits/builds, and declaration-led manager authority must not degrade to `package_manager_version=null` after discovery already validated an exact version. All four are now explicitly reconciled in canonical planning artifacts. Because the planning head changed, no prior independent review qualifies the repaired head; fresh exact-head independent review remains mandatory.
+Every repair changed planning head, so all earlier independent reviews are stale. Fresh exact-head independent review is mandatory.
 
 ## Cross-artifact consistency result
 
-`PASS / NO_MATERIAL_CONFLICTS_AFTER_PROVENANCE_COMPATIBILITY_REVISION_IDENTITY_AND_DECLARED_VERSION_RECONCILIATION`
+`PASS / NO_MATERIAL_CONFLICTS_AFTER_F1_F2_F3_F4_F5_RECONCILIATION`
 
 No implementation authority is granted by this analysis.

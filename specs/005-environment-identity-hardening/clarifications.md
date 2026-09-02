@@ -6,48 +6,52 @@ Spec 004 completed branch evidence. The next roadmap-backed M1.1 evidence-depth 
 
 ## C2 — Why not function coverage next?
 
-Function coverage remains unqualified by the existing branch benchmark and was explicitly outside Spec 004. No measured current gap proves that function coverage should precede environment reproducibility. This specification does not authorize it.
+Function coverage remains unqualified by the existing branch benchmark and was explicitly outside Spec 004. No measured current gap proves it should precede environment reproducibility. This specification does not authorize it.
 
 ## C3 — Is `environment` required by receipt v1?
 
-No. It is optional at the schema level for backward receipt compatibility. Canonical older receipts remain valid under the updated validator. This does **not** mean a stale strict validator is forward-compatible with a newer environment-bearing receipt; the explicit policy is `RECEIPT_V1_ADDITIVE_LOCKSTEP` in `COMPATIBILITY_POLICY.md`.
+No. It is optional for backward receipt compatibility. Canonical older receipts remain valid under updated validators. This does not promise stale strict validators accept newer environment-bearing receipts; see `RECEIPT_V1_ADDITIVE_LOCKSTEP`.
 
 ## C4 — Why keep `schema_version = "1.0"` if an older strict schema rejects the new field?
 
-Receipt `"1.0"` is the currently canonical semantic family and Spec 004 already established additive optional v1 evolution. Spec 005 makes the version-skew rule explicit: validators/consumers supported by the same canonical source/build revision move in lockstep. The prior strict schema is expected to reject a newer environment-bearing receipt and that rejection must be tested/documented. Spec 005 does not claim forward compatibility with stale schema copies and does not widen into receipt 1.1/v2 negotiation.
+Receipt `"1.0"` remains the canonical semantic family under the established additive-v1 direction. Same-source/build supported validators move in lockstep. Prior strict schema rejection is expected/tested unsupported version skew, not hidden forward compatibility. No receipt 1.1/v2 negotiation is authorized here.
 
 ## C5 — What identifies the producing revision?
 
-Spec 005 does not introduce an exact in-receipt source-revision identifier. `run.ascout_version` remains a product-version label but is **not** guaranteed to distinguish commits/builds and must not be used to select a schema revision or claim exact producer-source identity. Strict compatibility is established operationally by using validators bundled with the same canonical source/build revision, or a newer validator explicitly proven against that receipt shape. Adding schema negotiation or an in-receipt commit/schema-revision field requires separate authority.
+Spec 005 introduces no exact in-receipt source-revision identifier. `run.ascout_version` is a product-version label, not guaranteed to distinguish commits/builds, and must not select a schema revision or claim exact source identity. Strict compatibility is proven operationally against exact repository/source revisions.
 
-## C6 — Can Ascout run `npm --version`, `pnpm --version`, or `yarn --version` to fill the field?
+## C6 — How is package-manager version recovered without a second resolver?
 
-No. Spec 005 adds evidence metadata, not new executable verification or authority. `discovery.packageManager` remains the sole manager-authority decision. If discovery resolved the manager from root `package.json`, the observer reads only that same already-authoritative file to recover the exact `x.y.z` version from the declaration and must confirm it names the same manager. Declaration-led discovery resolves only after validating exact `manager@x.y.z`; therefore failure to recover that same exact version, unreadable/malformed authoritative declaration state, or a manager mismatch is an integrity failure. It must not emit `package_manager_source=package_json` with a null version, execute a command, or choose another manager.
+`discovery.packageManager` remains sole authority. For package-json-led authority, use the exact `files["package.json"]` content snapshot discovery itself parsed. Confirm its exact `manager@x.y.z` names the resolved manager and emit that non-null version. Missing/malformed/mismatched snapshot state is integrity failure. Do not re-read package.json from disk and do not execute a command or choose another manager.
 
-## C7 — Which lockfile is hashed?
+## C7 — Why not use `DiscoveryFileMap[lockfilePath]` as the lockfile content?
 
-Lockfile identity is supplemental evidence, never package-manager authority. If discovery resolved the manager from a recognized lockfile, hash that exact discovery source path. If discovery resolved the manager from root `package.json`, inspect only the fixed supported root lockfile corresponding to that already-resolved manager (`npm -> package-lock.json`, `pnpm -> pnpm-lock.yaml`, `yarn -> yarn.lock`). If that matching file is absent, unsafe, or unreadable, do not guess another lockfile. Non-matching lockfiles do not override the manager decision.
+Because discovery intentionally records recognized lockfiles as presence/path sentinels with empty-string values; only content-required metadata such as package.json is read into the map. Hashing the lockfile map value would hash an empty sentinel rather than the lockfile. T105 must use discovery only for authority/path/presence and safely re-read exact lockfile bytes from the canonical repository root.
 
-## C8 — Does a missing package-manager version or lockfile make the verification incomplete?
+## C8 — Which lockfile is hashed and what happens if it cannot be read?
 
-The two cases differ. A lockfile-derived manager legitimately has `package_manager_version=null`, and supplemental lockfile identity may be absent without changing verification completeness. But a package-json-derived manager cannot legitimately lose the exact declaration version after discovery has already validated it; that state is an integrity failure and must fail closed rather than degrade to null metadata.
+Lockfile identity never changes manager authority. If manager authority came from a recognized lockfile, hash that exact discovery authority path. Re-check realpath/symlink containment at read time; failure to safely re-read/hash the authority source is integrity failure. If authority came from package.json, consider only the fixed matching root lockfile that was present in the discovery snapshot; supplemental read failure yields null identity and never triggers fallback.
 
-## C9 — What is privacy-sensitive and prohibited?
+## C9 — Does a missing package-manager version or lockfile make verification incomplete?
 
-Raw absolute paths, hostname, username, home directory, environment-variable inventory, IP/network identity, machine IDs, credentials, tokens, and secret-bearing values are prohibited. `lockfile_path` is repository-relative only.
+Lockfile-derived manager legitimately has version null. Package-json-derived manager cannot lose the exact version discovery already validated; that is integrity failure. Supplemental matching lockfile identity may be absent without changing verification completeness. Authority-source failure is not optional absence.
 
-## C10 — Does this change task `tool_name` / `tool_version`?
+## C10 — What is privacy-sensitive and prohibited?
 
-No. Existing task-level tool identity remains unchanged. Spec 005 adds complementary run-level execution environment identity.
+Raw absolute paths, hostname, username, home directory, environment-variable inventory, IP/network identity, machine IDs, credentials, tokens, and secret-bearing values are prohibited. Lockfile paths are canonical repository-relative only.
 
-## C11 — Does environment identity become source identity?
+## C11 — Does this change task `tool_name` / `tool_version`?
 
-No. Source identity and tree binding remain authoritative for repository state. Environment identity is additional run evidence and must not transfer evidence across source states.
+No. Existing task-level tool identity remains unchanged. Spec 005 adds complementary run-level environment identity.
 
-## C12 — Does this authorize terminal/UI changes?
+## C12 — Does environment identity become source identity?
 
-No output redesign is authorized. JSON/agent/terminal changes are limited to what is mechanically required by the existing one-receipt truth architecture; any human-facing expansion beyond existing generic receipt rendering requires separate authority.
+No. Source identity/tree binding remain authoritative. Environment identity is additional current-run evidence and cannot transfer evidence across source states.
 
-## C13 — May T105 modify discovery to make implementation easier?
+## C13 — Does this authorize terminal/UI changes?
 
-Not under the current plan. `src/discovery.ts` is intentionally outside the expected T105 product surface. If the bounded observer cannot satisfy provenance rules from existing discovery state plus the exact already-authoritative source files, T105 must stop and return to planning instead of widening discovery contracts.
+No output redesign. JSON/agent/terminal changes are limited to existing generic receipt mechanics; bespoke human-facing expansion requires separate authority.
+
+## C14 — May T105 modify discovery to make implementation easier?
+
+No. `src/discovery.ts` is outside T105. `collectDiscoveredProject()` already provides canonical root, files snapshot, and discovery result. If those bounded inputs cannot satisfy the rules, T105 stops `NO_GO` and returns to planning.
