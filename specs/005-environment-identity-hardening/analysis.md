@@ -1,86 +1,61 @@
 # Specification 005 Cross-Artifact Analysis
 
-## Inputs
-
-- `.specify/memory/constitution.md`
-- `docs/founding/MASTER_PLAN_V1.md`
-- `docs/strategy/POST_M1_VERIFICATION_ROADMAP.md`
-- `spec.md`
-- `clarifications.md`
-- `COMPATIBILITY_POLICY.md`
-- `plan.md`
-- `tasks.md`
-- `checklists/requirements.md`
-
 ## Findings
 
-### A1 — Roadmap alignment
+### A1 — Roadmap / evidence integrity
 
-`PASS`. Only M1.1-B environment/tool identity depth; task-level tool identity is not redesigned.
+`PASS`. Only measured M1.1-B environment evidence depth; no function coverage/M2 and no change to PASS/completeness authority.
 
-### A2 — Evidence integrity / no-green-by-omission
+### A2 — Trust / privacy
 
-`PASS`. Environment metadata cannot substitute for source-bound verification or missing evidence.
+`PASS`. No new process execution/install. Discovery remains sole manager authority. Host/user/network/env/secret identity is prohibited; lockfile reads stay contained.
 
-### A3 — Trust / execution authority
+### A3 — Receipt compatibility / exact revision truth
 
-`PASS`. No new process execution/install; discovery remains sole manager authority.
+`PASS_AFTER_RECONCILIATION`. Additive lockstep honestly records stale strict-schema rejection. `ascout_version` is not a unique source/schema key. No negotiation/v2 expansion.
 
-### A4 — Privacy
+### A4 — Prior-schema evaluator proof
 
-`PASS`. Raw host/user/network/env/secret identity is prohibited; lockfile reads remain within canonical root with realpath containment.
+`PASS_AFTER_RECONCILIATION`. T104 includes only the narrow `src/receipt/json.ts` same-evaluator reuse needed to run current and pinned prior schemas through canonical validator semantics. No duplicate evaluator/dependency/runtime schema selection.
 
-### A5 — Receipt compatibility
+### A5 — Package-manager / lockfile provenance
 
-`PASS_AFTER_RECONCILIATION`. Additive lockstep honestly records stale strict-schema rejection. `run.ascout_version` is not a unique source/schema key; exact repository revisions bind proof. No negotiation/v2 expansion.
+`PASS_AFTER_RECONCILIATION`. Declaration-led exact version comes from the same discovery snapshot; lockfile discovery values are presence sentinels and exact filesystem bytes are reread only from authorized contained paths. Authority failure is integrity; supplemental failure may be null without fallback.
 
-### A6 — Prior-schema evaluator proof
-
-`PASS_AFTER_RECONCILIATION`. Live `src/receipt/json.ts` has one canonical evaluator, but `validateReceiptJsonSchema()` currently reaches it only through the current bundled schema loader. A prior-schema rejection test would otherwise require a copied evaluator, forbidden dependency, or unsafe schema-file manipulation. T104 therefore explicitly includes a narrow `src/receipt/json.ts` reuse/testability refactor: current runtime validation remains current-schema-only, while repository-local proof may invoke the same evaluator with the immutable exact prior schema. No second evaluator, dependency, runtime schema selection, or negotiation is authorized.
-
-### A7 — Package-manager provenance
-
-`PASS_WITH_EXPLICIT_RULE`. Declaration-led exact version comes from the same discovery package.json snapshot; contradiction is integrity failure; no disk reread/second resolver.
-
-### A8 — Lockfile sentinel / byte-source boundary
-
-`PASS_AFTER_RECONCILIATION`. Discovery lockfile map values are presence sentinels and are never hashed. Exact filesystem bytes are reread from the already-authorized path with containment rechecked and bounded-memory hashing.
-
-### A9 — Lockfile authority vs supplemental identity
-
-`PASS_WITH_EXPLICIT_RULE`. Authority lockfile reread/hash failure is integrity failure; package-json supplemental matching-lockfile failure is nullable and cannot trigger fallback.
-
-### A10 — Discovery mutation boundary
+### A6 — Discovery boundary
 
 `PASS`. `src/discovery.ts` remains excluded; insufficiency is `NO_GO` + replanning.
 
-### A11 — Task ordering
+### A7 — Environment integrity-error process semantics
 
-`PASS`. T104 contract/compatibility → T105 observation → T106 publication.
+`PASS_AFTER_RECONCILIATION`. Live `runCli()` maps a successful receipt to its canonical summary exit code but maps generic non-usage exceptions to `1`; canonical Spec 001/Master Plan reserve exit `2` for internal/integrity errors. Letting the new expected environment-integrity failure fall through generic handling would violate that contract. T105 therefore owns a typed environment-integrity error, and T106 observes before project-task execution, emits no receipt on failure, and narrowly updates `src/cli.ts` to map only that type to redacted diagnostic + exit `2`. No synthetic receipt field/task and no generic CLI error redesign.
 
-### A12 — Mutation surface
+### A8 — Task ordering / mutation surfaces
 
-`PASS_AFTER_RECONCILIATION`. T104 explicitly includes `src/receipt/model.ts`, receipt-v1 schema, and the narrow `src/receipt/json.ts` evaluator-reuse refactor plus immutable prior-schema/current JSON proof. T105 is `src/environment.ts`; T106 is minimal `src/check.ts` wiring. No package/dependency/workflow/benchmark mutation.
+`PASS_AFTER_RECONCILIATION`.
 
-### A13 — Benchmark-driven growth
+- T104: model + current schema + narrow JSON evaluator reuse + exact prior fixture/tests.
+- T105: `src/environment.ts` + focused tests.
+- T106: `src/check.ts` pre-task observation/publication + `src/cli.ts` typed integrity-error exit mapping + focused integration tests.
 
-`PASS`. Gap is directly measured against existing benchmark environment evidence; no unrelated capability promoted.
+No package/dependency/workflow/benchmark mutation.
 
-### A14 — Findings reconciliation
+### A9 — Findings reconciliation
 
-`PASS_PENDING_FRESH_HEAD_REVIEW`. Reconciled findings:
+`PASS_PENDING_FRESH_HEAD_REVIEW`. Reconciled:
 
 - F1 package-manager/lockfile authority provenance;
 - F2 strict-validator compatibility;
 - F3 false exact revision binding via `ascout_version`;
-- F4 declaration-led manager could degrade to null version;
-- F5 discovery lockfile sentinel/byte-source and authority-reread semantics;
-- F6 prior strict-schema proof was not implementable through the canonical evaluator within the stated T104 surface.
+- F4 declaration-led manager null-version ambiguity;
+- F5 lockfile sentinel/byte-source and authority-reread semantics;
+- F6 prior strict-schema proof lacked an authorized canonical-evaluator route;
+- F7 environment observation integrity failure would otherwise fall into generic CLI exit `1`, conflicting with canonical integrity-error exit `2`.
 
-Every repair changed planning head; all earlier independent review evidence is stale. Fresh exact-head independent review is mandatory.
+Every repair changes planning head; earlier CI/reviews are stale. Fresh exact-head CI and independent review are mandatory.
 
 ## Cross-artifact consistency result
 
-`PASS / NO_MATERIAL_CONFLICTS_AFTER_F1_F2_F3_F4_F5_F6_RECONCILIATION`
+`PASS / NO_MATERIAL_CONFLICTS_AFTER_F1_F2_F3_F4_F5_F6_F7_RECONCILIATION`
 
 No implementation authority is granted by this analysis.

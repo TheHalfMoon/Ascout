@@ -2,7 +2,7 @@
 
 ## C1 — Why environment identity now?
 
-Spec 004 completed branch evidence. The next roadmap-backed M1.1 evidence-depth gap is environment identity: benchmark evidence already records runtime context while the product receipt does not.
+Spec 004 completed branch evidence. The next roadmap-backed M1.1 evidence-depth gap is environment identity: benchmark evidence records runtime context while product receipts do not.
 
 ## C2 — Why not function coverage next?
 
@@ -14,48 +14,52 @@ No. It is optional for backward receipt compatibility. This does not promise sta
 
 ## C4 — Why keep `schema_version = "1.0"`?
 
-Receipt `"1.0"` remains the canonical semantic family under additive-v1 lockstep. Same-source/build supported validators move together; prior strict-schema rejection is expected/tested unsupported skew. No 1.1/v2 negotiation is authorized.
+Receipt `"1.0"` remains the canonical semantic family under additive-v1 lockstep. Same-source/build validators move together; prior strict-schema rejection is expected/tested skew. No v2 negotiation is authorized.
 
 ## C5 — What identifies the producing revision?
 
-Spec 005 introduces no exact in-receipt source-revision identifier. `run.ascout_version` is a product-version label and must not select a schema revision or claim exact source identity. Compatibility proof binds exact repository/source revisions.
+No exact in-receipt source-revision identifier is added. `run.ascout_version` is a product label, not a schema lookup key; exact repository identities bind proof.
 
-## C6 — How is package-manager version recovered without a second resolver?
+## C6 — How is package-manager version recovered?
 
-Use `discovery.packageManager` as sole authority and parse the exact `files["package.json"]` snapshot discovery used. Confirm the same exact `manager@x.y.z`; missing/malformed/mismatch is integrity failure. No disk reread or command execution.
+Discovery remains sole authority. Package-json-led version comes from the exact snapshot discovery parsed, with same-manager confirmation; contradiction is integrity failure. No disk reread/command execution.
 
 ## C7 — Why not hash `DiscoveryFileMap[lockfilePath]`?
 
-Recognized lockfiles are empty-string presence sentinels in discovery, not contents. T105 uses discovery only for authority/path/presence and safely re-reads exact filesystem bytes from canonical root.
+Recognized lockfiles are empty-string presence sentinels, not contents. Exact bytes are safely reread from the authorized contained path.
 
-## C8 — Which lockfile is hashed and what if it cannot be read?
+## C8 — Which lockfile is hashed and what if it fails?
 
-Lockfile-led authority hashes the exact discovery authority path; safe reread/hash failure is integrity failure. Package-json-led authority may use only the fixed matching root lockfile present in the snapshot; supplemental read failure yields null identity with no fallback.
+Lockfile-led authority hashes its exact authority path; safe reread/hash failure is integrity failure. Package-json-led authority may use only the matching root lockfile present in the snapshot; supplemental failure yields null with no fallback.
 
-## C9 — Does missing package-manager version or lockfile make verification incomplete?
+## C9 — Does missing environment metadata make verification incomplete?
 
-Lockfile-led manager legitimately has version null. Package-json-led manager cannot lose the exact version discovery already validated; that is integrity failure. Supplemental lockfile identity may be absent without changing verification completeness.
+Lockfile-led version can legitimately be null; package-json-led version cannot lose the exact validated version. Supplemental lockfile identity may be absent. Authority-source contradiction/failure is not optional absence.
 
-## C10 — What is privacy-sensitive and prohibited?
+## C10 — What is privacy-sensitive?
 
-Raw absolute paths, hostname, username/home, environment-variable inventory, IP/network identity, machine IDs, credentials/tokens/secrets are prohibited. Receipt paths are canonical repository-relative.
+Raw absolute paths, host/user/home, env inventory, network/machine identity, credentials/tokens/secrets are prohibited. Receipt paths are canonical repository-relative.
 
-## C11 — Does this change task `tool_name` / `tool_version`?
+## C11 — Does this change task tool identity?
 
-No. Existing task-level tool identity remains unchanged.
+No.
 
 ## C12 — Does environment identity become source identity?
 
-No. Source identity/tree binding remain authoritative; environment identity is additional current-run evidence.
+No. Source/tree binding remains authoritative.
 
 ## C13 — Does this authorize terminal/UI changes?
 
-No output redesign. JSON/agent/terminal changes are limited to existing generic receipt mechanics.
+No bespoke output redesign.
 
 ## C14 — May T105 modify discovery?
 
-No. `src/discovery.ts` is outside T105. If `root + files + discovery` cannot satisfy the bounded rules, T105 stops `NO_GO` and returns to planning.
+No. If `root + files + discovery` cannot satisfy bounded rules, T105 is `NO_GO` and returns to planning.
 
-## C15 — How can T104 prove rejection by the prior strict schema without creating a second validator?
+## C15 — How does T104 prove prior strict-schema rejection without a second validator?
 
-Current `src/receipt/json.ts` contains the canonical evaluator but its normal exported validation path loads only the current bundled schema. T104 may narrowly refactor that module so the same evaluator can be called with a controlled parsed schema in repository-local tests. The exact pre-Spec-005 strict schema is pinned as an immutable fixture and evaluated through that same implementation. The normal `validateReceiptJsonSchema()` entry point remains current-schema-only. A copied test validator, new validation dependency, runtime schema selector, arbitrary schema-loading API, or negotiation mechanism is not authorized.
+The same canonical evaluator in `src/receipt/json.ts` runs both current and exact pinned prior schemas. T104 may make only the minimum reuse/testability refactor; normal current validation remains current-schema-only. The prior fixture binds base `7bede70ad2abfb91dc9186fb44d77a824efbfdef`, canonical schema path, and blob `b331de44505f6fbdc5ff033367ef0904fda236b4`. No copied evaluator/dependency/runtime schema selector/negotiation.
+
+## C16 — What happens if environment identity cannot be observed safely?
+
+That is an expected typed integrity failure, not a repository finding and not optional metadata absence. T106 observes before any project task execution. On failure, no receipt is emitted and no synthetic task or `environment_error` field is invented. Because canonical Spec 001/Master Plan assign internal/integrity errors to exit `2` while the current generic CLI exception path returns `1`, T106 narrowly authorizes `src/cli.ts` to recognize only this typed environment-integrity failure, emit the existing redacted diagnostic form, and return `2`. Generic unexpected-error behavior is not redesigned.

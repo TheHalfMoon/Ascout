@@ -1,67 +1,45 @@
 # Specification 005 Requirements Quality Checklist
 
-## Scope and value
+## Scope / trust / privacy
 
-- [x] Measured receipt-vs-benchmark M1.1 gap.
-- [x] Runtime environment identity only.
-- [x] Function coverage and M2+ excluded.
-- [x] No speculative platform/plugin abstractions.
-
-## Trust and evidence
-
+- [x] Measured M1.1 receipt-vs-benchmark gap only; function coverage/M2 excluded.
 - [x] Environment metadata non-authoritative for PASS/completeness.
-- [x] No current evidence replaced by history.
-- [x] No new execution/install/package-manager probe.
-- [x] Discovery is sole manager authority.
-- [x] Package-json version comes from exact discovery snapshot; no disk reread.
-- [x] Lockfile sentinel values never treated as bytes.
-- [x] Authority lockfile reread failure is integrity failure; supplemental matching lockfile may be null without fallback.
-
-## Privacy and filesystem safety
-
-- [x] Raw absolute paths/host/user/network/env inventory/credentials/secrets prohibited from receipt.
-- [x] Lockfile paths canonical repository-relative.
-- [x] Lockfile reads re-check canonical-root realpath/symlink containment.
-- [x] Exact-byte hashing uses bounded-memory reading.
+- [x] No new execution/install/package-manager probe; discovery sole manager authority.
+- [x] Package-json version from exact discovery snapshot; lockfile sentinel values never hashed.
+- [x] Lockfile authority failure is integrity; supplemental failure may be null without fallback.
+- [x] Raw host/user/network/env/secret identity prohibited; filesystem reads re-check canonical-root containment and use bounded memory.
 
 ## Compatibility
 
-- [x] Schema version remains `"1.0"` under explicit lockstep policy.
-- [x] Environment optional for backward receipt compatibility.
-- [x] No stale strict-validator forward-compatibility claim.
-- [x] Updated validators accept canonical old receipts and new environment receipts.
-- [x] Exact prior strict-schema rejection is required proof.
-- [x] Prior schema proof immutable/deterministic.
-- [x] Prior schema and current schema are exercised through the same canonical JSON Schema evaluator implementation.
-- [x] T104 explicitly permits the minimum `src/receipt/json.ts` evaluator-reuse refactor needed for that proof while preserving current-schema runtime behavior.
-- [x] No test-local duplicate evaluator, new validation dependency, runtime schema selection, or negotiation.
-- [x] Same-source/build consumers move in lockstep.
-- [x] `ascout_version` is product label, not unique schema/source key.
-- [x] Exact repository revisions bind compatibility proof.
-- [x] No receipt 1.1/v2/negotiation/new revision field.
+- [x] Schema stays `"1.0"` under explicit lockstep policy.
+- [x] Old/current and new/current acceptance plus exact prior rejection are explicit.
+- [x] Prior/current schemas use the same canonical JSON Schema evaluator.
+- [x] T104 narrow `src/receipt/json.ts` reuse preserves normal current-schema loading.
+- [x] Exact prior fixture binds base `7bede70ad2abfb91dc9186fb44d77a824efbfdef` and schema blob `b331de44505f6fbdc5ff033367ef0904fda236b4`.
+- [x] No duplicate evaluator/dependency/runtime schema selection/negotiation.
+- [x] `ascout_version` is not a unique schema/source key.
 
 ## Environment invariants
 
-- [x] `package_json` => manager non-null + exact non-null x.y.z version.
-- [x] `lockfile` => manager non-null + version null.
-- [x] `unavailable` => manager/version null + no lockfile identity.
-- [x] Contradictory package-json snapshot state fails integrity.
-- [x] Lockfile authority path cannot be silently lost.
-- [x] Supplemental lockfile identity cannot create manager authority.
+- [x] `package_json` => manager + exact non-null version.
+- [x] `lockfile` => manager + null version.
+- [x] `unavailable` => null manager/version + no lockfile identity.
+- [x] Authority contradictions/unsafe reads fail typed integrity; supplemental identity cannot create authority.
 
-## Determinism and testability
+## Integrity-error process behavior
 
-- [x] Current/prior schema compatibility uses one evaluator.
-- [x] Runtime/platform/arch and package-manager provenance defined.
-- [x] Lockfile byte source separated from discovery sentinel.
-- [x] SHA-256/null-pair invariants defined.
-- [x] Sentinel-not-bytes, authority/supplemental read-failure, symlink/path containment, and current-consumer tests specified.
-- [x] Exact-head cross-platform CI + independent review required.
+- [x] T105 defines a typed environment-identity integrity error.
+- [x] T106 observes before any project task execution.
+- [x] Typed environment-integrity failure emits no receipt/synthetic task/error field.
+- [x] T106 explicitly authorizes only the minimal `src/cli.ts` classification needed to map that typed expected integrity failure to canonical exit `2` with existing path redaction.
+- [x] Generic unexpected CLI error behavior remains unchanged; no new flag/output mode.
+- [x] Tests prove zero subsequent project-task execution, no receipt output, redacted diagnostic, exit `2`.
 
-## Authorization
+## Authorization / qualification
 
 - [x] Planning artifacts do not authorize implementation.
 - [x] T104 blocked until planning merge + durable authorization.
-- [x] T104 product surface now explicitly includes the narrow `src/receipt/json.ts` proof refactor; no other JSON subsystem widening is authorized.
+- [x] T104 → T105 → T106 exact surfaces are explicit.
+- [x] Exact-head six-lane CI + fresh independent review required.
 
-**Result:** `READY_FOR_INDEPENDENT_REVIEW_AFTER_F1_F2_F3_F4_F5_F6_RECONCILIATION`
+**Result:** `READY_FOR_INDEPENDENT_REVIEW_AFTER_F1_F2_F3_F4_F5_F6_F7_RECONCILIATION`

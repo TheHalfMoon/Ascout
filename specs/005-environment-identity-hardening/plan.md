@@ -2,124 +2,105 @@
 
 ## Objective
 
-Add deterministic, privacy-safe run-level environment identity to receipt v1 while preserving existing verification semantics and avoiding new executable authority.
+Add deterministic, privacy-safe run-level environment identity to receipt v1 while preserving verification semantics and avoiding new executable authority.
 
 ## Current architecture
 
-- `src/check.ts` constructs the final receipt.
-- `src/receipt/model.ts` defines receipt v1 interfaces and semantic validation.
+- `src/check.ts` constructs the final receipt after discovery/planning/task execution and source-end observation.
+- `src/receipt/model.ts` defines receipt v1 interfaces/semantic validation.
 - `receipt-v1.schema.json` is a strict closed JSON Schema v1.
-- `src/receipt/json.ts` contains the repository's canonical JSON Schema evaluator and exports `validateReceiptJsonSchema()`, whose current entry point loads only the bundled current schema. The generic evaluator path is internal and is not currently injectable with an exact historical schema.
+- `src/receipt/json.ts` contains the canonical JSON Schema evaluator; normal validation loads only the bundled current schema.
+- `runCli()` returns receipt summary exit codes for successful `runCheck()` outcomes. Its current generic non-usage exception path returns `1`, while canonical Spec 001/Master Plan reserve exit `2` for usage/config/internal/task-execution integrity errors. Therefore a newly expected environment-integrity failure cannot simply fall into the generic exception path without explicit bounded handling.
 - `collectDiscoveredProject()` returns canonical `root`, `DiscoveryFileMap files`, and `ProjectDiscovery discovery`.
-- Root `package.json` content is retained in `files`; recognized lockfiles are retained only as empty-string presence sentinels.
-- `ProjectDiscovery.packageManager` retains manager + source paths, not declaration version.
-- Node built-ins provide runtime/platform/architecture, safe filesystem primitives, and SHA-256.
+- Root `package.json` content is retained in `files`; recognized lockfiles are empty-string presence sentinels.
 
 ## Compatibility policy
 
-Spec 005 adopts `RECEIPT_V1_ADDITIVE_LOCKSTEP`:
+Spec 005 adopts `RECEIPT_V1_ADDITIVE_LOCKSTEP`: schema version stays `"1.0"`, older receipts remain accepted by updated validators, same-source/build consumers move in lockstep, prior strict-schema rejection is expected skew, `ascout_version` is not a unique schema key, and no v2/negotiation is introduced.
 
-- `schema_version` remains `"1.0"`;
-- older receipts remain accepted by updated validators;
-- same-source/build validators/consumers move in lockstep;
-- prior strict schema rejection of an environment-bearing receipt is expected unsupported skew;
-- `run.ascout_version` is not a unique source/schema identifier;
-- no receipt 1.1/v2 or runtime schema negotiation.
-
-T104 must prove old/new compatibility using exact repository/source-revision evidence. Because the current JSON module can only invoke its canonical evaluator through a current-schema loader, T104 may make a narrow refactor in `src/receipt/json.ts` that reuses the same evaluator with a caller-supplied parsed schema **only for controlled repository-local proof**. `validateReceiptJsonSchema()` continues to load and validate against the current bundled schema exactly as before. No second validator or dependency is permitted.
+T104 may narrowly refactor `src/receipt/json.ts` so the same evaluator can run the current bundled schema and an immutable exact prior schema in repository-local proof. Normal `validateReceiptJsonSchema()` remains current-schema-only. No second validator/dependency/runtime schema selection.
 
 ## Proposed design
 
 ### 1. Environment model
 
-Add `EnvironmentV1` with runtime name/version, OS, arch, manager/version/source, lockfile path/digest. Extend `ReceiptV1` with optional `environment?: EnvironmentV1`; add a closed optional JSON Schema object while keeping schema version `"1.0"`.
+Add `EnvironmentV1` with runtime name/version, OS, arch, manager/version/source, and lockfile path/digest. Extend `ReceiptV1` with optional `environment?: EnvironmentV1`; add a closed optional schema object.
 
 ### 2. T104 JSON Schema proof boundary
 
-Keep one evaluator implementation in `src/receipt/json.ts`.
+Refactor one existing evaluator call into a reusable controlled function. Pin the exact pre-Spec-005 strict schema as `tests/fixtures/receipt-v1-pre-spec005.schema.json`, tied to canonical base `7bede70ad2abfb91dc9186fb44d77a824efbfdef`, schema path `specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json`, Git blob `b331de44505f6fbdc5ff033367ef0904fda236b4`. Current and prior schemas run through the same evaluator. The current loader/cache and current runtime validation behavior remain unchanged.
 
-- Refactor the current evaluator call into a small reusable function that accepts a parsed, already-controlled schema object and a value.
-- The existing current-schema loader/cache and `validateReceiptJsonSchema(value)` behavior remain unchanged and continue to use only the bundled current schema.
-- Pin the exact pre-Spec-005 strict schema as an immutable repository-local test fixture, e.g. `tests/fixtures/receipt-v1-pre-spec005.schema.json`, with the fixture content/identity tied to canonical pre-Spec-005 source.
-- Execute the new environment receipt against that pinned schema through the **same evaluator** and assert expected rejection.
-- Do not expose runtime schema negotiation or an arbitrary schema-loading CLI/API; do not duplicate evaluator logic in tests.
-
-The existing evaluator already supports the conditional/closed-object constructs needed for the environment contract (`if`/`then`/`else`, `allOf`, `oneOf`, `const`, patterns, required properties), so no validator feature expansion or dependency is planned. If the contract cannot be expressed using the currently supported keyword set, T104 stops `NO_GO` and returns to planning.
+The existing evaluator supports the conditional/closed-object keywords needed for the environment contract. If the contract cannot be expressed using the already-supported keyword set, T104 is `NO_GO` rather than validator expansion.
 
 ### 3. Observation boundary
 
-Add `src/environment.ts`, receiving canonical `root`, `files`, and `discovery` from `collectDiscoveredProject()`.
+T105 adds `src/environment.ts`, receiving canonical `root`, `files`, and `discovery` from `collectDiscoveredProject()`.
 
-It may read process runtime/platform/arch, parse the exact package.json snapshot already used by discovery, use lockfile authority/path presence from discovery, and safely re-open at most one already-authorized lockfile path for exact-byte hashing with Node built-ins.
+It observes process runtime/platform/arch, derives declaration-led version from the same package.json snapshot, and hashes only exact filesystem bytes at an already-authorized lockfile path with containment rechecked. It never spawns a process, chooses a manager, hashes a discovery sentinel, discovers a post-snapshot lockfile, trusts an unrevalidated symlink, or mutates discovery.
 
-It must not spawn processes, inspect arbitrary environment variables/host identity, choose a manager independently, hash a lockfile sentinel, discover a new lockfile after the snapshot, trust unrevalidated symlink paths, or mutate `src/discovery.ts`.
+T105 defines a typed environment-identity integrity error for contradictory/unsafe authority state. Supplemental absence is represented with nulls; authority failure is typed error.
 
-### 4. Package-manager mapping
+### 4. Package-manager / lockfile rules
 
 - Not resolved: manager/version null, source `unavailable`, no lockfile identity.
-- Resolved from `package.json`: manager from discovery, source `package_json`, exact non-null `x.y.z` from the same `files["package.json"]` snapshot; mismatch/malformed/missing snapshot = integrity failure.
-- Resolved from recognized lockfile: manager from discovery, version null, source `lockfile`, exact discovery source path is authority.
+- Package-json authority: manager from discovery, exact non-null version from same snapshot; contradiction = typed integrity failure.
+- Lockfile authority: manager from discovery, version null, exact discovery path; unsafe/unreadable/hash failure = typed integrity failure.
+- Package-json supplemental lockfile: only matching fixed root path present in snapshot; failure => null identity, never fallback.
 
-### 5. Lockfile byte source and identity
+### 5. T106 publication and integrity-error boundary
 
-Discovery lockfile values are presence sentinels, not bytes.
+T106 wires the observer into `src/check.ts` **before any project task execution**. On successful observation, the one observed `EnvironmentV1` is carried to receipt construction and emitted unchanged.
 
-For lockfile-derived authority: require the exact recognized source path and snapshot presence, resolve beneath canonical root, re-check realpath/symlink containment, hash exact bytes in bounded chunks, and fail integrity if the authority source cannot be safely re-observed.
+On typed environment-identity integrity failure:
 
-For package-json-derived authority: consider only the manager's fixed matching root lockfile if present in the discovery snapshot; re-check containment and hash exact bytes; absent/unsafe/missing/unreadable supplemental state yields null identity with no fallback.
+- no project task is executed after the failed observation;
+- no receipt/JSON/agent receipt is emitted, because inventing a synthetic task or `environment_error` field would misrepresent the receipt model;
+- the typed failure propagates to the CLI boundary;
+- `src/cli.ts` receives a narrowly authorized change that recognizes only this typed expected integrity failure, emits a repository-path-redacted diagnostic through existing redaction behavior, and returns exit code `2`;
+- generic unexpected-error handling remains unchanged and no new CLI flag/output mode is introduced.
 
-### 6. Validation
+This is the minimum truthful route to the canonical integrity-error exit code without widening the receipt schema beyond environment identity.
 
-Semantic/schema validation enforces runtime name/version, `package_json => manager + exact non-null version`, `lockfile => manager + null version`, `unavailable => null manager/version + null lockfile identity`, lockfile path/digest null-pair, canonical repository path, lowercase 64-hex digest, and manager/lockfile basename consistency when identity is present.
+### 6. Validation / output
 
-### 7. Serialization/output
-
-No renderer abstraction. Existing JSON path includes `environment` mechanically; agent/terminal behavior changes only where existing generic receipt handling already exposes it.
+Semantic/schema validation enforces runtime and source/manager/version/lockfile invariants. Existing JSON includes environment mechanically; agent/terminal behavior changes only where generic receipt handling already exposes fields. There is no bespoke presentation.
 
 ## Authorized implementation surfaces candidate
 
-### T104 product/contract surfaces
+### T104
 
 - `src/receipt/model.ts`;
 - `specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json`;
-- `src/receipt/json.ts` **only** for the narrow same-evaluator reusable validation refactor described above; current-schema runtime behavior must remain unchanged.
+- `src/receipt/json.ts` only for same-evaluator proof reuse/current behavior preservation;
+- focused receipt/model/JSON tests + immutable prior-schema fixture.
 
-### T105 product surface
+### T105
 
-- `src/environment.ts` (new) only.
+- `src/environment.ts` only for product behavior, including its typed integrity error;
+- focused observer/privacy/containment tests.
 
-### T106 product surface
+### T106
 
-- `src/check.ts` only for minimal environment publication/wiring.
+- `src/check.ts` for pre-task observation and successful receipt publication;
+- `src/cli.ts` only for typed environment-integrity failure → redacted diagnostic + exit `2`, with generic error behavior unchanged;
+- focused check/CLI/current-consumer integration tests.
 
-`src/discovery.ts` is not expected to change. Any need to widen discovery is `NO_GO` + replanning.
-
-Expected proof paths include:
-
-- `tests/environment-identity.contract.test.ts` (focused model/observer proof as task-appropriate);
-- `tests/receipt-json.test.ts` for T104 current/prior same-evaluator compatibility proof;
-- `tests/fixtures/receipt-v1-pre-spec005.schema.json` as the immutable exact prior strict-schema fixture;
-- focused existing receipt/schema/agent/check tests only where directly required.
-
-No package/dependency/workflow/benchmark-result mutation.
+`src/discovery.ts` remains excluded. No package/dependency/workflow/benchmark-result mutation.
 
 ## Validation strategy
 
-1. current evaluator + current schema: old receipt accept;
-2. current evaluator + current schema: new environment receipt accept;
-3. same evaluator + immutable exact prior strict schema: new environment receipt expected reject;
-4. prove normal `validateReceiptJsonSchema()` still loads only current bundled schema;
-5. prove no test-local duplicate evaluator/new validation dependency;
-6. environment model/source invariants;
-7. declaration-led version recovery from discovery snapshot and no disk reread;
-8. lockfile sentinel-not-bytes regression;
-9. lockfile authority exact-byte SHA-256 + containment/symlink/reread-failure tests;
-10. supplemental matching-lockfile null cases;
-11. integration receipt emission/current consumers;
-12. full tests/typecheck/build;
-13. exact-head six-lane Project CI;
-14. fresh independent exact-head substantive review.
+1. same evaluator: old/current accept + new/current accept + new/prior expected reject;
+2. current `validateReceiptJsonSchema()` remains current-schema-only;
+3. environment model/source invariants and package-json snapshot derivation;
+4. lockfile sentinel-not-bytes, exact-byte hash, containment/symlink, authority/supplemental failure cases;
+5. T106 calls observer before project task execution;
+6. typed environment integrity failure causes zero project-task execution, no receipt output, redacted diagnostic, CLI exit `2`;
+7. generic unexpected CLI error behavior is unchanged;
+8. successful integration receipt emission/current consumers;
+9. full tests/typecheck/build;
+10. exact-head six-lane Project CI;
+11. fresh independent exact-head substantive review.
 
 ## Rollback/compatibility
 
-Environment remains additive optional within the lockstep v1 family. Older receipts remain valid under newer validators; stale strict validators are unsupported for newer environment-bearing receipts. `run.ascout_version` alone does not identify schema revision. No migration or negotiation layer is introduced.
+Environment remains additive optional. Older receipts remain valid under newer validators. Stale strict validators are unsupported for new environment-bearing receipts. No migration/negotiation layer or generic CLI error redesign is introduced.

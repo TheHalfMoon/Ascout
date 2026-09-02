@@ -8,102 +8,94 @@
 
 ### Scope
 
-- Add `EnvironmentV1` to `src/receipt/model.ts` and optional `environment?: EnvironmentV1` to receipt v1.
-- Add the optional closed `environment` JSON Schema contract while preserving `schema_version = "1.0"`.
-- Narrowly refactor `src/receipt/json.ts` so the existing canonical JSON Schema evaluator can validate a controlled supplied parsed schema for repository-local compatibility proof, while `validateReceiptJsonSchema()` continues loading only the current bundled schema.
-- Pin the exact pre-Spec-005 strict schema as immutable repository-local proof, expected at `tests/fixtures/receipt-v1-pre-spec005.schema.json`, tied to canonical pre-Spec-005 schema identity.
-- Add focused validation/compatibility tests, including `tests/receipt-json.test.ts` and model contract proof as directly required.
-- Keep same-source/build repository consumers/validators schema-consistent; do not introduce a second runtime schema copy/evaluator.
+- Add `EnvironmentV1` and optional receipt `environment` in `src/receipt/model.ts`.
+- Add the optional closed environment JSON Schema while keeping `schema_version = "1.0"`.
+- Narrowly refactor `src/receipt/json.ts` so the existing canonical evaluator can run a controlled supplied parsed schema for repository-local proof while normal validation remains current-bundled-schema-only.
+- Pin `tests/fixtures/receipt-v1-pre-spec005.schema.json` to canonical base `7bede70ad2abfb91dc9186fb44d77a824efbfdef`, schema path `specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json`, blob `b331de44505f6fbdc5ff033367ef0904fda236b4`.
+- Add focused model/JSON compatibility tests and keep current consumers schema-consistent.
 
 ### Acceptance
 
-- old canonical receipt + new semantic validator = `ACCEPT`;
-- old canonical receipt + current JSON Schema through canonical evaluator = `ACCEPT`;
-- new valid environment receipt + new semantic/current JSON Schema validators = `ACCEPT`;
-- new environment receipt + exact prior strict schema through the **same canonical evaluator** = `REJECT_EXPECTED_VERSION_SKEW`;
-- exact prior schema fixture identity is pinned deterministically and cannot drift;
+- old receipt + new semantic/current JSON Schema = `ACCEPT`;
+- new environment receipt + new semantic/current JSON Schema = `ACCEPT`;
+- new environment receipt + exact pinned prior schema through the same evaluator = `REJECT_EXPECTED_VERSION_SKEW`;
+- fixture identity cannot drift;
 - normal `validateReceiptJsonSchema()` behavior remains current-schema-only;
-- no duplicate test-local validator, validation dependency, runtime schema selector, or negotiation mechanism;
-- current JSON/agent/terminal consumers remain functional without bespoke environment presentation;
-- `package_json` source requires manager + exact non-null version; `lockfile` requires manager + null version; `unavailable` requires null manager/version;
-- invalid runtime/source/version/path/digest/null-group combinations fail;
-- existing verification semantics remain unchanged.
+- no duplicate evaluator/dependency/runtime schema selector/negotiation;
+- source/version/path/digest/null-group invalid states fail;
+- existing verification semantics unchanged.
 
 ### Hard boundary
 
-No environment observation/wiring yet. No `src/check.ts` change. `src/receipt/json.ts` mutation is limited to same-evaluator reuse/testability; do not change current schema loading, add arbitrary schema ingestion, add a second evaluator/dependency, or introduce receipt 1.1/v2/in-receipt revision fields/schema negotiation.
+No observation/wiring, no `src/check.ts`/`src/cli.ts`, no v2/revision field/schema negotiation.
 
 ## T105 — Observe environment identity without execution
 
 ### Scope
 
 - Add `src/environment.ts` only for product behavior in this task.
-- Receive canonical `root`, `DiscoveryFileMap files`, and already-resolved `discovery` from `collectDiscoveredProject()`.
-- Observe Node runtime/platform/arch from current process.
-- Use `discovery.packageManager` as sole manager authority.
-- For package-json authority, recover exact version from the same package.json snapshot discovery parsed; never re-read package.json from disk.
-- For lockfile authority, use only the exact discovery source path.
-- For package-json authority, supplemental lockfile identity may use only the fixed matching root lockfile present in the discovery snapshot.
-- Re-read exact lockfile bytes beneath canonical root with realpath/symlink containment rechecked and bounded-memory chunked hashing.
-- Never hash `files[lockfilePath]`; recognized lockfile values are presence sentinels, not contents.
-- Add focused observer/privacy/containment/provenance tests.
+- Receive canonical `root`, `files`, and already-resolved `discovery`.
+- Observe runtime/platform/arch from current process.
+- Use discovery as sole manager authority; derive package-json version from the exact discovery snapshot and never disk reread.
+- Re-read only exact authorized lockfile bytes beneath canonical root with containment rechecked and bounded-memory hashing; never hash discovery sentinel values.
+- Define a typed environment-identity integrity error for contradictory declaration state, unsafe authority path, or authority-lockfile reread/hash failure.
+- Add focused observer/privacy/containment/provenance/error-class tests.
 
 ### Acceptance
 
-- no process spawn or implicit install;
-- deterministic environment identity;
-- package-json authority emits manager/source and exact non-null x.y.z from the same discovery snapshot; contradictory snapshot state fails integrity;
-- package.json is not re-read from disk;
-- lockfile-derived manager has version null/source `lockfile`;
-- lockfile-derived authority hashes exact filesystem bytes at its exact discovery source path, never sentinel bytes;
-- authority lockfile missing/unreadable/unsafe/symlink-escape reread fails integrity;
-- unresolved/ambiguous/unsupported manager emits null/null/`unavailable` and no lockfile identity;
-- supplemental matching lockfile is considered only if present in discovery snapshot and may degrade to null without fallback;
-- hash reading is bounded-memory exact-byte SHA-256;
-- raw absolute paths, hostname/user/env inventory/secrets are absent.
+- no process spawn/install;
+- deterministic identity;
+- package-json authority => exact non-null x.y.z from same snapshot;
+- lockfile authority => version null + exact source bytes; authority failure => typed integrity error;
+- unresolved/ambiguous/unsupported manager => null/null/`unavailable`;
+- package-json supplemental matching lockfile may be null on failure with no fallback;
+- bounded-memory exact-byte SHA-256 and no host/user/env/secret leakage.
 
 ### Hard boundary
 
-No receipt publication/wiring yet. No `src/check.ts`, `src/discovery.ts`, package, dependency, or workflow change. If `root + files + discovery` is insufficient, stop `NO_GO` and return to planning.
+No receipt publication/wiring. No `src/check.ts`, `src/cli.ts`, `src/discovery.ts`, package, dependency, or workflow change. If `root + files + discovery` is insufficient, stop `NO_GO` and replan.
 
-## T106 — Publish environment identity in new receipts
+## T106 — Publish environment identity and preserve integrity-error exit semantics
 
 ### Scope
 
-- Wire the T105 observer into `src/check.ts` using the existing `collectDiscoveredProject()` result.
-- New Ascout-produced receipts include environment identity when observation succeeds.
-- Integrity failure follows existing internal/integrity error semantics.
-- Add controlled integration/current-consumer tests.
+- Wire the T105 observer into `src/check.ts` before any project task execution.
+- Carry one successful observation unchanged into new receipts.
+- On typed environment-integrity failure, execute no project task after the failure and emit no receipt.
+- Narrowly update `src/cli.ts` to recognize only the typed environment-integrity failure, emit a repository-path-redacted diagnostic through existing redaction behavior, and return exit code `2`.
+- Keep generic unexpected-error handling unchanged; add no CLI flag/output mode.
+- Add controlled check/CLI/current-consumer integration tests.
 
 ### Acceptance
 
-- emitted environment matches controlled runtime/discovery/snapshot/lockfile observations;
-- line/branch exercise, selection, task status, findings, completeness, and exit behavior remain unchanged solely due to environment metadata;
-- canonical older externally supplied receipts remain valid under current validators;
-- same-source/build JSON/agent/terminal consumers operate without stale-schema failures;
-- `run.ascout_version` is not a schema revision lookup/negotiation key;
-- no bespoke CLI/terminal redesign;
-- no new child process/package-manager probe;
+- successful emitted environment matches controlled observations;
+- observer is called before project task execution;
+- typed environment-integrity failure causes zero subsequent project-task executions, no terminal/JSON/agent receipt, redacted diagnostic, and CLI exit `2`;
+- generic unexpected CLI exceptions retain their pre-Spec-005 behavior;
+- no synthetic task/environment-error field is added;
+- existing line/branch exercise, selection, task status, findings, completeness, and successful receipt exit behavior remain unchanged solely due to environment metadata;
+- canonical older receipts remain valid under current validators;
+- current JSON/agent/terminal consumers operate without stale-schema failures;
 - exact-head six-lane Project CI green;
 - fresh independent exact-head review reconciled;
 - zero unresolved material review threads.
 
 ## Execution discipline
 
-For every task T104–T106:
+For every T104–T106 task:
 
-1. re-read canonical `main`, Constitution, Master Plan, Spec 005 planning/policy/authorization, and live PR/Actions/review state;
+1. reread canonical `main`, Constitution, Master Plan, Spec 005 authority, live PR/review/Actions state;
 2. branch from exact canonical `main`;
-3. mutate only the current task surface;
+3. mutate only current task surface;
 4. prove historical benchmark-result immutability;
-5. qualify exact head with Project CI across Ubuntu 24.04, macOS 14, Windows 2025 × Node 22/24;
+5. qualify exact head with Ubuntu 24.04/macOS 14/Windows 2025 × Node 22/24 Project CI;
 6. obtain fresh independent exact-head substantive review;
 7. reconcile every material finding/thread;
 8. guarded merge with expected head SHA;
 9. verify ordered parents/tree/signature/PR/main;
 10. record canonical task closeout before successor.
 
-No force-push, rebase, destructive history rewrite, hidden failing gate, publication, release, tag, receipt 1.1/v2, function coverage, M2, dependency addition, new process execution, or fabricated evidence/review/CI/completion.
+No force-push/rebase/history rewrite, publication/release/tag, receipt 1.1/v2, function coverage, M2, dependency addition, new process execution, or fabricated evidence/review/CI/completion.
 
 ## Authorization gate
 

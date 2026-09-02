@@ -36,7 +36,7 @@ Add one optional additive `environment` object to receipt v1. When present it is
 ## Functional requirements
 
 1. `schema_version` remains exactly `"1.0"` under the additive-lockstep policy; no stale strict-schema forward-compatibility claim is made.
-2. Existing line/branch evidence, task semantics, selection, completeness, and exit codes remain unchanged solely because environment identity is present or absent.
+2. Existing line/branch evidence, task semantics, selection, completeness, and receipt exit semantics remain unchanged solely because environment identity is present.
 3. Runtime/OS/architecture are observed from the running Node process.
 4. `discovery.packageManager` is the sole package-manager authority; no package-manager command may be executed solely for identity and no second resolver may be introduced.
 5. Declaration-led authority MUST recover exact non-null `x.y.z` from the exact `DiscoveryFileMap["package.json"]` content snapshot discovery parsed and confirm the same manager. Missing/malformed/mismatched snapshot state is integrity failure. Package.json MUST NOT be re-read from disk for version derivation.
@@ -52,10 +52,11 @@ Add one optional additive `environment` object to receipt v1. When present it is
 15. Semantic validation rejects inconsistent source/manager/version and lockfile path/digest combinations.
 16. Updated same-source/build semantic and JSON Schema validators accept canonical older v1 receipts without `environment`.
 17. New environment-bearing receipts are accepted by updated same-source/build validators; exact prior strict schema rejection is expected unsupported version skew and MUST be explicitly proven.
-18. The prior strict-schema rejection proof MUST execute the exact pinned prior schema through the same canonical JSON Schema evaluator implementation used by current `src/receipt/json.ts`. A narrow T104 refactor may make that evaluator reusable for repository-local proof, while the normal runtime/current-schema entry point continues loading only the current bundled schema. No duplicated test validator, new validator dependency, runtime schema selector, or negotiation is authorized.
+18. The prior strict-schema rejection proof MUST execute the exact pinned prior schema through the same canonical JSON Schema evaluator implementation used by current `src/receipt/json.ts`. A narrow T104 refactor may make that evaluator reusable for repository-local proof while normal current-schema loading remains unchanged. No duplicated test validator, new validator dependency, runtime schema selector, or negotiation is authorized.
 19. Same-source/build receipt consumers move in lockstep; `run.ascout_version` is only a product-version label and is not an exact source/schema-revision key.
-20. New Ascout-produced receipts publish `environment` when observation succeeds; observation integrity failure fails closed as an existing execution/integrity error rather than fabricating identity.
-21. `src/discovery.ts` is outside the expected implementation surface. If current discovery truth plus its snapshot/authority paths cannot support T105, implementation stops `NO_GO` and returns to planning.
+20. The T105 observer MUST report contradictory/unsafe authority state as a typed environment-identity integrity failure. T106 MUST invoke environment observation before any project task execution. Such a typed failure MUST fail closed with no receipt emitted, a redacted diagnostic, and CLI exit code `2`, matching canonical internal/integrity-error semantics. T106 may modify `src/cli.ts` only to classify this typed failure; it MUST NOT redesign generic CLI error behavior.
+21. New Ascout-produced receipts publish `environment` when observation succeeds. No `environment_error` field or synthetic task result may be invented merely to carry observation failure.
+22. `src/discovery.ts` is outside the expected implementation surface. If current discovery truth plus its snapshot/authority paths cannot support T105, implementation stops `NO_GO` and returns to planning.
 
 ## Non-goals
 
@@ -64,12 +65,12 @@ Add one optional additive `environment` object to receipt v1. When present it is
 - dependency graphing/SBOM/toolchain installation/sandboxing;
 - receipt 1.1/v2, schema negotiation, runtime schema selection, or in-receipt schema revision identifiers;
 - a second JSON Schema evaluator or new validation dependency;
-- policy engine changes, new CLI verbs/output redesign;
-- publication, release, or tag work.
+- generic CLI error-code redesign, new CLI verbs/flags, or output redesign;
+- policy engine changes, publication, release, or tag work.
 
 ## Trust and privacy constraints
 
-Environment identity is evidence metadata, not execution authority. It cannot grant admission, suppress missing verification, or convert uncertainty into PASS. Paths remain repository-relative and canonical. Filesystem reads for lockfile hashing stay beneath canonical root with realpath containment rechecked.
+Environment identity is evidence metadata, not execution authority. It cannot grant admission, suppress missing verification, or convert uncertainty into PASS. Paths remain repository-relative and canonical. Filesystem reads for lockfile hashing stay beneath canonical root with realpath containment rechecked. A failed integrity observation stops before project-task execution and cannot produce a misleading partial receipt.
 
 ## Acceptance criteria
 
@@ -77,13 +78,13 @@ Environment identity is evidence metadata, not execution authority. It cannot gr
 - discovery-only manager authority with no execution/fallback resolution;
 - exact package-json version from the discovery snapshot, never disk reread;
 - lockfile digest hashes exact filesystem bytes, never sentinel values;
-- authority lockfile read/containment/hash failure fails integrity;
+- authority lockfile read/containment/hash failure yields the typed environment integrity failure;
 - supplemental matching lockfile may degrade to null without guessing;
 - old receipt + new semantic/current JSON Schema validators = `ACCEPT`;
 - new environment receipt + new semantic/current JSON Schema validators = `ACCEPT`;
 - new environment receipt + exact prior strict schema through the same canonical JSON Schema evaluator = `REJECT_EXPECTED_VERSION_SKEW`;
+- typed environment integrity failure occurs before project task execution, emits no receipt, redacts local paths/secrets, and maps to CLI exit `2`;
 - current repository consumers remain functional without bespoke environment rendering;
 - malformed/inconsistent environment objects fail validation;
 - privacy/path/symlink boundaries proven by focused tests;
-- existing receipt/task/exercise/selection semantics unchanged;
 - exact-head six-lane Project CI and fresh independent review required before implementation merge.
