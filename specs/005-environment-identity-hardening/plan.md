@@ -20,12 +20,13 @@ Spec 005 adopts `COMPATIBILITY_POLICY.md` decision `RECEIPT_V1_ADDITIVE_LOCKSTEP
 
 - `schema_version` remains `"1.0"` as the current semantic family;
 - canonical older v1 receipts must remain accepted by updated validators;
-- all repository-supported validators/consumers in the producing revision must understand or mechanically tolerate the optional extension;
+- all repository-supported validators/consumers from the producing canonical source/build revision must understand or mechanically tolerate the optional extension;
 - a prior strict schema without `environment` is expected to reject a newer environment-bearing receipt and that version skew is explicitly unsupported, not hidden as forward compatibility;
-- `run.ascout_version` identifies producer revision within the v1 family;
+- `run.ascout_version` is only a product-version label and is not a guaranteed unique source-revision or schema-revision identifier;
+- Spec 005 does not use receipt fields to negotiate or select schema revisions;
 - no receipt 1.1/v2 negotiation machinery is introduced.
 
-T104 must prove both backward receipt acceptance and expected stale-validator rejection using an immutable prior-schema reference.
+T104 must prove both backward receipt acceptance and expected stale-validator rejection using an immutable prior-schema reference. The compatibility proof is bound to exact repository/source revisions, not inferred from `run.ascout_version` alone.
 
 ## Proposed design
 
@@ -120,7 +121,7 @@ Required matrix:
 - new environment receipt + new JSON Schema validator: accept;
 - new environment receipt + exact prior strict schema: reject as expected unsupported version skew.
 
-Current-revision JSON/agent/terminal consumers must also remain functional. No consumer in the same revision may embed or invoke a stale schema copy.
+Current-source/build JSON/agent/terminal consumers must also remain functional. No consumer in the same source/build revision may embed or invoke a stale schema copy. The tests bind exact old/new repository identities directly; they do not treat `run.ascout_version` as a schema lookup key.
 
 ### 8. Serialization/output
 
@@ -146,7 +147,7 @@ No package/dependency/workflow/benchmark-result mutation is expected.
 
 ## Validation strategy
 
-1. receipt compatibility matrix against old/new validators;
+1. receipt compatibility matrix against exact old/new repository-bound validators;
 2. focused environment observer contracts;
 3. receipt semantic + current JSON Schema validation;
 4. integration receipt emission from controlled repository fixtures;
@@ -159,4 +160,4 @@ No package/dependency/workflow/benchmark-result mutation is expected.
 
 ## Rollback/compatibility
 
-Because `environment` is additive optional within the explicitly defined lockstep v1 family, older receipts remain valid under newer validators. Stale strict validators are not forward-compatible with newer environment-bearing receipts and are not a supported pairing. No persistent-state migration or schema-negotiation layer is required in Spec 005.
+Because `environment` is additive optional within the explicitly defined lockstep v1 family, older receipts remain valid under newer validators. Stale strict validators are not forward-compatible with newer environment-bearing receipts and are not a supported pairing. `run.ascout_version` alone does not identify a schema revision. No persistent-state migration or schema-negotiation layer is required in Spec 005.
