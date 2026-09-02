@@ -75,7 +75,7 @@ It must not:
 `discovery.packageManager` is the sole manager-authority decision.
 
 - If it is not `resolved`, emit manager/version `null`, source=`unavailable`, and no lockfile identity.
-- If it is `resolved` from `package.json`, emit that resolved manager and source=`package_json`. The observer may recover the exact version only by reading the same root `package.json` source already validated by discovery and re-checking that its exact `packageManager` declaration names the same resolved manager. Any contradiction is an integrity failure; absence of a recoverable version is `null`.
+- If it is `resolved` from `package.json`, emit that resolved manager, source=`package_json`, and the exact non-null `x.y.z` version recovered from the same root `package.json` declaration already validated by discovery. Re-check that the declaration names the same resolved manager. Because declaration-led discovery resolves only a valid exact `manager@x.y.z`, inability to recover that same version, an unreadable/malformed authoritative file, or a manager mismatch is an integrity failure; it is never downgraded to `version=null`.
 - If it is `resolved` from a recognized lockfile source path, emit that resolved manager, version=`null`, source=`lockfile`.
 
 This is metadata derivation from an already-authoritative decision, not a second resolver.
@@ -92,7 +92,7 @@ Lockfile identity is supplemental evidence and never influences package-manager 
 
 ### 5. Integrity semantics
 
-The observer returns either a valid complete `EnvironmentV1` or a typed integrity failure. `check` must not emit a claimed environment object built from contradictory/unsafe state. A true internal observation failure follows existing integrity-error precedence; simple unavailable optional package-manager/version/lockfile metadata is represented with nulls and is not itself an error.
+The observer returns either a valid complete `EnvironmentV1` or a typed integrity failure. `check` must not emit a claimed environment object built from contradictory/unsafe state. A true internal observation failure follows existing integrity-error precedence. Optional absence is limited to genuinely optional metadata: unavailable manager discovery and supplemental lockfile identity. A declaration-led resolved manager without its exact recoverable version is not optional absence; it is integrity failure.
 
 ### 6. Validation
 
@@ -101,9 +101,9 @@ Semantic validation enforces:
 - normalized non-empty runtime/OS/arch strings;
 - runtime name exactly `node`;
 - runtime version has no leading `v`;
-- package-manager/version/source consistency;
-- `package_manager_version` is null when manager is null;
-- source `unavailable` requires manager/version null and lockfile identity null;
+- `package_json` source requires manager non-null and exact non-null `x.y.z` version;
+- `lockfile` source requires manager non-null and version null;
+- `unavailable` source requires manager/version null and lockfile identity null;
 - lockfile path and digest are both null or both present;
 - lockfile path uses canonical repository path validation;
 - digest is lowercase 64-hex;
@@ -148,12 +148,12 @@ No package/dependency/workflow/benchmark-result mutation is expected.
 ## Validation strategy
 
 1. receipt compatibility matrix against exact old/new repository-bound validators;
-2. focused environment observer contracts;
+2. focused environment observer contracts, including declaration-led exact-version recovery/fail-closed cases;
 3. receipt semantic + current JSON Schema validation;
 4. integration receipt emission from controlled repository fixtures;
 5. current JSON/agent/terminal consumer compatibility;
 6. privacy/path-containment negative cases;
-7. contradictory manager declaration/discovery-state integrity cases;
+7. contradictory or missing declaration state after declaration-led discovery integrity cases;
 8. full project tests/typecheck/build;
 9. exact-head six-lane Project CI;
 10. fresh independent exact-head substantive review.
