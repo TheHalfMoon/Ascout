@@ -48,7 +48,9 @@ At the same time, canonical `plan.md` and the cross-artifact reviews describe â€
 
 Historical PR #114 resolved that inconsistency by mutating the two T103-listed paths during T101 without a prospective authority reconciliation. That cannot be treated as valid task-surface authority merely because the implementation merged.
 
-Therefore fresh T101 execution after this repair must not silently recreate those paths. If the same canonical inconsistency remains after the repair merge, a prospective governance reconciliation must clarify the test/fixture mutation timing before T101 implementation begins. The reconciliation may clarify existing requirements only; it must not widen Spec 004 product scope.
+The pre-T101 repository does contain `tests/t093-branch-coverage-normalizer.contract.test.ts`, but that contract imports `benchmarks/branch-coverage-lib.mjs`; it proves the benchmark-only Spec 003 normalizer, not the product parser in `src/coverage/lcov.ts`. It therefore cannot substitute for direct product-parser acceptance evidence.
+
+Fresh T101 execution after this repair must not silently recreate the T103-listed paths. If the same canonical inconsistency remains after the repair merge, a prospective governance reconciliation must clarify the test/fixture mutation timing before T101 implementation begins. The reconciliation may clarify existing requirements only; it must not widen Spec 004 product scope.
 
 ### 2.3 Diagnostic same-head rerun
 
@@ -58,7 +60,20 @@ The diagnostic rerun also completed with conclusion `failure` in the bounded Win
 
 This rerun is diagnostic evidence only. It does not retroactively satisfy a qualification gate that was required before PR #114 merged, and it does not by itself prove that the parser change caused the unrelated integration-test timeout. Fresh T101 re-execution must therefore prove six-lane stability on its own exact head rather than infer qualification from this historical lineage.
 
-### 2.4 Downstream dependency consequence
+### 2.4 T102 historical mutation-surface evidence
+
+T102 implementation PR #115 changed exactly four paths:
+
+- `src/check.ts`;
+- `src/exercise.ts`;
+- `tests/t102-branch-exercise-builder.contract.test.ts`;
+- `tests/t102-branch-exercise.contract.test.ts`.
+
+Canonical `IMPLEMENTATION_AUTHORIZATION.md` and `tasks.md` identify `src/exercise.ts` and `src/check.ts` as the T102 implementation mutation surfaces. They do not list either test path as a T102 mutation surface. `tests/t102-branch-exercise.contract.test.ts` is explicitly listed under T103 required scope, while `tests/t102-branch-exercise-builder.contract.test.ts` is not named in the original T101â€“T103 authorized surface enumeration.
+
+T102 is already invalidated downstream by the defective T101 closeout, so this finding does not require a separate historical rollback. It is nevertheless material to fresh execution: after valid T101 closeout, T102 must not silently recreate either test path without explicit current authority. If the canonical test-surface inconsistency remains, it must be reconciled prospectively before T102 implementation begins.
+
+### 2.5 Downstream dependency consequence
 
 T102 implementation PR #115, T102 reconciliation PR #117, and T103 authority reconciliation PR #119 all occur downstream of the historical T101 closeout claim. Because T101 was not truthfully eligible for `CLOSED_CANONICAL` at that point, the required task-order dependency was not satisfied before those downstream units began.
 
@@ -82,7 +97,7 @@ The existing canonical Spec 004 governance reconciliation already establishes th
 - verify ordered parents, tree, signature, and canonical `main`;
 - then re-execute `T101 -> T102 -> T103` in canonical order.
 
-This reconciliation applies that rule to the verified T101 pre-merge gate and mutation-surface defects.
+This reconciliation applies that rule to the verified T101 pre-merge gate and mutation-surface defects while preserving material T102/T103 evidence required for correct re-execution.
 
 ## 4. Forward-only repair scope
 
@@ -170,20 +185,21 @@ After this repair is canonically merged and verified:
 8. guarded-merge T101 with expected-head protection and complete ordered-parent/tree/signature/main verification;
 9. record `T101 = CLOSED_CANONICAL` only after those checks;
 10. begin T102 only after the T101 canonical closeout;
-11. preserve the already-discovered T102 requirement that changed-line receipt records remain derived exclusively from line (`DA`) evidence while branch exercise remains separate;
-12. qualify, review, guarded-merge, verify, and close T102 canonically;
-13. prospectively re-establish any T103 authority-surface amendment still required from the valid post-T102 canonical `main`;
-14. execute T103 only after its authority chain is valid;
-15. include a fix for the preserved PR #121 partial-branch-field semantic defect;
-16. qualify, independently review, guarded-merge, verify, and close T103 canonically;
-17. perform a separate Spec 004 closeout only after every task and reconciliation gate is supported by exact live evidence.
+11. re-check T102 test-surface authority against that exact canonical state and prospectively reconcile it before implementation if the two historical test paths remain outside T102 authority;
+12. preserve the already-discovered T102 requirement that changed-line receipt records remain derived exclusively from line (`DA`) evidence while branch exercise remains separate;
+13. qualify, review, guarded-merge, verify, and close T102 canonically;
+14. prospectively re-establish any T103 authority-surface amendment still required from the valid post-T102 canonical `main`;
+15. execute T103 only after its authority chain is valid;
+16. include a fix for the preserved PR #121 partial-branch-field semantic defect;
+17. qualify, independently review, guarded-merge, verify, and close T103 canonically;
+18. perform a separate Spec 004 closeout only after every task and reconciliation gate is supported by exact live evidence.
 
 ## 7. Hard boundaries
 
 - No force-push, rebase, reset, or destructive history rewrite.
 - No retroactive task qualification, authority, review, or closeout fabrication.
 - No suppression or reclassification of the original failed T101 Windows CI job.
-- No silent resolution of the T101 test/fixture authority inconsistency through implementation.
+- No silent resolution of T101 or T102 test/fixture authority inconsistencies through implementation.
 - No downstream task implementation before its predecessor is canonically closed.
 - No historical benchmark-result mutation.
 - No dependency mutation.
@@ -194,4 +210,4 @@ After this repair is canonically merged and verified:
 
 `NO_GO` for reopening or merging PR #121 or for closing T103/Spec 004 from the invalid lineage.
 
-`GO` only for this bounded forward-only reconciliation and, after its own canonical closeout, prospective clarification of any remaining T101 test/fixture authority inconsistency followed by fresh ordered re-execution of Spec 004 tasks under explicit canonical authority.
+`GO` only for this bounded forward-only reconciliation and, after its own canonical closeout, prospective clarification of any remaining T101/T102 test-surface authority inconsistencies followed by fresh ordered re-execution of Spec 004 tasks under explicit canonical authority.
