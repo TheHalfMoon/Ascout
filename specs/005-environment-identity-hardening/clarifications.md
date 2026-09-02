@@ -14,11 +14,11 @@ No. It is optional at the schema level for backward receipt compatibility. Canon
 
 ## C4 — Why keep `schema_version = "1.0"` if an older strict schema rejects the new field?
 
-Receipt `"1.0"` is the currently canonical semantic family and Spec 004 already established additive optional v1 evolution. Spec 005 makes the version-skew rule explicit: validators/consumers supported by the same producing Ascout revision move in lockstep. The prior strict schema is expected to reject a newer environment-bearing receipt and that rejection must be tested/documented. Spec 005 does not claim forward compatibility with stale schema copies and does not widen into receipt 1.1/v2 negotiation.
+Receipt `"1.0"` is the currently canonical semantic family and Spec 004 already established additive optional v1 evolution. Spec 005 makes the version-skew rule explicit: validators/consumers supported by the same canonical source/build revision move in lockstep. The prior strict schema is expected to reject a newer environment-bearing receipt and that rejection must be tested/documented. Spec 005 does not claim forward compatibility with stale schema copies and does not widen into receipt 1.1/v2 negotiation.
 
 ## C5 — What identifies the producing revision?
 
-`run.ascout_version` remains the producer-revision signal within receipt v1. A strict consumer must use a validator compatible with that producer revision or a newer validator proven to accept it.
+Spec 005 does not introduce an exact in-receipt source-revision identifier. `run.ascout_version` remains a product-version label but is **not** guaranteed to distinguish commits/builds and must not be used to select a schema revision or claim exact producer-source identity. Strict compatibility is established operationally by using validators bundled with the same canonical source/build revision, or a newer validator explicitly proven against that receipt shape. Adding schema negotiation or an in-receipt commit/schema-revision field requires separate authority.
 
 ## C6 — Can Ascout run `npm --version`, `pnpm --version`, or `yarn --version` to fill the field?
 
