@@ -52,7 +52,7 @@ This policy matches the canonical additive-v1 direction established by Spec 004 
 
 ### A7 — Package-manager provenance
 
-`PASS_WITH_EXPLICIT_RULE`. Current discovery stores the resolved manager and exact source paths but does not preserve declaration version. Therefore version recovery is permitted only from the same authoritative root `package.json` already named by discovery, with a required same-manager consistency check. A contradiction is an integrity failure; no alternate manager may be selected.
+`PASS_WITH_EXPLICIT_RULE`. Current discovery stores the resolved manager and exact source paths but does not retain declaration version. Version recovery is permitted only from the same authoritative root `package.json` already named by discovery, with a required same-manager consistency check. Declaration-led discovery resolves only after exact `manager@x.y.z` validation, so a package-json-derived environment identity MUST carry that exact non-null version. Missing/unreadable/malformed authoritative declaration state or a manager mismatch is integrity failure, never `version=null` fallback.
 
 ### A8 — Lockfile provenance
 
@@ -64,7 +64,7 @@ This policy matches the canonical additive-v1 direction established by Spec 004 
 
 ### A10 — Integrity failure vs optional absence
 
-`PASS_WITH_EXPLICIT_RULE`. Optional metadata absence is not material incompleteness. Internal contradiction/failure while constructing a claimed object follows existing integrity-error semantics.
+`PASS_WITH_EXPLICIT_RULE`. Optional absence is limited to genuinely optional states: unresolved manager discovery and supplemental lockfile identity. A declaration-led resolved manager without its exact recoverable version is contradictory state and fails integrity rather than silently reducing evidence depth.
 
 ### A11 — Task ordering
 
@@ -78,12 +78,12 @@ This policy matches the canonical additive-v1 direction established by Spec 004 
 
 `PASS`. The measured gap is concrete: product receipt lacks run-level environment identity while existing benchmark evidence models environment identity as reproducibility context. No broader feature is promoted from this observation.
 
-### A14 — Reviewer/self-audit findings reconciliation
+### A14 — Findings reconciliation
 
-`PASS_PENDING_FRESH_HEAD_REVIEW`. Independent review found two material planning concerns across stale heads: package-manager/lockfile provenance and strict-validator compatibility. A subsequent fresh self-audit found a third overclaim: `run.ascout_version` is not guaranteed to distinguish commits/builds and therefore cannot honestly bind exact producer revision. All three are now explicitly reconciled in canonical planning artifacts. Because the planning head changed, no prior independent review qualifies the repaired head; fresh exact-head independent review remains mandatory.
+`PASS_PENDING_FRESH_HEAD_REVIEW`. Independent review found two material planning concerns across stale heads: package-manager/lockfile provenance and strict-validator compatibility. Subsequent fresh self-audits found two more overclaims/weaknesses: `run.ascout_version` is not guaranteed to distinguish commits/builds, and declaration-led manager authority must not degrade to `package_manager_version=null` after discovery already validated an exact version. All four are now explicitly reconciled in canonical planning artifacts. Because the planning head changed, no prior independent review qualifies the repaired head; fresh exact-head independent review remains mandatory.
 
 ## Cross-artifact consistency result
 
-`PASS / NO_MATERIAL_CONFLICTS_AFTER_PROVENANCE_COMPATIBILITY_AND_REVISION_IDENTITY_RECONCILIATION`
+`PASS / NO_MATERIAL_CONFLICTS_AFTER_PROVENANCE_COMPATIBILITY_REVISION_IDENTITY_AND_DECLARED_VERSION_RECONCILIATION`
 
 No implementation authority is granted by this analysis.
