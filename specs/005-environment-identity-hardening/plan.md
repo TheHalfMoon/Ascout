@@ -8,10 +8,24 @@ Add deterministic, privacy-safe run-level environment identity to receipt v1 whi
 
 - `src/check.ts` constructs the final receipt from run/source/comparison/selection/task/exercise/evidence data.
 - `src/receipt/model.ts` defines receipt v1 interfaces and semantic validation.
-- `specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json` defines JSON Schema v1.
+- `specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json` defines strict JSON Schema v1 with closed objects.
+- `src/receipt/json.ts` validates using the repository's current receipt-v1 schema.
 - `src/discovery.ts` already resolves supported JavaScript package-manager authority and records the exact source paths used for that resolution.
 - Current `ProjectDiscovery.packageManager` does not retain a package-manager declaration version; it retains only the resolved manager and its source paths.
 - Node built-ins expose runtime version, platform, architecture, file reads, and SHA-256 hashing without external dependencies.
+
+## Compatibility policy
+
+Spec 005 adopts `COMPATIBILITY_POLICY.md` decision `RECEIPT_V1_ADDITIVE_LOCKSTEP`:
+
+- `schema_version` remains `"1.0"` as the current semantic family;
+- canonical older v1 receipts must remain accepted by updated validators;
+- all repository-supported validators/consumers in the producing revision must understand or mechanically tolerate the optional extension;
+- a prior strict schema without `environment` is expected to reject a newer environment-bearing receipt and that version skew is explicitly unsupported, not hidden as forward compatibility;
+- `run.ascout_version` identifies producer revision within the v1 family;
+- no receipt 1.1/v2 negotiation machinery is introduced.
+
+T104 must prove both backward receipt acceptance and expected stale-validator rejection using an immutable prior-schema reference.
 
 ## Proposed design
 
@@ -33,7 +47,7 @@ interface EnvironmentV1 {
 }
 ```
 
-Extend `ReceiptV1` with optional `environment?: EnvironmentV1` and JSON Schema with an optional additive object. Schema version remains `"1.0"`.
+Extend `ReceiptV1` with optional `environment?: EnvironmentV1` and JSON Schema with an optional additive object. Schema version remains `"1.0"` under the lockstep policy.
 
 ### 2. Observation boundary
 
@@ -94,7 +108,21 @@ Semantic validation enforces:
 - digest is lowercase 64-hex;
 - supported lockfile basename matches declared package manager when both are present.
 
-### 7. Serialization/output
+### 7. Compatibility proof
+
+T104 must preserve the exact prior canonical schema identity needed to prove version-skew behavior without ambiguity. The proof mechanism may use an immutable exact fixture or another deterministic repository-local binding, but it must not depend on network access.
+
+Required matrix:
+
+- old canonical receipt + new semantic validator: accept;
+- old canonical receipt + new JSON Schema validator: accept;
+- new environment receipt + new semantic validator: accept;
+- new environment receipt + new JSON Schema validator: accept;
+- new environment receipt + exact prior strict schema: reject as expected unsupported version skew.
+
+Current-revision JSON/agent/terminal consumers must also remain functional. No consumer in the same revision may embed or invoke a stale schema copy.
+
+### 8. Serialization/output
 
 No new renderer abstraction. Existing JSON emission naturally includes `environment`; agent/terminal behavior changes only if their current generic receipt path mechanically exposes it. No bespoke presentation work is planned.
 
@@ -112,22 +140,23 @@ Expected product paths:
 Expected proof paths:
 
 - `tests/environment-identity.contract.test.ts` (new);
-- focused existing receipt/check tests only where directly required for compatibility/integration proof.
+- focused existing receipt/schema/JSON/agent/check tests or an exact immutable prior-schema fixture only where directly required for compatibility/integration proof.
 
 No package/dependency/workflow/benchmark-result mutation is expected.
 
 ## Validation strategy
 
-1. focused environment observer contracts;
-2. receipt semantic + JSON Schema validation;
-3. legacy receipt compatibility;
+1. receipt compatibility matrix against old/new validators;
+2. focused environment observer contracts;
+3. receipt semantic + current JSON Schema validation;
 4. integration receipt emission from controlled repository fixtures;
-5. privacy/path-containment negative cases;
-6. contradictory manager declaration/discovery-state integrity cases;
-7. full project tests/typecheck/build;
-8. exact-head six-lane Project CI;
-9. fresh independent exact-head substantive review.
+5. current JSON/agent/terminal consumer compatibility;
+6. privacy/path-containment negative cases;
+7. contradictory manager declaration/discovery-state integrity cases;
+8. full project tests/typecheck/build;
+9. exact-head six-lane Project CI;
+10. fresh independent exact-head substantive review.
 
 ## Rollback/compatibility
 
-Because `environment` is additive optional receipt-v1 data, old receipts remain valid. No migration or persistent state rewrite is required.
+Because `environment` is additive optional within the explicitly defined lockstep v1 family, older receipts remain valid under newer validators. Stale strict validators are not forward-compatible with newer environment-bearing receipts and are not a supported pairing. No persistent-state migration or schema-negotiation layer is required in Spec 005.
