@@ -66,6 +66,7 @@ describe("T102 branch exercise contracts", () => {
       exercised_branches: 1,
       not_exercised_branches: 1,
       unresolved_branches: 0,
+      changed_files_with_zero_exercised_branches: 0,
     });
     expect(exercise.branch_records.map(({ state }) => state)).toEqual(["EXERCISED", "NOT_EXERCISED"]);
   });
@@ -105,6 +106,7 @@ describe("T102 branch exercise contracts", () => {
       },
     ]);
     expect(exercise.unresolved_branches).toBe(1);
+    expect(exercise.changed_files_with_zero_exercised_branches).toBe(1);
   });
 
   it("keeps a not-exercised line record unchanged even when a branch is exercised", () => {
@@ -125,6 +127,7 @@ describe("T102 branch exercise contracts", () => {
       },
     ]);
     expect(exercise.exercised_branches).toBe(1);
+    expect(exercise.changed_files_with_zero_exercised_branches).toBe(0);
   });
 
   it("yields no branch gap when all changed branches are fully exercised", () => {
@@ -146,7 +149,7 @@ describe("T102 branch exercise contracts", () => {
     });
   });
 
-  it("does not count branches outside changed ranges as changed-branch results", () => {
+  it("excludes outside-range branches while still counting the changed file as having zero exercised changed branches", () => {
     const exercise = buildChangedLineExercise(
       [changed("src/choice.ts", [[10, 10]])],
       [linePoint("src/choice.ts", 10, 1)],
@@ -159,7 +162,7 @@ describe("T102 branch exercise contracts", () => {
       exercised_branches: 0,
       not_exercised_branches: 0,
       unresolved_branches: 0,
-      changed_files_with_zero_exercised_branches: 0,
+      changed_files_with_zero_exercised_branches: 1,
     });
   });
 
@@ -186,10 +189,18 @@ describe("T102 branch exercise contracts", () => {
     ]);
   });
 
-  it("counts represented changed files with no exercised branch", () => {
+  it("counts every changed-range file with no exercised branch record, including a file with no branch tuple", () => {
     const exercise = buildChangedLineExercise(
-      [changed("src/a.ts", [[1, 2]]), changed("src/b.ts", [[3, 3]])],
-      [linePoint("src/a.ts", 1, 1), linePoint("src/b.ts", 3, 1)],
+      [
+        changed("src/a.ts", [[1, 2]]),
+        changed("src/b.ts", [[3, 3]]),
+        changed("src/c.ts", [[4, 4]]),
+      ],
+      [
+        linePoint("src/a.ts", 1, 1),
+        linePoint("src/b.ts", 3, 1),
+        linePoint("src/c.ts", 4, 1),
+      ],
       "test",
       [
         branch("src/a.ts", 1, { taken: 0, state: "BRANCH_NOT_EXERCISED" }),
@@ -198,7 +209,7 @@ describe("T102 branch exercise contracts", () => {
       ],
     );
 
-    expect(exercise.changed_files_with_zero_exercised_branches).toBe(1);
+    expect(exercise.changed_files_with_zero_exercised_branches).toBe(2);
   });
 
   it("preserves existing line exercise behavior when branch observations are omitted", () => {
