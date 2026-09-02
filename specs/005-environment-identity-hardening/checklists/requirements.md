@@ -13,6 +13,8 @@
 - [x] No current-run evidence is replaced by history.
 - [x] No new execution authority, implicit install, or package-manager probe is authorized.
 - [x] Integrity failure cannot silently emit fabricated environment identity.
+- [x] `discovery.packageManager` is the sole manager-authority decision.
+- [x] Lockfile metadata is supplemental only and cannot repair/override manager authority.
 
 ## Privacy and safety
 
@@ -23,23 +25,32 @@
 
 ## Compatibility
 
-- [x] Receipt schema version remains `"1.0"`.
-- [x] `environment` is additive and optional for legacy receipt compatibility.
+- [x] Receipt schema version remains `"1.0"` under explicit `RECEIPT_V1_ADDITIVE_LOCKSTEP` policy.
+- [x] `environment` is additive and optional for backward receipt compatibility.
+- [x] The plan does not claim stale strict validators are forward-compatible.
+- [x] Updated semantic and JSON Schema validators must accept canonical old receipts.
+- [x] Updated semantic and JSON Schema validators must accept new environment-bearing receipts.
+- [x] Exact prior strict schema rejection of a new environment receipt is explicitly required as `REJECT_EXPECTED_VERSION_SKEW` proof.
+- [x] The prior schema proof must be immutable and repository-local/deterministic.
+- [x] All repository-supported consumers in the producing revision must move in lockstep or mechanically tolerate the new optional field.
+- [x] `run.ascout_version` is identified as the producer-revision signal within v1.
+- [x] Receipt 1.1/v2/schema-negotiation machinery is out of scope.
 - [x] Existing task/tool identity remains unchanged.
 - [x] Existing selection, exercise, findings, completeness, and exit semantics are preserved.
 
 ## Determinism
 
 - [x] Runtime/platform/arch sources are defined.
-- [x] Package-manager source semantics are defined.
-- [x] Lockfile selection is bounded to existing discovery truth.
+- [x] Package-manager source and version provenance semantics are defined.
+- [x] Lockfile evidence rules are bounded by existing discovery authority plus the one matching fixed root lockfile case.
 - [x] SHA-256 format and null-pair invariants are defined.
 - [x] Serialization/validation must be deterministic.
 
 ## Testability
 
 - [x] Positive and negative semantic/schema cases are specified.
-- [x] Legacy compatibility is specified.
+- [x] Bidirectional compatibility policy proof is specified.
+- [x] Current JSON/agent/terminal consumer operation is specified.
 - [x] Privacy/path-containment proof is specified.
 - [x] Integration emission proof is specified.
 - [x] Cross-platform exact-head CI and independent review gates are specified.
@@ -47,6 +58,6 @@
 ## Authorization
 
 - [x] Planning artifacts do not authorize implementation.
-- [x] T104 is blocked until canonical planning merge and durable implementation authorization.
+- [x] T104 is blocked until canonical planning merge and durable implementation authorization binding the compatibility policy.
 
-**Result:** `READY_FOR_CROSS_ARTIFACT_ANALYSIS`
+**Result:** `READY_FOR_CROSS_ARTIFACT_ANALYSIS_AFTER_COMPATIBILITY_RECONCILIATION`
