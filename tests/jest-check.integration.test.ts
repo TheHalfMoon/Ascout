@@ -49,6 +49,74 @@ function initializeFixture(): string {
   return root;
 }
 
+type ControlledLcovMode =
+  | "absent"
+  | "resolved_gap"
+  | "malformed"
+  | "path_unsafe"
+  | "incomplete"
+  | "invalid_taken";
+
+const FAIL_CLOSED_MODES = ["malformed", "path_unsafe", "incomplete", "invalid_taken"] as const;
+
+function controlledLcov(mode: ControlledLcovMode): string {
+  switch (mode) {
+    case "absent":
+      return "SF:src/used.js\nDA:1,1\nend_of_record\n";
+    case "resolved_gap":
+      return "SF:src/used.js\nDA:1,1\nBRDA:1,0,0,1\nBRDA:1,0,1,0\nend_of_record\n";
+    case "malformed":
+      return "SF:src/used.js\nDA:1,1\nBRDA:1,0,0\nend_of_record\n";
+    case "path_unsafe":
+      return "SF:../outside.js\nDA:1,1\nBRDA:1,0,0,1\nend_of_record\n";
+    case "incomplete":
+      return "SF:src/used.js\nDA:1,1\nBRDA:1,0,0,1\n";
+    case "invalid_taken":
+      return "SF:src/used.js\nDA:1,1\nBRDA:1,0,0,invalid\nend_of_record\n";
+  }
+}
+
+function initializeControlledBranchFixture(mode: ControlledLcovMode): string {
+  const root = mkdtempSync(join(tmpdir(), `ascout-t103-jest-${mode}-`));
+  mkdirSync(join(root, "src"), { recursive: true });
+  mkdirSync(join(root, "node_modules", "jest"), { recursive: true });
+  mkdirSync(join(root, "node_modules", "fake-jest"), { recursive: true });
+
+  writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
+  writeFileSync(
+    join(root, "package.json"),
+    JSON.stringify({ name: `t103-jest-${mode}`, private: true, devDependencies: { jest: "30.4.2" } }),
+  );
+  writeFileSync(join(root, "jest.config.cjs"), "module.exports = { testEnvironment: 'node' };\n");
+  writeFileSync(
+    join(root, "node_modules", "jest", "package.json"),
+    JSON.stringify({ name: "jest", version: "30.4.2" }),
+  );
+
+  const fakeRunner = [
+    'import { mkdirSync, writeFileSync } from "node:fs";',
+    'import { dirname } from "node:path";',
+    'const output = process.argv.find((arg) => arg.startsWith("--outputFile="))?.slice("--outputFile=".length);',
+    'const coverageDir = process.argv.find((arg) => arg.startsWith("--coverageDirectory="))?.slice("--coverageDirectory=".length);',
+    'if (!output || !coverageDir) process.exit(64);',
+    'mkdirSync(dirname(output), { recursive: true });',
+    'mkdirSync(coverageDir, { recursive: true });',
+    'writeFileSync(output, JSON.stringify({ success: true, numTotalTests: 1, testResults: [{ name: "tests/used.test.js" }] }));',
+    `writeFileSync(coverageDir + "/lcov.info", ${JSON.stringify(controlledLcov(mode))});`,
+  ].join("\n");
+  writeFileSync(join(root, "node_modules", "fake-jest", "index.mjs"), `${fakeRunner}\n`);
+  writePackageNodeCommandShim(join(root, "node_modules", ".bin"), "jest", "../fake-jest/index.mjs");
+
+  writeFileSync(join(root, "src", "used.js"), "exports.used = function used() { return 2; };\n");
+  run(root, "git", ["init", "-q"]);
+  run(root, "git", ["config", "user.name", "Ascout T103 Fixture"]);
+  run(root, "git", ["config", "user.email", "t103@example.invalid"]);
+  run(root, "git", ["add", "."]);
+  run(root, "git", ["commit", "-qm", "baseline"]);
+  writeFileSync(join(root, "src", "used.js"), "exports.used = function used() { return 1 + 1; };\n");
+  return root;
+}
+
 describe("T052 runCheck Jest integration", () => {
   it("runs project-local findRelatedTests and binds JSON plus LCOV while remaining fail-closed before widening/exercise", async () => {
     const root = initializeFixture();
@@ -89,9 +157,6 @@ describe("T052 runCheck Jest integration", () => {
       expect(resultArtifact && existsSync(join(root, ".ascout", "runs", receipt.run.run_id, resultArtifact.relative_run_path))).toBe(true);
       expect(coverageArtifact && existsSync(join(root, ".ascout", "runs", receipt.run.run_id, coverageArtifact.relative_run_path))).toBe(true);
 
-      // Jest's CLI --json output is the formatted result shape: suite paths are
-      // emitted as `name`, even though the internal testResultsProcessor shape
-      // uses `testFilePath` before formatting.
       const resultJson = JSON.parse(
         readFileSync(join(root, ".ascout", "runs", receipt.run.run_id, resultArtifact!.relative_run_path), "utf8"),
       ) as { testResults?: readonly { name?: string }[] };
@@ -112,4 +177,93 @@ describe("T052 runCheck Jest integration", () => {
       rmSync(root, { recursive: true, force: true });
     }
   }, 45_000);
+});
+
+describe("T103 runCheck Jest branch receipt integration", () => {
+  it("keeps optional branch fields absent when LCOV has genuine line-only coverage", async () => {
+    const root = initializeControlledBranchFixture("absent");
+    try {
+      const { receipt } = await runCheck(root);
+      expect(validateReceiptSemantics(receipt)).toEqual({ valid: true, issues: [] });
+      expect(receipt.exercise.records).toEqual([
+        {
+          path: "src/used.js",
+          line: 1,
+          state: "EXERCISED",
+          execution_count: 1,
+          source_task_ids: ["test"],
+        },
+      ]);
+      expect(receipt.exercise.branch_records).toBeUndefined();
+      expect(receipt.exercise.exercised_branches).toBeUndefined();
+      expect(receipt.exercise.not_exercised_branches).toBeUndefined();
+      expect(receipt.exercise.unresolved_branches).toBeUndefined();
+      expect(receipt.exercise.changed_files_with_zero_exercised_branches).toBeUndefined();
+      expect(receipt.summary).toMatchObject({ completeness: "complete", exit_code: 0 });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("publishes resolved branch evidence and makes a branch-only miss exit 4", async () => {
+    const root = initializeControlledBranchFixture("resolved_gap");
+    try {
+      const { receipt } = await runCheck(root);
+      expect(validateReceiptSemantics(receipt)).toEqual({ valid: true, issues: [] });
+      expect(receipt.exercise.records).toEqual([
+        {
+          path: "src/used.js",
+          line: 1,
+          state: "EXERCISED",
+          execution_count: 1,
+          source_task_ids: ["test"],
+        },
+      ]);
+      expect(receipt.exercise.branch_records).toEqual([
+        {
+          path: "src/used.js",
+          line: 1,
+          block_id: "0",
+          branch_id: "0",
+          taken: 1,
+          state: "EXERCISED",
+        },
+        {
+          path: "src/used.js",
+          line: 1,
+          block_id: "0",
+          branch_id: "1",
+          taken: 0,
+          state: "NOT_EXERCISED",
+        },
+      ]);
+      expect(receipt.exercise).toMatchObject({
+        exercised_branches: 1,
+        not_exercised_branches: 1,
+        unresolved_branches: 0,
+        changed_files_with_zero_exercised_branches: 0,
+      });
+      expect(receipt.summary).toMatchObject({ completeness: "materially_incomplete", exit_code: 4 });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each(FAIL_CLOSED_MODES)("fails closed for %s branch normalization instead of manufacturing empty evidence", async (mode) => {
+    const root = initializeControlledBranchFixture(mode);
+    try {
+      const { receipt } = await runCheck(root);
+      const testTask = receipt.tasks.find(({ task_type }) => task_type === "test");
+      expect(testTask).toMatchObject({ status: "ERROR", reason_code: "jest_evidence_invalid" });
+      expect(receipt.exercise.branch_records).toBeUndefined();
+      expect(receipt.exercise.exercised_branches).toBeUndefined();
+      expect(receipt.exercise.not_exercised_branches).toBeUndefined();
+      expect(receipt.exercise.unresolved_branches).toBeUndefined();
+      expect(receipt.exercise.changed_files_with_zero_exercised_branches).toBeUndefined();
+      expect(receipt.summary).toMatchObject({ completeness: "unknown_due_to_error", exit_code: 2 });
+      expect(validateReceiptSemantics(receipt)).toEqual({ valid: true, issues: [] });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
