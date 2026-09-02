@@ -15,76 +15,53 @@ Close the next measured M1.1 evidence-depth gap after canonical Spec 004 closure
 - Spec 004: `CLOSED_CANONICAL / GO`.
 - Compatibility policy: `COMPATIBILITY_POLICY.md` → `RECEIPT_V1_ADDITIVE_LOCKSTEP`.
 
-## Measured gap
-
-Current receipt v1 run identity records `run_id`, `ascout_version`, timestamps, and `config_digest`; task results already record tool identity. Product receipts do not expose run-level Node runtime, OS, architecture, package-manager identity/version, or safely attributable supported lockfile digest, while benchmark evidence already retains comparable environment context.
-
 ## Scope
 
-Add one optional additive `environment` object to receipt v1. When present it is complete and semantically validated:
-
-- `runtime_name`: exactly `node`;
-- `runtime_version`: normalized non-empty Node version without leading `v`;
-- `os`: normalized Node platform identifier;
-- `arch`: normalized Node architecture identifier;
-- `package_manager`: `npm | pnpm | yarn | null`;
-- `package_manager_version`: exact `x.y.z` or `null`;
-- `package_manager_source`: `package_json | lockfile | unavailable`;
-- `lockfile_path`: canonical repository-relative path or `null`;
-- `lockfile_sha256`: lowercase 64-hex digest or `null`.
+Add one optional additive `environment` object to receipt v1 with runtime, OS/architecture, discovery-authoritative package-manager identity/version, and one safely attributable supported lockfile path/SHA-256.
 
 ## Functional requirements
 
 1. `schema_version` remains exactly `"1.0"` under the additive-lockstep policy; no stale strict-schema forward-compatibility claim is made.
 2. Existing line/branch evidence, task semantics, selection, completeness, and receipt exit semantics remain unchanged solely because environment identity is present.
 3. Runtime/OS/architecture are observed from the running Node process.
-4. `discovery.packageManager` is the sole package-manager authority; no package-manager command may be executed solely for identity and no second resolver may be introduced.
-5. Declaration-led authority MUST recover exact non-null `x.y.z` from the exact `DiscoveryFileMap["package.json"]` content snapshot discovery parsed and confirm the same manager. Missing/malformed/mismatched snapshot state is integrity failure. Package.json MUST NOT be re-read from disk for version derivation.
-6. Lockfile-led authority keeps version `null` and its exact discovery source path remains authoritative for manager provenance.
-7. Recognized lockfiles in `collectDiscoveredProject.files` are presence/path sentinels, not file bytes. Their map values MUST NOT be hashed.
-8. Lockfile SHA-256 is computed from exact filesystem bytes at the already-authorized repository-relative path beneath canonical root, with realpath/symlink containment rechecked at read time and bounded-memory reading.
-9. If a lockfile supplied manager authority, inability to safely re-read/hash that exact source is integrity failure.
-10. For package-json-led authority, lockfile identity is supplemental only. Inspect/hash only the fixed matching root lockfile that was present in the discovery snapshot. Absent/unsafe/missing/unreadable supplemental state yields null path/digest, never fallback.
-11. Lockfile evidence never changes manager authority; non-matching lockfiles are ignored for environment identity.
+4. `discovery.packageManager` is the sole package-manager authority; no package-manager command or second resolver is authorized.
+5. Declaration-led authority recovers the exact non-null `x.y.z` from the exact `DiscoveryFileMap["package.json"]` content snapshot discovery parsed; package.json is not reread from disk for version derivation.
+6. Lockfile-led authority keeps version `null`; recognized lockfiles in discovery are presence sentinels and their map values are never hashed.
+7. Lockfile hashing MUST be one object-bound descriptor operation. Pre-open, resolve the authorized path and its real target beneath canonical root and capture stable object identity from the contained target. Open the authorized path read-only exactly once. Before reading any bytes, `fstat` the descriptor and require a regular file whose stable object identity matches the containment-checked target. Path spelling, size, or timestamps alone are insufficient identity.
+8. After identity match, all hash bytes are read in bounded-memory chunks from that same descriptor only. The path MUST NOT be reopened for hashing. Descriptor identity and content-stability metadata are captured before and after reading; object identity, file type, size, or modification/change timestamp drift invalidates the observation.
+9. Before accepting the digest, re-resolve/re-stat the authorized path and require it to remain beneath canonical root and identify the same opened object. Replacement between containment and open must be detected before any bytes are read. Replacement after descriptor binding cannot redirect descriptor reads, but a persistent post-read path/object mismatch is rejected.
+10. Supported Ubuntu/macOS/Windows execution MUST prove a reliable stable object-identity comparison between pre-open path stat and descriptor `fstat` using Node-supported file identity fields. If any supported platform cannot prove this, T105 is `NO_GO`; there is no path-only, size-only, timestamp-only, or reopen-and-hash fallback.
+11. Lockfile-led authority: containment/object-binding/stability/read/hash failure is a typed environment-identity integrity failure. Package-json-led supplemental lockfile: the same failures yield null lockfile identity, never fallback or manager-authority change.
 12. Absent/ambiguous/unsupported package-manager discovery yields manager/version null, source `unavailable`, and null lockfile identity.
-13. No raw absolute path, user identity, hostname, environment-variable inventory, network address, machine identifier, credential, or secret-bearing value may enter the receipt.
-14. Environment identity serializes deterministically.
-15. Semantic validation rejects inconsistent source/manager/version and lockfile path/digest combinations.
-16. Updated same-source/build semantic and JSON Schema validators accept canonical older v1 receipts without `environment`.
-17. New environment-bearing receipts are accepted by updated same-source/build validators; exact prior strict schema rejection is expected unsupported version skew and MUST be explicitly proven.
-18. The prior strict-schema rejection proof MUST execute the exact pinned prior schema through the same canonical JSON Schema evaluator implementation used by current `src/receipt/json.ts`. A narrow T104 refactor may make that evaluator reusable for repository-local proof while normal current-schema loading remains unchanged. No duplicated test validator, new validator dependency, runtime schema selector, or negotiation is authorized.
-19. Same-source/build receipt consumers move in lockstep; `run.ascout_version` is only a product-version label and is not an exact source/schema-revision key.
-20. The T105 observer MUST report contradictory/unsafe authority state as a typed environment-identity integrity failure. T106 MUST invoke environment observation before any project task execution. Such a typed failure MUST fail closed with no receipt emitted, a redacted diagnostic, and CLI exit code `2`, matching canonical internal/integrity-error semantics. T106 may modify `src/cli.ts` only to classify this typed failure; it MUST NOT redesign generic CLI error behavior.
-21. New Ascout-produced receipts publish `environment` when observation succeeds. No `environment_error` field or synthetic task result may be invented merely to carry observation failure.
-22. `src/discovery.ts` is outside the expected implementation surface. If current discovery truth plus its snapshot/authority paths cannot support T105, implementation stops `NO_GO` and returns to planning.
+13. Raw absolute path, host/user/network/environment inventory, machine identity, credentials, and secret-bearing values are prohibited from the receipt.
+14. Updated same-source/build semantic and JSON Schema validators accept canonical older v1 receipts; new environment receipts are accepted by current validators while the exact prior strict schema rejection is explicitly proven as unsupported version skew.
+15. The prior strict-schema rejection proof uses the same canonical JSON Schema evaluator implementation in `src/receipt/json.ts`; only a narrow T104 reuse/testability refactor is authorized. No duplicated evaluator, new validation dependency, runtime schema selector, or negotiation.
+16. `run.ascout_version` is only a product-version label, not an exact source/schema-revision key.
+17. T105 reports contradictory/unsafe authority state as a typed environment-identity integrity failure. T106 invokes observation before any project task execution; failure emits no receipt, uses existing redaction, and maps specifically to canonical exit `2` through a narrow `src/cli.ts` classification without redesigning generic CLI errors.
+18. `src/discovery.ts` remains outside the implementation surface. If current discovery truth, supported-platform file identity primitives, or object-binding guarantees are insufficient, implementation stops `NO_GO` and returns to planning.
 
 ## Non-goals
 
 - function coverage, mutation/property/fuzzing, browser/container identity;
-- arbitrary environment-variable capture or executable package-manager version probing;
+- arbitrary environment capture or executable package-manager probing;
 - dependency graphing/SBOM/toolchain installation/sandboxing;
 - receipt 1.1/v2, schema negotiation, runtime schema selection, or in-receipt schema revision identifiers;
-- a second JSON Schema evaluator or new validation dependency;
-- generic CLI error-code redesign, new CLI verbs/flags, or output redesign;
-- policy engine changes, publication, release, or tag work.
+- generalized filesystem sandboxing/file-watch infrastructure/reusable safe-file framework;
+- generic CLI redesign, publication, release, or tag work.
 
 ## Trust and privacy constraints
 
-Environment identity is evidence metadata, not execution authority. It cannot grant admission, suppress missing verification, or convert uncertainty into PASS. Paths remain repository-relative and canonical. Filesystem reads for lockfile hashing stay beneath canonical root with realpath containment rechecked. A failed integrity observation stops before project-task execution and cannot produce a misleading partial receipt.
+Environment identity is evidence metadata, not execution authority. Lockfile bytes may be read only from an opened descriptor proven to be the same contained file object that passed pre-open containment/identity checks. No lockfile bytes may be read before descriptor object identity matches. Descriptor and path identity/stability are rechecked after hashing. A failed authority observation stops before project-task execution and cannot produce a misleading partial receipt.
 
 ## Acceptance criteria
 
-- deterministic runtime/OS/arch identity;
-- discovery-only manager authority with no execution/fallback resolution;
+- deterministic runtime/OS/arch identity and discovery-only manager authority;
 - exact package-json version from the discovery snapshot, never disk reread;
-- lockfile digest hashes exact filesystem bytes, never sentinel values;
-- authority lockfile read/containment/hash failure yields the typed environment integrity failure;
-- supplemental matching lockfile may degrade to null without guessing;
-- old receipt + new semantic/current JSON Schema validators = `ACCEPT`;
-- new environment receipt + new semantic/current JSON Schema validators = `ACCEPT`;
-- new environment receipt + exact prior strict schema through the same canonical JSON Schema evaluator = `REJECT_EXPECTED_VERSION_SKEW`;
-- typed environment integrity failure occurs before project task execution, emits no receipt, redacts local paths/secrets, and maps to CLI exit `2`;
-- current repository consumers remain functional without bespoke environment rendering;
-- malformed/inconsistent environment objects fail validation;
-- privacy/path/symlink boundaries proven by focused tests;
-- exact-head six-lane Project CI and fresh independent review required before implementation merge.
+- lockfile digest hashes exact bytes from one object-bound descriptor, never sentinel values or a reopened path;
+- swap between containment and open is detected before bytes; persistent swap after open/during read is rejected before digest acceptance;
+- in-place mutation during hashing is rejected by pre/post descriptor stability checks;
+- object-binding is proven on Ubuntu 24.04, macOS 14, Windows 2025 × Node 22/24 or T105 is `NO_GO`;
+- authority lockfile failure yields typed integrity; supplemental lockfile failure may yield null without fallback;
+- old receipt + new validators = `ACCEPT`; new receipt + new validators = `ACCEPT`; new receipt + exact prior strict schema via the same evaluator = `REJECT_EXPECTED_VERSION_SKEW`;
+- typed environment integrity failure happens before project task execution, emits no receipt, and maps to exit `2`;
+- exact-head six-lane Project CI and fresh independent review are required before implementation merge.

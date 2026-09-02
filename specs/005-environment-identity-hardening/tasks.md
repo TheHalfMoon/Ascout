@@ -29,7 +29,7 @@
 
 No observation/wiring, no `src/check.ts`/`src/cli.ts`, no v2/revision field/schema negotiation.
 
-## T105 — Observe environment identity without execution
+## T105 — Observe environment identity without execution and bind lockfile bytes to the contained file object
 
 ### Scope
 
@@ -37,23 +37,32 @@ No observation/wiring, no `src/check.ts`/`src/cli.ts`, no v2/revision field/sche
 - Receive canonical `root`, `files`, and already-resolved `discovery`.
 - Observe runtime/platform/arch from current process.
 - Use discovery as sole manager authority; derive package-json version from the exact discovery snapshot and never disk reread.
-- Re-read only exact authorized lockfile bytes beneath canonical root with containment rechecked and bounded-memory hashing; never hash discovery sentinel values.
-- Define a typed environment-identity integrity error for contradictory declaration state, unsafe authority path, or authority-lockfile reread/hash failure.
-- Add focused observer/privacy/containment/provenance/error-class tests.
+- Define a typed environment-identity integrity error for contradictory declaration state, unsafe authority path, authority-lockfile object-binding/stability/read/hash failure.
+- For one authorized lockfile candidate only, implement a local object-bound descriptor read: pre-open contained target identity → single read-only open → immediate descriptor `fstat` identity match before bytes → descriptor-only bounded-memory hash → pre/post descriptor stability checks → post-read contained path/object identity recheck → close in `finally`.
+- Use Node bigint file stats and a platform-proven stable path-stat/descriptor-`fstat` object identity tuple. Path string, size, or timestamps alone do not qualify as identity.
+- Add focused observer/privacy/containment/provenance/object-binding/race/stability tests.
 
 ### Acceptance
 
-- no process spawn/install;
-- deterministic identity;
+- no process spawn/install and no generalized safe-file framework;
+- deterministic runtime/OS/arch and discovery-derived manager identity;
 - package-json authority => exact non-null x.y.z from same snapshot;
-- lockfile authority => version null + exact source bytes; authority failure => typed integrity error;
+- lockfile authority => version null + exact authority path;
+- no lockfile bytes are read until the opened descriptor is proven to identify the same regular file object that passed pre-open containment/identity checks;
+- all hash bytes come from that one descriptor; the path is never reopened for hashing;
+- replacement after containment but before open produces identity mismatch before any bytes are read;
+- replacement after successful descriptor binding cannot redirect bytes and a persistent post-read path/object mismatch is rejected before digest acceptance;
+- in-place mutation during hashing is rejected when pre/post descriptor identity/type/size/modification/change stability differs;
+- lockfile-authority containment/object-binding/stability/read/hash failure => typed integrity error;
 - unresolved/ambiguous/unsupported manager => null/null/`unavailable`;
-- package-json supplemental matching lockfile may be null on failure with no fallback;
-- bounded-memory exact-byte SHA-256 and no host/user/env/secret leakage.
+- package-json supplemental matching lockfile uses the same object-binding algorithm; any failure => null lockfile identity, no fallback or manager-authority change;
+- object identity semantics are proven on Ubuntu 24.04/macOS 14/Windows 2025 × Node 22/24;
+- if any supported platform cannot provide reliable path-stat ↔ descriptor-`fstat` identity, stop `NO_GO` and return to planning; no weaker fallback is allowed;
+- raw host/user/env/network/machine/credential/secret identity is absent.
 
 ### Hard boundary
 
-No receipt publication/wiring. No `src/check.ts`, `src/cli.ts`, `src/discovery.ts`, package, dependency, or workflow change. If `root + files + discovery` is insufficient, stop `NO_GO` and replan.
+No receipt publication/wiring. No `src/check.ts`, `src/cli.ts`, `src/discovery.ts`, package, dependency, or workflow change. No file-watch service, generalized filesystem sandbox, or reusable security abstraction. If `root + files + discovery` or supported-platform Node file identity primitives are insufficient, stop `NO_GO` and replan.
 
 ## T106 — Publish environment identity and preserve integrity-error exit semantics
 
@@ -71,7 +80,7 @@ No receipt publication/wiring. No `src/check.ts`, `src/cli.ts`, `src/discovery.t
 - successful emitted environment matches controlled observations;
 - observer is called before project task execution;
 - typed environment-integrity failure causes zero subsequent project-task executions, no terminal/JSON/agent receipt, redacted diagnostic, and CLI exit `2`;
-- generic unexpected CLI exceptions retain their pre-Spec-005 behavior;
+- generic unexpected CLI exceptions retain pre-Spec-005 behavior;
 - no synthetic task/environment-error field is added;
 - existing line/branch exercise, selection, task status, findings, completeness, and successful receipt exit behavior remain unchanged solely due to environment metadata;
 - canonical older receipts remain valid under current validators;

@@ -26,11 +26,11 @@ Discovery remains sole authority. Package-json-led version comes from the exact 
 
 ## C7 — Why not hash `DiscoveryFileMap[lockfilePath]`?
 
-Recognized lockfiles are empty-string presence sentinels, not contents. Exact bytes are safely reread from the authorized contained path.
+Recognized lockfiles are empty-string presence sentinels, not contents. Exact bytes must come from the authorized filesystem object.
 
 ## C8 — Which lockfile is hashed and what if it fails?
 
-Lockfile-led authority hashes its exact authority path; safe reread/hash failure is integrity failure. Package-json-led authority may use only the matching root lockfile present in the snapshot; supplemental failure yields null with no fallback.
+Lockfile-led authority uses its exact authority path; safe contained object-bound read/hash failure is integrity failure. Package-json-led authority may use only the matching root lockfile present in the snapshot; supplemental failure yields null with no fallback.
 
 ## C9 — Does missing environment metadata make verification incomplete?
 
@@ -38,7 +38,7 @@ Lockfile-led version can legitimately be null; package-json-led version cannot l
 
 ## C10 — What is privacy-sensitive?
 
-Raw absolute paths, host/user/home, env inventory, network/machine identity, credentials/tokens/secrets are prohibited. Receipt paths are canonical repository-relative.
+Raw absolute paths, host/user/home, environment inventory, network/machine identity, credentials/tokens/secrets are prohibited. Receipt paths are canonical repository-relative.
 
 ## C11 — Does this change task tool identity?
 
@@ -62,4 +62,8 @@ The same canonical evaluator in `src/receipt/json.ts` runs both current and exac
 
 ## C16 — What happens if environment identity cannot be observed safely?
 
-That is an expected typed integrity failure, not a repository finding and not optional metadata absence. T106 observes before any project task execution. On failure, no receipt is emitted and no synthetic task or `environment_error` field is invented. Because canonical Spec 001/Master Plan assign internal/integrity errors to exit `2` while the current generic CLI exception path returns `1`, T106 narrowly authorizes `src/cli.ts` to recognize only this typed environment-integrity failure, emit the existing redacted diagnostic form, and return `2`. Generic unexpected-error behavior is not redesigned.
+That is an expected typed integrity failure, not a repository finding and not optional metadata absence. T106 observes before any project task execution. On failure, no receipt is emitted and no synthetic task or `environment_error` field is invented. T106 narrowly authorizes `src/cli.ts` to recognize only this typed environment-integrity failure, emit the existing redacted diagnostic form, and return canonical exit `2`. Generic unexpected-error behavior is not redesigned.
+
+## C17 — How is the lockfile containment-to-read race closed?
+
+A pre-read `realpath` check by itself is insufficient because the authorized path can be replaced before a later open. T105 must bind bytes to the file object: capture the contained target's stable identity, open the authorized path once, immediately `fstat` that descriptor before reading any bytes and require the same regular-file identity, hash only through that descriptor, compare pre/post descriptor stability, then re-resolve/re-stat the authorized path and require it still identifies the opened object before accepting the digest. A swap between containment and open therefore fails before bytes are read; a swap after descriptor binding cannot redirect bytes and a persistent mismatch is rejected post-read. If reliable object identity cannot be proven on any supported OS/Node lane, T105 is `NO_GO`; no weaker fallback is authorized.
