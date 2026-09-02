@@ -23,7 +23,8 @@
 - [x] No receipt 1.1/v2/schema-negotiation or new in-receipt revision identifier is planned.
 - [x] No new child process, package installation, or execution authority is planned.
 - [x] `discovery.packageManager` remains the sole package-manager authority decision.
-- [x] Package-manager version recovery is limited to the same authoritative root package.json and requires same-manager consistency.
+- [x] Package-json-derived authority requires the exact non-null version already validated by discovery; inability to recover it is integrity failure rather than null fallback.
+- [x] Lockfile-derived authority keeps version null.
 - [x] Lockfile identity is supplemental only and cannot change package-manager authority.
 - [x] Lockfile-derived authority hashes only its exact discovery source; package-json-derived authority may inspect only the matching fixed root lockfile.
 - [x] `src/discovery.ts` is outside the expected implementation surface; insufficiency requires `NO_GO` and replanning.
@@ -36,9 +37,10 @@
 
 ## Findings reconciled before this head
 
-- [x] Package-manager/lockfile provenance ambiguity.
-- [x] Strict stale-validator compatibility ambiguity.
-- [x] False claim that `run.ascout_version` uniquely binds exact producer revision.
+- [x] F1 package-manager/lockfile provenance ambiguity.
+- [x] F2 strict stale-validator compatibility ambiguity.
+- [x] F3 false claim that `run.ascout_version` uniquely binds exact producer revision.
+- [x] F4 declaration-led package-manager authority could incorrectly degrade to `version=null` after discovery had already validated an exact version.
 
 No earlier independent review qualifies this repaired head.
 
@@ -52,7 +54,7 @@ Any product/test/package/workflow/benchmark-result change makes the planning PR 
 
 ## Review disposition
 
-`INTERNAL_CONSISTENCY = PASS_AFTER_PROVENANCE_COMPATIBILITY_AND_REVISION_IDENTITY_RECONCILIATION`
+`INTERNAL_CONSISTENCY = PASS_AFTER_F1_F2_F3_F4_RECONCILIATION`
 
 `INDEPENDENT_EXACT_HEAD_REVIEW = REQUIRED`
 
