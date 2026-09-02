@@ -154,7 +154,9 @@ function buildBranchExercise(
   const exercisedBranches = records.filter(({ state }) => state === "EXERCISED").length;
   const notExercisedBranches = records.filter(({ state }) => state === "NOT_EXERCISED").length;
   const unresolvedBranches = records.filter(({ state }) => state === "UNRESOLVED").length;
-  const recordsByPath = new Map<string, BranchExerciseRecord[]>();
+  const recordsByPath = new Map<string, BranchExerciseRecord[]>(
+    [...changedRanges.keys()].map((path) => [path, []] as const),
+  );
   for (const record of records) {
     const pathRecords = recordsByPath.get(record.path) ?? [];
     pathRecords.push(record);
