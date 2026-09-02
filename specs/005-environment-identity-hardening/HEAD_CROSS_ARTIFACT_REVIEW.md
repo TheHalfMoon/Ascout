@@ -16,8 +16,11 @@
 - [x] `schema_version` remains `"1.0"`.
 - [x] Legacy receipt acceptance remains possible with no `environment` object.
 - [x] No new child process, package installation, or execution authority is planned.
-- [x] Existing discovery remains the only package-manager authority for this feature.
-- [x] Lockfile hashing is bounded to one safely selected supported lockfile.
+- [x] `discovery.packageManager` remains the sole package-manager authority decision.
+- [x] Package-manager version recovery is limited to the same authoritative root package.json and requires same-manager consistency.
+- [x] Lockfile identity is supplemental only and cannot change package-manager authority.
+- [x] Lockfile-derived authority hashes only its exact discovery source; package-json-derived authority may inspect only the matching fixed root lockfile.
+- [x] `src/discovery.ts` is outside the expected implementation surface; insufficiency requires `NO_GO` and replanning.
 - [x] Privacy prohibitions exclude raw host/user/path/network/env/secret identity.
 - [x] Environment metadata cannot satisfy or weaken verification completeness.
 - [x] T104 → T105 → T106 ordering is dependency-valid.
@@ -35,7 +38,7 @@ Any product/test/package/workflow/benchmark-result change makes the planning PR 
 
 ## Review disposition
 
-`INTERNAL_CONSISTENCY = PASS`
+`INTERNAL_CONSISTENCY = PASS_AFTER_PROVENANCE_RECONCILIATION`
 
 `INDEPENDENT_EXACT_HEAD_REVIEW = REQUIRED`
 
