@@ -14,6 +14,7 @@
 - [x] No new execution authority, implicit install, or package-manager probe is authorized.
 - [x] Integrity failure cannot silently emit fabricated environment identity.
 - [x] `discovery.packageManager` is the sole manager-authority decision.
+- [x] Declaration-led manager authority requires the exact non-null version already validated by discovery; inability to recover it fails integrity.
 - [x] Lockfile metadata is supplemental only and cannot repair/override manager authority.
 
 ## Privacy and safety
@@ -39,6 +40,13 @@
 - [x] Existing task/tool identity remains unchanged.
 - [x] Existing selection, exercise, findings, completeness, and exit semantics are preserved.
 
+## Environment invariants
+
+- [x] `package_manager_source=package_json` requires manager non-null and exact non-null `x.y.z` version.
+- [x] `package_manager_source=lockfile` requires manager non-null and version null.
+- [x] `package_manager_source=unavailable` requires manager/version null and no lockfile identity.
+- [x] Declaration-led missing/unreadable/malformed/mismatched authority state is integrity failure, not optional absence.
+
 ## Determinism
 
 - [x] Runtime/platform/arch sources are defined.
@@ -52,6 +60,7 @@
 - [x] Positive and negative semantic/schema cases are specified.
 - [x] Bidirectional compatibility policy proof is specified.
 - [x] Current JSON/agent/terminal consumer operation is specified.
+- [x] Declaration-led exact-version recovery and fail-closed contradiction proof is specified.
 - [x] Privacy/path-containment proof is specified.
 - [x] Integration emission proof is specified.
 - [x] Cross-platform exact-head CI and independent review gates are specified.
@@ -61,4 +70,4 @@
 - [x] Planning artifacts do not authorize implementation.
 - [x] T104 is blocked until canonical planning merge and durable implementation authorization binding the compatibility policy.
 
-**Result:** `READY_FOR_CROSS_ARTIFACT_ANALYSIS_AFTER_REVISION_IDENTITY_RECONCILIATION`
+**Result:** `READY_FOR_CROSS_ARTIFACT_ANALYSIS_AFTER_DECLARED_VERSION_RECONCILIATION`
