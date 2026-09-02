@@ -13,6 +13,7 @@ Close the next measured M1.1 evidence-depth gap after canonical Spec 004 closure
 - Post-M1 roadmap M1.1-B: record reliable non-secret runtime, OS/architecture, package-manager version, tool versions, and lockfile digest.
 - Canonical base at planning start: `7bede70ad2abfb91dc9186fb44d77a824efbfdef`.
 - Spec 004: `CLOSED_CANONICAL / GO`.
+- Receipt compatibility policy: `COMPATIBILITY_POLICY.md` → `RECEIPT_V1_ADDITIVE_LOCKSTEP`.
 
 ## Measured gap
 
@@ -36,7 +37,7 @@ Required fields:
 
 ## Functional requirements
 
-1. Receipt `schema_version` remains exactly `"1.0"`.
+1. Receipt `schema_version` remains exactly `"1.0"` under the explicit additive-lockstep policy; this does not claim forward compatibility with stale strict schema revisions.
 2. Existing line/branch evidence, task semantics, selection, completeness, and exit codes remain unchanged solely because environment identity is present or absent.
 3. Runtime identity is observed from the running Node process, not inferred from project declarations.
 4. OS and architecture are observed from the running Node process and normalized deterministically.
@@ -48,9 +49,11 @@ Required fields:
 10. No raw absolute path, user identity, hostname, environment-variable inventory, network address, machine identifier, credential, or secret-bearing value may enter the receipt.
 11. Environment identity must serialize deterministically.
 12. Semantic validation rejects inconsistent nullable groups: package manager/version/source and lockfile path/digest must agree with the declared source state.
-13. Existing receipts without `environment` remain valid for backward compatibility.
-14. New Ascout-produced receipts after implementation must publish `environment` when observation succeeds; observation integrity failure must fail closed as an Ascout execution/integrity error rather than silently fabricate identity.
-15. `src/discovery.ts` is not part of the expected implementation surface. If the bounded feature cannot satisfy these provenance requirements from current discovery truth plus its exact authoritative source files, implementation must stop `NO_GO` and return to planning rather than widening authority.
+13. Updated current-revision semantic and JSON Schema validators must accept canonical older v1 receipts without `environment`.
+14. New environment-bearing receipts must be accepted by the current-revision semantic and JSON Schema validators. The exact prior strict schema is expected to reject them and that version-skew behavior must be tested/documented rather than mislabeled as forward compatibility.
+15. All repository-supported receipt validators/consumers in the producing canonical revision must move in lockstep with this additive v1 extension; no same-revision consumer may pin a stale schema copy.
+16. New Ascout-produced receipts after implementation must publish `environment` when observation succeeds; observation integrity failure must fail closed as an Ascout execution/integrity error rather than silently fabricate identity.
+17. `src/discovery.ts` is not part of the expected implementation surface. If the bounded feature cannot satisfy these provenance requirements from current discovery truth plus its exact authoritative source files, implementation must stop `NO_GO` and return to planning rather than widening authority.
 
 ## Non-goals
 
@@ -63,7 +66,7 @@ Required fields:
 - SBOM generation;
 - toolchain installation;
 - sandboxing;
-- receipt v2;
+- receipt 1.1/v2 or schema-negotiation machinery;
 - policy engine changes;
 - new CLI verbs or output redesign;
 - publication, release, or tag work.
@@ -81,7 +84,10 @@ Environment identity is evidence metadata, not execution authority. It must neve
 - package-json-derived manager may hash only its matching fixed root lockfile as supplemental evidence;
 - non-matching lockfiles never alter manager authority;
 - absent/ambiguous/unsupported manager state and unavailable supplemental lockfile state are represented without guessing;
-- schema and semantic validators accept legacy receipts with no environment object;
+- old receipt + new semantic/JSON Schema validators = ACCEPT;
+- new environment receipt + new semantic/JSON Schema validators = ACCEPT;
+- new environment receipt + exact prior strict schema = REJECT_EXPECTED_VERSION_SKEW;
+- current repository consumers remain functional without bespoke environment rendering;
 - malformed/inconsistent environment objects fail validation;
 - privacy boundaries are proven by focused tests;
 - existing receipt/task/exercise/selection semantics remain unchanged;
