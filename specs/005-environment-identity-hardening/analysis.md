@@ -43,11 +43,12 @@
 - updated validators accept canonical older v1 receipts;
 - updated validators accept new environment-bearing receipts;
 - prior strict schema rejection of a new environment-bearing receipt is expected unsupported version skew and must be proven;
-- all repository-supported consumers/validators in a producing revision move together;
-- `run.ascout_version` is the producer-revision signal;
-- no receipt 1.1/v2 negotiation is introduced.
+- all repository-supported consumers/validators from a producing canonical source/build revision move together;
+- `run.ascout_version` is explicitly **not** treated as a unique source/schema-revision identifier or schema-selection key;
+- compatibility proof binds exact old/new repository identities directly;
+- no receipt 1.1/v2 negotiation or new in-receipt revision field is introduced.
 
-This policy matches the canonical additive-v1 direction established by Spec 004 while correcting its overly broad old-parser assumption for strict validators.
+This policy matches the canonical additive-v1 direction established by Spec 004 while correcting both its overly broad old-parser assumption and the later overclaim that `ascout_version` uniquely binds producer revision.
 
 ### A7 — Package-manager provenance
 
@@ -77,12 +78,12 @@ This policy matches the canonical additive-v1 direction established by Spec 004 
 
 `PASS`. The measured gap is concrete: product receipt lacks run-level environment identity while existing benchmark evidence models environment identity as reproducibility context. No broader feature is promoted from this observation.
 
-### A14 — Reviewer findings reconciliation
+### A14 — Reviewer/self-audit findings reconciliation
 
-`PASS_PENDING_FRESH_HEAD_REVIEW`. Independent review found two material planning concerns across stale heads: package-manager/lockfile provenance and strict-validator compatibility. Both are now explicitly reconciled in canonical planning artifacts. Because the planning head changed, neither prior review qualifies the repaired head; fresh exact-head independent review remains mandatory.
+`PASS_PENDING_FRESH_HEAD_REVIEW`. Independent review found two material planning concerns across stale heads: package-manager/lockfile provenance and strict-validator compatibility. A subsequent fresh self-audit found a third overclaim: `run.ascout_version` is not guaranteed to distinguish commits/builds and therefore cannot honestly bind exact producer revision. All three are now explicitly reconciled in canonical planning artifacts. Because the planning head changed, no prior independent review qualifies the repaired head; fresh exact-head independent review remains mandatory.
 
 ## Cross-artifact consistency result
 
-`PASS / NO_MATERIAL_CONFLICTS_AFTER_PROVENANCE_AND_COMPATIBILITY_RECONCILIATION`
+`PASS / NO_MATERIAL_CONFLICTS_AFTER_PROVENANCE_COMPATIBILITY_AND_REVISION_IDENTITY_RECONCILIATION`
 
 No implementation authority is granted by this analysis.
