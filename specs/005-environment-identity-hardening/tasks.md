@@ -31,25 +31,29 @@ No observation/wiring behavior yet. No `src/check.ts` change in T104.
 
 - Add `src/environment.ts`.
 - Observe Node runtime version, platform, and architecture from the current process.
-- Reuse existing package-manager discovery truth.
-- Resolve at most one effective supported lockfile from existing discovery information.
-- Hash exact lockfile bytes with SHA-256.
-- Add focused observer/privacy/containment tests.
+- Use `discovery.packageManager` as the sole package-manager authority.
+- If manager authority comes from root `package.json`, read only that same already-authoritative file to recover the exact validated version and confirm it names the same manager.
+- If manager authority comes from a recognized lockfile, use that exact discovery source path.
+- If manager authority comes from root `package.json`, inspect only the fixed supported root lockfile matching the already-resolved manager as supplemental evidence; it must not influence manager selection.
+- Hash at most one safe matching lockfile byte-for-byte with SHA-256.
+- Add focused observer/privacy/containment/provenance tests.
 
 ### Acceptance
 
 - no process spawn or implicit install;
 - deterministic environment identity;
-- validated `packageManager` declaration supplies manager/version/source=`package_json`;
-- lockfile-derived manager has version null/source=`lockfile`;
-- unsupported/ambiguous/unavailable manager state becomes null/null/`unavailable`;
-- one safe lockfile is hashed exactly;
-- ambiguous/unavailable lockfile identity is represented with nulls;
+- validated `packageManager` authority supplies manager/source=`package_json` and version only from the same authoritative declaration;
+- declaration/discovery contradiction fails integrity rather than selecting a different manager;
+- lockfile-derived manager has version null/source=`lockfile` and hashes that exact authority source when safe;
+- unsupported/ambiguous/unavailable manager state becomes null/null/`unavailable` with no lockfile identity;
+- package-json-derived manager may hash only its matching fixed root lockfile as supplemental evidence;
+- non-matching lockfiles never override manager authority;
+- absent/unsafe/unreadable supplemental lockfile identity is represented with nulls rather than guessing;
 - raw absolute paths, hostname/user/env inventory/secrets are absent.
 
 ### Hard boundary
 
-No receipt emission/wiring yet. No package/dependency/workflow change.
+No receipt emission/wiring yet. No `src/discovery.ts`, package, dependency, or workflow change. If existing discovery state plus its exact source files is insufficient, stop `NO_GO` and return to planning instead of widening authority.
 
 ## T106 — Publish environment identity in new receipts
 
