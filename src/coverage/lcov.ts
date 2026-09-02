@@ -20,11 +20,44 @@ export interface UnresolvedLcovLineCoverage {
 
 export type LcovLineCoverageResult = ResolvedLcovLineCoverage | UnresolvedLcovLineCoverage;
 
+export type LcovBranchState =
+  | "BRANCH_EXERCISED"
+  | "BRANCH_NOT_EXERCISED"
+  | "BRANCH_UNRESOLVED";
+
+export interface LcovBranchPoint {
+  readonly path: string;
+  readonly line: number;
+  readonly block_id: string;
+  readonly branch_id: string;
+  readonly taken: number | null;
+  readonly state: LcovBranchState;
+  readonly reason?: string;
+}
+
+export interface ResolvedLcovBranchCoverage {
+  readonly outcome: "resolved";
+  readonly observations: readonly LcovBranchPoint[];
+}
+
+export interface UnresolvedLcovBranchCoverage {
+  readonly outcome: "unresolved";
+  readonly observations: null;
+  readonly reason: string;
+}
+
+export type LcovBranchCoverageResult = ResolvedLcovBranchCoverage | UnresolvedLcovBranchCoverage;
+
 const REASON_SOURCE_UNMAPPABLE = "source path cannot be mapped inside the repository";
 const REASON_MALFORMED_LINE = "LCOV line record is malformed";
 const REASON_INVALID_COUNT = "LCOV execution count is invalid";
 const REASON_INCOMPLETE_RECORD = "LCOV source record is incomplete";
 const REASON_NO_LINE_DATA = "no usable line coverage records";
+const REASON_MALFORMED_BRANCH = "LCOV branch record is malformed";
+const REASON_MALFORMED_SOURCE = "LCOV source record is malformed";
+const REASON_INVALID_TAKEN = "LCOV branch taken count is invalid";
+const REASON_NO_BRANCH_DATA = "no usable branch coverage records";
+const REASON_UNKNOWN_TAKEN = "LCOV branch taken count is unknown";
 
 const UNSIGNED_DECIMAL = /^\d+$/u;
 const WINDOWS_ABSOLUTE = /^(?:[A-Za-z]:[\\/]|\\\\)/u;
@@ -32,6 +65,10 @@ const URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
 
 function unresolved(reason: string): UnresolvedLcovLineCoverage {
   return { outcome: "unresolved", count: null, reason };
+}
+
+function unresolvedBranch(reason: string): UnresolvedLcovBranchCoverage {
+  return { outcome: "unresolved", observations: null, reason };
 }
 
 function isContainedRelativePath(path: string): boolean {
@@ -180,4 +217,149 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
   }
 
   return { outcome: "resolved", points };
+}
+
+function compareText(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+function branchIdentityKey(path: string, line: number, blockId: string, branchId: string): string {
+  return JSON.stringify([path, line, blockId, branchId]);
+}
+
+interface AggregatedBranchObservation {
+  readonly path: string;
+  readonly line: number;
+  readonly block_id: string;
+  readonly branch_id: string;
+  readonly taken: number | null;
+  readonly unresolved: boolean;
+}
+
+function addBranchObservation(
+  observations: Map<string, AggregatedBranchObservation>,
+  path: string,
+  line: number,
+  blockId: string,
+  branchId: string,
+  taken: number | null,
+): boolean {
+  const key = branchIdentityKey(path, line, blockId, branchId);
+  const existing = observations.get(key);
+
+  if (taken === null) {
+    observations.set(key, {
+      path,
+      line,
+      block_id: blockId,
+      branch_id: branchId,
+      taken: null,
+      unresolved: true,
+    });
+    return true;
+  }
+
+  if (existing?.unresolved === true) return true;
+  const next = (existing?.taken ?? 0) + taken;
+  if (!Number.isSafeInteger(next) || next < 0) return false;
+
+  observations.set(key, {
+    path,
+    line,
+    block_id: blockId,
+    branch_id: branchId,
+    taken: next,
+    unresolved: false,
+  });
+  return true;
+}
+
+function branchStateFor(taken: number | null): LcovBranchState {
+  if (taken === null) return "BRANCH_UNRESOLVED";
+  return taken > 0 ? "BRANCH_EXERCISED" : "BRANCH_NOT_EXERCISED";
+}
+
+/**
+ * Normalizes LCOV branch observations independently of line coverage.
+ *
+ * This keeps the existing line normalizer unchanged while exposing the
+ * qualified Spec 004 T101 branch dimension for downstream tasks. Unknown
+ * branch observations remain unresolved, repeated numeric identities aggregate
+ * safely, and malformed or path-unsafe evidence fails closed.
+ */
+export function normalizeLcovBranchCoverage(
+  input: string,
+  repositoryRoot: string,
+): LcovBranchCoverageResult {
+  const observations = new Map<string, AggregatedBranchObservation>();
+  let currentSource: string | null = null;
+
+  for (const rawLine of input.split(/\r?\n/u)) {
+    if (rawLine.startsWith("SF:")) {
+      if (currentSource !== null) return unresolvedBranch(REASON_INCOMPLETE_RECORD);
+      const mapped = mapSourcePath(repositoryRoot, rawLine.slice(3));
+      if (mapped === null) return unresolvedBranch(REASON_SOURCE_UNMAPPABLE);
+      currentSource = mapped;
+      continue;
+    }
+
+    if (rawLine === "end_of_record") {
+      if (currentSource === null) return unresolvedBranch(REASON_MALFORMED_SOURCE);
+      currentSource = null;
+      continue;
+    }
+
+    if (!rawLine.startsWith("BRDA:")) continue;
+    if (currentSource === null) return unresolvedBranch(REASON_MALFORMED_BRANCH);
+
+    const fields = rawLine.slice(5).split(",");
+    if (
+      fields.length !== 4 ||
+      fields[0] === undefined ||
+      fields[1] === undefined ||
+      fields[2] === undefined ||
+      fields[3] === undefined ||
+      fields[1].length === 0 ||
+      fields[2].length === 0
+    ) {
+      return unresolvedBranch(REASON_MALFORMED_BRANCH);
+    }
+
+    const line = parsePositiveSafeInteger(fields[0]);
+    if (line === null) return unresolvedBranch(REASON_MALFORMED_BRANCH);
+
+    const taken = fields[3] === "-" ? null : parseNonnegativeSafeInteger(fields[3]);
+    if (fields[3] !== "-" && taken === null) return unresolvedBranch(REASON_INVALID_TAKEN);
+
+    if (!addBranchObservation(observations, currentSource, line, fields[1], fields[2], taken)) {
+      return unresolvedBranch(REASON_INVALID_TAKEN);
+    }
+  }
+
+  if (currentSource !== null) return unresolvedBranch(REASON_INCOMPLETE_RECORD);
+  if (observations.size === 0) return unresolvedBranch(REASON_NO_BRANCH_DATA);
+
+  const normalized: LcovBranchPoint[] = [...observations.values()]
+    .map((observation) => {
+      const taken = observation.unresolved ? null : observation.taken;
+      return {
+        path: observation.path,
+        line: observation.line,
+        block_id: observation.block_id,
+        branch_id: observation.branch_id,
+        taken,
+        state: branchStateFor(taken),
+        ...(taken === null ? { reason: REASON_UNKNOWN_TAKEN } : {}),
+      };
+    })
+    .sort(
+      (left, right) =>
+        compareText(left.path, right.path) ||
+        left.line - right.line ||
+        compareText(left.block_id, right.block_id) ||
+        compareText(left.branch_id, right.branch_id),
+    );
+
+  return { outcome: "resolved", observations: normalized };
 }
