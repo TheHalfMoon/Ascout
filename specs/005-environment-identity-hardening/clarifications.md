@@ -22,7 +22,7 @@ Spec 005 does not introduce an exact in-receipt source-revision identifier. `run
 
 ## C6 — Can Ascout run `npm --version`, `pnpm --version`, or `yarn --version` to fill the field?
 
-No. Spec 005 adds evidence metadata, not new executable verification or authority. `discovery.packageManager` remains the sole manager-authority decision. If discovery resolved the manager from root `package.json`, the observer may read that same already-authoritative file solely to recover the exact version from the already-validated declaration and must confirm it names the same manager. It must not execute a command or choose a manager independently. If the version cannot be recovered consistently, it remains `null` or fails integrity on contradiction.
+No. Spec 005 adds evidence metadata, not new executable verification or authority. `discovery.packageManager` remains the sole manager-authority decision. If discovery resolved the manager from root `package.json`, the observer reads only that same already-authoritative file to recover the exact `x.y.z` version from the declaration and must confirm it names the same manager. Declaration-led discovery resolves only after validating exact `manager@x.y.z`; therefore failure to recover that same exact version, unreadable/malformed authoritative declaration state, or a manager mismatch is an integrity failure. It must not emit `package_manager_source=package_json` with a null version, execute a command, or choose another manager.
 
 ## C7 — Which lockfile is hashed?
 
@@ -30,7 +30,7 @@ Lockfile identity is supplemental evidence, never package-manager authority. If 
 
 ## C8 — Does a missing package-manager version or lockfile make the verification incomplete?
 
-No by itself. Environment identity quality is explicit metadata. Missing optional sub-observations must not fabricate data or alter task/exercise completeness. Integrity failure while constructing a claimed environment object is different: it must fail closed rather than emit contradictory identity.
+The two cases differ. A lockfile-derived manager legitimately has `package_manager_version=null`, and supplemental lockfile identity may be absent without changing verification completeness. But a package-json-derived manager cannot legitimately lose the exact declaration version after discovery has already validated it; that state is an integrity failure and must fail closed rather than degrade to null metadata.
 
 ## C9 — What is privacy-sensitive and prohibited?
 
