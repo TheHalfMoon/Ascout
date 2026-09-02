@@ -11,25 +11,27 @@
 3. Does the plan add execution authority?
    - No: no new process spawn, install, command, hook, or trust grant.
 4. Does the plan weaken source binding or no-green-by-omission?
-   - No: environment metadata is additive current-run context and cannot substitute for verification evidence.
+   - No: environment metadata is additive current-run context and cannot substitute for source-bound verification evidence.
 5. Is receipt-v1 compatibility now explicit rather than assumed?
-   - Yes: `COMPATIBILITY_POLICY.md` defines `RECEIPT_V1_ADDITIVE_LOCKSTEP`. New validators accept old/new receipts; the exact prior strict schema is expected to reject environment-bearing receipts and must be tested as unsupported version skew. Same-revision supported consumers cannot pin stale schemas.
-6. Does it create a second package-manager resolver?
+   - Yes: `COMPATIBILITY_POLICY.md` defines `RECEIPT_V1_ADDITIVE_LOCKSTEP`. New validators accept old/new receipts; the exact prior strict schema is expected to reject environment-bearing receipts and must be tested as unsupported version skew. Same-source/build supported consumers cannot pin stale schemas.
+6. Does the plan falsely claim that `run.ascout_version` uniquely identifies producer revision?
+   - No. It is explicitly treated only as a product-version label. Exact compatibility proof binds repository/source revisions directly; Spec 005 does not use receipt fields to select or negotiate schema revisions.
+7. Does it create a second package-manager resolver?
    - No: `discovery.packageManager` is the sole manager-authority decision. The observer may derive version only from the exact already-authoritative package.json source and may not choose another manager.
-7. Can lockfile evidence alter manager authority?
+8. Can lockfile evidence alter manager authority?
    - No. Lockfile identity is supplemental only. Lockfile-derived authority uses its exact discovery source; package-json-derived authority may inspect only the matching fixed root lockfile after the manager is already resolved.
-8. Is discovery itself being widened?
+9. Is discovery itself being widened?
    - No. `src/discovery.ts` is outside the expected implementation surface; insufficiency requires `NO_GO` and replanning.
-9. Is privacy bounded?
+10. Is privacy bounded?
    - Yes: no raw absolute paths, hostname, username, machine ID, network identity, environment inventory, credentials, or secrets.
-10. Is task ordering dependency-valid?
+11. Is task ordering dependency-valid?
    - Yes: contract/compatibility proof → observer → publication.
-11. Are implementation surfaces bounded?
+12. Are implementation surfaces bounded?
    - Yes: expected `src/environment.ts`, `src/check.ts`, `src/receipt/model.ts`, receipt-v1 schema, and focused tests/current-consumer proof only.
-12. Are CI/review/merge gates explicit?
+13. Are CI/review/merge gates explicit?
    - Yes: exact-head six-lane CI, independent review, zero unresolved material threads, guarded expected-head merge, post-merge verification.
 
-## Reviewer-findings ledger
+## Findings ledger
 
 ### F1 — package-manager / lockfile provenance
 
@@ -39,14 +41,19 @@
 
 `RECONCILED_IN_COMPATIBILITY_POLICY`. The plan no longer claims forward compatibility. It defines supported lockstep pairings and requires the exact prior schema rejection case as proof.
 
+### F3 — false exact producer-revision binding via `run.ascout_version`
+
+`RECONCILED_IN_COMPATIBILITY_POLICY_AND_PLAN`. Current product versions may span multiple commits/builds, so `ascout_version` cannot honestly serve as a unique source/schema-revision key. The repaired policy binds compatibility proof to exact repository/source revisions and prohibits schema selection or negotiation from `ascout_version` alone.
+
 Because these repairs changed the planning head, a fresh independent review of the complete repaired diff is mandatory before merge.
 
 ## Known fresh-review focus
 
 Independent review must challenge:
 
-- whether the additive-lockstep policy is sufficiently explicit and bounded for the current private/unreleased project;
-- whether `run.ascout_version` is an adequate producer-revision binding without new schema negotiation;
+- whether the additive-lockstep policy is sufficiently explicit and bounded for the current unreleased project;
+- whether exact old/new repository-bound compatibility proof is sufficient without an in-receipt schema-revision identifier;
+- whether explicitly treating `run.ascout_version` as non-unique avoids false compatibility claims without silently adding negotiation;
 - whether the compatibility test matrix proves both supported and unsupported pairings honestly;
 - whether recovering package-manager version from the exact discovery-authoritative package.json is genuinely derivation rather than a second resolver;
 - whether same-manager consistency failure is correctly classified as integrity failure rather than fallback selection;
