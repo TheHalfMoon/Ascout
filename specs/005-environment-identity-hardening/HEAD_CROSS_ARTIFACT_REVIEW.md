@@ -7,14 +7,19 @@
 - `.specify/memory/constitution.md`
 - `docs/founding/MASTER_PLAN_V1.md`
 - `docs/strategy/POST_M1_VERIFICATION_ROADMAP.md`
-- complete `specs/005-environment-identity-hardening/` planning package
+- complete `specs/005-environment-identity-hardening/` planning package including `COMPATIBILITY_POLICY.md`
 
 ## Consistency checks
 
 - [x] Problem statement matches M1.1-B evidence-depth roadmap language.
 - [x] Scope is bounded to runtime/OS/arch/package-manager/lockfile run identity.
-- [x] `schema_version` remains `"1.0"`.
-- [x] Legacy receipt acceptance remains possible with no `environment` object.
+- [x] `schema_version` remains `"1.0"` under explicit `RECEIPT_V1_ADDITIVE_LOCKSTEP` policy.
+- [x] Updated validators accept canonical old receipts without `environment`.
+- [x] Updated validators accept new environment-bearing receipts.
+- [x] Exact prior strict schema rejection is explicitly expected/tested as unsupported version skew, not hidden as forward compatibility.
+- [x] Same-revision supported consumers/validators must move in lockstep; no stale embedded schema is permitted.
+- [x] `run.ascout_version` is the producer-revision signal within v1.
+- [x] No receipt 1.1/v2/schema-negotiation architecture is planned.
 - [x] No new child process, package installation, or execution authority is planned.
 - [x] `discovery.packageManager` remains the sole package-manager authority decision.
 - [x] Package-manager version recovery is limited to the same authoritative root package.json and requires same-manager consistency.
@@ -26,7 +31,14 @@
 - [x] T104 → T105 → T106 ordering is dependency-valid.
 - [x] No function coverage, M2 work, release, publication, tag, dependency, or workflow mutation is authorized.
 - [x] Exact-head six-lane CI, independent review, guarded merge, and post-merge verification are required.
-- [x] Implementation remains blocked until the planning merge is canonical and a durable authorization binds that merge.
+- [x] Implementation remains blocked until the planning merge is canonical and a durable authorization binds that merge and compatibility policy.
+
+## Reviewer findings reconciled before this head
+
+- [x] Package-manager/lockfile provenance ambiguity.
+- [x] Strict stale-validator compatibility ambiguity.
+
+Neither earlier review qualifies this repaired head.
 
 ## Branch-purity expectation
 
@@ -38,7 +50,7 @@ Any product/test/package/workflow/benchmark-result change makes the planning PR 
 
 ## Review disposition
 
-`INTERNAL_CONSISTENCY = PASS_AFTER_PROVENANCE_RECONCILIATION`
+`INTERNAL_CONSISTENCY = PASS_AFTER_ALL_KNOWN_RECONCILIATIONS`
 
 `INDEPENDENT_EXACT_HEAD_REVIEW = REQUIRED`
 
