@@ -12,7 +12,7 @@ import {
   type SemanticTaskType,
 } from "./discovery.js";
 import { configDigestV1, parseConfigV1Json, type ConfigV1 } from "./config.js";
-import { normalizeLcovLineCoverage, normalizeLcovBranchCoverage, type LcovLinePoint, type LcovBranchPoint } from "./coverage/lcov.js";
+import { normalizeLcovLineCoverage, type LcovLinePoint } from "./coverage/lcov.js";
 import { buildChangedLineExercise } from "./exercise.js";
 import {
   readGitHeadState,
@@ -463,7 +463,6 @@ interface TestMachineResultRecord {
 
 interface ExecutedTestTask extends ExecutedTask {
   readonly coveragePoints: readonly LcovLinePoint[] | null;
-  readonly branchPoints: readonly LcovBranchPoint[] | null;
   readonly selectedTestCounts: readonly (number | null)[];
   readonly machineResults: readonly TestMachineResultRecord[];
 }
@@ -881,7 +880,6 @@ function withVitestEvidenceError(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints: null,
-    branchPoints: null,
     selectedTestCounts: [null],
     machineResults: [],
   };
@@ -921,14 +919,13 @@ async function executeVitestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, branchPoints: null, selectedTestCounts: [null], machineResults: [] };
+  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null], machineResults: [] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withVitestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
   const generatedSequenceStart = passOrdinal === 1 ? 3 : 7;
   const artifactPrefix = passOrdinal === 1 ? "test" : "test.pass-2";
   let coveragePoints: readonly LcovLinePoint[] | null = null;
-  let branchPoints: readonly LcovBranchPoint[] | null = null;
   let selectedTestCount: number | null = null;
   let machineResult: TestMachineResultRecord | null = null;
   try {
@@ -960,11 +957,9 @@ async function executeVitestTask(
       secrets,
     );
     generated.push(coverage);
-    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
-    if (lineNormalized.outcome !== "resolved") return withVitestEvidenceError(executed, generated);
-    coveragePoints = lineNormalized.points;
-    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
-    branchPoints = branchNormalized.outcome === "resolved" ? branchNormalized.observations : [];
+    const normalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
+    if (normalized.outcome !== "resolved") return withVitestEvidenceError(executed, generated);
+    coveragePoints = normalized.points;
   } catch {
     return withVitestEvidenceError(executed, generated);
   }
@@ -978,7 +973,6 @@ async function executeVitestTask(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints,
-    branchPoints,
     selectedTestCounts: [selectedTestCount],
     machineResults: machineResult === null ? [] : [machineResult],
   };
@@ -1018,7 +1012,6 @@ function withJestEvidenceError(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints: null,
-    branchPoints: null,
     selectedTestCounts: [null],
     machineResults: [],
   };
@@ -1058,14 +1051,13 @@ async function executeJestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, branchPoints: null, selectedTestCounts: [null], machineResults: [] };
+  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, selectedTestCounts: [null], machineResults: [] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withJestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
   const generatedSequenceStart = passOrdinal === 1 ? 3 : 7;
   const artifactPrefix = passOrdinal === 1 ? "test" : "test.pass-2";
   let coveragePoints: readonly LcovLinePoint[] | null = null;
-  let branchPoints: readonly LcovBranchPoint[] | null = null;
   let selectedTestCount: number | null = null;
   let machineResult: TestMachineResultRecord | null = null;
   try {
@@ -1097,11 +1089,9 @@ async function executeJestTask(
       secrets,
     );
     generated.push(coverage);
-    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
-    if (lineNormalized.outcome !== "resolved") return withJestEvidenceError(executed, generated);
-    coveragePoints = lineNormalized.points;
-    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
-    branchPoints = branchNormalized.outcome === "resolved" ? branchNormalized.observations : [];
+    const normalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
+    if (normalized.outcome !== "resolved") return withJestEvidenceError(executed, generated);
+    coveragePoints = normalized.points;
   } catch {
     return withJestEvidenceError(executed, generated);
   }
@@ -1115,7 +1105,6 @@ async function executeJestTask(
     evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
     artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
     coveragePoints,
-    branchPoints,
     selectedTestCounts: [selectedTestCount],
     machineResults: machineResult === null ? [] : [machineResult],
   };
@@ -1157,7 +1146,6 @@ function combineTestPasses(first: ExecutedTestTask, second: ExecutedTestTask): E
     evidence: [...first.evidence, ...second.evidence],
     artifacts: [...first.artifacts, ...second.artifacts],
     coveragePoints: second.coveragePoints,
-    branchPoints: second.branchPoints,
     selectedTestCounts: [...first.selectedTestCounts, ...second.selectedTestCounts],
     machineResults: [...first.machineResults, ...second.machineResults],
   };
@@ -1536,7 +1524,6 @@ export async function runCheck(
       const artifacts: ArtifactV1[] = [];
       const findings: FindingV1[] = [];
       let exerciseCoveragePoints: readonly LcovLinePoint[] | null = null;
-      let exerciseBranchPoints: readonly LcovBranchPoint[] | null = null;
 
       for (const task of FIXED_SEMANTIC_TASKS) {
         const decision = decisions[task];
@@ -1701,7 +1688,6 @@ export async function runCheck(
           finalExecuted = normalizedTestExecution.executed;
           findings.push(...normalizedTestExecution.findings);
           exerciseCoveragePoints = finalExecuted.coveragePoints;
-          exerciseBranchPoints = finalExecuted.branchPoints;
           executed = finalExecuted;
         } else {
           executed = await executePlannedTask(
@@ -1720,22 +1706,9 @@ export async function runCheck(
         artifacts.push(...executed.artifacts);
       }
 
-      const fullExercise = exerciseCoveragePoints === null
+      const exercise = exerciseCoveragePoints === null
         ? emptyExercise()
-        : buildChangedLineExercise(
-            gitComparison.changed_files,
-            exerciseCoveragePoints,
-            "test",
-            exerciseBranchPoints ?? [],
-          );
-      const exercise: ExerciseV1 = {
-        changed_executable_lines: fullExercise.changed_executable_lines,
-        exercised_lines: fullExercise.exercised_lines,
-        not_exercised_lines: fullExercise.not_exercised_lines,
-        unresolved_lines: fullExercise.unresolved_lines,
-        changed_files_with_zero_exercised_lines: fullExercise.changed_files_with_zero_exercised_lines,
-        records: fullExercise.records,
-      };
+        : buildChangedLineExercise(gitComparison.changed_files, exerciseCoveragePoints, "test");
       const sourceEnd = composeSourceState(root);
 
       const receipt = buildReceipt({
