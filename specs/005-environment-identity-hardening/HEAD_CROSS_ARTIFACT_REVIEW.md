@@ -17,9 +17,10 @@
 - [x] Updated validators accept canonical old receipts without `environment`.
 - [x] Updated validators accept new environment-bearing receipts.
 - [x] Exact prior strict schema rejection is explicitly expected/tested as unsupported version skew, not hidden as forward compatibility.
-- [x] Same-revision supported consumers/validators must move in lockstep; no stale embedded schema is permitted.
-- [x] `run.ascout_version` is the producer-revision signal within v1.
-- [x] No receipt 1.1/v2/schema-negotiation architecture is planned.
+- [x] Same-source/build supported consumers/validators must move in lockstep; no stale embedded schema is permitted.
+- [x] `run.ascout_version` is only a product-version label and is not claimed to uniquely identify source/schema revision.
+- [x] Compatibility proof binds exact old/new repository identities directly; receipt fields do not negotiate schema revisions.
+- [x] No receipt 1.1/v2/schema-negotiation or new in-receipt revision identifier is planned.
 - [x] No new child process, package installation, or execution authority is planned.
 - [x] `discovery.packageManager` remains the sole package-manager authority decision.
 - [x] Package-manager version recovery is limited to the same authoritative root package.json and requires same-manager consistency.
@@ -33,12 +34,13 @@
 - [x] Exact-head six-lane CI, independent review, guarded merge, and post-merge verification are required.
 - [x] Implementation remains blocked until the planning merge is canonical and a durable authorization binds that merge and compatibility policy.
 
-## Reviewer findings reconciled before this head
+## Findings reconciled before this head
 
 - [x] Package-manager/lockfile provenance ambiguity.
 - [x] Strict stale-validator compatibility ambiguity.
+- [x] False claim that `run.ascout_version` uniquely binds exact producer revision.
 
-Neither earlier review qualifies this repaired head.
+No earlier independent review qualifies this repaired head.
 
 ## Branch-purity expectation
 
@@ -50,7 +52,7 @@ Any product/test/package/workflow/benchmark-result change makes the planning PR 
 
 ## Review disposition
 
-`INTERNAL_CONSISTENCY = PASS_AFTER_ALL_KNOWN_RECONCILIATIONS`
+`INTERNAL_CONSISTENCY = PASS_AFTER_PROVENANCE_COMPATIBILITY_AND_REVISION_IDENTITY_RECONCILIATION`
 
 `INDEPENDENT_EXACT_HEAD_REVIEW = REQUIRED`
 
