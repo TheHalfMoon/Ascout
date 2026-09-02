@@ -9,7 +9,8 @@ Add deterministic, privacy-safe run-level environment identity to receipt v1 whi
 - `src/check.ts` constructs the final receipt from run/source/comparison/selection/task/exercise/evidence data.
 - `src/receipt/model.ts` defines receipt v1 interfaces and semantic validation.
 - `specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json` defines JSON Schema v1.
-- `src/discovery.ts` already resolves supported JavaScript package-manager state and relevant source paths.
+- `src/discovery.ts` already resolves supported JavaScript package-manager authority and records the exact source paths used for that resolution.
+- Current `ProjectDiscovery.packageManager` does not retain a package-manager declaration version; it retains only the resolved manager and its source paths.
 - Node built-ins expose runtime version, platform, architecture, file reads, and SHA-256 hashing without external dependencies.
 
 ## Proposed design
@@ -36,33 +37,47 @@ Extend `ReceiptV1` with optional `environment?: EnvironmentV1` and JSON Schema w
 
 ### 2. Observation boundary
 
-Create a small pure-or-nearly-pure environment observation module, preferably `src/environment.ts`, receiving repository root and already-resolved discovery state.
+Create a small pure-or-nearly-pure environment observation module, preferably `src/environment.ts`, receiving repository root, normalized discovery-file content, and already-resolved discovery state.
 
 It may:
 
 - read `process.version`, `process.platform`, and `process.arch`;
-- inspect already-resolved discovery package-manager data;
-- read at most the single already-authoritative supported lockfile;
-- hash bytes with Node `crypto`.
+- inspect already-resolved discovery package-manager authority;
+- read only the exact root `package.json` already named by discovery when that file is the manager authority source, solely to recover the exact version from the already-validated declaration;
+- inspect only the fixed supported root lockfile names (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`) as supplemental evidence after manager authority is already resolved;
+- hash at most one matching lockfile with Node `crypto`.
 
 It must not:
 
 - spawn a process;
 - scan arbitrary environment variables;
 - inspect host identity beyond platform/arch/runtime;
-- introduce a second package-manager resolution algorithm.
+- choose or change the package manager independently of `discovery.packageManager`;
+- treat a lockfile as manager authority when discovery did not.
 
 ### 3. Package-manager mapping
 
-Reuse `discovery.packageManager` semantics. A validated `packageManager` declaration like `npm@x.y.z` may supply name/version/source=`package_json`. A lockfile-derived manager without a validated version supplies manager, version=`null`, source=`lockfile`. Unsupported/ambiguous/unavailable discovery produces manager/version `null` and source=`unavailable`.
+`discovery.packageManager` is the sole manager-authority decision.
+
+- If it is not `resolved`, emit manager/version `null`, source=`unavailable`, and no lockfile identity.
+- If it is `resolved` from `package.json`, emit that resolved manager and source=`package_json`. The observer may recover the exact version only by reading the same root `package.json` source already validated by discovery and re-checking that its exact `packageManager` declaration names the same resolved manager. Any contradiction is an integrity failure; absence of a recoverable version is `null`.
+- If it is `resolved` from a recognized lockfile source path, emit that resolved manager, version=`null`, source=`lockfile`.
+
+This is metadata derivation from an already-authoritative decision, not a second resolver.
 
 ### 4. Lockfile identity
 
-Use only an existing discovery-selected/source path when it corresponds to a supported lockfile and is repository-contained. Read exact bytes once and emit lowercase SHA-256. Do not hash multiple competing candidates. If no unambiguous effective lockfile is available, emit `null` path/digest.
+Lockfile identity is supplemental evidence and never influences package-manager authority.
+
+- When manager authority is resolved from a recognized lockfile, hash that exact discovery source path.
+- When manager authority is resolved from `package.json`, inspect only the one fixed root lockfile name corresponding to the already-resolved manager (`npm -> package-lock.json`, `pnpm -> pnpm-lock.yaml`, `yarn -> yarn.lock`). If that matching root file exists safely, hash it; otherwise emit null path/digest.
+- Ignore non-matching recognized lockfiles for environment identity rather than treating them as competing authority.
+- Never select among multiple managers; discovery has already made that authority decision.
+- Read exact bytes once and emit lowercase SHA-256.
 
 ### 5. Integrity semantics
 
-The observer returns either a valid complete `EnvironmentV1` or a typed integrity failure. `check` must not emit a claimed environment object built from contradictory/unsafe state. A true internal observation failure follows existing integrity-error precedence; simple unavailable optional package-manager/lockfile metadata is represented with nulls and is not itself an error.
+The observer returns either a valid complete `EnvironmentV1` or a typed integrity failure. `check` must not emit a claimed environment object built from contradictory/unsafe state. A true internal observation failure follows existing integrity-error precedence; simple unavailable optional package-manager/version/lockfile metadata is represented with nulls and is not itself an error.
 
 ### 6. Validation
 
@@ -73,7 +88,7 @@ Semantic validation enforces:
 - runtime version has no leading `v`;
 - package-manager/version/source consistency;
 - `package_manager_version` is null when manager is null;
-- source `unavailable` requires manager/version null;
+- source `unavailable` requires manager/version null and lockfile identity null;
 - lockfile path and digest are both null or both present;
 - lockfile path uses canonical repository path validation;
 - digest is lowercase 64-hex;
@@ -92,6 +107,8 @@ Expected product paths:
 - `src/receipt/model.ts`;
 - `specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json`.
 
+`src/discovery.ts` is **not** expected to change. If implementation cannot satisfy the provenance rules above without modifying discovery semantics or contracts, T105 must stop `NO_GO` and return to planning rather than widening authority.
+
 Expected proof paths:
 
 - `tests/environment-identity.contract.test.ts` (new);
@@ -106,9 +123,10 @@ No package/dependency/workflow/benchmark-result mutation is expected.
 3. legacy receipt compatibility;
 4. integration receipt emission from controlled repository fixtures;
 5. privacy/path-containment negative cases;
-6. full project tests/typecheck/build;
-7. exact-head six-lane Project CI;
-8. fresh independent exact-head substantive review.
+6. contradictory manager declaration/discovery-state integrity cases;
+7. full project tests/typecheck/build;
+8. exact-head six-lane Project CI;
+9. fresh independent exact-head substantive review.
 
 ## Rollback/compatibility
 
