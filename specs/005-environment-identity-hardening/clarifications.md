@@ -14,11 +14,11 @@ No. It is optional at the schema level for backward compatibility. Existing pers
 
 ## C4 — Can Ascout run `npm --version`, `pnpm --version`, or `yarn --version` to fill the field?
 
-No. Spec 005 adds evidence metadata, not new executable verification or authority. Package-manager version is recorded only from already validated, non-executing discovery information. If unavailable, it remains `null`.
+No. Spec 005 adds evidence metadata, not new executable verification or authority. `discovery.packageManager` remains the sole manager-authority decision. If discovery resolved the manager from root `package.json`, the observer may read that same already-authoritative file solely to recover the exact version from the already-validated declaration and must confirm it names the same manager. It must not execute a command or choose a manager independently. If the version cannot be recovered consistently, it remains `null` or fails integrity on contradiction.
 
 ## C5 — Which lockfile is hashed?
 
-Only one effective supported lockfile if existing discovery semantics establish it safely and unambiguously. This spec does not invent a new resolver. Multiple/ambiguous or unavailable candidates produce no lockfile identity rather than a guessed choice.
+Lockfile identity is supplemental evidence, never package-manager authority. If discovery resolved the manager from a recognized lockfile, hash that exact discovery source path. If discovery resolved the manager from root `package.json`, inspect only the fixed supported root lockfile corresponding to that already-resolved manager (`npm -> package-lock.json`, `pnpm -> pnpm-lock.yaml`, `yarn -> yarn.lock`). If that matching file is absent, unsafe, or unreadable, do not guess another lockfile. Non-matching lockfiles do not override the manager decision.
 
 ## C6 — Does a missing package-manager version or lockfile make the verification incomplete?
 
@@ -39,3 +39,7 @@ No. Source identity and tree binding remain authoritative for repository state. 
 ## C10 — Does this authorize terminal/UI changes?
 
 No output redesign is authorized. JSON/agent/terminal changes are limited to what is mechanically required by the existing one-receipt truth architecture; any human-facing expansion beyond existing generic receipt rendering requires separate authority.
+
+## C11 — May T105 modify discovery to make implementation easier?
+
+Not under the current plan. `src/discovery.ts` is intentionally outside the expected T105 product surface. If the bounded observer cannot satisfy provenance rules from existing discovery state plus the exact already-authoritative source files, T105 must stop and return to planning instead of widening discovery contracts.
