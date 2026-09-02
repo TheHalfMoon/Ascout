@@ -20,7 +20,8 @@ The original implementation authorization remains effective for:
 - `src/receipt/model.ts` — add `BranchRecordV1`, extend `ExerciseV1` with the optional branch group, validate branch semantics, and include branch gaps in material incompleteness;
 - `tests/t103-branch-receipt-validation.contract.test.ts` — focused semantic and schema contract proof;
 - `tests/fixtures/lcov/branch-cases.json` — deterministic branch fixtures only where required by T103 proof;
-- previously authorized T101/T102 proof files only when a fresh T103 assertion genuinely belongs there and does not mutate predecessor behavior.
+- `tests/t101-lcov-branch-parser.contract.test.ts` only when a fresh T103 assertion genuinely belongs there and does not mutate predecessor behavior;
+- `tests/t102-branch-exercise.contract.test.ts` only when a fresh T103 assertion genuinely belongs there and does not mutate predecessor behavior.
 
 Receipt `schema_version` remains exactly `"1.0"`.
 
