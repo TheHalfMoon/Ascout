@@ -2,56 +2,60 @@
 
 ## C1 — Why environment identity now?
 
-Spec 004 completed branch evidence. The next roadmap-backed M1.1 evidence-depth gap with direct current-repository proof is environment identity: benchmark evidence already records runtime context while the product receipt does not.
+Spec 004 completed branch evidence. The next roadmap-backed M1.1 evidence-depth gap is environment identity: benchmark evidence already records runtime context while the product receipt does not.
 
 ## C2 — Why not function coverage next?
 
-Function coverage remains unqualified by the existing branch benchmark and was explicitly outside Spec 004. No measured current gap proves it should precede environment reproducibility. This specification does not authorize it.
+Function coverage remains unqualified by current benchmark evidence and is outside this scope.
 
 ## C3 — Is `environment` required by receipt v1?
 
-No. It is optional for backward receipt compatibility. Canonical older receipts remain valid under updated validators. This does not promise stale strict validators accept newer environment-bearing receipts; see `RECEIPT_V1_ADDITIVE_LOCKSTEP`.
+No. It is optional for backward receipt compatibility. This does not promise stale strict validators accept newer environment-bearing receipts.
 
-## C4 — Why keep `schema_version = "1.0"` if an older strict schema rejects the new field?
+## C4 — Why keep `schema_version = "1.0"`?
 
-Receipt `"1.0"` remains the canonical semantic family under the established additive-v1 direction. Same-source/build supported validators move in lockstep. Prior strict schema rejection is expected/tested unsupported version skew, not hidden forward compatibility. No receipt 1.1/v2 negotiation is authorized here.
+Receipt `"1.0"` remains the canonical semantic family under additive-v1 lockstep. Same-source/build supported validators move together; prior strict-schema rejection is expected/tested unsupported skew. No 1.1/v2 negotiation is authorized.
 
 ## C5 — What identifies the producing revision?
 
-Spec 005 introduces no exact in-receipt source-revision identifier. `run.ascout_version` is a product-version label, not guaranteed to distinguish commits/builds, and must not select a schema revision or claim exact source identity. Strict compatibility is proven operationally against exact repository/source revisions.
+Spec 005 introduces no exact in-receipt source-revision identifier. `run.ascout_version` is a product-version label and must not select a schema revision or claim exact source identity. Compatibility proof binds exact repository/source revisions.
 
 ## C6 — How is package-manager version recovered without a second resolver?
 
-`discovery.packageManager` remains sole authority. For package-json-led authority, use the exact `files["package.json"]` content snapshot discovery itself parsed. Confirm its exact `manager@x.y.z` names the resolved manager and emit that non-null version. Missing/malformed/mismatched snapshot state is integrity failure. Do not re-read package.json from disk and do not execute a command or choose another manager.
+Use `discovery.packageManager` as sole authority and parse the exact `files["package.json"]` snapshot discovery used. Confirm the same exact `manager@x.y.z`; missing/malformed/mismatch is integrity failure. No disk reread or command execution.
 
-## C7 — Why not use `DiscoveryFileMap[lockfilePath]` as the lockfile content?
+## C7 — Why not hash `DiscoveryFileMap[lockfilePath]`?
 
-Because discovery intentionally records recognized lockfiles as presence/path sentinels with empty-string values; only content-required metadata such as package.json is read into the map. Hashing the lockfile map value would hash an empty sentinel rather than the lockfile. T105 must use discovery only for authority/path/presence and safely re-read exact lockfile bytes from the canonical repository root.
+Recognized lockfiles are empty-string presence sentinels in discovery, not contents. T105 uses discovery only for authority/path/presence and safely re-reads exact filesystem bytes from canonical root.
 
-## C8 — Which lockfile is hashed and what happens if it cannot be read?
+## C8 — Which lockfile is hashed and what if it cannot be read?
 
-Lockfile identity never changes manager authority. If manager authority came from a recognized lockfile, hash that exact discovery authority path. Re-check realpath/symlink containment at read time; failure to safely re-read/hash the authority source is integrity failure. If authority came from package.json, consider only the fixed matching root lockfile that was present in the discovery snapshot; supplemental read failure yields null identity and never triggers fallback.
+Lockfile-led authority hashes the exact discovery authority path; safe reread/hash failure is integrity failure. Package-json-led authority may use only the fixed matching root lockfile present in the snapshot; supplemental read failure yields null identity with no fallback.
 
-## C9 — Does a missing package-manager version or lockfile make verification incomplete?
+## C9 — Does missing package-manager version or lockfile make verification incomplete?
 
-Lockfile-derived manager legitimately has version null. Package-json-derived manager cannot lose the exact version discovery already validated; that is integrity failure. Supplemental matching lockfile identity may be absent without changing verification completeness. Authority-source failure is not optional absence.
+Lockfile-led manager legitimately has version null. Package-json-led manager cannot lose the exact version discovery already validated; that is integrity failure. Supplemental lockfile identity may be absent without changing verification completeness.
 
 ## C10 — What is privacy-sensitive and prohibited?
 
-Raw absolute paths, hostname, username, home directory, environment-variable inventory, IP/network identity, machine IDs, credentials, tokens, and secret-bearing values are prohibited. Lockfile paths are canonical repository-relative only.
+Raw absolute paths, hostname, username/home, environment-variable inventory, IP/network identity, machine IDs, credentials/tokens/secrets are prohibited. Receipt paths are canonical repository-relative.
 
 ## C11 — Does this change task `tool_name` / `tool_version`?
 
-No. Existing task-level tool identity remains unchanged. Spec 005 adds complementary run-level environment identity.
+No. Existing task-level tool identity remains unchanged.
 
 ## C12 — Does environment identity become source identity?
 
-No. Source identity/tree binding remain authoritative. Environment identity is additional current-run evidence and cannot transfer evidence across source states.
+No. Source identity/tree binding remain authoritative; environment identity is additional current-run evidence.
 
 ## C13 — Does this authorize terminal/UI changes?
 
-No output redesign. JSON/agent/terminal changes are limited to existing generic receipt mechanics; bespoke human-facing expansion requires separate authority.
+No output redesign. JSON/agent/terminal changes are limited to existing generic receipt mechanics.
 
-## C14 — May T105 modify discovery to make implementation easier?
+## C14 — May T105 modify discovery?
 
-No. `src/discovery.ts` is outside T105. `collectDiscoveredProject()` already provides canonical root, files snapshot, and discovery result. If those bounded inputs cannot satisfy the rules, T105 stops `NO_GO` and returns to planning.
+No. `src/discovery.ts` is outside T105. If `root + files + discovery` cannot satisfy the bounded rules, T105 stops `NO_GO` and returns to planning.
+
+## C15 — How can T104 prove rejection by the prior strict schema without creating a second validator?
+
+Current `src/receipt/json.ts` contains the canonical evaluator but its normal exported validation path loads only the current bundled schema. T104 may narrowly refactor that module so the same evaluator can be called with a controlled parsed schema in repository-local tests. The exact pre-Spec-005 strict schema is pinned as an immutable fixture and evaluated through that same implementation. The normal `validateReceiptJsonSchema()` entry point remains current-schema-only. A copied test validator, new validation dependency, runtime schema selector, arbitrary schema-loading API, or negotiation mechanism is not authorized.

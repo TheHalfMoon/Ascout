@@ -8,9 +8,7 @@
 - `spec.md`
 - `clarifications.md`
 - `COMPATIBILITY_POLICY.md`
-- `ponytail-review.md`
 - `plan.md`
-- `plan-ponytail-review.md`
 - `tasks.md`
 - `checklists/requirements.md`
 
@@ -22,49 +20,53 @@
 
 ### A2 — Evidence integrity / no-green-by-omission
 
-`PASS`. Environment metadata cannot substitute for source-bound verification or missing evidence and does not change completeness solely by absence of optional supplemental metadata.
+`PASS`. Environment metadata cannot substitute for source-bound verification or missing evidence.
 
 ### A3 — Trust / execution authority
 
-`PASS`. No new process execution/install. `discovery.packageManager` remains the sole manager authority.
+`PASS`. No new process execution/install; discovery remains sole manager authority.
 
 ### A4 — Privacy
 
-`PASS`. Raw host/user/network/env/secret identity is prohibited; paths remain canonical repository-relative and filesystem hash reads re-check realpath containment.
+`PASS`. Raw host/user/network/env/secret identity is prohibited; lockfile reads remain within canonical root with realpath containment.
 
 ### A5 — Receipt compatibility
 
-`PASS_AFTER_RECONCILIATION`. `RECEIPT_V1_ADDITIVE_LOCKSTEP` explicitly supports old receipts under new validators and new receipts under same-source/build validators while treating prior strict-schema rejection as expected unsupported skew. `run.ascout_version` is not a unique source/schema revision key; exact repository revisions bind compatibility proof. No negotiation/v2 expansion.
+`PASS_AFTER_RECONCILIATION`. Additive lockstep honestly records stale strict-schema rejection. `run.ascout_version` is not a unique source/schema key; exact repository revisions bind proof. No negotiation/v2 expansion.
 
-### A6 — Package-manager provenance
+### A6 — Prior-schema evaluator proof
 
-`PASS_WITH_EXPLICIT_RULE`. Discovery is sole manager authority. Declaration-led authority resolves only after exact `manager@x.y.z` validation; environment version is recovered from the same `DiscoveryFileMap["package.json"]` snapshot and must be exact/non-null. Contradictory snapshot state is integrity failure. No package.json disk reread or second resolver.
+`PASS_AFTER_RECONCILIATION`. Live `src/receipt/json.ts` has one canonical evaluator, but `validateReceiptJsonSchema()` currently reaches it only through the current bundled schema loader. A prior-schema rejection test would otherwise require a copied evaluator, forbidden dependency, or unsafe schema-file manipulation. T104 therefore explicitly includes a narrow `src/receipt/json.ts` reuse/testability refactor: current runtime validation remains current-schema-only, while repository-local proof may invoke the same evaluator with the immutable exact prior schema. No second evaluator, dependency, runtime schema selection, or negotiation is authorized.
 
-### A7 — Lockfile sentinel / byte-source boundary
+### A7 — Package-manager provenance
 
-`PASS_AFTER_RECONCILIATION`. Discovery records recognized lockfiles as empty-string presence sentinels because they are not content-required metadata. Those values are not file bytes and must never be hashed. T105 uses the canonical root plus the already-authorized repository-relative path to re-read exact filesystem bytes with realpath/symlink containment rechecked and bounded-memory hashing.
+`PASS_WITH_EXPLICIT_RULE`. Declaration-led exact version comes from the same discovery package.json snapshot; contradiction is integrity failure; no disk reread/second resolver.
 
-### A8 — Lockfile authority vs supplemental identity
+### A8 — Lockfile sentinel / byte-source boundary
 
-`PASS_WITH_EXPLICIT_RULE`. If a lockfile supplied manager authority, inability to safely re-read/hash that exact authority source is integrity failure. If package.json supplied authority, only the fixed matching root lockfile present in the discovery snapshot may supply supplemental identity; absent/unsafe/missing/unreadable supplemental state becomes null and cannot trigger fallback or authority change.
+`PASS_AFTER_RECONCILIATION`. Discovery lockfile map values are presence sentinels and are never hashed. Exact filesystem bytes are reread from the already-authorized path with containment rechecked and bounded-memory hashing.
 
-### A9 — Discovery mutation boundary
+### A9 — Lockfile authority vs supplemental identity
 
-`PASS`. `src/discovery.ts` remains excluded. Existing `root + files + discovery` is the full T105 input boundary; insufficiency is `NO_GO` + replanning.
+`PASS_WITH_EXPLICIT_RULE`. Authority lockfile reread/hash failure is integrity failure; package-json supplemental matching-lockfile failure is nullable and cannot trigger fallback.
 
-### A10 — Task ordering
+### A10 — Discovery mutation boundary
+
+`PASS`. `src/discovery.ts` remains excluded; insufficiency is `NO_GO` + replanning.
+
+### A11 — Task ordering
 
 `PASS`. T104 contract/compatibility → T105 observation → T106 publication.
 
-### A11 — Mutation surface
+### A12 — Mutation surface
 
-`PASS`. Expected product scope remains `src/environment.ts`, `src/check.ts`, `src/receipt/model.ts`, receipt-v1 schema, plus focused proof paths. No package/dependency/workflow/benchmark mutation.
+`PASS_AFTER_RECONCILIATION`. T104 explicitly includes `src/receipt/model.ts`, receipt-v1 schema, and the narrow `src/receipt/json.ts` evaluator-reuse refactor plus immutable prior-schema/current JSON proof. T105 is `src/environment.ts`; T106 is minimal `src/check.ts` wiring. No package/dependency/workflow/benchmark mutation.
 
-### A12 — Benchmark-driven growth
+### A13 — Benchmark-driven growth
 
 `PASS`. Gap is directly measured against existing benchmark environment evidence; no unrelated capability promoted.
 
-### A13 — Findings reconciliation
+### A14 — Findings reconciliation
 
 `PASS_PENDING_FRESH_HEAD_REVIEW`. Reconciled findings:
 
@@ -72,12 +74,13 @@
 - F2 strict-validator compatibility;
 - F3 false exact revision binding via `ascout_version`;
 - F4 declaration-led manager could degrade to null version;
-- F5 discovery lockfile sentinel could be mistaken for bytes / lockfile authority reread semantics were underspecified.
+- F5 discovery lockfile sentinel/byte-source and authority-reread semantics;
+- F6 prior strict-schema proof was not implementable through the canonical evaluator within the stated T104 surface.
 
-Every repair changed planning head, so all earlier independent reviews are stale. Fresh exact-head independent review is mandatory.
+Every repair changed planning head; all earlier independent review evidence is stale. Fresh exact-head independent review is mandatory.
 
 ## Cross-artifact consistency result
 
-`PASS / NO_MATERIAL_CONFLICTS_AFTER_F1_F2_F3_F4_F5_RECONCILIATION`
+`PASS / NO_MATERIAL_CONFLICTS_AFTER_F1_F2_F3_F4_F5_F6_RECONCILIATION`
 
 No implementation authority is granted by this analysis.

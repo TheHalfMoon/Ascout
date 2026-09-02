@@ -11,28 +11,21 @@
 
 ## Consistency checks
 
-- [x] M1.1-B measured scope only.
-- [x] Runtime/OS/arch/package-manager/lockfile identity only.
+- [x] M1.1-B measured scope only; no function coverage/M2.
 - [x] Schema `"1.0"` under explicit additive-lockstep policy.
 - [x] Old/new validator matrix explicit; stale strict rejection honest.
-- [x] Same-source/build consumers move in lockstep.
-- [x] `run.ascout_version` not a unique source/schema key.
-- [x] Exact repository identities bind compatibility proof.
-- [x] No 1.1/v2/negotiation/new revision field.
+- [x] Exact prior strict schema is pinned and evaluated through the same canonical JSON Schema evaluator as current validation.
+- [x] T104 explicitly includes narrow `src/receipt/json.ts` evaluator reuse/testability while preserving normal current-schema loading.
+- [x] No second evaluator/dependency/runtime schema selection/negotiation.
+- [x] Same-source/build consumers move in lockstep; `ascout_version` is not a unique source/schema key.
 - [x] No process/install/execution authority.
-- [x] Discovery remains sole package-manager authority.
-- [x] Package-json exact version comes from the same discovery content snapshot, not a disk reread.
-- [x] Package-json authority never degrades to null version.
-- [x] Recognized lockfile values in `DiscoveryFileMap` are presence sentinels, not bytes, and are never hashed.
-- [x] Lockfile SHA reads exact filesystem bytes beneath canonical root with realpath/symlink containment rechecked.
-- [x] Lockfile-authority reread/hash failure is integrity failure.
-- [x] Package-json supplemental lockfile is considered only if matching root path existed in discovery snapshot; failure may yield null without fallback.
-- [x] Lockfile evidence cannot change manager authority.
-- [x] `src/discovery.ts` remains outside implementation surface; insufficiency => NO_GO/replan.
-- [x] Privacy boundaries explicit.
-- [x] Environment metadata cannot weaken verification completeness.
+- [x] Discovery remains sole manager authority; package-json exact version comes from same content snapshot.
+- [x] Lockfile discovery values are sentinels, not bytes; SHA reads exact contained filesystem bytes.
+- [x] Authority lockfile reread/hash failure is integrity failure; supplemental matching lockfile may yield null without fallback.
+- [x] `src/discovery.ts` remains outside implementation surface.
+- [x] Privacy boundaries explicit; environment metadata cannot weaken verification completeness.
 - [x] T104 → T105 → T106 ordering valid.
-- [x] No function coverage/M2/release/publication/tag/dependency/workflow mutation.
+- [x] No release/publication/tag/dependency/workflow/benchmark-result mutation.
 - [x] Exact-head six-lane CI, fresh independent review, guarded merge, post-merge verification required.
 - [x] Implementation blocked until canonical planning merge + durable authorization.
 
@@ -42,17 +35,18 @@
 - [x] F2 strict stale-validator compatibility ambiguity.
 - [x] F3 false exact revision binding via `ascout_version`.
 - [x] F4 declaration-led authority could degrade to null version.
-- [x] F5 discovery lockfile sentinel/byte-source mismatch and authority reread semantics.
+- [x] F5 discovery lockfile sentinel/byte-source and authority-reread semantics.
+- [x] F6 prior strict-schema proof lacked an authorized way to use the canonical evaluator on the pinned historical schema.
 
 No earlier independent review qualifies the repaired head.
 
 ## Branch-purity expectation
 
-Planning PR may change only `specs/005-environment-identity-hardening/`. Any product/test/package/workflow/benchmark-result mutation is NO_GO.
+Planning PR may change only `specs/005-environment-identity-hardening/`. Any product/test/package/workflow/benchmark-result mutation is `NO_GO`.
 
 ## Review disposition
 
-`INTERNAL_CONSISTENCY = PASS_AFTER_F1_F2_F3_F4_F5_RECONCILIATION`
+`INTERNAL_CONSISTENCY = PASS_AFTER_F1_F2_F3_F4_F5_F6_RECONCILIATION`
 
 `INDEPENDENT_EXACT_HEAD_REVIEW = REQUIRED`
 

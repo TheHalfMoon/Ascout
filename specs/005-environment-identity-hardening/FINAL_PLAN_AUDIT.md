@@ -9,19 +9,20 @@
 3. New execution authority? — No.
 4. Source binding/no-green weakened? — No.
 5. Compatibility explicit? — Yes; additive lockstep with expected stale strict-schema rejection.
-6. False exact revision binding via `ascout_version`? — No; it is only a product-version label and exact repository identities bind proof.
-7. Declaration-led manager exact version preserved? — Yes; exact non-null x.y.z comes from discovery's package.json content snapshot; contradiction fails integrity.
-8. Package.json re-read creates TOCTOU source? — No; version derivation uses the exact discovery snapshot rather than disk reread.
-9. Can lockfile discovery sentinel be mistaken for bytes? — No; planning explicitly records that recognized lockfile map values are empty presence sentinels and prohibits hashing them.
-10. Where do lockfile digest bytes come from? — Exact filesystem bytes at the already-authorized repository-relative path under canonical root, with realpath/symlink containment rechecked and bounded-memory hashing.
-11. What if lockfile authority source cannot be re-read? — Integrity failure; manager authority cannot be emitted with an unobservable authority source.
-12. What if package-json supplemental lockfile cannot be read? — Null supplemental identity, no fallback, no authority change.
-13. Second package-manager resolver? — No; discovery remains sole authority.
-14. Discovery widening? — No; `src/discovery.ts` excluded; insufficiency => NO_GO/replan.
-15. Privacy bounded? — Yes.
-16. Task order valid? — Yes; contract → observer → publication.
-17. Implementation surfaces bounded? — Yes.
-18. CI/review/merge gates explicit? — Yes.
+6. Can T104 actually prove that rejection using the repository's real validator semantics? — Yes after F6 repair: the exact pinned prior schema is evaluated through the same canonical evaluator implementation in `src/receipt/json.ts`; only a narrow reuse/testability refactor is authorized and the normal current-schema entry point remains unchanged.
+7. Does F6 create runtime schema negotiation or a second validator? — No; both are explicitly prohibited, as are new validation dependencies and arbitrary schema ingestion.
+8. False exact revision binding via `ascout_version`? — No; it is only a product-version label and exact repository identities bind proof.
+9. Declaration-led exact version preserved? — Yes; exact non-null x.y.z comes from discovery's package.json content snapshot; contradiction fails integrity.
+10. Package.json disk reread? — No.
+11. Can lockfile discovery sentinel be mistaken for bytes? — No; sentinel hashing is prohibited.
+12. Lockfile digest byte source? — Exact filesystem bytes at the already-authorized path beneath canonical root with containment rechecked and bounded-memory hashing.
+13. Lockfile authority source unreadable? — Integrity failure.
+14. Package-json supplemental lockfile unreadable? — Null supplemental identity, no fallback.
+15. Second package-manager resolver/discovery widening? — No; discovery remains sole authority and `src/discovery.ts` is excluded.
+16. Privacy bounded? — Yes.
+17. Task order valid? — Yes; contract/compatibility → observer → publication.
+18. Implementation surfaces bounded? — Yes, including the newly explicit T104-only `src/receipt/json.ts` proof refactor.
+19. CI/review/merge gates explicit? — Yes.
 
 ## Findings ledger
 
@@ -37,8 +38,11 @@
 ### F4 — declaration-led manager authority could degrade to `package_manager_version=null`
 `RECONCILED_IN_SPEC_PLAN_TASKS`.
 
-### F5 — discovery lockfile sentinel could be hashed as bytes / lockfile authority reread semantics underspecified
-`RECONCILED_IN_SPEC_PLAN_TASKS`. `collectDiscoveredProject.files` retains recognized lockfiles as empty-string presence sentinels, not contents. T105 must never hash the sentinel. Package.json version comes from discovery's retained content snapshot. Lockfile digest comes from exact filesystem bytes at the already-authorized path with containment rechecked. Failure to re-read a lockfile authority source is integrity failure; supplemental matching lockfile failure is nullable and never causes fallback.
+### F5 — discovery lockfile sentinel/byte-source and lockfile authority reread semantics
+`RECONCILED_IN_SPEC_PLAN_TASKS`.
+
+### F6 — prior strict-schema rejection proof was not implementable through the canonical JSON Schema evaluator within the stated T104 surface
+`RECONCILED_IN_COMPATIBILITY_POLICY_PLAN_TASKS`. T104 now explicitly authorizes the minimum `src/receipt/json.ts` evaluator-reuse refactor and immutable prior-schema fixture needed to run both current and prior schemas through one evaluator. Current runtime schema loading remains unchanged; duplicate evaluators, new validator dependencies, arbitrary runtime schema input, and negotiation are prohibited.
 
 Every repair changed planning head; all earlier independent review evidence is stale.
 
@@ -46,18 +50,19 @@ Every repair changed planning head; all earlier independent review evidence is s
 
 Independent review must challenge:
 
-- additive-lockstep policy and exact repository-bound compatibility proof;
+- additive-lockstep policy and same-evaluator exact prior-schema proof;
+- whether `src/receipt/json.ts` authority is genuinely minimal and preserves current runtime behavior;
+- no duplicate evaluator/dependency/runtime schema selection;
 - non-unique `ascout_version` treatment;
-- package-json exact-version snapshot derivation and no disk reread;
-- lockfile sentinel-not-bytes rule;
-- distinction between authority lockfile read failure (integrity) and supplemental lockfile read failure (null);
-- realpath/symlink containment and bounded-memory exact-byte hashing;
-- no second resolver/discovery mutation;
-- privacy and no-execution boundaries;
-- T104–T106 surface/order.
+- package-json exact-version snapshot derivation;
+- lockfile sentinel-not-bytes and authority-vs-supplemental failure rules;
+- realpath/symlink containment/bounded-memory hashing;
+- no second package-manager resolver/discovery mutation;
+- privacy/no-execution boundaries;
+- T104–T106 task surfaces/order.
 
 ## Internal dossier result
 
-`READY_FOR_INDEPENDENT_EXACT_HEAD_PLAN_REVIEW_AFTER_F1_F2_F3_F4_F5_RECONCILIATION`
+`READY_FOR_INDEPENDENT_EXACT_HEAD_PLAN_REVIEW_AFTER_F1_F2_F3_F4_F5_F6_RECONCILIATION`
 
 No implementation authorization is granted here.

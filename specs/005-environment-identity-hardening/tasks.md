@@ -8,30 +8,30 @@
 
 ### Scope
 
-- Add `EnvironmentV1` to `src/receipt/model.ts`.
-- Add optional `environment?: EnvironmentV1` to receipt v1.
-- Add additive optional `environment` JSON Schema contract.
-- Preserve `schema_version = "1.0"` under `RECEIPT_V1_ADDITIVE_LOCKSTEP`.
-- Keep same-source/build repository consumers/validators schema-consistent; no second runtime schema copy.
-- Add focused validation/compatibility tests with immutable exact prior-schema proof.
+- Add `EnvironmentV1` to `src/receipt/model.ts` and optional `environment?: EnvironmentV1` to receipt v1.
+- Add the optional closed `environment` JSON Schema contract while preserving `schema_version = "1.0"`.
+- Narrowly refactor `src/receipt/json.ts` so the existing canonical JSON Schema evaluator can validate a controlled supplied parsed schema for repository-local compatibility proof, while `validateReceiptJsonSchema()` continues loading only the current bundled schema.
+- Pin the exact pre-Spec-005 strict schema as immutable repository-local proof, expected at `tests/fixtures/receipt-v1-pre-spec005.schema.json`, tied to canonical pre-Spec-005 schema identity.
+- Add focused validation/compatibility tests, including `tests/receipt-json.test.ts` and model contract proof as directly required.
+- Keep same-source/build repository consumers/validators schema-consistent; do not introduce a second runtime schema copy/evaluator.
 
 ### Acceptance
 
-- old canonical receipt + new semantic validator = ACCEPT;
-- old canonical receipt + new JSON Schema validator = ACCEPT;
-- new valid environment receipt + new semantic validator = ACCEPT;
-- new valid environment receipt + new JSON Schema validator = ACCEPT;
-- new environment receipt + exact prior strict schema = REJECT_EXPECTED_VERSION_SKEW;
-- exact prior schema identity cannot drift;
+- old canonical receipt + new semantic validator = `ACCEPT`;
+- old canonical receipt + current JSON Schema through canonical evaluator = `ACCEPT`;
+- new valid environment receipt + new semantic/current JSON Schema validators = `ACCEPT`;
+- new environment receipt + exact prior strict schema through the **same canonical evaluator** = `REJECT_EXPECTED_VERSION_SKEW`;
+- exact prior schema fixture identity is pinned deterministically and cannot drift;
+- normal `validateReceiptJsonSchema()` behavior remains current-schema-only;
+- no duplicate test-local validator, validation dependency, runtime schema selector, or negotiation mechanism;
 - current JSON/agent/terminal consumers remain functional without bespoke environment presentation;
-- no same-source/build consumer uses stale schema;
 - `package_json` source requires manager + exact non-null version; `lockfile` requires manager + null version; `unavailable` requires null manager/version;
 - invalid runtime/source/version/path/digest/null-group combinations fail;
 - existing verification semantics remain unchanged.
 
 ### Hard boundary
 
-No observation/wiring yet. No `src/check.ts` change. No receipt 1.1/v2, in-receipt revision field, or schema negotiation.
+No environment observation/wiring yet. No `src/check.ts` change. `src/receipt/json.ts` mutation is limited to same-evaluator reuse/testability; do not change current schema loading, add arbitrary schema ingestion, add a second evaluator/dependency, or introduce receipt 1.1/v2/in-receipt revision fields/schema negotiation.
 
 ## T105 — Observe environment identity without execution
 
@@ -40,11 +40,11 @@ No observation/wiring yet. No `src/check.ts` change. No receipt 1.1/v2, in-recei
 - Add `src/environment.ts` only for product behavior in this task.
 - Receive canonical `root`, `DiscoveryFileMap files`, and already-resolved `discovery` from `collectDiscoveredProject()`.
 - Observe Node runtime/platform/arch from current process.
-- Use `discovery.packageManager` as sole package-manager authority.
-- For package-json authority, recover exact version from the same `files["package.json"]` snapshot discovery parsed; never re-read package.json from disk.
+- Use `discovery.packageManager` as sole manager authority.
+- For package-json authority, recover exact version from the same package.json snapshot discovery parsed; never re-read package.json from disk.
 - For lockfile authority, use only the exact discovery source path.
-- For package-json authority, supplemental lockfile identity may use only the fixed matching root lockfile that was present in the discovery snapshot.
-- Re-read exact lockfile bytes from canonical repository root with realpath/symlink containment rechecked at read time and bounded-memory chunked hashing.
+- For package-json authority, supplemental lockfile identity may use only the fixed matching root lockfile present in the discovery snapshot.
+- Re-read exact lockfile bytes beneath canonical root with realpath/symlink containment rechecked and bounded-memory chunked hashing.
 - Never hash `files[lockfilePath]`; recognized lockfile values are presence sentinels, not contents.
 - Add focused observer/privacy/containment/provenance tests.
 
@@ -52,21 +52,19 @@ No observation/wiring yet. No `src/check.ts` change. No receipt 1.1/v2, in-recei
 
 - no process spawn or implicit install;
 - deterministic environment identity;
-- package-json authority emits manager/source and exact non-null x.y.z from the same discovery snapshot; malformed/missing/mismatched snapshot state fails integrity;
-- package.json is not re-read from disk for version derivation;
-- lockfile-derived manager has version null/source=`lockfile`;
+- package-json authority emits manager/source and exact non-null x.y.z from the same discovery snapshot; contradictory snapshot state fails integrity;
+- package.json is not re-read from disk;
+- lockfile-derived manager has version null/source `lockfile`;
 - lockfile-derived authority hashes exact filesystem bytes at its exact discovery source path, never sentinel bytes;
-- lockfile-authority missing/unreadable/unsafe/symlink-escape reread fails integrity;
+- authority lockfile missing/unreadable/unsafe/symlink-escape reread fails integrity;
 - unresolved/ambiguous/unsupported manager emits null/null/`unavailable` and no lockfile identity;
-- package-json-derived supplemental lockfile is considered only if the matching fixed root path existed in discovery snapshot;
-- supplemental absent/unsafe/missing/unreadable lockfile emits null path/digest and never falls back;
-- non-matching lockfiles never override manager authority;
-- hash reading is bounded-memory and exact-byte SHA-256;
+- supplemental matching lockfile is considered only if present in discovery snapshot and may degrade to null without fallback;
+- hash reading is bounded-memory exact-byte SHA-256;
 - raw absolute paths, hostname/user/env inventory/secrets are absent.
 
 ### Hard boundary
 
-No receipt publication/wiring yet. No `src/check.ts`, `src/discovery.ts`, package, dependency, or workflow change. If `root + files + discovery` is insufficient, stop `NO_GO` and replan.
+No receipt publication/wiring yet. No `src/check.ts`, `src/discovery.ts`, package, dependency, or workflow change. If `root + files + discovery` is insufficient, stop `NO_GO` and return to planning.
 
 ## T106 — Publish environment identity in new receipts
 
@@ -85,7 +83,7 @@ No receipt publication/wiring yet. No `src/check.ts`, `src/discovery.ts`, packag
 - same-source/build JSON/agent/terminal consumers operate without stale-schema failures;
 - `run.ascout_version` is not a schema revision lookup/negotiation key;
 - no bespoke CLI/terminal redesign;
-- no new child process or package-manager probe;
+- no new child process/package-manager probe;
 - exact-head six-lane Project CI green;
 - fresh independent exact-head review reconciled;
 - zero unresolved material review threads.
@@ -94,7 +92,7 @@ No receipt publication/wiring yet. No `src/check.ts`, `src/discovery.ts`, packag
 
 For every task T104–T106:
 
-1. re-read canonical `main`, Constitution, Master Plan, Spec 005 planning/policy/authorization, current PR/review/Actions state;
+1. re-read canonical `main`, Constitution, Master Plan, Spec 005 planning/policy/authorization, and live PR/Actions/review state;
 2. branch from exact canonical `main`;
 3. mutate only the current task surface;
 4. prove historical benchmark-result immutability;
@@ -109,4 +107,4 @@ No force-push, rebase, destructive history rewrite, hidden failing gate, publica
 
 ## Authorization gate
 
-T104 must not begin until this planning package is canonically merged, its exact planning head receives independent review, post-merge identity is verified, and durable implementation authorization explicitly binds the canonical planning merge, `COMPATIBILITY_POLICY.md`, and T104–T106 surfaces.
+T104 must not begin until this planning package is canonically merged, its exact planning head receives independent review, post-merge identity is verified, and durable implementation authorization explicitly binds the canonical planning merge, compatibility policy, and T104–T106 surfaces.
