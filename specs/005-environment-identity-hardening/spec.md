@@ -16,7 +16,7 @@ Close the next measured M1.1 evidence-depth gap after canonical Spec 004 closure
 
 ## Measured gap
 
-Current receipt v1 run identity contains `run_id`, `ascout_version`, `started_at`, `finished_at`, and `config_digest`; task results already contain `tool_name` and `tool_version`. The product receipt does not currently expose a run-level environment identity for Node runtime, host OS, architecture, package-manager identity/version, or the active supported lockfile digest. The benchmark harness already treats OS, Node, and package-manager identity as reproducibility evidence, showing a direct mismatch between benchmark evidence discipline and product receipt evidence depth.
+Current receipt v1 run identity contains `run_id`, `ascout_version`, `started_at`, `finished_at`, and `config_digest`; task results already contain `tool_name` and `tool_version`. The product receipt does not currently expose a run-level environment identity for Node runtime, host OS, architecture, package-manager identity/version, or a safely attributable supported lockfile digest. The benchmark harness already treats OS, Node, and package-manager identity as reproducibility evidence, showing a direct mismatch between benchmark evidence discipline and product receipt evidence depth.
 
 ## Scope
 
@@ -40,15 +40,17 @@ Required fields:
 2. Existing line/branch evidence, task semantics, selection, completeness, and exit codes remain unchanged solely because environment identity is present or absent.
 3. Runtime identity is observed from the running Node process, not inferred from project declarations.
 4. OS and architecture are observed from the running Node process and normalized deterministically.
-5. Package-manager identity reuses existing trusted discovery results; no package-manager command may be executed solely to populate environment identity.
-6. Package-manager version may be recorded only when already reliably available from a validated `packageManager` declaration or another existing non-executing trusted discovery source. Otherwise it is `null`.
-7. Lockfile identity may include only the single effective supported lockfile selected by existing discovery semantics. Ambiguous or unavailable lockfile identity remains `null`; this feature must not invent a new package-manager resolver.
+5. `discovery.packageManager` is the sole package-manager authority decision; environment observation must not select or change a manager independently and no package-manager command may be executed solely to populate environment identity.
+6. When discovery resolved package-manager authority from root `package.json`, package-manager version may be recovered only from that same already-authoritative declaration after confirming that it names the same resolved manager. When discovery resolved authority from a recognized lockfile, version remains `null`. Any contradiction in an authoritative declaration fails integrity; otherwise unavailable version remains `null`.
+7. Lockfile identity is supplemental evidence and never package-manager authority. If discovery resolved the manager from a recognized lockfile, only that exact discovery source path may be hashed. If discovery resolved the manager from root `package.json`, only the fixed supported root lockfile matching the already-resolved manager may be inspected and hashed. A missing/unsafe/unreadable matching file yields null lockfile identity; non-matching lockfiles never override manager authority.
 8. Lockfile digest is SHA-256 of the exact observed file bytes and uses repository-safe containment rules.
-9. No raw absolute path, user identity, hostname, environment-variable inventory, network address, machine identifier, credential, or secret-bearing value may enter the receipt.
-10. Environment identity must serialize deterministically.
-11. Semantic validation rejects inconsistent nullable groups: package manager/version/source and lockfile path/digest must agree with the declared source state.
-12. Existing receipts without `environment` remain valid for backward compatibility.
-13. New Ascout-produced receipts after implementation must publish `environment` when observation succeeds; observation integrity failure must fail closed as an Ascout execution/integrity error rather than silently fabricate identity.
+9. If package-manager discovery is absent, ambiguous, or unsupported, manager/version are null, source is `unavailable`, and lockfile identity is null; the environment feature must not create a fallback resolver.
+10. No raw absolute path, user identity, hostname, environment-variable inventory, network address, machine identifier, credential, or secret-bearing value may enter the receipt.
+11. Environment identity must serialize deterministically.
+12. Semantic validation rejects inconsistent nullable groups: package manager/version/source and lockfile path/digest must agree with the declared source state.
+13. Existing receipts without `environment` remain valid for backward compatibility.
+14. New Ascout-produced receipts after implementation must publish `environment` when observation succeeds; observation integrity failure must fail closed as an Ascout execution/integrity error rather than silently fabricate identity.
+15. `src/discovery.ts` is not part of the expected implementation surface. If the bounded feature cannot satisfy these provenance requirements from current discovery truth plus its exact authoritative source files, implementation must stop `NO_GO` and return to planning rather than widening authority.
 
 ## Non-goals
 
@@ -68,15 +70,17 @@ Required fields:
 
 ## Trust and privacy constraints
 
-Environment identity is evidence metadata, not execution authority. It must never grant admission, suppress missing verification, or convert uncertainty into PASS. All paths remain repository-relative and canonical. No new child process is authorized for identity collection.
+Environment identity is evidence metadata, not execution authority. It must never grant admission, suppress missing verification, or convert uncertainty into PASS. All paths remain repository-relative and canonical. No new child process is authorized for identity collection. Lockfile presence cannot supersede or repair the package-manager authority chosen by discovery.
 
 ## Acceptance criteria
 
 - deterministic runtime/OS/arch identity is emitted;
-- package manager identity uses current discovery without new execution;
-- validated package-manager version is emitted when already known and otherwise `null`;
-- one effective supported lockfile is hashed byte-for-byte when safely and unambiguously available;
-- ambiguous/unavailable lockfile state is represented without guessing;
+- package-manager authority is inherited exactly from current discovery without new execution or fallback resolution;
+- package-json-derived version is read only from the same authoritative declaration and confirmed against the resolved manager;
+- lockfile-derived manager has null version and may hash only its exact authority source;
+- package-json-derived manager may hash only its matching fixed root lockfile as supplemental evidence;
+- non-matching lockfiles never alter manager authority;
+- absent/ambiguous/unsupported manager state and unavailable supplemental lockfile state are represented without guessing;
 - schema and semantic validators accept legacy receipts with no environment object;
 - malformed/inconsistent environment objects fail validation;
 - privacy boundaries are proven by focused tests;
