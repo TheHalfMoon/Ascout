@@ -12,7 +12,7 @@
 - Add optional `environment?: EnvironmentV1` to receipt v1.
 - Add additive optional `environment` JSON Schema contract.
 - Preserve `schema_version = "1.0"` under `RECEIPT_V1_ADDITIVE_LOCKSTEP`.
-- Update all repository-supported current-revision validators/consumers needed to keep the producing revision internally schema-consistent; do not introduce a second schema copy into runtime code.
+- Update all repository-supported same-source/build validators/consumers needed to keep the producing build internally schema-consistent; do not introduce a second schema copy into runtime code.
 - Add focused validation/compatibility tests, including an immutable exact prior-schema reference for the unsupported stale-validator case.
 
 ### Acceptance
@@ -24,13 +24,14 @@
 - new environment receipt + exact prior strict schema = REJECT_EXPECTED_VERSION_SKEW;
 - exact prior schema identity is pinned deterministically and cannot drift;
 - current JSON/agent/terminal consumers remain functional without bespoke environment presentation;
-- no current-revision consumer uses a stale schema copy;
+- no same-source/build consumer uses a stale schema copy;
+- semantic/schema validation requires `package_json` source to carry manager + exact non-null version, `lockfile` source to carry manager + null version, and `unavailable` source to carry null manager/version;
 - invalid runtime name/version, manager/source/version combinations, unsafe paths, mismatched null groups, and invalid digest fail;
 - existing verification semantics remain unchanged.
 
 ### Hard boundary
 
-No environment observation/wiring behavior yet. No `src/check.ts` change in T104. No receipt 1.1/v2 or schema-negotiation machinery.
+No environment observation/wiring behavior yet. No `src/check.ts` change in T104. No receipt 1.1/v2, in-receipt revision field, or schema-negotiation machinery.
 
 ## T105 — Observe environment identity without execution
 
@@ -49,8 +50,8 @@ No environment observation/wiring behavior yet. No `src/check.ts` change in T104
 
 - no process spawn or implicit install;
 - deterministic environment identity;
-- validated `packageManager` authority supplies manager/source=`package_json` and version only from the same authoritative declaration;
-- declaration/discovery contradiction fails integrity rather than selecting a different manager;
+- validated `packageManager` authority from `package.json` supplies manager/source=`package_json` and the exact non-null `x.y.z` version from that same authoritative declaration;
+- declaration-led authority with missing/unreadable/malformed version state or declaration/discovery manager contradiction fails integrity rather than emitting `version=null` or selecting a different manager;
 - lockfile-derived manager has version null/source=`lockfile` and hashes that exact authority source when safe;
 - unsupported/ambiguous/unavailable manager state becomes null/null/`unavailable` with no lockfile identity;
 - package-json-derived manager may hash only its matching fixed root lockfile as supplemental evidence;
@@ -76,7 +77,8 @@ No receipt emission/wiring yet. No `src/discovery.ts`, package, dependency, or w
 - emitted environment matches controlled runtime/discovery/lockfile observations;
 - line/branch exercise, selection, task status, findings, completeness, and exit behavior remain unchanged solely due to environment metadata;
 - canonical older externally supplied receipts without environment remain valid under current validators;
-- current-revision JSON/agent/terminal consumers operate without stale-schema failures;
+- same-source/build JSON/agent/terminal consumers operate without stale-schema failures;
+- `run.ascout_version` is not used as a schema revision lookup/negotiation key;
 - no bespoke CLI/terminal redesign;
 - no new child process or package-manager probe;
 - exact-head six-lane Project CI green;
