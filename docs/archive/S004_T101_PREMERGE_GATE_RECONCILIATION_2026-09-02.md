@@ -38,13 +38,15 @@ These are pre-merge gate defects. They cannot be repaired retroactively by recla
 
 A same-head rerun of the failed Windows 2025 / Node 22 job was triggered on 2026-09-02 against exact T101 head `748086c6764d8241f433ad9f5d6dce326804ea8d`.
 
-That rerun is diagnostic evidence only. Whether it succeeds or fails, it does not retroactively satisfy a qualification gate that was required before PR #114 merged.
+The diagnostic rerun also completed with conclusion `failure` in the bounded Windows test step. The failing test was `tests/changed-line-exercise-run-check.integration.test.ts`; Vitest reported `Test timed out in 60000ms`. The T101 parser contract itself passed in that same run.
+
+This rerun is diagnostic evidence only. It does not retroactively satisfy a qualification gate that was required before PR #114 merged, and it does not by itself prove that the parser change caused the unrelated integration-test timeout. Fresh T101 re-execution must therefore prove six-lane stability on its own exact head rather than infer qualification from this historical lineage.
 
 ### 2.3 Downstream dependency consequence
 
 T102 implementation PR #115, T102 reconciliation PR #117, and T103 authority reconciliation PR #119 all occur downstream of the historical T101 closeout claim. Because T101 was not truthfully eligible for `CLOSED_CANONICAL` at that point, the required task-order dependency was not satisfied before those downstream units began.
 
-PR #121, the current T103 implementation PR, remains unmerged and must not be merged from this invalid dependency lineage.
+PR #121, the T103 implementation PR, was closed unmerged on `2026-09-02T09:05:21Z` as superseded by this forward reconciliation. It must not be reopened or merged from the invalid dependency lineage.
 
 PR #121 also received a material exact-head independent-review finding: optional receipt-facing branch evidence can be represented as a partial field set such that aggregate branch-gap fields may exist without `branch_records`, while semantic material-gap detection ignores those counters when `branch_records` is absent. That finding must be preserved and repaired when T103 is re-executed from a valid dependency chain; it must not be lost merely because PR #121 is superseded.
 
@@ -170,6 +172,6 @@ After this repair is canonically merged and verified:
 
 ## 8. Current decision
 
-`NO_GO` for merging PR #121 or closing T103/Spec 004 from the current lineage.
+`NO_GO` for reopening or merging PR #121 or for closing T103/Spec 004 from the invalid lineage.
 
 `GO` only for this bounded forward-only reconciliation and, after its own canonical closeout, fresh ordered re-execution of Spec 004 tasks under the existing authorization chain.
