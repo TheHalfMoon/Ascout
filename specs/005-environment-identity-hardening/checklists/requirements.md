@@ -32,9 +32,10 @@
 - [x] Updated semantic and JSON Schema validators must accept new environment-bearing receipts.
 - [x] Exact prior strict schema rejection of a new environment receipt is explicitly required as `REJECT_EXPECTED_VERSION_SKEW` proof.
 - [x] The prior schema proof must be immutable and repository-local/deterministic.
-- [x] All repository-supported consumers in the producing revision must move in lockstep or mechanically tolerate the new optional field.
-- [x] `run.ascout_version` is identified as the producer-revision signal within v1.
-- [x] Receipt 1.1/v2/schema-negotiation machinery is out of scope.
+- [x] All repository-supported consumers from the producing canonical source/build revision must move in lockstep or mechanically tolerate the new optional field.
+- [x] `run.ascout_version` is treated only as a product-version label, not a guaranteed unique producer/schema-revision binding or schema-selection key.
+- [x] Exact compatibility proof binds repository/source revisions directly rather than inferring them from receipt version labels.
+- [x] Receipt 1.1/v2/schema-negotiation machinery and new in-receipt revision fields are out of scope.
 - [x] Existing task/tool identity remains unchanged.
 - [x] Existing selection, exercise, findings, completeness, and exit semantics are preserved.
 
@@ -60,4 +61,4 @@
 - [x] Planning artifacts do not authorize implementation.
 - [x] T104 is blocked until canonical planning merge and durable implementation authorization binding the compatibility policy.
 
-**Result:** `READY_FOR_CROSS_ARTIFACT_ANALYSIS_AFTER_COMPATIBILITY_RECONCILIATION`
+**Result:** `READY_FOR_CROSS_ARTIFACT_ANALYSIS_AFTER_REVISION_IDENTITY_RECONCILIATION`
