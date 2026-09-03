@@ -488,6 +488,28 @@ async function requireDirectoryIdentity(path, expectedIdentity, evidenceIo, code
   return actual;
 }
 
+async function captureFileIdentity(path, evidenceIo, code, message) {
+  let identity;
+  try { identity = await evidenceIo.lstat(path, { bigint: true }); }
+  catch { fail(code, message); }
+  if (!identity.isFile() || identity.isSymbolicLink()) fail(code, message);
+  return identity;
+}
+
+async function requireFileIdentity(path, expectedIdentity, evidenceIo, code, message) {
+  const actual = await captureFileIdentity(path, evidenceIo, code, message);
+  if (!sameFilesystemIdentity(expectedIdentity, actual)) fail(code, message);
+  return actual;
+}
+
+async function requireHandleIdentity(handle, expectedIdentity, code, message) {
+  let actual;
+  try { actual = await handle.stat({ bigint: true }); }
+  catch { fail(code, message); }
+  if (!actual.isFile() || !sameFilesystemIdentity(expectedIdentity, actual)) fail(code, message);
+  return actual;
+}
+
 async function requirePublishedEvidenceIdentity(outputTarget, expectedIdentity, evidenceIo) {
   const message = "published evidence identity changed after atomic publication";
   await requireDirectoryIdentity(outputTarget.finalDir, expectedIdentity, evidenceIo, "evidence_output_changed", message);
@@ -503,7 +525,12 @@ async function requirePublishedEvidenceIdentity(outputTarget, expectedIdentity, 
   return publishedReal;
 }
 
-async function readExactReceiptHandle(handle, expectedLength) {
+async function openPublishedFile(path, evidenceIo) {
+  try { return await evidenceIo.open(path, "r"); }
+  catch { fail("evidence_output_changed", "published evidence file identity changed after atomic publication"); }
+}
+
+async function readExactHandle(handle, expectedLength, code, message) {
   const bytes = Buffer.alloc(expectedLength);
   let offset = 0;
   while (offset < expectedLength) {
@@ -513,10 +540,17 @@ async function readExactReceiptHandle(handle, expectedLength) {
   }
   const extra = Buffer.alloc(1);
   const tail = await handle.read(extra, 0, 1, expectedLength);
-  if (offset !== expectedLength || tail.bytesRead !== 0) {
-    fail("receipt_digest_mismatch", "staged receipt byte length does not match qualified receipt bytes");
-  }
+  if (offset !== expectedLength || tail.bytesRead !== 0) fail(code, message);
   return bytes;
+}
+
+async function readExactReceiptHandle(handle, expectedLength) {
+  return await readExactHandle(
+    handle,
+    expectedLength,
+    "receipt_digest_mismatch",
+    "receipt byte length does not match qualified receipt bytes",
+  );
 }
 
 async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha256, envelope }, evidenceIo) {
@@ -554,8 +588,10 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
 
     const stagedReceiptPath = join(stageReal, RECEIPT_FILE);
     const stagedEnvelopePath = join(stageReal, ENVELOPE_FILE);
+    const envelopeBytes = Buffer.from(`${JSON.stringify(envelope, null, 2)}\n`, "utf8");
+    const envelopeSha256 = sha256(envelopeBytes);
     receiptHandle = await evidenceIo.open(stagedReceiptPath, "wx+", 0o600);
-    envelopeHandle = await evidenceIo.open(stagedEnvelopePath, "wx", 0o600);
+    envelopeHandle = await evidenceIo.open(stagedEnvelopePath, "wx+", 0o600);
     await requirePrivateStageIdentity(stageReal, stageRootReal, outputTarget.repositoryReal, evidenceIo);
     await requireDirectoryIdentity(stageReal, stageIdentity, evidenceIo, "evidence_output_changed", "private evidence staging identity changed during publication");
 
@@ -568,7 +604,7 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
       fail("receipt_digest_mismatch", "staged receipt bytes do not match the qualified receipt digest");
     }
 
-    await envelopeHandle.writeFile(`${JSON.stringify(envelope, null, 2)}\n`, { encoding: "utf8" });
+    await envelopeHandle.writeFile(envelopeBytes);
     await envelopeHandle.sync();
     await requirePrivateStageIdentity(stageReal, stageRootReal, outputTarget.repositoryReal, evidenceIo);
     await requireDirectoryIdentity(stageReal, stageIdentity, evidenceIo, "evidence_output_changed", "private evidence staging identity changed during publication");
@@ -580,32 +616,82 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
     await requirePrivateStageIdentity(stageReal, stageRootReal, outputTarget.repositoryReal, evidenceIo);
     await requireDirectoryIdentity(stageReal, stageIdentity, evidenceIo, "evidence_output_changed", "private evidence staging identity changed before publication");
 
-    const parentBeforePublish = await evidenceIo.realpath(outputTarget.canonicalParent);
-    if (parentBeforePublish !== outputTarget.canonicalParent || isInside(outputTarget.repositoryReal, parentBeforePublish)) {
-      fail("evidence_output_changed", "self-verification evidence output parent changed before publication");
-    }
-    await requireAbsentOutputTarget(outputTarget.finalDir, evidenceIo);
-    await requireDirectoryIdentity(stageReal, stageIdentity, evidenceIo, "evidence_output_changed", "private evidence staging identity changed before publication");
-    await evidenceIo.rename(stageReal, outputTarget.finalDir);
-    stageReal = null;
-    published = true;
-
-    const publishedReal = await requirePublishedEvidenceIdentity(outputTarget, stageIdentity, evidenceIo);
-    const publishedReceipt = await readExactReceiptHandle(receiptHandle, receiptBytes.length);
-    if (sha256(publishedReceipt) !== receiptSha256) {
-      fail("receipt_digest_mismatch", "published receipt bytes do not match the qualified receipt digest");
-    }
+    const receiptIdentity = await captureFileIdentity(
+      stagedReceiptPath,
+      evidenceIo,
+      "evidence_output_changed",
+      "private receipt identity could not be bound before publication",
+    );
+    const envelopeIdentity = await captureFileIdentity(
+      stagedEnvelopePath,
+      evidenceIo,
+      "evidence_output_changed",
+      "private envelope identity could not be bound before publication",
+    );
+    await requireHandleIdentity(receiptHandle, receiptIdentity, "evidence_output_changed", "private receipt identity changed before publication");
+    await requireHandleIdentity(envelopeHandle, envelopeIdentity, "evidence_output_changed", "private envelope identity changed before publication");
 
     await receiptHandle.close();
     receiptHandle = null;
     await envelopeHandle.close();
     envelopeHandle = null;
 
+    await requirePrivateStageIdentity(stageReal, stageRootReal, outputTarget.repositoryReal, evidenceIo);
+    await requireDirectoryIdentity(stageReal, stageIdentity, evidenceIo, "evidence_output_changed", "private evidence staging identity changed before publication");
+    await requireFileIdentity(stagedReceiptPath, receiptIdentity, evidenceIo, "evidence_output_changed", "private receipt identity changed before publication");
+    await requireFileIdentity(stagedEnvelopePath, envelopeIdentity, evidenceIo, "evidence_output_changed", "private envelope identity changed before publication");
+
+    const parentBeforePublish = await evidenceIo.realpath(outputTarget.canonicalParent);
+    if (parentBeforePublish !== outputTarget.canonicalParent || isInside(outputTarget.repositoryReal, parentBeforePublish)) {
+      fail("evidence_output_changed", "self-verification evidence output parent changed before publication");
+    }
+    await requireAbsentOutputTarget(outputTarget.finalDir, evidenceIo);
+    await requireDirectoryIdentity(stageReal, stageIdentity, evidenceIo, "evidence_output_changed", "private evidence staging identity changed before publication");
+    await requireFileIdentity(stagedReceiptPath, receiptIdentity, evidenceIo, "evidence_output_changed", "private receipt identity changed before publication");
+    await requireFileIdentity(stagedEnvelopePath, envelopeIdentity, evidenceIo, "evidence_output_changed", "private envelope identity changed before publication");
+    await evidenceIo.rename(stageReal, outputTarget.finalDir);
+    stageReal = null;
+    published = true;
+
+    let publishedReal = await requirePublishedEvidenceIdentity(outputTarget, stageIdentity, evidenceIo);
+    const publishedReceiptPath = join(publishedReal, RECEIPT_FILE);
+    receiptHandle = await openPublishedFile(publishedReceiptPath, evidenceIo);
+    await requireHandleIdentity(receiptHandle, receiptIdentity, "evidence_output_changed", "published receipt identity changed after atomic publication");
+    const publishedReceipt = await readExactReceiptHandle(receiptHandle, receiptBytes.length);
+    if (sha256(publishedReceipt) !== receiptSha256) {
+      fail("receipt_digest_mismatch", "published receipt bytes do not match the qualified receipt digest");
+    }
+    await requireHandleIdentity(receiptHandle, receiptIdentity, "evidence_output_changed", "published receipt identity changed while validating bytes");
+    await receiptHandle.close();
+    receiptHandle = null;
+    publishedReal = await requirePublishedEvidenceIdentity(outputTarget, stageIdentity, evidenceIo);
+    await requireFileIdentity(publishedReceiptPath, receiptIdentity, evidenceIo, "evidence_output_changed", "published receipt identity changed after validation");
+
+    const publishedEnvelopePath = join(publishedReal, ENVELOPE_FILE);
+    envelopeHandle = await openPublishedFile(publishedEnvelopePath, evidenceIo);
+    await requireHandleIdentity(envelopeHandle, envelopeIdentity, "evidence_output_changed", "published envelope identity changed after atomic publication");
+    const publishedEnvelope = await readExactHandle(
+      envelopeHandle,
+      envelopeBytes.length,
+      "evidence_output_unexpected",
+      "published envelope byte length changed after atomic publication",
+    );
+    if (sha256(publishedEnvelope) !== envelopeSha256) {
+      fail("evidence_output_unexpected", "published envelope bytes changed after atomic publication");
+    }
+    await requireHandleIdentity(envelopeHandle, envelopeIdentity, "evidence_output_changed", "published envelope identity changed while validating bytes");
+    await envelopeHandle.close();
+    envelopeHandle = null;
+    publishedReal = await requirePublishedEvidenceIdentity(outputTarget, stageIdentity, evidenceIo);
+    await requireFileIdentity(publishedEnvelopePath, envelopeIdentity, evidenceIo, "evidence_output_changed", "published envelope identity changed after validation");
+
     await cleanupEvidencePath(stageRootReal, evidenceIo);
     stageRoot = null;
     stageRootReal = null;
 
     const finalReal = await requirePublishedEvidenceIdentity(outputTarget, stageIdentity, evidenceIo);
+    await requireFileIdentity(join(finalReal, RECEIPT_FILE), receiptIdentity, evidenceIo, "evidence_output_changed", "published receipt identity changed before return");
+    await requireFileIdentity(join(finalReal, ENVELOPE_FILE), envelopeIdentity, evidenceIo, "evidence_output_changed", "published envelope identity changed before return");
     if (finalReal !== publishedReal) fail("evidence_output_changed", "published evidence canonical path changed before return");
 
     return Object.freeze({
