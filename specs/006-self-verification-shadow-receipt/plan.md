@@ -52,6 +52,7 @@ prove same-repository eligibility
   -> parse receipt; exact H-built current-schema + semantic validate
   -> prove process exit == receipt.summary.exit_code
   -> prove receipt.source.start matches S for six required fields
+  -> reject exit 2 even if the receipt is otherwise valid and source-bound
   -> hash exact retained receipt bytes
   -> emit privacy-safe B/M/H/HT envelope
   -> upload receipt/envelope with bounded retention
@@ -117,13 +118,20 @@ Any mismatch is capture failure before digest/envelope/artifact publication.
 
 This comparison binds retained receipt truth to the independently reconstructed source state while preserving receipt v1 and the canonical composer.
 
-## 10. Receipt semantics
+## 10. Receipt semantics and exit classification
 
 Capture exact stdout bytes without rewriting. Parse one JSON receipt, run exact `H`-built current JSON Schema + semantic validation, require process exit equals `receipt.summary.exit_code`, then require §9 source equality.
 
-Only after all integrity gates pass is SHA-256 computed over exact retained receipt bytes.
+After those validations, enforce this exhaustive capture rule:
 
-Valid source-bound exits `0/1/3/4` are shadow capture success. Exit `2` without valid receipt, malformed output, validation/source mismatch, identity mismatch, digest mismatch, or artifact failure is capture failure.
+- exits `0`, `1`, `3`, and `4` may proceed as factual `SHADOW_NON_GATING` observations;
+- exit `2` is **always capture failure**, even if the receipt is parseable, schema-valid, semantically valid, process-exit-consistent, and source-bound to `S`.
+
+Exit `2` MUST fail before receipt SHA-256, envelope emission, or artifact upload. The harness MUST NOT preserve an exit-2 receipt as successful shadow evidence.
+
+Only after the allowed-exit gate passes is SHA-256 computed over exact retained receipt bytes.
+
+Malformed/no receipt, validation/source mismatch, identity mismatch, exit mismatch, any exit `2`, digest mismatch, or artifact failure is capture failure.
 
 ## 11. Envelope
 
@@ -148,7 +156,7 @@ New `.github/workflows/self-verify.yml` only:
 - `retention-days: 30`;
 - never use `pull_request_target` or secrets.
 
-Workflow green means capture integrity, not clean receipt truth.
+Workflow green means capture integrity, not clean receipt truth. Exit-2 receipts never qualify as successful capture and therefore never reach artifact upload.
 
 ## 13. Artifact dependency
 
@@ -165,7 +173,9 @@ Required proof includes:
 - canonical expected snapshot `S` capture adapter;
 - exact equality success for all six source fields;
 - independent mismatch rejection for each of the six fields;
-- valid exits `0/1/3/4`; process/receipt mismatch; malformed/schema-invalid/semantic-invalid/no-receipt;
+- valid exits `0/1/3/4` as successful shadow captures;
+- an otherwise-valid, current-schema-valid, semantically valid, process-exit-consistent, source-bound receipt with exit `2` rejected before digest/envelope/upload;
+- process/receipt mismatch; malformed/schema-invalid/semantic-invalid/no-receipt;
 - exact receipt digest; envelope privacy/B-M-H-HT binding; no auto-admission.
 
 T108 additionally proves same-repository eligibility, live exact-head built `composeSourceState` + validator path, and downloadable artifact. Static workflow proof alone is insufficient.
@@ -180,7 +190,7 @@ T108 additionally requires a live artifact on exact final eligible same-reposito
 
 ## 16. Stop conditions
 
-Return to planning if implementation cannot prove same-repository eligibility, exact B/H, unique M, exact HT, canonical pre-launch `S`, six-field receipt-source equality, exact H verifier identity, current-validator acceptance, exit consistency, no auto-admission, least-privilege bounded artifact upload, and zero product-core mutation.
+Return to planning if implementation cannot prove same-repository eligibility, exact B/H, unique M, exact HT, canonical pre-launch `S`, six-field receipt-source equality, exact H verifier identity, current-validator acceptance, exit consistency, exit-2 rejection, no auto-admission, least-privilege bounded artifact upload, and zero product-core mutation.
 
 Do not add `pull_request_target`, fork secrets, product PR-range mode, receipt/source fields, new digest algorithm, second evaluator, trust bypass, generalized workflow infrastructure, or write permissions.
 
