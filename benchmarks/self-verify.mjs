@@ -20,6 +20,7 @@ const RECEIPT_FILE = "self-verification-receipt.json";
 const ENVELOPE_FILE = "self-verification-envelope.json";
 const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
 const CAPTURE_LIMIT_BYTES = 32 * 1024 * 1024;
+const BOUND_PARENT_PUBLISH_TIMEOUT_MS = 30 * 1000;
 const RECEIPT_SCHEMA_PATH = "specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json";
 const REQUIRED_RUNTIME_FILES = [
   "cli.js",
@@ -29,6 +30,74 @@ const REQUIRED_RUNTIME_FILES = [
 ];
 const REQUIRED_RUNTIME_ROOT_FILES = ["package.json", "package-lock.json", RECEIPT_SCHEMA_PATH];
 const DEFAULT_EVIDENCE_IO = Object.freeze({ lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rename, rm, writeFile });
+const BOUND_PARENT_PUBLISHER_SOURCE = [
+  'const { lstat, realpath, rename, rm } = require("node:fs/promises");',
+  'const [stagePath, finalName, canonicalParent, parentDev, parentIno, stageDev, stageIno] = process.argv.slice(1);',
+  'let published = false;',
+  'async function requireDirectory(path, expectedDev, expectedIno) {',
+  '  const stats = await lstat(path, { bigint: true });',
+  '  if (!stats.isDirectory() || stats.isSymbolicLink() || String(stats.dev) !== expectedDev || String(stats.ino) !== expectedIno) throw new Error("directory_identity_mismatch");',
+  '}',
+  'async function requireParent() {',
+  '  await requireDirectory(".", parentDev, parentIno);',
+  '  if (await realpath(".") !== canonicalParent) throw new Error("parent_path_mismatch");',
+  '  await requireDirectory(".", parentDev, parentIno);',
+  '}',
+  'async function requireTargetAbsent() {',
+  '  try { await lstat(finalName); }',
+  '  catch (error) { if (error && error.code === "ENOENT") return; throw error; }',
+  '  throw new Error("target_exists");',
+  '}',
+  'async function rollback() {',
+  '  if (!published) return;',
+  '  await rm(finalName, { recursive: true, force: true });',
+  '  published = false;',
+  '}',
+  'async function readCommand() {',
+  '  process.stdin.setEncoding("utf8");',
+  '  return await new Promise((resolveCommand) => {',
+  '    let buffered = "";',
+  '    let settled = false;',
+  '    const finish = (value) => { if (settled) return; settled = true; resolveCommand(value); };',
+  '    process.stdin.on("data", (chunk) => {',
+  '      buffered += chunk;',
+  '      const newline = buffered.indexOf("\\n");',
+  '      if (newline >= 0) finish(buffered.slice(0, newline).trim());',
+  '    });',
+  '    process.stdin.once("end", () => finish("ROLLBACK"));',
+  '    process.stdin.once("error", () => finish("ROLLBACK"));',
+  '  });',
+  '}',
+  '(async () => {',
+  '  try {',
+  '    await requireParent();',
+  '    await requireDirectory(stagePath, stageDev, stageIno);',
+  '    await requireTargetAbsent();',
+  '    await requireParent();',
+  '    await rename(stagePath, finalName);',
+  '    published = true;',
+  '    await requireDirectory(finalName, stageDev, stageIno);',
+  '    await requireParent();',
+  '    process.stdout.write("READY\\n");',
+  '    const command = await readCommand();',
+  '    if (command !== "COMMIT") {',
+  '      await rollback();',
+  '      process.stdout.write("ROLLED_BACK\\n");',
+  '      return;',
+  '    }',
+  '    await requireDirectory(finalName, stageDev, stageIno);',
+  '    await requireParent();',
+  '    published = false;',
+  '    process.stdout.write("COMMITTED\\n");',
+  '  } catch {',
+  '    let rolledBack = false;',
+  '    try { await rollback(); rolledBack = true; } catch {}',
+  '    if (rolledBack) process.stdout.write("ROLLED_BACK\\n");',
+  '    process.stderr.write("bound_parent_publication_failed\\n");',
+  '    process.exitCode = 1;',
+  '  }',
+  '})().catch(() => { process.stderr.write("bound_parent_publication_failed\\n"); process.exitCode = 1; });',
+].join("\n");
 
 export class SelfVerificationIntegrityError extends Error {
   constructor(code, message) {
@@ -449,10 +518,16 @@ async function prepareOutputTarget(repositoryRoot, outputDir, evidenceIo) {
   if (isInside(repositoryReal, canonicalParent)) {
     fail("output_inside_repository", "self-verification evidence output parent must be outside repository source identity");
   }
+  const parentIdentity = await captureDirectoryIdentity(
+    canonicalParent,
+    evidenceIo,
+    "evidence_output_unavailable",
+    "self-verification evidence output parent identity cannot be bound safely",
+  );
 
   const finalDir = join(canonicalParent, finalName);
   await requireAbsentOutputTarget(finalDir, evidenceIo);
-  return Object.freeze({ repositoryReal, canonicalParent, finalDir });
+  return Object.freeze({ repositoryReal, canonicalParent, parentIdentity, finalName, finalDir });
 }
 
 async function cleanupEvidencePath(path, evidenceIo) {
@@ -510,8 +585,165 @@ async function requireHandleIdentity(handle, expectedIdentity, code, message) {
   return actual;
 }
 
+async function requireOutputParentIdentity(outputTarget, evidenceIo, message) {
+  await requireDirectoryIdentity(
+    outputTarget.canonicalParent,
+    outputTarget.parentIdentity,
+    evidenceIo,
+    "evidence_output_changed",
+    message,
+  );
+  let parentReal;
+  try { parentReal = await evidenceIo.realpath(outputTarget.canonicalParent); }
+  catch { fail("evidence_output_changed", message); }
+  if (parentReal !== outputTarget.canonicalParent || isInside(outputTarget.repositoryReal, parentReal)) {
+    fail("evidence_output_changed", message);
+  }
+  await requireDirectoryIdentity(
+    outputTarget.canonicalParent,
+    outputTarget.parentIdentity,
+    evidenceIo,
+    "evidence_output_changed",
+    message,
+  );
+  return parentReal;
+}
+
+function publicationClosePromise(child) {
+  let spawnError = null;
+  child.once("error", (error) => { spawnError = error; });
+  return new Promise((resolvePromise) => {
+    child.once("close", (exitCode, signal) => resolvePromise({ exitCode, signal, spawnError }));
+  });
+}
+
+async function waitForPublicationReady(child, closePromise, stdoutState) {
+  return await new Promise((resolvePromise) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      child.stdout?.off("data", onData);
+      resolvePromise(value);
+    };
+    const onData = () => {
+      if (stdoutState.value.includes("READY\n")) finish({ kind: "ready" });
+    };
+    const timer = setTimeout(() => finish({ kind: "timeout" }), BOUND_PARENT_PUBLISH_TIMEOUT_MS);
+    child.stdout?.on("data", onData);
+    onData();
+    closePromise.then((status) => finish({ kind: "closed", status }));
+  });
+}
+
+async function waitForPublicationClose(child, closePromise) {
+  return await new Promise((resolvePromise) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolvePromise(value);
+    };
+    const timer = setTimeout(() => finish(null), BOUND_PARENT_PUBLISH_TIMEOUT_MS);
+    closePromise.then(finish);
+  }).then(async (status) => {
+    if (status !== null) return status;
+    try { child.kill("SIGKILL"); } catch {}
+    try { await closePromise; } catch {}
+    return null;
+  });
+}
+
+async function beginBoundParentPublication(stageReal, stageIdentity, outputTarget, evidenceIo) {
+  const publicationMessage = "self-verification evidence output parent changed during atomic publication";
+  await requireOutputParentIdentity(outputTarget, evidenceIo, publicationMessage);
+  if (typeof evidenceIo.beforeBoundParentPublish === "function") {
+    await evidenceIo.beforeBoundParentPublish(outputTarget);
+  }
+
+  let child;
+  try {
+    child = spawn(process.execPath, [
+      "--input-type=commonjs",
+      "-e",
+      BOUND_PARENT_PUBLISHER_SOURCE,
+      "--",
+      stageReal,
+      outputTarget.finalName,
+      outputTarget.canonicalParent,
+      String(outputTarget.parentIdentity.dev),
+      String(outputTarget.parentIdentity.ino),
+      String(stageIdentity.dev),
+      String(stageIdentity.ino),
+    ], {
+      cwd: outputTarget.canonicalParent,
+      shell: false,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+  } catch {
+    fail("evidence_output_changed", publicationMessage);
+  }
+
+  const stdoutState = { value: "" };
+  const stderrState = { value: "" };
+  child.stdout?.setEncoding("utf8");
+  child.stderr?.setEncoding("utf8");
+  child.stdout?.on("data", (chunk) => {
+    if (stdoutState.value.length < 8192) stdoutState.value += String(chunk).slice(0, 8192 - stdoutState.value.length);
+  });
+  child.stderr?.on("data", (chunk) => {
+    if (stderrState.value.length < 8192) stderrState.value += String(chunk).slice(0, 8192 - stderrState.value.length);
+  });
+
+  const closePromise = publicationClosePromise(child);
+  const ready = await waitForPublicationReady(child, closePromise, stdoutState);
+  if (ready.kind !== "ready") {
+    try { child.kill("SIGKILL"); } catch {}
+    try { await closePromise; } catch {}
+    fail("evidence_output_changed", publicationMessage);
+  }
+
+  let state = "ready";
+  const finalize = async (command) => {
+    if (state !== "ready") return state;
+    try { child.stdin?.write(`${command}\n`); }
+    catch { state = "failed"; fail("evidence_cleanup_failed", "bound evidence publication could not be finalized safely"); }
+    const status = await waitForPublicationClose(child, closePromise);
+    const rolledBack = stdoutState.value.includes("ROLLED_BACK\n");
+    const committed = stdoutState.value.includes("COMMITTED\n");
+    if (command === "COMMIT" && status?.exitCode === 0 && committed && !rolledBack) {
+      state = "committed";
+      return state;
+    }
+    if (rolledBack) state = "rolled_back";
+    else state = "failed";
+    if (command === "ROLLBACK" && state === "rolled_back" && status?.exitCode === 0) return state;
+    fail(
+      state === "failed" ? "evidence_cleanup_failed" : "evidence_output_changed",
+      state === "failed"
+        ? "bound evidence publication could not be rolled back safely"
+        : "self-verification evidence output parent changed before publication commit",
+    );
+  };
+
+  return Object.freeze({
+    commit: async () => await finalize("COMMIT"),
+    rollback: async () => {
+      if (state === "rolled_back") return;
+      if (state === "committed" || state === "failed") {
+        fail("evidence_cleanup_failed", "bound evidence publication cannot be rolled back safely");
+      }
+      await finalize("ROLLBACK");
+    },
+  });
+}
+
 async function requirePublishedEvidenceIdentity(outputTarget, expectedIdentity, evidenceIo) {
   const message = "published evidence identity changed after atomic publication";
+  await requireOutputParentIdentity(outputTarget, evidenceIo, message);
   await requireDirectoryIdentity(outputTarget.finalDir, expectedIdentity, evidenceIo, "evidence_output_changed", message);
   let publishedReal;
   try { publishedReal = await evidenceIo.realpath(outputTarget.finalDir); }
@@ -522,6 +754,7 @@ async function requirePublishedEvidenceIdentity(outputTarget, expectedIdentity, 
     !isInside(outputTarget.canonicalParent, publishedReal)
   ) fail("evidence_output_changed", message);
   await requireDirectoryIdentity(outputTarget.finalDir, expectedIdentity, evidenceIo, "evidence_output_changed", message);
+  await requireOutputParentIdentity(outputTarget, evidenceIo, message);
   return publishedReal;
 }
 
@@ -560,12 +793,14 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
   let stageIdentity = null;
   let receiptHandle = null;
   let envelopeHandle = null;
+  let publicationSession = null;
   let published = false;
   try {
-    const parentNow = await evidenceIo.realpath(outputTarget.canonicalParent);
-    if (parentNow !== outputTarget.canonicalParent || isInside(outputTarget.repositoryReal, parentNow)) {
-      fail("evidence_output_changed", "self-verification evidence output parent changed after qualification");
-    }
+    await requireOutputParentIdentity(
+      outputTarget,
+      evidenceIo,
+      "self-verification evidence output parent changed after qualification",
+    );
 
     stageRoot = await evidenceIo.mkdtemp(join(tmpdir(), "ascout-self-verify-evidence-"));
     stageRootReal = await evidenceIo.realpath(stageRoot);
@@ -641,15 +876,17 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
     await requireFileIdentity(stagedReceiptPath, receiptIdentity, evidenceIo, "evidence_output_changed", "private receipt identity changed before publication");
     await requireFileIdentity(stagedEnvelopePath, envelopeIdentity, evidenceIo, "evidence_output_changed", "private envelope identity changed before publication");
 
-    const parentBeforePublish = await evidenceIo.realpath(outputTarget.canonicalParent);
-    if (parentBeforePublish !== outputTarget.canonicalParent || isInside(outputTarget.repositoryReal, parentBeforePublish)) {
-      fail("evidence_output_changed", "self-verification evidence output parent changed before publication");
-    }
+    await requireOutputParentIdentity(
+      outputTarget,
+      evidenceIo,
+      "self-verification evidence output parent changed before publication",
+    );
     await requireAbsentOutputTarget(outputTarget.finalDir, evidenceIo);
     await requireDirectoryIdentity(stageReal, stageIdentity, evidenceIo, "evidence_output_changed", "private evidence staging identity changed before publication");
     await requireFileIdentity(stagedReceiptPath, receiptIdentity, evidenceIo, "evidence_output_changed", "private receipt identity changed before publication");
     await requireFileIdentity(stagedEnvelopePath, envelopeIdentity, evidenceIo, "evidence_output_changed", "private envelope identity changed before publication");
-    await evidenceIo.rename(stageReal, outputTarget.finalDir);
+
+    publicationSession = await beginBoundParentPublication(stageReal, stageIdentity, outputTarget, evidenceIo);
     stageReal = null;
     published = true;
 
@@ -693,6 +930,9 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
     await requireFileIdentity(join(finalReal, RECEIPT_FILE), receiptIdentity, evidenceIo, "evidence_output_changed", "published receipt identity changed before return");
     await requireFileIdentity(join(finalReal, ENVELOPE_FILE), envelopeIdentity, evidenceIo, "evidence_output_changed", "published envelope identity changed before return");
     if (finalReal !== publishedReal) fail("evidence_output_changed", "published evidence canonical path changed before return");
+    await requireOutputParentIdentity(outputTarget, evidenceIo, "self-verification evidence output parent changed before publication commit");
+    await publicationSession.commit();
+    publicationSession = null;
 
     return Object.freeze({
       receiptPath: join(finalReal, RECEIPT_FILE),
@@ -701,6 +941,14 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
   } catch (error) {
     try { if (receiptHandle !== null) await receiptHandle.close(); } catch {}
     try { if (envelopeHandle !== null) await envelopeHandle.close(); } catch {}
+    if (publicationSession !== null) {
+      try {
+        await publicationSession.rollback();
+        published = false;
+      } catch {
+        fail("evidence_cleanup_failed", "bound evidence publication could not be rolled back safely");
+      }
+    }
     if (published) await cleanupEvidencePath(outputTarget.finalDir, evidenceIo);
     await cleanupEvidencePath(stageRootReal ?? stageRoot, evidenceIo);
     if (error instanceof SelfVerificationIntegrityError) throw error;
