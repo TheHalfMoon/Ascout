@@ -12,9 +12,9 @@ Spec 006 adds only an observational self-verification path. It does not make the
 
 ## Trust scope
 
-Spec 006 self-verification applies only to **same-repository pull-request branches** whose head repository is the canonical Ascout repository. This is the bounded trusted-repository scope already permitted by the Constitution.
+Spec 006 self-verification applies only to **same-repository pull-request branches** whose head repository is the canonical Ascout repository.
 
-Fork/external-repository PRs are out of scope for the self-verification execution job. The workflow MUST skip them before checkout/install/build/execution and MUST NOT switch to `pull_request_target`, inject secrets, or otherwise obtain authority to execute untrusted fork code.
+Fork/external-repository PRs are out of scope for the execution job. The workflow MUST skip them before checkout/install/build/execution and MUST NOT use `pull_request_target`, inject secrets, elevate token permissions, or otherwise obtain authority to execute untrusted fork code.
 
 A skipped fork PR produces no self-verification receipt claim. Supporting untrusted PR execution requires a separately planned sandbox/admission design.
 
@@ -22,53 +22,60 @@ A skipped fork PR produces no self-verification receipt claim. Supporting untrus
 
 For one eligible same-repository pull request:
 
-- `B` — exact GitHub event base-tip SHA, retained as provenance;
+- `B` — exact GitHub event base-tip SHA, provenance only;
 - `H` — exact pull-request head SHA;
-- `M` — the unique merge base of `B` and `H` computed from the fetched Git graph;
+- `M` — the unique merge base of `B` and `H`;
 - `HT` — exact tree SHA `H^{tree}`;
-- `V` — exact Ascout verifier build produced from `H` before subject reconstruction.
+- `V` — exact Ascout verifier build produced from `H` before subject reconstruction;
+- `S` — canonical pre-launch `SourceStateV1` snapshot produced by exact `H`-built `composeSourceState(repositoryRoot)` after reconstruction and immediately before launching `V`.
 
-The subject observed by Ascout is `HEAD == M` with index/worktree content exactly equal to `HT`. `B` is not assumed to be an ancestor of `H` and is not automatically used as subject HEAD.
+The subject observed by Ascout is `HEAD == M` with index/worktree content exactly equal to `HT`. `B` is not automatically subject HEAD.
 
-## User Story 1 — Inspect Ascout verifying its own trusted repository pull request
+## Acceptance stories
 
-A maintainer can inspect a retained machine receipt produced by exact verifier `V` against the exact committed same-repository pull-request change `M -> H`.
+### 1. Inspect Ascout verifying its own trusted repository pull request
 
-### Acceptance
+A retained machine receipt is produced by exact verifier `V` against exact committed PR change `M -> H`.
 
-- workflow proves the PR head repository equals the canonical repository before executing PR code;
-- checkout/build is exact `H`;
-- `M` is resolved as the unique merge base of exact `B` and `H`;
-- the subject has `HEAD == M`;
-- `git write-tree == HT` before observation;
-- no unstaged tracked divergence or unrelated nonignored untracked material exists;
-- the verifier is the exact pre-reconstruction `H` build;
-- receipt v1 is unchanged;
-- receipt plus a separate qualification envelope are retained as CI artifacts.
+Required:
 
-## User Story 2 — Preserve command authority
+- same-repository eligibility before executing PR code;
+- exact `H` checkout/build;
+- unique `M = merge-base(B,H)`;
+- reconstructed subject `HEAD == M` and `git write-tree == HT`;
+- no unstaged tracked divergence or unrelated nonignored untracked material;
+- exact `H`-built verifier preserved across reconstruction;
+- receipt v1 unchanged;
+- receipt + external qualification envelope retained as CI artifacts.
 
-The workflow never supplies or persists changed-command-surface admission. A valid receipt that is incomplete because command authority changed is retained as factual shadow evidence.
+### 2. Preserve command authority
 
-## User Story 3 — Separate receipt truth from harness integrity
+Automation never supplies or persists changed-command-surface admission. A valid incomplete receipt caused by command authority remains factual shadow evidence.
 
-Valid receipt exits `0`, `1`, `3`, and `4` are observational results. They are not rewritten. The shadow workflow remains non-gating for those receipt verdicts.
+### 3. Separate receipt truth from harness integrity
 
-Missing/invalid receipt, exit `2` without a valid receipt, Git identity failure, reconstruction failure, schema/semantic rejection, digest mismatch, or artifact failure is a harness-integrity failure and fails the eligible shadow job.
+Valid receipt exits `0`, `1`, `3`, and `4` are observational results and are not rewritten. Missing/invalid receipt, exit `2` without a valid receipt, Git identity failure, reconstruction failure, schema/semantic rejection, source-snapshot mismatch, digest mismatch, or artifact failure is harness-integrity failure.
 
-## User Story 4 — Bind external qualification identity
+### 4. Bind retained receipt to the independently reconstructed source state
 
-The qualification envelope is not receipt truth. It records only privacy-safe qualification metadata:
+Immediately after reconstruction proof and immediately before verifier launch, the harness MUST call the exact `H`-built canonical `composeSourceState(repositoryRoot)` and retain expected snapshot `S` in memory.
 
-- envelope schema version;
-- classification `SHADOW_NON_GATING`;
-- exact verifier head SHA and head tree SHA;
-- exact event base-tip SHA `B`;
-- exact subject merge-base SHA `M`;
-- exact subject target head SHA `H` and target tree SHA `HT`;
-- observed receipt exit code;
-- SHA-256 of exact retained receipt bytes;
-- receipt filename.
+After receipt parse, current JSON Schema validation, and current semantic validation, the harness MUST require exact equality between `receipt.source.start` and `S` for:
+
+- `head_sha`;
+- `tree_digest_version`;
+- `tree_digest`;
+- `tracked_index_entry_count`;
+- `unstaged_changed_count`;
+- `included_untracked_count`.
+
+Any mismatch fails capture before envelope emission or artifact upload.
+
+The harness MUST NOT implement another tree-digest/source-state algorithm, add a second evaluator, or add receipt/schema fields. The existing canonical `composeSourceState()` is the only source-state composer authorized for this binding.
+
+### 5. Bind external qualification identity
+
+The external envelope remains separate from receipt truth and records only privacy-safe qualification metadata: schema/classification, verifier `H/HT`, event base `B`, subject merge base `M`, target `H/HT`, receipt exit, exact receipt SHA-256, and receipt filename.
 
 It contains no raw repository URL/path, absolute path, actor/user, hostname, home directory, environment dump, credentials, tokens, or secrets.
 
@@ -76,58 +83,57 @@ It contains no raw repository URL/path, absolute path, actor/user, hostname, hom
 
 ### FR-006-001 — Trusted same-repository eligibility
 
-Before checkout/install/build/execution of PR head code, the workflow MUST prove the pull request head repository equals the canonical Ascout repository. Fork/external PRs MUST skip the self-verification execution job without a receipt claim.
-
-`pull_request_target`, repository-write permissions, secret-backed execution, or any mechanism that executes fork code with elevated authority is prohibited.
+Before checkout/install/build/execution of PR head code, prove the PR head repository equals canonical Ascout. Fork/external PRs skip execution with no receipt claim. `pull_request_target`, repository-write permissions, secret-backed execution, or elevated fork-code execution is prohibited.
 
 ### FR-006-002 — Exact verifier
 
-For an eligible same-repository PR, checkout and build exact `H`, guard `HEAD == H`, and record `HT` before reconstruction.
+Checkout/build exact `H`, guard `HEAD == H`, and record `HT` before reconstruction.
 
 ### FR-006-003 — Unique merge-base subject
 
-The harness MUST fetch enough history to resolve `B` and `H`, compute merge-base candidates, and require **exactly one** merge base `M`. Multiple/absent merge bases are `NO_GO` for that observation.
-
-The harness MUST NOT substitute event base tip `B` for `M` merely because `B` names the target branch tip.
+Fetch enough history to resolve `B` and `H`, compute all merge-base candidates, and require exactly one `M`. Multiple/absent merge bases fail closed. Never substitute `B` merely because it is the target branch tip.
 
 ### FR-006-004 — Exact reconstruction
 
-From a clean exact-`H` checkout after verifier build, use an ephemeral CI-only `git reset --soft M`. Then prove:
+From clean exact `H` after verifier build, use ephemeral CI-only `git reset --soft M`, then prove `HEAD == M`, `git write-tree == HT`, no unstaged tracked divergence, and no unrelated nonignored untracked file. Only already-canonical ignored paths may contain build/harness artifacts.
 
-- `HEAD == M`;
-- `git write-tree == HT`;
-- no unstaged tracked divergence exists;
-- no unrelated nonignored untracked file exists.
+### FR-006-005 — Canonical pre-launch source snapshot
 
-Only already-canonical ignored paths such as `.ascout/`, `node_modules/`, `dist/`, and `coverage/` may contain build/harness artifacts.
+After FR-006-004 succeeds and immediately before verifier launch, lazily load exact `H`-built `dist/check.js` and call its exported `composeSourceState(repositoryRoot)` exactly for the canonical expected source snapshot `S`.
 
-### FR-006-005 — No automatic trust admission
+This production snapshot path MUST use the exact `H` build and MUST NOT reimplement Git/source digest semantics in the harness.
+
+### FR-006-006 — No automatic trust admission
 
 Never pass or persist `--allow-changed-command-surface` automatically.
 
-### FR-006-006 — Exact receipt preservation
+### FR-006-007 — Exact receipt preservation and validation
 
-Capture exact machine receipt stdout bytes without rewriting. Validate using the exact head-built current JSON Schema and semantic validators. Process exit must equal `receipt.summary.exit_code`.
+Capture exact machine receipt stdout bytes without rewriting. Validate with exact `H`-built current JSON Schema and semantic validators. Process exit must equal `receipt.summary.exit_code`.
 
-### FR-006-007 — Shadow classification
+### FR-006-008 — Independent source binding
 
-A valid receipt exit `0/1/3/4` is successful capture. Job green means capture integrity, not a clean receipt verdict.
+After schema/semantic validation, require the six specified `receipt.source.start` fields to equal `S` exactly. Any mismatch fails capture. The comparison occurs before receipt digest/envelope publication.
 
-### FR-006-008 — Qualification envelope
+### FR-006-009 — Shadow classification
 
-Generate the bounded allowlisted envelope described above only after receipt validation succeeds. Its digest refers to exact retained receipt bytes.
+A valid, source-bound receipt exit `0/1/3/4` is successful capture. Job green means capture integrity, not a clean receipt verdict.
 
-### FR-006-009 — Bounded artifact retention
+### FR-006-010 — Qualification envelope
 
-Upload receipt/envelope with bounded retention and a head-bound artifact name. Initial retention: 30 days.
+Generate the bounded allowlisted envelope only after receipt validation and independent source binding succeed. Its digest refers to exact retained receipt bytes.
 
-### FR-006-010 — No product-core mutation
+### FR-006-011 — Bounded artifact retention
+
+Upload receipt/envelope with a head-bound artifact name and initial retention of 30 days.
+
+### FR-006-012 — No product-core mutation
 
 Spec 006 implementation MUST NOT change `src/**`, receipt schema/model, CLI flags, planner, discovery, process execution, selection, coverage, environment observation, package/runtime dependencies, or existing Project CI.
 
-### FR-006-011 — Supply chain
+### FR-006-013 — Supply chain
 
-Any new action must receive exact repository/license/data/security review and be full-SHA pinned. Workflow permissions remain least privilege; no write permission is justified.
+Any new action requires exact repository/license/data/security review and full-SHA pinning. Workflow permissions remain least privilege; no write permission is justified.
 
 ## Planned task order
 
@@ -141,25 +147,27 @@ Each predecessor must close canonically before the successor begins.
 
 ## Non-goals
 
-No fork/untrusted-repository execution, sandboxing, `pull_request_target`, verdict merge gate, auto-admission, selector shadow, historical benchmark expansion, adversarial receipt mutation, product-core feature, new CLI surface, receipt version change, M2 capability, release, tag, npm publication, or GitHub Release.
+No fork/untrusted-repository execution, sandboxing, `pull_request_target`, verdict merge gate, auto-admission, selector shadow, historical benchmark expansion, adversarial receipt mutation, product-core feature, new CLI surface, receipt version change, new source-state/digest algorithm, second validator/evaluator, M2 capability, release, tag, npm publication, or GitHub Release.
 
 ## Success Criteria
 
 Spec 006 may close `GO` only when exact implementation evidence proves:
 
 1. Project CI remains 6/6 green;
-2. the new self-verification workflow is restricted to same-repository PR heads and skips fork/external PR execution;
-3. the workflow runs on its exact final eligible PR head;
-4. exact `B`, `H`, unique `M`, and `HT` identities are established;
-5. subject reconstruction proves `HEAD == M` and `git write-tree == HT`;
-6. exact `H` verifier produces a valid retained receipt;
-7. process exit equals receipt summary exit;
-8. envelope binds `B/M/H/HT` plus receipt exit/digest;
-9. no auto-admission occurs;
-10. valid non-clean receipt truth is preserved as shadow evidence;
-11. artifacts are bounded and least privilege;
-12. no product-core/receipt contract changes occur;
-13. exact-head review/CI/guarded merge/post-merge gates close canonically.
+2. workflow is same-repository-only and skips fork/external execution;
+3. exact final eligible PR head executes the workflow;
+4. exact `B`, `H`, unique `M`, and `HT` are established;
+5. reconstruction proves `HEAD == M` and `git write-tree == HT`;
+6. exact `H`-built canonical `composeSourceState()` captures pre-launch `S`;
+7. exact `H` verifier produces a valid retained receipt;
+8. current schema + semantic validation succeeds and process exit equals receipt exit;
+9. all six required `receipt.source.start` fields equal `S` exactly;
+10. envelope binds `B/M/H/HT` plus receipt exit/digest;
+11. no auto-admission occurs;
+12. valid non-clean receipt truth remains shadow evidence;
+13. artifacts are bounded/least-privilege;
+14. no product-core/receipt contract change occurs;
+15. exact-head review/CI/guarded merge/post-merge gates close canonically.
 
 ## Governance
 
