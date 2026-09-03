@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, promises as fsPromises, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -36,6 +36,10 @@ function temporaryDirectory(prefix: string): string {
   const path = mkdtempSync(join(tmpdir(), prefix));
   temporaryPaths.push(path);
   return path;
+}
+
+function temporaryOutputPath(prefix: string): string {
+  return join(temporaryDirectory(prefix), "evidence");
 }
 
 function git(root: string, args: readonly string[]): string {
@@ -311,7 +315,7 @@ function runtimeWithExecution(execution: Record<string, unknown>) {
 async function capture(simple: SimpleRepository, exitCode: ReceiptExitCode, mutate?: (receipt: ReceiptV1) => void, argvSink?: string[][]) {
   git(simple.root, ["reset", "--hard", simple.head]);
   git(simple.root, ["clean", "-fd"]);
-  const outputDir = temporaryDirectory("ascout-t107-output-");
+  const outputDir = temporaryOutputPath("ascout-t107-output-");
   return await runSelfVerification({
     repositoryRoot: simple.root,
     eventBaseSha: simple.base,
@@ -485,10 +489,11 @@ describe("T107 exact-tree self-verification harness", () => {
 
   it("rejects otherwise-valid source-bound exit 2 before digest/envelope/output", async () => {
     const simple = createSimpleRepository();
-    const outputDir = temporaryDirectory("ascout-t107-exit2-");
+    const outputDir = temporaryOutputPath("ascout-t107-exit2-");
     await expect(runSelfVerification({ repositoryRoot: simple.root, eventBaseSha: simple.base, headSha: simple.head, outputDir, testRuntime: runtimeFor(2) }))
       .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "exit_2_integrity_failure"));
     expectNoEvidence(outputDir);
+    expect(existsSync(outputDir)).toBe(false);
   });
 
   it("rejects process mismatch, malformed JSON, schema invalidity, semantic invalidity, and missing receipt", () => {
@@ -592,10 +597,11 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(existsSync(join(focused.root, "dist"))).toBe(false);
 
     const production = createSimpleRepository();
-    const outputDir = temporaryDirectory("ascout-t107-production-missing-");
+    const outputDir = temporaryOutputPath("ascout-t107-production-missing-");
     await expect(runSelfVerification({ repositoryRoot: production.root, eventBaseSha: production.base, headSha: production.head, outputDir }))
       .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "head_build_unavailable"));
     expectNoEvidence(outputDir);
+    expect(existsSync(outputDir)).toBe(false);
   });
 
   it.each([
@@ -605,7 +611,7 @@ describe("T107 exact-tree self-verification harness", () => {
     ["stderr truncated", { outcome: "exited", exitCode: 0, stderrTruncated: true }, "verifier_output_truncated"],
   ] as const)("fails closed for %s without writing evidence", async (_label, execution, expectedCode) => {
     const simple = createSimpleRepository();
-    const outputDir = temporaryDirectory("ascout-t107-execution-failure-");
+    const outputDir = temporaryOutputPath("ascout-t107-execution-failure-");
     await expect(runSelfVerification({
       repositoryRoot: simple.root,
       eventBaseSha: simple.base,
@@ -614,6 +620,73 @@ describe("T107 exact-tree self-verification harness", () => {
       testRuntime: runtimeWithExecution(execution as unknown as Record<string, unknown>),
     })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, expectedCode));
     expectNoEvidence(outputDir);
+    expect(existsSync(outputDir)).toBe(false);
+  });
+
+  it.skipIf(process.platform === "win32")("rejects output-path replacement with a repository symlink without repository evidence", async () => {
+    const simple = createSimpleRepository();
+    const outputDir = temporaryOutputPath("ascout-t107-output-race-");
+    const repositoryTarget = join(simple.root, "evidence-target");
+    mkdirSync(repositoryTarget);
+    const baseRuntime = runtimeFor(0);
+    const replacingRuntime = {
+      ...baseRuntime,
+      runVerifier: async (args: { repositoryRoot: string; argv: string[] }) => {
+        const result = await baseRuntime.runVerifier(args);
+        symlinkSync(repositoryTarget, outputDir, "dir");
+        return result;
+      },
+    };
+
+    await expect(runSelfVerification({
+      repositoryRoot: simple.root,
+      eventBaseSha: simple.base,
+      headSha: simple.head,
+      outputDir,
+      testRuntime: replacingRuntime,
+    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "evidence_output_exists"));
+    expectNoEvidence(repositoryTarget);
+  });
+
+  it("removes all staged evidence when retained receipt read-back mismatches", async () => {
+    const simple = createSimpleRepository();
+    const outputDir = temporaryOutputPath("ascout-t107-readback-mismatch-");
+    await expect(runSelfVerification({
+      repositoryRoot: simple.root,
+      eventBaseSha: simple.base,
+      headSha: simple.head,
+      outputDir,
+      testRuntime: runtimeFor(0),
+      testEvidenceIo: {
+        readFile: async (path: Parameters<typeof fsPromises.readFile>[0]) => {
+          const bytes = await fsPromises.readFile(path);
+          if (String(path).endsWith(EVIDENCE_FILES[0])) return Buffer.concat([bytes, Buffer.from("tampered", "utf8")]);
+          return bytes;
+        },
+      },
+    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "receipt_digest_mismatch"));
+    expectNoEvidence(outputDir);
+    expect(existsSync(outputDir)).toBe(false);
+  });
+
+  it("removes all staged evidence when envelope staging fails", async () => {
+    const simple = createSimpleRepository();
+    const outputDir = temporaryOutputPath("ascout-t107-envelope-failure-");
+    await expect(runSelfVerification({
+      repositoryRoot: simple.root,
+      eventBaseSha: simple.base,
+      headSha: simple.head,
+      outputDir,
+      testRuntime: runtimeFor(0),
+      testEvidenceIo: {
+        writeFile: async (...args: Parameters<typeof fsPromises.writeFile>) => {
+          if (String(args[0]).endsWith(EVIDENCE_FILES[1])) throw new Error("fixture envelope write failure");
+          await fsPromises.writeFile(...args);
+        },
+      },
+    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "evidence_output_failed"));
+    expectNoEvidence(outputDir);
+    expect(existsSync(outputDir)).toBe(false);
   });
 
   it("rejects evidence output inside repository source identity", async () => {
