@@ -45,17 +45,19 @@ The candidate must:
 2. build the exact `H` Ascout executable;
 3. compute and prove `M = merge-base(B,H)`;
 4. reconstruct the subject as `HEAD == M` with `git write-tree == HT` and no unrelated nonignored material;
-5. run the exact head-built verifier against that subject;
-6. never auto-supply changed-command-surface admission;
-7. retain valid receipt output without converting its verdict into a merge gate;
-8. emit a separate privacy-safe envelope binding `B`, `M`, `H`, `HT`, receipt exit code, and receipt digest;
-9. upload receipt/envelope as bounded-retention CI artifacts;
-10. fail on harness/identity/validation/artifact integrity failure;
-11. introduce no product-core, receipt-schema, package-runtime, CLI, release/tag/publication, selector, mutation, or M2 capability change.
+5. capture canonical pre-launch source state with exact H-built `composeSourceState()` and bind the emitted receipt's source start to it;
+6. run the exact head-built verifier against that subject;
+7. never auto-supply changed-command-surface admission;
+8. retain only valid, source-bound receipt exits `0`, `1`, `3`, or `4` as `SHADOW_NON_GATING` evidence;
+9. treat exit `2` as harness-integrity failure even if stdout contains an otherwise-valid/source-bound/process-consistent receipt, and reject it before receipt digest, envelope emission, or artifact upload;
+10. emit a separate privacy-safe envelope binding `B`, `M`, `H`, `HT`, allowed receipt exit code, and receipt digest;
+11. upload receipt/envelope as bounded-retention CI artifacts only after all integrity/allowed-exit gates pass;
+12. fail on harness/identity/validation/source-binding/exit-classification/artifact integrity failure;
+13. introduce no product-core, receipt-schema, package-runtime, CLI, release/tag/publication, selector, mutation, or M2 capability change.
 
 ## Explicit non-goals
 
-No fork/untrusted-repository execution, sandboxing, `pull_request_target`, required merge gate, auto-admission, selector shadow, historical corpus expansion, adversarial receipt mutation, M2 mutation/property/fuzz/counterfactual work, hosted core requirement, receipt v2, or product planner/process change.
+No fork/untrusted-repository execution, sandboxing, `pull_request_target`, required merge gate, auto-admission, new exit/shadow category, selector shadow, historical corpus expansion, adversarial receipt mutation, M2 mutation/property/fuzz/counterfactual work, hosted core requirement, receipt v2, or product planner/process change.
 
 ## Promotion rule
 
