@@ -1,8 +1,8 @@
-#!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { access, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
@@ -168,6 +168,71 @@ async function requireBuildArtifacts(repositoryRoot) {
   }
 }
 
+async function collectJavaScriptFiles(root, relativeRoot = "") {
+  const directory = resolve(root, relativeRoot);
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const childRelative = relativeRoot === "" ? entry.name : `${relativeRoot}/${entry.name}`;
+    if (entry.isDirectory()) {
+      files.push(...await collectJavaScriptFiles(root, childRelative));
+    } else if (entry.isFile() && entry.name.endsWith(".js")) {
+      files.push(childRelative);
+    }
+  }
+  return files;
+}
+
+export async function verifyRuntimeProvenance(repositoryRoot) {
+  const root = resolve(repositoryRoot);
+  await requireBuildArtifacts(root);
+
+  const compilerEntry = resolve(root, "node_modules/typescript/bin/tsc");
+  try {
+    await access(compilerEntry);
+  } catch {
+    fail("runtime_provenance_unavailable", "exact lockfile-installed TypeScript compiler is unavailable");
+  }
+
+  const proofRoot = await mkdtemp(join(tmpdir(), "ascout-self-verify-runtime-"));
+  try {
+    const compilation = await runProcess(
+      process.execPath,
+      [compilerEntry, "-p", resolve(root, "tsconfig.json"), "--outDir", proofRoot],
+      { cwd: root },
+    );
+    if (
+      compilation.outcome !== "exited" ||
+      compilation.exitCode !== 0 ||
+      compilation.stdoutTruncated ||
+      compilation.stderrTruncated
+    ) {
+      fail("runtime_provenance_compile_failed", "isolated exact-head runtime provenance compilation failed");
+    }
+
+    const actualRoot = resolve(root, "dist");
+    const [actualFiles, proofFiles] = await Promise.all([
+      collectJavaScriptFiles(actualRoot),
+      collectJavaScriptFiles(proofRoot),
+    ]);
+    if (actualFiles.length === 0 || actualFiles.join("\n") !== proofFiles.join("\n")) {
+      fail("runtime_provenance_mismatch", "runtime JavaScript file set does not match isolated exact-head compilation");
+    }
+
+    for (const path of actualFiles) {
+      const [actualBytes, proofBytes] = await Promise.all([
+        readFile(resolve(actualRoot, path)),
+        readFile(resolve(proofRoot, path)),
+      ]);
+      if (!actualBytes.equals(proofBytes)) {
+        fail("runtime_provenance_mismatch", `runtime artifact does not match isolated exact-head compilation (${path})`);
+      }
+    }
+  } finally {
+    await rm(proofRoot, { recursive: true, force: true });
+  }
+}
+
 export async function reconstructSelfVerificationSubject({
   repositoryRoot,
   eventBaseSha,
@@ -182,7 +247,7 @@ export async function reconstructSelfVerificationSubject({
   const HT = fullObjectId(await gitText(root, ["rev-parse", "--verify", `${H}^{tree}`]), "head tree");
   await requireCleanHeadState(root, H, HT);
 
-  if (requireHeadBuild) await requireBuildArtifacts(root);
+  if (requireHeadBuild) await verifyRuntimeProvenance(root);
 
   await requireGitObject(root, B, "commit");
   const mergeBases = (await git(root, ["merge-base", "--all", B, H], [0, 1])).stdout.toString("utf8");
@@ -320,8 +385,6 @@ export async function runSelfVerification({
     fail("test_runtime_invalid", "self-verification runtime adapter is incomplete");
   }
 
-  // F4: this canonical snapshot is intentionally the final operation before
-  // verifier launch. No harness Git/source probing occurs between these calls.
   const expectedSourceState = runtime.composeSourceState(root);
   if (expectedSourceState?.head_sha !== identities.mergeBaseSha) {
     fail("canonical_source_head_mismatch", "canonical pre-launch source snapshot does not report the reconstructed merge-base HEAD");
