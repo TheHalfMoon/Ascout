@@ -51,11 +51,15 @@
 - [x] Current schema + semantic validation.
 - [x] Process exit equals receipt.summary.exit_code.
 - [x] Valid source-bound exits 0/1/3/4 remain shadow truth.
+- [x] Exit 2 is always harness-integrity failure, even when an otherwise-valid/source-bound/process-consistent receipt exists.
+- [x] Exit-2 rejection occurs before receipt digest, envelope emission, or artifact upload.
+- [x] T107 includes focused proof rejecting an otherwise-valid/source-bound exit-2 receipt.
 - [x] No synthetic receipt.
 
 ## Envelope / privacy
 - [x] Envelope external to receipt v1 and `SHADOW_NON_GATING` explicit.
 - [x] B/M/H/HT + receipt exit/digest/filename bound.
+- [x] No exit-2 receipt is permitted to reach envelope generation.
 - [x] No raw repo/path/user/host/home/env/credentials/secrets.
 
 ## Workflow / supply chain
@@ -71,7 +75,7 @@
 ## Governance
 - [x] T107 → T108 → T109.
 - [x] T107/T108 exact-head Project CI 6/6.
-- [x] T108 live eligible same-repo source-bound artifact.
+- [x] T108 live eligible same-repo source-bound artifact with exit restricted to 0/1/3/4.
 - [x] Fresh independent exact-head substantive review.
 - [x] Zero unresolved material threads.
 - [x] Guarded expected-head merge + post-merge identity proof.
@@ -80,4 +84,4 @@
 
 ## Result
 
-`PASS_AFTER_F1_F2_F3_F4_RECONCILIATION`
+`PASS_AFTER_F1_F2_F3_F4_F5_F6_RECONCILIATION`
