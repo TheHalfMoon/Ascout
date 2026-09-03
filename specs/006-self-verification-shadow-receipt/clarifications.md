@@ -4,65 +4,71 @@
 
 ## C1 — Why shadow first?
 
-The measured gap is absence of Ascout-on-Ascout evidence, not evidence that a self-receipt is already reliable enough to gate merges. Spec 006 captures and validates truth first; any future gating decision needs separate measured evidence and authorization.
+The measured gap is absence of Ascout-on-Ascout evidence, not proof that self-verification is reliable enough to gate merges. Any later gating decision needs separate measured evidence and authorization.
 
-## C2 — What do B, H, M, and HT mean?
+## C2 — What do B, H, M, HT, and S mean?
 
 For one eligible same-repository PR:
 
-- `B` = exact event base-tip SHA;
+- `B` = exact event base-tip SHA, provenance only;
 - `H` = exact event head SHA;
-- `M` = unique merge base computed from `B` and `H`;
-- `HT` = exact tree SHA of `H`.
+- `M` = unique merge base of `B` and `H`;
+- `HT` = exact `H^{tree}`;
+- `S` = canonical `SourceStateV1` snapshot produced by exact `H`-built `composeSourceState(repositoryRoot)` immediately after reconstruction and immediately before verifier launch.
 
-`B` is provenance for the target branch state seen by the workflow. `M` is the subject HEAD used to represent the pull-request change.
+`M` is subject HEAD; `B` is not automatically subject HEAD.
 
-## C3 — Why not use event base tip B as subject HEAD?
+## C3 — Why use M rather than event base tip B?
 
-The base branch can advance independently after the PR diverges. If `B` contains commits not in `H`, resetting the subject to `B` would make the reconstructed change include inversions/removals unrelated to the PR.
-
-Using unique `M = git merge-base B H` represents the committed PR change as `M -> H` and avoids charging the PR for independent base-branch movement.
-
-If no unique merge base can be proven, fail closed and replan rather than approximate.
+The base branch can advance independently after divergence. Using `M -> H` represents the committed PR change without charging unrelated base-branch movement. Missing/multiple merge bases fail closed.
 
 ## C4 — How is the subject reconstructed?
 
-1. prove the PR is same-repository and therefore eligible for this trusted-repository experiment;
-2. checkout and guard exact `H`;
-3. prove clean tracked/index state and record `HT = H^{tree}`;
+1. prove same-repository eligibility before PR-code execution;
+2. checkout/guard exact `H`;
+3. prove clean tracked/index state and `HT`;
 4. install/build exact verifier from `H`;
-5. ensure build artifacts exist only in canonical ignored paths;
-6. prove exact `B` and `H` are locally available;
-7. compute all merge bases and require exactly one `M`;
-8. perform ephemeral CI-only `git reset --soft M`;
-9. prove `HEAD == M`;
-10. prove `git write-tree == HT`;
-11. prove no unstaged tracked divergence and no unrelated nonignored untracked files;
-12. run the preserved exact `H` verifier.
+5. prove `B` and `H` exist;
+6. require exactly one merge base `M`;
+7. `git reset --soft M`;
+8. prove `HEAD == M`, `git write-tree == HT`, no unstaged tracked divergence, no unrelated nonignored untracked files;
+9. lazily load exact `H`-built `dist/check.js` and call canonical `composeSourceState(repositoryRoot)` to capture `S`;
+10. launch the preserved exact `H` verifier.
 
-A soft reset changes HEAD only, so additions/deletions/renames/content changes represented by `HT` stay exactly in the index/worktree.
+## C5 — Why independently snapshot source state if reconstruction is already proven?
 
-## C5 — Why build the verifier from H?
+Reconstruction proof establishes the harness state **before** verifier launch. Receipt semantic validation establishes consistency **inside** the receipt. Neither alone proves that `receipt.source.start` describes the exact independently reconstructed state.
 
-The purpose is to qualify the proposed Ascout code. Base/merge-base Ascout would answer a different question. Exact verifier SHA/tree therefore live in the external envelope; `run.ascout_version` remains only a version label.
+Therefore the harness must compare `receipt.source.start` with pre-launch `S` for exactly:
 
-## C6 — What happens when the PR changes a command surface?
+- `head_sha`;
+- `tree_digest_version`;
+- `tree_digest`;
+- `tracked_index_entry_count`;
+- `unstaged_changed_count`;
+- `included_untracked_count`.
 
-The workflow MUST NOT pass `--allow-changed-command-surface`. If Ascout refuses affected work and emits a valid incomplete receipt, that is useful shadow truth and is retained.
+Any mismatch is capture failure. This closes the evidence-binding gap without changing receipt v1.
 
-## C7 — Which exits are successful captures?
+## C6 — Why reuse composeSourceState instead of computing a digest in the harness?
 
-Valid receipt exits `0`, `1`, `3`, and `4` are observational capture success after schema/semantic validation and exit consistency proof. They are not rewritten.
+`composeSourceState()` is already the canonical exported source-state composer used by Ascout. Reusing the exact `H`-built function prevents a second source-state algorithm or evaluator. The harness must not independently reproduce `readTreeDigestV1` semantics.
 
-Exit `2` without a valid receipt, malformed/no output, identity failure, validator failure, digest failure, or artifact failure is harness failure.
+## C7 — Why build the verifier from H?
 
-## C8 — Does a non-clean receipt fail the workflow?
+The purpose is to qualify proposed Ascout code. Base/merge-base Ascout answers a different question. Exact verifier `H/HT` lives in the external envelope; `run.ascout_version` remains a version label.
 
-No, not in Spec 006. Workflow green means trustworthy capture succeeded, not that the receipt verdict is clean. This distinction must be explicit in workflow naming/documentation and ledger closeout.
+## C8 — What happens when command authority changes?
 
-## C9 — What is the envelope?
+The workflow MUST NOT pass `--allow-changed-command-surface`. A valid incomplete receipt is retained as factual shadow truth.
 
-A small JSON qualification record outside receipt v1. Planned fields:
+## C9 — Which exits are successful captures?
+
+Only after schema validation, semantic validation, process/receipt exit equality, and source-snapshot equality succeed, valid receipt exits `0`, `1`, `3`, and `4` are observational capture success. Exit `2` without a valid receipt or any identity/source-binding/digest/artifact failure is harness failure.
+
+## C10 — What is the envelope?
+
+A small JSON qualification record outside receipt v1:
 
 ```json
 {
@@ -80,46 +86,28 @@ A small JSON qualification record outside receipt v1. Planned fields:
 }
 ```
 
-It contains no repository URL/path, absolute path, actor/user, host, home, environment dump, token, credential, or arbitrary diagnostics.
+It contains no repository URL/path, absolute path, actor/user, host/home, environment dump, token, credential, or arbitrary diagnostics. `S` is an in-memory capture-integrity expectation; Spec 006 does not add it to receipt or envelope schema.
 
-## C10 — How are receipt bytes validated?
+## C11 — How are receipt bytes validated?
 
-Capture exact stdout bytes, parse once, run exact head-built `validateReceiptJsonSchema` and `validateReceiptSemantics`, prove process exit equals `receipt.summary.exit_code`, then hash the exact retained bytes. Do not pretty-print or rewrite the receipt before hashing/upload.
+Capture exact stdout bytes without rewriting, parse once, run exact `H`-built `validateReceiptJsonSchema` and `validateReceiptSemantics`, prove process exit equals `receipt.summary.exit_code`, prove six-field source-start equality with `S`, then hash the exact retained bytes and emit the envelope.
 
-## C11 — Where do harness outputs live?
+## C12 — How can T107 tests run when Project CI tests before build?
 
-Outside repository source identity, preferably under GitHub runner temp. Only `.ascout/`, `node_modules/`, `dist/`, `coverage/`, and other already-canonical ignored paths may remain inside the subject checkout as build/runtime artifacts.
+T107 MUST NOT require pre-existing `dist/` or top-level import it. Production lazily loads exact `H`-built `composeSourceState`, JSON Schema validator, and semantic validator after workflow build. Focused Vitest may inject the same current source functions into internal adapters solely for testing. T108 live workflow proves the real built-dist path.
 
-## C12 — Artifact action and retention
+## C13 — Where do outputs live?
 
-Reviewed planning candidate: official GitHub `actions/upload-artifact`, MIT, release `v7.0.1`, exact commit `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`, Node 24 action runtime. Reverify before implementation and pin the full commit SHA. Retention: 30 days. Upload only receipt/envelope files. Workflow permissions: `contents: read` only.
+Outside repository source identity, preferably runner temp. Only already-canonical ignored paths may contain build/runtime artifacts in the checkout.
 
-## C13 — Is this local/offline?
+## C14 — What happens for fork/external PRs?
 
-No claim is made that GitHub Actions or artifact transport is offline. Ascout core remains local-first; this is optional repository qualification infrastructure.
+They are not eligible. T108 evaluates same-repository eligibility before checkout/install/build/execution. Fork/external PRs skip execution and produce no receipt claim. `pull_request_target`, secrets, elevated permissions, or fork-code workarounds are prohibited.
 
-## C14 — Does this change Project CI?
+## C15 — Artifact action / retention
 
-No. Preferred design is one separate Ubuntu 24.04 / Node 24 observational workflow. Existing six-lane Project CI remains the independent product qualification matrix.
+Planning candidate: official `actions/upload-artifact`, MIT, `v7.0.1`, exact commit `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`; implementation-time reverify + full-SHA pin; 30-day retention; upload only receipt/envelope; `contents: read` only.
 
-## C15 — Does this authorize later M1.2/M2 work?
+## C16 — Does this change Project CI or authorize later work?
 
-No. Selector shadow, historical corpus expansion, adversarial receipt mutation, trend aggregation, required gating, and all M2 capabilities remain separate future decisions.
-
-## C16 — How can T107 tests run when Project CI tests before build?
-
-Canonical Project CI executes `npm test` before `npm run build`, so focused T107 tests MUST NOT require a pre-existing repository `dist/` directory.
-
-The T107 harness therefore MUST NOT import `dist/**` validators at module top level. The production execution path may load the exact head-built `dist/receipt/json.js` and `dist/receipt/model.js` validators lazily only when running real self-verification after the workflow has built `H`.
-
-For focused Vitest contracts, the same harness validation adapter may receive the current source validator functions as explicit in-process dependencies from the TypeScript test environment. This is test-only dependency injection, not a CLI option, product API, runtime dependency, second validator, or alternate acceptance rule.
-
-T108's live workflow is the mandatory end-to-end proof that the production harness actually loads and uses the exact `H`-built `dist` validators. If that built-dist path cannot be proven without widening the approved surfaces, stop and return to planning.
-
-## C17 — What happens for fork or external-repository pull requests?
-
-They are **not eligible** for Spec 006 self-verification execution. The Constitution currently authorizes trusted local/repository scope and explicitly defers arbitrary third-party/untrusted PR execution until separate sandbox/admission design exists.
-
-T108 must therefore evaluate same-repository eligibility before any checkout/install/build/execution of PR head code. A fork/external PR makes the self-verification execution job skip and produces no self-verification receipt claim.
-
-The workflow MUST NOT use `pull_request_target`, repository secrets, elevated token permissions, or any equivalent mechanism to execute fork code. Spec 006 does not solve untrusted CI execution and must not imply that it does.
+No. Project CI remains the six-lane independent qualification matrix. Selector shadow, corpus expansion, adversarial mutation, trend aggregation, required gating, untrusted execution, and M2 remain separate future decisions.
