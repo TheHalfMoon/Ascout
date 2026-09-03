@@ -648,6 +648,36 @@ describe("T107 exact-tree self-verification harness", () => {
     expectNoEvidence(repositoryTarget);
   });
 
+  it.skipIf(process.platform === "win32")("rejects output parent replacement before bound publication without repository evidence", async () => {
+    const simple = createSimpleRepository();
+    const outputDir = temporaryOutputPath("ascout-t107-parent-race-");
+    const outputParent = dirname(outputDir);
+    const displacedParent = `${outputParent}-displaced`;
+    const repositoryTarget = join(simple.root, "parent-target");
+    mkdirSync(repositoryTarget);
+    temporaryPaths.push(displacedParent);
+    let replaced = false;
+
+    await expect(runSelfVerification({
+      repositoryRoot: simple.root,
+      eventBaseSha: simple.base,
+      headSha: simple.head,
+      outputDir,
+      testRuntime: runtimeFor(0),
+      testEvidenceIo: {
+        beforeBoundParentPublish: async () => {
+          renameSync(outputParent, displacedParent);
+          symlinkSync(repositoryTarget, outputParent, "dir");
+          replaced = true;
+        },
+      },
+    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "evidence_output_changed"));
+    expect(replaced).toBe(true);
+    expectNoEvidence(repositoryTarget);
+    expectNoEvidence(join(displacedParent, "evidence"));
+    expectNoEvidence(outputDir);
+  });
+
   it.skipIf(process.platform === "win32")("keeps evidence out of repository when private staging is replaced after validation", async () => {
     const simple = createSimpleRepository();
     const outputDir = temporaryOutputPath("ascout-t107-stage-race-");
