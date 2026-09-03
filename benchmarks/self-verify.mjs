@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, lstat, mkdtemp, readFile, readdir, readlink, realpath, rename, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, mkdtemp, open, readFile, readdir, readlink, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -28,7 +28,7 @@ const REQUIRED_RUNTIME_FILES = [
   "receipt/model.js",
 ];
 const REQUIRED_RUNTIME_ROOT_FILES = ["package.json", "package-lock.json", RECEIPT_SCHEMA_PATH];
-const DEFAULT_EVIDENCE_IO = Object.freeze({ lstat, mkdtemp, readFile, readdir, realpath, rename, rm, writeFile });
+const DEFAULT_EVIDENCE_IO = Object.freeze({ lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rename, rm, writeFile });
 
 export class SelfVerificationIntegrityError extends Error {
   constructor(code, message) {
@@ -461,8 +461,37 @@ async function cleanupEvidencePath(path, evidenceIo) {
   catch { fail("evidence_cleanup_failed", "self-verification evidence staging could not be removed cleanly"); }
 }
 
+async function requirePrivateStageIdentity(stageReal, stageRootReal, repositoryReal, evidenceIo) {
+  let current;
+  try { current = await evidenceIo.realpath(stageReal); }
+  catch { fail("evidence_output_changed", "private evidence staging changed during publication"); }
+  if (current !== stageReal || !isInside(stageRootReal, current) || isInside(repositoryReal, current)) {
+    fail("evidence_output_changed", "private evidence staging changed during publication");
+  }
+}
+
+async function readExactReceiptHandle(handle, expectedLength) {
+  const bytes = Buffer.alloc(expectedLength);
+  let offset = 0;
+  while (offset < expectedLength) {
+    const result = await handle.read(bytes, offset, expectedLength - offset, offset);
+    if (result.bytesRead === 0) break;
+    offset += result.bytesRead;
+  }
+  const extra = Buffer.alloc(1);
+  const tail = await handle.read(extra, 0, 1, expectedLength);
+  if (offset !== expectedLength || tail.bytesRead !== 0) {
+    fail("receipt_digest_mismatch", "staged receipt byte length does not match qualified receipt bytes");
+  }
+  return bytes;
+}
+
 async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha256, envelope }, evidenceIo) {
-  let stageDir = null;
+  let stageRoot = null;
+  let stageRootReal = null;
+  let stageReal = null;
+  let receiptHandle = null;
+  let envelopeHandle = null;
   let published = false;
   try {
     const parentNow = await evidenceIo.realpath(outputTarget.canonicalParent);
@@ -470,29 +499,54 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
       fail("evidence_output_changed", "self-verification evidence output parent changed after qualification");
     }
 
-    stageDir = await evidenceIo.mkdtemp(join(outputTarget.canonicalParent, ".ascout-self-verify-stage-"));
-    const stageReal = await evidenceIo.realpath(stageDir);
-    if (!isInside(outputTarget.canonicalParent, stageReal) || isInside(outputTarget.repositoryReal, stageReal)) {
-      fail("evidence_output_changed", "private evidence staging resolved outside the approved output parent");
+    stageRoot = await evidenceIo.mkdtemp(join(tmpdir(), "ascout-self-verify-evidence-"));
+    stageRootReal = await evidenceIo.realpath(stageRoot);
+    if (isInside(outputTarget.repositoryReal, stageRootReal)) {
+      fail("evidence_output_changed", "private evidence staging root resolved inside repository source identity");
+    }
+
+    const stageDir = join(stageRootReal, "bundle");
+    await evidenceIo.mkdir(stageDir, { mode: 0o700 });
+    stageReal = await evidenceIo.realpath(stageDir);
+    if (stageReal !== stageDir || !isInside(stageRootReal, stageReal) || isInside(outputTarget.repositoryReal, stageReal)) {
+      fail("evidence_output_changed", "private evidence staging resolved outside the harness-owned staging root");
     }
 
     const stagedReceiptPath = join(stageReal, RECEIPT_FILE);
     const stagedEnvelopePath = join(stageReal, ENVELOPE_FILE);
-    await evidenceIo.writeFile(stagedReceiptPath, receiptBytes, { flag: "wx" });
-    const retainedBytes = await evidenceIo.readFile(stagedReceiptPath);
-    if (!Buffer.isBuffer(retainedBytes) || sha256(retainedBytes) !== receiptSha256) {
+    receiptHandle = await evidenceIo.open(stagedReceiptPath, "wx+", 0o600);
+    envelopeHandle = await evidenceIo.open(stagedEnvelopePath, "wx", 0o600);
+    await requirePrivateStageIdentity(stageReal, stageRootReal, outputTarget.repositoryReal, evidenceIo);
+
+    await receiptHandle.writeFile(receiptBytes);
+    await receiptHandle.sync();
+    await requirePrivateStageIdentity(stageReal, stageRootReal, outputTarget.repositoryReal, evidenceIo);
+    const retainedBytes = await readExactReceiptHandle(receiptHandle, receiptBytes.length);
+    if (sha256(retainedBytes) !== receiptSha256) {
       fail("receipt_digest_mismatch", "staged receipt bytes do not match the qualified receipt digest");
     }
-    await evidenceIo.writeFile(stagedEnvelopePath, `${JSON.stringify(envelope, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+
+    await envelopeHandle.writeFile(`${JSON.stringify(envelope, null, 2)}\n`, { encoding: "utf8" });
+    await envelopeHandle.sync();
+    await requirePrivateStageIdentity(stageReal, stageRootReal, outputTarget.repositoryReal, evidenceIo);
+
+    await receiptHandle.close();
+    receiptHandle = null;
+    await envelopeHandle.close();
+    envelopeHandle = null;
 
     const stagedNames = (await evidenceIo.readdir(stageReal)).sort(codeUnitCompare);
     if (stagedNames.length !== 2 || stagedNames[0] !== ENVELOPE_FILE || stagedNames[1] !== RECEIPT_FILE) {
       fail("evidence_output_unexpected", "private evidence staging contains unexpected material");
     }
 
+    const parentBeforePublish = await evidenceIo.realpath(outputTarget.canonicalParent);
+    if (parentBeforePublish !== outputTarget.canonicalParent || isInside(outputTarget.repositoryReal, parentBeforePublish)) {
+      fail("evidence_output_changed", "self-verification evidence output parent changed before publication");
+    }
     await requireAbsentOutputTarget(outputTarget.finalDir, evidenceIo);
     await evidenceIo.rename(stageReal, outputTarget.finalDir);
-    stageDir = null;
+    stageReal = null;
     published = true;
 
     const publishedReal = await evidenceIo.realpath(outputTarget.finalDir);
@@ -508,13 +562,19 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
       fail("receipt_digest_mismatch", "published receipt bytes do not match the qualified receipt digest");
     }
 
+    await cleanupEvidencePath(stageRootReal, evidenceIo);
+    stageRoot = null;
+    stageRootReal = null;
+
     return Object.freeze({
       receiptPath: join(publishedReal, RECEIPT_FILE),
       envelopePath: join(publishedReal, ENVELOPE_FILE),
     });
   } catch (error) {
+    try { if (receiptHandle !== null) await receiptHandle.close(); } catch {}
+    try { if (envelopeHandle !== null) await envelopeHandle.close(); } catch {}
     if (published) await cleanupEvidencePath(outputTarget.finalDir, evidenceIo);
-    else await cleanupEvidencePath(stageDir, evidenceIo);
+    await cleanupEvidencePath(stageRootReal ?? stageRoot, evidenceIo);
     if (error instanceof SelfVerificationIntegrityError) throw error;
     fail("evidence_output_failed", "self-verification evidence could not be published atomically");
   }
