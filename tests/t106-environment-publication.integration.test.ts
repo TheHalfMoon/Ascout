@@ -28,12 +28,12 @@ vi.mock("../src/environment.js", async (importOriginal) => {
       if (control.mode === "integrity_failure") {
         throw new actual.EnvironmentIdentityIntegrityError(
           "authority_contradiction",
-          `environment identity failed beneath ${args[0]}`,
+          `environment identity failed beneath ${process.cwd()}`,
           "package.json",
         );
       }
       if (control.mode === "unexpected_failure") {
-        throw new Error(`unexpected environment failure beneath ${args[0]}`);
+        throw new Error(`unexpected environment failure beneath ${process.cwd()}`);
       }
       const observed = actual.observeEnvironment(...args);
       control.observed = observed;
@@ -156,6 +156,7 @@ describe("T106 environment publication", () => {
   it("maps only the typed environment integrity failure to exit 2 before project tasks and emits no receipt", async () => {
     const root = initializeFixture();
     process.chdir(root);
+    const diagnosticPath = process.cwd();
     control.mode = "integrity_failure";
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -168,12 +169,13 @@ describe("T106 environment publication", () => {
     const diagnostic = String(stderr.mock.calls[0]![0]);
     expect(diagnostic).toContain("EnvironmentIdentityIntegrityError");
     expect(diagnostic).toContain("<repository>");
-    expect(diagnostic).not.toContain(root);
+    expect(diagnostic).not.toContain(diagnosticPath);
   });
 
   it("preserves generic unexpected CLI exception behavior at exit 1", async () => {
     const root = initializeFixture();
     process.chdir(root);
+    const diagnosticPath = process.cwd();
     control.mode = "unexpected_failure";
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -183,6 +185,8 @@ describe("T106 environment publication", () => {
     expect(control.runProcess).not.toHaveBeenCalled();
     expect(stdout).not.toHaveBeenCalled();
     expect(stderr).toHaveBeenCalledTimes(1);
-    expect(String(stderr.mock.calls[0]![0])).toContain("<repository>");
+    const diagnostic = String(stderr.mock.calls[0]![0]);
+    expect(diagnostic).toContain("<repository>");
+    expect(diagnostic).not.toContain(diagnosticPath);
   });
 });
