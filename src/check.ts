@@ -14,6 +14,7 @@ import {
 import { configDigestV1, parseConfigV1Json, type ConfigV1 } from "./config.js";
 import { normalizeLcovLineCoverage, normalizeLcovBranchCoverage, type LcovLinePoint, type LcovBranchPoint } from "./coverage/lcov.js";
 import { buildChangedLineExercise } from "./exercise.js";
+import { observeEnvironment } from "./environment.js";
 import {
   readGitHeadState,
   readTreeDigestV1,
@@ -1462,9 +1463,9 @@ function assertSemanticallyValid(receipt: ReceiptV1): void {
 
 /**
  * Runs one bounded, source-bound `ascout check` invocation under the run lock:
- * discover → load config → observe source start → compare working tree → plan
- * → decide admissions → execute admitted planned tasks with capture caps →
- * observe source end → build and internally validate the receipt.
+ * discover → observe environment → load config → observe source start → compare
+ * working tree → plan → decide admissions → execute admitted planned tasks with
+ * capture caps → observe source end → build and internally validate the receipt.
  */
 export async function runCheck(
   repositoryRoot: string,
@@ -1473,6 +1474,7 @@ export async function runCheck(
   const lock = await acquireRunLock(repositoryRoot);
   try {
     const { root, files, discovery } = collectDiscoveredProject(repositoryRoot);
+    const environment = observeEnvironment(root, files, discovery);
     const { config, digest } = loadConfig(root);
     const runId = generateRunId();
     const runDir = await createRunDirectory(root, runId);
@@ -1766,25 +1768,28 @@ export async function runCheck(
       };
       const sourceEnd = composeSourceState(root);
 
-      const receipt = buildReceipt({
-        run: {
-          run_id: runId,
-          ascout_version: ascoutVersion(),
-          started_at: runStartedAt,
-          finished_at: new Date().toISOString(),
-          config_digest: digest,
-        },
-        sourceStart,
-        sourceEnd,
-        comparison,
-        selection,
-        tasks,
-        exercise,
-        testChanges: deriveTestChanges(gitComparison.changed_files),
-        findings,
-        evidence,
-        artifacts,
-      });
+      const receipt: ReceiptV1 = {
+        ...buildReceipt({
+          run: {
+            run_id: runId,
+            ascout_version: ascoutVersion(),
+            started_at: runStartedAt,
+            finished_at: new Date().toISOString(),
+            config_digest: digest,
+          },
+          sourceStart,
+          sourceEnd,
+          comparison,
+          selection,
+          tasks,
+          exercise,
+          testChanges: deriveTestChanges(gitComparison.changed_files),
+          findings,
+          evidence,
+          artifacts,
+        }),
+        environment,
+      };
       assertSemanticallyValid(receipt);
 
       writeFileSync(join(runDir.run_path, "receipt.json"), renderReceiptJson(receipt));
