@@ -1274,3 +1274,22 @@ export function validateReceiptSemantics(receipt: ReceiptV1): ReceiptSemanticVal
   validateAggregatesAndDecision(receipt, issues);
   return { valid: issues.length === 0, issues };
 }
+
+export type EnvironmentPackageManagerV1 = "npm" | "pnpm" | "yarn";
+export type EnvironmentPackageManagerSourceV1 = "package_json" | "lockfile" | "unavailable";
+
+export interface EnvironmentV1 {
+  readonly runtime_name: "node";
+  readonly runtime_version: string;
+  readonly platform: string;
+  readonly architecture: string;
+  readonly package_manager: EnvironmentPackageManagerV1 | null;
+  readonly package_manager_version: string | null;
+  readonly package_manager_source: EnvironmentPackageManagerSourceV1;
+  readonly lockfile_path: string | null;
+  readonly lockfile_sha256: string | null;
+}
+
+export interface ReceiptV1 {
+  readonly environment?: EnvironmentV1;
+}

@@ -589,3 +589,35 @@ export function renderReceiptJson(value: unknown): string {
   const receipt = validateReceiptForAcceptance(value);
   return `${JSON.stringify(receipt, null, 2)}\n`;
 }
+
+/**
+ * Repository-local compatibility proof hook. This reuses the exact canonical
+ * evaluator implementation while leaving normal bundled-schema loading untouched.
+ * It is intentionally not a runtime schema selector or negotiation API.
+ */
+export function validateReceiptJsonSchemaAgainstParsedSchemaForProof(
+  value: unknown,
+  parsedSchema: unknown,
+): ReceiptSchemaValidationResult {
+  const schema = schemaRecord(parsedSchema, "$schema");
+  if (schema.$schema !== DRAFT_2020_12) {
+    throw new Error(`receipt proof schema must declare ${DRAFT_2020_12}`);
+  }
+  if (schema.$id !== RECEIPT_SCHEMA_ID) {
+    throw new Error(`receipt proof schema id must equal ${RECEIPT_SCHEMA_ID}`);
+  }
+
+  const schemaNodes = new Set<JsonSchema>();
+  const localRefs: LocalSchemaRef[] = [];
+  assertSupportedSchema(schema, "$schema", schemaNodes, localRefs);
+  for (const localRef of localRefs) {
+    const target = resolveLocalRef(schema, localRef.ref);
+    if (!schemaNodes.has(target)) {
+      throw new Error(`${localRef.path}: local ref must target a schema node`);
+    }
+  }
+
+  const issues: ReceiptSchemaIssue[] = [];
+  validateAgainstSchema(value, schema, schema, "$", issues);
+  return { valid: issues.length === 0, issues };
+}

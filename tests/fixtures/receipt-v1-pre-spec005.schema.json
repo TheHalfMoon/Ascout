@@ -8,7 +8,6 @@
   "properties": {
     "schema_version": {"const": "1.0"},
     "run": {"$ref": "#/$defs/run"},
-    "environment": {"$ref": "#/$defs/environment"},
     "source": {"$ref": "#/$defs/source"},
     "comparison": {"$ref": "#/$defs/comparison"},
     "selection": {"$ref": "#/$defs/selection"},
@@ -58,114 +57,6 @@
         "finished_at": {"type": "string", "format": "date-time"},
         "config_digest": {"$ref": "#/$defs/sha256"}
       }
-    },
-    "environment": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["runtime_name", "runtime_version", "platform", "architecture", "package_manager", "package_manager_version", "package_manager_source", "lockfile_path", "lockfile_sha256"],
-      "properties": {
-        "runtime_name": {"const": "node"},
-        "runtime_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"},
-        "platform": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9._-]+$"},
-        "architecture": {"type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9._-]+$"},
-        "package_manager": {"enum": ["npm", "pnpm", "yarn", null]},
-        "package_manager_version": {"type": ["string", "null"], "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-        "package_manager_source": {"enum": ["package_json", "lockfile", "unavailable"]},
-        "lockfile_path": {"$ref": "#/$defs/nullableCanonicalRelativePath"},
-        "lockfile_sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
-      },
-      "oneOf": [
-        {
-          "properties": {
-            "package_manager_source": {"const": "unavailable"},
-            "package_manager": {"type": "null"},
-            "package_manager_version": {"type": "null"},
-            "lockfile_path": {"type": "null"},
-            "lockfile_sha256": {"type": "null"}
-          }
-        },
-        {
-          "properties": {
-            "package_manager_source": {"const": "package_json"},
-            "package_manager": {"const": "npm"},
-            "package_manager_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-            "lockfile_path": {"type": "null"},
-            "lockfile_sha256": {"type": "null"}
-          }
-        },
-        {
-          "properties": {
-            "package_manager_source": {"const": "package_json"},
-            "package_manager": {"const": "npm"},
-            "package_manager_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-            "lockfile_path": {"const": "package-lock.json"},
-            "lockfile_sha256": {"$ref": "#/$defs/sha256"}
-          }
-        },
-        {
-          "properties": {
-            "package_manager_source": {"const": "package_json"},
-            "package_manager": {"const": "pnpm"},
-            "package_manager_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-            "lockfile_path": {"type": "null"},
-            "lockfile_sha256": {"type": "null"}
-          }
-        },
-        {
-          "properties": {
-            "package_manager_source": {"const": "package_json"},
-            "package_manager": {"const": "pnpm"},
-            "package_manager_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-            "lockfile_path": {"const": "pnpm-lock.yaml"},
-            "lockfile_sha256": {"$ref": "#/$defs/sha256"}
-          }
-        },
-        {
-          "properties": {
-            "package_manager_source": {"const": "package_json"},
-            "package_manager": {"const": "yarn"},
-            "package_manager_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-            "lockfile_path": {"type": "null"},
-            "lockfile_sha256": {"type": "null"}
-          }
-        },
-        {
-          "properties": {
-            "package_manager_source": {"const": "package_json"},
-            "package_manager": {"const": "yarn"},
-            "package_manager_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-            "lockfile_path": {"const": "yarn.lock"},
-            "lockfile_sha256": {"$ref": "#/$defs/sha256"}
-          }
-        },
-        {
-          "properties": {
-            "package_manager_source": {"const": "lockfile"},
-            "package_manager": {"const": "npm"},
-            "package_manager_version": {"type": "null"},
-            "lockfile_path": {"const": "package-lock.json"},
-            "lockfile_sha256": {"$ref": "#/$defs/sha256"}
-          }
-        },
-        {
-          "properties": {
-            "package_manager_source": {"const": "lockfile"},
-            "package_manager": {"const": "pnpm"},
-            "package_manager_version": {"type": "null"},
-            "lockfile_path": {"const": "pnpm-lock.yaml"},
-            "lockfile_sha256": {"$ref": "#/$defs/sha256"}
-          }
-        },
-        {
-          "properties": {
-            "package_manager_source": {"const": "lockfile"},
-            "package_manager": {"const": "yarn"},
-            "package_manager_version": {"type": "null"},
-            "lockfile_path": {"const": "yarn.lock"},
-            "lockfile_sha256": {"$ref": "#/$defs/sha256"}
-          }
-        }
-      ]
     },
     "sourceState": {
       "type": "object",
