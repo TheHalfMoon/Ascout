@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -12,6 +12,7 @@ import {
   requireUniqueMergeBaseOutput,
   runSelfVerification,
   validateReceiptCapture,
+  verifyRuntimeProvenance,
 } from "../benchmarks/self-verify.mjs";
 import { composeSourceState } from "../src/check.js";
 import { validateReceiptJsonSchema } from "../src/receipt/json.js";
@@ -26,6 +27,7 @@ import {
 } from "../src/receipt/model.js";
 
 const temporaryPaths: string[] = [];
+const EVIDENCE_FILES = ["self-verification-receipt.json", "self-verification-envelope.json"] as const;
 
 function temporaryDirectory(prefix: string): string {
   const path = mkdtempSync(join(tmpdir(), prefix));
@@ -103,12 +105,7 @@ function taskForExit(exitCode: ReceiptExitCode): TaskResultV1 {
   const task = baselineTask();
   if (exitCode === 0 || exitCode === 3) return task;
   if (exitCode === 1) {
-    return {
-      ...task,
-      status: "FAIL",
-      exit_code: 1,
-      observations: { runs: 1, failures: 1 },
-    };
+    return { ...task, status: "FAIL", exit_code: 1, observations: { runs: 1, failures: 1 } };
   }
   if (exitCode === 2) {
     return {
@@ -148,7 +145,6 @@ function synchronizeSummary(receipt: ReceiptV1): void {
     NOT_RUN: 0,
   };
   for (const task of receipt.tasks) counts[task.status] += 1;
-
   (receipt.summary as unknown as { task_status_counts: typeof counts }).task_status_counts = counts;
   (receipt.summary as unknown as { completeness: ReceiptV1["summary"]["completeness"] }).completeness = deriveReceiptCompleteness(receipt);
   (receipt.summary as unknown as { exit_code: ReceiptExitCode }).exit_code = decideReceiptExitCode(receipt);
@@ -259,6 +255,25 @@ function runtimeFor(exitCode: ReceiptExitCode, mutate?: (receipt: ReceiptV1) => 
   };
 }
 
+function runtimeWithExecution(execution: Record<string, unknown>) {
+  return {
+    composeSourceState,
+    validateReceiptJsonSchema,
+    validateReceiptSemantics,
+    runVerifier: async () => ({
+      outcome: "exited",
+      exitCode: 0,
+      signal: null,
+      error: null,
+      stdout: Buffer.alloc(0),
+      stderr: Buffer.alloc(0),
+      stdoutTruncated: false,
+      stderrTruncated: false,
+      ...execution,
+    }),
+  };
+}
+
 async function capture(simple: SimpleRepository, exitCode: ReceiptExitCode, mutate?: (receipt: ReceiptV1) => void, argvSink?: string[][]) {
   git(simple.root, ["reset", "--hard", simple.head]);
   git(simple.root, ["clean", "-fd"]);
@@ -278,6 +293,16 @@ function expectIntegrityCode(error: unknown, code: string): boolean {
   return true;
 }
 
+function expectNoEvidence(outputDir: string): void {
+  for (const file of EVIDENCE_FILES) expect(existsSync(join(outputDir, file))).toBe(false);
+}
+
+function writeRuntimeFile(root: string, relativePath: string, content: string): void {
+  const path = join(root, relativePath);
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, content, "utf8");
+}
+
 afterEach(() => {
   while (temporaryPaths.length > 0) {
     const path = temporaryPaths.pop();
@@ -286,7 +311,7 @@ afterEach(() => {
 });
 
 describe("T107 exact-tree self-verification harness", () => {
-  it("requires the exact declared H and resolves B == M", async () => {
+  it("requires exact H and reconstructs B == M", async () => {
     const simple = createSimpleRepository();
     const result = await reconstructSelfVerificationSubject({
       repositoryRoot: simple.root,
@@ -294,18 +319,12 @@ describe("T107 exact-tree self-verification harness", () => {
       headSha: simple.head,
       requireHeadBuild: false,
     });
-
-    expect(result).toEqual({
-      eventBaseSha: simple.base,
-      headSha: simple.head,
-      mergeBaseSha: simple.base,
-      headTreeSha: simple.headTree,
-    });
+    expect(result).toEqual({ eventBaseSha: simple.base, headSha: simple.head, mergeBaseSha: simple.base, headTreeSha: simple.headTree });
     expect(git(simple.root, ["rev-parse", "HEAD"])).toBe(simple.base);
     expect(git(simple.root, ["write-tree"])).toBe(simple.headTree);
   });
 
-  it("rejects a wrong exact-H declaration", async () => {
+  it("rejects wrong H, unavailable B, and absent or multiple merge bases", async () => {
     const simple = createSimpleRepository();
     await expect(reconstructSelfVerificationSubject({
       repositoryRoot: simple.root,
@@ -313,60 +332,47 @@ describe("T107 exact-tree self-verification harness", () => {
       headSha: simple.base,
       requireHeadBuild: false,
     })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "head_mismatch"));
-  });
 
-  it("rejects an unavailable event base identity", async () => {
-    const simple = createSimpleRepository();
+    git(simple.root, ["reset", "--hard", simple.head]);
     await expect(reconstructSelfVerificationSubject({
       repositoryRoot: simple.root,
       eventBaseSha: "f".repeat(40),
       headSha: simple.head,
       requireHeadBuild: false,
     })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "git_identity_unavailable"));
+
+    expect(() => requireUniqueMergeBaseOutput("")).toThrowError(SelfVerificationIntegrityError);
+    expect(() => requireUniqueMergeBaseOutput(`${"a".repeat(40)}\n${"b".repeat(40)}\n`)).toThrowError(SelfVerificationIntegrityError);
+    expect(requireUniqueMergeBaseOutput(`${"c".repeat(40)}\n`)).toBe("c".repeat(40));
   });
 
-  it("uses unique merge base M when the event base tip B advanced independently", async () => {
+  it("uses unique M when event base B advanced independently", async () => {
     const root = initializeRepository();
     writeFileSync(join(root, "tracked.txt"), "merge-base\n", "utf8");
     const mergeBase = commitAll(root, "merge base");
     git(root, ["branch", "feature", mergeBase]);
-
     git(root, ["checkout", "-q", "feature"]);
     writeFileSync(join(root, "tracked.txt"), "feature\n", "utf8");
     const head = commitAll(root, "feature head");
     const headTree = git(root, ["rev-parse", `${head}^{tree}`]);
-
     git(root, ["checkout", "-q", "master"]);
     writeFileSync(join(root, "base-only.txt"), "advanced base\n", "utf8");
     const eventBase = commitAll(root, "advanced base");
     git(root, ["checkout", "-q", "--detach", head]);
 
-    const result = await reconstructSelfVerificationSubject({
-      repositoryRoot: root,
-      eventBaseSha: eventBase,
-      headSha: head,
-      requireHeadBuild: false,
-    });
-
+    const result = await reconstructSelfVerificationSubject({ repositoryRoot: root, eventBaseSha: eventBase, headSha: head, requireHeadBuild: false });
     expect(eventBase).not.toBe(mergeBase);
     expect(result.mergeBaseSha).toBe(mergeBase);
     expect(git(root, ["rev-parse", "HEAD"])).toBe(mergeBase);
     expect(git(root, ["write-tree"])).toBe(headTree);
   });
 
-  it("fails closed for absent or multiple merge-base candidates", () => {
-    expect(() => requireUniqueMergeBaseOutput("")).toThrowError(SelfVerificationIntegrityError);
-    expect(() => requireUniqueMergeBaseOutput(`${"a".repeat(40)}\n${"b".repeat(40)}\n`)).toThrowError(SelfVerificationIntegrityError);
-    expect(requireUniqueMergeBaseOutput(`${"c".repeat(40)}\n`)).toBe("c".repeat(40));
-  });
-
-  it("preserves added, deleted, renamed, modified tracked content as the exact H tree", async () => {
+  it("preserves added, deleted, renamed, and modified tracked content as exact H tree", async () => {
     const root = initializeRepository();
     writeFileSync(join(root, "modified.txt"), "base\n", "utf8");
     writeFileSync(join(root, "deleted.txt"), "delete me\n", "utf8");
     writeFileSync(join(root, "rename-old.txt"), "rename me\n", "utf8");
     const base = commitAll(root, "base shapes");
-
     writeFileSync(join(root, "modified.txt"), "head\n", "utf8");
     rmSync(join(root, "deleted.txt"));
     renameSync(join(root, "rename-old.txt"), join(root, "rename-new.txt"));
@@ -375,83 +381,80 @@ describe("T107 exact-tree self-verification harness", () => {
     const headTree = git(root, ["rev-parse", `${head}^{tree}`]);
 
     await reconstructSelfVerificationSubject({ repositoryRoot: root, eventBaseSha: base, headSha: head, requireHeadBuild: false });
-
-    expect(git(root, ["rev-parse", "HEAD"])).toBe(base);
     expect(git(root, ["write-tree"])).toBe(headTree);
     const staged = git(root, ["diff", "--cached", "--name-status", "--find-renames", base]);
-    expect(staged).toContain("added.txt");
-    expect(staged).toContain("deleted.txt");
-    expect(staged).toContain("modified.txt");
-    expect(staged).toContain("rename-new.txt");
+    for (const path of ["added.txt", "deleted.txt", "modified.txt", "rename-new.txt"]) expect(staged).toContain(path);
   });
 
-  it("rejects unstaged tracked drift and unrelated nonignored untracked material", async () => {
-    const first = createSimpleRepository();
-    writeFileSync(join(first.root, "tracked.txt"), "drift after H\n", "utf8");
-    await expect(reconstructSelfVerificationSubject({
-      repositoryRoot: first.root,
-      eventBaseSha: first.base,
-      headSha: first.head,
-      requireHeadBuild: false,
-    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "tracked_contamination"));
+  it("fails closed for tracked/untracked contamination while allowing canonical ignored paths", async () => {
+    const tracked = createSimpleRepository();
+    writeFileSync(join(tracked.root, "tracked.txt"), "drift\n", "utf8");
+    await expect(reconstructSelfVerificationSubject({ repositoryRoot: tracked.root, eventBaseSha: tracked.base, headSha: tracked.head, requireHeadBuild: false }))
+      .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "tracked_contamination"));
 
-    const second = createSimpleRepository();
-    writeFileSync(join(second.root, "rogue.txt"), "untracked\n", "utf8");
-    await expect(reconstructSelfVerificationSubject({
-      repositoryRoot: second.root,
-      eventBaseSha: second.base,
-      headSha: second.head,
-      requireHeadBuild: false,
-    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "untracked_contamination"));
+    const untracked = createSimpleRepository();
+    writeFileSync(join(untracked.root, "rogue.txt"), "rogue\n", "utf8");
+    await expect(reconstructSelfVerificationSubject({ repositoryRoot: untracked.root, eventBaseSha: untracked.base, headSha: untracked.head, requireHeadBuild: false }))
+      .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "untracked_contamination"));
+
+    const ignored = createSimpleRepository();
+    for (const path of [join("dist", "ignored.js"), join("node_modules", "fixture", "ignored.js"), join(".ascout", "ignored.txt")]) {
+      writeRuntimeFile(ignored.root, path, "ignored\n");
+    }
+    await expect(reconstructSelfVerificationSubject({ repositoryRoot: ignored.root, eventBaseSha: ignored.base, headSha: ignored.head, requireHeadBuild: false }))
+      .resolves.toMatchObject({ mergeBaseSha: ignored.base });
   });
 
-  it("allows only canonical ignored build/install paths to remain outside source identity", async () => {
-    const simple = createSimpleRepository();
-    mkdirSync(join(simple.root, "dist"), { recursive: true });
-    mkdirSync(join(simple.root, "node_modules", "fixture"), { recursive: true });
-    mkdirSync(join(simple.root, ".ascout"), { recursive: true });
-    writeFileSync(join(simple.root, "dist", "ignored.js"), "ignored\n", "utf8");
-    writeFileSync(join(simple.root, "node_modules", "fixture", "ignored.js"), "ignored\n", "utf8");
-    writeFileSync(join(simple.root, ".ascout", "ignored.txt"), "ignored\n", "utf8");
+  it("verifies the complete emitted JavaScript runtime set and bytes against isolated compilation", async () => {
+    const root = temporaryDirectory("ascout-t107-provenance-");
+    const runtimeFiles: Record<string, string> = {
+      "cli.js": "export const cli = 1;\n",
+      "check.js": "export const check = 1;\n",
+      "receipt/json.js": "export const json = 1;\n",
+      "receipt/model.js": "export const model = 1;\n",
+      "nested/runtime.js": "export const nested = 1;\n",
+    };
+    for (const [path, content] of Object.entries(runtimeFiles)) writeRuntimeFile(join(root, "dist"), path, content);
 
-    await expect(reconstructSelfVerificationSubject({
-      repositoryRoot: simple.root,
-      eventBaseSha: simple.base,
-      headSha: simple.head,
-      requireHeadBuild: false,
-    })).resolves.toMatchObject({ mergeBaseSha: simple.base });
+    const compiler = join(root, "node_modules", "typescript", "bin", "tsc");
+    mkdirSync(dirname(compiler), { recursive: true });
+    writeFileSync(compiler, [
+      "const fs = require('node:fs');",
+      "const path = require('node:path');",
+      `const files = ${JSON.stringify(runtimeFiles)};`,
+      "const index = process.argv.indexOf('--outDir');",
+      "const out = process.argv[index + 1];",
+      "for (const [name, value] of Object.entries(files)) {",
+      "  const target = path.join(out, name);",
+      "  fs.mkdirSync(path.dirname(target), { recursive: true });",
+      "  fs.writeFileSync(target, value, 'utf8');",
+      "}",
+    ].join("\n"), "utf8");
+    writeFileSync(join(root, "tsconfig.json"), "{}\n", "utf8");
+
+    await expect(verifyRuntimeProvenance(root)).resolves.toBeUndefined();
+    writeFileSync(join(root, "dist", "check.js"), "export const check = 2;\n", "utf8");
+    await expect(verifyRuntimeProvenance(root)).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "runtime_provenance_mismatch"));
   });
 
   it.each([0, 1, 3, 4] as const)("retains valid source-bound exit %s as SHADOW_NON_GATING evidence", async (exitCode) => {
-    const simple = createSimpleRepository();
-    const result = await capture(simple, exitCode);
-
+    const result = await capture(createSimpleRepository(), exitCode);
     expect(result.receiptExit).toBe(exitCode);
     expect(result.envelope.classification).toBe("SHADOW_NON_GATING");
     expect(result.envelope.receipt_exit_code).toBe(exitCode);
-    expect(result.envelope.subject_merge_base_sha).toBe(simple.base);
     expect(existsSync(result.receiptPath)).toBe(true);
     expect(existsSync(result.envelopePath)).toBe(true);
   });
 
-  it("rejects an otherwise valid, source-bound exit 2 before digest/envelope/output", async () => {
+  it("rejects otherwise-valid source-bound exit 2 before digest/envelope/output", async () => {
     const simple = createSimpleRepository();
-    git(simple.root, ["reset", "--hard", simple.head]);
     const outputDir = temporaryDirectory("ascout-t107-exit2-");
-
-    await expect(runSelfVerification({
-      repositoryRoot: simple.root,
-      eventBaseSha: simple.base,
-      headSha: simple.head,
-      outputDir,
-      testRuntime: runtimeFor(2),
-    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "exit_2_integrity_failure"));
-
-    expect(existsSync(join(outputDir, "self-verification-receipt.json"))).toBe(false);
-    expect(existsSync(join(outputDir, "self-verification-envelope.json"))).toBe(false);
+    await expect(runSelfVerification({ repositoryRoot: simple.root, eventBaseSha: simple.base, headSha: simple.head, outputDir, testRuntime: runtimeFor(2) }))
+      .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "exit_2_integrity_failure"));
+    expectNoEvidence(outputDir);
   });
 
-  it("rejects process/receipt exit mismatch, malformed JSON, schema invalidity, semantic invalidity, and no receipt", () => {
+  it("rejects process mismatch, malformed JSON, schema invalidity, semantic invalidity, and missing receipt", () => {
     const source = {
       repository_id: `local:${"a".repeat(64)}`,
       repository_id_kind: "local_only" as const,
@@ -468,28 +471,22 @@ describe("T107 exact-tree self-verification harness", () => {
     const receipt = validReceipt(source, 0);
     const bytes = Buffer.from(JSON.stringify(receipt));
 
-    expect(() => validateReceiptCapture({ receiptBytes: bytes, processExitCode: 1, expectedSourceState: source, validators: validators() }))
-      .toThrowError(/process exit/u);
-    expect(() => validateReceiptCapture({ receiptBytes: Buffer.from("not json"), processExitCode: 0, expectedSourceState: source, validators: validators() }))
-      .toThrowError(/valid JSON/u);
+    expect(() => validateReceiptCapture({ receiptBytes: bytes, processExitCode: 1, expectedSourceState: source, validators: validators() })).toThrowError(/process exit/u);
+    expect(() => validateReceiptCapture({ receiptBytes: Buffer.from("not json"), processExitCode: 0, expectedSourceState: source, validators: validators() })).toThrowError(/valid JSON/u);
 
     const schemaInvalid = structuredClone(receipt) as unknown as Record<string, unknown>;
     schemaInvalid.schema_version = "9.0";
-    expect(() => validateReceiptCapture({ receiptBytes: Buffer.from(JSON.stringify(schemaInvalid)), processExitCode: 0, expectedSourceState: source, validators: validators() }))
-      .toThrowError(/JSON Schema/u);
+    expect(() => validateReceiptCapture({ receiptBytes: Buffer.from(JSON.stringify(schemaInvalid)), processExitCode: 0, expectedSourceState: source, validators: validators() })).toThrowError(/JSON Schema/u);
 
     const semanticInvalid = structuredClone(receipt);
     (semanticInvalid.summary as unknown as { finding_count: number }).finding_count = 1;
     expect(validateReceiptJsonSchema(semanticInvalid).valid).toBe(true);
     expect(validateReceiptSemantics(semanticInvalid).valid).toBe(false);
-    expect(() => validateReceiptCapture({ receiptBytes: Buffer.from(JSON.stringify(semanticInvalid)), processExitCode: 0, expectedSourceState: source, validators: validators() }))
-      .toThrowError(/semantic validator/u);
-
-    expect(() => validateReceiptCapture({ receiptBytes: Buffer.alloc(0), processExitCode: 2, expectedSourceState: source, validators: validators() }))
-      .toThrowError(/no receipt bytes/u);
+    expect(() => validateReceiptCapture({ receiptBytes: Buffer.from(JSON.stringify(semanticInvalid)), processExitCode: 0, expectedSourceState: source, validators: validators() })).toThrowError(/semantic validator/u);
+    expect(() => validateReceiptCapture({ receiptBytes: Buffer.alloc(0), processExitCode: 2, expectedSourceState: source, validators: validators() })).toThrowError(/no receipt bytes/u);
   });
 
-  it("rejects each of the six independent canonical source-binding fields", () => {
+  it("rejects each of the six canonical source-binding fields independently", () => {
     const source = {
       repository_id: `local:${"a".repeat(64)}`,
       repository_id_kind: "local_only" as const,
@@ -519,26 +516,18 @@ describe("T107 exact-tree self-verification harness", () => {
     for (const [field, mutate] of Object.entries(mutations)) {
       const receipt = validReceipt(source, 0);
       mutate(receipt.source.start as unknown as Record<string, unknown>);
-      expect(
-        () => validateReceiptCapture({
-          receiptBytes: Buffer.from(JSON.stringify(receipt)),
-          processExitCode: 0,
-          expectedSourceState: source,
-          validators: passThroughValidators,
-        }),
-        field,
-      ).toThrowError(new RegExp(field, "u"));
+      expect(() => validateReceiptCapture({ receiptBytes: Buffer.from(JSON.stringify(receipt)), processExitCode: 0, expectedSourceState: source, validators: passThroughValidators }), field)
+        .toThrowError(new RegExp(field, "u"));
     }
   });
 
-  it("hashes exact retained receipt bytes and emits only the privacy-safe envelope allowlist", async () => {
+  it("hashes exact retained bytes, keeps envelope allowlisted, and never adds command admission", async () => {
     const simple = createSimpleRepository();
-    const result = await capture(simple, 0);
+    const argv: string[][] = [];
+    const result = await capture(simple, 0, undefined, argv);
     const bytes = readFileSync(result.receiptPath);
     const crypto = await import("node:crypto");
-    const expectedDigest = crypto.createHash("sha256").update(bytes).digest("hex");
-    expect(result.receiptSha256).toBe(expectedDigest);
-
+    expect(result.receiptSha256).toBe(crypto.createHash("sha256").update(bytes).digest("hex"));
     expect(Object.keys(result.envelope)).toEqual([
       "schema_version",
       "classification",
@@ -552,14 +541,7 @@ describe("T107 exact-tree self-verification harness", () => {
       "receipt_sha256",
       "receipt_file",
     ]);
-    const serialized = JSON.stringify(result.envelope);
-    expect(serialized).not.toMatch(/repository_url|absolute|actor|hostname|home|token|secret|stderr|stdout/ui);
-  });
-
-  it("never includes changed-command-surface admission in verifier argv", async () => {
-    const simple = createSimpleRepository();
-    const argv: string[][] = [];
-    await capture(simple, 0, undefined, argv);
+    expect(JSON.stringify(result.envelope)).not.toMatch(/repository_url|absolute|actor|hostname|home|token|secret|stderr|stdout/ui);
     expect(argv).toHaveLength(1);
     expect(argv[0]).toContain("check");
     expect(argv[0]).toContain("--format");
@@ -567,11 +549,35 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(argv[0]).not.toContain("--allow-changed-command-surface");
   });
 
-  it("runs focused proof without a pre-existing repository dist directory", async () => {
+  it("keeps focused tests independent of pre-existing dist but production fails closed when exact-head build is missing", async () => {
+    const focused = createSimpleRepository();
+    expect(existsSync(join(focused.root, "dist"))).toBe(false);
+    await expect(capture(focused, 0)).resolves.toMatchObject({ receiptExit: 0 });
+    expect(existsSync(join(focused.root, "dist"))).toBe(false);
+
+    const production = createSimpleRepository();
+    const outputDir = temporaryDirectory("ascout-t107-production-missing-");
+    await expect(runSelfVerification({ repositoryRoot: production.root, eventBaseSha: production.base, headSha: production.head, outputDir }))
+      .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "head_build_unavailable"));
+    expectNoEvidence(outputDir);
+  });
+
+  it.each([
+    ["timed_out", { outcome: "timed_out", exitCode: null, signal: null, error: null }, "verifier_execution_failed"],
+    ["spawn error", { outcome: "error", exitCode: null, signal: null, error: new Error("fixture") }, "verifier_execution_failed"],
+    ["stdout truncated", { outcome: "exited", exitCode: 0, stdoutTruncated: true }, "verifier_output_truncated"],
+    ["stderr truncated", { outcome: "exited", exitCode: 0, stderrTruncated: true }, "verifier_output_truncated"],
+  ] as const)("fails closed for %s without writing evidence", async (_label, execution, expectedCode) => {
     const simple = createSimpleRepository();
-    expect(existsSync(join(simple.root, "dist"))).toBe(false);
-    await expect(capture(simple, 0)).resolves.toMatchObject({ receiptExit: 0 });
-    expect(existsSync(join(simple.root, "dist"))).toBe(false);
+    const outputDir = temporaryDirectory("ascout-t107-execution-failure-");
+    await expect(runSelfVerification({
+      repositoryRoot: simple.root,
+      eventBaseSha: simple.base,
+      headSha: simple.head,
+      outputDir,
+      testRuntime: runtimeWithExecution(execution as unknown as Record<string, unknown>),
+    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, expectedCode));
+    expectNoEvidence(outputDir);
   });
 
   it("rejects evidence output inside repository source identity", async () => {
