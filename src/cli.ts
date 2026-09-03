@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { runCheck } from "./check.js";
 import { collectDiscoveredProject } from "./discovery.js";
+import { EnvironmentIdentityIntegrityError } from "./environment.js";
 import { loadConfig, composeSourceState } from "./check.js";
 import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./discovery.js";
 import { readWorkingTreeComparison } from "./git.js";
@@ -189,6 +190,10 @@ export async function runCli(argv: readonly string[]): Promise<number> {
   } catch (error: unknown) {
     if (error instanceof CliUsageError) {
       console.error(`${error.message}\n\n${usageText()}`);
+      return 2;
+    }
+    if (error instanceof EnvironmentIdentityIntegrityError) {
+      console.error(redactLocalPathFromError(error, process.cwd()));
       return 2;
     }
     console.error(redactLocalPathFromError(error, process.cwd()));
