@@ -25,10 +25,13 @@ const PRIOR_SCHEMA_URL = new URL("./fixtures/receipt-v1-pre-spec005.schema.json"
 
 type EnvironmentMutation = (environment: Record<string, unknown>) => void;
 
-function gitBlobSha(bytes: Buffer): string {
+function gitBlobShaFromCheckout(bytes: Buffer): string {
+  // Git may materialize LF repository text as CRLF on Windows. The pinned identity
+  // is the repository blob, so normalize only that checkout transport difference.
+  const repositoryBytes = Buffer.from(bytes.toString("utf8").replace(/\r\n/gu, "\n"), "utf8");
   return createHash("sha1")
-    .update(Buffer.from(`blob ${bytes.byteLength}\0`, "utf8"))
-    .update(bytes)
+    .update(Buffer.from(`blob ${repositoryBytes.byteLength}\0`, "utf8"))
+    .update(repositoryBytes)
     .digest("hex");
 }
 
@@ -260,7 +263,7 @@ describe("T104 environment receipt contract", () => {
 
   it("binds the prior strict-schema proof to the exact canonical Git blob and same evaluator", () => {
     const bytes = readFileSync(PRIOR_SCHEMA_URL);
-    expect(gitBlobSha(bytes)).toBe(PRIOR_SCHEMA_BLOB);
+    expect(gitBlobShaFromCheckout(bytes)).toBe(PRIOR_SCHEMA_BLOB);
 
     const priorSchema = JSON.parse(bytes.toString("utf8")) as unknown;
     const result = validateReceiptJsonSchemaAgainstParsedSchemaForProof(
