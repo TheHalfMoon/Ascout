@@ -20,6 +20,12 @@ const RECEIPT_FILE = "self-verification-receipt.json";
 const ENVELOPE_FILE = "self-verification-envelope.json";
 const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
 const CAPTURE_LIMIT_BYTES = 32 * 1024 * 1024;
+const REQUIRED_RUNTIME_FILES = [
+  "cli.js",
+  "check.js",
+  "receipt/json.js",
+  "receipt/model.js",
+];
 
 export class SelfVerificationIntegrityError extends Error {
   constructor(code, message) {
@@ -99,15 +105,19 @@ async function runProcess(file, args, { cwd, timeoutMs = DEFAULT_TIMEOUT_MS, env
   });
 }
 
-async function git(repositoryRoot, args, allowedExitCodes = [0]) {
-  const result = await runProcess("git", ["-C", repositoryRoot, ...args], { cwd: repositoryRoot });
+async function requireReliableProcess(result, code, label, allowedExitCodes = [0]) {
   if (result.outcome !== "exited" || result.stdoutTruncated || result.stderrTruncated) {
-    fail("git_execution_failed", `git ${args[0] ?? "command"} did not complete reliably`);
+    fail(code, `${label} did not complete reliably`);
   }
   if (!allowedExitCodes.includes(result.exitCode)) {
-    fail("git_execution_failed", `git ${args[0] ?? "command"} failed with exit ${String(result.exitCode)}`);
+    fail(code, `${label} failed with exit ${String(result.exitCode)}`);
   }
   return result;
+}
+
+async function git(repositoryRoot, args, allowedExitCodes = [0]) {
+  const result = await runProcess("git", ["-C", repositoryRoot, ...args], { cwd: repositoryRoot });
+  return await requireReliableProcess(result, "git_execution_failed", `git ${args[0] ?? "command"}`, allowedExitCodes);
 }
 
 async function gitText(repositoryRoot, args) {
@@ -117,6 +127,12 @@ async function gitText(repositoryRoot, args) {
 async function requireGitObject(repositoryRoot, sha, kind = "commit") {
   const result = await git(repositoryRoot, ["cat-file", "-e", `${sha}^{${kind}}`], [0, 1, 128]);
   if (result.exitCode !== 0) fail("git_identity_unavailable", `required Git ${kind} object is unavailable`);
+}
+
+async function requireNoNonignoredUntracked(repositoryRoot) {
+  const status = await gitText(repositoryRoot, ["status", "--porcelain=v1", "--untracked-files=all", "--ignored=no"]);
+  const untracked = status.split(/\r?\n/u).filter((line) => line.startsWith("?? "));
+  if (untracked.length > 0) fail("untracked_contamination", "unrelated nonignored untracked material exists in the subject repository");
 }
 
 async function requireCleanHeadState(repositoryRoot, headSha, targetTreeSha) {
@@ -135,12 +151,6 @@ async function requireCleanHeadState(repositoryRoot, headSha, targetTreeSha) {
   await requireNoNonignoredUntracked(repositoryRoot);
 }
 
-async function requireNoNonignoredUntracked(repositoryRoot) {
-  const status = await gitText(repositoryRoot, ["status", "--porcelain=v1", "--untracked-files=all", "--ignored=no"]);
-  const untracked = status.split(/\r?\n/u).filter((line) => line.startsWith("?? "));
-  if (untracked.length > 0) fail("untracked_contamination", "unrelated nonignored untracked material exists in the subject repository");
-}
-
 async function requireNoUnstagedTracked(repositoryRoot) {
   const result = await git(repositoryRoot, ["diff", "--quiet", "--"], [0, 1]);
   if (result.exitCode !== 0) fail("tracked_contamination", "unstaged tracked divergence exists after reconstruction");
@@ -153,15 +163,9 @@ export function requireUniqueMergeBaseOutput(stdout) {
 }
 
 async function requireBuildArtifacts(repositoryRoot) {
-  const paths = [
-    "dist/cli.js",
-    "dist/check.js",
-    "dist/receipt/json.js",
-    "dist/receipt/model.js",
-  ];
-  for (const path of paths) {
+  for (const path of REQUIRED_RUNTIME_FILES) {
     try {
-      await access(resolve(repositoryRoot, path));
+      await access(resolve(repositoryRoot, "dist", path));
     } catch {
       fail("head_build_unavailable", "exact head-built self-verification runtime is unavailable");
     }
@@ -174,71 +178,86 @@ async function collectJavaScriptFiles(root, relativeRoot = "") {
   const files = [];
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     const childRelative = relativeRoot === "" ? entry.name : `${relativeRoot}/${entry.name}`;
-    if (entry.isDirectory()) {
-      files.push(...await collectJavaScriptFiles(root, childRelative));
-    } else if (entry.isFile() && entry.name.endsWith(".js")) {
-      files.push(childRelative);
-    }
+    if (entry.isDirectory()) files.push(...await collectJavaScriptFiles(root, childRelative));
+    else if (entry.isFile() && entry.name.endsWith(".js")) files.push(childRelative);
   }
   return files;
 }
 
-export async function verifyRuntimeProvenance(repositoryRoot) {
-  const root = resolve(repositoryRoot);
-  await requireBuildArtifacts(root);
-
-  const compilerEntry = resolve(root, "node_modules/typescript/bin/tsc");
-  try {
-    await access(compilerEntry);
-  } catch {
-    fail("runtime_provenance_unavailable", "exact lockfile-installed TypeScript compiler is unavailable");
+async function runtimeManifest(runtimeRoot) {
+  const files = await collectJavaScriptFiles(runtimeRoot);
+  if (files.length === 0) fail("runtime_provenance_unavailable", "verified runtime contains no JavaScript files");
+  const entries = [];
+  for (const path of files) {
+    const bytes = await readFile(resolve(runtimeRoot, path));
+    entries.push(`${path}\0${createHash("sha256").update(bytes).digest("hex")}`);
   }
+  return Object.freeze({ files: Object.freeze([...files]), digest: createHash("sha256").update(entries.join("\n")).digest("hex") });
+}
 
-  const proofRoot = await mkdtemp(join(tmpdir(), "ascout-self-verify-runtime-"));
-  try {
-    const compilation = await runProcess(
-      process.execPath,
-      [compilerEntry, "-p", resolve(root, "tsconfig.json"), "--outDir", proofRoot],
-      { cwd: root },
-    );
-    if (
-      compilation.outcome !== "exited" ||
-      compilation.exitCode !== 0 ||
-      compilation.stdoutTruncated ||
-      compilation.stderrTruncated
-    ) {
-      fail("runtime_provenance_compile_failed", "isolated exact-head runtime provenance compilation failed");
-    }
-
-    const actualRoot = resolve(root, "dist");
-    const [actualFiles, proofFiles] = await Promise.all([
-      collectJavaScriptFiles(actualRoot),
-      collectJavaScriptFiles(proofRoot),
-    ]);
-    if (actualFiles.length === 0 || actualFiles.join("\n") !== proofFiles.join("\n")) {
-      fail("runtime_provenance_mismatch", "runtime JavaScript file set does not match isolated exact-head compilation");
-    }
-
-    for (const path of actualFiles) {
-      const [actualBytes, proofBytes] = await Promise.all([
-        readFile(resolve(actualRoot, path)),
-        readFile(resolve(proofRoot, path)),
-      ]);
-      if (!actualBytes.equals(proofBytes)) {
-        fail("runtime_provenance_mismatch", `runtime artifact does not match isolated exact-head compilation (${path})`);
-      }
-    }
-  } finally {
-    await rm(proofRoot, { recursive: true, force: true });
+async function requireRuntimeManifest(runtimeRoot, expected) {
+  const actual = await runtimeManifest(runtimeRoot);
+  if (actual.digest !== expected.digest || actual.files.join("\n") !== expected.files.join("\n")) {
+    fail("runtime_provenance_mismatch", "verified exact-head runtime changed after qualification");
   }
 }
 
-export async function reconstructSelfVerificationSubject({
-  repositoryRoot,
-  eventBaseSha,
-  headSha,
-  requireHeadBuild = true,
-}) {
+function npmCommand() {
+  return process.platform === "win32" ? "npm.cmd" : "npm";
+}
+
+export async function prepareExactHeadRuntime(repositoryRoot, headSha, { requireExistingHeadBuild = true } = {}) {
+  const root = resolve(repositoryRoot);
+  const H = fullObjectId(headSha, "head");
+  await requireGitObject(root, H, "commit");
+  const HT = fullObjectId(await gitText(root, ["rev-parse", "--verify", `${H}^{tree}`]), "head tree");
+  await requireCleanHeadState(root, H, HT);
+  if (requireExistingHeadBuild) await requireBuildArtifacts(root);
+
+  const worktreeRoot = await mkdtemp(join(tmpdir(), "ascout-self-verify-head-"));
+  let registered = false;
+  try {
+    await rm(worktreeRoot, { recursive: true, force: true });
+    await git(root, ["worktree", "add", "--detach", worktreeRoot, H]);
+    registered = true;
+    await requireCleanHeadState(worktreeRoot, H, HT);
+
+    const install = await runProcess(
+      npmCommand(),
+      ["ci", "--ignore-scripts", "--no-audit", "--no-fund", "--offline"],
+      { cwd: worktreeRoot },
+    );
+    await requireReliableProcess(install, "runtime_provenance_install_failed", "isolated exact-lockfile npm ci");
+
+    const build = await runProcess(npmCommand(), ["run", "build"], { cwd: worktreeRoot });
+    await requireReliableProcess(build, "runtime_provenance_compile_failed", "isolated exact-head build");
+
+    await requireCleanHeadState(worktreeRoot, H, HT);
+    await requireBuildArtifacts(worktreeRoot);
+
+    const runtimeRoot = resolve(worktreeRoot, "dist");
+    const manifest = await runtimeManifest(runtimeRoot);
+    return Object.freeze({ repositoryRoot: worktreeRoot, runtimeRoot, headSha: H, headTreeSha: HT, manifest });
+  } catch (error) {
+    if (registered) {
+      try { await git(root, ["worktree", "remove", "--force", worktreeRoot]); } catch {}
+    }
+    await rm(worktreeRoot, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+export async function releaseExactHeadRuntime(repositoryRoot, prepared) {
+  const root = resolve(repositoryRoot);
+  try {
+    await git(root, ["worktree", "remove", "--force", prepared.repositoryRoot]);
+  } catch {
+    fail("runtime_cleanup_failed", "verified exact-head runtime worktree could not be removed cleanly");
+  }
+  await rm(prepared.repositoryRoot, { recursive: true, force: true });
+}
+
+export async function reconstructSelfVerificationSubject({ repositoryRoot, eventBaseSha, headSha }) {
   const root = resolve(repositoryRoot);
   const B = fullObjectId(eventBaseSha, "event base tip");
   const H = fullObjectId(headSha, "head");
@@ -246,8 +265,6 @@ export async function reconstructSelfVerificationSubject({
   await requireGitObject(root, H, "commit");
   const HT = fullObjectId(await gitText(root, ["rev-parse", "--verify", `${H}^{tree}`]), "head tree");
   await requireCleanHeadState(root, H, HT);
-
-  if (requireHeadBuild) await verifyRuntimeProvenance(root);
 
   await requireGitObject(root, B, "commit");
   const mergeBases = (await git(root, ["merge-base", "--all", B, H], [0, 1])).stdout.toString("utf8");
@@ -268,11 +285,11 @@ export async function reconstructSelfVerificationSubject({
   return Object.freeze({ eventBaseSha: B, headSha: H, mergeBaseSha: M, headTreeSha: HT });
 }
 
-async function loadCanonicalRuntime(repositoryRoot) {
-  const root = resolve(repositoryRoot);
-  const checkModule = await import(pathToFileURL(resolve(root, "dist/check.js")).href);
-  const jsonModule = await import(pathToFileURL(resolve(root, "dist/receipt/json.js")).href);
-  const modelModule = await import(pathToFileURL(resolve(root, "dist/receipt/model.js")).href);
+async function loadCanonicalRuntime(prepared, subjectRoot) {
+  await requireRuntimeManifest(prepared.runtimeRoot, prepared.manifest);
+  const checkModule = await import(pathToFileURL(resolve(prepared.runtimeRoot, "check.js")).href);
+  const jsonModule = await import(pathToFileURL(resolve(prepared.runtimeRoot, "receipt/json.js")).href);
+  const modelModule = await import(pathToFileURL(resolve(prepared.runtimeRoot, "receipt/model.js")).href);
 
   if (typeof checkModule.composeSourceState !== "function") fail("canonical_runtime_unavailable", "canonical composeSourceState export is unavailable");
   if (typeof jsonModule.validateReceiptJsonSchema !== "function") fail("canonical_runtime_unavailable", "canonical JSON Schema validator export is unavailable");
@@ -282,7 +299,10 @@ async function loadCanonicalRuntime(repositoryRoot) {
     composeSourceState: checkModule.composeSourceState,
     validateReceiptJsonSchema: jsonModule.validateReceiptJsonSchema,
     validateReceiptSemantics: modelModule.validateReceiptSemantics,
-    runVerifier: async ({ repositoryRoot: cwd, argv }) => await runProcess(process.execPath, argv, { cwd }),
+    runVerifier: async ({ argv }) => {
+      await requireRuntimeManifest(prepared.runtimeRoot, prepared.manifest);
+      return await runProcess(process.execPath, argv, { cwd: subjectRoot });
+    },
   };
 }
 
@@ -298,11 +318,8 @@ export function validateReceiptCapture({ receiptBytes, processExitCode, expected
   if (!Number.isInteger(processExitCode)) fail("process_exit_invalid", "self-verification process exit is unavailable");
 
   let receipt;
-  try {
-    receipt = JSON.parse(receiptBytes.toString("utf8"));
-  } catch {
-    fail("receipt_json_invalid", "self-verification stdout is not one valid JSON receipt");
-  }
+  try { receipt = JSON.parse(receiptBytes.toString("utf8")); }
+  catch { fail("receipt_json_invalid", "self-verification stdout is not one valid JSON receipt"); }
 
   const schema = validators.validateReceiptJsonSchema(receipt);
   if (!schema?.valid) fail("receipt_schema_invalid", "self-verification receipt failed the current JSON Schema validator");
@@ -322,7 +339,6 @@ export function validateReceiptCapture({ receiptBytes, processExitCode, expected
 
   if (receiptExit === 2) fail("exit_2_integrity_failure", "exit 2 is always self-verification harness-integrity failure");
   if (!ALLOWED_RECEIPT_EXITS.has(receiptExit)) fail("receipt_exit_not_retainable", "receipt exit is not retainable shadow evidence");
-
   return Object.freeze({ receipt, receiptExit });
 }
 
@@ -351,11 +367,19 @@ async function prepareOutputDirectory(repositoryRoot, outputDir) {
   const root = resolve(repositoryRoot);
   const output = resolve(outputDir);
   if (isInside(root, output)) fail("output_inside_repository", "self-verification evidence output must be outside repository source identity");
-
   await mkdir(output, { recursive: true });
   const [realRoot, realOutput] = await Promise.all([realpath(root), realpath(output)]);
   if (isInside(realRoot, realOutput)) fail("output_inside_repository", "self-verification evidence output resolves inside repository source identity");
   return realOutput;
+}
+
+function validateRuntimeAdapter(runtime) {
+  if (
+    typeof runtime.composeSourceState !== "function" ||
+    typeof runtime.validateReceiptJsonSchema !== "function" ||
+    typeof runtime.validateReceiptSemantics !== "function" ||
+    typeof runtime.runVerifier !== "function"
+  ) fail("test_runtime_invalid", "self-verification runtime adapter is incomplete");
 }
 
 export async function runSelfVerification({
@@ -367,70 +391,62 @@ export async function runSelfVerification({
 }) {
   const root = resolve(repositoryRoot);
   const output = await prepareOutputDirectory(root, outputDir);
+  let prepared = null;
+  let qualified = null;
 
-  const identities = await reconstructSelfVerificationSubject({
-    repositoryRoot: root,
-    eventBaseSha,
-    headSha,
-    requireHeadBuild: testRuntime === null,
-  });
+  try {
+    if (testRuntime === null) prepared = await prepareExactHeadRuntime(root, headSha, { requireExistingHeadBuild: true });
 
-  const runtime = testRuntime ?? await loadCanonicalRuntime(root);
-  if (
-    typeof runtime.composeSourceState !== "function" ||
-    typeof runtime.validateReceiptJsonSchema !== "function" ||
-    typeof runtime.validateReceiptSemantics !== "function" ||
-    typeof runtime.runVerifier !== "function"
-  ) {
-    fail("test_runtime_invalid", "self-verification runtime adapter is incomplete");
+    const identities = await reconstructSelfVerificationSubject({ repositoryRoot: root, eventBaseSha, headSha });
+    const runtime = testRuntime ?? await loadCanonicalRuntime(prepared, root);
+    validateRuntimeAdapter(runtime);
+
+    const expectedSourceState = runtime.composeSourceState(root);
+    if (expectedSourceState?.head_sha !== identities.mergeBaseSha) {
+      fail("canonical_source_head_mismatch", "canonical pre-launch source snapshot does not report the reconstructed merge-base HEAD");
+    }
+
+    const verifierEntry = testRuntime === null
+      ? resolve(prepared.runtimeRoot, "cli.js")
+      : resolve(root, "dist/cli.js");
+    const verifierArgv = [verifierEntry, "check", "--format", "json"];
+    if (verifierArgv.includes("--allow-changed-command-surface")) {
+      fail("automatic_admission_forbidden", "changed-command-surface admission is forbidden in self-verification automation");
+    }
+
+    const execution = await runtime.runVerifier({ repositoryRoot: root, argv: verifierArgv });
+    if (execution?.outcome !== "exited") fail("verifier_execution_failed", "self-verification verifier did not exit normally");
+    if (execution.stdoutTruncated || execution.stderrTruncated) fail("verifier_output_truncated", "self-verification verifier output exceeded the bounded capture limit");
+
+    const receiptBytes = Buffer.isBuffer(execution.stdout) ? execution.stdout : Buffer.from(execution.stdout ?? "");
+    const validated = validateReceiptCapture({ receiptBytes, processExitCode: execution.exitCode, expectedSourceState, validators: runtime });
+
+    if (prepared !== null) await requireRuntimeManifest(prepared.runtimeRoot, prepared.manifest);
+
+    const receiptSha256 = sha256(receiptBytes);
+    const envelope = buildQualificationEnvelope({ identities, receiptExit: validated.receiptExit, receiptSha256 });
+    qualified = { identities, expectedSourceState, receiptExit: validated.receiptExit, receiptSha256, receiptBytes, envelope };
+  } finally {
+    if (prepared !== null) await releaseExactHeadRuntime(root, prepared);
   }
 
-  const expectedSourceState = runtime.composeSourceState(root);
-  if (expectedSourceState?.head_sha !== identities.mergeBaseSha) {
-    fail("canonical_source_head_mismatch", "canonical pre-launch source snapshot does not report the reconstructed merge-base HEAD");
-  }
-
-  const verifierArgv = [resolve(root, "dist/cli.js"), "check", "--format", "json"];
-  if (verifierArgv.includes("--allow-changed-command-surface")) {
-    fail("automatic_admission_forbidden", "changed-command-surface admission is forbidden in self-verification automation");
-  }
-
-  const execution = await runtime.runVerifier({ repositoryRoot: root, argv: verifierArgv });
-  if (execution?.outcome !== "exited") fail("verifier_execution_failed", "self-verification verifier did not exit normally");
-  if (execution.stdoutTruncated || execution.stderrTruncated) fail("verifier_output_truncated", "self-verification verifier output exceeded the bounded capture limit");
-
-  const receiptBytes = Buffer.isBuffer(execution.stdout) ? execution.stdout : Buffer.from(execution.stdout ?? "");
-  const validated = validateReceiptCapture({
-    receiptBytes,
-    processExitCode: execution.exitCode,
-    expectedSourceState,
-    validators: runtime,
-  });
-
-  const receiptSha256 = sha256(receiptBytes);
-  const envelope = buildQualificationEnvelope({
-    identities,
-    receiptExit: validated.receiptExit,
-    receiptSha256,
-  });
+  if (qualified === null) fail("unexpected_failure", "self-verification qualification did not produce an in-memory result");
 
   const receiptPath = resolve(output, RECEIPT_FILE);
   const envelopePath = resolve(output, ENVELOPE_FILE);
-  await writeFile(receiptPath, receiptBytes, { flag: "wx" });
-
+  await writeFile(receiptPath, qualified.receiptBytes, { flag: "wx" });
   const retainedBytes = await readFile(receiptPath);
-  if (sha256(retainedBytes) !== receiptSha256) fail("receipt_digest_mismatch", "retained receipt bytes do not match the qualified receipt digest");
-
-  await writeFile(envelopePath, `${JSON.stringify(envelope, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
+  if (sha256(retainedBytes) !== qualified.receiptSha256) fail("receipt_digest_mismatch", "retained receipt bytes do not match the qualified receipt digest");
+  await writeFile(envelopePath, `${JSON.stringify(qualified.envelope, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
 
   return Object.freeze({
-    identities,
-    expectedSourceState,
-    receiptExit: validated.receiptExit,
-    receiptSha256,
+    identities: qualified.identities,
+    expectedSourceState: qualified.expectedSourceState,
+    receiptExit: qualified.receiptExit,
+    receiptSha256: qualified.receiptSha256,
     receiptPath,
     envelopePath,
-    envelope,
+    envelope: qualified.envelope,
   });
 }
 
@@ -451,20 +467,13 @@ function parseArgs(argv) {
     else if (arg === "--output-dir") outputDir = next();
     else fail("usage", `unknown argument: ${arg}`);
   }
-  if (!eventBaseSha || !headSha || !outputDir) {
-    fail("usage", "--event-base-sha, --head-sha, and --output-dir are required");
-  }
+  if (!eventBaseSha || !headSha || !outputDir) fail("usage", "--event-base-sha, --head-sha, and --output-dir are required");
   return { eventBaseSha, headSha, outputDir };
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  await runSelfVerification({
-    repositoryRoot: process.cwd(),
-    eventBaseSha: args.eventBaseSha,
-    headSha: args.headSha,
-    outputDir: args.outputDir,
-  });
+  await runSelfVerification({ repositoryRoot: process.cwd(), eventBaseSha: args.eventBaseSha, headSha: args.headSha, outputDir: args.outputDir });
 }
 
 const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : null;
