@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { access, mkdir, mkdtemp, readFile, readdir, readlink, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
@@ -247,8 +247,10 @@ export async function verifyExactHeadRuntimeManifest(prepared) {
   await requireRuntimeManifest(prepared);
 }
 
-function npmCommand() {
-  return process.platform === "win32" ? "npm.cmd" : "npm";
+function npmInvocation(args) {
+  if (process.platform !== "win32") return { file: "npm", args };
+  const npmCliPath = resolve(dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
+  return { file: process.execPath, args: [npmCliPath, ...args] };
 }
 
 export async function prepareExactHeadRuntime(repositoryRoot, headSha, { requireExistingHeadBuild = true } = {}) {
@@ -267,14 +269,12 @@ export async function prepareExactHeadRuntime(repositoryRoot, headSha, { require
     registered = true;
     await requireCleanHeadState(worktreeRoot, H, HT);
 
-    const install = await runProcess(
-      npmCommand(),
-      ["ci", "--ignore-scripts", "--no-audit", "--no-fund", "--offline"],
-      { cwd: worktreeRoot },
-    );
+    const installCommand = npmInvocation(["ci", "--ignore-scripts", "--no-audit", "--no-fund", "--offline"]);
+    const install = await runProcess(installCommand.file, installCommand.args, { cwd: worktreeRoot });
     await requireReliableProcess(install, "runtime_provenance_install_failed", "isolated exact-lockfile npm ci");
 
-    const build = await runProcess(npmCommand(), ["run", "build"], { cwd: worktreeRoot });
+    const buildCommand = npmInvocation(["run", "build"]);
+    const build = await runProcess(buildCommand.file, buildCommand.args, { cwd: worktreeRoot });
     await requireReliableProcess(build, "runtime_provenance_compile_failed", "isolated exact-head build");
 
     await requireCleanHeadState(worktreeRoot, H, HT);
