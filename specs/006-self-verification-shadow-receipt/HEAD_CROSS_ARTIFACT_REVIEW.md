@@ -1,47 +1,39 @@
 # Spec 006 HEAD Cross-Artifact Review
 
-**Status:** FOUNDER_SIDE_READY_FOR_EXTERNAL_EXACT_HEAD_REVIEW_AFTER_MERGE_BASE_RECONCILIATION
+**Status:** FOUNDER_SIDE_READY_FOR_EXTERNAL_EXACT_HEAD_REVIEW_AFTER_F1_F2_F3_RECONCILIATION
 
-## Scope reviewed
+## Required invariants
 
-All planning artifacts under `specs/006-self-verification-shadow-receipt/` after reconciliation of the event-base-tip ambiguity.
+1. M1.2-A self-verification shadow receipt only; planning does not authorize implementation.
+2. Task order T107 → T108 → T109.
+3. T107 paths exactly `benchmarks/self-verify.mjs` + `tests/t107-self-verification-harness.contract.test.ts`.
+4. T108 path exactly `.github/workflows/self-verify.yml`; T109 ledger-only by default.
+5. No `src/**`, receipt/schema/CLI/package/runtime dependency/current Project CI/historical benchmark-result/release/tag/publication mutation.
+6. Self-verification execution is same-repository PR only; eligibility is checked before checkout/install/build/execution of H.
+7. Fork/external PR => skipped execution, no receipt claim; `pull_request_target`, secrets, elevated permissions, or fork-code workaround prohibited.
+8. B = event base-tip provenance; H = eligible PR head; HT = H tree; M = unique merge base(B,H).
+9. Missing/multiple M fails closed; subject reconstruction uses `git reset --soft M` and proves HEAD=M, write-tree=HT, no contamination.
+10. Exact verifier is H-built before reset; no rebuild from M.
+11. Project CI tests before build: harness has no top-level dist validator import; production lazy-loads exact H-built dist validators; focused tests may inject same current source validators internally; T108 live run proves built-dist path.
+12. No automatic changed-command admission.
+13. Exact receipt bytes pass current schema + semantic validators; process exit equals receipt.summary.exit_code; receipt source HEAD=M.
+14. Valid exits 0/1/3/4 remain SHADOW_NON_GATING observations; invalid/no receipt fails capture.
+15. Envelope binds H/HT, B, M, target H/HT, receipt exit/digest/filename and is privacy-safe.
+16. One Ubuntu 24.04 / Node 24 shadow lane does not replace six-lane Project CI.
+17. Artifact retention 30 days; official upload-artifact full-SHA pinned after implementation-time revalidation; contents: read only.
+18. No gating promotion, selector/corpus/adversarial work, M2, untrusted sandbox, release/tag/publication.
 
-## Required cross-artifact invariants
+## Material findings reconciled
 
-1. milestone slice is M1.2-A self-verification shadow receipt only;
-2. planning does not authorize implementation;
-3. task order is T107 → T108 → T109;
-4. T107 candidate paths are exactly `benchmarks/self-verify.mjs` and `tests/t107-self-verification-harness.contract.test.ts`;
-5. T108 candidate path is exactly `.github/workflows/self-verify.yml`;
-6. T109 is ledger-only by default;
-7. no `src/**`, receipt/schema/CLI/package/runtime dependency/current Project CI/historical benchmark-result mutation;
-8. `B` means exact GitHub event base-tip SHA and is provenance only;
-9. `H` means exact PR head SHA and `HT = H^{tree}`;
-10. `M` means the **unique** merge base of exact `B` and `H`;
-11. missing/multiple merge-base results fail closed;
-12. source reconstruction uses ephemeral `git reset --soft M`, not event base tip B;
-13. before observation prove `HEAD == M`, `git write-tree == HT`, no unstaged tracked divergence, no unrelated nonignored untracked material;
-14. exact verifier is built from H before reconstruction and is not rebuilt from M;
-15. envelope binds verifier H/HT, event B, subject M, target H/HT, receipt exit/digest/filename;
-16. no automatic changed-command-surface admission;
-17. valid receipt exits `0/1/3/4` are observational shadow capture and never rewritten as clean;
-18. exit `2` without valid receipt and identity/validation/digest/artifact failures fail capture;
-19. exact retained receipt bytes must pass current head-built schema + semantic validators and process/receipt exit consistency;
-20. envelope remains outside receipt v1 and privacy-safe;
-21. one Ubuntu 24.04 / Node 24 shadow lane does not replace six-lane Project CI;
-22. artifact retention is 30 days;
-23. official `actions/upload-artifact` is full-SHA pinned only after implementation-time reverification;
-24. no verdict gating, selector shadow, corpus expansion, adversarial receipt mutation, M2 capability, release, tag, or publication.
+- F1: event base tip was incorrectly assumed to be subject HEAD → unique merge base M.
+- F2: focused tests could implicitly depend on dist although tests run before build → lazy production loading + test-only internal validator injection.
+- F3: generic pull_request execution could run untrusted fork code → same-repository eligibility before checkout; forks skipped.
 
-## Founder-side reconciliation result
+Every CI/review result from a head before this final reconciliation is stale for planning merge qualification.
 
-The previously material assumption `subject HEAD == event base tip` has been removed from the controlling specification, clarifications, technical plan, task list, requirements checklist, cross-artifact analysis, YAGNI plan review, and final audit.
+This founder-side review does not satisfy the independent review gate. The final branch head after this file must be reverified for path purity, six-lane Project CI, fresh independent substantive review, and zero unresolved material threads before guarded merge.
 
-Any earlier qualification evidence for head `3a62c736452b5eb69f8e949f32736cf0a76276ed`, including successful Project CI run 255 or any review conclusion, is stale and MUST NOT qualify the reconciled head.
-
-This file does not satisfy the independent review gate. After it becomes the final branch mutation, live GitHub truth, path purity, Project CI, and a fresh independent substantive review must all be reverified on the resulting exact head.
-
-`FOUNDER_SIDE_CROSS_ARTIFACT_REVIEW = PASS_AFTER_MERGE_BASE_RECONCILIATION`
+`FOUNDER_SIDE_CROSS_ARTIFACT_REVIEW = PASS_AFTER_F1_F2_F3_RECONCILIATION`
 
 `INDEPENDENT_EXACT_HEAD_REVIEW = REQUIRED`
 
