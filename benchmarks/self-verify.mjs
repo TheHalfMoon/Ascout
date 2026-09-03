@@ -32,6 +32,7 @@ const REQUIRED_RUNTIME_ROOT_FILES = ["package.json", "package-lock.json", RECEIP
 const DEFAULT_EVIDENCE_IO = Object.freeze({ lstat, mkdir, mkdtemp, open, readFile, readdir, realpath, rename, rm, writeFile });
 const BOUND_PARENT_PUBLISHER_SOURCE = [
   'const { lstat, realpath, rename, rm } = require("node:fs/promises");',
+  'const { createInterface } = require("node:readline");',
   'const [stagePath, finalName, canonicalParent, parentDev, parentIno, stageDev, stageIno] = process.argv.slice(1);',
   'let published = false;',
   'async function requireDirectory(path, expectedDev, expectedIno) {',
@@ -53,20 +54,10 @@ const BOUND_PARENT_PUBLISHER_SOURCE = [
   '  await rm(finalName, { recursive: true, force: true });',
   '  published = false;',
   '}',
+  'const commandLines = createInterface({ input: process.stdin, crlfDelay: Infinity })[Symbol.asyncIterator]();',
   'async function readCommand() {',
-  '  process.stdin.setEncoding("utf8");',
-  '  return await new Promise((resolveCommand) => {',
-  '    let buffered = "";',
-  '    let settled = false;',
-  '    const finish = (value) => { if (settled) return; settled = true; resolveCommand(value); };',
-  '    process.stdin.on("data", (chunk) => {',
-  '      buffered += chunk;',
-  '      const newline = buffered.indexOf("\\n");',
-  '      if (newline >= 0) finish(buffered.slice(0, newline).trim());',
-  '    });',
-  '    process.stdin.once("end", () => finish("ROLLBACK"));',
-  '    process.stdin.once("error", () => finish("ROLLBACK"));',
-  '  });',
+  '  const next = await commandLines.next();',
+  '  return next.done ? "ROLLBACK" : String(next.value).trim();',
   '}',
   '(async () => {',
   '  try {',
@@ -81,6 +72,15 @@ const BOUND_PARENT_PUBLISHER_SOURCE = [
   '    process.stdout.write("READY\\n");',
   '    const command = await readCommand();',
   '    if (command !== "COMMIT") {',
+  '      await rollback();',
+  '      process.stdout.write("ROLLED_BACK\\n");',
+  '      return;',
+  '    }',
+  '    await requireDirectory(finalName, stageDev, stageIno);',
+  '    await requireParent();',
+  '    process.stdout.write("COMMIT_READY\\n");',
+  '    const confirmation = await readCommand();',
+  '    if (confirmation !== "CONFIRM") {',
   '      await rollback();',
   '      process.stdout.write("ROLLED_BACK\\n");',
   '      return;',
@@ -617,7 +617,7 @@ function publicationClosePromise(child) {
   });
 }
 
-async function waitForPublicationReady(child, closePromise, stdoutState) {
+async function waitForPublicationMarker(child, closePromise, stdoutState, marker) {
   return await new Promise((resolvePromise) => {
     let settled = false;
     const finish = (value) => {
@@ -628,7 +628,7 @@ async function waitForPublicationReady(child, closePromise, stdoutState) {
       resolvePromise(value);
     };
     const onData = () => {
-      if (stdoutState.value.includes("READY\n")) finish({ kind: "ready" });
+      if (stdoutState.value.includes(marker)) finish({ kind: "marker" });
     };
     const timer = setTimeout(() => finish({ kind: "timeout" }), BOUND_PARENT_PUBLISH_TIMEOUT_MS);
     child.stdout?.on("data", onData);
@@ -699,46 +699,69 @@ async function beginBoundParentPublication(stageReal, stageIdentity, outputTarge
   });
 
   const closePromise = publicationClosePromise(child);
-  const ready = await waitForPublicationReady(child, closePromise, stdoutState);
-  if (ready.kind !== "ready") {
+  const ready = await waitForPublicationMarker(child, closePromise, stdoutState, "READY\n");
+  if (ready.kind !== "marker") {
     try { child.kill("SIGKILL"); } catch {}
     try { await closePromise; } catch {}
     fail("evidence_output_changed", publicationMessage);
   }
 
   let state = "ready";
-  const finalize = async (command) => {
-    if (state !== "ready") return state;
-    try { child.stdin?.end(`${command}\n`); }
-    catch { state = "failed"; fail("evidence_cleanup_failed", "bound evidence publication could not be finalized safely"); }
+
+  const commit = async () => {
+    if (state !== "ready") fail("evidence_cleanup_failed", "bound evidence publication commit state is invalid");
+    try { child.stdin?.write("COMMIT\n"); }
+    catch { state = "failed"; fail("evidence_cleanup_failed", "bound evidence publication could not enter commit verification safely"); }
+    const commitReady = await waitForPublicationMarker(child, closePromise, stdoutState, "COMMIT_READY\n");
+    if (commitReady.kind === "marker") {
+      state = "commit_ready";
+      return;
+    }
+    try { child.kill("SIGKILL"); } catch {}
+    try { await closePromise; } catch {}
+    state = "failed";
+    fail("evidence_cleanup_failed", "bound evidence publication commit verification did not complete safely");
+  };
+
+  const confirm = async () => {
+    if (state !== "commit_ready") fail("evidence_cleanup_failed", "bound evidence publication confirmation state is invalid");
+    try { child.stdin?.end("CONFIRM\n"); }
+    catch { state = "failed"; fail("evidence_cleanup_failed", "bound evidence publication could not be confirmed safely"); }
     const status = await waitForPublicationClose(child, closePromise);
     const rolledBack = stdoutState.value.includes("ROLLED_BACK\n");
     const committed = stdoutState.value.includes("COMMITTED\n");
-    if (command === "COMMIT" && status?.exitCode === 0 && committed && !rolledBack) {
+    if (status?.exitCode === 0 && committed && !rolledBack) {
       state = "committed";
-      return state;
+      return;
     }
     if (rolledBack) state = "rolled_back";
     else state = "failed";
-    if (command === "ROLLBACK" && state === "rolled_back" && status?.exitCode === 0) return state;
     fail(
       state === "failed" ? "evidence_cleanup_failed" : "evidence_output_changed",
       state === "failed"
-        ? "bound evidence publication could not be rolled back safely"
-        : "self-verification evidence output parent changed before publication commit",
+        ? "bound evidence publication could not be confirmed safely"
+        : "self-verification evidence output changed before publication confirmation",
     );
   };
 
-  return Object.freeze({
-    commit: async () => await finalize("COMMIT"),
-    rollback: async () => {
-      if (state === "rolled_back") return;
-      if (state === "committed" || state === "failed") {
-        fail("evidence_cleanup_failed", "bound evidence publication cannot be rolled back safely");
-      }
-      await finalize("ROLLBACK");
-    },
-  });
+  const rollback = async () => {
+    if (state === "rolled_back") return;
+    if (state === "committed" || state === "failed") {
+      fail("evidence_cleanup_failed", "bound evidence publication cannot be rolled back safely");
+    }
+    try { child.stdin?.end("ROLLBACK\n"); }
+    catch { state = "failed"; fail("evidence_cleanup_failed", "bound evidence publication rollback command could not be sent safely"); }
+    const status = await waitForPublicationClose(child, closePromise);
+    const rolledBack = stdoutState.value.includes("ROLLED_BACK\n");
+    if (status?.exitCode === 0 && rolledBack) {
+      state = "rolled_back";
+      return;
+    }
+    state = "failed";
+    fail("evidence_cleanup_failed", "bound evidence publication could not be rolled back safely");
+  };
+
+  return Object.freeze({ commit, confirm, rollback });
 }
 
 async function requirePublishedEvidenceIdentity(outputTarget, expectedIdentity, evidenceIo) {
@@ -931,12 +954,24 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
     await requireFileIdentity(join(finalReal, ENVELOPE_FILE), envelopeIdentity, evidenceIo, "evidence_output_changed", "published envelope identity changed before return");
     if (finalReal !== publishedReal) fail("evidence_output_changed", "published evidence canonical path changed before return");
     await requireOutputParentIdentity(outputTarget, evidenceIo, "self-verification evidence output parent changed before publication commit");
+
     await publicationSession.commit();
+    if (typeof evidenceIo.afterBoundParentCommit === "function") {
+      await evidenceIo.afterBoundParentCommit(outputTarget);
+    }
+
+    const postCommitReal = await requirePublishedEvidenceIdentity(outputTarget, stageIdentity, evidenceIo);
+    await requireFileIdentity(join(postCommitReal, RECEIPT_FILE), receiptIdentity, evidenceIo, "evidence_output_changed", "published receipt identity changed after publication commit checks");
+    await requireFileIdentity(join(postCommitReal, ENVELOPE_FILE), envelopeIdentity, evidenceIo, "evidence_output_changed", "published envelope identity changed after publication commit checks");
+    if (postCommitReal !== finalReal) fail("evidence_output_changed", "published evidence canonical path changed after publication commit checks");
+
+    await publicationSession.confirm();
     publicationSession = null;
+    published = false;
 
     return Object.freeze({
-      receiptPath: join(finalReal, RECEIPT_FILE),
-      envelopePath: join(finalReal, ENVELOPE_FILE),
+      receiptPath: join(postCommitReal, RECEIPT_FILE),
+      envelopePath: join(postCommitReal, ENVELOPE_FILE),
     });
   } catch (error) {
     try { if (receiptHandle !== null) await receiptHandle.close(); } catch {}

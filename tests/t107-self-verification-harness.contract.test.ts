@@ -757,6 +757,34 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(existsSync(outputDir)).toBe(false);
   });
 
+  it.skipIf(process.platform === "win32")("rolls back output replacement after bound COMMIT checks before parent confirmation", async () => {
+    const simple = createSimpleRepository();
+    const outputDir = temporaryOutputPath("ascout-t107-post-commit-race-");
+    const repositoryTarget = join(simple.root, "post-commit-target");
+    const displaced = join(dirname(outputDir), "displaced-post-commit-bundle");
+    mkdirSync(repositoryTarget);
+    let replaced = false;
+
+    await expect(runSelfVerification({
+      repositoryRoot: simple.root,
+      eventBaseSha: simple.base,
+      headSha: simple.head,
+      outputDir,
+      testRuntime: runtimeFor(0),
+      testEvidenceIo: {
+        afterBoundParentCommit: async () => {
+          renameSync(outputDir, displaced);
+          symlinkSync(repositoryTarget, outputDir, "dir");
+          replaced = true;
+        },
+      },
+    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "evidence_output_changed"));
+    expect(replaced).toBe(true);
+    expectNoEvidence(repositoryTarget);
+    expectNoEvidence(outputDir);
+    expect(existsSync(outputDir)).toBe(false);
+  });
+
   it("removes all published evidence when retained receipt handle read-back mismatches", async () => {
     const simple = createSimpleRepository();
     const outputDir = temporaryOutputPath("ascout-t107-readback-mismatch-");
