@@ -8,7 +8,7 @@ The measured gap is absence of Ascout-on-Ascout evidence, not evidence that a se
 
 ## C2 — What do B, H, M, and HT mean?
 
-For one PR:
+For one eligible same-repository PR:
 
 - `B` = exact event base-tip SHA;
 - `H` = exact event head SHA;
@@ -27,17 +27,18 @@ If no unique merge base can be proven, fail closed and replan rather than approx
 
 ## C4 — How is the subject reconstructed?
 
-1. checkout and guard exact `H`;
-2. prove clean tracked/index state and record `HT = H^{tree}`;
-3. install/build exact verifier from `H`;
-4. ensure build artifacts exist only in canonical ignored paths;
-5. prove exact `B` and `H` are locally available;
-6. compute all merge bases and require exactly one `M`;
-7. perform ephemeral CI-only `git reset --soft M`;
-8. prove `HEAD == M`;
-9. prove `git write-tree == HT`;
-10. prove no unstaged tracked divergence and no unrelated nonignored untracked files;
-11. run the preserved exact `H` verifier.
+1. prove the PR is same-repository and therefore eligible for this trusted-repository experiment;
+2. checkout and guard exact `H`;
+3. prove clean tracked/index state and record `HT = H^{tree}`;
+4. install/build exact verifier from `H`;
+5. ensure build artifacts exist only in canonical ignored paths;
+6. prove exact `B` and `H` are locally available;
+7. compute all merge bases and require exactly one `M`;
+8. perform ephemeral CI-only `git reset --soft M`;
+9. prove `HEAD == M`;
+10. prove `git write-tree == HT`;
+11. prove no unstaged tracked divergence and no unrelated nonignored untracked files;
+12. run the preserved exact `H` verifier.
 
 A soft reset changes HEAD only, so additions/deletions/renames/content changes represented by `HT` stay exactly in the index/worktree.
 
@@ -114,3 +115,11 @@ The T107 harness therefore MUST NOT import `dist/**` validators at module top le
 For focused Vitest contracts, the same harness validation adapter may receive the current source validator functions as explicit in-process dependencies from the TypeScript test environment. This is test-only dependency injection, not a CLI option, product API, runtime dependency, second validator, or alternate acceptance rule.
 
 T108's live workflow is the mandatory end-to-end proof that the production harness actually loads and uses the exact `H`-built `dist` validators. If that built-dist path cannot be proven without widening the approved surfaces, stop and return to planning.
+
+## C17 — What happens for fork or external-repository pull requests?
+
+They are **not eligible** for Spec 006 self-verification execution. The Constitution currently authorizes trusted local/repository scope and explicitly defers arbitrary third-party/untrusted PR execution until separate sandbox/admission design exists.
+
+T108 must therefore evaluate same-repository eligibility before any checkout/install/build/execution of PR head code. A fork/external PR makes the self-verification execution job skip and produces no self-verification receipt claim.
+
+The workflow MUST NOT use `pull_request_target`, repository secrets, elevated token permissions, or any equivalent mechanism to execute fork code. Spec 006 does not solve untrusted CI execution and must not imply that it does.
