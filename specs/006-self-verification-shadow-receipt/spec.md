@@ -54,7 +54,11 @@ Automation never supplies or persists changed-command-surface admission. A valid
 
 ### 3. Separate receipt truth from harness integrity
 
-Valid receipt exits `0`, `1`, `3`, and `4` are observational results and are not rewritten. Missing/invalid receipt, exit `2` without a valid receipt, Git identity failure, reconstruction failure, schema/semantic rejection, source-snapshot mismatch, digest mismatch, or artifact failure is harness-integrity failure.
+Only valid, source-bound receipt exits `0`, `1`, `3`, and `4` are successful observational captures and are never rewritten.
+
+**Exit `2` is always a self-verification harness-integrity failure**, even if stdout happens to contain a receipt that is JSON-parseable, current-schema-valid, semantically valid, source-bound to `S`, and process-exit-consistent. The harness MUST reject that case before receipt digest calculation, qualification-envelope emission, or artifact upload.
+
+Missing/invalid receipt, any exit `2`, Git identity failure, reconstruction failure, schema/semantic rejection, source-snapshot mismatch, digest mismatch, or artifact failure is harness-integrity failure.
 
 ### 4. Bind retained receipt to the independently reconstructed source state
 
@@ -115,23 +119,29 @@ Capture exact machine receipt stdout bytes without rewriting. Validate with exac
 
 After schema/semantic validation, require the six specified `receipt.source.start` fields to equal `S` exactly. Any mismatch fails capture. The comparison occurs before receipt digest/envelope publication.
 
-### FR-006-009 — Shadow classification
+### FR-006-009 — Exit-2 capture prohibition
 
-A valid, source-bound receipt exit `0/1/3/4` is successful capture. Job green means capture integrity, not a clean receipt verdict.
+After receipt parsing, current validation, process/receipt exit equality, and source binding, the harness MUST still reject `receipt.summary.exit_code == 2` / process exit `2` as harness-integrity failure.
 
-### FR-006-010 — Qualification envelope
+This rejection applies even when the receipt is otherwise completely valid and source-bound. It MUST occur before receipt SHA-256, envelope emission, or artifact upload. Only exits `0`, `1`, `3`, and `4` may become retained `SHADOW_NON_GATING` observations.
 
-Generate the bounded allowlisted envelope only after receipt validation and independent source binding succeed. Its digest refers to exact retained receipt bytes.
+### FR-006-010 — Shadow classification
 
-### FR-006-011 — Bounded artifact retention
+A valid, source-bound receipt exit `0/1/3/4` is successful capture. Job green means capture integrity, not a clean receipt verdict. Exit `2` is never successful shadow capture evidence.
+
+### FR-006-011 — Qualification envelope
+
+Generate the bounded allowlisted envelope only after receipt validation, independent source binding, and the exit-2 prohibition succeed. Its digest refers to exact retained receipt bytes.
+
+### FR-006-012 — Bounded artifact retention
 
 Upload receipt/envelope with a head-bound artifact name and initial retention of 30 days.
 
-### FR-006-012 — No product-core mutation
+### FR-006-013 — No product-core mutation
 
 Spec 006 implementation MUST NOT change `src/**`, receipt schema/model, CLI flags, planner, discovery, process execution, selection, coverage, environment observation, package/runtime dependencies, or existing Project CI.
 
-### FR-006-013 — Supply chain
+### FR-006-014 — Supply chain
 
 Any new action requires exact repository/license/data/security review and full-SHA pinning. Workflow permissions remain least privilege; no write permission is justified.
 
@@ -159,15 +169,17 @@ Spec 006 may close `GO` only when exact implementation evidence proves:
 4. exact `B`, `H`, unique `M`, and `HT` are established;
 5. reconstruction proves `HEAD == M` and `git write-tree == HT`;
 6. exact `H`-built canonical `composeSourceState()` captures pre-launch `S`;
-7. exact `H` verifier produces a valid retained receipt;
+7. exact `H` verifier produces a receipt candidate;
 8. current schema + semantic validation succeeds and process exit equals receipt exit;
 9. all six required `receipt.source.start` fields equal `S` exactly;
-10. envelope binds `B/M/H/HT` plus receipt exit/digest;
-11. no auto-admission occurs;
-12. valid non-clean receipt truth remains shadow evidence;
-13. artifacts are bounded/least-privilege;
-14. no product-core/receipt contract change occurs;
-15. exact-head review/CI/guarded merge/post-merge gates close canonically.
+10. any otherwise-valid/source-bound exit-2 receipt is rejected before digest/envelope/upload;
+11. only exits `0/1/3/4` can be retained as `SHADOW_NON_GATING` receipt evidence;
+12. envelope binds `B/M/H/HT` plus receipt exit/digest;
+13. no auto-admission occurs;
+14. valid non-clean receipt truth for exits `1/3/4` remains shadow evidence;
+15. artifacts are bounded/least-privilege;
+16. no product-core/receipt contract change occurs;
+17. exact-head review/CI/guarded merge/post-merge gates close canonically.
 
 ## Governance
 
