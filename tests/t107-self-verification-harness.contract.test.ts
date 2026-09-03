@@ -14,6 +14,7 @@ import {
   requireUniqueMergeBaseOutput,
   runSelfVerification,
   validateReceiptCapture,
+  verifyExactHeadRuntimeManifest,
 } from "../benchmarks/self-verify.mjs";
 import { composeSourceState } from "../src/check.js";
 import { validateReceiptJsonSchema } from "../src/receipt/json.js";
@@ -29,6 +30,7 @@ import {
 
 const temporaryPaths: string[] = [];
 const EVIDENCE_FILES = ["self-verification-receipt.json", "self-verification-envelope.json"] as const;
+const RECEIPT_SCHEMA_PATH = join("specs", "001-changed-code-verification-receipt", "contracts", "receipt-v1.schema.json");
 
 function temporaryDirectory(prefix: string): string {
   const path = mkdtempSync(join(tmpdir(), prefix));
@@ -99,6 +101,7 @@ function createBuildableFixture({ contaminateTracked = false } = {}): SimpleRepo
     requires: true,
     packages: { "": { name: "ascout-t107-runtime-fixture", version: "1.0.0" } },
   }, null, 2) + "\n", "utf8");
+  writeRuntimeFile(root, RECEIPT_SCHEMA_PATH, "{\"fixture\":true}\n");
   writeFileSync(join(root, "build.mjs"), [
     'import { mkdirSync, writeFileSync } from "node:fs";',
     'import { dirname, join } from "node:path";',
@@ -421,6 +424,27 @@ describe("T107 exact-tree self-verification harness", () => {
       expect(readFileSync(join(prepared.runtimeRoot, "check.js"), "utf8")).toBe("export const fixtureCheck = 1;\n");
       writeRuntimeFile(fixture.root, join("dist", "check.js"), "export const changedAgain = true;\n");
       expect(readFileSync(join(prepared.runtimeRoot, "check.js"), "utf8")).toBe("export const fixtureCheck = 1;\n");
+    } finally {
+      await releaseExactHeadRuntime(fixture.root, prepared);
+    }
+  });
+
+  it("binds schema and installed dependency-tree assets against post-build tampering", async () => {
+    const fixture = createBuildableFixture();
+    const prepared = await prepareExactHeadRuntime(fixture.root, fixture.head, { requireExistingHeadBuild: false });
+    try {
+      await expect(verifyExactHeadRuntimeManifest(prepared)).resolves.toBeUndefined();
+      const schemaPath = join(prepared.repositoryRoot, RECEIPT_SCHEMA_PATH);
+      const schemaBytes = readFileSync(schemaPath, "utf8");
+      writeFileSync(schemaPath, "{\"tampered\":true}\n", "utf8");
+      await expect(verifyExactHeadRuntimeManifest(prepared))
+        .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "runtime_provenance_mismatch"));
+
+      writeFileSync(schemaPath, schemaBytes, "utf8");
+      await expect(verifyExactHeadRuntimeManifest(prepared)).resolves.toBeUndefined();
+      writeRuntimeFile(prepared.repositoryRoot, join("node_modules", "injected", "runtime.js"), "export const tampered = true;\n");
+      await expect(verifyExactHeadRuntimeManifest(prepared))
+        .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "runtime_provenance_mismatch"));
     } finally {
       await releaseExactHeadRuntime(fixture.root, prepared);
     }
