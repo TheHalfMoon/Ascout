@@ -104,3 +104,13 @@ No. Preferred design is one separate Ubuntu 24.04 / Node 24 observational workfl
 ## C15 — Does this authorize later M1.2/M2 work?
 
 No. Selector shadow, historical corpus expansion, adversarial receipt mutation, trend aggregation, required gating, and all M2 capabilities remain separate future decisions.
+
+## C16 — How can T107 tests run when Project CI tests before build?
+
+Canonical Project CI executes `npm test` before `npm run build`, so focused T107 tests MUST NOT require a pre-existing repository `dist/` directory.
+
+The T107 harness therefore MUST NOT import `dist/**` validators at module top level. The production execution path may load the exact head-built `dist/receipt/json.js` and `dist/receipt/model.js` validators lazily only when running real self-verification after the workflow has built `H`.
+
+For focused Vitest contracts, the same harness validation adapter may receive the current source validator functions as explicit in-process dependencies from the TypeScript test environment. This is test-only dependency injection, not a CLI option, product API, runtime dependency, second validator, or alternate acceptance rule.
+
+T108's live workflow is the mandatory end-to-end proof that the production harness actually loads and uses the exact `H`-built `dist` validators. If that built-dist path cannot be proven without widening the approved surfaces, stop and return to planning.
