@@ -1,74 +1,81 @@
 # Spec 006 Plan Ponytail / YAGNI Review
 
-**Status:** PASS_WITH_REDUCTIONS_AFTER_F1_F2_F3_RECONCILIATION / PLANNING_ONLY
+**Status:** PASS_WITH_REDUCTIONS_AFTER_F1_F2_F3_F4_RECONCILIATION / PLANNING_ONLY
 
 ## Review target
 
-Technical plan for M1.2-A shadow self-verification after merge-base, test-order, and trusted-execution reconciliation.
+Technical plan for M1.2-A shadow self-verification after source identity, test-order, trusted-execution, and receipt/source-binding reconciliation.
 
 ## Reductions retained
 
-### R1 — Native merge-base + soft reset, not diff replay machinery
+### R1 — Native merge-base + soft reset
 
-Keep Git-native `M = unique merge-base(B,H)` followed by ephemeral `git reset --soft M` and exact `git write-tree == H^{tree}` proof. Reject patch generation/application, second clone, custom Git tree reconstruction, PR-range product mode, or treating event base tip `B` as subject HEAD by default.
+Keep `M = unique merge-base(B,H)`, ephemeral `git reset --soft M`, and exact `git write-tree == H^{tree}` proof. Reject patch replay, second clone, custom tree reconstruction, product PR-range mode, or treating B as subject HEAD.
 
-### R2 — Same-repository eligibility, not untrusted PR execution
+### R2 — Same-repository eligibility only
 
-Keep one job-level same-repository predicate evaluated before checkout/install/build/execution. Fork/external PRs are skipped and produce no receipt claim. Reject `pull_request_target`, secrets, elevated permissions, a fork-code workaround, or an ad hoc sandbox under Spec 006.
+Keep one same-repository predicate before checkout/install/build/execution. Fork/external PRs skip. Reject `pull_request_target`, secrets, elevated permissions, fork-code workaround, or ad hoc sandboxing.
 
-### R3 — One observational lane
+### R3 — Reuse canonical composeSourceState for F4
 
-One Ubuntu 24.04 / Node 24 self-verification lane. Six-lane Project CI remains cross-platform product qualification.
+Do **not** invent a harness tree-digest/source-state algorithm. After reconstruction and immediately before verifier launch, reuse exact H-built exported `composeSourceState(repositoryRoot)` as expected snapshot S.
 
-### R4 — Two implementation tasks, one closeout task
+Compare only the six fields required to bind `receipt.source.start` to S:
+
+- `head_sha`;
+- `tree_digest_version`;
+- `tree_digest`;
+- `tracked_index_entry_count`;
+- `unstaged_changed_count`;
+- `included_untracked_count`.
+
+Do not add S to receipt/envelope schema, add a source-state service, or generalize the composer.
+
+### R4 — One observational lane
+
+One Ubuntu 24.04 / Node 24 self-verification lane. Six-lane Project CI remains cross-platform qualification.
+
+### R5 — Two implementation tasks, one closeout task
 
 - T107: harness + focused contracts;
 - T108: workflow + live artifact qualification;
 - T109: ledger-only observation reconciliation.
 
-Do not split merge-base logic, envelope, validators, trust eligibility, or artifact transport into generalized subsystems.
+No generalized subsystem split.
 
-### R5 — No product core
+### R6 — No product core
 
-All `src/**` mutations remain prohibited. If current CLI/receipt/validators cannot support the harness, return to planning rather than add product behavior under this spec.
+All `src/**` mutations remain prohibited. If current CLI/composer/receipt/validators cannot satisfy the design, return to planning.
 
-### R6 — No generalized CI SDK
+### R7 — No generalized CI SDK or second evaluator
 
-`benchmarks/self-verify.mjs` is single-purpose repository qualification code, not a workflow framework/plugin/API.
+`benchmarks/self-verify.mjs` is single-purpose repository qualification code. No plugin/API/workflow framework, second validator, or second source-state evaluator.
 
-### R7 — No second receipt format
+### R8 — No second receipt format
 
-Envelope is tiny external qualification metadata only. It binds verifier H/HT, event base B, subject merge base M, target H/HT, and receipt exit/digest. It is never exposed as an Ascout receipt.
+Envelope remains tiny external qualification metadata binding verifier H/HT, B, M, target H/HT, and receipt exit/digest. S is in-memory integrity evidence only.
 
-### R8 — No verdict aggregation/gating
+### R9 — No verdict aggregation/gating or auto-admission
 
-One artifact per eligible run, shadow non-gating. No history DB, dashboard, trend threshold, or required merge policy.
+One artifact per eligible run, shadow non-gating, no history DB/dashboard/threshold, and no changed-command bypass.
 
-### R9 — No auto-admission
+### R10 — Native artifact transport and bounded retention
 
-Never bypass changed-command authority. Valid incomplete exit 4 can be useful shadow evidence.
-
-### R10 — Native artifact transport
-
-Use official GitHub artifact capability with exact-SHA pin and bounded retention. No custom storage service.
-
-### R11 — No committed generated receipt
-
-Retain workflow-run artifacts only. Long-lived repository result commits require later evidence/policy.
+Use official GitHub artifact capability with exact-SHA pin and bounded retention. No custom storage or committed generated receipt.
 
 ## Complexity risks checked
 
-- advanced base branch: preserve B as provenance and use unique M as subject HEAD;
-- criss-cross/multiple merge base: fail closed rather than choose heuristically;
-- test-before-build: no top-level dist import; lazy production validators + test-only current-source injection;
-- fork/untrusted code: same-repository eligibility before PR-head execution;
-- exact tree identity: native `git write-tree == HT`;
-- verifier/subject dual identity: external envelope;
-- capture vs receipt verdict: explicitly separate;
-- supply chain/privacy/workflow coupling: bounded as planned.
+- advanced base branch → unique M;
+- criss-cross/multiple merge base → fail closed;
+- tests-before-build → lazy production imports + test-only current-source injection;
+- fork code → same-repository eligibility;
+- pre-launch state vs receipt state → canonical H-built S + six-field equality;
+- exact tree identity → native Git proof;
+- verifier/subject dual identity → external envelope;
+- capture vs receipt verdict → explicitly separate.
 
 ## Final verdict
 
-`PASS_AFTER_F1_F2_F3_RECONCILIATION`
+`PASS_AFTER_F1_F2_F3_F4_RECONCILIATION`
 
 This remains the minimum useful trusted M1.2-A experiment before broader benchmark, untrusted-execution, or gating decisions.
