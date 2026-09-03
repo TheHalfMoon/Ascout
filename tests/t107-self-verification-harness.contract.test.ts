@@ -243,7 +243,7 @@ function validReceipt(source: SourceStateV1, desiredExit: ReceiptExitCode): Rece
     artifacts: [],
     stability: desiredExit === 3 ? "tree_drifted" : "stable",
     summary: {
-      task_status_counts: { PASS: 0, FAIL: 0, FLKAK: 0, BLOCKED: 0, ERROR: 0, NOT_APPLICABLE: 0, NOT_RUN: 0 },
+      task_status_counts: { PASS: 0, FAIL: 0, FLAKY: 0, BLOCKED: 0, ERROR: 0, NOT_APPLICABLE: 0, NOT_RUN: 0 },
       finding_count: 0,
       completeness: "complete",
       exit_code: 0,
@@ -263,7 +263,7 @@ function runtimeFor(exitCode: ReceiptExitCode, mutate?: (receipt: ReceiptV1) => 
     composeSourceState,
     validateReceiptJsonSchema,
     validateReceiptSemantics,
-    runVerifier: async ({ repositoryRoot, argv0}: { repositoryRoot: string; argv: string[] }) => {
+    runVerifier: async ({ repositoryRoot, argv }: { repositoryRoot: string; argv: string[] }) => {
       argvSink?.push([...argv]);
       const receipt = validReceipt(composeSourceState(repositoryRoot), exitCode);
       mutate?.(receipt);
@@ -296,7 +296,7 @@ function runtimeWithExecution(execution: Record<string, unknown>) {
       stdoutTruncated: false,
       stderrTruncated: false,
       ...execution,
-    ),
+    }),
   };
 }
 
@@ -348,7 +348,7 @@ describe("T107 exact-tree self-verification harness", () => {
       .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "git_identity_unavailable"));
     expect(() => requireUniqueMergeBaseOutput("")).toThrowError(SelfVerificationIntegrityError);
     expect(() => requireUniqueMergeBaseOutput(`${"a".repeat(40)}\n${"b".repeat(40)}\n`)).toThrowError(SelfVerificationIntegrityError);
-    expect(requireUniqueMergeBaseOutput(`${"c".repeat(40)}\n\`)).toBe("c".repeat(40));
+    expect(requireUniqueMergeBaseOutput(`${"c".repeat(40)}\n`)).toBe("c".repeat(40));
   });
 
   it("uses unique M when event base E advanced independently", async () => {
@@ -420,7 +420,7 @@ describe("T107 exact-tree self-verification harness", () => {
       expect(prepared.headTreeSha).toBe(fixture.headTree);
       expect(readFileSync(join(prepared.runtimeRoot, "check.js"), "utf8")).toBe("export const fixtureCheck = 1;\n");
       expect(existsSync(join(prepared.repositoryRoot, "node_modules"))).toBe(true);
-      writeRuntimeFile(fixture.root, join("pist", "check.js"), "export const changedAgain = true;\n");
+      writeRuntimeFile(fixture.root, join("dist", "check.js"), "export const changedAgain = true;\n");
       expect(readFileSync(join(prepared.runtimeRoot, "check.js"), "utf8")).toBe("export const fixtureCheck = 1;\n");
     } finally {
       await releaseExactHeadRuntime(fixture.root, prepared);
