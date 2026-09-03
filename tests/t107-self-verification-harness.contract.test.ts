@@ -648,7 +648,50 @@ describe("T107 exact-tree self-verification harness", () => {
     expectNoEvidence(repositoryTarget);
   });
 
-  it("removes all staged evidence when retained receipt read-back mismatches", async () => {
+  it.skipIf(process.platform === "win32")("keeps evidence out of repository when private staging is replaced after validation", async () => {
+    const simple = createSimpleRepository();
+    const outputDir = temporaryOutputPath("ascout-t107-stage-race-");
+    const repositoryTarget = join(simple.root, "stage-target");
+    mkdirSync(repositoryTarget);
+    let replaced = false;
+
+    await expect(runSelfVerification({
+      repositoryRoot: simple.root,
+      eventBaseSha: simple.base,
+      headSha: simple.head,
+      outputDir,
+      testRuntime: runtimeFor(0),
+      testEvidenceIo: {
+        open: async (...args: Parameters<typeof fsPromises.open>) => {
+          const handle = await fsPromises.open(...args);
+          if (String(args[0]).endsWith(EVIDENCE_FILES[0])) {
+            return {
+              writeFile: async (...writeArgs: Parameters<typeof handle.writeFile>) => {
+                if (!replaced) {
+                  const stageDir = dirname(String(args[0]));
+                  const stageRoot = dirname(stageDir);
+                  renameSync(stageDir, join(stageRoot, "displaced-bundle"));
+                  symlinkSync(repositoryTarget, stageDir, "dir");
+                  replaced = true;
+                }
+                return await handle.writeFile(...writeArgs);
+              },
+              sync: handle.sync.bind(handle),
+              read: handle.read.bind(handle),
+              close: handle.close.bind(handle),
+            } as unknown as typeof handle;
+          }
+          return handle;
+        },
+      },
+    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "evidence_output_changed"));
+    expect(replaced).toBe(true);
+    expectNoEvidence(repositoryTarget);
+    expectNoEvidence(outputDir);
+    expect(existsSync(outputDir)).toBe(false);
+  });
+
+  it("removes all published evidence when retained receipt read-back mismatches", async () => {
     const simple = createSimpleRepository();
     const outputDir = temporaryOutputPath("ascout-t107-readback-mismatch-");
     await expect(runSelfVerification({
@@ -679,9 +722,16 @@ describe("T107 exact-tree self-verification harness", () => {
       outputDir,
       testRuntime: runtimeFor(0),
       testEvidenceIo: {
-        writeFile: async (...args: Parameters<typeof fsPromises.writeFile>) => {
-          if (String(args[0]).endsWith(EVIDENCE_FILES[1])) throw new Error("fixture envelope write failure");
-          await fsPromises.writeFile(...args);
+        open: async (...args: Parameters<typeof fsPromises.open>) => {
+          const handle = await fsPromises.open(...args);
+          if (String(args[0]).endsWith(EVIDENCE_FILES[1])) {
+            return {
+              writeFile: async () => { throw new Error("fixture envelope write failure"); },
+              sync: handle.sync.bind(handle),
+              close: handle.close.bind(handle),
+            } as unknown as typeof handle;
+          }
+          return handle;
         },
       },
     })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "evidence_output_failed"));
