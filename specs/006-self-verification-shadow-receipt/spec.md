@@ -6,213 +6,145 @@
 
 ## Problem
 
-Ascout's current Project CI proves that the repository typechecks, tests, and builds across the supported OS/Node matrix, but it does not run Ascout against Ascout's own pull-request change and retain the resulting verification receipt.
+Project CI proves Ascout typechecks, tests, and builds across the supported matrix, but it does not run the exact pull-request-head Ascout executable against the pull request's own source change and retain the resulting receipt.
 
-The first M1.2 goal is therefore to observe Ascout's own verdict on its own changes without prematurely making that verdict a merge gate.
+Spec 006 adds only an observational self-verification path. It does not make the self-receipt a merge gate.
 
-## Product statement
+## Identity terminology
 
-> Every Ascout pull request should produce a source-bound, inspectable **shadow self-verification receipt** showing what Ascout itself observed about that pull-request change.
+For one pull request:
 
-Shadow means observational, not authoritative for merge eligibility during this specification.
+- `B` — exact GitHub event base-tip SHA, retained as provenance;
+- `H` — exact pull-request head SHA;
+- `M` — the unique merge base of `B` and `H` computed from the fetched Git graph;
+- `HT` — exact tree SHA `H^{tree}`;
+- `V` — exact Ascout verifier build produced from `H` before subject reconstruction.
 
-## User Story 1 — Inspect Ascout verifying its own pull request (P1)
+The subject observed by Ascout is `HEAD == M` with index/worktree content exactly equal to `HT`. `B` is not assumed to be an ancestor of `H` and is not automatically used as subject HEAD.
 
-As an Ascout maintainer reviewing a pull request, I need a retained machine receipt produced by the exact pull-request-head Ascout executable against a source state representing that pull-request change, so I can compare ordinary CI truth with Ascout's own receipt truth.
+## User Story 1 — Inspect Ascout verifying its own pull request
 
-### Acceptance
-
-- the verifier executable is built from the exact pull-request head SHA;
-- the subject Git HEAD is the exact pull-request base SHA;
-- the subject index and working tree preserve the exact pull-request head tree while HEAD points to the base;
-- Ascout runs from the exact verifier-head build against that subject state;
-- the emitted receipt remains the canonical receipt v1 shape; no new receipt fields are introduced;
-- the workflow retains the receipt and a separate qualification envelope as CI artifacts.
-
-## User Story 2 — Preserve command-surface authority in automation (P1)
-
-As a maintainer, I need self-verification automation to preserve Ascout's explicit changed-command-surface boundary instead of silently auto-admitting changed commands/configuration.
+A maintainer can inspect a retained machine receipt produced by exact verifier `V` against the exact committed pull-request change `M -> H`.
 
 ### Acceptance
 
-- the workflow never passes `--allow-changed-command-surface` automatically;
-- command-surface refusal remains visible in the shadow receipt;
-- a valid non-clean or incomplete shadow receipt does not by itself fail the shadow workflow during Spec 006;
-- no persisted trust grant is created.
+- checkout/build is exact `H`;
+- `M` is resolved as the unique merge base of exact `B` and `H`;
+- the subject has `HEAD == M`;
+- `git write-tree == HT` before observation;
+- no unstaged tracked divergence or unrelated nonignored untracked material exists;
+- the verifier is the exact pre-reconstruction `H` build;
+- receipt v1 is unchanged;
+- receipt plus a separate qualification envelope are retained as CI artifacts.
 
-## User Story 3 — Distinguish receipt truth from harness failure (P1)
+## User Story 2 — Preserve command authority
 
-As a maintainer, I need the CI surface to distinguish "Ascout produced a non-clean receipt" from "the self-verification harness could not produce/validate evidence."
+The workflow never supplies or persists changed-command-surface admission. A valid receipt that is incomplete because command authority changed is retained as factual shadow evidence.
 
-### Acceptance
+## User Story 3 — Separate receipt truth from harness integrity
 
-- receipt-producing semantic exit codes are captured as observed receipt truth;
-- the qualification envelope records the observed receipt exit code without rewriting it;
-- a valid receipt with a non-clean verdict is retained and the shadow workflow remains observational;
-- harness/bootstrap/identity/parse/validation/artifact-integrity failure fails the self-verification job visibly;
-- no synthetic PASS is produced when no valid receipt exists.
+Valid receipt exits `0`, `1`, `3`, and `4` are observational results. They are not rewritten. The shadow workflow remains non-gating for those receipt verdicts.
 
-## User Story 4 — Bind the shadow artifact to exact Git identities (P1)
+Missing/invalid receipt, exit `2` without a valid receipt, Git identity failure, reconstruction failure, schema/semantic rejection, digest mismatch, or artifact failure is a harness-integrity failure and fails the shadow job.
 
-As a reviewer, I need the retained artifact to make verifier and subject identities explicit without putting workflow-only metadata into receipt v1.
+## User Story 4 — Bind external qualification identity
 
-### Acceptance
-
-A separate qualification envelope records at least:
+The qualification envelope is not receipt truth. It records only privacy-safe qualification metadata:
 
 - envelope schema version;
-- exact verifier head SHA;
-- exact verifier head tree SHA;
-- exact subject base SHA;
-- exact subject target head SHA;
-- exact subject target tree SHA;
-- observed Ascout process exit code;
-- SHA-256 digest of the exact retained receipt bytes;
-- artifact filenames;
-- capture classification `SHADOW_NON_GATING`.
+- classification `SHADOW_NON_GATING`;
+- exact verifier head SHA and head tree SHA;
+- exact event base-tip SHA `B`;
+- exact subject merge-base SHA `M`;
+- exact subject target head SHA `H` and target tree SHA `HT`;
+- observed receipt exit code;
+- SHA-256 of exact retained receipt bytes;
+- receipt filename.
 
-The envelope MUST NOT contain raw repository URLs, credentials, absolute paths, environment dumps, hostnames, usernames, home directories, or secrets.
+It contains no raw repository URL/path, absolute path, actor/user, hostname, home directory, environment dump, credentials, tokens, or secrets.
 
 ## Functional Requirements
 
-### FR-006-001 — Exact verifier head
+### FR-006-001 — Exact verifier
 
-The self-verification workflow MUST checkout and build the exact pull-request head and MUST guard that checkout against the event head SHA before building.
+Checkout and build exact `H`, guard `HEAD == H`, and record `HT` before reconstruction.
 
-### FR-006-002 — Reconstructed subject state
+### FR-006-002 — Unique merge-base subject
 
-For exact pull-request base `B` and head `H`, the harness MUST construct a source state whose Git `HEAD == B` while both the index and working tree preserve the exact tree of `H`.
+The harness MUST fetch enough history to resolve `B` and `H`, compute merge-base candidates, and require **exactly one** merge base `M`. Multiple/absent merge bases are `NO_GO` for that observation.
 
-The preferred minimal reconstruction is an ephemeral CI-only `git reset --soft B` performed from an initially clean exact-`H` checkout after verifier build.
+The harness MUST NOT substitute event base tip `B` for `M` merely because `B` names the target branch tip.
 
-The reconstruction MUST fail closed unless it proves:
+### FR-006-003 — Exact reconstruction
 
-- before reconstruction, current HEAD equals `H`;
-- before reconstruction, the tracked checkout/index tree equals `H^{tree}`;
-- `B` is available and is an ancestor-compatible pull-request base for `H`;
-- after reconstruction, current HEAD equals `B`;
-- after reconstruction, `git write-tree` equals `H^{tree}` exactly;
-- the working tree has no unstaged tracked divergence from that index/head-tree content;
-- no unrelated nonignored harness file is introduced into subject source identity; only already-canonical ignored paths such as `.ascout/`, `node_modules/`, `dist/`, and `coverage/` may contain harness/build artifacts.
+From a clean exact-`H` checkout after verifier build, use an ephemeral CI-only `git reset --soft M`. Then prove:
 
-If exact tree preservation cannot be proven, the harness MUST fail rather than approximate the PR change.
+- `HEAD == M`;
+- `git write-tree == HT`;
+- no unstaged tracked divergence exists;
+- no unrelated nonignored untracked file exists.
 
-### FR-006-003 — No automatic trust admission
+Only already-canonical ignored paths such as `.ascout/`, `node_modules/`, `dist/`, and `coverage/` may contain build/harness artifacts.
 
-Automation MUST NOT pass or persist changed-command-surface admission.
+### FR-006-004 — No automatic trust admission
 
-### FR-006-004 — Exact head-built verifier
+Never pass or persist `--allow-changed-command-surface` automatically.
 
-The executed Ascout CLI MUST come from the build produced before subject reconstruction from the exact PR head. The harness MUST NOT silently rebuild Ascout after Git HEAD moves to the base.
+### FR-006-005 — Exact receipt preservation
 
-### FR-006-005 — Receipt preservation
+Capture exact machine receipt stdout bytes without rewriting. Validate using the exact head-built current JSON Schema and semantic validators. Process exit must equal `receipt.summary.exit_code`.
 
-The harness MUST capture exact machine receipt bytes when Ascout emits a valid receipt. It MUST NOT rewrite receipt fields, exit semantics, source identity, environment identity, task results, completeness, or findings.
+### FR-006-006 — Shadow classification
 
-### FR-006-006 — Current-validator proof
+A valid receipt exit `0/1/3/4` is successful capture. Job green means capture integrity, not a clean receipt verdict.
 
-A captured receipt MUST pass the current head-built JSON Schema and semantic validators before being classified as a retained shadow receipt.
+### FR-006-007 — Qualification envelope
 
-### FR-006-007 — Shadow non-gating semantics
+Generate the bounded allowlisted envelope described above only after receipt validation succeeds. Its digest refers to exact retained receipt bytes.
 
-During Spec 006, a successfully captured and validated receipt is observational evidence regardless of its repository verdict. The shadow job MUST NOT reinterpret receipt exit `1`, `3`, or `4` as clean success, but those receipt verdicts alone MUST NOT fail the shadow workflow.
+### FR-006-008 — Bounded artifact retention
 
-An Ascout execution that cannot emit a valid receipt, or any harness identity/integrity failure, MUST fail the shadow workflow.
+Upload receipt/envelope with bounded retention and a head-bound artifact name. Initial retention: 30 days.
 
-### FR-006-008 — Qualification envelope
+### FR-006-009 — No product-core mutation
 
-The harness MUST produce a small deterministic-shape JSON envelope separate from receipt v1. The envelope is CI qualification metadata, not Ascout product receipt truth.
+Spec 006 implementation MUST NOT change `src/**`, receipt schema/model, CLI flags, planner, discovery, process execution, selection, coverage, environment observation, package/runtime dependencies, or existing Project CI.
 
-### FR-006-009 — Bounded artifact retention
+### FR-006-010 — Supply chain
 
-The workflow MUST upload the receipt and qualification envelope using a bounded retention period. Artifact names MUST include or be unambiguously bound to the exact head SHA.
+Any new action must receive exact repository/license/data/security review and be full-SHA pinned. Workflow permissions remain least privilege; no write permission is justified.
 
-### FR-006-010 — No product-core mutation
+## Planned task order
 
-Spec 006 implementation MUST NOT change `src/**`, receipt schema/model, CLI flags, planner, discovery, process execution, selection, coverage, environment observation, or runtime dependencies.
+`T107 -> T108 -> T109`
 
-### FR-006-011 — Supply-chain review
+- T107: repository-local harness + focused contract tests only.
+- T108: new standalone self-verification workflow only.
+- T109: first canonical observation reconciliation in the ledger by default.
 
-Any newly introduced GitHub Action or workflow dependency MUST be reviewed for repository/source, license, permissions, data exposure, and exact implementation pinning before implementation authorization. `permissions` MUST remain least-privilege and no write permission is justified by this specification.
+Each predecessor must close canonically before the successor begins.
 
-### FR-006-012 — No hidden network claim
+## Non-goals
 
-The workflow may use GitHub-hosted checkout/artifact transport and explicit `npm ci`; it MUST NOT claim that project child processes are network-isolated. No new network-isolation mechanism is authorized.
-
-## Failure Semantics
-
-### Valid shadow receipt
-
-A receipt is retained when:
-
-- the verifier/subject identity contract is proven;
-- Ascout emits machine JSON;
-- current semantic and JSON Schema validation succeeds;
-- receipt bytes and digest are retained exactly.
-
-The Ascout receipt exit remains factual data.
-
-### Harness integrity failure
-
-Examples:
-
-- base/head/tree identity mismatch;
-- source reconstruction failure;
-- inability to execute exact head-built verifier;
-- malformed/non-JSON output where a receipt is required;
-- semantic/schema-invalid emitted receipt;
-- receipt digest/envelope mismatch;
-- artifact creation failure.
-
-These fail the self-verification workflow. They MUST NOT fabricate a receipt or convert to PASS.
-
-## Trust Boundaries
-
-- Subject repository: trusted Ascout repository only.
-- GitHub Actions runner: existing project CI trust domain.
-- Verifier: exact PR-head Ascout build.
-- Subject source: exact PR-base HEAD with exact PR-head tree retained in index and working tree.
-- Receipt: Ascout product truth.
-- Qualification envelope: workflow evidence binding receipt bytes to CI/Git identities; never product receipt truth.
-
-## Non-Goals
-
-Spec 006 does not authorize:
-
-- required merge gating based on shadow receipt verdict;
-- automatic changed-command-surface admission;
-- selector shadow mode or full-suite differential metrics;
-- historical benchmark corpus expansion;
-- adversarial receipt mutation corpus;
-- product-core feature changes;
-- new CLI verbs/flags;
-- receipt schema/version changes;
-- M2 mutation/property/fuzz/counterfactual capability;
-- untrusted repository sandboxing;
-- release, tag, npm publication, or GitHub Release.
+No verdict merge gate, auto-admission, selector shadow, historical benchmark expansion, adversarial receipt mutation, product-core feature, new CLI surface, receipt version change, M2 capability, untrusted-repository sandbox, release, tag, npm publication, or GitHub Release.
 
 ## Success Criteria
 
-Spec 006 is successful when an implementation PR for the self-verification surface demonstrates on its exact head that:
+Spec 006 may close `GO` only when exact implementation evidence proves:
 
-1. ordinary Project CI remains six-lane green;
-2. the new self-verification workflow runs against the exact PR base/head pair;
-3. exact source reconstruction proves `HEAD == base` and `index tree == target head tree` before observation;
-4. the exact head-built Ascout executable emits a valid retained receipt against that reconstructed subject state;
-5. the envelope binds verifier head/tree, subject base/head/tree, receipt exit code, and receipt digest;
-6. no automatic command-surface admission occurs;
-7. non-clean valid receipt truth is preserved as shadow evidence rather than rewritten;
-8. harness integrity failures are independently testable and fail closed;
-9. artifacts are uploaded with bounded retention and least-privilege permissions;
-10. no product-core or receipt contract changes occur;
-11. exact-head independent review and all required CI/review/merge/post-merge gates close canonically.
+1. Project CI remains 6/6 green;
+2. the new self-verification workflow runs on its exact final PR head;
+3. exact `B`, `H`, unique `M`, and `HT` identities are established;
+4. subject reconstruction proves `HEAD == M` and `git write-tree == HT`;
+5. exact `H` verifier produces a valid retained receipt;
+6. process exit equals receipt summary exit;
+7. envelope binds `B/M/H/HT` plus receipt exit/digest;
+8. no auto-admission occurs;
+9. valid non-clean receipt truth is preserved as shadow evidence;
+10. artifacts are bounded and least privilege;
+11. no product-core/receipt contract changes occur;
+12. exact-head review/CI/guarded merge/post-merge gates close canonically.
 
-## Constitutional Alignment
+## Governance
 
-- Evidence Before Claims: retains actual receipt + digest-bound envelope.
-- No Green by Omission: non-clean/incomplete receipt truth is never rewritten as clean.
-- Source-Bound Truth: explicitly binds verifier head/tree and subject base/target identities.
-- Explicit Authority: never auto-admits changed command surfaces.
-- Native Capability Before Invention: uses Git/GitHub Actions and existing Ascout validators; no new product subsystem.
-- Bounded/Private Execution: artifact retention is bounded and metadata is privacy-safe.
-- Benchmark-Gated Growth: shadow observation precedes any decision to make self-verification gating.
+Planning artifacts do not authorize implementation. T107 requires a canonically merged final planning head and a separate durable implementation authorization.
