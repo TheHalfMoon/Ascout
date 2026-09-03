@@ -82,7 +82,7 @@ function writeRuntimeFile(root: string, relativePath: string, content: string): 
   writeFileSync(path, content, "utf8");
 }
 
-function createBuildableFixture({ contaminateTracked = false } = {}): SimpleRepository {
+function createBuildableFixture({ contaminateTracked = false, createRuntimeSymlink = false } = {}): SimpleRepository {
   const root = initializeRepository();
   writeFileSync(join(root, "tracked.txt"), "base\n", "utf8");
   const base = commitAll(root, "base");
@@ -103,7 +103,7 @@ function createBuildableFixture({ contaminateTracked = false } = {}): SimpleRepo
   }, null, 2) + "\n", "utf8");
   writeRuntimeFile(root, RECEIPT_SCHEMA_PATH, "{\"fixture\":true}\n");
   writeFileSync(join(root, "build.mjs"), [
-    'import { mkdirSync, writeFileSync } from "node:fs";',
+    'import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";',
     'import { dirname, join } from "node:path";',
     'const files = {',
     '  "cli.js": "export const fixtureCli = 1;\\n",',
@@ -117,6 +117,11 @@ function createBuildableFixture({ contaminateTracked = false } = {}): SimpleRepo
     '  mkdirSync(dirname(target), { recursive: true });',
     '  writeFileSync(target, value, "utf8");',
     '}',
+    ...(createRuntimeSymlink ? [
+      'mkdirSync(join(process.cwd(), "node_modules", "linked-runtime"), { recursive: true });',
+      'writeFileSync(join(process.cwd(), "node_modules", "linked-runtime", "target.js"), "export const linked = 1;\\n", "utf8");',
+      'symlinkSync(join("linked-runtime", "target.js"), join(process.cwd(), "node_modules", "linked-target.js"));',
+    ] : []),
     ...(contaminateTracked ? ['writeFileSync(join(process.cwd(), "tracked.txt"), "contaminated\\n", "utf8");'] : []),
   ].join("\n") + "\n", "utf8");
   const head = commitAll(root, "head with exact build contract");
@@ -443,6 +448,19 @@ describe("T107 exact-tree self-verification harness", () => {
       writeFileSync(schemaPath, schemaBytes, "utf8");
       await expect(verifyExactHeadRuntimeManifest(prepared)).resolves.toBeUndefined();
       writeRuntimeFile(prepared.repositoryRoot, join("node_modules", "injected", "runtime.js"), "export const tampered = true;\n");
+      await expect(verifyExactHeadRuntimeManifest(prepared))
+        .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "runtime_provenance_mismatch"));
+    } finally {
+      await releaseExactHeadRuntime(fixture.root, prepared);
+    }
+  });
+
+  it.skipIf(process.platform === "win32")("binds resolved bytes behind private runtime symlinks", async () => {
+    const fixture = createBuildableFixture({ createRuntimeSymlink: true });
+    const prepared = await prepareExactHeadRuntime(fixture.root, fixture.head, { requireExistingHeadBuild: false });
+    try {
+      await expect(verifyExactHeadRuntimeManifest(prepared)).resolves.toBeUndefined();
+      writeFileSync(join(prepared.repositoryRoot, "node_modules", "linked-runtime", "target.js"), "export const linked = 2;\n", "utf8");
       await expect(verifyExactHeadRuntimeManifest(prepared))
         .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "runtime_provenance_mismatch"));
     } finally {
