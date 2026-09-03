@@ -691,9 +691,15 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(existsSync(outputDir)).toBe(false);
   });
 
-  it("removes all published evidence when retained receipt read-back mismatches", async () => {
+  it.skipIf(process.platform === "win32")("rejects final output replacement after published identity validation", async () => {
     const simple = createSimpleRepository();
-    const outputDir = temporaryOutputPath("ascout-t107-readback-mismatch-");
+    const outputDir = temporaryOutputPath("ascout-t107-published-race-");
+    const repositoryTarget = join(simple.root, "published-target");
+    mkdirSync(repositoryTarget);
+    const displaced = join(dirname(outputDir), "displaced-published-bundle");
+    let finalIdentityChecks = 0;
+    let replaced = false;
+
     await expect(runSelfVerification({
       repositoryRoot: simple.root,
       eventBaseSha: simple.base,
@@ -701,13 +707,62 @@ describe("T107 exact-tree self-verification harness", () => {
       outputDir,
       testRuntime: runtimeFor(0),
       testEvidenceIo: {
-        readFile: async (path: Parameters<typeof fsPromises.readFile>[0]) => {
-          const bytes = await fsPromises.readFile(path);
-          if (String(path).endsWith(EVIDENCE_FILES[0])) return Buffer.concat([bytes, Buffer.from("tampered", "utf8")]);
-          return bytes;
+        lstat: async (...args: Parameters<typeof fsPromises.lstat>) => {
+          const stats = await fsPromises.lstat(...args);
+          if (String(args[0]) === outputDir) {
+            finalIdentityChecks += 1;
+            if (finalIdentityChecks === 2 && !replaced) {
+              renameSync(outputDir, displaced);
+              symlinkSync(repositoryTarget, outputDir, "dir");
+              replaced = true;
+            }
+          }
+          return stats;
+        },
+      },
+    })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "evidence_output_changed"));
+    expect(replaced).toBe(true);
+    expectNoEvidence(repositoryTarget);
+    expectNoEvidence(outputDir);
+    expect(existsSync(outputDir)).toBe(false);
+  });
+
+  it("removes all published evidence when retained receipt handle read-back mismatches", async () => {
+    const simple = createSimpleRepository();
+    const outputDir = temporaryOutputPath("ascout-t107-readback-mismatch-");
+    let receiptReadPasses = 0;
+    await expect(runSelfVerification({
+      repositoryRoot: simple.root,
+      eventBaseSha: simple.base,
+      headSha: simple.head,
+      outputDir,
+      testRuntime: runtimeFor(0),
+      testEvidenceIo: {
+        open: async (...args: Parameters<typeof fsPromises.open>) => {
+          const handle = await fsPromises.open(...args);
+          if (String(args[0]).endsWith(EVIDENCE_FILES[0])) {
+            return {
+              writeFile: handle.writeFile.bind(handle),
+              sync: handle.sync.bind(handle),
+              read: async (...readArgs: Parameters<typeof handle.read>) => {
+                const result = await handle.read(...readArgs);
+                const position = readArgs[3];
+                if (position === 0) {
+                  receiptReadPasses += 1;
+                  if (receiptReadPasses >= 2 && result.bytesRead > 0 && Buffer.isBuffer(readArgs[0])) {
+                    readArgs[0][0] = readArgs[0][0] ^ 0xff;
+                  }
+                }
+                return result;
+              },
+              close: handle.close.bind(handle),
+            } as unknown as typeof handle;
+          }
+          return handle;
         },
       },
     })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "receipt_digest_mismatch"));
+    expect(receiptReadPasses).toBeGreaterThanOrEqual(2);
     expectNoEvidence(outputDir);
     expect(existsSync(outputDir)).toBe(false);
   });
