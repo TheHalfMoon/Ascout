@@ -1,11 +1,11 @@
 # Spec 006 Final Plan Audit
 
-**Status:** PASS_AFTER_MERGE_BASE_TEST_ORDER_AND_TRUST_SCOPE_RECONCILIATION / PLANNING_ONLY
+**Status:** PASS_AFTER_F1_F2_F3_F4_RECONCILIATION / PLANNING_ONLY
 **Canonical base:** `c8126773a63be744b121fbabc5e427600f671ae8`
 
 ## Audit question
 
-Does Spec 006 define the smallest constitutionally valid M1.2-A observation path without product-core changes, trust bypass, untrusted PR execution, premature gating, or broader roadmap work?
+Does Spec 006 define the smallest constitutionally valid M1.2-A observation path without product-core changes, trust bypass, untrusted PR execution, unbound evidence, premature gating, or broader roadmap work?
 
 ## Scope
 
@@ -22,67 +22,78 @@ No `src/**`, receipt/schema, CLI, package/runtime dependency, current Project CI
 
 **Verdict:** PASS.
 
-## Finding F1 — Event base tip vs subject HEAD
+## F1 — Event base tip vs subject HEAD
 
-Rejected assumption: GitHub event base tip can always be subject HEAD.
-
-Final model: B event base provenance, H PR head, unique M=merge-base(B,H), HT=H tree; subject HEAD=M with exact HT index/worktree. Missing/multiple M fails closed.
+Final model: B is event-base provenance; H PR head; unique M=merge-base(B,H); HT=H tree; subject HEAD=M with exact HT index/worktree. Missing/multiple M fails closed.
 
 **Verdict:** RECONCILED.
 
-## Finding F2 — Project CI tests before build
+## F2 — Project CI tests before build
 
-Project CI runs `npm test` before `npm run build`; focused T107 tests cannot assume dist exists.
-
-Final rule: no top-level dist validator import; production path lazily loads exact H-built validators after build; focused Vitest may inject same current source validators into internal adapter; T108 live workflow proves production built-dist path.
+No top-level dist import; production lazily loads exact H-built code after build; focused Vitest may inject same current source functions into internal adapters; T108 proves production built-dist path.
 
 **Verdict:** RECONCILED.
 
-## Finding F3 — Untrusted fork PR execution
+## F3 — Untrusted fork PR execution
 
-A generic pull_request execution job would checkout/build/run fork PR code, violating the Constitution's trusted-repository boundary.
-
-Final rule: T108 executes self-verification only for same-repository PR heads. Eligibility is evaluated at job level before checkout. Fork/external PRs skip execution and produce no receipt claim. `pull_request_target`, secrets, elevated permissions, and any fork-code workaround are prohibited.
+T108 executes only same-repository PR heads. Eligibility is evaluated before checkout. Fork/external PRs skip with no receipt claim. `pull_request_target`, secrets, elevated permissions, and fork-code workarounds are prohibited.
 
 **Verdict:** RECONCILED.
 
-## Identity / evidence
+## F4 — Receipt not independently bound to reconstructed source state
 
-Eligible execution proves exact H, HT, unique M, soft reset to M, HEAD=M, write-tree=HT, no contamination; exact H-built verifier produces exact receipt bytes; current schema + semantic validators accept; process exit equals receipt.summary.exit_code; receipt source HEAD=M; exact bytes are SHA-256 bound in external B/M/H/HT envelope.
+Pre-launch Git reconstruction proof plus receipt-internal semantic validation did not by themselves prove that the retained receipt described the same exact index/worktree state.
 
-**Verdict:** PASS.
+Final rule:
 
-## Result honesty / trust
+- after reconstruction proof and immediately before verifier launch, call exact H-built canonical `composeSourceState(repositoryRoot)` and retain expected SourceStateV1 snapshot S;
+- after exact receipt parse + current schema + semantic validation + process/receipt exit equality, compare `receipt.source.start` with S for exactly:
+  - `head_sha`;
+  - `tree_digest_version`;
+  - `tree_digest`;
+  - `tracked_index_entry_count`;
+  - `unstaged_changed_count`;
+  - `included_untracked_count`;
+- any mismatch fails capture before digest/envelope/upload;
+- reuse canonical composer; no duplicate digest/source-state algorithm, second evaluator, or receipt/schema/envelope field.
 
-No automatic changed-command admission. Valid exits 0/1/3/4 remain factual SHADOW_NON_GATING observations. Workflow green means capture integrity only. Invalid/missing receipt cannot become green receipt truth.
+Focused T107 proof must reject mismatch independently for every one of the six fields. T108 live proof must use the real exact-H built composer.
+
+**Verdict:** RECONCILED.
+
+## Evidence / result honesty
+
+Eligible execution proves exact H/HT/M reconstruction, captures independent canonical S, runs exact H-built verifier, validates exact receipt bytes with current validators, proves process/receipt exit equality and six-field source equality, then hashes exact receipt bytes and emits external B/M/H/HT envelope.
+
+Only a source-bound valid exit 0/1/3/4 is successful shadow capture. Workflow green means capture integrity only. Invalid/missing/mismatched evidence cannot become green receipt truth.
 
 **Verdict:** PASS.
 
 ## Privacy / supply chain
 
-Envelope contains only allowlisted Git object IDs + receipt exit/digest/filename/classification. No raw repo/path/user/host/env/secret material.
+Envelope contains only allowlisted Git identities + receipt exit/digest/filename/classification. S stays in-memory and does not widen schema. No raw repo/path/user/host/env/secret material.
 
-Planned new action: official actions/upload-artifact, MIT, v7.0.1 exact planning-reviewed commit `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`, full-SHA pin after implementation-time reverification, `contents: read` only, 30-day retention.
+Planned new action: official `actions/upload-artifact`, MIT, `v7.0.1`, exact planning-reviewed commit `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`, full-SHA pin after implementation-time reverification, `contents: read` only, 30-day retention.
 
 **Verdict:** PASS_FOR_PLANNING.
 
 ## YAGNI
 
-Rejected product PR-range mode, receipt verifier field, fork sandbox shortcut, pull_request_target, immediate gating, auto-admission, duplicate six-lane shadow matrix, history DB/dashboard, custom artifact service, selector/corpus/adversarial/M2 expansion.
+Rejected product PR-range mode, receipt verifier/source fields, duplicate source-state algorithm, second evaluator, fork sandbox shortcut, `pull_request_target`, immediate gating, auto-admission, duplicate six-lane shadow matrix, history DB/dashboard, custom artifact service, selector/corpus/adversarial/M2 expansion.
 
 **Verdict:** PASS.
 
 ## Qualification / governance
 
-Final reconciled planning head must independently receive Project CI 6/6, fresh substantive external review, zero material findings/threads, unchanged path-pure head, guarded expected-head merge, and post-merge parent/tree/signature/PR/main proof.
+A new final reconciled planning head must independently receive Project CI 6/6, fresh substantive external review, zero material findings/threads, unchanged path-pure head, guarded expected-head merge, and post-merge parent/tree/signature/PR/main proof.
 
-Every earlier planning head and its CI/review evidence is stale after F1–F3 reconciliation.
+Every earlier planning head and its CI/review evidence is stale after F4 reconciliation.
 
 After planning merge, a separate durable implementation authorization is mandatory before T107.
 
 ## Final disposition
 
-`FINAL_PLAN_AUDIT = PASS_AFTER_F1_F2_F3_RECONCILIATION`
+`FINAL_PLAN_AUDIT = PASS_AFTER_F1_F2_F3_F4_RECONCILIATION`
 
 `IMPLEMENTATION_AUTHORIZATION = NOT_EFFECTIVE`
 
