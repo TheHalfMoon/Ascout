@@ -35,9 +35,11 @@ Subject HEAD is `M`, not `B`. Missing/multiple merge base fails closed. T108 exe
 - require process exit equals `receipt.summary.exit_code`;
 - require `receipt.source.start` equals S exactly for `head_sha`, `tree_digest_version`, `tree_digest`, `tracked_index_entry_count`, `unstaged_changed_count`, `included_untracked_count`;
 - any source mismatch fails capture before digest/envelope/upload;
-- valid source-bound exits 0/1/3/4 remain shadow observations;
-- fail on identity/merge-base/reconstruction/no-valid-receipt/validation/source-binding/digest failure;
-- emit privacy-safe B/M/H/HT envelope only after all integrity gates;
+- reject exit `2` even when the receipt is otherwise parseable, current-schema-valid, semantically valid, process-exit-consistent, and source-bound;
+- exit `2` rejection occurs before receipt SHA-256, envelope emission, or artifact upload;
+- only valid source-bound exits 0/1/3/4 remain shadow observations;
+- fail on identity/merge-base/reconstruction/no-valid-receipt/validation/source-binding/exit-2/digest failure;
+- emit privacy-safe B/M/H/HT envelope only after all integrity and allowed-exit gates;
 - outputs outside source identity;
 - no `src/**`, workflow, receipt/schema, dependency, benchmark-result, release/tag/publication mutation;
 - no second source-state/digest algorithm or evaluator.
@@ -69,11 +71,12 @@ At minimum cover:
 17. `unstaged_changed_count` mismatch rejection;
 18. `included_untracked_count` mismatch rejection;
 19. valid exits 0/1/3/4 retained as shadow truth;
-20. process/receipt exit mismatch;
-21. malformed/schema-invalid/semantic-invalid/no-receipt rejection;
-22. exact receipt-byte SHA-256;
-23. envelope privacy/B-M-H-HT binding;
-24. no `--allow-changed-command-surface` in executed argv.
+20. otherwise-valid/source-bound/process-consistent exit-2 receipt rejected before receipt digest/envelope/upload;
+21. process/receipt exit mismatch;
+22. malformed/schema-invalid/semantic-invalid/no-receipt rejection;
+23. exact receipt-byte SHA-256 for allowed captures only;
+24. envelope privacy/B-M-H-HT binding;
+25. no `--allow-changed-command-surface` in executed argv.
 
 ### T107 qualification
 
@@ -112,12 +115,13 @@ Exact final T108 head must show:
 - exact B/M/H/HT envelope;
 - production exact-H built `composeSourceState` captures S;
 - retained receipt passes current validators and all six source-start fields equal S;
+- retained receipt exit is one of 0/1/3/4, never 2;
 - exact receipt digest;
 - no auto-admission;
 - downloadable bounded artifact;
 - fresh independent exact-head review, zero material threads, exact one-path purity.
 
-Job green means trustworthy capture, not clean receipt verdict. Valid exit 1/3/4 remains non-clean factual data.
+Job green means trustworthy capture, not clean receipt verdict. Valid exit 1/3/4 remains non-clean factual data. Exit 2 is harness failure and produces no retained shadow artifact.
 
 After guarded merge/post-merge verification record `T108 = CLOSED_CANONICAL`.
 
@@ -126,6 +130,8 @@ After guarded merge/post-merge verification record `T108 = CLOSED_CANONICAL`.
 ## T109 — Reconcile first canonical shadow observation
 
 Ledger-only by default. Record exact T108 workflow run/artifact, H/HT, B, M, receipt exit/digest, retention, same-repository eligibility, source-snapshot equality result, and observed clean/non-clean/incomplete state. Preserve `SHADOW_NON_GATING`.
+
+T109 must verify that the retained receipt exit is one of `0/1/3/4`; exit `2` cannot qualify the first canonical observation.
 
 Do not promote gating, fork execution, retention, trends, selector/corpus/adversarial work, or M2.
 
@@ -139,4 +145,4 @@ Any head mutation invalidates prior exact-head CI/review evidence.
 
 ## Authorization gate
 
-T107 cannot begin until final Spec 006 planning is canonically merged/verified and a separate durable implementation authorization binds exact planning merge, T107–T109 paths, F1–F4, trust scope, supply-chain decision, acceptance, and prohibitions.
+T107 cannot begin until final Spec 006 planning is canonically merged/verified and a separate durable implementation authorization binds exact planning merge, T107–T109 paths, F1–F6, trust scope, supply-chain decision, acceptance, and prohibitions.
