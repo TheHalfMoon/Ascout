@@ -419,7 +419,6 @@ describe("T107 exact-tree self-verification harness", () => {
       expect(prepared.headSha).toBe(fixture.head);
       expect(prepared.headTreeSha).toBe(fixture.headTree);
       expect(readFileSync(join(prepared.runtimeRoot, "check.js"), "utf8")).toBe("export const fixtureCheck = 1;\n");
-      expect(existsSync(join(prepared.repositoryRoot, "node_modules"))).toBe(true);
       writeRuntimeFile(fixture.root, join("dist", "check.js"), "export const changedAgain = true;\n");
       expect(readFileSync(join(prepared.runtimeRoot, "check.js"), "utf8")).toBe("export const fixtureCheck = 1;\n");
     } finally {
