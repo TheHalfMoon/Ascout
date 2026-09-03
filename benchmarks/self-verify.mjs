@@ -709,7 +709,7 @@ async function beginBoundParentPublication(stageReal, stageIdentity, outputTarge
   let state = "ready";
   const finalize = async (command) => {
     if (state !== "ready") return state;
-    try { child.stdin?.write(`${command}\n`); }
+    try { child.stdin?.end(`${command}\n`); }
     catch { state = "failed"; fail("evidence_cleanup_failed", "bound evidence publication could not be finalized safely"); }
     const status = await waitForPublicationClose(child, closePromise);
     const rolledBack = stdoutState.value.includes("ROLLED_BACK\n");
