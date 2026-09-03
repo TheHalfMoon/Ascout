@@ -1,73 +1,87 @@
 # Spec 006 Ponytail / YAGNI Review
 
-**Status:** PASS_WITH_REDUCTIONS_AFTER_F1_F2_F3_RECONCILIATION / PLANNING_ONLY
+**Status:** PASS_WITH_REDUCTIONS_AFTER_F1_F2_F3_F4_RECONCILIATION / PLANNING_ONLY
 
 ## Question
 
-What is the smallest implementation that measures M1.2-A self-verification without adding product-core features, untrusted PR execution, or premature policy?
+What is the smallest implementation that measures M1.2-A self-verification without adding product-core features, untrusted PR execution, duplicate evidence algorithms, or premature policy?
 
 ## Candidate ideas rejected
 
 ### 1. Add `ascout check --base <sha>` or PR-range mode
 
-**Rejected.** Existing `working_tree_vs_head` semantics are sufficient. The repository harness can compute exact Git identities externally: event base tip `B`, PR head `H`, unique merge base `M`, and target tree `HT = H^{tree}`; then use ephemeral `git reset --soft M` and prove `HEAD == M` plus `git write-tree == HT`.
+**Rejected.** Existing `working_tree_vs_head` semantics plus external Git proof are sufficient: event base B, PR head H, unique merge base M, target tree HT, ephemeral `git reset --soft M`, HEAD=M, write-tree=HT.
 
-### 2. Treat GitHub event base tip B as subject HEAD
+### 2. Treat event base B as subject HEAD
 
-**Rejected after feasibility audit.** The target branch can advance independently, so `B` may contain commits absent from `H`. `B` remains provenance; the unique merge base `M` is the subject HEAD. Missing/multiple merge-base results fail closed.
+**Rejected.** Base can advance independently. B remains provenance; unique M is subject HEAD. Missing/multiple merge bases fail closed.
 
-### 3. Execute fork/external PR code to broaden coverage
+### 3. Execute fork/external PR code
 
-**Rejected / prohibited.** Spec 006 is a trusted-repository experiment only. T108 must require same-repository eligibility before checkout/install/build/execution. Fork/external PRs are skipped and produce no receipt claim. `pull_request_target`, secrets, elevated permissions, or a fork-code workaround would widen the trust boundary without sandbox/admission authority.
+**Rejected / prohibited.** Spec 006 is trusted-repository only. Same-repository eligibility occurs before checkout/install/build/execution. Fork/external PRs skip and produce no receipt claim. No `pull_request_target`, secrets, elevated permissions, or fork-code workaround.
 
-### 4. Add verifier Git SHA to receipt v1
+### 4. Add verifier/source revision fields to receipt v1
 
-**Rejected.** An external qualification envelope binds exact verifier `H/HT`, event `B`, subject `M`, and receipt bytes without receipt compatibility changes.
+**Rejected.** External qualification metadata and existing receipt source-state fields are sufficient; no receipt compatibility change is justified.
 
-### 5. Make self-verification a required PR gate immediately
+### 5. Reimplement source-state/tree-digest logic in the harness
 
-**Rejected.** No measured shadow corpus exists. Spec 006 observes before policy promotion.
+**Rejected after F4 review.** The repository already exports canonical `composeSourceState(repositoryRoot)`. Production T107 must lazily reuse the exact H-built function after reconstruction and immediately before verifier launch to capture expected SourceStateV1 snapshot S.
 
-### 6. Auto-pass changed-command-surface admission
+The harness then compares only the six fields needed to bind `receipt.source.start` to S:
 
-**Rejected / prohibited.** Human admission is per invocation and must not be automated.
+- `head_sha`;
+- `tree_digest_version`;
+- `tree_digest`;
+- `tracked_index_entry_count`;
+- `unstaged_changed_count`;
+- `included_untracked_count`.
 
-### 7. Add daemon/service/history DB or custom artifact service
+Any mismatch fails capture. No second composer/evaluator, generalized source-state library, new digest algorithm, or receipt/envelope field is justified.
+
+### 6. Make self-verification a required gate now
+
+**Rejected.** No measured shadow corpus exists. Observe before policy promotion.
+
+### 7. Auto-pass changed-command admission
+
+**Rejected / prohibited.** Human admission must not be automated.
+
+### 8. Add daemon/history DB/custom artifact service
 
 **Rejected.** One repository harness plus bounded GitHub Actions artifacts is sufficient.
 
-### 8. Modify existing six-lane Project CI or duplicate self-verification across six lanes
+### 9. Modify or duplicate six-lane Project CI
 
-**Rejected.** Project CI remains independent cross-platform qualification. One Ubuntu 24.04 / Node 24 shadow lane answers the first observation question.
+**Rejected.** Project CI remains independent qualification. One Ubuntu 24.04 / Node 24 shadow lane answers the first observation question.
 
-### 9. Generalize Git reconstruction
+### 10. Generalize reconstruction / CI framework
 
-**Rejected.** No patch replay framework, second clone abstraction, custom tree engine, or workflow SDK. Use native merge-base, soft reset, and exact tree proof only.
+**Rejected.** No patch replay framework, second clone abstraction, workflow SDK, or generic Git-state subsystem.
 
-### 10. Add selector shadow, historical corpus expansion, adversarial receipt mutation, or M2 capabilities now
+### 11. Add selector shadow, historical corpus, adversarial mutation, or M2 now
 
-**Rejected.** Separate future workstreams with separate measured evidence and authority.
+**Rejected.** Separate future workstreams require separate measured evidence and authority.
 
-### 11. Persist indefinite artifacts or commit generated receipts
+### 12. Persist indefinite artifacts or commit receipts
 
-**Rejected.** Initial evidence is bounded workflow-run artifact storage; retention/promotion policy comes later if justified.
+**Rejected.** Initial evidence remains bounded workflow artifacts.
 
 ## Minimal retained design
 
 - T107 single-purpose harness + focused tests;
-- T108 one separate **same-repository-only** shadow workflow;
+- T108 one same-repository-only shadow workflow;
 - T109 ledger reconciliation;
-- exact `B/H/M/HT` identity binding;
-- exact head-built verifier;
+- native B/H/M/HT Git identity proof;
+- exact H-built verifier;
+- exact H-built canonical composeSourceState snapshot S + six-field receipt-source equality;
 - current validators only;
-- privacy-safe envelope;
-- pinned official artifact action;
-- bounded retention;
-- no fork execution, `pull_request_target`, secrets, or elevated permissions;
-- no `src/**`, receipt/schema/CLI, auto-admission, or verdict gating.
+- privacy-safe external envelope;
+- pinned official artifact action + bounded retention;
+- no fork execution, product core, receipt/schema/CLI change, auto-admission, second evaluator/composer, or verdict gating.
 
 ## Complexity verdict
 
-`PASS_AFTER_F1_F2_F3_RECONCILIATION`
+`PASS_AFTER_F1_F2_F3_F4_RECONCILIATION`
 
-The retained design is the minimum useful trusted-repository experiment that produces inspectable Ascout-on-Ascout evidence without widening the product or trust contract.
+The retained design is the minimum useful trusted-repository experiment that binds retained receipt truth to exact source state without widening the product contract.
