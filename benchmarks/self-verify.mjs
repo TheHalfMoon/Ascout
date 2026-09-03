@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, readlink, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -20,12 +20,14 @@ const RECEIPT_FILE = "self-verification-receipt.json";
 const ENVELOPE_FILE = "self-verification-envelope.json";
 const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
 const CAPTURE_LIMIT_BYTES = 32 * 1024 * 1024;
+const RECEIPT_SCHEMA_PATH = "specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json";
 const REQUIRED_RUNTIME_FILES = [
   "cli.js",
   "check.js",
   "receipt/json.js",
   "receipt/model.js",
 ];
+const REQUIRED_RUNTIME_ROOT_FILES = ["package.json", "package-lock.json", RECEIPT_SCHEMA_PATH];
 
 export class SelfVerificationIntegrityError extends Error {
   constructor(code, message) {
@@ -172,34 +174,77 @@ async function requireBuildArtifacts(repositoryRoot) {
   }
 }
 
-async function collectJavaScriptFiles(root, relativeRoot = "") {
-  const directory = resolve(root, relativeRoot);
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files = [];
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-    const childRelative = relativeRoot === "" ? entry.name : `${relativeRoot}/${entry.name}`;
-    if (entry.isDirectory()) files.push(...await collectJavaScriptFiles(root, childRelative));
-    else if (entry.isFile() && entry.name.endsWith(".js")) files.push(childRelative);
-  }
-  return files;
+function codeUnitCompare(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
-async function runtimeManifest(runtimeRoot) {
-  const files = await collectJavaScriptFiles(runtimeRoot);
-  if (files.length === 0) fail("runtime_provenance_unavailable", "verified runtime contains no JavaScript files");
-  const entries = [];
-  for (const path of files) {
-    const bytes = await readFile(resolve(runtimeRoot, path));
-    entries.push(`${path}\0${createHash("sha256").update(bytes).digest("hex")}`);
-  }
-  return Object.freeze({ files: Object.freeze([...files]), digest: createHash("sha256").update(entries.join("\n")).digest("hex") });
+function assetDigest(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
 }
 
-async function requireRuntimeManifest(runtimeRoot, expected) {
-  const actual = await runtimeManifest(runtimeRoot);
-  if (actual.digest !== expected.digest || actual.files.join("\n") !== expected.files.join("\n")) {
-    fail("runtime_provenance_mismatch", "verified exact-head runtime changed after qualification");
+async function requiredFileAsset(worktreeRoot, relativePath) {
+  try {
+    const bytes = await readFile(resolve(worktreeRoot, relativePath));
+    return `file\0${relativePath}\0${assetDigest(bytes)}`;
+  } catch {
+    fail("runtime_provenance_unavailable", `required runtime asset is unavailable: ${relativePath}`);
   }
+}
+
+async function collectRuntimeTreeAssets(worktreeRoot, relativeRoot) {
+  const directory = resolve(worktreeRoot, relativeRoot);
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    fail("runtime_provenance_unavailable", `runtime asset tree cannot be read: ${relativeRoot}`);
+  }
+
+  const assets = [];
+  for (const entry of entries.sort((left, right) => codeUnitCompare(left.name, right.name))) {
+    const childRelative = `${relativeRoot}/${entry.name}`;
+    if (entry.isDirectory()) {
+      assets.push(...await collectRuntimeTreeAssets(worktreeRoot, childRelative));
+    } else if (entry.isFile()) {
+      assets.push(await requiredFileAsset(worktreeRoot, childRelative));
+    } else if (entry.isSymbolicLink()) {
+      let target;
+      try { target = await readlink(resolve(worktreeRoot, childRelative)); }
+      catch { fail("runtime_provenance_unavailable", `runtime symlink cannot be read: ${childRelative}`); }
+      assets.push(`symlink\0${childRelative}\0${assetDigest(Buffer.from(target, "utf8"))}`);
+    } else {
+      fail("runtime_provenance_unavailable", `unsupported runtime asset type: ${childRelative}`);
+    }
+  }
+  return assets;
+}
+
+async function runtimeManifest(worktreeRoot) {
+  const assets = [];
+  for (const relativePath of REQUIRED_RUNTIME_ROOT_FILES) {
+    assets.push(await requiredFileAsset(worktreeRoot, relativePath));
+  }
+  const distAssets = await collectRuntimeTreeAssets(worktreeRoot, "dist");
+  if (distAssets.length === 0) fail("runtime_provenance_unavailable", "verified runtime contains no dist assets");
+  assets.push(...distAssets);
+  assets.push(...await collectRuntimeTreeAssets(worktreeRoot, "node_modules"));
+  assets.sort(codeUnitCompare);
+  return Object.freeze({
+    assets: Object.freeze([...assets]),
+    digest: createHash("sha256").update(assets.join("\n")).digest("hex"),
+  });
+}
+
+async function requireRuntimeManifest(prepared) {
+  const actual = await runtimeManifest(prepared.repositoryRoot);
+  if (actual.digest !== prepared.manifest.digest || actual.assets.join("\n") !== prepared.manifest.assets.join("\n")) {
+    fail("runtime_provenance_mismatch", "verified exact-head runtime assets changed after qualification");
+  }
+}
+
+export async function verifyExactHeadRuntimeManifest(prepared) {
+  await requireRuntimeManifest(prepared);
 }
 
 function npmCommand() {
@@ -236,7 +281,7 @@ export async function prepareExactHeadRuntime(repositoryRoot, headSha, { require
     await requireBuildArtifacts(worktreeRoot);
 
     const runtimeRoot = resolve(worktreeRoot, "dist");
-    const manifest = await runtimeManifest(runtimeRoot);
+    const manifest = await runtimeManifest(worktreeRoot);
     return Object.freeze({ repositoryRoot: worktreeRoot, runtimeRoot, headSha: H, headTreeSha: HT, manifest });
   } catch (error) {
     if (registered) {
@@ -286,7 +331,7 @@ export async function reconstructSelfVerificationSubject({ repositoryRoot, event
 }
 
 async function loadCanonicalRuntime(prepared, subjectRoot) {
-  await requireRuntimeManifest(prepared.runtimeRoot, prepared.manifest);
+  await requireRuntimeManifest(prepared);
   const checkModule = await import(pathToFileURL(resolve(prepared.runtimeRoot, "check.js")).href);
   const jsonModule = await import(pathToFileURL(resolve(prepared.runtimeRoot, "receipt/json.js")).href);
   const modelModule = await import(pathToFileURL(resolve(prepared.runtimeRoot, "receipt/model.js")).href);
@@ -300,7 +345,7 @@ async function loadCanonicalRuntime(prepared, subjectRoot) {
     validateReceiptJsonSchema: jsonModule.validateReceiptJsonSchema,
     validateReceiptSemantics: modelModule.validateReceiptSemantics,
     runVerifier: async ({ argv }) => {
-      await requireRuntimeManifest(prepared.runtimeRoot, prepared.manifest);
+      await requireRuntimeManifest(prepared);
       return await runProcess(process.execPath, argv, { cwd: subjectRoot });
     },
   };
@@ -421,7 +466,7 @@ export async function runSelfVerification({
     const receiptBytes = Buffer.isBuffer(execution.stdout) ? execution.stdout : Buffer.from(execution.stdout ?? "");
     const validated = validateReceiptCapture({ receiptBytes, processExitCode: execution.exitCode, expectedSourceState, validators: runtime });
 
-    if (prepared !== null) await requireRuntimeManifest(prepared.runtimeRoot, prepared.manifest);
+    if (prepared !== null) await requireRuntimeManifest(prepared);
 
     const receiptSha256 = sha256(receiptBytes);
     const envelope = buildQualificationEnvelope({ identities, receiptExit: validated.receiptExit, receiptSha256 });
