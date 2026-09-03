@@ -744,6 +744,7 @@ describe("T107 exact-tree self-verification harness", () => {
             return {
               writeFile: handle.writeFile.bind(handle),
               sync: handle.sync.bind(handle),
+              stat: handle.stat.bind(handle),
               read: async (...readArgs: Parameters<typeof handle.read>) => {
                 const result = await handle.read(...readArgs);
                 const position = readArgs[3];
