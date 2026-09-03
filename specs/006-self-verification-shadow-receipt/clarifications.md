@@ -60,11 +60,18 @@ The purpose is to qualify proposed Ascout code. Base/merge-base Ascout answers a
 
 ## C8 — What happens when command authority changes?
 
-The workflow MUST NOT pass `--allow-changed-command-surface`. A valid incomplete receipt is retained as factual shadow truth.
+The workflow MUST NOT pass `--allow-changed-command-surface`. A valid incomplete receipt is retained as factual shadow truth when its canonical exit is one of the allowed shadow exits.
 
 ## C9 — Which exits are successful captures?
 
-Only after schema validation, semantic validation, process/receipt exit equality, and source-snapshot equality succeed, valid receipt exits `0`, `1`, `3`, and `4` are observational capture success. Exit `2` without a valid receipt or any identity/source-binding/digest/artifact failure is harness failure.
+Only after JSON parsing, current schema validation, semantic validation, process/receipt exit equality, and six-field source-snapshot equality succeed may the harness classify a receipt by exit.
+
+- `0`, `1`, `3`, and `4` are successful `SHADOW_NON_GATING` captures.
+- `2` is **always harness-integrity failure**, even if the emitted receipt is otherwise schema-valid, semantically valid, source-bound, and process-exit-consistent.
+
+For exit `2`, the harness MUST stop before receipt SHA-256 calculation, envelope emission, or artifact upload. T107 must include a focused case that supplies an otherwise-valid/source-bound receipt with exit `2` and proves rejection.
+
+This rule deliberately reserves exit `2` for an execution/config/integrity class that is not accepted as durable shadow receipt evidence.
 
 ## C10 — What is the envelope?
 
@@ -90,7 +97,7 @@ It contains no repository URL/path, absolute path, actor/user, host/home, enviro
 
 ## C11 — How are receipt bytes validated?
 
-Capture exact stdout bytes without rewriting, parse once, run exact `H`-built `validateReceiptJsonSchema` and `validateReceiptSemantics`, prove process exit equals `receipt.summary.exit_code`, prove six-field source-start equality with `S`, then hash the exact retained bytes and emit the envelope.
+Capture exact stdout bytes without rewriting, parse once, run exact `H`-built `validateReceiptJsonSchema` and `validateReceiptSemantics`, prove process exit equals `receipt.summary.exit_code`, prove six-field source-start equality with `S`, then enforce the exit-2 prohibition. Only after all of those gates succeed may the harness hash exact retained bytes and emit the envelope.
 
 ## C12 — How can T107 tests run when Project CI tests before build?
 
