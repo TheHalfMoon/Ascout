@@ -191,7 +191,7 @@ async function requiredFileAsset(worktreeRoot, relativePath) {
   }
 }
 
-async function collectRuntimeTreeAssets(worktreeRoot, relativeRoot) {
+async function collectRuntimeTreeAssets(worktreeRoot, relativeRoot, canonicalRoot) {
   const directory = resolve(worktreeRoot, relativeRoot);
   let entries;
   try {
@@ -205,14 +205,26 @@ async function collectRuntimeTreeAssets(worktreeRoot, relativeRoot) {
   for (const entry of entries.sort((left, right) => codeUnitCompare(left.name, right.name))) {
     const childRelative = `${relativeRoot}/${entry.name}`;
     if (entry.isDirectory()) {
-      assets.push(...await collectRuntimeTreeAssets(worktreeRoot, childRelative));
+      assets.push(...await collectRuntimeTreeAssets(worktreeRoot, childRelative, canonicalRoot));
     } else if (entry.isFile()) {
       assets.push(await requiredFileAsset(worktreeRoot, childRelative));
     } else if (entry.isSymbolicLink()) {
       let target;
       try { target = await readlink(resolve(worktreeRoot, childRelative)); }
       catch { fail("runtime_provenance_unavailable", `runtime symlink cannot be read: ${childRelative}`); }
-      assets.push(`symlink\0${childRelative}\0${assetDigest(Buffer.from(target, "utf8"))}`);
+
+      let resolvedTarget;
+      try { resolvedTarget = await realpath(resolve(worktreeRoot, childRelative)); }
+      catch { fail("runtime_provenance_unavailable", `runtime symlink target cannot be resolved: ${childRelative}`); }
+      if (!isInside(canonicalRoot, resolvedTarget)) {
+        fail("runtime_provenance_unavailable", `runtime symlink resolves outside the private exact-head worktree: ${childRelative}`);
+      }
+
+      let targetBytes;
+      try { targetBytes = await readFile(resolvedTarget); }
+      catch { fail("runtime_provenance_unavailable", `runtime symlink target must be a readable file: ${childRelative}`); }
+      const resolvedRelative = relative(canonicalRoot, resolvedTarget).split(sep).join("/");
+      assets.push(`symlink\0${childRelative}\0${assetDigest(Buffer.from(target, "utf8"))}\0${resolvedRelative}\0${assetDigest(targetBytes)}`);
     } else {
       fail("runtime_provenance_unavailable", `unsupported runtime asset type: ${childRelative}`);
     }
@@ -221,14 +233,15 @@ async function collectRuntimeTreeAssets(worktreeRoot, relativeRoot) {
 }
 
 async function runtimeManifest(worktreeRoot) {
+  const canonicalRoot = await realpath(worktreeRoot);
   const assets = [];
   for (const relativePath of REQUIRED_RUNTIME_ROOT_FILES) {
     assets.push(await requiredFileAsset(worktreeRoot, relativePath));
   }
-  const distAssets = await collectRuntimeTreeAssets(worktreeRoot, "dist");
+  const distAssets = await collectRuntimeTreeAssets(worktreeRoot, "dist", canonicalRoot);
   if (distAssets.length === 0) fail("runtime_provenance_unavailable", "verified runtime contains no dist assets");
   assets.push(...distAssets);
-  assets.push(...await collectRuntimeTreeAssets(worktreeRoot, "node_modules"));
+  assets.push(...await collectRuntimeTreeAssets(worktreeRoot, "node_modules", canonicalRoot));
   assets.sort(codeUnitCompare);
   return Object.freeze({
     assets: Object.freeze([...assets]),
