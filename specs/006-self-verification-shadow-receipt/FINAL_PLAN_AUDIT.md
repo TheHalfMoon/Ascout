@@ -1,11 +1,11 @@
 # Spec 006 Final Plan Audit
 
-**Status:** PASS_AFTER_F1_F2_F3_F4_RECONCILIATION / PLANNING_ONLY
+**Status:** PASS_AFTER_F1_F2_F3_F4_F5_F6_RECONCILIATION / PLANNING_ONLY
 **Canonical base:** `c8126773a63be744b121fbabc5e427600f671ae8`
 
 ## Audit question
 
-Does Spec 006 define the smallest constitutionally valid M1.2-A observation path without product-core changes, trust bypass, untrusted PR execution, unbound evidence, premature gating, or broader roadmap work?
+Does Spec 006 define the smallest constitutionally valid M1.2-A observation path without product-core changes, trust bypass, untrusted PR execution, unbound evidence, ambiguous exit classification, premature gating, or broader roadmap work?
 
 ## Scope
 
@@ -61,17 +61,42 @@ Focused T107 proof must reject mismatch independently for every one of the six f
 
 **Verdict:** RECONCILED.
 
+## F5 — YAGNI review consistency after F4
+
+The original YAGNI record predated F4. Both YAGNI artifacts now explicitly preserve canonical `composeSourceState` reuse, exact six-field source binding, and the prohibition on duplicate source-state/digest machinery.
+
+**Verdict:** RECONCILED.
+
+## F6 — Otherwise-valid exit-2 receipt ambiguity
+
+A valid receipt and process may theoretically agree on exit `2`. The earlier plan did not state whether such a receipt was successful shadow evidence or harness failure.
+
+Final rule:
+
+1. exact receipt bytes are parsed and current-schema + semantic validation succeeds;
+2. process exit equals `receipt.summary.exit_code`;
+3. all six `receipt.source.start` fields equal pre-launch S;
+4. if the agreed exit is `2`, the harness still fails;
+5. that failure occurs before receipt SHA-256, envelope emission, or artifact upload;
+6. only exits `0`, `1`, `3`, and `4` may become retained `SHADOW_NON_GATING` evidence.
+
+T107 focused proof must use an otherwise-valid, current-schema-valid, semantically-valid, process-consistent, source-bound exit-2 receipt and prove rejection before any digest/envelope/upload step.
+
+This introduces no new exit, product behavior, receipt field, evaluator, or shadow classification.
+
+**Verdict:** RECONCILED.
+
 ## Evidence / result honesty
 
-Eligible execution proves exact H/HT/M reconstruction, captures independent canonical S, runs exact H-built verifier, validates exact receipt bytes with current validators, proves process/receipt exit equality and six-field source equality, then hashes exact receipt bytes and emits external B/M/H/HT envelope.
+Eligible execution proves exact H/HT/M reconstruction, captures independent canonical S, runs exact H-built verifier, validates exact receipt bytes with current validators, proves process/receipt exit equality and six-field source equality, then enforces the allowed-exit set. Only after all gates pass are exact receipt bytes hashed and the external B/M/H/HT envelope emitted.
 
-Only a source-bound valid exit 0/1/3/4 is successful shadow capture. Workflow green means capture integrity only. Invalid/missing/mismatched evidence cannot become green receipt truth.
+Only a source-bound valid exit `0/1/3/4` is successful shadow capture. Workflow green means capture integrity only. Exit `2` and invalid/missing/mismatched evidence cannot become durable shadow receipt truth.
 
 **Verdict:** PASS.
 
 ## Privacy / supply chain
 
-Envelope contains only allowlisted Git identities + receipt exit/digest/filename/classification. S stays in-memory and does not widen schema. No raw repo/path/user/host/env/secret material.
+Envelope contains only allowlisted Git identities + receipt exit/digest/filename/classification. S stays in-memory and does not widen schema. Exit-2 receipts never reach envelope creation. No raw repo/path/user/host/env/secret material.
 
 Planned new action: official `actions/upload-artifact`, MIT, `v7.0.1`, exact planning-reviewed commit `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a`, full-SHA pin after implementation-time reverification, `contents: read` only, 30-day retention.
 
@@ -79,7 +104,7 @@ Planned new action: official `actions/upload-artifact`, MIT, `v7.0.1`, exact pla
 
 ## YAGNI
 
-Rejected product PR-range mode, receipt verifier/source fields, duplicate source-state algorithm, second evaluator, fork sandbox shortcut, `pull_request_target`, immediate gating, auto-admission, duplicate six-lane shadow matrix, history DB/dashboard, custom artifact service, selector/corpus/adversarial/M2 expansion.
+Rejected product PR-range mode, receipt verifier/source fields, duplicate source-state algorithm, second evaluator, new exit/shadow category for exit 2, fork sandbox shortcut, `pull_request_target`, immediate gating, auto-admission, duplicate six-lane shadow matrix, history DB/dashboard, custom artifact service, selector/corpus/adversarial/M2 expansion.
 
 **Verdict:** PASS.
 
@@ -87,13 +112,13 @@ Rejected product PR-range mode, receipt verifier/source fields, duplicate source
 
 A new final reconciled planning head must independently receive Project CI 6/6, fresh substantive external review, zero material findings/threads, unchanged path-pure head, guarded expected-head merge, and post-merge parent/tree/signature/PR/main proof.
 
-Every earlier planning head and its CI/review evidence is stale after F4 reconciliation.
+Every earlier planning head and its CI/review evidence is stale after F6 reconciliation.
 
 After planning merge, a separate durable implementation authorization is mandatory before T107.
 
 ## Final disposition
 
-`FINAL_PLAN_AUDIT = PASS_AFTER_F1_F2_F3_F4_RECONCILIATION`
+`FINAL_PLAN_AUDIT = PASS_AFTER_F1_F2_F3_F4_F5_F6_RECONCILIATION`
 
 `IMPLEMENTATION_AUTHORIZATION = NOT_EFFECTIVE`
 
