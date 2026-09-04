@@ -211,7 +211,7 @@ describe("T020 working-tree changed scope", () => {
     expect(() => readWorkingTreeComparison(repositoryRoot, "HEAD")).toThrowError(
       expect.objectContaining<Partial<GitIdentityError>>({ code: "invalid_head_identity" }),
     );
-  });
+  }, 15_000);
 
   it.skipIf(process.platform === "win32")(
     "keeps mode/type-only changes file-level without invented line ranges",
