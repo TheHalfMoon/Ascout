@@ -97,6 +97,13 @@ const BOUND_PARENT_PUBLISHER_SOURCE = [
   '    }',
   '    await requireDirectory(finalName, stageDev, stageIno);',
   '    await requireParent();',
+  '    process.stdout.write("RELEASE_READY\\n");',
+  '    const finalize = await readCommand();',
+  '    if (finalize !== "FINALIZE") {',
+  '      await rollback();',
+  '      process.stdout.write("ROLLED_BACK\\n");',
+  '      return;',
+  '    }',
   '    published = false;',
   '    process.stdout.write("COMMITTED\\n");',
   '  } catch {',
@@ -232,7 +239,7 @@ async function requireCleanHeadState(repositoryRoot, headSha, targetTreeSha) {
   const unstaged = await git(repositoryRoot, ["diff", "--quiet", "--"], [0, 1]);
   if (unstaged.exitCode !== 0) fail("tracked_contamination", "unstaged tracked changes exist before reconstruction");
 
-  await requireNoNonignoredUntracked(repositoryRoot);
+  await requireNoNonignoredUntracked(root);
 }
 
 async function requireNoUnstagedTracked(repositoryRoot) {
@@ -752,8 +759,23 @@ async function beginBoundParentPublication(stageReal, stageIdentity, outputTarge
 
   const release = async () => {
     if (state !== "confirm_ready") fail("evidence_cleanup_failed", "bound evidence publication release state is invalid");
-    try { child.stdin?.end("RELEASE\n"); }
-    catch { state = "failed"; fail("evidence_cleanup_failed", "bound evidence publication rollback ownership could not be released safely"); }
+    try { child.stdin?.write("RELEASE\n"); }
+    catch { state = "failed"; fail("evidence_cleanup_failed", "bound evidence publication could not enter release verification safely"); }
+    const releaseReady = await waitForPublicationMarker(child, closePromise, stdoutState, "RELEASE_READY\n");
+    if (releaseReady.kind === "marker") {
+      state = "release_ready";
+      return;
+    }
+    try { child.kill("SIGKILL"); } catch {}
+    try { await closePromise; } catch {}
+    state = "failed";
+    fail("evidence_cleanup_failed", "bound evidence publication release verification did not complete safely");
+  };
+
+  const finalize = async () => {
+    if (state !== "release_ready") fail("evidence_cleanup_failed", "bound evidence publication finalize state is invalid");
+    try { child.stdin?.end("FINALIZE\n"); }
+    catch { state = "failed"; fail("evidence_cleanup_failed", "bound evidence publication rollback ownership could not be finalized safely"); }
     const status = await waitForPublicationClose(child, closePromise);
     const rolledBack = stdoutState.value.includes("ROLLED_BACK\n");
     const committed = stdoutState.value.includes("COMMITTED\n");
@@ -766,8 +788,8 @@ async function beginBoundParentPublication(stageReal, stageIdentity, outputTarge
     fail(
       state === "failed" ? "evidence_cleanup_failed" : "evidence_output_changed",
       state === "failed"
-        ? "bound evidence publication could not release rollback ownership safely"
-        : "self-verification evidence output changed before rollback ownership release",
+        ? "bound evidence publication could not finalize rollback ownership safely"
+        : "self-verification evidence output changed before finalization",
     );
   };
 
@@ -788,7 +810,7 @@ async function beginBoundParentPublication(stageReal, stageIdentity, outputTarge
     fail("evidence_cleanup_failed", "bound evidence publication could not be rolled back safely");
   };
 
-  return Object.freeze({ commit, confirm, release, rollback });
+  return Object.freeze({ commit, confirm, release, finalize, rollback });
 }
 
 async function requirePublishedEvidenceIdentity(outputTarget, expectedIdentity, evidenceIo) {
@@ -899,7 +921,7 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
       fail("evidence_output_unexpected", "private evidence staging contains unexpected material");
     }
     await requirePrivateStageIdentity(stageReal, stageRootReal, outputTarget.repositoryReal, evidenceIo);
-    await requireDirectoryIdentity(stageReal, stageIdentity, evidenceIo, "evidence_output_changed", "private evidence staging identity changed before publication");
+    await requireDirectoryIdentity(stageReal, stageIdentity, evidenceIo, "evidence_output_changed", "private evidence staging identity changed during publication");
 
     const receiptIdentity = await captureFileIdentity(
       stagedReceiptPath,
@@ -1001,15 +1023,32 @@ async function publishQualifiedEvidence({ outputTarget, receiptBytes, receiptSha
     await requireFileIdentity(join(preReleaseReal, RECEIPT_FILE), receiptIdentity, evidenceIo, "evidence_output_changed", "published receipt identity changed after final confirmation checks");
     await requireFileIdentity(join(preReleaseReal, ENVELOPE_FILE), envelopeIdentity, evidenceIo, "evidence_output_changed", "published envelope identity changed after final confirmation checks");
     if (preReleaseReal !== postCommitReal) fail("evidence_output_changed", "published evidence canonical path changed after final confirmation checks");
-    await requireOutputParentIdentity(outputTarget, evidenceIo, "self-verification evidence output parent changed before rollback ownership release");
+    await requireOutputParentIdentity(outputTarget, evidenceIo, "self-verification evidence output parent changed before release verification");
 
     await publicationSession.release();
+    if (typeof evidenceIo.afterBoundParentRelease === "function") {
+      await evidenceIo.afterBoundParentRelease(outputTarget);
+    }
+
+    const releaseReadyReal = await requirePublishedEvidenceIdentity(outputTarget, stageIdentity, evidenceIo);
+    await requireFileIdentity(join(releaseReadyReal, RECEIPT_FILE), receiptIdentity, evidenceIo, "evidence_output_changed", "published receipt identity changed after release checks");
+    await requireFileIdentity(join(releaseReadyReal, ENVELOPE_FILE), envelopeIdentity, evidenceIo, "evidence_output_changed", "published envelope identity changed after release checks");
+    if (releaseReadyReal !== preReleaseReal) fail("evidence_output_changed", "published evidence canonical path changed after release checks");
+    await requireOutputParentIdentity(outputTarget, evidenceIo, "self-verification evidence output parent changed before rollback ownership finalization");
+
+    await publicationSession.finalize();
     publicationSession = null;
+
+    const committedReal = await requirePublishedEvidenceIdentity(outputTarget, stageIdentity, evidenceIo);
+    await requireFileIdentity(join(committedReal, RECEIPT_FILE), receiptIdentity, evidenceIo, "evidence_output_changed", "published receipt identity changed after publication finalization");
+    await requireFileIdentity(join(committedReal, ENVELOPE_FILE), envelopeIdentity, evidenceIo, "evidence_output_changed", "published envelope identity changed after publication finalization");
+    if (committedReal !== releaseReadyReal) fail("evidence_output_changed", "published evidence canonical path changed after publication finalization");
+    await requireOutputParentIdentity(outputTarget, evidenceIo, "self-verification evidence output parent changed after publication finalization");
     published = false;
 
     return Object.freeze({
-      receiptPath: join(preReleaseReal, RECEIPT_FILE),
-      envelopePath: join(preReleaseReal, ENVELOPE_FILE),
+      receiptPath: join(committedReal, RECEIPT_FILE),
+      envelopePath: join(committedReal, ENVELOPE_FILE),
     });
   } catch (error) {
     try { if (receiptHandle !== null) await receiptHandle.close(); } catch {}
@@ -1090,7 +1129,7 @@ export async function runSelfVerification({
 
   if (qualified === null) fail("unexpected_failure", "self-verification qualification did not produce an in-memory result");
 
-  const published = await publishQualifiedEvidence({
+  const publishedResult = await publishQualifiedEvidence({
     outputTarget,
     receiptBytes: qualified.receiptBytes,
     receiptSha256: qualified.receiptSha256,
@@ -1102,8 +1141,8 @@ export async function runSelfVerification({
     expectedSourceState: qualified.expectedSourceState,
     receiptExit: qualified.receiptExit,
     receiptSha256: qualified.receiptSha256,
-    receiptPath: published.receiptPath,
-    envelopePath: published.envelopePath,
+    receiptPath: publishedResult.receiptPath,
+    envelopePath: publishedResult.envelopePath,
     envelope: qualified.envelope,
   });
 }
