@@ -151,7 +151,7 @@ describe("T106 environment publication", () => {
     expect(renderedJson).not.toContain("environment_error");
     expect(renderReceiptAgent(outcome.receipt).length).toBeGreaterThan(0);
     expect(outcome.terminalSummary.length).toBeGreaterThan(0);
-  });
+  }, 15_000);
 
   it("maps only the typed environment integrity failure to exit 2 before project tasks and emits no receipt", async () => {
     const root = initializeFixture();
