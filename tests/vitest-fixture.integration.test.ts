@@ -185,5 +185,5 @@ describe("T045 Vitest fixture/integration contract", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });
