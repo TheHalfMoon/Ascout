@@ -5,25 +5,39 @@
 **Canonical planning base:** `4900f246e19c25c399074672b626fa8df4b5312f`  
 **Pre-audit planning head:** `4826ef86198b784889af47a38e63be23af8d9f70`  
 **Pre-audit planning tree:** `c564e47cc1645c6f99bfbc4245c5cb0c70051349`  
-**Audit status:** `INTERNAL_AUDIT_COMPLETE / INDEPENDENT_CONFIRMATION_PENDING`
+**Independently audited head:** `0d880092d21072a785766feee2e25dcf0dfbaf68`  
+**Independently audited tree:** `03bdd8652c0ab4facc401968dc8ae4b7b4354adc`  
+**Independent review:** PR #156 comment `5541045921` by `coderabbitai[bot]`  
+**Audit status:** `AUDIT_PASSED / FINAL_EXACT_HEAD_QUALIFICATION_REQUIRED`
 
 ## Independence boundary
 
-This repository artifact records the final plan-audit surface and the repository-native facts established before external review. It does **not** self-claim independent review.
+The internal audit surface was written before external review and explicitly refused to self-claim independence.
 
-`AUDIT_PASSED` may be recorded only after an external independent reviewer evaluates the exact planning head that contains this file and reports no material planning defect. After that external result is recorded, any resulting head mutation requires a second fresh exact-head cross-artifact consistency and branch-purity review before merge.
+CodeRabbit then independently evaluated exact head `0d880092d21072a785766feee2e25dcf0dfbaf68`, exact tree `03bdd8652c0ab4facc401968dc8ae4b7b4354adc`, and the complete 11-file Spec 007 planning package. In PR #156 comment `5541045921`, the reviewer reported:
+
+- `Independent final plan audit: PASS` for that exact head;
+- no material correctness finding;
+- no material governance finding;
+- no material evidence-integrity finding;
+- no material security/hermeticity finding;
+- no material portability/runtime finding;
+- no material scope finding;
+- no material cross-artifact inconsistency.
+
+This repository-native recording mutates the planning head after the independent audit. Therefore the independent audit remains evidence about the exact audited content plus this mechanical recording step, while merge qualification now requires fresh Project CI and a second fresh independent exact-head cross-artifact consistency / branch-purity review on the resulting final head.
 
 ## A-01 — Successor authority and ordering
 
 Spec 006 is canonically closed. The post-M1 roadmap places historical benchmark corpus expansion after self-verification and before selector-shadow or adversarial-receipt work. Spec 007 planning creates a new bounded Spec Kit chain and does not treat the roadmap as implementation authority.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
 ## A-02 — Measured problem is evidence-bound
 
 The planning package states the current factual gap as a six-case selection corpus where T091 provides Ascout oracle-membership evidence for 3/6 cases and records 3/6 as unavailable, while full and runner-native related comparators are observable in 6/6. The package does not relabel unavailable evidence as selector failure.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
 ## A-03 — Scope minimality
 
@@ -31,13 +45,13 @@ The planned response is exactly two independently reviewed historical selection 
 
 The ofetch candidate was rejected rather than admitting a live-network oracle or building new network/mocking infrastructure.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
 ## A-04 — Founding-history preservation
 
 The founding `minimum_cases: 5` / `maximum_cases: 6` contract remains historical fact. Spec 007 proposes an additive successor manifest revision with selection maximum 8 while keeping minimum 5 and gap bounds 3–4. Historical T078/T091/T095 publications remain immutable.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
 ## A-05 — Case lifecycle and engine reuse
 
@@ -45,7 +59,7 @@ Current benchmark validation requires `CASE_REVIEWED` manifest input with no pri
 
 Current metrics aggregate mode accepts repeated aggregate inputs. Legacy internal `T075` naming is not treated as a functional filename or six-case constraint.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
 ## A-06 — Jotai candidate planning sufficiency
 
@@ -53,7 +67,7 @@ The planning package binds the direct base/fix pair, production/test paths, stab
 
 Install, oracle execution, membership, deterministic repetition, exact byte SHA-256, and `BENCHMARK_ACTIVE` evidence remain explicitly deferred to authorized implementation-time replay.
 
-**Internal finding:** PASS_FOR_PLANNING.
+**Finding:** PASS_FOR_PLANNING.
 
 ## A-07 — Immer candidate planning sufficiency
 
@@ -61,19 +75,19 @@ The planning package binds the direct base/fix pair, production/test paths, stab
 
 No polyfill or source/test weakening is permitted merely to make the candidate qualify.
 
-**Internal finding:** PASS_FOR_PLANNING_WITH_RUNTIME_GATE.
+**Finding:** PASS_FOR_PLANNING_WITH_RUNTIME_GATE.
 
 ## A-08 — Anti-leakage and hermeticity
 
 All planning artifacts require the measured reconstructed source to contain the production fix while withholding the regression-test delta. The oracle remains independent evidence. Live network, credentials, hosted services, or undeclared mutable state cause fail-closed rejection.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
 ## A-09 — Evidence honesty
 
 Planning does not claim donor installation, build, test execution, oracle success, comparator membership, determinism, or benchmark activation. Observed future comparator outcomes remain exactly `hit | miss | unavailable`, and a miss/unavailable result may be published without product mutation inside Spec 007.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
 ## A-10 — Task decomposition and dependency order
 
@@ -89,7 +103,7 @@ The canonical task order is:
 
 A qualification failure returns to planning rather than broadening authority.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
 ## A-11 — Repository mutation bounds
 
@@ -104,13 +118,13 @@ T113:
 
 T111/T112 are repository-mutation-free by default; T114 is ledger/governance only by default. No benchmark script/test/product path is pre-authorized. A proven need to widen these surfaces requires an authority amendment before mutation.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
 ## A-12 — Exact-byte and runtime deferrals
 
 The plan correctly refuses to substitute Git blob SHA-1 identities for manifest-required byte SHA-256 values. Exact byte digests and exact runtime/package-manager versions must be reverified during authorized T110/T111/T112 work.
 
-**Internal finding:** PASS / DEFERRED_CORRECTLY.
+**Finding:** PASS / DEFERRED_CORRECTLY.
 
 ## A-13 — Governance and merge discipline
 
@@ -120,24 +134,24 @@ Every repository-mutating unit requires exact-head six-lane Project CI, fresh in
 
 Any head mutation invalidates earlier exact-head CI/review evidence.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
-## A-14 — Pre-audit branch purity
+## A-14 — Audited-head branch purity
 
-Against canonical base `4900f246e19c25c399074672b626fa8df4b5312f`, pre-audit head `4826ef86198b784889af47a38e63be23af8d9f70` was observed as:
+Against canonical base `4900f246e19c25c399074672b626fa8df4b5312f`, independently audited head `0d880092d21072a785766feee2e25dcf0dfbaf68` was observed as:
 
 - status: `ahead`;
-- `ahead_by=11`;
+- `ahead_by=12`;
 - `behind_by=0`;
 - merge base exactly canonical base;
-- exactly 10 changed files;
+- exactly 11 changed files;
 - every changed file added under `specs/007-historical-benchmark-corpus-expansion/**`;
 - zero deletions;
 - no product, benchmark implementation, workflow, dependency, historical result, or release mutation.
 
-This file itself becomes the eleventh planning path and therefore requires a fresh exact-head purity comparison after commit.
+The current head after recording the external audit must be freshly rechecked before merge.
 
-**Internal finding:** PASS_PENDING_EXACT_HEAD_REFRESH.
+**Finding:** PASS_FOR_AUDITED_HEAD / FINAL_HEAD_REFRESH_REQUIRED.
 
 ## A-15 — Cross-artifact consistency
 
@@ -151,20 +165,24 @@ The current spec, clarifications, YAGNI reviews, plan, tasks, candidate review, 
 - no selector/product mutation;
 - no implementation authority from planning merge alone.
 
-The prior acceptance ambiguity that could be read as permitting `GO` after candidate rejection was repaired before this audit.
+The prior acceptance ambiguity that could be read as permitting `GO` after candidate rejection was repaired before the independent audit.
 
-**Internal finding:** PASS.
+**Finding:** PASS.
 
-## Internal audit conclusion
+## Audit conclusion
 
-`SPEC_007_INTERNAL_FINAL_PLAN_AUDIT = PASS`
+`SPEC_007_FINAL_PLAN_AUDIT = AUDIT_PASSED`
 
-Unresolved internal material findings: `0`.
+Independent audited head: `0d880092d21072a785766feee2e25dcf0dfbaf68`  
+Independent audited tree: `03bdd8652c0ab4facc401968dc8ae4b7b4354adc`  
+Independent review evidence: PR #156 comment `5541045921`  
+Independent material findings: `0`
 
-This is **not** the independent-audit gate. Required next evidence:
+Planning is **not yet merge-qualified** because this recording commit creates a new exact head. Required final gates:
 
-1. fresh exact-head Project CI for the head containing this audit file;
-2. external independent substantive review explicitly acting as the Spec 007 final plan audit;
-3. if that review is clean, repository-native recording of the external audit identity/result;
-4. fresh exact-head cross-artifact consistency and branch-purity review after any recording mutation;
-5. guarded planning merge only after all exact-head gates are simultaneously satisfied.
+1. reverify the resulting head/tree and planning-path purity;
+2. fresh six-lane Project CI on that exact head;
+3. fresh independent exact-head cross-artifact consistency and branch-purity review;
+4. zero unresolved material review threads;
+5. unchanged canonical predecessor / `behind_by=0` / mergeability and live ruleset checks;
+6. guarded expected-head planning merge and post-merge verification.
