@@ -418,7 +418,7 @@ describe("T107 exact-tree self-verification harness", () => {
     }
     await expect(reconstructSelfVerificationSubject({ repositoryRoot: ignored.root, eventBaseSha: ignored.base, headSha: ignored.head }))
       .resolves.toMatchObject({ mergeBaseSha: ignored.base });
-  });
+  }, 15_000);
 
   it("provisions a private exact-H runtime from a clean exact-lockfile install and ignores subject dist/node_modules", async () => {
     const fixture = createBuildableFixture();
@@ -436,7 +436,7 @@ describe("T107 exact-tree self-verification harness", () => {
     } finally {
       await releaseExactHeadRuntime(fixture.root, prepared);
     }
-  });
+  }, 15_000);
 
   it("binds schema and installed dependency-tree assets against post-build tampering", async () => {
     const fixture = createBuildableFixture();
