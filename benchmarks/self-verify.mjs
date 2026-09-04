@@ -54,7 +54,8 @@ const BOUND_PARENT_PUBLISHER_SOURCE = [
   '  await rm(finalName, { recursive: true, force: true });',
   '  published = false;',
   '}',
-  'const commandLines = createInterface({ input: process.stdin, crlfDelay: Infinity })[Symbol.asyncIterator]();',
+  'const commandInterface = createInterface({ input: process.stdin, crlfDelay: Infinity });',
+  'const commandLines = commandInterface[Symbol.asyncIterator]();',
   'async function readCommand() {',
   '  const next = await commandLines.next();',
   '  return next.done ? "ROLLBACK" : String(next.value).trim();',
@@ -95,6 +96,8 @@ const BOUND_PARENT_PUBLISHER_SOURCE = [
   '    if (rolledBack) process.stdout.write("ROLLED_BACK\\n");',
   '    process.stderr.write("bound_parent_publication_failed\\n");',
   '    process.exitCode = 1;',
+  '  } finally {',
+  '    commandInterface.close();',
   '  }',
   '})().catch(() => { process.stderr.write("bound_parent_publication_failed\\n"); process.exitCode = 1; });',
 ].join("\n");
