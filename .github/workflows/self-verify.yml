@@ -1,0 +1,66 @@
+name: Self Verification
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  self-verify:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Guard exact PR head
+        shell: bash
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse --verify HEAD^{commit})" = "$PR_HEAD_SHA"
+          test "$(git write-tree)" = "$(git rev-parse --verify "$PR_HEAD_SHA^{tree}")"
+          git diff --quiet --cached HEAD --
+          git diff --quiet --
+          test -z "$(git status --porcelain=v1 --untracked-files=all --ignored=no)"
+
+      - name: Setup Node 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Build exact PR head
+        run: npm run build
+
+      - name: Capture exact-head self-verification
+        shell: bash
+        env:
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          node benchmarks/self-verify.mjs \
+            --event-base-sha "$EVENT_BASE_SHA" \
+            --head-sha "$PR_HEAD_SHA" \
+            --output-dir "$RUNNER_TEMP/self-verification"
+
+      - name: Upload bounded self-verification evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: self-verification-${{ github.event.pull_request.head.sha }}
+          path: |
+            ${{ runner.temp }}/self-verification/self-verification-receipt.json
+            ${{ runner.temp }}/self-verification/self-verification-envelope.json
+          if-no-files-found: error
+          retention-days: 30
