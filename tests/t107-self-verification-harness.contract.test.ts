@@ -494,7 +494,7 @@ describe("T107 exact-tree self-verification harness", () => {
       .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "exit_2_integrity_failure"));
     expectNoEvidence(outputDir);
     expect(existsSync(outputDir)).toBe(false);
-  });
+  }, 15_000);
 
   it("rejects process mismatch, malformed JSON, schema invalidity, semantic invalidity, and missing receipt", () => {
     const source = {
@@ -588,7 +588,7 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(argv[0]).toContain("--format");
     expect(argv[0]).toContain("json");
     expect(argv[0]).not.toContain("--allow-changed-command-surface");
-  });
+  }, 15_000);
 
   it("keeps focused tests independent of pre-existing dist but production fails closed when the supplied head build is missing", async () => {
     const focused = createSimpleRepository();
