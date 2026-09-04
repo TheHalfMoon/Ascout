@@ -239,7 +239,7 @@ async function requireCleanHeadState(repositoryRoot, headSha, targetTreeSha) {
   const unstaged = await git(repositoryRoot, ["diff", "--quiet", "--"], [0, 1]);
   if (unstaged.exitCode !== 0) fail("tracked_contamination", "unstaged tracked changes exist before reconstruction");
 
-  await requireNoNonignoredUntracked(root);
+  await requireNoNonignoredUntracked(repositoryRoot);
 }
 
 async function requireNoUnstagedTracked(repositoryRoot) {
@@ -1117,7 +1117,6 @@ export async function runSelfVerification({
 
     const receiptBytes = Buffer.isBuffer(execution.stdout) ? execution.stdout : Buffer.from(execution.stdout ?? "");
     const validated = validateReceiptCapture({ receiptBytes, processExitCode: execution.exitCode, expectedSourceState, validators: runtime });
-
     if (prepared !== null) await requireRuntimeManifest(prepared);
 
     const receiptSha256 = sha256(receiptBytes);
