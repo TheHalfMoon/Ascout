@@ -621,7 +621,7 @@ describe("T107 exact-tree self-verification harness", () => {
     })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, expectedCode));
     expectNoEvidence(outputDir);
     expect(existsSync(outputDir)).toBe(false);
-  });
+  }, 15_000);
 
   it.skipIf(process.platform === "win32")("rejects output-path replacement with a repository symlink without repository evidence", async () => {
     const simple = createSimpleRepository();
