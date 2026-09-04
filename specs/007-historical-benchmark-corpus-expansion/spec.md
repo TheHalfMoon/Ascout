@@ -143,14 +143,14 @@ Spec 007 implementation is `GO` only if:
 1. planning and separate implementation authorization are canonically closed first;
 2. exactly the authorized benchmark-only paths change;
 3. both cases pass exact provenance/license/runtime qualification;
-4. both cases complete repeated isolated replay or are explicitly rejected before activation without weakening admission rules;
-5. any activated case proves oracle anti-leakage and hermeticity;
+4. both cases complete repeated isolated replay and reach qualified `BENCHMARK_ACTIVE` observations under the frozen rules;
+5. both activated cases prove oracle anti-leakage and hermeticity;
 6. existing result files remain byte-identical;
-7. one additive expanded-corpus result is produced from exact live execution;
+7. one additive expanded-corpus result covering the full eight-case selection set is produced from exact live execution;
 8. all observed misses/unavailable outcomes are preserved honestly;
 9. existing absolute integrity gates remain satisfied;
 10. exact-head Project CI and independent substantive review gates pass for every code/manifest publication unit requiring them;
 11. guarded merges and post-merge identity verification complete;
 12. closeout records the measured result without promoting selector shadow, M2, or product changes.
 
-If either candidate cannot satisfy the existing benchmark trust contract without broad new infrastructure, reject that candidate and return to planning rather than broadening implementation authority silently.
+If either candidate cannot satisfy the existing benchmark trust contract without broad new infrastructure, reject that candidate and return to planning. That outcome is `NO_GO` for the current two-case Spec 007 plan until a separately reviewed planning amendment replaces or removes the failed candidate; implementation authority must not be broadened silently.
