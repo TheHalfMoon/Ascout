@@ -855,6 +855,47 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(existsSync(outputDir)).toBe(false);
   });
 
+  it.skipIf(process.platform === "win32")("rolls back final pathname replacement after child FINALIZE checks without following replacement cleanup", async () => {
+    const simple = createSimpleRepository();
+    const outputDir = temporaryOutputPath("ascout-t107-post-finalize-race-");
+    const repositoryTarget = join(simple.root, "post-finalize-target");
+    const displaced = join(dirname(outputDir), "displaced-post-finalize-bundle");
+    mkdirSync(repositoryTarget);
+    let replaced = false;
+    let returnedReceiptPath: string | null = null;
+    let recursiveCleanupTouchedReplacement = false;
+
+    const attempt = runSelfVerification({
+      repositoryRoot: simple.root,
+      eventBaseSha: simple.base,
+      headSha: simple.head,
+      outputDir,
+      testRuntime: runtimeFor(0),
+      testEvidenceIo: {
+        afterBoundParentFinalize: async () => {
+          renameSync(outputDir, displaced);
+          symlinkSync(repositoryTarget, outputDir, "dir");
+          replaced = true;
+        },
+        rm: async (...args: Parameters<typeof fsPromises.rm>) => {
+          if (replaced && String(args[0]) === outputDir) recursiveCleanupTouchedReplacement = true;
+          return await fsPromises.rm(...args);
+        },
+      },
+    }).then((result) => {
+      returnedReceiptPath = result.receiptPath;
+      return result;
+    });
+
+    await expect(attempt).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "evidence_output_changed"));
+    expect(replaced).toBe(true);
+    expect(returnedReceiptPath).toBeNull();
+    expect(recursiveCleanupTouchedReplacement).toBe(false);
+    expectNoEvidence(repositoryTarget);
+    expectNoEvidence(outputDir);
+    expect(existsSync(outputDir)).toBe(false);
+  });
+
   it("removes all published evidence when retained receipt handle read-back mismatches", async () => {
     const simple = createSimpleRepository();
     const outputDir = temporaryOutputPath("ascout-t107-readback-mismatch-");
