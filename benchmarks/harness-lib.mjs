@@ -37,6 +37,21 @@ const SELECTION_COMMAND_PATTERNS = {
 };
 const GAP_TARGETED_PATTERN = /Pinned T075 targeted oracle command: `([^`]+)`\./;
 const GAP_REFERENCE_PATTERN = /Pinned project-native reference command: `([^`]+)`\./;
+const OBSERVED_NO_TESTS_SIGNATURES = Object.freeze({
+  vitest: "No test files found, exiting with code 0",
+});
+const OBSERVED_NO_TESTS_CONFLICT_PATTERNS = [
+  /command not found/i,
+  /cannot find module/i,
+  /err_module_not_found/i,
+  /failed to load config/i,
+  /could not resolve/i,
+  /failed to resolve/i,
+  /cannot resolve/i,
+  /unknown option/i,
+  /unknown command/i,
+  /err_pnpm_/i,
+];
 
 export class BenchmarkHarnessError extends Error {
   constructor(code, message) {
@@ -375,6 +390,33 @@ export function membershipProofCommand(commandText, kind, outputFile) {
   };
 }
 
+export function proveObservedRunnerNoTests({
+  policy,
+  runner,
+  outcome,
+  expectedExitCode,
+  exitCode,
+  stdout,
+  stderr,
+  stdoutTruncated,
+  stderrTruncated,
+}) {
+  if (policy !== "observed") return false;
+  const signature = OBSERVED_NO_TESTS_SIGNATURES[runner];
+  if (typeof signature !== "string") return false;
+  if (outcome !== "exited" || expectedExitCode !== 0 || exitCode !== 0 || exitCode !== expectedExitCode) return false;
+  if (stdoutTruncated === true || stderrTruncated === true) return false;
+  if (typeof stdout !== "string" || typeof stderr !== "string") return false;
+
+  const output = `${stdout}\n${stderr}`;
+  if (OBSERVED_NO_TESTS_CONFLICT_PATTERNS.some((pattern) => pattern.test(output))) return false;
+  const noTestsLikeLines = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /no test files found/i.test(line));
+  return noTestsLikeLines.length === 1 && noTestsLikeLines[0] === signature;
+}
+
 export function proveRunnerMembership(report, regressionTestIds, regressionTestPaths) {
   if (!report || typeof report !== "object" || !Array.isArray(report.testResults)) {
     fail("oracle_membership", "runner membership report is missing testResults");
@@ -454,13 +496,19 @@ export function proveReviewedAssertionStatus(report, regressionTestIds, regressi
   );
 }
 
-export function enforceMembershipPolicy(policy, membership, label = "comparator") {
+export function enforceMembershipPolicy(policy, membership, label = "comparator", context = {}) {
   if (policy !== "none" && policy !== "required" && policy !== "observed") {
     fail("invalid_case", `unsupported membership policy: ${String(policy)}`);
   }
   if (policy === "none") return null;
   if (typeof membership !== "boolean") fail("oracle_membership", `${label} membership observation is unavailable`);
   if (policy === "required" && !membership) fail("oracle_membership", `${label} did not prove oracle membership`);
+  if (policy === "observed" && context?.evidence_kind === "runner-native-no-tests") {
+    if (membership !== false) fail("oracle_membership", `${label} runner-native no-tests evidence cannot prove membership=true`);
+    if (context?.source_stability !== "stable" || context?.proof_source_stability !== "stable") {
+      fail("binding_integrity", `${label} runner-native no-tests evidence requires stable comparator and proof source state`);
+    }
+  }
   return membership;
 }
 
