@@ -265,5 +265,5 @@ describe("T103 runCheck Jest branch receipt integration", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });

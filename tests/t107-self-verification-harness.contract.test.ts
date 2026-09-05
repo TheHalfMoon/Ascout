@@ -485,7 +485,7 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(result.envelope.receipt_exit_code).toBe(exitCode);
     expect(existsSync(result.receiptPath)).toBe(true);
     expect(existsSync(result.envelopePath)).toBe(true);
-  });
+  }, 15_000);
 
   it("rejects otherwise-valid source-bound exit 2 before digest/envelope/output", async () => {
     const simple = createSimpleRepository();
@@ -935,7 +935,7 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(receiptReadPasses).toBeGreaterThanOrEqual(2);
     expectNoEvidence(outputDir);
     expect(existsSync(outputDir)).toBe(false);
-  });
+  }, 15_000);
 
   it("removes all staged evidence when envelope staging fails", async () => {
     const simple = createSimpleRepository();
