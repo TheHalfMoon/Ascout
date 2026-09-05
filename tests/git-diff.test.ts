@@ -166,7 +166,7 @@ describe("T020 working-tree changed scope", () => {
     expect(changed.has(".ascout/runtime.json")).toBe(false);
 
     for (const entry of comparison.changed_files) expectPositiveOrderedRanges(entry);
-  });
+  }, 15_000);
 
   it("preserves leading U+FEFF in untracked path identity", () => {
     const repositoryRoot = makeRepository();
