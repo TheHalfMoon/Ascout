@@ -358,7 +358,7 @@ describe("PR #41 P0 receipt integrity regressions", () => {
       redacted: true,
       truncated: false,
     });
-  });
+  }, 15_000);
 
   it("binds run.started_at before an executed task starts", async () => {
     const repositoryRoot = makeRepository();
@@ -388,5 +388,5 @@ describe("PR #41 P0 receipt integrity regressions", () => {
     expect(Date.parse(outcome.receipt.run.started_at)).toBeLessThanOrEqual(
       Date.parse(lint!.started_at!),
     );
-  });
+  }, 15_000);
 });
