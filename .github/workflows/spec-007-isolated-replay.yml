@@ -1,0 +1,128 @@
+name: Spec 007 Isolated Replay
+
+on:
+  create:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    if: ${{ format('{0}', github.run_attempt) == '1' && github.event.ref_type == 'branch' && github.sha == github.workflow_sha && (github.event.ref == 'run/spec007-t111-jotai' || github.event.ref == 'run/spec007-t112-immer') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Bind authorized task ref
+        id: bind
+        shell: bash
+        env:
+          CREATED_REF: ${{ github.event.ref }}
+          EVENT_REF_TYPE: ${{ github.event.ref_type }}
+          EVENT_SOURCE_SHA: ${{ github.sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          test "$RUN_ATTEMPT" = "1"
+          test "$EVENT_REF_TYPE" = "branch"
+          test "$EVENT_SOURCE_SHA" = "$WORKFLOW_SHA"
+
+          case "$CREATED_REF" in
+            run/spec007-t111-jotai)
+              case_id="jotai-splitatom-identical-write"
+              ;;
+            run/spec007-t112-immer)
+              case_id="immer-draftmap-iterator-compatibility"
+              ;;
+            *)
+              echo "unauthorized task-run ref: $CREATED_REF" >&2
+              exit 64
+              ;;
+          esac
+
+          printf 'case_id=%s\n' "$case_id" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout exact event source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Guard exact event source
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          CREATED_REF: ${{ github.event.ref }}
+          CASE_ID: ${{ steps.bind.outputs.case_id }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          observed_sha="$(git rev-parse --verify HEAD^{commit})"
+          test "$observed_sha" = "$EXPECTED_SOURCE_SHA"
+          test "$observed_sha" = "$WORKFLOW_SHA"
+          git diff --quiet --cached HEAD --
+          git diff --quiet --
+          test -z "$(git status --porcelain=v1 --untracked-files=all --ignored=no)"
+
+          printf 'CREATED_REF=%s\n' "$CREATED_REF"
+          printf 'CASE_ID=%s\n' "$CASE_ID"
+          printf 'RUN_ID=%s\n' "$RUN_ID"
+          printf 'RUN_ATTEMPT=%s\n' "$RUN_ATTEMPT"
+          printf 'SOURCE_SHA=%s\n' "$observed_sha"
+          printf 'WORKFLOW_SHA=%s\n' "$WORKFLOW_SHA"
+          printf 'SOURCE_TREE=%s\n' "$(git rev-parse --verify HEAD^{tree})"
+
+      - name: Setup exact Node 24.15.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.15.0"
+
+      - name: Verify exact Node and activate Yarn Classic
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.15.0"
+          command -v corepack >/dev/null
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          test "$(yarn --version)" = "1.22.22"
+
+      - name: Install and build exact Ascout source
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          git diff --quiet --cached HEAD --
+          git diff --quiet --
+          test -z "$(git status --porcelain=v1 --untracked-files=all --ignored=no)"
+
+      - name: Run unchanged canonical replay harness
+        shell: bash
+        env:
+          CASE_ID: ${{ steps.bind.outputs.case_id }}
+          OUTPUT_PATH: ${{ runner.temp }}/spec007-isolated-replay/replay.json
+        run: |
+          set -euo pipefail
+          run_id="spec008-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${CASE_ID}"
+          node benchmarks/run.mjs \
+            --case "$CASE_ID" \
+            --manifest benchmarks/manifest.json \
+            --ascout-root . \
+            --run-id "$run_id" \
+            --repetitions 2 \
+            --output "$OUTPUT_PATH"
+          test -s "$OUTPUT_PATH"
+
+      - name: Upload bounded replay evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: spec007-${{ steps.bind.outputs.case_id }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/spec007-isolated-replay/replay.json
+          if-no-files-found: ignore
+          retention-days: 30
