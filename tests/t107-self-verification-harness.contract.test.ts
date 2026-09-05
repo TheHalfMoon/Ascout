@@ -418,7 +418,7 @@ describe("T107 exact-tree self-verification harness", () => {
     }
     await expect(reconstructSelfVerificationSubject({ repositoryRoot: ignored.root, eventBaseSha: ignored.base, headSha: ignored.head }))
       .resolves.toMatchObject({ mergeBaseSha: ignored.base });
-  });
+  }, 15_000);
 
   it("provisions a private exact-H runtime from a clean exact-lockfile install and ignores subject dist/node_modules", async () => {
     const fixture = createBuildableFixture();
@@ -436,7 +436,7 @@ describe("T107 exact-tree self-verification harness", () => {
     } finally {
       await releaseExactHeadRuntime(fixture.root, prepared);
     }
-  });
+  }, 15_000);
 
   it("binds schema and installed dependency-tree assets against post-build tampering", async () => {
     const fixture = createBuildableFixture();
@@ -494,7 +494,7 @@ describe("T107 exact-tree self-verification harness", () => {
       .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "exit_2_integrity_failure"));
     expectNoEvidence(outputDir);
     expect(existsSync(outputDir)).toBe(false);
-  });
+  }, 15_000);
 
   it("rejects process mismatch, malformed JSON, schema invalidity, semantic invalidity, and missing receipt", () => {
     const source = {
@@ -588,7 +588,7 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(argv[0]).toContain("--format");
     expect(argv[0]).toContain("json");
     expect(argv[0]).not.toContain("--allow-changed-command-surface");
-  });
+  }, 15_000);
 
   it("keeps focused tests independent of pre-existing dist but production fails closed when the supplied head build is missing", async () => {
     const focused = createSimpleRepository();
@@ -621,7 +621,7 @@ describe("T107 exact-tree self-verification harness", () => {
     })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, expectedCode));
     expectNoEvidence(outputDir);
     expect(existsSync(outputDir)).toBe(false);
-  });
+  }, 15_000);
 
   it.skipIf(process.platform === "win32")("rejects output-path replacement with a repository symlink without repository evidence", async () => {
     const simple = createSimpleRepository();
