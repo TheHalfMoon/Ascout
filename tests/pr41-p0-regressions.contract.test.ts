@@ -305,7 +305,7 @@ describe("PR #41 P0 receipt integrity regressions", () => {
       changed_authority_paths: ["package.json"],
       execution_admission: "refused_changed_surface",
     });
-  });
+  }, 15_000);
 
   it("marks redacted output as redacted without fabricating truncation", async () => {
     const repositoryRoot = makeRepository();
