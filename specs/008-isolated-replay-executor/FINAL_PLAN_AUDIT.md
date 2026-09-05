@@ -6,22 +6,26 @@
 
 This file defines the audit gate. It does **not** claim that an independent audit has already occurred.
 
+All review/CI evidence from the pre-amendment workflow-dispatch planning head is stale after the execution-control amendment and cannot qualify the final head.
+
 ## Exact-head audit questions
 
-An independent reviewer must examine the complete Spec 008 planning diff and answer whether any material issue exists in:
+An independent reviewer must examine the complete final Spec 008 planning diff and answer whether any material issue exists in:
 
 1. canonical authority or task ordering;
 2. trust-boundary expansion;
 3. workflow permissions or secret exposure;
 4. arbitrary/untrusted execution risk;
-5. source/head binding;
-6. exact runtime/package-manager provenance;
-7. donor acquisition versus measured-oracle network claims;
-8. benchmark evidence integrity or no-green-by-omission;
-9. historical-result immutability;
-10. scope creep into product/harness/manifest/dependency/release surfaces;
-11. unnecessary complexity versus the observed T111 blocker;
-12. missing implementation qualification or post-merge gates.
+5. exact `create`-event branch-ref admission and fixed branch-to-case mapping;
+6. one-shot run-ref creation, source/head binding, and no-repoint/no-rerun rule;
+7. exact runtime/package-manager provenance;
+8. donor acquisition versus measured-oracle network claims;
+9. benchmark evidence integrity or no-green-by-omission;
+10. historical-result immutability;
+11. scope creep into product/harness/manifest/dependency/release surfaces;
+12. unnecessary complexity versus the observed T111 blocker;
+13. practical executability through the connected Git ref authority without workflow dispatch;
+14. missing implementation qualification or post-merge gates.
 
 ## Required audit outcome
 
@@ -33,4 +37,4 @@ After the final-plan audit is satisfied, canonical governance additionally requi
 
 ## Implementation boundary
 
-Even a clean planning audit grants no workflow implementation authority. A separate explicit authorization remains mandatory.
+Even a clean planning audit grants no workflow implementation or task-run ref creation authority. A separate explicit authorization remains mandatory.

@@ -10,23 +10,24 @@ The recovery problem is execution availability, not missing benchmark semantics.
 
 - one GitHub Actions workflow;
 - Linux only;
-- manual dispatch only;
-- exact Ascout SHA input and guard;
-- two-case closed enum;
+- GitHub `create` event only;
+- exactly two fixed task-run branch names;
+- exact event/source SHA guard;
 - exact Node `24.15.0` and Yarn `1.22.22` verification;
 - existing `benchmarks/run.mjs` invocation;
-- 2–3 repetitions only;
+- exactly two repetitions;
 - read-only repository permission;
 - bounded job timeout and artifact retention.
 
 ## Removed or rejected
 
 - changes to Project CI or Self Verification;
+- manual-dispatch-only dependency that the connected execution surface cannot exercise;
 - reusable workflow abstraction;
-- matrix over arbitrary cases/runtimes;
+- matrices over arbitrary cases/runtimes;
 - scheduler or automatic nightly benchmark runs;
 - generalized donor-repository input;
-- arbitrary shell/command input;
+- arbitrary shell/command/SHA/runtime/package-manager input;
 - Docker image or custom action;
 - cache service or persistent donor mirror;
 - benchmark harness refactor;
@@ -35,12 +36,15 @@ The recovery problem is execution availability, not missing benchmark semantics.
 - automatic issue updates from workflow credentials;
 - product or release integration;
 - cloud executor outside GitHub Actions;
-- multi-OS support.
+- multi-OS support;
+- wildcard execution branches.
 
-## Why a workflow is the minimum
+## Why a workflow plus two fixed refs is the minimum
 
-The canonical harness already performs acquisition, identity verification, frozen install, reconstruction, oracle proof, comparator execution, determinism checking, and evidence serialization. Duplicating any of those concerns in a new script would create a second evidence authority. A thin workflow only supplies the missing runtime and durable execution envelope.
+The canonical harness already performs acquisition, identity verification, frozen install, reconstruction, oracle proof, comparator execution, determinism checking, and evidence serialization. Duplicating any of those concerns in a new script would create a second evidence authority.
+
+The connected GitHub authority can create an exact branch ref but cannot dispatch a workflow. GitHub's `create` event therefore supplies the missing deterministic trigger without free-form workflow inputs. Two exact task branches correspond one-to-one with the only two authorized successor replays.
 
 ## Complexity verdict
 
-One bounded workflow is proportional to the observed blocker. Any design requiring a new runtime service, framework, wrapper program, cache protocol, or product API is overdesigned for Spec 008 and must return to planning.
+One bounded workflow and two one-shot task refs are proportional to the observed blocker. Any design requiring a new runtime service, framework, wrapper program, cache protocol, wildcard branch family, or product API is overdesigned for Spec 008 and must return to planning.

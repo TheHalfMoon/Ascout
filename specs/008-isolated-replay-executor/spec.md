@@ -8,6 +8,8 @@
 
 Specification 007 T111 cannot execute in the currently available authorized environment. The benchmark harness already exists and the Jotai/Immer cases are frozen, but there is no authorized executor that provides Linux, exact Node `v24.15.0`, Yarn Classic `1.22.22`, public donor/dependency acquisition, bounded execution, and durable evidence capture.
 
+A manual `workflow_dispatch`-only route is also insufficient for the current connected execution authority because no workflow-dispatch action is exposed. The executor therefore needs a bounded GitHub event that the existing Git ref authority can trigger without adding arbitrary command or repository input.
+
 ## Goal
 
 Provide the smallest repository-hosted execution route that can run the existing `benchmarks/run.mjs` harness unchanged for only the frozen Specification 007 Jotai and Immer qualification cases.
@@ -21,6 +23,7 @@ This specification does not authorize or design:
 - manifest or historical-result changes;
 - a generalized benchmark framework;
 - arbitrary shell execution;
+- arbitrary repository, SHA, runtime, package-manager, or command inputs;
 - reusable workflow infrastructure;
 - daemon, service, container platform, cloud control plane, or scheduler;
 - release, tag, npm publication, or product CI expansion.
@@ -31,24 +34,38 @@ If separately implementation-authorized after planning closes, the repository mu
 
 - `.github/workflows/spec-007-isolated-replay.yml`
 
-No other path is in scope.
+The execution-control surface is limited to creating one of these exact Git branches from the then-canonical `main` commit:
+
+- `run/spec007-t111-jotai`
+- `run/spec007-t112-immer`
+
+Those run refs are task-scoped control refs. They MUST be newly created only after the corresponding task becomes eligible, MUST point exactly to the verified canonical `main` SHA, and MUST NOT be repointed or reused to manufacture another attempt.
+
+No other path or execution ref is in scope.
 
 ## Required behavior
 
 The workflow MUST:
 
-1. run only on Linux;
-2. require an explicit manual `workflow_dispatch` case choice restricted to exactly `jotai-splitatom-identical-write` or `immer-draftmap-iterator-compatibility`;
-3. check out an explicitly supplied canonical Ascout commit and guard that exact SHA before execution;
-4. use exact Node `24.15.0`;
-5. make Yarn Classic `1.22.22` available and verify `yarn --version` before replay;
-6. install Ascout's own exact lockfile without changing repository source;
-7. build the exact Ascout source before replay;
-8. invoke only the existing `benchmarks/run.mjs` with the canonical manifest, the selected case, a run ID derived from immutable GitHub run metadata, and at least two repetitions;
-9. preserve the harness's existing donor clone, byte verification, reconstruction anti-leakage, sanitized environment, source-stability, membership, determinism, and integrity checks unchanged;
-10. upload the exact replay result as a bounded retained artifact even when the replay fails after producing an output file;
-11. expose failure as failure; no rerun-until-green policy is authorized;
-12. use least privilege with repository contents read-only and no secrets required.
+1. run only from GitHub's `create` event;
+2. perform replay work only when the created ref is a branch named exactly `run/spec007-t111-jotai` or `run/spec007-t112-immer`;
+3. map those fixed branch names internally to exactly `jotai-splitatom-identical-write` or `immer-draftmap-iterator-compatibility`;
+4. use the event's exact commit SHA and guard checkout against that SHA before execution;
+5. use exact Node `24.15.0`;
+6. make Yarn Classic `1.22.22` available and verify `yarn --version` before replay;
+7. install Ascout's own exact lockfile without changing repository source;
+8. build the exact Ascout source before replay;
+9. invoke only the existing `benchmarks/run.mjs` with the canonical manifest, mapped case, a run ID derived from immutable GitHub run metadata, and exactly two repetitions;
+10. preserve the harness's existing donor clone, byte verification, reconstruction anti-leakage, sanitized environment, source-stability, membership, determinism, and integrity checks unchanged;
+11. upload the exact replay result as a bounded retained artifact when available;
+12. expose failure as failure; no rerun-until-green policy is authorized;
+13. use least privilege with repository contents read-only and no secrets required.
+
+## GitHub event boundary
+
+Official GitHub Actions semantics define the `create` event as running when a Git branch or tag reference is created, including references created through the Git references API. Spec 008 uses that event because the connected repository authority can create an exact branch ref while it cannot dispatch a manual workflow.
+
+The workflow file must already be canonical on the default branch before any authorized run ref is created. Creating the workflow implementation branch or merging the workflow itself MUST NOT qualify as T111/T112 execution.
 
 ## Network boundary
 
@@ -56,13 +73,7 @@ The existing harness explicitly records that runner network is available for pub
 
 ## Inputs
 
-The workflow may accept only:
-
-- `case_id`: enum of the two frozen Spec 007 cases;
-- `ascout_sha`: exact 40-character commit SHA expected to equal the intended canonical source;
-- `repetitions`: restricted to `2` or `3`, default `2`.
-
-No free-form command, repository URL, manifest path, package manager, Node version, or arbitrary argument input is permitted.
+There are no user-provided workflow inputs. Case identity comes only from the two exact run-branch names. Repetitions are fixed at `2`. Runtime, package manager, manifest path, donor repository, and harness command are fixed by canonical source and the workflow implementation.
 
 ## Outputs
 
@@ -70,8 +81,8 @@ The workflow must preserve:
 
 - the JSON result written by `benchmarks/run.mjs` when available;
 - job outcome and GitHub run/job identity;
-- exact Ascout SHA;
-- case ID and repetition count.
+- exact event/source SHA;
+- mapped case ID and repetition count.
 
 The workflow itself MUST NOT translate a failing replay into `BENCHMARK_ACTIVE`; only the unchanged harness may emit that lifecycle result.
 
@@ -80,14 +91,16 @@ The workflow itself MUST NOT translate a failing replay into `BENCHMARK_ACTIVE`;
 - `permissions: contents: read` only unless GitHub requires an additional non-write permission for artifact upload;
 - `persist-credentials: false` on checkout;
 - no repository/environment secrets;
-- no `pull_request_target`, untrusted PR branch execution, or dynamic repository input;
+- no `pull_request_target`, untrusted PR branch execution, or dynamic donor repository input;
 - no shell interpolation of user-controlled command text;
+- exact branch-name allowlist checked before any install/build/donor execution;
+- exact event SHA checkout and guard;
 - timeout bounded at job level;
 - artifact retention bounded;
 - no cache whose contents become benchmark evidence.
 
 ## Acceptance criteria
 
-Planning is complete only when the canonical plan proves that a one-workflow solution is sufficient and a fresh independent exact-head audit finds no material trust, scope, licensing, evidence-integrity, or complexity issue.
+Planning is complete only when the canonical plan proves that a one-workflow plus two fixed task-run refs solution is sufficient and a fresh independent exact-head audit finds no material trust, scope, licensing, evidence-integrity, or complexity issue.
 
 Implementation remains forbidden until a separate explicit implementation authorization becomes canonical.
