@@ -21,7 +21,8 @@ Canonical implementation order, if and only if Spec 008 later receives explicit 
 - authorize only one future creation of each exact task-run branch when its task is eligible:
   - `run/spec007-t111-jotai`
   - `run/spec007-t112-immer`
-- forbid repointing, force-updating, reuse, or recreation of either run ref to obtain another attempt;
+- authorize qualification only for GitHub `run_attempt == 1`;
+- forbid repointing, force-updating, reuse, deletion/recreation, or GitHub rerun acceptance for qualification;
 - name exact behavioral constraints from Spec 008;
 - independently review and canonically merge the authorization before implementation.
 
@@ -34,7 +35,8 @@ Authorized tracked surface, if P008-02 closes effectively:
 Required implementation:
 
 - GitHub `create` event only;
-- replay job admitted only for branch ref type and the two exact task-run branch names;
+- replay job admitted only for `github.run_attempt == '1'`, branch ref type, and the two exact task-run branch names;
+- later reruns rejected before checkout/install/build/donor execution;
 - fixed branch-to-case mapping;
 - exact event SHA checkout and source guard;
 - Ubuntu 24.04;
@@ -65,9 +67,9 @@ Only after P008-03 canonical closeout:
 - verify canonical manifest/verifier/toolchain identities;
 - verify `run/spec007-t111-jotai` does not exist;
 - create that exact branch once from exact canonical main;
-- verify the resulting GitHub `create`-event run is bound to that SHA and mapped case;
-- preserve any failure as evidence; do not move/recreate the branch and do not rerun-until-green;
-- if the harness emits genuine `BENCHMARK_ACTIVE` evidence satisfying all gates, close T111 `CLOSED_CANONICAL / QUALIFIED`.
+- verify the resulting GitHub `create`-event run is bound to that SHA, mapped case, and `run_attempt == 1`;
+- preserve any failure as evidence; do not move/recreate the branch and do not accept or initiate a later rerun for qualification;
+- if the unchanged harness emits genuine `BENCHMARK_ACTIVE` evidence satisfying all gates, close T111 `CLOSED_CANONICAL / QUALIFIED`.
 
 ### P008-05 — T112 Immer replay
 
@@ -76,8 +78,8 @@ Only after T111 qualified:
 - prove exact Node runtime supports the Iterator behavior required by the frozen oracle without polyfill/rewrite;
 - verify `run/spec007-t112-immer` does not exist;
 - create that exact branch once from exact then-canonical main;
-- reconcile its single create-event replay run;
-- preserve failure as evidence; do not move/recreate the branch;
+- reconcile only its first create-event replay run with `run_attempt == 1`;
+- preserve failure as evidence; do not move/recreate the branch or accept a later rerun;
 - close qualified only on genuine harness evidence.
 
 ### P008-06 — T113 publication

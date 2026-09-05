@@ -6,7 +6,7 @@
 
 This file defines the audit gate. It does **not** claim that an independent audit has already occurred.
 
-All review/CI evidence from the pre-amendment workflow-dispatch planning head is stale after the execution-control amendment and cannot qualify the final head.
+All review/CI evidence from the pre-amendment and pre-rerun-repair planning heads is stale and cannot qualify the final repaired head.
 
 ## Exact-head audit questions
 
@@ -17,15 +17,16 @@ An independent reviewer must examine the complete final Spec 008 planning diff a
 3. workflow permissions or secret exposure;
 4. arbitrary/untrusted execution risk;
 5. exact `create`-event branch-ref admission and fixed branch-to-case mapping;
-6. one-shot run-ref creation, source/head binding, and no-repoint/no-rerun rule;
-7. exact runtime/package-manager provenance;
-8. donor acquisition versus measured-oracle network claims;
-9. benchmark evidence integrity or no-green-by-omission;
-10. historical-result immutability;
-11. scope creep into product/harness/manifest/dependency/release surfaces;
-12. unnecessary complexity versus the observed T111 blocker;
-13. practical executability through the connected Git ref authority without workflow dispatch;
-14. missing implementation qualification or post-merge gates.
+6. exact `github.run_attempt == '1'` admission and prevention of native GitHub rerun execution;
+7. one-shot run-ref creation, source/head binding, and no-repoint/no-recreate/no-rerun rule;
+8. exact runtime/package-manager provenance;
+9. donor acquisition versus measured-oracle network claims;
+10. benchmark evidence integrity or no-green-by-omission;
+11. historical-result immutability;
+12. scope creep into product/harness/manifest/dependency/release surfaces;
+13. unnecessary complexity versus the observed T111 blocker;
+14. practical executability through the connected Git ref authority without workflow dispatch;
+15. missing implementation qualification or post-merge gates.
 
 ## Required audit outcome
 

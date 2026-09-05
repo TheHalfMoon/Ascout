@@ -28,20 +28,23 @@ Before creation, the active task ledger MUST:
 
 After creation:
 
-- the branch MUST NOT be repointed, force-updated, reused, or recreated for another attempt;
-- the workflow event/ref/SHA must be reconciled to the ledger before any qualification claim;
+- the branch MUST NOT be repointed, force-updated, reused, deleted/recreated, or otherwise manipulated to obtain another attempt;
+- the workflow event/ref/SHA/run-attempt must be reconciled to the ledger before any qualification claim;
 - a failed authorized run remains failure evidence and returns to planning.
 
-## Trigger admission
+## Trigger and attempt admission
 
-Use `on: create` only. The replay job must have an exact fail-closed `if` guard requiring:
+Use `on: create` only. The replay job must have a fail-closed `if` guard requiring all of:
 
-- `github.event.ref_type == 'branch'`; and
+- `github.run_attempt == '1'`;
+- `github.event.ref_type == 'branch'`;
 - `github.event.ref` equals one of the two exact run branch names.
+
+Every later GitHub re-run attempt must be rejected at job admission and must perform no checkout, install, build, donor acquisition, oracle, comparator, or harness execution.
 
 All other branch/tag creations produce no replay work. No wildcard run namespace is authorized.
 
-A first workflow step must independently map the exact branch name to the exact frozen case ID and fail for any other value, even though the job-level guard already narrows admission.
+A first admitted workflow step must independently map the exact branch name to the exact frozen case ID and fail for any other value, even though the job-level guard already narrows admission.
 
 ## Permissions
 
@@ -60,9 +63,9 @@ Set top-level `permissions: contents: read`. Checkout must use `persist-credenti
 3. Prove `git rev-parse --verify HEAD^{commit}` equals `github.sha`.
 4. Prove worktree/index clean before Ascout installation/build.
 5. Record `HEAD^{tree}` in logs.
-6. Record the created ref name and mapped case ID.
+6. Record created ref, mapped case ID, `github.run_id`, and `github.run_attempt`.
 
-The governance ledger independently verifies that the branch was created from the expected canonical `main` SHA. A source mismatch cannot qualify.
+The governance ledger independently verifies that the branch was created from the expected canonical `main` SHA and that the qualifying attempt is exactly `1`. A source or attempt mismatch cannot qualify.
 
 ## Toolchain
 
@@ -94,13 +97,14 @@ Invoke directly with no generated free-form command:
 
 `node benchmarks/run.mjs --case <mapped-case> --ascout-root . --run-id <derived-run-id> --repetitions 2 --output <runner-temp-path>`
 
-The run ID is deterministic from GitHub run identity plus mapped case, for example `spec008-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${case_id}`. This is evidence identity only and does not change harness semantics.
+The run ID is deterministic from GitHub run identity plus mapped case and attempt, for example `spec008-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${case_id}`. This is evidence identity only and does not change harness semantics. A qualifying run ID necessarily contains attempt `1`.
 
 The manifest path remains its default canonical `benchmarks/manifest.json`.
 
 ## Failure behavior
 
-- ref admission mismatch: no replay job;
+- attempt other than 1: replay job not admitted;
+- ref admission mismatch: replay job not admitted;
 - branch-to-case mapping mismatch: fail;
 - source guard mismatch: fail;
 - toolchain mismatch: fail;
@@ -109,11 +113,12 @@ The manifest path remains its default canonical `benchmarks/manifest.json`.
 - oracle/reconstruction/membership/determinism/integrity failure: fail;
 - no retry/rerun logic inside the workflow;
 - no authorized ref repoint/recreation to obtain green;
-- a failed GitHub run remains evidence and is not converted to qualification by a later run.
+- no native GitHub re-run may qualify because attempts >1 are rejected before execution;
+- a failed first GitHub run remains evidence and is not converted to qualification by a later run.
 
 ## Artifact handling
 
-Use a runner-temp output path outside the repository. Upload the replay JSON when present with a bounded retention period of 30 days, matching existing self-verification evidence retention. Artifact name must include mapped case and exact event SHA or unambiguous run identity.
+Use a runner-temp output path outside the repository. Upload the replay JSON when present with a bounded retention period of 30 days, matching existing self-verification evidence retention. Artifact name must include mapped case, exact event SHA, and unambiguous run identity.
 
 The replay step may fail normally. A subsequent artifact-upload step may use `if: always()` so a result file produced before failure is retained. The original failed replay outcome MUST remain the job outcome; the workflow must not synthesize a success-shaped result or mask the failing exit status.
 
@@ -128,7 +133,7 @@ Do not add network-isolation claims. Public network is available to the harness 
 The future workflow implementation must receive:
 
 - exact one-path diff review;
-- YAML/trigger/ref-admission/permission inspection;
+- YAML/trigger/ref-admission/run-attempt/permission inspection;
 - proof no product/harness/manifest/result path changed;
 - exact-head Project CI and Self Verification where GitHub triggers them for the workflow PR;
 - fresh independent substantive security/semantic review;
@@ -140,10 +145,10 @@ The future workflow implementation must receive:
 
 1. Reopen/recreate T111 ledger against then-canonical main.
 2. Verify `run/spec007-t111-jotai` does not exist and create it once from exact canonical main.
-3. Reconcile its single replay run; never move/recreate the ref after failure.
+3. Reconcile exactly the first create-event run and prove `github.run_attempt == 1`; never move/recreate the ref or accept a rerun after failure.
 4. If genuinely qualified, close T111 `CLOSED_CANONICAL / QUALIFIED`.
 5. Only then open T112 and first prove exact Node Iterator semantics required by the Immer oracle.
 6. Verify `run/spec007-t112-immer` does not exist and create it once from then-canonical main.
-7. Reconcile the single Immer replay run; if genuinely qualified, close T112.
+7. Reconcile exactly the first Immer create-event run and prove attempt 1; if genuinely qualified, close T112.
 8. If T112 qualifies, proceed to T113 publication under existing Spec 007 authority.
 9. Complete T114 ledger/governance reconciliation and determine successor authority.

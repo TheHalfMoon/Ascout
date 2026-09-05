@@ -4,7 +4,7 @@
 
 `PASS`
 
-The amended technical plan remains bounded to the observed execution blocker and the actually available GitHub control surface.
+The repaired technical plan remains bounded to the observed execution blocker and closes both repository-ref replay and native GitHub rerun paths.
 
 ## Reductions confirmed
 
@@ -13,6 +13,7 @@ The amended technical plan remains bounded to the observed execution blocker and
 - no manual-dispatch dependency that cannot be exercised by the connected authority;
 - no matrix or configurable case/runtime/repository/command input;
 - exactly two fixed task-run branch names;
+- exactly one qualifying GitHub attempt (`run_attempt == 1`);
 - fixed two repetitions;
 - no cache authority;
 - no issue-writing token in the workflow;
@@ -26,8 +27,8 @@ The only implementation-time uncertainty that may require return to planning is 
 
 ## Execution-control risk disposition
 
-Using GitHub's `create` event means unrelated branch/tag creation may create a workflow event, but replay work is admitted only by an exact job-level branch/ref-type allowlist and an independent branch-to-case mapping step. No wildcard execution ref is authorized. This is smaller and less dynamic than parsing issue text or accepting free-form workflow inputs.
+Using GitHub's `create` event means unrelated branch/tag creation may produce a workflow event, but replay work is admitted only by a combined exact ref-type/branch-name/attempt-1 job guard plus an independent branch-to-case mapping step. GitHub-native re-runs increment `run_attempt` and are therefore rejected before any replay work.
 
 ## Verdict
 
-The one-file workflow plus two one-shot exact run refs is the simplest design currently capable of satisfying the missing execution requirement through the connected repository authority. No architecture expansion is justified.
+The one-file workflow plus two one-shot exact run refs and one native attempt-number guard is the simplest design currently capable of satisfying the missing execution requirement through the connected repository authority. No architecture expansion is justified.
