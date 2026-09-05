@@ -29,6 +29,7 @@ import {
   membershipProofCommand,
   observationsDeterministic,
   parseRestrictedCommand,
+  proveObservedRunnerNoTests,
   proveReviewedAssertionStatus,
   proveRunnerMembership,
   sanitizedDonorEnvironment,
@@ -539,11 +540,12 @@ function rejectSetupFailure(output, label) {
   if (match) fail("oracle_setup", `${label} contains setup/runner failure evidence matching ${match}`);
 }
 
-async function runMembershipProof(caseRecord, repo, root, commandText, expectedExitCode, label) {
+async function runMembershipProof(caseRecord, repo, root, commandText, expectedExitCode, label, membershipPolicy) {
   const proofPath = join(root, "membership-proofs", `${randomUUID()}.json`);
   assertPathInside(root, proofPath);
   await mkdir(dirname(proofPath), { recursive: true });
-  const variant = membershipProofCommand(commandText, runnerKind(caseRecord), proofPath);
+  const kind = runnerKind(caseRecord);
+  const variant = membershipProofCommand(commandText, kind, proofPath);
   const proofEnv = runtimeEnvironment(root, variant.env);
   await clearIgnoredMembershipRuntimeCaches(repo, proofEnv);
   const proof = await runBounded({ file: variant.file, argv: variant.argv, cwd: repo, env: proofEnv });
@@ -564,6 +566,30 @@ async function runMembershipProof(caseRecord, repo, root, commandText, expectedE
   }
   const uniqueReportPaths = [...new Set(reportPaths)].sort();
   if (uniqueReportPaths.length === 0) {
+    const observedNoTests = proveObservedRunnerNoTests({
+      policy: membershipPolicy,
+      runner: kind,
+      outcome: proof.outcome,
+      expectedExitCode,
+      exitCode: proof.exitCode,
+      stdout: proof.stdout.toString("utf8"),
+      stderr: proof.stderr.toString("utf8"),
+      stdoutTruncated: proof.stdoutTruncated,
+      stderrTruncated: proof.stderrTruncated,
+    });
+    if (observedNoTests) {
+      return {
+        membership: false,
+        reviewed_status: { passed: false, failed: false },
+        evidence: {
+          ...outputDigest(proof),
+          report_sha256: null,
+          report_bytes: 0,
+          report_count: 0,
+          evidence_kind: "runner-native-no-tests",
+        },
+      };
+    }
     const boundedOutput = textOutput(proof).slice(0, 2000);
     fail("oracle_membership", `${label} membership proof did not produce an external JSON report (exit ${proof.exitCode}); output=${boundedOutput}`);
   }
@@ -629,7 +655,7 @@ async function runReviewed(caseRecord, repo, root, commandText, expected, label,
   await assertMeasuredState(repo, expectedPaths, envBase);
   const exact = await runBounded({ file: parsed.file, argv: parsed.argv, cwd: repo, env });
   requireExited(exact, label);
-  const proof = await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label);
+  const proof = await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label, "required");
   if (!proof.membership) fail("oracle_membership", `${label} did not prove all reviewed regression_test_ids executed`);
   const expectedStatus = expected === "pass" ? "passed" : "failed";
   if (proof.reviewed_status[expectedStatus] !== true) {
@@ -664,7 +690,7 @@ async function runComparator(caseRecord, repo, root, commandText, label, members
   }
   if (!proveMembership) rejectSetupFailure(textOutput(exact), label);
   const proof = proveMembership
-    ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label)
+    ? await runMembershipProof(caseRecord, repo, root, commandText, exact.exitCode, label, membershipPolicy)
     : null;
   let proofSourceStability = null;
   let proofSourceStateEndSha256 = null;
@@ -675,7 +701,16 @@ async function runComparator(caseRecord, repo, root, commandText, label, members
       await restoreMeasuredSourceState(caseRecord, repo, root, sourceStateStartSha256);
     }
   }
-  const oracleMembership = enforceMembershipPolicy(membershipPolicy, proof?.membership ?? null, label);
+  const oracleMembership = enforceMembershipPolicy(
+    membershipPolicy,
+    proof?.membership ?? null,
+    label,
+    {
+      evidence_kind: proof?.evidence?.evidence_kind ?? null,
+      source_stability: sourceStability,
+      proof_source_stability: proofSourceStability,
+    },
+  );
   await assertMeasuredState(repo, caseRecord.paths.production, envBase);
   return {
     status: exact.exitCode === 0 ? "passed" : "failed",
