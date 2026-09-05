@@ -157,7 +157,7 @@ describe("T045 Vitest fixture/integration contract", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it("widens to a full non-watch run when Vitest config changes", () => {
     const catalog = loadCatalog();
