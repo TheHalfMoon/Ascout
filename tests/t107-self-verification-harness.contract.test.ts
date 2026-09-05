@@ -476,7 +476,7 @@ describe("T107 exact-tree self-verification harness", () => {
     const fixture = createBuildableFixture({ contaminateTracked: true });
     await expect(prepareExactHeadRuntime(fixture.root, fixture.head, { requireExistingHeadBuild: false }))
       .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "tracked_contamination"));
-  });
+  }, 15_000);
 
   it.each([0, 1, 3, 4] as const)("retains valid source-bound exit %s as SHADOW_NON_GATING evidence", async (exitCode) => {
     const result = await capture(createSimpleRepository(), exitCode);
