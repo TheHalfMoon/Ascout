@@ -219,7 +219,7 @@ describe("T103 runCheck Vitest branch receipt integration", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it("publishes resolved branch evidence and makes a branch-only miss exit 4", async () => {
     const root = initializeControlledBranchFixture("resolved_gap");
@@ -263,7 +263,7 @@ describe("T103 runCheck Vitest branch receipt integration", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it.each(FAIL_CLOSED_MODES)("fails closed for %s branch normalization instead of manufacturing empty evidence", async (mode) => {
     const root = initializeControlledBranchFixture(mode);
@@ -281,5 +281,5 @@ describe("T103 runCheck Vitest branch receipt integration", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });
