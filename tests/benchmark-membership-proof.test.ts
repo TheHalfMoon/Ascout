@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -270,6 +272,23 @@ describe("R007-01 observed runner-native no-tests evidence", () => {
     expect(proveObservedRunnerNoTests(exactVitestNoTests)).toBe(true);
     expect(proveObservedRunnerNoTests({ ...exactVitestNoTests, policy: "required" })).toBe(false);
     expect(proveObservedRunnerNoTests({ ...exactVitestNoTests, runner: "jest" })).toBe(false);
+  });
+
+  it("binds an accepted no-tests classification to factual membership=false and explicit runtime evidence", () => {
+    const runSource = readFileSync(new URL("../benchmarks/run.mjs", import.meta.url), "utf8");
+    const branchStart = runSource.indexOf("if (observedNoTests) {");
+    const branchEnd = runSource.indexOf("const boundedOutput", branchStart);
+    expect(branchStart).toBeGreaterThan(-1);
+    expect(branchEnd).toBeGreaterThan(branchStart);
+    const branch = runSource.slice(branchStart, branchEnd);
+
+    expect(branch).toContain("membership: false");
+    expect(branch).toContain("reviewed_status: { passed: false, failed: false }");
+    expect(branch).toContain("...outputDigest(proof)");
+    expect(branch).toContain("report_sha256: null");
+    expect(branch).toContain("report_bytes: 0");
+    expect(branch).toContain("report_count: 0");
+    expect(branch).toContain('evidence_kind: "runner-native-no-tests"');
   });
 
   it("rejects nonzero, changed, non-exited, or truncated process evidence", () => {
