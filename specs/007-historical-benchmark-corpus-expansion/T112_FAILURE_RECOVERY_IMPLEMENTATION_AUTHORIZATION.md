@@ -2,7 +2,7 @@
 
 **Status:** `AUTHORIZATION_PENDING_MERGE`  
 **Authorization ledger:** Issue #197  
-**Canonical base:** `510ee754205f509d40940d04f9f559d5ada28a73`  
+**Original authorization creation base:** `510ee754205f509d40940d04f9f559d5ada28a73`  
 **Canonical planning merge:** `510ee754205f509d40940d04f9f559d5ada28a73`
 
 ## Purpose
@@ -295,7 +295,7 @@ This authorization does not permit:
 This authorization PR itself must:
 
 1. contain exactly this one added governance artifact;
-2. be based on exact canonical `main` `510ee754205f509d40940d04f9f559d5ada28a73`;
+2. contain in its ancestry the forward-only reconciliation merge `d3cf0e026658bea40a2203816063c38a2dc3d58a`, whose ordered parents are the original authorization head `e1bcd0c35a0a55bf1ff61beaec63ddccabba8d62` and current canonical `main` `0cb0ed949ac1523fdd5e26f0db60b9eaa0e9e8b0`, and receive completely fresh exact-head qualification after that forward merge and this governance-only correction;
 3. receive Self Verification success on its exact final head;
 4. receive Project CI six-lane success on its exact final head, original attempt;
 5. receive a fresh independent substantive exact-head governance/security review with no material findings;
