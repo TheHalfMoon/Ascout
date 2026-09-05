@@ -555,3 +555,17 @@ T071 is complete when this policy is reviewed and merged. It does **not** by its
 - or publish benchmark claims.
 
 T072 defines the manifest contract; T073/T074 add reviewed non-executing case definitions; T075 is the first executable replay/oracle boundary; T076–T078 measure only benchmark-active cases. This separation keeps provenance, licensing, execution, and measurement independently reviewable and consistent with the canonical task order.
+## 17. Specification 007 successor corpus contract
+
+The founding publications and historical results described above remain evidence under the original **5–6 selection-case** contract. Specification 007 introduces an additive successor contract without rewriting those historical publications.
+
+Starting with `benchmarks/manifest.json` revision **12**:
+
+- the live selection-corpus contract is **5–8** reviewed cases;
+- the gap-corpus contract remains **3–4** reviewed cases;
+- the Jotai `jotai-splitatom-identical-write` and Immer `immer-draftmap-iterator-compatibility` definitions are added at `CASE_REVIEWED`;
+- both new oracle observations remain `null` until their separately authorized isolated qualification replays complete;
+- historical T078/T091/T095 result bytes remain immutable; and
+- this definition change does not itself claim donor execution, replay qualification, selector performance, or `BENCHMARK_ACTIVE` status for either new case.
+
+This successor contract is governed by Specification 007 and its effective implementation authorization. The founding 5–6 wording above is retained as historical context rather than silently rewritten.
