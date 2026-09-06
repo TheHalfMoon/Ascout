@@ -4,16 +4,27 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
 
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
-import {
-  T113_QUALIFIED_REPLAY_INPUTS,
-  gitBlobSha1,
-  validateControllerIdentity,
-  validateQualifiedReplayContract,
-  validateT111ManifestCompatibility,
-} from "../benchmarks/metrics.mjs";
 import { aggregateBenchmarkMetrics, computeCaseMetrics } from "../benchmarks/metrics-lib.mjs";
+
+let T113_QUALIFIED_REPLAY_INPUTS: any;
+let gitBlobSha1: any;
+let validateControllerIdentity: any;
+let validateQualifiedReplayContract: any;
+let validateT111ManifestCompatibility: any;
+
+beforeAll(async () => {
+  const metricsUrl = new URL("../benchmarks/metrics.mjs", import.meta.url).href;
+  const metricsModule: any = await import(/* @vite-ignore */ metricsUrl);
+  ({
+    T113_QUALIFIED_REPLAY_INPUTS,
+    gitBlobSha1,
+    validateControllerIdentity,
+    validateQualifiedReplayContract,
+    validateT111ManifestCompatibility,
+  } = metricsModule);
+});
 
 function baselineId(metric: string, comparator: string, cacheClass = "-"): string {
   return createHash("sha256").update(`${metric}:${comparator}:${cacheClass}`).digest("hex");
@@ -288,6 +299,21 @@ function exactT112ReplayFixture() {
   return { replayBytes, replay: JSON.parse(replayBytes.toString("utf8")) };
 }
 
+function exactT112AdmissionInputs() {
+  const { replayBytes, replay } = exactT112ReplayFixture();
+  const manifest = JSON.parse(readFileSync(new URL("../benchmarks/manifest.json", import.meta.url), "utf8"));
+  const caseRecord = manifest.cases.find((candidate: { case_id: string }) => candidate.case_id === "immer-draftmap-iterator-compatibility");
+  if (!caseRecord) throw new Error("exact T112 manifest case is unavailable");
+  const frozen = T113_QUALIFIED_REPLAY_INPUTS["immer-draftmap-iterator-compatibility"];
+  const provenance = {
+    source_commit: frozen.source_commit,
+    workflow_run_id: frozen.workflow_run_id,
+    workflow_run_attempt: frozen.workflow_run_attempt,
+    artifact_id: frozen.artifact_id,
+  };
+  return { replayBytes, replay, manifest, caseRecord, frozen, provenance };
+}
+
 describe("T113 qualified replay admission", () => {
   it("pins the two and only two authorized replay identities", () => {
     expect(Object.keys(T113_QUALIFIED_REPLAY_INPUTS).sort()).toEqual([
@@ -348,15 +374,26 @@ describe("T113 qualified replay admission", () => {
   });
 
   it("accepts the exact frozen T112 replay bytes with exact provenance", () => {
-    const { replayBytes, replay } = exactT112ReplayFixture();
-    const manifest = JSON.parse(readFileSync(new URL("../benchmarks/manifest.json", import.meta.url), "utf8"));
-    const caseRecord = manifest.cases.find((candidate: { case_id: string }) => candidate.case_id === "immer-draftmap-iterator-compatibility");
-    expect(caseRecord).toBeDefined();
-    const frozen = T113_QUALIFIED_REPLAY_INPUTS["immer-draftmap-iterator-compatibility"];
-    expect(validateQualifiedReplayContract({
-      replayBytes, replay, caseRecord, manifest, repetitions: 2,
-      provenance: { source_commit: frozen.source_commit, workflow_run_id: frozen.workflow_run_id, workflow_run_attempt: frozen.workflow_run_attempt, artifact_id: frozen.artifact_id },
-    })).toEqual(frozen);
+    const { replayBytes, replay, manifest, caseRecord, frozen, provenance } = exactT112AdmissionInputs();
+    expect(validateQualifiedReplayContract({ replayBytes, replay, caseRecord, manifest, repetitions: 2, provenance })).toEqual(frozen);
+  });
+
+  it("rejects current-manifest revision drift before compatibility selection", () => {
+    const { replayBytes, replay, manifest, caseRecord, provenance } = exactT112AdmissionInputs();
+    const driftedManifest = structuredClone(manifest);
+    driftedManifest.manifest_revision += 1;
+    expect(() => validateQualifiedReplayContract({
+      replayBytes, replay, caseRecord, manifest: driftedManifest, repetitions: 2, provenance,
+    })).toThrow(/current manifest revision mismatch/);
+  });
+
+  it("rejects replay-manifest revision drift before digest or compatibility selection", () => {
+    const { replayBytes, replay, manifest, caseRecord, provenance } = exactT112AdmissionInputs();
+    const driftedReplay = structuredClone(replay);
+    driftedReplay.evidence.manifest_revision += 1;
+    expect(() => validateQualifiedReplayContract({
+      replayBytes, replay: driftedReplay, caseRecord, manifest, repetitions: 2, provenance,
+    })).toThrow(/qualified replay manifest revision mismatch/);
   });
 
   it("rejects ambiguous qualified-input CLI combinations before reading any benchmark input", () => {
