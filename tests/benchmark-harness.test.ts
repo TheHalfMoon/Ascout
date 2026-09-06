@@ -147,6 +147,23 @@ describe("T075 restricted command contract", () => {
       related: "yarn vitest related src/plugins/mapset.ts --run",
     });
   });
+
+  it("keeps the qualified materialization route bounded to measured reconstruction only", () => {
+    const source = readFileSync(new URL("../benchmarks/run.mjs", import.meta.url), "utf8");
+    const start = source.indexOf("async function executeQualifiedMaterialization");
+    const end = source.indexOf("async function executeCase(", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const body = source.slice(start, end);
+    expect(body).toContain("materializeSelection(caseRecord, cacheRepo, observationRoot, \"measured\", true)");
+    expect(body).toContain("oracle_replay_executed: false");
+    expect(body).toContain("comparator_execution_performed: false");
+    expect(body).not.toContain("runReviewed(");
+    expect(body).not.toContain("runComparator(");
+    expect(body).not.toContain("runAscout(");
+    expect(source).toContain("--materialize-qualified requires --keep-temp");
+    expect(source).toContain("expected materialization identities require --materialize-qualified");
+  });
 });
 
 describe("T075 donor isolation contract", () => {
