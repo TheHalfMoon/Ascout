@@ -153,7 +153,7 @@ immer.case_revision = 1;
 const procedures = immer.oracle?.specification?.ground_truth_procedure;
 if (!Array.isArray(procedures) || procedures[2] !== CURRENT_T112_COMMAND_CONTRACT) throw new Error("current T112 command contract is not authorized");
 procedures[2] = HISTORICAL_T112_COMMAND_CONTRACT;
-return Buffer.from(JSON.stringify(historical), "utf8");
+return Buffer.from(`${JSON.stringify(historical)}\n`, "utf8");
 }
 function exactT111AdmissionInputs() {
 const { replayBytes, replay } = exactReplayFixture("t111"), manifest = currentManifest();
