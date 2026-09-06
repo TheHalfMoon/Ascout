@@ -14,10 +14,7 @@ let validateControllerIdentity: any;
 let validateQualifiedReplayContract: any;
 let validateT111ManifestCompatibility: any;
 
-const qualifiedReplayDescribe = process.platform === "linux" ? describe : describe.skip;
-
 beforeAll(async () => {
-  if (process.platform !== "linux") return;
   const metricsUrl = new URL("../benchmarks/metrics.mjs", import.meta.url).href;
   const metricsModule: any = await import(/* @vite-ignore */ metricsUrl);
   ({
@@ -254,7 +251,8 @@ const T112_REPLAY_GZIP_BASE64 = [
   "44tZIuGULexgi3tbuMEW97bwgy3ubREGW1xYsnwpthCnTCE/b1M8loMf3xxqMMeuOfRgjl1z2MEcu+ZwX7I5Tm4XreYdLxfT16f3enZK3W/qPDticdh20sOs",
   "6w3bR6Q7mszv9rb78dYaGMPDbvlyvV/1eBO0Y+LJLcrfJGXdZjtfOJlz5ZjYFKqRo61ZZBt9ya56qVOmWKMwHCUll6XNLjjWphTBKT+uf8lT3uyu7+2yFt48",
   "bDvX7QTgDirz1XT6xECT+aSfpOn9ScJTyI1eYezrAwG+XSwn/aJ7sweRO0S16p+dADRgOZv0ezvQ+yPadHg5bttfm21rLqOTaJhtt9nnqP1128yfAmHlSU/R",
-  "z+WSz9wnO9+G53dHGwd6cnp1n9uj83oz+qkd3I23/VkD4MdDJZ6cNB3iiM3q319y7WymLfV3Op95Cs9Ft+GRr676bsV7u7x3k77d8+94tuj5K1eKCtqWnGOsIQbNXIQrQVXDgqpOrphoo9PRCvzC2KhLNCpbZ13SOo1OtTN+gFxrbPQWu7ydFR/K",
+  "z+WSz9wnO9+G53dgsw/flck8TY+Ix2PzcO5cnJyPgyRzb/inI9UuHmLTftEDL+fYpO8mLzdHGwd6cnp1n9uj83oz+qkd3I23/VkD4MdDJZ6cNB3iiM3q319y",
+  "7WymLfV3Op95Cs9Ft+GRr676bsV7u7x3k77d8+94tuj5K1eKCtqWnGOsIQbNXIQrQVXDgqpOrphoo9PRCvzC2KhLNCpbZ13SOo1OtTN+gFxrbPQWu7ydFR/K",
   "9TwGo+7Qo84211RKDF5asj4Zn42XUnPyxsRQbBE+UcwxBYF/FEbiObhktWQlw4mG8O+u/2hNNce4zyp7TLo5lbz3fY3c0u3tdEJ7Vnp0TJFW/c2ig0nHbVkf",
   "Au/mkG6WmjVXXU0Y9vblOzjvlX8XdtuJOVKZTZbbU1IMoJuBxw4Uf3Cje8H602PIA8xb02S66g6dh2zwuVq/KN8WPI0Wq/521WPVr+a0JuNjxug4LddOZ93l",
   "gyZ4B2u1CV6tT0r/7cV3f9k3zzaMagX6N7cMTNCrI6Xa88flTrnXAXDH6nsnzInjmBOfP+ZaRP3i++//8t03L77+y7cn0YeAuH8L8NZFBsy9BXPiowHuCyC5",
@@ -316,7 +314,7 @@ function exactT112AdmissionInputs() {
   return { replayBytes, replay, manifest, caseRecord, frozen, provenance };
 }
 
-qualifiedReplayDescribe("T113 qualified replay admission", () => {
+describe("T113 qualified replay admission", () => {
   it("pins the two and only two authorized replay identities", () => {
     expect(Object.keys(T113_QUALIFIED_REPLAY_INPUTS).sort()).toEqual([
       "immer-draftmap-iterator-compatibility",
