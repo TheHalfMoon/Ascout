@@ -1,7 +1,16 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  T113_QUALIFIED_REPLAY_INPUTS,
+  gitBlobSha1,
+  validateControllerIdentity,
+  validateQualifiedReplayContract,
+  validateT111ManifestCompatibility,
+} from "../benchmarks/metrics.mjs";
 import { aggregateBenchmarkMetrics, computeCaseMetrics } from "../benchmarks/metrics-lib.mjs";
 
 function baselineId(metric: string, comparator: string, cacheClass = "-"): string {
@@ -213,5 +222,129 @@ describe("T076 benchmark metrics", () => {
     const relatedCold = aggregate.metrics.timing.find((item) => item.baseline.comparator === "related" && item.baseline.cache_class === "cold");
     expect(relatedCold).toMatchObject({ sample_count: 2, arithmetic_mean_ms: 60 });
     expect(relatedCold?.baseline_id).toHaveLength(64);
+  });
+});
+
+describe("T113 qualified replay admission", () => {
+  it("pins the two and only two authorized replay identities", () => {
+    expect(Object.keys(T113_QUALIFIED_REPLAY_INPUTS).sort()).toEqual([
+      "immer-draftmap-iterator-compatibility",
+      "jotai-splitatom-identical-write",
+    ]);
+    expect(T113_QUALIFIED_REPLAY_INPUTS["jotai-splitatom-identical-write"]).toMatchObject({
+      source_commit: "2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4",
+      workflow_run_id: "33991920845",
+      workflow_run_attempt: 1,
+      artifact_id: "9976936986",
+      replay_manifest_revision: 12,
+      current_manifest_revision: 13,
+      historical_manifest_blob: "ec4e9edde7bcf635063e23ee612cbad20712de6d",
+      derived_identity: "00eabc7a7635b2f1f1d1d9e98a4ff5ae946c4175",
+      synthetic_head: "a34238a0a43ac87745acd38a5d7bb4dadbcd08fc",
+    });
+    expect(T113_QUALIFIED_REPLAY_INPUTS["immer-draftmap-iterator-compatibility"]).toMatchObject({
+      source_commit: "256461e455b38e18a4ca06209184e0ddef274057",
+      workflow_run_id: "34036997231",
+      workflow_run_attempt: 1,
+      artifact_id: "9990519748",
+      replay_manifest_revision: 13,
+      current_manifest_revision: 13,
+      derived_identity: "557cb04b07c04ec09eff6bb3ee7f3280781f3c8b",
+      synthetic_head: "22c8c3bec56034d0d8f7ad277e60ba2580a3b6a7",
+    });
+  });
+
+  it("binds controller identity to replay and manifest runtime exactly", () => {
+    const caseRecord = {
+      runtime: { node_version: "24.15.0", package_manager: "yarn", package_manager_version: "1.22.22" },
+    };
+    const replay = {
+      evidence: {
+        platform: { os: "linux", arch: "x64" },
+        toolchain: { node: "24.15.0", package_manager: "yarn", package_manager_version: "1.22.22" },
+      },
+    };
+    const actual = { os: "linux", arch: "x64", node: "24.15.0", package_manager: "yarn", package_manager_version: "1.22.22" };
+    expect(validateControllerIdentity(caseRecord, replay, actual)).toBe(true);
+    expect(() => validateControllerIdentity(caseRecord, replay, { ...actual, arch: "arm64" })).toThrow(/controller architecture mismatch/);
+    expect(() => validateControllerIdentity({ runtime: { ...caseRecord.runtime, package_manager_version: "1.22.21" } }, replay, actual)).toThrow(/manifest package manager version mismatch/);
+  });
+
+  it("computes Git blob identity over exact historical bytes", () => {
+    expect(gitBlobSha1(Buffer.from("hello\n", "utf8"))).toBe("ce013625030ba8dba906f756967f9e9ca394464a");
+  });
+
+  it("accepts only complete canonical equality for the bounded revision-12-to-13 compatibility proof", () => {
+    const historicalCase = {
+      case_id: "jotai-splitatom-identical-write",
+      case_revision: 1,
+      runtime: { node_version: "24.15.0", package_manager: "yarn", package_manager_version: "1.22.22" },
+      paths: { production: ["src/a.ts"], regression_tests: ["tests/a.test.ts"] },
+      oracle: { specification: { ground_truth_procedure: ["exact"] } },
+    };
+    const historicalManifest = { manifest_revision: 12, cases: [historicalCase] };
+    const historicalManifestBytes = Buffer.from(JSON.stringify(historicalManifest), "utf8");
+    const frozen = {
+      case_id: historicalCase.case_id,
+      case_revision: 1,
+      replay_manifest_revision: 12,
+      current_manifest_revision: 13,
+      historical_manifest_blob: gitBlobSha1(historicalManifestBytes),
+    };
+    const currentCase = structuredClone(historicalCase);
+    const currentManifest = { manifest_revision: 13, cases: [currentCase] };
+    expect(validateT111ManifestCompatibility({ historicalManifestBytes, historicalManifest, currentManifest, currentCase, frozen })).toBe(true);
+    const changed = structuredClone(currentCase);
+    changed.oracle.specification.ground_truth_procedure = ["changed"];
+    expect(() => validateT111ManifestCompatibility({ historicalManifestBytes, historicalManifest, currentManifest, currentCase: changed, frozen })).toThrow(/not canonically identical/);
+  });
+
+  it("fails closed before accepting an unauthorized case or wrong replay bytes", () => {
+    expect(() => validateQualifiedReplayContract({
+      replayBytes: Buffer.from("{}"), replay: {},
+      caseRecord: { case_id: "not-authorized", case_revision: 1 },
+      manifest: { manifest_revision: 13 }, repetitions: 2, provenance: {},
+    })).toThrow(/not authorized/);
+
+    const frozen = T113_QUALIFIED_REPLAY_INPUTS["immer-draftmap-iterator-compatibility"];
+    const caseRecord = {
+      case_id: frozen.case_id,
+      case_revision: frozen.case_revision,
+      runtime: { node_version: "24.15.0", package_manager: "yarn", package_manager_version: "1.22.22" },
+    };
+    expect(() => validateQualifiedReplayContract({
+      replayBytes: Buffer.from("{}"), replay: {}, caseRecord,
+      manifest: { manifest_revision: 13 }, repetitions: 2,
+      provenance: { source_commit: frozen.source_commit, workflow_run_id: frozen.workflow_run_id, workflow_run_attempt: 1, artifact_id: frozen.artifact_id },
+    })).toThrow(/qualified replay file SHA-256 mismatch/);
+  });
+
+  it("rejects ambiguous qualified-input CLI combinations before reading any benchmark input", () => {
+    const metricsScript = fileURLToPath(new URL("../benchmarks/metrics.mjs", import.meta.url));
+    const aggregate = spawnSync(process.execPath, [metricsScript, "--aggregate-input", "missing.json", "--t075-input", "missing-replay.json"], { encoding: "utf8" });
+    expect(aggregate.status).toBe(1);
+    expect(aggregate.stderr).toMatch(/aggregate mode cannot be combined/);
+
+    const orphanProvenance = spawnSync(process.execPath, [
+      metricsScript,
+      "--case", "x",
+      "--run-id", "x",
+      "--t075-source-commit", "a".repeat(40),
+    ], { encoding: "utf8" });
+    expect(orphanProvenance.status).toBe(1);
+    expect(orphanProvenance.stderr).toMatch(/provenance arguments require --t075-input/);
+
+    const retryAttempt = spawnSync(process.execPath, [
+      metricsScript,
+      "--case", "x",
+      "--run-id", "x",
+      "--t075-input", "missing-replay.json",
+      "--t075-source-commit", "a".repeat(40),
+      "--t075-workflow-run-id", "1",
+      "--t075-workflow-run-attempt", "2",
+      "--t075-artifact-id", "1",
+    ], { encoding: "utf8" });
+    expect(retryAttempt.status).toBe(1);
+    expect(retryAttempt.stderr).toMatch(/requires --t075-workflow-run-attempt 1/);
   });
 });
