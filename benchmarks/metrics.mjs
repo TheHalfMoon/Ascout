@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -26,6 +26,50 @@ const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 const T075_TIMEOUT_MS = 70 * 60 * 1000;
 const MANAGED_RUNNER_CACHE_PATHS = [".nx/cache", ".nx/workspace-data", ".cache", "node_modules/.cache"];
 const METRIC_NX_DIRS = new Set();
+const SAFE_ID = /^[A-Za-z0-9._-]+$/u;
+
+export const T113_QUALIFIED_REPLAY_INPUTS = Object.freeze({
+  "jotai-splitatom-identical-write": Object.freeze({
+    case_id: "jotai-splitatom-identical-write",
+    case_revision: 1,
+    source_commit: "2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4",
+    workflow_run_id: "33991920845",
+    workflow_run_attempt: 1,
+    artifact_id: "9976936986",
+    replay_sha256: "337cb9ca7680d5b5e33e5bf518268983df19af149c6f64812af4eef4a21f4c44",
+    evidence_sha256: "a688937286b974788b0477b305c5fd1c315c8b580cbd17cf3f9b85d067616d5d",
+    t075_run_id: "spec008-33991920845-1-jotai-splitatom-identical-write",
+    replay_manifest_revision: 12,
+    current_manifest_revision: 13,
+    historical_manifest_blob: "ec4e9edde7bcf635063e23ee612cbad20712de6d",
+    selected_case_sha256: "6c1457ce8ffa28e8e40fcf52e74fda7ff8e4ef312e62d1f5cd0332adc14ea381",
+    derived_identity: "00eabc7a7635b2f1f1d1d9e98a4ff5ae946c4175",
+    synthetic_head: "a34238a0a43ac87745acd38a5d7bb4dadbcd08fc",
+    platform: Object.freeze({ os: "linux", arch: "x64" }),
+    toolchain: Object.freeze({ node: "24.15.0", package_manager: "yarn", package_manager_version: "1.22.22" }),
+    valid_observations: 2,
+  }),
+  "immer-draftmap-iterator-compatibility": Object.freeze({
+    case_id: "immer-draftmap-iterator-compatibility",
+    case_revision: 2,
+    source_commit: "256461e455b38e18a4ca06209184e0ddef274057",
+    workflow_run_id: "34036997231",
+    workflow_run_attempt: 1,
+    artifact_id: "9990519748",
+    replay_sha256: "2bb89f50cef7cf38f5e3b1fe53d191c03cd78f3a3a294770d323746a095d433d",
+    evidence_sha256: "9d8195c6cfef34f2a004e6c7152536ba7a023f0865b0ed0a3173e0b7e127ce7f",
+    t075_run_id: "spec008-34036997231-1-immer-draftmap-iterator-compatibility",
+    replay_manifest_revision: 13,
+    current_manifest_revision: 13,
+    historical_manifest_blob: null,
+    selected_case_sha256: "ec5fd91d90edba5f155a4e2dd23d47d71bd07d7f073eea1b996ab33195a08f74",
+    derived_identity: "557cb04b07c04ec09eff6bb3ee7f3280781f3c8b",
+    synthetic_head: "22c8c3bec56034d0d8f7ad277e60ba2580a3b6a7",
+    platform: Object.freeze({ os: "linux", arch: "x64" }),
+    toolchain: Object.freeze({ node: "24.15.0", package_manager: "yarn", package_manager_version: "1.22.22" }),
+    valid_observations: 2,
+  }),
+});
 
 function fail(code, message) {
   const error = new Error(message);
@@ -42,6 +86,12 @@ function parseArgs(argv) {
     runId: null,
     repetitions: 2,
     aggregateInputs: [],
+    t075Input: null,
+    t075HistoricalManifest: null,
+    t075SourceCommit: null,
+    t075WorkflowRunId: null,
+    t075WorkflowRunAttempt: null,
+    t075ArtifactId: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -58,15 +108,39 @@ function parseArgs(argv) {
     else if (arg === "--run-id") result.runId = next();
     else if (arg === "--repetitions") result.repetitions = Number(next());
     else if (arg === "--aggregate-input") result.aggregateInputs.push(resolve(next()));
+    else if (arg === "--t075-input") result.t075Input = resolve(next());
+    else if (arg === "--t075-historical-manifest") result.t075HistoricalManifest = resolve(next());
+    else if (arg === "--t075-source-commit") result.t075SourceCommit = next();
+    else if (arg === "--t075-workflow-run-id") result.t075WorkflowRunId = next();
+    else if (arg === "--t075-workflow-run-attempt") result.t075WorkflowRunAttempt = Number(next());
+    else if (arg === "--t075-artifact-id") result.t075ArtifactId = next();
     else fail("usage", `unknown argument: ${arg}`);
   }
+  const qualifiedFields = [
+    result.t075Input,
+    result.t075HistoricalManifest,
+    result.t075SourceCommit,
+    result.t075WorkflowRunId,
+    result.t075WorkflowRunAttempt,
+    result.t075ArtifactId,
+  ];
   if (result.aggregateInputs.length > 0) {
-    if (result.caseId !== null || result.runId !== null) fail("usage", "aggregate mode cannot be combined with --case or --run-id");
+    if (result.caseId !== null || result.runId !== null || qualifiedFields.some((value) => value !== null)) {
+      fail("usage", "aggregate mode cannot be combined with --case, --run-id, or qualified T075 input arguments");
+    }
     return result;
   }
   if (!result.caseId) fail("usage", "--case is required");
-  if (!result.runId || !/^[A-Za-z0-9._-]+$/u.test(result.runId)) fail("usage", "--run-id must be a safe non-empty identifier");
+  if (!result.runId || !SAFE_ID.test(result.runId)) fail("usage", "--run-id must be a safe non-empty identifier");
   if (!Number.isSafeInteger(result.repetitions) || result.repetitions < 2 || result.repetitions > 3) fail("usage", "--repetitions must be 2 or 3");
+  if (result.t075Input !== null) {
+    if (!result.t075SourceCommit || !/^[a-f0-9]{40}$/u.test(result.t075SourceCommit)) fail("usage", "qualified T075 input requires a full lowercase --t075-source-commit");
+    if (!result.t075WorkflowRunId || !/^\d+$/u.test(result.t075WorkflowRunId)) fail("usage", "qualified T075 input requires numeric --t075-workflow-run-id");
+    if (result.t075WorkflowRunAttempt !== 1) fail("usage", "qualified T075 input requires --t075-workflow-run-attempt 1");
+    if (!result.t075ArtifactId || !/^\d+$/u.test(result.t075ArtifactId)) fail("usage", "qualified T075 input requires numeric --t075-artifact-id");
+  } else if (qualifiedFields.slice(1).some((value) => value !== null)) {
+    fail("usage", "qualified T075 provenance arguments require --t075-input");
+  }
   return result;
 }
 
@@ -509,7 +583,7 @@ async function externalComparator(caseRecord, repo, root, commandText, label, mo
 
 async function auditReceiptArtifacts(repo, receipt) {
   if (!receipt?.run?.run_id || !Array.isArray(receipt?.artifacts)) fail("artifact_integrity", "Ascout receipt artifact inventory is unavailable");
-  if (!/^[A-Za-z0-9._-]+$/u.test(receipt.run.run_id)) fail("artifact_integrity", "Ascout receipt run id is not safe for artifact lookup");
+  if (!SAFE_ID.test(receipt.run.run_id)) fail("artifact_integrity", "Ascout receipt run id is not safe for artifact lookup");
   const runRoot = resolve(repo, ".ascout", "runs", receipt.run.run_id);
   const seen = new Set();
   const verified = [];
@@ -537,7 +611,7 @@ async function auditReceiptMachineResults(caseRecord, repo, receipt) {
   if (!testTask || !Array.isArray(testTask.artifact_refs) || !receipt?.run?.run_id || !Array.isArray(receipt?.artifacts)) {
     return { membership_available: false, oracle_test_ids_observed: [], oracle_membership: null, evidence: [] };
   }
-  if (!/^[A-Za-z0-9._-]+$/u.test(receipt.run.run_id)) fail("artifact_integrity", "Ascout receipt run id is not safe for artifact lookup");
+  if (!SAFE_ID.test(receipt.run.run_id)) fail("artifact_integrity", "Ascout receipt run id is not safe for artifact lookup");
   const runRoot = resolve(repo, ".ascout", "runs", receipt.run.run_id);
   const artifacts = [];
   const reports = [];
@@ -653,24 +727,24 @@ async function runAscoutOnce(caseRecord, repo, root, ascoutRoot, label) {
     source_stability: sourceStart === sourceEnd ? "stable" : "tree_drifted",
     reported_source_stability: projection.reported_source_stability,
     integrity,
-  binding: {
-    measured_head_start: measuredHeadStart,
-    measured_head_end: measuredHeadEnd,
-    measured_tree_start_digest: measuredTreeStart,
-    measured_tree_end_digest: measuredTreeEnd,
-    independent_source_start_digest: sourceStart,
-    independent_source_end_digest: sourceEnd,
-    receipt_start_head_sha: integrity.source_binding.start_head_sha,
-    receipt_end_head_sha: integrity.source_binding.end_head_sha,
-    receipt_comparison_base_ref: integrity.source_binding.comparison_base_ref,
-    receipt_start_tree_digest: integrity.source_binding.start_tree_digest,
-    receipt_end_tree_digest: integrity.source_binding.end_tree_digest,
-    measured_paths: [...caseRecord.paths.production].sort(),
-    receipt_changed_paths: receiptChangedPaths,
-    artifact_binding_verified: artifactBinding.verified,
-    artifact_count: artifactBinding.artifact_count,
-  },
-  membership_available: membership.membership_available,
+    binding: {
+      measured_head_start: measuredHeadStart,
+      measured_head_end: measuredHeadEnd,
+      measured_tree_start_digest: measuredTreeStart,
+      measured_tree_end_digest: measuredTreeEnd,
+      independent_source_start_digest: sourceStart,
+      independent_source_end_digest: sourceEnd,
+      receipt_start_head_sha: integrity.source_binding.start_head_sha,
+      receipt_end_head_sha: integrity.source_binding.end_head_sha,
+      receipt_comparison_base_ref: integrity.source_binding.comparison_base_ref,
+      receipt_start_tree_digest: integrity.source_binding.start_tree_digest,
+      receipt_end_tree_digest: integrity.source_binding.end_tree_digest,
+      measured_paths: [...caseRecord.paths.production].sort(),
+      receipt_changed_paths: receiptChangedPaths,
+      artifact_binding_verified: artifactBinding.verified,
+      artifact_count: artifactBinding.artifact_count,
+    },
+    membership_available: membership.membership_available,
     oracle_test_ids_observed: membership.oracle_test_ids_observed,
     oracle_membership: membership.oracle_membership,
     membership_evidence: membership.evidence,
@@ -877,6 +951,148 @@ function buildBaselines(caseRecord, t075, commands) {
   return baselines;
 }
 
+export function gitBlobSha1(bytes) {
+  const buffer = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  return createHash("sha1").update(Buffer.from(`blob ${buffer.length}\0`, "utf8")).update(buffer).digest("hex");
+}
+
+function requireExact(value, expected, label) {
+  if (value !== expected) fail("binding_integrity", `${label} mismatch: expected ${String(expected)}, observed ${String(value)}`);
+}
+
+export function validateControllerIdentity(caseRecord, t075, actual) {
+  const expected = t075?.evidence?.toolchain;
+  requireExact(actual.os, t075?.evidence?.platform?.os, "controller OS");
+  requireExact(actual.arch, t075?.evidence?.platform?.arch, "controller architecture");
+  requireExact(actual.node, expected?.node, "controller Node");
+  requireExact(actual.package_manager, expected?.package_manager, "controller package manager");
+  requireExact(actual.package_manager_version, expected?.package_manager_version, "controller package manager version");
+  requireExact(caseRecord.runtime.node_version.replace(/^v/u, ""), expected?.node, "manifest Node");
+  requireExact(caseRecord.runtime.package_manager, expected?.package_manager, "manifest package manager");
+  requireExact(caseRecord.runtime.package_manager_version, expected?.package_manager_version, "manifest package manager version");
+  return true;
+}
+
+async function observeControllerIdentity(caseRecord, root, cwd) {
+  const env = await runtimeEnvironment(root);
+  const pm = caseRecord.runtime.package_manager;
+  const result = await runProcess({ file: pm, argv: ["--version"], cwd, env, timeoutMs: 60_000 });
+  requireExited(result, `${pm} --version`);
+  if (result.exitCode !== 0) fail("toolchain", `${pm} --version failed`);
+  return {
+    os: process.platform,
+    arch: process.arch,
+    node: process.version.replace(/^v/u, ""),
+    package_manager: pm,
+    package_manager_version: result.stdout.toString("utf8").trim(),
+  };
+}
+
+export function validateT111ManifestCompatibility({ historicalManifestBytes, historicalManifest, currentManifest, currentCase, frozen }) {
+  if (!historicalManifestBytes) fail("binding_integrity", "T111 compatibility requires historical manifest bytes");
+  requireExact(gitBlobSha1(historicalManifestBytes), frozen.historical_manifest_blob, "historical T111 manifest Git blob");
+  requireExact(historicalManifest?.manifest_revision, frozen.replay_manifest_revision, "historical T111 manifest revision");
+  requireExact(currentManifest?.manifest_revision, frozen.current_manifest_revision, "current T111 manifest revision");
+  const historicalCase = historicalManifest?.cases?.find((item) => item.case_id === frozen.case_id);
+  if (!historicalCase) fail("binding_integrity", "historical T111 manifest is missing the frozen Jotai case");
+  requireExact(historicalCase.case_revision, frozen.case_revision, "historical T111 case revision");
+  requireExact(currentCase?.case_revision, frozen.case_revision, "current T111 case revision");
+  if (canonicalJson(historicalCase) !== canonicalJson(currentCase)) {
+    fail("binding_integrity", "historical/current T111 Jotai case records are not canonically identical");
+  }
+  return true;
+}
+
+export function validateQualifiedReplayContract({ replayBytes, replay, caseRecord, manifest, repetitions, provenance, historicalManifestBytes = null, historicalManifest = null }) {
+  const frozen = T113_QUALIFIED_REPLAY_INPUTS[caseRecord.case_id];
+  if (!frozen) fail("binding_integrity", `qualified replay input is not authorized for case ${caseRecord.case_id}`);
+  requireExact(caseRecord.case_revision, frozen.case_revision, "selected case revision");
+  requireExact(sha256Bytes(replayBytes), frozen.replay_sha256, "qualified replay file SHA-256");
+  requireExact(replay?.evidence?.manifest_revision, frozen.replay_manifest_revision, "qualified replay manifest revision");
+  requireExact(manifest?.manifest_revision, frozen.current_manifest_revision, "current manifest revision");
+  requireExact(sha256Bytes(Buffer.from(canonicalJson(caseRecord), "utf8")), frozen.selected_case_sha256, "selected case canonical SHA-256");
+  requireExact(replay?.status, "BENCHMARK_ACTIVE", "qualified replay status");
+  requireExact(replay?.lifecycle_state, "BENCHMARK_ACTIVE", "qualified replay lifecycle");
+  requireExact(replay?.case_id, frozen.case_id, "qualified replay case id");
+  requireExact(replay?.case_revision, frozen.case_revision, "qualified replay case revision");
+  requireExact(replay?.t075_run_id, frozen.t075_run_id, "qualified replay T075 run id");
+  requireExact(replay?.derived_identity, frozen.derived_identity, "qualified replay derived identity");
+  requireExact(replay?.synthetic_head, frozen.synthetic_head, "qualified replay synthetic HEAD");
+  requireExact(replay?.evidence_sha256, frozen.evidence_sha256, "qualified replay evidence SHA-256");
+  const recomputedEvidence = sha256Bytes(Buffer.from(canonicalJson(replay?.evidence), "utf8"));
+  requireExact(recomputedEvidence, frozen.evidence_sha256, "recomputed qualified replay evidence SHA-256");
+  requireExact(replay?.evidence?.determinism, "deterministic", "qualified replay determinism");
+  requireExact(replay?.evidence?.determinism_scope, "oracle_only", "qualified replay determinism scope");
+  if (!Array.isArray(replay?.evidence?.observations)) fail("binding_integrity", "qualified replay observations are unavailable");
+  requireExact(replay.valid_observation_count, frozen.valid_observations, "qualified replay valid observation count");
+  requireExact(replay.evidence.valid_observation_count, frozen.valid_observations, "qualified replay evidence observation count");
+  requireExact(replay.evidence.observations.length, frozen.valid_observations, "qualified replay observation array count");
+  requireExact(repetitions, frozen.valid_observations, "requested T076 repetition count");
+  requireExact(replay?.evidence?.platform?.os, frozen.platform.os, "qualified replay OS");
+  requireExact(replay?.evidence?.platform?.arch, frozen.platform.arch, "qualified replay architecture");
+  requireExact(replay?.evidence?.toolchain?.node, frozen.toolchain.node, "qualified replay Node");
+  requireExact(replay?.evidence?.toolchain?.package_manager, frozen.toolchain.package_manager, "qualified replay package manager");
+  requireExact(replay?.evidence?.toolchain?.package_manager_version, frozen.toolchain.package_manager_version, "qualified replay package manager version");
+  requireExact(replay?.evidence?.observation_key?.case_revision, frozen.case_revision, "qualified replay observation-key case revision");
+  requireExact(replay?.evidence?.observation_key?.derived_tree, frozen.derived_identity, "qualified replay observation-key derived tree");
+  requireExact(replay?.evidence?.observation_key?.synthetic_head, frozen.synthetic_head, "qualified replay observation-key synthetic HEAD");
+  requireExact(replay?.evidence?.observation_key?.node, frozen.toolchain.node, "qualified replay observation-key Node");
+  requireExact(replay?.evidence?.observation_key?.package_manager, `${frozen.toolchain.package_manager}@${frozen.toolchain.package_manager_version}`, "qualified replay observation-key package manager");
+  requireExact(provenance.source_commit, frozen.source_commit, "qualified replay source commit");
+  requireExact(provenance.workflow_run_id, frozen.workflow_run_id, "qualified replay workflow run id");
+  requireExact(provenance.workflow_run_attempt, frozen.workflow_run_attempt, "qualified replay workflow run attempt");
+  requireExact(provenance.artifact_id, frozen.artifact_id, "qualified replay artifact id");
+  validateControllerIdentity(caseRecord, replay, frozen.platform.os === "linux" ? {
+    os: frozen.platform.os,
+    arch: frozen.platform.arch,
+    node: caseRecord.runtime.node_version.replace(/^v/u, ""),
+    package_manager: caseRecord.runtime.package_manager,
+    package_manager_version: caseRecord.runtime.package_manager_version,
+  } : frozen);
+  if (replay.evidence.manifest_revision === manifest.manifest_revision) {
+    if (historicalManifestBytes !== null || historicalManifest !== null) fail("binding_integrity", "historical manifest input is not authorized when replay/current manifest revisions already match");
+  } else {
+    requireExact(frozen.case_id, "jotai-splitatom-identical-write", "historical manifest compatibility case");
+    requireExact(replay.evidence.manifest_revision, frozen.replay_manifest_revision, "qualified replay historical manifest revision");
+    validateT111ManifestCompatibility({ historicalManifestBytes, historicalManifest, currentManifest: manifest, currentCase: caseRecord, frozen });
+  }
+  return frozen;
+}
+
+async function loadQualifiedReplay(caseRecord, manifest, options) {
+  const replayBytes = await readFile(options.t075Input);
+  let replay;
+  try { replay = JSON.parse(replayBytes.toString("utf8")); } catch { fail("binding_integrity", "qualified T075 input is not valid JSON"); }
+  let historicalManifestBytes = null;
+  let historicalManifest = null;
+  if (options.t075HistoricalManifest !== null) {
+    historicalManifestBytes = await readFile(options.t075HistoricalManifest);
+    try { historicalManifest = JSON.parse(historicalManifestBytes.toString("utf8")); } catch { fail("binding_integrity", "historical T111 manifest is not valid JSON"); }
+  }
+  validateQualifiedReplayContract({
+    replayBytes,
+    replay,
+    caseRecord,
+    manifest,
+    repetitions: options.repetitions,
+    provenance: {
+      source_commit: options.t075SourceCommit,
+      workflow_run_id: options.t075WorkflowRunId,
+      workflow_run_attempt: options.t075WorkflowRunAttempt,
+      artifact_id: options.t075ArtifactId,
+    },
+    historicalManifestBytes,
+    historicalManifest,
+  });
+  return replay;
+}
+
+async function verifyActualControllerIdentity(caseRecord, t075, root, cwd) {
+  const actual = await observeControllerIdentity(caseRecord, root, cwd);
+  validateControllerIdentity(caseRecord, t075, actual);
+  return actual;
+}
+
 async function runT075(caseRecord, options, metricsRoot) {
   const runScript = resolve(options.ascoutRoot, "benchmarks/run.mjs");
   const env = { ...process.env, TMPDIR: metricsRoot };
@@ -897,7 +1113,65 @@ async function runT075(caseRecord, options, metricsRoot) {
   if (!match) fail("t075", "T075 prerequisite did not disclose its kept temporary root");
   const controllerRoot = resolve(match[1]);
   assertPathInside(metricsRoot, controllerRoot);
-  return { result: parsed, controllerRoot };
+  return { result: parsed, controllerRoot, materialization: null };
+}
+
+async function runQualifiedMaterialization(caseRecord, manifest, options, metricsRoot, t075) {
+  await verifyActualControllerIdentity(caseRecord, t075, metricsRoot, options.ascoutRoot);
+  const runScript = resolve(options.ascoutRoot, "benchmarks/run.mjs");
+  const env = { ...process.env, TMPDIR: metricsRoot };
+  const result = await runProcess({
+    file: process.execPath,
+    argv: [
+      runScript,
+      "--case", caseRecord.case_id,
+      "--manifest", options.manifest,
+      "--ascout-root", options.ascoutRoot,
+      "--run-id", `${options.runId}-materialize`,
+      "--repetitions", String(options.repetitions),
+      "--materialize-qualified",
+      "--expected-derived-identity", t075.derived_identity,
+      "--expected-synthetic-head", t075.synthetic_head,
+      "--keep-temp",
+    ],
+    cwd: options.ascoutRoot,
+    env,
+    timeoutMs: T075_TIMEOUT_MS,
+  });
+  requireExited(result, "qualified replay materialization");
+  if (result.exitCode !== 0) fail("t075", `qualified replay materialization failed: ${result.stderr.toString("utf8").slice(-4000)}`);
+  let parsed;
+  try { parsed = JSON.parse(result.stdout.toString("utf8")); } catch { fail("t075", "qualified replay materialization did not produce parseable JSON"); }
+  const match = /(?:^|\n)T075_MATERIALIZATION_ROOT=([^\r\n]+)/u.exec(result.stderr.toString("utf8"));
+  if (!match) fail("t075", "qualified replay materialization did not disclose its bounded root");
+  const controllerRoot = resolve(match[1]);
+  assertPathInside(metricsRoot, controllerRoot);
+  requireExact(parsed?.status, "QUALIFIED_REPLAY_MATERIALIZATION_READY", "materialization status");
+  requireExact(parsed?.case_id, caseRecord.case_id, "materialization case id");
+  requireExact(parsed?.case_revision, caseRecord.case_revision, "materialization case revision");
+  requireExact(parsed?.manifest_revision, manifest.manifest_revision, "materialization manifest revision");
+  requireExact(parsed?.platform?.os, t075.evidence.platform.os, "materialization OS");
+  requireExact(parsed?.platform?.arch, t075.evidence.platform.arch, "materialization architecture");
+  requireExact(parsed?.toolchain?.node, t075.evidence.toolchain.node, "materialization Node");
+  requireExact(parsed?.toolchain?.package_manager, t075.evidence.toolchain.package_manager, "materialization package manager");
+  requireExact(parsed?.toolchain?.package_manager_version, t075.evidence.toolchain.package_manager_version, "materialization package manager version");
+  requireExact(parsed?.expected_derived_identity, t075.derived_identity, "materialization expected derived identity");
+  requireExact(parsed?.expected_synthetic_head, t075.synthetic_head, "materialization expected synthetic HEAD");
+  requireExact(parsed?.boundary?.oracle_replay_executed, false, "materialization oracle boundary");
+  requireExact(parsed?.boundary?.comparator_execution_performed, false, "materialization comparator boundary");
+  if (canonicalJson(parsed?.boundary?.measured_paths) !== canonicalJson([...caseRecord.paths.production].sort())) fail("binding_integrity", "materialization measured path declaration mismatch");
+  if (!Array.isArray(parsed?.observations) || parsed.observations.length !== options.repetitions) fail("binding_integrity", "materialization observation count mismatch");
+  for (let index = 0; index < parsed.observations.length; index += 1) {
+    const observation = parsed.observations[index];
+    requireExact(observation.ordinal, index + 1, "materialization observation ordinal");
+    requireExact(observation.derived_identity, t075.derived_identity, "materialization derived identity");
+    requireExact(observation.synthetic_head, t075.synthetic_head, "materialization synthetic HEAD");
+    const expectedRepo = resolve(controllerRoot, `observation-${index + 1}`, "measured");
+    requireExact(resolve(observation.measured_repo), expectedRepo, "materialization measured repo path");
+    assertPathInside(controllerRoot, expectedRepo);
+    await stat(resolve(expectedRepo, ".git"));
+  }
+  return { result: t075, controllerRoot, materialization: parsed };
 }
 
 async function collectSelectionObservation(caseRecord, repo, root, ascoutRoot, commands) {
@@ -926,9 +1200,17 @@ async function executeCaseMetrics(caseRecord, manifest, options) {
   if (process.platform !== "linux") fail("platform", "T076 executable benchmark metrics currently inherit T075 Linux replay authority; T079 owns cross-platform hardening");
   const metricsRoot = await mkdtemp(join(tmpdir(), `ascout-t076-${caseRecord.case_id}-`));
   try {
-    const t075Run = await runT075(caseRecord, options, metricsRoot);
+    let t075Run;
+    if (options.t075Input !== null) {
+      if (caseRecord.case_class !== "selection") fail("binding_integrity", "qualified replay input is authorized only for T113 selection cases");
+      const t075 = await loadQualifiedReplay(caseRecord, manifest, options);
+      t075Run = await runQualifiedMaterialization(caseRecord, manifest, options, metricsRoot, t075);
+    } else {
+      t075Run = await runT075(caseRecord, options, metricsRoot);
+    }
     const t075 = t075Run.result;
-    if (t075.case_revision !== caseRecord.case_revision || t075.evidence.manifest_revision !== manifest.manifest_revision) fail("binding_integrity", "T075 prerequisite case/manifest revision does not match T076 input");
+    if (t075.case_revision !== caseRecord.case_revision) fail("binding_integrity", "T075 prerequisite case revision does not match T076 input");
+    if (options.t075Input === null && t075.evidence.manifest_revision !== manifest.manifest_revision) fail("binding_integrity", "T075 prerequisite manifest revision does not match T076 input");
     if (!Array.isArray(t075.evidence?.observations) || t075.evidence.observations.length !== options.repetitions) fail("t075", "T075 prerequisite observation count mismatch");
     const commands = caseRecord.case_class === "selection" ? extractSelectionCommands(caseRecord) : extractGapCommands(caseRecord);
     const baselines = buildBaselines(caseRecord, t075, commands);
@@ -939,6 +1221,13 @@ async function executeCaseMetrics(caseRecord, manifest, options) {
       assertPathInside(t075Run.controllerRoot, observationRoot);
       assertPathInside(observationRoot, repo);
       await stat(resolve(repo, ".git"));
+      if (options.t075Input !== null) {
+        await verifyActualControllerIdentity(caseRecord, t075, observationRoot, options.ascoutRoot);
+        const expectedSourceState = t075Run.materialization?.observations?.[index]?.source_state_sha256;
+        const actualSourceState = await sourceStateDigest(repo, await runtimeEnvironment(observationRoot));
+        requireExact(actualSourceState, expectedSourceState, "materialized source-state identity before comparator collection");
+        await assertMeasuredPaths(caseRecord, repo, await runtimeEnvironment(observationRoot));
+      }
       const observation = caseRecord.case_class === "selection"
         ? await collectSelectionObservation(caseRecord, repo, observationRoot, options.ascoutRoot, commands)
         : await collectGapObservation(caseRecord, repo, observationRoot, options.ascoutRoot, commands);
@@ -1005,7 +1294,10 @@ async function main() {
   await executeCaseMetrics(caseRecord, manifest, options);
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error?.code ?? "error"}: ${error?.stack ?? String(error)}\n`);
-  process.exitCode = 1;
-});
+const directEntry = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : null;
+if (directEntry === import.meta.url) {
+  main().catch((error) => {
+    process.stderr.write(`${error?.code ?? "error"}: ${error?.stack ?? String(error)}\n`);
+    process.exitCode = 1;
+  });
+}
