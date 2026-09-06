@@ -42,6 +42,7 @@ export const T113_QUALIFIED_REPLAY_INPUTS = Object.freeze({
     replay_manifest_revision: 12,
     current_manifest_revision: 13,
     historical_manifest_blob: "ec4e9edde7bcf635063e23ee612cbad20712de6d",
+    selected_case_sha256: "6c1457ce8ffa28e8e40fcf52e74fda7ff8e4ef312e62d1f5cd0332adc14ea381",
     derived_identity: "00eabc7a7635b2f1f1d1d9e98a4ff5ae946c4175",
     synthetic_head: "a34238a0a43ac87745acd38a5d7bb4dadbcd08fc",
     platform: Object.freeze({ os: "linux", arch: "x64" }),
@@ -61,6 +62,7 @@ export const T113_QUALIFIED_REPLAY_INPUTS = Object.freeze({
     replay_manifest_revision: 13,
     current_manifest_revision: 13,
     historical_manifest_blob: null,
+    selected_case_sha256: "ec5fd91d90edba5f155a4e2dd23d47d71bd07d7f073eea1b996ab33195a08f74",
     derived_identity: "557cb04b07c04ec09eff6bb3ee7f3280781f3c8b",
     synthetic_head: "22c8c3bec56034d0d8f7ad277e60ba2580a3b6a7",
     platform: Object.freeze({ os: "linux", arch: "x64" }),
@@ -1008,6 +1010,7 @@ export function validateQualifiedReplayContract({ replayBytes, replay, caseRecor
   requireExact(sha256Bytes(replayBytes), frozen.replay_sha256, "qualified replay file SHA-256");
   requireExact(replay?.evidence?.manifest_revision, frozen.replay_manifest_revision, "qualified replay manifest revision");
   requireExact(manifest?.manifest_revision, frozen.current_manifest_revision, "current manifest revision");
+  requireExact(sha256Bytes(Buffer.from(canonicalJson(caseRecord), "utf8")), frozen.selected_case_sha256, "selected case canonical SHA-256");
   requireExact(replay?.status, "BENCHMARK_ACTIVE", "qualified replay status");
   requireExact(replay?.lifecycle_state, "BENCHMARK_ACTIVE", "qualified replay lifecycle");
   requireExact(replay?.case_id, frozen.case_id, "qualified replay case id");
