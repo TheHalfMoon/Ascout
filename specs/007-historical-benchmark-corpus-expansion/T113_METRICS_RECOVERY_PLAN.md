@@ -1,0 +1,315 @@
+# T113 Metrics Recovery Plan
+
+**Status:** PLANNING_ONLY / IMPLEMENTATION_NOT_AUTHORIZED  
+**Planning ledger:** Issue #209  
+**Publication ledger:** Issue #208  
+**Canonical planning base:** `256461e455b38e18a4ca06209184e0ddef274057`
+
+## Trigger
+
+T113 reached a publication-route stop condition before any T113 repository mutation:
+
+`T113 = RETURN_TO_PLANNING / METRICS_PREREQUISITE_INPUT_GAP`
+
+Canonical facts at discovery:
+
+- canonical `main`: `256461e455b38e18a4ca06209184e0ddef274057`;
+- canonical tree: `4d04b9e6aaff86de864f7e2b8eb6200893e80aac`;
+- T111 qualified replay: run `33991920845`, attempt `1`, `BENCHMARK_ACTIVE`;
+- T112 qualified recovery replay: run `34036997231`, attempt `1`, `BENCHMARK_ACTIVE`;
+- authorized T113 publication path: `benchmarks/results/t113-historical-corpus-expansion.json` only;
+- no T113 result file had been created.
+
+This stop condition does not invalidate either qualified candidate replay. It concerns only the route from qualified replay evidence into the current T076/T077 metrics/assertion machinery.
+
+## Exact root cause
+
+Current `benchmarks/metrics.mjs` has two executable modes.
+
+### Aggregate mode
+
+Aggregate mode accepts only completed `T076 / BENCHMARK_METRICS_READY` case results.
+
+### Case mode
+
+Case mode always executes `runT075(...)` internally. That helper invokes `benchmarks/run.mjs` to create a new T075 prerequisite replay before T076 metric collection. The live T075 subprocess also supplies a kept controller root containing `observation-N/measured` worktrees that T076 later reuses for comparator collection.
+
+The qualified T111/T112 artifacts contain immutable replay JSON evidence, not those ephemeral controller roots or measured worktrees. Therefore a replay-file option by itself is insufficient: T076 also needs a bounded way to reconstruct measured worktrees without executing a new oracle replay.
+
+A second historical-binding issue exists for T111: its immutable qualified replay was produced against manifest revision `12`, while the current canonical manifest is revision `13` after the independently qualified T112 command-label correction. The Jotai case itself remained revision `1`. A blanket current-manifest-revision equality rule would therefore reject the required immutable T111 evidence even though the only manifest revision-13 semantic edit was outside that Jotai record. Any compatibility exception must be exact, T111-specific, and proven from immutable historical/current manifest bytes; it must not become generalized revision tolerance.
+
+T113 authority simultaneously requires:
+
+1. use only qualified T111/T112 replay evidence;
+2. run the current metrics/assertion machinery over the complete eight-case selection corpus;
+3. preserve exact factual comparator outcomes and evidence integrity;
+4. avoid synthetic or fabricated T076/T077 evidence.
+
+Therefore the current executable contract cannot satisfy T113 honestly without a prospective benchmark-script authority amendment.
+
+Manually constructing T076/T077 records from replay JSON is prohibited because it would manufacture metric/assertion evidence that the current machinery did not execute. Silently invoking new T075 qualification replays is also not an acceptable substitute for the immutable qualified T111/T112 replay prerequisites.
+
+## Recovery design
+
+The recovery is a qualified-prerequisite materialization and execution-route repair only. It is not a metric-formula change, selector change, product change, oracle change, replay rewrite, schema change, or generalized benchmark refactor.
+
+### R007-05 — qualified replay prerequisite and measured-worktree materialization
+
+Prospective tracked mutation surface, only after a separate implementation authorization becomes canonical:
+
+- `benchmarks/run.mjs`
+- `benchmarks/metrics.mjs`
+- `tests/benchmark-harness.test.ts`
+- `tests/benchmark-metrics.test.ts`
+
+The need to include `benchmarks/run.mjs` is explicit and narrow: current T076 depends on the measured worktrees produced by T075, and only `run.mjs` already owns the frozen acquisition/reconstruction primitives that created the qualified derived identities. Duplicating those primitives in `metrics.mjs` or a workflow would create a second reconstruction implementation and is rejected by this plan.
+
+#### Qualified replay validation
+
+Required behavior:
+
+1. add one explicit local-file prerequisite contract for T076 case mode, named `--t075-input <path>`;
+2. preserve existing internal-T075 case mode for existing callers;
+3. reject ambiguous invocation when explicit T075 input and incompatible/aggregate modes are combined;
+4. read supplied replay JSON locally only; do not add artifact/network retrieval to either benchmark script;
+5. require both `status === "BENCHMARK_ACTIVE"` and `lifecycle_state === "BENCHMARK_ACTIVE"`;
+6. require exact case id and case revision equality with the selected current manifest record;
+7. require exact current manifest revision equality by default, with only the frozen T111 compatibility exception defined below;
+8. require `evidence.determinism === "deterministic"`;
+9. require `evidence.determinism_scope === "oracle_only"`;
+10. require `valid_observation_count === evidence.observations.length`, at least two observations, and exact equality with the requested T076 repetition count;
+11. require a valid canonical `evidence_sha256` and independently recompute it as SHA-256 over the repository's existing `canonicalJson(evidence)` bytes before acceptance;
+12. require exact qualified replay identity fields needed by reconstruction, including `derived_identity` and `synthetic_head`;
+13. reject malformed JSON, missing lifecycle evidence, wrong case/revision, unapproved manifest mismatch, wrong hash, nondeterministic evidence, wrong determinism scope, observation-count mismatch, missing derived identity, or missing synthetic head fail-closed.
+
+#### Frozen T111 manifest-revision compatibility exception
+
+There is exactly one allowed historical-manifest compatibility tuple:
+
+- case: `jotai-splitatom-identical-write@1`;
+- replay source commit: `2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4`;
+- replay run: `33991920845`, attempt `1`;
+- artifact: `9976936986`;
+- replay JSON SHA-256: `337cb9ca7680d5b5e33e5bf518268983df19af149c6f64812af4eef4a21f4c44`;
+- canonical evidence SHA-256: `a688937286b974788b0477b305c5fd1c315c8b580cbd17cf3f9b85d067616d5d`;
+- replay manifest revision: `12`;
+- historical manifest Git blob: `ec4e9edde7bcf635063e23ee612cbad20712de6d`;
+- current manifest revision: `13`;
+- qualified derived identity: `00eabc7a7635b2f1f1d1d9e98a4ff5ae946c4175`;
+- qualified synthetic head: `a34238a0a43ac87745acd38a5d7bb4dadbcd08fc`;
+- replay platform: Linux x64;
+- replay toolchain: Node `24.15.0`, Yarn Classic `1.22.22`.
+
+For this tuple only, the executor may provide an additional local historical-manifest input obtained from exact source commit `2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4`. Before T111 input acceptance, the implementation MUST:
+
+1. prove the historical manifest bytes resolve to Git blob `ec4e9edde7bcf635063e23ee612cbad20712de6d` and declare manifest revision `12`;
+2. select exactly `jotai-splitatom-identical-write@1` from both historical revision 12 and current revision 13 manifests;
+3. compare the complete selected Jotai case records using canonical JSON and require exact equality;
+4. therefore prove every Jotai field affecting upstream identity, base/fix/oracle Git identity and parents/trees, production/regression paths, runtime, package-manager and lockfile identity, licensing, reconstruction and ancillary anti-leakage rules, synthetic-head contract, oracle specification, comparator commands, lifecycle/candidate identity, and metric inputs is unchanged;
+5. require the replay source/run/artifact/replay-hash/evidence-hash/case-revision/derived-identity/synthetic-head tuple above exactly;
+6. reject every other manifest-revision mismatch, every other case, every other source/run/artifact identity, or any historical/current Jotai case-record difference fail-closed.
+
+This is an exact historical-identity compatibility proof, not an alias, fuzzy match, general revision compatibility feature, or permission to reinterpret T111 evidence. If the exact historical manifest bytes cannot be supplied and proven, T111 cannot enter T076 and R007-05 MUST return to planning.
+
+#### Runtime, platform, and dependency equality gate
+
+Recording runtime provenance is insufficient. Explicit-input T076 MUST prove execution-environment equality with the accepted qualified replay before materialization and again immediately before comparator collection.
+
+For both T111 and T112 inputs, fail closed unless:
+
+1. replay `evidence.platform.os` equals the actual execution OS (`linux` for the authorized executor);
+2. replay `evidence.platform.arch` equals the actual execution architecture (`x64` for the authorized executor);
+3. replay `evidence.toolchain.node` equals the actual Node version used by materialization and T076;
+4. replay `evidence.toolchain.package_manager` equals the manifest-bound and actual package-manager name;
+5. replay `evidence.toolchain.package_manager_version` equals the manifest-bound and actual package-manager version;
+6. the replay-bound selected manifest record's runtime/lockfile identity equals the selected manifest record used for materialization and T076;
+7. actual measured-worktree lockfile bytes equal the selected manifest's frozen lockfile SHA-256 before and after dependency installation;
+8. materialization and T076 comparator collection execute under the same OS/architecture/Node/package-manager identity that passed these checks.
+
+No baseline may be published using replay environment metadata if fresh comparator observations were collected under a different environment. Adversarial tests MUST cover OS, architecture, Node, package-manager name/version, manifest-runtime, and lockfile mismatch rejection.
+
+#### Bounded materialization contract
+
+For explicit qualified replay input only, `benchmarks/run.mjs` may gain one materialization-only mode consumed by `benchmarks/metrics.mjs`. The mode MUST reuse the existing frozen acquisition and selection-reconstruction primitives already used by T075 and MUST NOT execute the pre-fix oracle, fixed oracle, full comparator, plain comparator, related comparator, or Ascout comparator.
+
+For each requested observation ordinal, materialization MUST:
+
+1. pass the runtime/platform/dependency equality gate above before donor acquisition;
+2. acquire the exact manifest-bound upstream repository through the existing bounded mirror-clone route;
+3. re-run existing Git identity, required-parent, changed-path, pinned-license-byte, and lockfile-byte verification;
+4. use the existing `materializeSelection(..., "measured", true)` reconstruction path rather than a duplicate reconstruction algorithm;
+5. preserve the frozen regression-test anti-leakage rule: only reviewed production-fix bytes are restored into measured state and regression-test delta remains excluded from the measured worktree;
+6. preserve the existing exact dependency-install route, lockfile verification, hook/submodule controls, sanitized environment, and clean-source checks;
+7. require the reconstructed derived tree to equal the qualified replay `derived_identity` exactly;
+8. require the reconstructed synthetic commit to equal the qualified replay `synthetic_head` exactly;
+9. require the measured worktree path set to equal the reviewed production path set exactly;
+10. independently recompute source-state identity before handing the worktree to T076 and require stable state through comparator collection using the existing T076 source-stability checks;
+11. bind materialization provenance to case id/revision, replay and current manifest revisions, qualified replay evidence SHA-256, upstream/base/fix/oracle identities, derived identity, synthetic head, exact platform/Node/package-manager/lockfile identity, observation ordinal, and measured worktree path;
+12. return only bounded local materialization metadata/root information needed by `metrics.mjs`;
+13. clean up materialized roots after T076 completes unless the existing bounded diagnostic retention behavior is explicitly used by the single-use executor.
+
+The materialization mode is not a replay and MUST NOT produce or modify a `BENCHMARK_ACTIVE` qualification result. It reconstructs source state already bound by the immutable qualified replay so the current T076 comparator machinery can execute honestly.
+
+If implementation proves that the existing `run.mjs` reconstruction primitives cannot support this mode without changing donor/oracle semantics, `benchmarks/harness-lib.mjs`, metric formulas, receipt/schema behavior, or generalized framework architecture, R007-05 MUST fail closed and return to planning rather than widen itself.
+
+#### T076 preservation
+
+Immediately before comparator collection, re-run the runtime/platform/dependency equality gate and then preserve existing:
+
+- `buildBaselines(...)` semantics;
+- comparator commands and membership policy;
+- comparator collection;
+- Ascout execution;
+- source-state stability checks;
+- `computeCaseMetrics(...)` call;
+- timing/provenance shape;
+- T076 output shape and task/status semantics;
+- every metric formula in `benchmarks/metrics-lib.mjs` unchanged.
+
+Focused positive and adversarial tests MUST cover:
+
+- exact qualified replay acceptance;
+- hash/lifecycle/case/revision/determinism/count rejection;
+- default current-manifest-revision mismatch rejection;
+- exact fixed T111 revision-12-to-13 compatibility acceptance only when historical/current Jotai case canonical JSON is identical and every frozen identity matches;
+- T111 compatibility rejection on any tuple or Jotai record difference;
+- reconstructed derived-tree mismatch rejection;
+- synthetic-head mismatch rejection;
+- measured-path or anti-leakage mismatch rejection;
+- OS/architecture/Node/package-manager/lockfile mismatch rejection before materialization and before comparator collection;
+- ambiguous mode rejection;
+- preservation of existing internal-T075 behavior.
+
+R007-05 MUST NOT modify `benchmarks/harness-lib.mjs`, `benchmarks/metrics-lib.mjs`, `benchmarks/assertions-lib.mjs`, product code, selector code, receipt/schema/CLI code, dependencies, manifest, candidate definitions, historical results, or qualified replay artifacts.
+
+The explicit replay input is prerequisite evidence only. It MUST NOT be reclassified, rewritten, weakened, or converted into synthetic comparator outcomes.
+
+### R007-06 — single-use T113 metrics executor
+
+R007-06 is blocked until R007-05 is canonically qualified and closed.
+
+Prospective tracked mutation surface, only after a separate implementation authorization becomes canonical:
+
+- `.github/workflows/spec-007-t113-metrics.yml`
+
+#### Mandatory read-only preflight before ref creation
+
+Before `run/spec007-t113-metrics-r1` is created, perform a fresh read-only preflight and record it in the R007-06/T113 execution ledger. The preflight MUST prove all exact inputs remain available and immutable.
+
+At minimum:
+
+1. T091 source run `33428011206` exists with the expected completed/qualified disposition;
+2. T091 aggregate-input artifact `9773332273` is still downloadable/readable;
+3. the T091 archive digest is exactly `sha256:e544d8d9bb00552c65a54f601ad3f57a78ddfa030edcfb87af3549748de13665`;
+4. T111 run `33991920845` and artifact `9976936986` remain available with their previously qualified identities;
+5. T112 run `34036997231` and artifact `9990519748` remain available with their previously qualified identities;
+6. T111/T112 replay JSON SHA-256 and canonical evidence SHA-256 values match the qualified closeout records;
+7. exact historical T111 source commit `2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4` remains readable and its `benchmarks/manifest.json` resolves to Git blob `ec4e9edde7bcf635063e23ee612cbad20712de6d`;
+8. the historical and current `jotai-splitatom-identical-write@1` case records compare equal under canonical JSON before the compatibility exception can be used;
+9. historical T078/T091/T095 repository blob identities still match their frozen values;
+10. `run/spec007-t113-metrics-r1` is absent.
+
+If any required artifact or historical manifest is unavailable, unreadable, expired, digest-mismatched, blob-mismatched, or Jotai-case-incompatible, fail closed **before creating the execution ref** and return to planning. Do not substitute a regenerated historical archive, a new T111/T112 replay, an inferred equivalent manifest, or generalized revision tolerance.
+
+#### Required executor behavior
+
+1. GitHub `create` event only;
+2. exact static admission for `run/spec007-t113-metrics-r1` only;
+3. `github.event.ref_type == 'branch'` only;
+4. `github.run_attempt == 1` only;
+5. `github.sha == github.workflow_sha` and exact checked-out HEAD equality guards;
+6. least privileges only: repository contents read and Actions artifact read where GitHub requires it;
+7. Ubuntu 24.04 / Linux x64 only, matching both qualified replay platform identities;
+8. exact Node `24.15.0` plus each candidate's exact manifest/replay-bound package-manager identity; for Jotai and Immer this is Yarn Classic `1.22.22`;
+9. exact current Ascout controller lockfile install/build before benchmark execution;
+10. no controller secrets forwarded to donor execution;
+11. download inputs by exact immutable run/artifact identity only:
+   - T091 aggregate-input artifact from run `33428011206`, artifact `9773332273`, expected archive digest `sha256:e544d8d9bb00552c65a54f601ad3f57a78ddfa030edcfb87af3549748de13665`;
+   - T111 replay artifact from run `33991920845`, artifact `9976936986`;
+   - T112 replay artifact from run `34036997231`, artifact `9990519748`;
+12. obtain the exact historical T111 manifest bytes from source commit `2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4`, verify Git blob `ec4e9edde7bcf635063e23ee612cbad20712de6d`, and expose those bytes only as the local compatibility-proof input;
+13. verify T091 archive digest plus expected T111/T112 replay JSON SHA-256 and canonical evidence SHA-256 values again inside the job before use;
+14. run T076 metric collection for Jotai using the qualified T111 replay as `--t075-input` plus the exact historical manifest compatibility input, with measured source materialized through the bounded R007-05 route;
+15. run T076 metric collection for Immer using the qualified T112 replay as `--t075-input`, with exact current manifest revision equality and measured source materialized through the bounded R007-05 route;
+16. enforce exact replay/current execution platform, Node, package-manager, runtime, and lockfile equality before materialization and before comparator collection;
+17. never invoke a new T075 oracle replay for those two cases;
+18. run unchanged current T077 case assertions over each new T076 result;
+19. aggregate the six frozen historical T091 T076 case inputs plus the two new T076 case results through current `benchmarks/metrics.mjs` aggregate mode;
+20. aggregate the corresponding six frozen historical T091 T077 case inputs plus the two new T077 case results through current `benchmarks/assertions.mjs` aggregate mode;
+21. require aggregate absolute assertion status `ABSOLUTE_ASSERTIONS_SATISFIED`;
+22. preserve exact `hit | miss | unavailable` facts and explicit availability counts;
+23. preserve `no_pre_data_recall_threshold = true` and introduce no post-data universal acceptance percentage;
+24. bind exact source commit/tree, manifest revision, all eight case identities, T091/T111/T112 run and artifact provenance, metrics/assertion machinery identities, materialization identities, and historical result blob identities;
+25. produce one bounded T113 candidate artifact for later repository publication;
+26. upload that candidate artifact with bounded retention;
+27. do not commit directly from the workflow;
+28. no `workflow_dispatch`, wildcard ref, arbitrary case/repository/run/artifact/command/runtime input, reusable generalized executor, rerun-to-green, or second execution ref under this plan.
+
+### T113-R2 — additive publication
+
+T113-R2 is blocked until:
+
+1. R007-05 is canonically qualified and closed;
+2. R007-06 is canonically qualified and closed;
+3. the mandatory read-only artifact/historical-manifest integrity preflight above passes immediately before execution-ref creation;
+4. `run/spec007-t113-metrics-r1` is proven absent and then created exactly once from exact then-canonical `main`;
+5. its first create-event `run_attempt=1` succeeds and produces a genuine candidate artifact;
+6. the candidate artifact proves satisfied absolute assertions and honest complete eight-case accounting.
+
+Then and only then T113-R2 may mutate exactly:
+
+- `benchmarks/results/t113-historical-corpus-expansion.json`
+
+Publication requirements:
+
+- additive file only;
+- preserve historical T078/T091/T095 blob IDs exactly;
+- embed/bind exact generated aggregate metrics/assertions and execution provenance without inventing unavailable evidence;
+- exact-head focused validation and full applicable repository checks;
+- exact-head Self Verification;
+- exact-head six-lane Project CI;
+- fresh independent substantive exact-head review;
+- zero unresolved material threads;
+- guarded expected-head merge;
+- post-merge ordered-parent/tree/signature/PR/main/path verification;
+- durable closeout as `T113 = CLOSED_CANONICAL / QUALIFIED` before T114.
+
+## Dependency ordering
+
+`T111 qualified -> T112 qualified -> T113 stop condition -> T113 recovery planning -> implementation authorization -> R007-05 -> R007-06 -> read-only artifact/historical-manifest preflight -> single-use T113 metrics run -> T113-R2 publication -> T114`
+
+## Historical immutability
+
+The following published result blobs remain immutable throughout the recovery:
+
+- `benchmarks/results/t078-selector-misses.json` -> `06894f909426d5920fb8dc707b9707e86a70da31`;
+- `benchmarks/results/t091-m2-selection-replay.json` -> `05cb6e47b0dff2a25d91d9eb2864909bdeb7f309`;
+- `benchmarks/results/t095-branch-exercise-qualification.json` -> `e4b58d9c0ca21899b702e409a954a71ac20566b4`.
+
+The qualified T111/T112 replay refs/runs/artifacts also remain immutable and MUST NOT be rerun, moved, recreated, rewritten, or reclassified.
+
+## Hard prohibitions
+
+- no synthetic T076/T077 evidence;
+- no replay artifact rewriting or qualification reclassification;
+- no T111 or T112 replay rerun;
+- no product or selector mutation;
+- no receipt/schema/CLI mutation;
+- no metric-formula or assertion-rule change;
+- no donor/oracle/candidate identity change;
+- no product/runtime dependency addition;
+- no generalized manifest-revision compatibility; only the exact T111 tuple above may cross revision 12 to 13 after full selected-case equality proof;
+- no historical result rewrite or historical artifact regeneration as a substitute for missing evidence;
+- no duplicate reconstruction algorithm outside the existing `run.mjs` primitives;
+- no generalized benchmark framework;
+- no arbitrary workflow input surface;
+- no wildcard execution ref;
+- no force-push, rebase, or destructive shared-history rewrite;
+- no stale CI/review reuse after head mutation;
+- no fabricated evidence, review, CI, authority, qualification, mergeability, or completion.
+
+## Planning-only boundary
+
+This file authorizes no implementation. No benchmark script, test, workflow, execution ref, result, product, selector, schema, dependency, runtime, donor, oracle, manifest, or historical result may be mutated from this planning artifact alone.
+
+A separate explicit implementation authorization must become canonical before R007-05 begins.
