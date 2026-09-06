@@ -51,6 +51,7 @@ const SETUP_ERROR_PATTERNS = [
   /failed to load config/i,
   /could not resolve/i,
 ];
+const GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 
 function fail(code, message) {
   throw new BenchmarkHarnessError(code, message);
@@ -66,6 +67,9 @@ function parseArgs(argv) {
     repetitions: 2,
     planOnly: false,
     keepTemp: false,
+    materializeQualified: false,
+    expectedDerivedIdentity: null,
+    expectedSyntheticHead: null,
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -83,13 +87,24 @@ function parseArgs(argv) {
     else if (arg === "--repetitions") result.repetitions = Number(next());
     else if (arg === "--plan") result.planOnly = true;
     else if (arg === "--keep-temp") result.keepTemp = true;
+    else if (arg === "--materialize-qualified") result.materializeQualified = true;
+    else if (arg === "--expected-derived-identity") result.expectedDerivedIdentity = next();
+    else if (arg === "--expected-synthetic-head") result.expectedSyntheticHead = next();
     else fail("usage", `unknown argument: ${arg}`);
   }
   if (!result.caseId) fail("usage", "--case is required");
   if (!Number.isSafeInteger(result.repetitions) || result.repetitions < 2 || result.repetitions > 3) {
     fail("usage", "--repetitions must be 2 or 3");
   }
-  if (!result.planOnly && !result.runId) fail("usage", "--run-id is required for executable replay");
+  if (result.planOnly && result.materializeQualified) fail("usage", "--plan cannot be combined with --materialize-qualified");
+  if (!result.planOnly && !result.runId) fail("usage", "--run-id is required for executable replay or materialization");
+  if (result.materializeQualified) {
+    if (!result.keepTemp) fail("usage", "--materialize-qualified requires --keep-temp so the caller can consume bounded measured roots");
+    if (!GIT_OBJECT_ID.test(result.expectedDerivedIdentity ?? "")) fail("usage", "--materialize-qualified requires a full lowercase --expected-derived-identity");
+    if (!GIT_OBJECT_ID.test(result.expectedSyntheticHead ?? "")) fail("usage", "--materialize-qualified requires a full lowercase --expected-synthetic-head");
+  } else if (result.expectedDerivedIdentity !== null || result.expectedSyntheticHead !== null) {
+    fail("usage", "expected materialization identities require --materialize-qualified");
+  }
   return result;
 }
 
@@ -865,6 +880,69 @@ function assertCrossObservationIdentity(observations, caseRecord) {
   return { derivedTree: trees[0], syntheticHead: observations[0].reconstruction.synthetic_head };
 }
 
+async function executeQualifiedMaterialization(caseRecord, options) {
+  if (process.platform !== "linux") fail("platform", "qualified replay materialization is authorized only on Linux");
+  if (caseRecord.case_class !== "selection") fail("invalid_case", "qualified replay materialization is authorized only for selection cases");
+  const controllerRoot = await mkdtemp(join(tmpdir(), `ascout-t075-materialize-${caseRecord.case_id}-`));
+  const runtimeRoots = [controllerRoot];
+  try {
+    await ensureRuntimeDirs(controllerRoot);
+    const toolchain = await verifyToolchain(caseRecord, controllerRoot, options.ascoutRoot);
+    const cacheRepo = await cloneAcquisition(caseRecord, controllerRoot);
+    const observations = [];
+    for (let index = 0; index < options.repetitions; index += 1) {
+      const observationRoot = join(controllerRoot, `observation-${index + 1}`);
+      runtimeRoots.push(observationRoot);
+      await ensureRuntimeDirs(observationRoot);
+      const measured = await materializeSelection(caseRecord, cacheRepo, observationRoot, "measured", true);
+      if (measured.tree !== options.expectedDerivedIdentity) {
+        fail("binding_integrity", `qualified replay derived identity mismatch: expected ${options.expectedDerivedIdentity}, observed ${measured.tree}`);
+      }
+      if (measured.syntheticCommit !== options.expectedSyntheticHead) {
+        fail("binding_integrity", `qualified replay synthetic HEAD mismatch: expected ${options.expectedSyntheticHead}, observed ${measured.syntheticCommit}`);
+      }
+      const env = runtimeEnvironment(observationRoot);
+      await assertMeasuredState(measured.repo, caseRecord.paths.production, env);
+      const sourceStateSha256 = await independentSourceStateDigest(measured.repo, env);
+      observations.push({
+        ordinal: index + 1,
+        measured_repo: measured.repo,
+        derived_identity: measured.tree,
+        synthetic_head: measured.syntheticCommit,
+        source_state_sha256: sourceStateSha256,
+        install: measured.install,
+      });
+    }
+    const result = {
+      schema_version: 1,
+      status: "QUALIFIED_REPLAY_MATERIALIZATION_READY",
+      case_id: caseRecord.case_id,
+      case_revision: caseRecord.case_revision,
+      manifest_revision: options.manifestRevision,
+      materialization_run_id: options.runId,
+      platform: { os: process.platform, arch: process.arch },
+      toolchain,
+      expected_derived_identity: options.expectedDerivedIdentity,
+      expected_synthetic_head: options.expectedSyntheticHead,
+      observations,
+      boundary: {
+        oracle_replay_executed: false,
+        comparator_execution_performed: false,
+        measured_paths: [...caseRecord.paths.production].sort(),
+      },
+    };
+    if (options.output) {
+      await mkdir(dirname(options.output), { recursive: true });
+      await writeFile(options.output, canonicalJson(result));
+    }
+    process.stdout.write(canonicalJson(result));
+    process.stderr.write(`T075_MATERIALIZATION_ROOT=${controllerRoot}\n`);
+  } finally {
+    await Promise.all(runtimeRoots.map((runtimeRoot) => rm(shortNxDir(runtimeRoot), { recursive: true, force: true })));
+    if (!options.keepTemp) await rm(controllerRoot, { recursive: true, force: true });
+  }
+}
+
 async function executeCase(caseRecord, options) {
   if (process.platform !== "linux") fail("platform", "T075 executable replay is currently authorized only on Linux; T079 owns cross-platform hardening");
   const controllerRoot = await mkdtemp(join(tmpdir(), `ascout-t075-${caseRecord.case_id}-`));
@@ -963,6 +1041,10 @@ async function main() {
         canonical_acquisition_cache_shared_with_measured_commands: false,
       },
     }));
+    return;
+  }
+  if (options.materializeQualified) {
+    await executeQualifiedMaterialization(caseRecord, { ...options, manifestRevision: manifest.manifest_revision });
     return;
   }
   await stat(resolve(options.ascoutRoot, "dist/cli.js"));
