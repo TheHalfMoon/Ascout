@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   replay:
-    if: ${{ format('{0}', github.run_attempt) == '1' && github.event.ref_type == 'branch' && github.sha == github.workflow_sha && (github.event.ref == 'run/spec007-t111-jotai' || github.event.ref == 'run/spec007-t111-jotai-r2' || github.event.ref == 'run/spec007-t112-immer') }}
+    if: ${{ format('{0}', github.run_attempt) == '1' && github.event.ref_type == 'branch' && github.sha == github.workflow_sha && (github.event.ref == 'run/spec007-t111-jotai' || github.event.ref == 'run/spec007-t111-jotai-r2' || github.event.ref == 'run/spec007-t112-immer' || github.event.ref == 'run/spec007-t112-immer-r2') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -36,6 +36,9 @@ jobs:
               case_id="jotai-splitatom-identical-write"
               ;;
             run/spec007-t112-immer)
+              case_id="immer-draftmap-iterator-compatibility"
+              ;;
+            run/spec007-t112-immer-r2)
               case_id="immer-draftmap-iterator-compatibility"
               ;;
             *)
