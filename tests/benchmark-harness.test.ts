@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -111,6 +113,38 @@ describe("T075 restricted command contract", () => {
       fullCoverage: "NODE_ENV=test ./node_modules/.bin/jest --coverage",
       nativeCoverage: "npm test",
       artifact: "coverage/lcov.info",
+    });
+  });
+
+  it("extracts every real selection case and binds the corrected Immer contract", () => {
+    const manifest = JSON.parse(
+      readFileSync(new URL("../benchmarks/manifest.json", import.meta.url), "utf8"),
+    );
+    expect(manifest.manifest_revision).toBe(13);
+
+    const selectionCases = manifest.cases.filter(
+      (benchmarkCase: { case_class: string }) => benchmarkCase.case_class === "selection",
+    );
+    expect(selectionCases.length).toBeGreaterThan(0);
+
+    const extracted = Object.fromEntries(
+      selectionCases.map((benchmarkCase: { case_id: string }) => [
+        benchmarkCase.case_id,
+        extractSelectionCommands(benchmarkCase),
+      ]),
+    );
+    const immer = selectionCases.find(
+      (benchmarkCase: { case_id: string }) =>
+        benchmarkCase.case_id === "immer-draftmap-iterator-compatibility",
+    );
+
+    expect(immer).toBeDefined();
+    expect(immer.case_revision).toBe(2);
+    expect(extracted["immer-draftmap-iterator-compatibility"]).toEqual({
+      targeted: "yarn test:src __tests__/map-set.js",
+      full: "yarn test:src",
+      plain: "yarn test",
+      related: "yarn vitest related src/plugins/mapset.ts --run",
     });
   });
 });
