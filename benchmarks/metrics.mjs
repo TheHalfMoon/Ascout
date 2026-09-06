@@ -1005,6 +1005,8 @@ export function validateQualifiedReplayContract({ replayBytes, replay, caseRecor
   const frozen = T113_QUALIFIED_REPLAY_INPUTS[caseRecord.case_id];
   if (!frozen) fail("binding_integrity", `qualified replay input is not authorized for case ${caseRecord.case_id}`);
   requireExact(caseRecord.case_revision, frozen.case_revision, "selected case revision");
+  requireExact(replay?.evidence?.manifest_revision, frozen.replay_manifest_revision, "qualified replay manifest revision");
+  requireExact(manifest?.manifest_revision, frozen.current_manifest_revision, "current manifest revision");
   requireExact(sha256Bytes(replayBytes), frozen.replay_sha256, "qualified replay file SHA-256");
   requireExact(replay?.status, "BENCHMARK_ACTIVE", "qualified replay status");
   requireExact(replay?.lifecycle_state, "BENCHMARK_ACTIVE", "qualified replay lifecycle");
