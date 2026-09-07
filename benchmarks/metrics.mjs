@@ -531,6 +531,7 @@ async function collectProofReports(proofPath) {
 
 async function membershipAudit(caseRecord, repo, root, commandText, expectedExitCode, label) {
   await restoreMeasuredSource(caseRecord, repo, root);
+  for (const path of MANAGED_RUNNER_CACHE_PATHS) await clearIgnoredPath(repo, root, path);
   const proofPath = join(root, "t076-membership", `${randomUUID()}.json`);
   await mkdir(dirname(proofPath), { recursive: true });
   const variant = membershipProofCommand(commandText, runnerKind(caseRecord), proofPath);
@@ -552,6 +553,12 @@ async function membershipAudit(caseRecord, repo, root, commandText, expectedExit
     },
   };
 }
+
+export const __R007_07_TESTING_ONLY__ = Object.freeze({
+  managedRunnerCachePaths: Object.freeze([...MANAGED_RUNNER_CACHE_PATHS]),
+  clearIgnoredPath,
+  membershipAudit,
+});
 
 function benchmarkSelectionAccount(mode, membership, selectorIdentity) {
   const limitation = "selected/deselected counts are not exposed by this project-native benchmark comparator";
