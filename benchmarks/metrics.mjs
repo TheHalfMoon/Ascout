@@ -24,6 +24,7 @@ import { aggregateBenchmarkMetrics, computeCaseMetrics } from "./metrics-lib.mjs
 const CAPTURE_CAP_BYTES = 32 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000;
 const T075_TIMEOUT_MS = 70 * 60 * 1000;
+const PROOF_DIAGNOSTIC_STREAM_BYTES = 768;
 const MANAGED_RUNNER_CACHE_PATHS = [".nx/cache", ".nx/workspace-data", ".cache", "node_modules/.cache"];
 const METRIC_NX_DIRS = new Set();
 const SAFE_ID = /^[A-Za-z0-9._-]+$/u;
@@ -231,6 +232,12 @@ function outputDigest(result) {
     stdout_truncated: result.stdoutTruncated,
     stderr_truncated: result.stderrTruncated,
   };
+}
+
+function boundedProofDiagnostic(result) {
+  const stdout = result.stdout.toString("utf8").slice(0, PROOF_DIAGNOSTIC_STREAM_BYTES);
+  const stderr = result.stderr.toString("utf8").slice(0, PROOF_DIAGNOSTIC_STREAM_BYTES);
+  return `exact=${canonicalJson(outputDigest(result))}; stdout=${stdout}; stderr=${stderr}`;
 }
 
 function metricNxDir(root) {
@@ -502,7 +509,7 @@ function runnerKind(caseRecord) {
   return caseRecord.paths.regression_tests.some((path) => /jest/iu.test(path)) ? "jest" : "vitest";
 }
 
-async function collectProofReports(proofPath) {
+async function collectProofReports(proofPath, proof, label) {
   const proofDir = dirname(proofPath);
   const proofBase = basename(proofPath);
   const paths = [];
@@ -514,7 +521,9 @@ async function collectProofReports(proofPath) {
     if (entry.startsWith(`${proofBase}.`) && entry.endsWith(".json")) paths.push(join(proofDir, entry));
   }
   const unique = [...new Set(paths)].sort();
-  if (unique.length === 0) fail("oracle_membership", "membership audit did not produce a runner JSON report");
+  if (unique.length === 0) {
+    fail("oracle_membership", `membership audit did not produce a runner JSON report; label=${label}; ${boundedProofDiagnostic(proof)}`);
+  }
   const reports = [];
   let bytesTotal = 0;
   for (const path of unique) {
@@ -539,7 +548,7 @@ async function membershipAudit(caseRecord, repo, root, commandText, expectedExit
   const proof = await runProcess({ file: variant.file, argv: variant.argv, cwd: repo, env });
   requireExited(proof, `${label} membership audit`);
   if (proof.exitCode !== expectedExitCode) fail("oracle_membership", `${label} membership instrumentation changed exit behavior`);
-  const collected = await collectProofReports(proofPath);
+  const collected = await collectProofReports(proofPath, proof, label);
   const observed = observedOracleTestIds(collected.report, caseRecord.oracle.specification.regression_test_ids, caseRecord.paths.regression_tests);
   return {
     membership_available: true,
@@ -558,6 +567,7 @@ export const __R007_07_TESTING_ONLY__ = Object.freeze({
   managedRunnerCachePaths: Object.freeze([...MANAGED_RUNNER_CACHE_PATHS]),
   clearIgnoredPath,
   membershipAudit,
+  timedCommandPair,
 });
 
 function benchmarkSelectionAccount(mode, membership, selectorIdentity) {
