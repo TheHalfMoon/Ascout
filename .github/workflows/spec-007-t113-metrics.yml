@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   metrics:
-    if: ${{ format('{0}', github.run_attempt) == '1' && github.event.ref_type == 'branch' && github.event.ref == 'run/spec007-t113-metrics-r1' && github.sha == github.workflow_sha }}
+    if: ${{ format('{0}', github.run_attempt) == '1' && github.event.ref_type == 'branch' && github.event.ref == 'run/spec007-t113-metrics-r2' && github.sha == github.workflow_sha }}
     runs-on: ubuntu-24.04
     timeout-minutes: 240
 
@@ -26,7 +26,7 @@ jobs:
           set -euo pipefail
           test "$RUN_ATTEMPT" = "1"
           test "$EVENT_REF_TYPE" = "branch"
-          test "$CREATED_REF" = "run/spec007-t113-metrics-r1"
+          test "$CREATED_REF" = "run/spec007-t113-metrics-r2"
           test "$EVENT_SOURCE_SHA" = "$WORKFLOW_SHA"
 
       - name: Checkout exact event source
