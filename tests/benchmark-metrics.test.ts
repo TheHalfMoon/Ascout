@@ -370,3 +370,165 @@ await expect(testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.r
 } finally { await fixture.cleanup(); }
 });
 });
+
+async function createR00709WrapperFixture() {
+const { chmod, mkdir, mkdtemp, readFile, rm, writeFile } = await import("node:fs/promises");
+const { tmpdir } = await import("node:os");
+const { delimiter, join } = await import("node:path");
+const repo = await mkdtemp(join(tmpdir(), "ascout-r00709-repo-"));
+const root = await mkdtemp(join(tmpdir(), "ascout-r00709-root-"));
+const launcherRoot = await mkdtemp(join(tmpdir(), "ascout-r00709-launcher-"));
+const previousPath = process.env.PATH;
+if (!previousPath) throw new Error("fixture PATH is unavailable");
+process.env.PATH = `${launcherRoot}${delimiter}${previousPath}`;
+await writeFile(join(repo, ".gitignore"), `${R007_07_MANAGED_RUNNER_CACHE_PATHS.map((path) => `${path}/`).join("\n")}\n`);
+await writeFile(join(repo, "package.json"), `${JSON.stringify({ scripts: { "test:ci": "vitest" } })}\n`);
+await mkdir(join(repo, "src"), { recursive: true });
+await mkdir(join(repo, "tests"), { recursive: true });
+await mkdir(join(repo, "node_modules", ".bin"), { recursive: true });
+await writeFile(join(repo, "src", "value.ts"), "export const value = 'base';\n");
+await writeFile(join(repo, "tests", "oracle.test.ts"), "fixture oracle\n");
+const runner = [
+"#!/usr/bin/env node",
+"const fs = require('node:fs');",
+"const path = require('node:path');",
+`const caches = ${JSON.stringify(R007_07_MANAGED_RUNNER_CACHE_PATHS)};`,
+"const tempRoot = process.env.TMPDIR || process.env.TEMP;",
+"if (!tempRoot) process.exit(87);",
+"const logPath = path.join(tempRoot, 'r00709-lifecycle.log');",
+"const modePath = path.join(tempRoot, 'r00709-mode');",
+"const outputArg = process.argv.find((value) => value.startsWith('--outputFile='));",
+"if (!process.argv.includes('--run')) process.exit(88);",
+"const source = fs.readFileSync(path.join(process.cwd(), 'src/value.ts'), 'utf8');",
+"if (!source.includes(\"'fix'\")) process.exit(89);",
+"const prior = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8').trim().split(/\\n/u).filter(Boolean).length : 0;",
+"if (!outputArg) {",
+"  const cachePresence = caches.map((cache) => fs.existsSync(path.join(process.cwd(), cache)));",
+"  if (prior === 0 && cachePresence.some(Boolean)) process.exit(90);",
+"  if (prior === 1 && cachePresence.some((present) => !present)) process.exit(91);",
+"  fs.appendFileSync(logPath, `comparator:${prior === 0 ? 'cold' : 'warm'}\\n`);",
+"  for (const cache of caches) { const dir = path.join(process.cwd(), cache); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'stale'), 'stale'); }",
+"  fs.writeFileSync(path.join(process.cwd(), 'src/value.ts'), \"export const value = 'runtime';\\n\");",
+"  process.exit(0);",
+"}",
+"if (prior !== 2) process.exit(92);",
+"if (caches.some((cache) => fs.existsSync(path.join(process.cwd(), cache)))) process.exit(93);",
+"fs.appendFileSync(logPath, 'proof\\n');",
+"const outputFile = outputArg.slice('--outputFile='.length);",
+"const mode = fs.existsSync(modePath) ? fs.readFileSync(modePath, 'utf8').trim() : 'valid';",
+"const assertion = mode === 'wrong-identity' ? { status: 'passed', title: 'wrong oracle', fullName: 'wrong oracle', ancestorTitles: [] } : { status: 'passed', title: 'fixture oracle', fullName: 'fixture oracle', ancestorTitles: [] };",
+"const resultName = mode === 'wrong-identity' ? path.join(process.cwd(), 'tests/not-reviewed.test.ts') : path.join(process.cwd(), 'tests/oracle.test.ts');",
+"const report = { testResults: [{ name: resultName, assertionResults: [assertion] }] };",
+"if (mode === 'no-report') { process.stdout.write(`R00709_STDOUT_${'o'.repeat(1400)}`); process.stderr.write(`R00709_STDERR_${'e'.repeat(1400)}`); process.exit(0); }",
+"if (mode === 'malformed') fs.writeFileSync(outputFile, '{');",
+"else if (mode === 'missing-test-results') fs.writeFileSync(outputFile, JSON.stringify({ ok: true }));",
+"else fs.writeFileSync(outputFile, JSON.stringify(report));",
+"process.exit(mode === 'exit-mismatch' ? 3 : 0);",
+].join("\n");
+const runnerPath = join(repo, "node_modules", ".bin", "vitest");
+await writeFile(runnerPath, `${runner}\n`);
+await chmod(runnerPath, 0o755);
+const yarnLauncher = [
+"#!/usr/bin/env node",
+"// Test-only package-script dispatcher. It models command shape and process inheritance, not Yarn Classic semantics.",
+"const fs = require('node:fs');",
+"const path = require('node:path');",
+"const { spawnSync } = require('node:child_process');",
+"const args = process.argv.slice(2);",
+"if (args[0] !== 'test:ci') process.exit(81);",
+"const pkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));",
+"if (pkg?.scripts?.['test:ci'] !== 'vitest') process.exit(82);",
+"const child = spawnSync(path.join(process.cwd(), 'node_modules', '.bin', 'vitest'), args.slice(1), { env: process.env, stdio: 'inherit' });",
+"process.exit(child.status ?? 83);",
+].join("\n");
+const yarnPath = join(launcherRoot, "yarn");
+await writeFile(yarnPath, `${yarnLauncher}\n`);
+await chmod(yarnPath, 0o755);
+fixtureGit(repo, "init", "-q");
+fixtureGit(repo, "config", "user.name", "Ascout Fixture");
+fixtureGit(repo, "config", "user.email", "fixture@example.invalid");
+fixtureGit(repo, "add", ".");
+fixtureGit(repo, "commit", "-qm", "base");
+const base = fixtureGit(repo, "rev-parse", "HEAD");
+await writeFile(join(repo, "src", "value.ts"), "export const value = 'fix';\n");
+fixtureGit(repo, "add", "src/value.ts");
+fixtureGit(repo, "commit", "-qm", "fix");
+const fix = fixtureGit(repo, "rev-parse", "HEAD");
+fixtureGit(repo, "checkout", "-q", "--detach", base);
+const caseRecord = {
+case_id: "r00709-wrapper-fixture",
+case_class: "selection",
+git: { fix: { commit_id: fix } },
+paths: { production: ["src/value.ts"], regression_tests: ["tests/oracle.test.ts"] },
+oracle: { specification: {
+regression_test_ids: ["fixture oracle"],
+ground_truth_procedure: [
+"targeted regression-file command = `yarn test:ci --run`",
+"project-native full-suite/reference command = `yarn test:ci --run`",
+"plain-project comparator = `yarn test:ci --run`",
+"runner-native related selector = `yarn test:ci --run`",
+],
+} },
+};
+const modePath = join(root, "tmp", "r00709-mode");
+const logPath = join(root, "tmp", "r00709-lifecycle.log");
+return {
+repo, root, caseRecord, modePath, logPath,
+setMode: async (mode: string) => { await mkdir(join(root, "tmp"), { recursive: true }); await writeFile(modePath, `${mode}\n`); },
+readLifecycle: async () => (await readFile(logPath, "utf8")).trim().split(/\n/u).filter(Boolean),
+cleanup: async () => {
+process.env.PATH = previousPath;
+await rm(repo, { recursive: true, force: true });
+await rm(root, { recursive: true, force: true });
+await rm(launcherRoot, { recursive: true, force: true });
+},
+};
+}
+
+membershipRecoveryDescribe("R007-09 exact T076 wrapper lifecycle", () => {
+it("preserves yarn test:ci --run through cold, warm, restore, cache preparation, package dispatch, and structured proof", async () => {
+const fixture = await createR00709WrapperFixture();
+try {
+const testing = await r00707Testing();
+const timed = await testing.timedCommandPair(fixture.caseRecord, fixture.repo, fixture.root, "yarn test:ci --run", "R007-09 wrapper");
+expect(timed.cold).toMatchObject({ status: "passed", exit_code: 0, clean_success: true });
+expect(timed.warm).toMatchObject({ status: "passed", exit_code: 0, clean_success: true });
+const membership = await testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.root, "yarn test:ci --run", timed.cold.exit_code, "R007-09 wrapper");
+expect(membership).toMatchObject({ membership_available: true, oracle_membership: true, oracle_test_ids_observed: ["fixture oracle"], evidence: { report_count: 1 } });
+expect(await fixture.readLifecycle()).toEqual(["comparator:cold", "comparator:warm", "proof"]);
+} finally { await fixture.cleanup(); }
+});
+
+it("keeps missing structured reports fail-closed while exposing only bounded proof diagnostics", async () => {
+const fixture = await createR00709WrapperFixture();
+try {
+const testing = await r00707Testing();
+const timed = await testing.timedCommandPair(fixture.caseRecord, fixture.repo, fixture.root, "yarn test:ci --run", "R007-09 wrapper");
+await fixture.setMode("no-report");
+let failure: Error | null = null;
+try {
+await testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.root, "yarn test:ci --run", timed.cold.exit_code, "R007-09 wrapper");
+} catch (error) { failure = error as Error; }
+expect(failure).toBeInstanceOf(Error);
+expect(failure?.message).toMatch(/membership audit did not produce a runner JSON report/);
+expect(failure?.message).toContain("stdout_sha256");
+expect(failure?.message).toContain("stderr_sha256");
+expect(failure?.message).toContain("R00709_STDOUT_");
+expect(failure?.message).toContain("R00709_STDERR_");
+expect(failure?.message.length).toBeLessThan(2200);
+expect(await fixture.readLifecycle()).toEqual(["comparator:cold", "comparator:warm", "proof"]);
+} finally { await fixture.cleanup(); }
+});
+
+it("does not promote wrong reviewed path or test identity into membership truth", async () => {
+const fixture = await createR00709WrapperFixture();
+try {
+const testing = await r00707Testing();
+const timed = await testing.timedCommandPair(fixture.caseRecord, fixture.repo, fixture.root, "yarn test:ci --run", "R007-09 wrapper");
+await fixture.setMode("wrong-identity");
+const membership = await testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.root, "yarn test:ci --run", timed.cold.exit_code, "R007-09 wrapper");
+expect(membership).toMatchObject({ membership_available: true, oracle_membership: false, oracle_test_ids_observed: [], evidence: { report_count: 1 } });
+expect(await fixture.readLifecycle()).toEqual(["comparator:cold", "comparator:warm", "proof"]);
+} finally { await fixture.cleanup(); }
+});
+});
