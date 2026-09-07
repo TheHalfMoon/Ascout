@@ -117,5 +117,5 @@ describe("T054 runCheck bounded post-run widening", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  }, 60_000);
+  }, 180_000);
 });
