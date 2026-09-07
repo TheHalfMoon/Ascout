@@ -1,0 +1,459 @@
+name: Spec 007 T113 Metrics
+
+on:
+  create:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  metrics:
+    if: ${{ format('{0}', github.run_attempt) == '1' && github.event.ref_type == 'branch' && github.event.ref == 'run/spec007-t113-metrics-r1' && github.sha == github.workflow_sha }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+
+    steps:
+      - name: Bind single-use execution ref
+        shell: bash
+        env:
+          CREATED_REF: ${{ github.event.ref }}
+          EVENT_REF_TYPE: ${{ github.event.ref_type }}
+          EVENT_SOURCE_SHA: ${{ github.sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          test "$RUN_ATTEMPT" = "1"
+          test "$EVENT_REF_TYPE" = "branch"
+          test "$CREATED_REF" = "run/spec007-t113-metrics-r1"
+          test "$EVENT_SOURCE_SHA" = "$WORKFLOW_SHA"
+
+      - name: Checkout exact event source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Guard exact source and architecture
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ github.sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          observed_sha="$(git rev-parse --verify HEAD^{commit})"
+          test "$observed_sha" = "$EXPECTED_SOURCE_SHA"
+          test "$observed_sha" = "$WORKFLOW_SHA"
+          test "$(uname -s)" = "Linux"
+          test "$(uname -m)" = "x86_64"
+          git diff --quiet --cached HEAD --
+          git diff --quiet --
+          test -z "$(git status --porcelain=v1 --untracked-files=all --ignored=no)"
+
+      - name: Setup exact Node 24.15.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.15.0"
+          cache: npm
+
+      - name: Verify controller toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node --version)" = "v24.15.0"
+          test "$(node -p 'process.platform')" = "linux"
+          test "$(node -p 'process.arch')" = "x64"
+          command -v corepack >/dev/null
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          test "$(yarn --version)" = "1.22.22"
+
+      - name: Install and build exact Ascout source
+        shell: bash
+        run: |
+          set -euo pipefail
+          before_lock="$(sha256sum package-lock.json | awk '{print $1}')"
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          after_lock="$(sha256sum package-lock.json | awk '{print $1}')"
+          test "$before_lock" = "$after_lock"
+          git diff --quiet --cached HEAD --
+          git diff --quiet --
+          test -z "$(git status --porcelain=v1 --untracked-files=all --ignored=no)"
+
+      - name: Download and verify frozen benchmark inputs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/spec007-t113"
+          archives="$root/archives"
+          inputs="$root/inputs"
+          mkdir -p "$archives" "$inputs/t091" "$inputs/t111" "$inputs/t112"
+
+          api_get() {
+            local url="$1"
+            local out="$2"
+            curl --fail --silent --show-error --location \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$url" -o "$out"
+          }
+
+          verify_run() {
+            local run_id="$1"
+            local expected_head="$2"
+            local out="$archives/run-$run_id.json"
+            api_get "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs/$run_id" "$out"
+            node - "$out" "$run_id" "$expected_head" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expectedId, expectedHead] = process.argv.slice(2);
+          const run = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (String(run.id) !== expectedId) throw new Error(`run id mismatch: ${run.id}`);
+          if (run.status !== 'completed' || run.conclusion !== 'success') throw new Error(`run disposition mismatch: ${run.status}/${run.conclusion}`);
+          if (run.run_attempt !== 1) throw new Error(`run attempt mismatch: ${run.run_attempt}`);
+          if (run.head_sha !== expectedHead) throw new Error(`run head mismatch: ${run.head_sha}`);
+          NODE
+          }
+
+          download_artifact() {
+            local artifact_id="$1"
+            local run_id="$2"
+            local expected_name="$3"
+            local zip_path="$4"
+            local metadata="$archives/artifact-$artifact_id.json"
+            api_get "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id" "$metadata"
+            node - "$metadata" "$artifact_id" "$run_id" "$expected_name" <<'NODE'
+          const fs = require('node:fs');
+          const [path, expectedId, expectedRun, expectedName] = process.argv.slice(2);
+          const artifact = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (String(artifact.id) !== expectedId) throw new Error(`artifact id mismatch: ${artifact.id}`);
+          if (artifact.name !== expectedName) throw new Error(`artifact name mismatch: ${artifact.name}`);
+          if (artifact.expired !== false) throw new Error('artifact is expired');
+          if (String(artifact.workflow_run?.id) !== expectedRun) throw new Error(`artifact run mismatch: ${artifact.workflow_run?.id}`);
+          NODE
+            api_get "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/artifacts/$artifact_id/zip" "$zip_path"
+          }
+
+          verify_run 33428011206 c2323f5edf48c808621b3f50e6cccfaa6b50f886
+          verify_run 33991920845 2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4
+          verify_run 34036997231 256461e455b38e18a4ca06209184e0ddef274057
+
+          download_artifact 9773332273 33428011206 t091-requal-aggregate-inputs "$archives/t091.zip"
+          download_artifact 9976936986 33991920845 spec007-jotai-splitatom-identical-write-2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4-33991920845-1 "$archives/t111.zip"
+          download_artifact 9990519748 34036997231 spec007-immer-draftmap-iterator-compatibility-256461e455b38e18a4ca06209184e0ddef274057-34036997231-1 "$archives/t112.zip"
+
+          test "$(sha256sum "$archives/t091.zip" | awk '{print $1}')" = "e544d8d9bb00552c65a54f601ad3f57a78ddfa030edcfb87af3549748de13665"
+
+          unzip -q "$archives/t091.zip" -d "$inputs/t091"
+          unzip -q "$archives/t111.zip" -d "$inputs/t111"
+          unzip -q "$archives/t112.zip" -d "$inputs/t112"
+
+          node --input-type=module - "$root" <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { readFileSync, readdirSync } from 'node:fs';
+          import { join } from 'node:path';
+          import { canonicalJson } from './benchmarks/harness-lib.mjs';
+
+          const root = process.argv[2];
+          const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+          const expectedHistoricalFiles = [
+            'cases/react-hook-form-value-as-date.assertions.json',
+            'cases/react-hook-form-value-as-date.metrics.json',
+            'cases/tanstack-streamed-query-reducer.assertions.json',
+            'cases/tanstack-streamed-query-reducer.metrics.json',
+            'cases/trpc-streaming-onerror-cause.assertions.json',
+            'cases/trpc-streaming-onerror-cause.metrics.json',
+            'cases/zod-jitless-allows-eval.assertions.json',
+            'cases/zod-jitless-allows-eval.metrics.json',
+            'cases/zod-scientific-exponents.assertions.json',
+            'cases/zod-scientific-exponents.metrics.json',
+            'cases/zustand-persist-latest-state.assertions.json',
+            'cases/zustand-persist-latest-state.metrics.json',
+            't076.sha256',
+            't077.sha256',
+            't078.sha256',
+            't091-t076-aggregate.json',
+            't091-t077-assertions.json',
+          ].sort();
+          const walk = (dir, prefix = '') => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+            const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+            return entry.isDirectory() ? walk(join(dir, entry.name), rel) : [rel];
+          });
+          const observedHistoricalFiles = walk(join(root, 'inputs/t091')).sort();
+          if (canonicalJson(observedHistoricalFiles) !== canonicalJson(expectedHistoricalFiles)) throw new Error('T091 artifact file set mismatch');
+          for (const replayName of ['t111', 't112']) {
+            const files = walk(join(root, `inputs/${replayName}`)).sort();
+            if (canonicalJson(files) !== canonicalJson(['replay.json'])) throw new Error(`${replayName} artifact file set mismatch`);
+          }
+
+          const checks = [
+            ['t111', '337cb9ca7680d5b5e33e5bf518268983df19af149c6f64812af4eef4a21f4c44', 'a688937286b974788b0477b305c5fd1c315c8b580cbd17cf3f9b85d067616d5d', 'jotai-splitatom-identical-write', 1, 12],
+            ['t112', '2bb89f50cef7cf38f5e3b1fe53d191c03cd78f3a3a294770d323746a095d433d', '9d8195c6cfef34f2a004e6c7152536ba7a023f0865b0ed0a3173e0b7e127ce7f', 'immer-draftmap-iterator-compatibility', 2, 13],
+          ];
+          for (const [name, replaySha, evidenceSha, caseId, caseRevision, manifestRevision] of checks) {
+            const replayBytes = readFileSync(join(root, `inputs/${name}/replay.json`));
+            if (sha256(replayBytes) !== replaySha) throw new Error(`${name} replay SHA-256 mismatch`);
+            const replay = JSON.parse(replayBytes.toString('utf8'));
+            if (replay.case_id !== caseId || replay.case_revision !== caseRevision) throw new Error(`${name} replay case identity mismatch`);
+            if (replay.status !== 'BENCHMARK_ACTIVE' || replay.lifecycle_state !== 'BENCHMARK_ACTIVE') throw new Error(`${name} replay lifecycle mismatch`);
+            if (replay.evidence?.manifest_revision !== manifestRevision) throw new Error(`${name} replay manifest revision mismatch`);
+            if (replay.evidence_sha256 !== evidenceSha) throw new Error(`${name} declared evidence SHA-256 mismatch`);
+            if (sha256(Buffer.from(canonicalJson(replay.evidence), 'utf8')) !== evidenceSha) throw new Error(`${name} recomputed evidence SHA-256 mismatch`);
+            if (replay.evidence?.platform?.os !== 'linux' || replay.evidence?.platform?.arch !== 'x64') throw new Error(`${name} replay platform mismatch`);
+            if (replay.evidence?.toolchain?.node !== '24.15.0' || replay.evidence?.toolchain?.package_manager !== 'yarn' || replay.evidence?.toolchain?.package_manager_version !== '1.22.22') throw new Error(`${name} replay toolchain mismatch`);
+          }
+          NODE
+
+          mkdir -p "$root/historical"
+          git cat-file blob 2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4:benchmarks/manifest.json > "$root/historical/manifest-r12.json"
+          test "$(git rev-parse 2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4:benchmarks/manifest.json)" = "ec4e9edde7bcf635063e23ee612cbad20712de6d"
+          test "$(git hash-object "$root/historical/manifest-r12.json")" = "ec4e9edde7bcf635063e23ee612cbad20712de6d"
+
+          node --input-type=module - "$root/historical/manifest-r12.json" <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import { canonicalJson } from './benchmarks/harness-lib.mjs';
+          const historical = JSON.parse(readFileSync(process.argv[2], 'utf8'));
+          const current = JSON.parse(readFileSync('benchmarks/manifest.json', 'utf8'));
+          if (historical.manifest_revision !== 12 || current.manifest_revision !== 13) throw new Error('T111 manifest revision contract mismatch');
+          const historicalCase = historical.cases.find((item) => item.case_id === 'jotai-splitatom-identical-write');
+          const currentCase = current.cases.find((item) => item.case_id === 'jotai-splitatom-identical-write');
+          if (!historicalCase || !currentCase || historicalCase.case_revision !== 1 || currentCase.case_revision !== 1) throw new Error('T111 case identity mismatch');
+          if (canonicalJson(historicalCase) !== canonicalJson(currentCase)) throw new Error('historical/current T111 Jotai case mismatch');
+          const immer = current.cases.find((item) => item.case_id === 'immer-draftmap-iterator-compatibility');
+          if (!immer || immer.case_revision !== 2) throw new Error('current T112 case identity mismatch');
+          if (current.corpus_contract?.no_pre_data_recall_threshold !== true) throw new Error('no_pre_data_recall_threshold contract mismatch');
+          NODE
+
+          test "$(git rev-parse HEAD:benchmarks/results/t078-selector-misses.json)" = "06894f909426d5920fb8dc707b9707e86a70da31"
+          test "$(git rev-parse HEAD:benchmarks/results/t091-m2-selection-replay.json)" = "05cb6e47b0dff2a25d91d9eb2864909bdeb7f309"
+          test "$(git rev-parse HEAD:benchmarks/results/t095-branch-exercise-qualification.json)" = "e4b58d9c0ca21899b702e409a954a71ac20566b4"
+
+      - name: Run T076 for qualified T111 and T112 inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/spec007-t113"
+          out="$root/output"
+          mkdir -p "$out/cases"
+
+          node benchmarks/metrics.mjs \
+            --case jotai-splitatom-identical-write \
+            --manifest benchmarks/manifest.json \
+            --ascout-root . \
+            --run-id "spec007-t113-${GITHUB_RUN_ID}-jotai" \
+            --repetitions 2 \
+            --t075-input "$root/inputs/t111/replay.json" \
+            --t075-historical-manifest "$root/historical/manifest-r12.json" \
+            --t075-source-commit 2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4 \
+            --t075-workflow-run-id 33991920845 \
+            --t075-workflow-run-attempt 1 \
+            --t075-artifact-id 9976936986 \
+            --output "$out/cases/jotai-splitatom-identical-write.metrics.json"
+
+          node benchmarks/metrics.mjs \
+            --case immer-draftmap-iterator-compatibility \
+            --manifest benchmarks/manifest.json \
+            --ascout-root . \
+            --run-id "spec007-t113-${GITHUB_RUN_ID}-immer" \
+            --repetitions 2 \
+            --t075-input "$root/inputs/t112/replay.json" \
+            --t075-source-commit 256461e455b38e18a4ca06209184e0ddef274057 \
+            --t075-workflow-run-id 34036997231 \
+            --t075-workflow-run-attempt 1 \
+            --t075-artifact-id 9990519748 \
+            --output "$out/cases/immer-draftmap-iterator-compatibility.metrics.json"
+
+      - name: Run unchanged T077 assertions and eight-case aggregation
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/spec007-t113"
+          out="$root/output"
+
+          node benchmarks/assertions.mjs \
+            --input "$out/cases/jotai-splitatom-identical-write.metrics.json" \
+            --output "$out/cases/jotai-splitatom-identical-write.assertions.json"
+          node benchmarks/assertions.mjs \
+            --input "$out/cases/immer-draftmap-iterator-compatibility.metrics.json" \
+            --output "$out/cases/immer-draftmap-iterator-compatibility.assertions.json"
+
+          node benchmarks/metrics.mjs \
+            --aggregate-input "$root/inputs/t091/cases/react-hook-form-value-as-date.metrics.json" \
+            --aggregate-input "$root/inputs/t091/cases/tanstack-streamed-query-reducer.metrics.json" \
+            --aggregate-input "$root/inputs/t091/cases/trpc-streaming-onerror-cause.metrics.json" \
+            --aggregate-input "$root/inputs/t091/cases/zod-jitless-allows-eval.metrics.json" \
+            --aggregate-input "$root/inputs/t091/cases/zod-scientific-exponents.metrics.json" \
+            --aggregate-input "$root/inputs/t091/cases/zustand-persist-latest-state.metrics.json" \
+            --aggregate-input "$out/cases/jotai-splitatom-identical-write.metrics.json" \
+            --aggregate-input "$out/cases/immer-draftmap-iterator-compatibility.metrics.json" \
+            --output "$out/t113-t076-aggregate.json"
+
+          node benchmarks/assertions.mjs \
+            --aggregate-input "$root/inputs/t091/cases/react-hook-form-value-as-date.assertions.json" \
+            --aggregate-input "$root/inputs/t091/cases/tanstack-streamed-query-reducer.assertions.json" \
+            --aggregate-input "$root/inputs/t091/cases/trpc-streaming-onerror-cause.assertions.json" \
+            --aggregate-input "$root/inputs/t091/cases/zod-jitless-allows-eval.assertions.json" \
+            --aggregate-input "$root/inputs/t091/cases/zod-scientific-exponents.assertions.json" \
+            --aggregate-input "$root/inputs/t091/cases/zustand-persist-latest-state.assertions.json" \
+            --aggregate-input "$out/cases/jotai-splitatom-identical-write.assertions.json" \
+            --aggregate-input "$out/cases/immer-draftmap-iterator-compatibility.assertions.json" \
+            --output "$out/t113-t077-assertions.json"
+
+          node - "$out/t113-t077-assertions.json" <<'NODE'
+          const fs = require('node:fs');
+          const result = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (result.status !== 'ABSOLUTE_ASSERTIONS_SATISFIED') throw new Error(`aggregate assertion status is ${result.status}`);
+          NODE
+
+      - name: Build bounded T113 candidate artifact
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          CREATED_REF: ${{ github.event.ref }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/spec007-t113"
+          out="$root/output"
+
+          node --input-type=module - "$root" "$out" <<'NODE'
+          import { createHash } from 'node:crypto';
+          import { execFileSync } from 'node:child_process';
+          import { readFileSync, writeFileSync } from 'node:fs';
+          import { canonicalJson } from './benchmarks/harness-lib.mjs';
+
+          const [root, out] = process.argv.slice(2);
+          const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
+          const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+          const metrics = readJson(`${out}/t113-t076-aggregate.json`);
+          const assertions = readJson(`${out}/t113-t077-assertions.json`);
+          const manifest = readJson('benchmarks/manifest.json');
+          const expectedCases = [
+            ['immer-draftmap-iterator-compatibility', 2],
+            ['jotai-splitatom-identical-write', 1],
+            ['react-hook-form-value-as-date', 2],
+            ['tanstack-streamed-query-reducer', 4],
+            ['trpc-streaming-onerror-cause', 2],
+            ['zod-jitless-allows-eval', 2],
+            ['zod-scientific-exponents', 2],
+            ['zustand-persist-latest-state', 2],
+          ];
+          const actualMetricCases = metrics.case_set.map((item) => [item.case_id, item.case_revision]).sort((a, b) => a[0].localeCompare(b[0]));
+          const actualAssertionCases = assertions.raw_cases.map((item) => [item.case_id, item.case_revision]).sort((a, b) => a[0].localeCompare(b[0]));
+          if (canonicalJson(actualMetricCases) !== canonicalJson(expectedCases)) throw new Error('T076 eight-case accounting mismatch');
+          if (canonicalJson(actualAssertionCases) !== canonicalJson(expectedCases)) throw new Error('T077 eight-case accounting mismatch');
+          if (assertions.status !== 'ABSOLUTE_ASSERTIONS_SATISFIED') throw new Error('absolute assertions are not satisfied');
+          if (manifest.manifest_revision !== 13 || manifest.corpus_contract?.no_pre_data_recall_threshold !== true) throw new Error('manifest threshold/revision contract mismatch');
+
+          const t111Replay = readJson(`${root}/inputs/t111/replay.json`);
+          const t112Replay = readJson(`${root}/inputs/t112/replay.json`);
+          const metricsBytes = readFileSync(`${out}/t113-t076-aggregate.json`);
+          const assertionsBytes = readFileSync(`${out}/t113-t077-assertions.json`);
+          const candidate = {
+            schema_version: 1,
+            task: 'T113-R1-CANDIDATE',
+            status: 'T113_CANDIDATE_READY',
+            execution: {
+              ref: process.env.CREATED_REF,
+              run_id: process.env.GITHUB_RUN_ID,
+              run_attempt: Number(process.env.GITHUB_RUN_ATTEMPT),
+              source_commit: process.env.SOURCE_SHA,
+              source_tree: git('rev-parse', 'HEAD^{tree}'),
+              workflow_sha: process.env.WORKFLOW_SHA,
+              platform: { os: process.platform, arch: process.arch },
+              node: process.version.replace(/^v/u, ''),
+              yarn: execFileSync('yarn', ['--version'], { encoding: 'utf8' }).trim(),
+            },
+            manifest: {
+              revision: manifest.manifest_revision,
+              blob: git('rev-parse', 'HEAD:benchmarks/manifest.json'),
+              no_pre_data_recall_threshold: true,
+              post_data_universal_acceptance_threshold: null,
+              case_set: expectedCases.map(([case_id, case_revision]) => ({ case_id, case_revision })),
+            },
+            inputs: {
+              t091: {
+                run_id: '33428011206',
+                run_attempt: 1,
+                source_commit: 'c2323f5edf48c808621b3f50e6cccfaa6b50f886',
+                artifact_id: '9773332273',
+                archive_sha256: 'e544d8d9bb00552c65a54f601ad3f57a78ddfa030edcfb87af3549748de13665',
+              },
+              t111: {
+                run_id: '33991920845',
+                run_attempt: 1,
+                source_commit: '2955969c16a456c44da8dd4c1e31f8ad3fa6f9a4',
+                artifact_id: '9976936986',
+                replay_sha256: '337cb9ca7680d5b5e33e5bf518268983df19af149c6f64812af4eef4a21f4c44',
+                evidence_sha256: 'a688937286b974788b0477b305c5fd1c315c8b580cbd17cf3f9b85d067616d5d',
+                historical_manifest_blob: 'ec4e9edde7bcf635063e23ee612cbad20712de6d',
+                derived_identity: t111Replay.derived_identity,
+                synthetic_head: t111Replay.synthetic_head,
+              },
+              t112: {
+                run_id: '34036997231',
+                run_attempt: 1,
+                source_commit: '256461e455b38e18a4ca06209184e0ddef274057',
+                artifact_id: '9990519748',
+                replay_sha256: '2bb89f50cef7cf38f5e3b1fe53d191c03cd78f3a3a294770d323746a095d433d',
+                evidence_sha256: '9d8195c6cfef34f2a004e6c7152536ba7a023f0865b0ed0a3173e0b7e127ce7f',
+                derived_identity: t112Replay.derived_identity,
+                synthetic_head: t112Replay.synthetic_head,
+              },
+            },
+            machinery: {
+              run_mjs_blob: git('rev-parse', 'HEAD:benchmarks/run.mjs'),
+              metrics_mjs_blob: git('rev-parse', 'HEAD:benchmarks/metrics.mjs'),
+              metrics_lib_blob: git('rev-parse', 'HEAD:benchmarks/metrics-lib.mjs'),
+              assertions_mjs_blob: git('rev-parse', 'HEAD:benchmarks/assertions.mjs'),
+              assertions_lib_blob: git('rev-parse', 'HEAD:benchmarks/assertions-lib.mjs'),
+              harness_lib_blob: git('rev-parse', 'HEAD:benchmarks/harness-lib.mjs'),
+              workflow_blob: git('rev-parse', 'HEAD:.github/workflows/spec-007-t113-metrics.yml'),
+            },
+            historical_result_blobs: {
+              t078: '06894f909426d5920fb8dc707b9707e86a70da31',
+              t091: '05cb6e47b0dff2a25d91d9eb2864909bdeb7f309',
+              t095: 'e4b58d9c0ca21899b702e409a954a71ac20566b4',
+            },
+            aggregates: {
+              t076_sha256: sha256(metricsBytes),
+              t077_sha256: sha256(assertionsBytes),
+              absolute_assertions_status: assertions.status,
+              metrics,
+              assertions,
+            },
+            constraints: {
+              t111_t112_replayed: false,
+              direct_repository_publication_performed: false,
+              historical_results_modified: false,
+              metric_or_assertion_rules_modified: false,
+              arbitrary_inputs_exposed: false,
+            },
+          };
+          writeFileSync(`${out}/t113-candidate.json`, canonicalJson(candidate));
+          NODE
+
+          test "$(git rev-parse --verify HEAD^{commit})" = "$SOURCE_SHA"
+          git diff --quiet --cached HEAD --
+          git diff --quiet --
+          test -z "$(git status --porcelain=v1 --untracked-files=all --ignored=no)"
+          test -s "$out/t113-candidate.json"
+
+      - name: Upload bounded T113 candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: spec007-t113-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/spec007-t113/output/t113-candidate.json
+            ${{ runner.temp }}/spec007-t113/output/t113-t076-aggregate.json
+            ${{ runner.temp }}/spec007-t113/output/t113-t077-assertions.json
+            ${{ runner.temp }}/spec007-t113/output/cases/*.metrics.json
+            ${{ runner.temp }}/spec007-t113/output/cases/*.assertions.json
+          if-no-files-found: error
+          retention-days: 30
