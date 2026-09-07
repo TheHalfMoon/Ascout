@@ -221,3 +221,152 @@ const retryAttempt = spawnSync(process.execPath, [metricsScript, "--case", "x", 
 expect(retryAttempt.status).toBe(1); expect(retryAttempt.stderr).toMatch(/requires --t075-workflow-run-attempt 1/);
 });
 });
+
+const membershipRecoveryDescribe = process.platform === "linux" ? describe : describe.skip;
+const R007_07_MANAGED_RUNNER_CACHE_PATHS = [".nx/cache", ".nx/workspace-data", ".cache", "node_modules/.cache"];
+
+function fixtureGit(repo: string, ...args: string[]) {
+const result = spawnSync("git", ["-C", repo, ...args], { encoding: "utf8" });
+if (result.status !== 0) throw new Error(`fixture git ${args.join(" ")} failed: ${result.stderr}`);
+return result.stdout.trim();
+}
+
+async function createR00707Fixture(ignoreManaged = true) {
+const { chmod, mkdir, mkdtemp, rm, writeFile } = await import("node:fs/promises");
+const { tmpdir } = await import("node:os");
+const { join } = await import("node:path");
+const repo = await mkdtemp(join(tmpdir(), "ascout-r00707-repo-"));
+const root = await mkdtemp(join(tmpdir(), "ascout-r00707-root-"));
+const ignored = ignoreManaged ? `${R007_07_MANAGED_RUNNER_CACHE_PATHS.map((path) => `${path}/`).join("\n")}\n` : "";
+await writeFile(join(repo, ".gitignore"), ignored);
+await mkdir(join(repo, "src"), { recursive: true });
+await mkdir(join(repo, "tests"), { recursive: true });
+await mkdir(join(repo, "node_modules", ".bin"), { recursive: true });
+await writeFile(join(repo, "src", "value.ts"), "export const value = 'base';\n");
+await writeFile(join(repo, "tests", "oracle.test.ts"), "fixture oracle\n");
+const runner = [
+"#!/usr/bin/env node",
+"const fs = require('node:fs');",
+"const path = require('node:path');",
+`const caches = ${JSON.stringify(R007_07_MANAGED_RUNNER_CACHE_PATHS)};`,
+"const outputArg = process.argv.find((value) => value.startsWith('--outputFile='));",
+"if (!outputArg) { for (const cache of caches) { const dir = path.join(process.cwd(), cache); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, 'stale'), 'stale'); } process.exit(0); }",
+"if (caches.some((cache) => fs.existsSync(path.join(process.cwd(), cache)))) process.exit(91);",
+"const outputFile = outputArg.slice('--outputFile='.length);",
+"const mode = process.env.FIXTURE_REPORT_MODE || 'valid';",
+"const report = { testResults: [{ name: path.join(process.cwd(), 'tests/oracle.test.ts'), assertionResults: [{ status: 'passed', title: 'fixture oracle', fullName: 'fixture oracle', ancestorTitles: [] }] }] };",
+"if (mode === 'no-report') process.exit(0);",
+"if (mode === 'malformed') fs.writeFileSync(outputFile, '{');",
+"else if (mode === 'missing-test-results') fs.writeFileSync(outputFile, JSON.stringify({ ok: true }));",
+"else fs.writeFileSync(outputFile, JSON.stringify(report));",
+"process.exit(mode === 'exit-mismatch' ? 3 : 0);",
+].join("\n");
+const runnerPath = join(repo, "node_modules", ".bin", "vitest");
+await writeFile(runnerPath, `${runner}\n`);
+await chmod(runnerPath, 0o755);
+fixtureGit(repo, "init", "-q");
+fixtureGit(repo, "config", "user.name", "Ascout Fixture");
+fixtureGit(repo, "config", "user.email", "fixture@example.invalid");
+fixtureGit(repo, "add", ".");
+fixtureGit(repo, "commit", "-qm", "base");
+const base = fixtureGit(repo, "rev-parse", "HEAD");
+await writeFile(join(repo, "src", "value.ts"), "export const value = 'fix';\n");
+fixtureGit(repo, "add", "src/value.ts");
+fixtureGit(repo, "commit", "-qm", "fix");
+const fix = fixtureGit(repo, "rev-parse", "HEAD");
+fixtureGit(repo, "checkout", "-q", "--detach", base);
+for (const cache of R007_07_MANAGED_RUNNER_CACHE_PATHS) {
+const dir = join(repo, cache);
+await mkdir(dir, { recursive: true });
+await writeFile(join(dir, "stale"), "stale");
+}
+const caseRecord = {
+case_id: "r00707-fixture",
+case_class: "selection",
+git: { fix: { commit_id: fix } },
+paths: { production: ["src/value.ts"], regression_tests: ["tests/oracle.test.ts"] },
+oracle: { specification: {
+regression_test_ids: ["fixture oracle"],
+ground_truth_procedure: [
+"targeted command = `./node_modules/.bin/vitest`",
+"project-native full-suite/reference command = `./node_modules/.bin/vitest`",
+"plain-project comparator = `./node_modules/.bin/vitest`",
+"runner-native related selector = `./node_modules/.bin/vitest`",
+],
+} },
+};
+return { repo, root, caseRecord, cleanup: async () => { await rm(repo, { recursive: true, force: true }); await rm(root, { recursive: true, force: true }); } };
+}
+
+async function r00707Testing() {
+const metricsUrl = new URL("../benchmarks/metrics.mjs", import.meta.url).href;
+const metricsModule: any = await import(/* @vite-ignore */ metricsUrl);
+return metricsModule.__R007_07_TESTING_ONLY__;
+}
+
+membershipRecoveryDescribe("R007-07 T076 membership recovery", () => {
+it("prepares exactly the existing four ignored runner caches before genuine structured membership proof", async () => {
+const fixture = await createR00707Fixture();
+try {
+const testing = await r00707Testing();
+expect(testing.managedRunnerCachePaths).toEqual(R007_07_MANAGED_RUNNER_CACHE_PATHS);
+const result = await testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.root, "FIXTURE_REPORT_MODE=valid ./node_modules/.bin/vitest", 0, "fixture");
+expect(result).toMatchObject({ membership_available: true, oracle_membership: true, oracle_test_ids_observed: ["fixture oracle"], evidence: { report_count: 1 } });
+} finally { await fixture.cleanup(); }
+});
+
+it("keeps cleanup path-contained", async () => {
+const fixture = await createR00707Fixture();
+try {
+const { mkdir, stat } = await import("node:fs/promises");
+const { resolve } = await import("node:path");
+const outside = resolve(fixture.repo, "..", `ascout-r00707-outside-${process.pid}`);
+await mkdir(outside, { recursive: true });
+const testing = await r00707Testing();
+await expect(testing.clearIgnoredPath(fixture.repo, fixture.root, `../${outside.split("/").at(-1)}`)).rejects.toBeTruthy();
+await expect(stat(outside)).resolves.toBeTruthy();
+const { rm } = await import("node:fs/promises");
+await rm(outside, { recursive: true, force: true });
+} finally { await fixture.cleanup(); }
+});
+
+it("rejects a managed cache path that donor Git does not classify as ignored", async () => {
+const fixture = await createR00707Fixture(false);
+try {
+const testing = await r00707Testing();
+await expect(testing.clearIgnoredPath(fixture.repo, fixture.root, ".cache")).rejects.toThrow(/metric cache path is not ignored/);
+} finally { await fixture.cleanup(); }
+});
+
+it("keeps missing membership reports fail-closed", async () => {
+const fixture = await createR00707Fixture();
+try {
+const testing = await r00707Testing();
+await expect(testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.root, "FIXTURE_REPORT_MODE=no-report ./node_modules/.bin/vitest", 0, "fixture")).rejects.toThrow(/did not produce a runner JSON report/);
+} finally { await fixture.cleanup(); }
+});
+
+it("rejects malformed membership JSON", async () => {
+const fixture = await createR00707Fixture();
+try {
+const testing = await r00707Testing();
+await expect(testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.root, "FIXTURE_REPORT_MODE=malformed ./node_modules/.bin/vitest", 0, "fixture")).rejects.toBeInstanceOf(SyntaxError);
+} finally { await fixture.cleanup(); }
+});
+
+it("rejects membership reports without testResults", async () => {
+const fixture = await createR00707Fixture();
+try {
+const testing = await r00707Testing();
+await expect(testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.root, "FIXTURE_REPORT_MODE=missing-test-results ./node_modules/.bin/vitest", 0, "fixture")).rejects.toThrow(/membership report is missing testResults/);
+} finally { await fixture.cleanup(); }
+});
+
+it("rejects membership instrumentation exit-code mismatch", async () => {
+const fixture = await createR00707Fixture();
+try {
+const testing = await r00707Testing();
+await expect(testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.root, "FIXTURE_REPORT_MODE=exit-mismatch ./node_modules/.bin/vitest", 0, "fixture")).rejects.toThrow(/membership instrumentation changed exit behavior/);
+} finally { await fixture.cleanup(); }
+});
+});
