@@ -5,8 +5,10 @@
 `GAP_EVIDENCE = PLANNING_ONLY / IMPLEMENTATION_NOT_AUTHORIZED`
 
 Planning ledger: Issue #252  
-Canonical planning base: `fb6bb2ec152e41da05901509b0b62d1eb3636648`  
-Canonical planning-base tree: `f2a7331aaac4108375979afda3d706f9aa2e0fd7`
+Planning inception base: `fb6bb2ec152e41da05901509b0b62d1eb3636648`  
+Planning inception-base tree: `f2a7331aaac4108375979afda3d706f9aa2e0fd7`  
+Live qualification base: `9093ee06c45234d1dee0fbe30d3a0d8fd415fe6f`  
+Live qualification-base tree: `79b10c40d72e464c58e8afc52386f27a515fd584`
 
 ## Evidence-backed gap
 
