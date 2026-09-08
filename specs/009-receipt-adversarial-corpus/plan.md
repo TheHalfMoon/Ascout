@@ -7,11 +7,11 @@ Canonical planning base: `fb6bb2ec152e41da05901509b0b62d1eb3636648`
 
 ## 1. Design summary
 
-Implement a single deterministic Vitest contract suite that constructs a valid Receipt v1 control, applies explicit named mutations, and checks the exact current receipt JSON Schema and semantic validator boundaries.
+Implement a single deterministic Vitest contract suite that constructs valid Receipt v1 controls, applies the exact explicit named mutations frozen in `CASE_REGISTRY.md`, and checks the exact current receipt JSON Schema and semantic validator boundaries.
 
 No product code, schema, workflow, dependency, historical result, or CLI surface is planned.
 
-Preferred tracked implementation surface:
+Exact tracked implementation surface:
 
 - `tests/receipt-adversarial-corpus.contract.test.ts`
 
@@ -31,7 +31,7 @@ No copy of the schema is permitted in the corpus.
 
 ## 3. Fixture architecture
 
-Within the test file, define one `validReceiptFixture()` factory that returns a fresh Receipt v1 object per call.
+Within the one authorized test file, define deterministic test-owned factory logic that returns a fresh Receipt v1 object per control/case execution.
 
 Requirements:
 
@@ -46,9 +46,14 @@ Requirements:
 - summary derived consistently with a clean exit 0;
 - no absolute paths, credentials, network identity, or real secret values.
 
-The fixture MUST pass both exact validators before any mutation cases execute.
+Both controls frozen in `CASE_REGISTRY.md` are mandatory:
 
-If branch evidence is included as a second valid control, construct it from the base valid fixture and preserve all branch count/state/order invariants.
+1. `control-valid-line-receipt`;
+2. `control-valid-branch-receipt`.
+
+The branch control must extend the line control with a minimal canonically ordered branch-evidence group and matching branch aggregates.
+
+Both controls MUST pass both exact validators before any mutation cases execute.
 
 ## 4. Mutation case type
 
@@ -63,162 +68,90 @@ type AdversarialCase = {
 };
 ```
 
-This shape is not a product API and MUST remain local to the test file unless one separately authorized test-only helper becomes necessary.
+This shape is not a product API and MUST remain local to the one authorized test file.
 
-Case IDs must use stable kebab-case names grouped by domain, for example:
-
-- `evidence-dangling-task-reference`;
-- `source-comparison-base-mismatch`;
-- `path-backslash-changed-file`;
-- `command-surface-normal-admission`;
-- `timeline-task-outside-run`;
-- `summary-clean-exit-with-material-gap`.
+Case IDs, expected layers, and required semantic issue codes are frozen by `CASE_REGISTRY.md`. Implementation may not invent, omit, rename, merge, split, skip, or reclassify cases.
 
 ## 5. Runner algorithm
 
 For each execution:
 
-1. construct a fresh valid control;
-2. prove schema valid;
-3. prove semantic valid;
-4. verify case IDs are unique and expectation metadata is complete;
-5. for every case in stable declared order:
-   - construct a fresh control;
-   - apply exactly that case mutation;
+1. construct both fresh valid controls;
+2. prove both schema valid;
+3. prove both semantic valid;
+4. verify registry version, exact case counts, unique IDs, and complete expectation metadata;
+5. for every frozen case in stable declared order:
+   - construct a fresh source control;
+   - apply exactly that case mutation plus only the minimum registry-authorized bookkeeping needed to keep a semantic case schema-valid and isolate the named invariant;
    - run exact schema validation;
    - if expected layer is `schema`, require schema invalid;
    - if expected layer is `semantic`, require schema valid, then run semantic validation and require invalid;
    - require every declared semantic issue code to be observed;
-6. run all valid controls and require both validators valid;
-7. fail if any case is not accounted for.
+6. require exact accounting:
+   - `valid_control_count = 2`;
+   - `invalid_case_count = 44`;
+   - `schema_case_count = 8`;
+   - `semantic_case_count = 36`;
+   - `total_declared_execution_count = 46`;
+7. fail if any declared case is unexecuted or any undeclared case contributes to qualification counts.
 
 No retries and no mutation of expected outcomes based on observed results.
 
-## 6. Planned case domains
+## 6. Frozen case domains
+
+The exact individual cases are defined only in `CASE_REGISTRY.md`. This section is a domain map and does not grant implementation discretion to add cases.
 
 ### 6.1 Evidence/reference integrity
 
-Plan representative cases for:
-
-- duplicate evidence ID;
-- task dangling evidence ID;
-- finding dangling evidence ID;
-- evidence wrong run ID;
-- evidence unknown/wrong task ID;
-- evidence dangling artifact ID;
-- task dangling artifact ref;
-- duplicate artifact ID if semantic/schema contract requires uniqueness;
-- artifact unknown task linkage where current semantics require resolution.
-
-Before implementation, re-read current validator code and schema so every expectation maps to an actually intended invariant. Do not invent a code name.
+Frozen cases cover duplicate/logically duplicate evidence, dangling task/evidence/artifact references, cross-run evidence, and unresolved ownership.
 
 ### 6.2 Source/comparison integrity
 
-Plan cases for:
-
-- invalid HEAD/base object ID shapes;
-- base/source-start mismatch;
-- remote/local identity shape and portable mismatch;
-- start/end repository identity mismatch;
-- missing end with `stable`;
-- equal trees with `tree_drifted`;
-- changed trees with `stable`.
+Frozen cases cover comparison/source binding, source repository identity, stability/source-end consistency, and changed-scope invariants.
 
 ### 6.3 Paths and changed ranges
 
-Plan path spelling cases across at least two receipt path locations so validation is not accidentally specific to one array:
-
-- backslash;
-- absolute POSIX;
-- drive-like absolute;
-- URI/scheme-like;
-- leading `./`;
-- `../` traversal;
-- inner dot/dot-dot segment;
-- duplicate separator;
-- trailing separator.
-
-Plan range cases:
-
-- zero/negative/fractional endpoint;
-- start > end;
-- overlap;
-- non-text change carrying ranges;
-- rename/previous-path contradictions.
-
-Avoid combinatorial duplication once the shared path/range validator itself is proven across representative callers.
+Frozen schema/semantic cases cover canonical changed-file path rejection and positive/inverted/overlapping/non-text/deleted range semantics without a combinatorial path matrix.
 
 ### 6.4 Command authority/admission
 
-Re-read current task invariant codes and plan cases that prove:
-
-- authority path must exist in comparison;
-- matching changed authority file must be command surface;
-- changed surface cannot use ordinary admission;
-- explicit changed-surface override requires a changed surface;
-- refused changed surface cannot masquerade as executed PASS/FAIL/FLAKY;
-- changed authority path list and admission status remain mutually consistent.
+Frozen cases prove changed authority paths resolve into comparison facts and that matched authority files are reported as command surfaces. Schema-bound admission contradictions are also frozen in the registry.
 
 ### 6.5 Timeline and observations
 
-Plan cases for:
-
-- unparseable timestamps where schema does not already reject;
-- reversed run timeline;
-- partial task timing tuple;
-- executed task without timing;
-- task before/after run bounds;
-- duration mismatch;
-- negative/fractional observation counts;
-- failures > runs;
-- PASS with failures;
-- FAIL with zero failures;
-- executed task with zero runs.
+Frozen cases cover run/task timing, duration, observation cardinality, PASS/failure and FAIL/no-failure contradictions.
 
 ### 6.6 Selection and exercise
 
-Plan cases for:
-
-- negative/fractional selection counts;
-- selected + deselected != total;
-- pass/root selection accounting contradictions;
-- unsafe selection but complete summary;
-- inconsistent exercise aggregate counts;
-- EXERCISED with non-positive/null execution count;
-- NOT_EXERCISED with positive execution count;
-- UNRESOLVED without non-empty reason;
-- exercise source task IDs that do not resolve or are ineligible;
-- branch record sort/count/state contradictions when branch evidence is present.
+Frozen cases cover selection count/accounting/widening rules, line exercise scope/summary/source-task validity, coverage-evidence ownership, and branch identity/order/summary integrity.
 
 ### 6.7 Summary/exit
 
-Plan cases for:
-
-- wrong task status counts;
-- wrong finding count;
-- wrong completeness;
-- wrong exit for ERROR/stability drift/finding/flake/material gap;
-- explicit clean exit 0 with remaining NOT_EXERCISED or UNRESOLVED changed executable line.
+Frozen cases cover task-status aggregate mismatch, completeness mismatch, and clean-exit-with-material-gap contradiction.
 
 ## 7. Privacy scope
 
-Do not create a case asserting that arbitrary secret-looking text is rejected unless the current deterministic contract actually requires it. Redaction coverage lives in existing execution/persistence tests.
+Do not create a case asserting that arbitrary secret-looking text is rejected. The exact registry authorizes no such case. Redaction coverage remains in existing execution/persistence tests.
 
-A privacy adversarial case may be included only when it targets a deterministic receipt contract condition such as a forbidden raw absolute path or repository identity shape. The test description must not imply universal secret detection.
+The schema path case exercises deterministic persisted-path restrictions without claiming universal secret detection.
 
 ## 8. Qualification strategy
 
 ### Focused
 
-Run the new contract file through the existing Vitest command used by the repository.
+Run the one new contract file through the existing Vitest command used by the repository.
 
 The focused result must prove:
 
-- valid controls pass;
-- all declared cases executed;
-- no duplicate IDs;
-- all invalid cases rejected at declared layer;
-- all required semantic codes present.
+- registry version is exactly `SPEC009-CASE-REGISTRY-V1`;
+- both valid controls pass;
+- all 44 invalid cases execute exactly once;
+- all 8 schema cases fail schema validation;
+- all 36 semantic cases pass schema first and fail semantic validation;
+- all required semantic codes are present;
+- accepted invalid case IDs are `[]` for GO;
+- skipped/unexecuted case IDs are `[]` for GO;
+- no undeclared case contributes to qualification counts.
 
 ### Full repository
 
@@ -228,8 +161,9 @@ Use existing Project CI on exact final head. No new CI workflow is authorized.
 
 Require fresh independent substantive exact-head review covering:
 
+- registry completeness and exact accounting;
 - contract-layer classification;
-- expected issue-code correctness;
+- required issue-code correctness;
 - mutation minimality;
 - no hidden product change;
 - no YAGNI violation;
@@ -239,30 +173,38 @@ Any mutation after review invalidates review freshness.
 
 ## 9. Failure handling
 
-If the corpus finds an accepted invalid case:
+If the corpus finds an accepted invalid case, a frozen expectation is factually wrong, or a valid control is rejected:
 
-1. keep the failing case unchanged;
-2. do not change product/schema/validator in T115;
-3. record exact case ID and observed validator outputs in the durable task ledger;
-4. classify T115 `NO_GO / PRODUCT_GAP_DISCOVERED`;
-5. return to a separately reviewed recovery planning unit that may authorize the smallest product repair;
-6. after any repair becomes canonical, rerun the same unchanged adversarial case under new exact-head qualification.
+1. keep the failing case/control and observed evidence unchanged;
+2. do not change product/schema/validator or registry expectation in T115;
+3. record exact case/control ID and observed validator outputs in the durable task ledger;
+4. classify T115 `NO_GO / PRODUCT_GAP_DISCOVERED` when an invalid case is accepted, otherwise the exact applicable planning-reconciliation failure;
+5. return to a separately reviewed Spec 009 planning/recovery unit;
+6. after any canonical amendment/repair, rerun the unchanged factual case under new exact-head qualification.
 
-This preserves the distinction between measurement and repair.
+This preserves the distinction between measurement, planning truth, and repair.
 
 ## 10. No publication artifact
 
-The plan does not create a new `benchmarks/results/**` artifact. The corpus is executable repository contract evidence. Exact commit, CI run, test path, and review/merge evidence are sufficient for canonical closeout.
+The plan does not create a new `benchmarks/results/**` artifact. The corpus is executable repository contract evidence. Exact commit, focused test, CI run, review, merge evidence, and durable ledger are sufficient for canonical closeout.
 
 ## 11. Planned task order
 
 `T115 -> T116`
 
-- T115: implement and qualify the one-path adversarial corpus contract.
+- T115: implement and qualify the exact one-path, exact-registry adversarial corpus contract.
 - T116: ledger/governance reconciliation and next-frontier decision after T115 closes canonically.
 
 A separate result-publication task is removed by YAGNI review.
 
 ## 12. Authorization boundary
 
-This plan grants no implementation authority. After planning merges canonically, create a separate authorization artifact that binds the exact planning merge and authorizes exactly the final T115 implementation surface plus T116 ledger-only closeout.
+This plan grants no implementation authority. After planning merges canonically, create a separate authorization artifact that binds the exact planning merge, `SPEC009-CASE-REGISTRY-V1`, the exact one-path T115 implementation surface, and T116 ledger-only closeout.
+
+## 13. Registry change control
+
+`CASE_REGISTRY.md` is part of the planning contract.
+
+Any addition, deletion, rename, merge, split, skip, expected-layer change, or required semantic-code change is a material planning mutation. It requires a separately reviewed Spec 009 planning amendment that becomes canonical before T115 continues.
+
+Implementation-time observation is never authority to edit the registry merely to obtain green.
