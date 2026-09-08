@@ -10,34 +10,52 @@ Create a bounded, deterministic adversarial corpus that challenges Ascout receip
 
 This specification is a trust-verification workstream. It is not a feature that changes receipt semantics. Its implementation, if separately authorized, must exercise the exact current receipt JSON Schema and semantic validator and produce durable evidence about whether deliberately invalid receipts are rejected at the correct boundary.
 
+## Frozen planning contract
+
+The exact corpus registry is `CASE_REGISTRY.md`, version `SPEC009-CASE-REGISTRY-V1`:
+
+- `2` valid controls;
+- `44` invalid cases;
+- `8` schema-boundary invalid cases;
+- `36` semantic-boundary invalid cases;
+- `46` total declared executions.
+
+The exact planned T115 tracked implementation surface is one file only:
+
+- `tests/receipt-adversarial-corpus.contract.test.ts`
+
+Any registry mutation or second tracked implementation path requires a separately reviewed Spec 009 planning amendment that becomes canonical before implementation continues.
+
 ## User value
 
-A developer or reviewer should be able to trust that Ascout's receipt validators reject known classes of internally contradictory, cross-run, source-mismatched, path-invalid, authority-invalid, and no-green-by-omission inputs instead of accepting them as valid receipt truth.
+A developer or reviewer should be able to trust that Ascout's receipt validators reject the exact frozen classes of internally contradictory, cross-run, source-mismatched, path-invalid, authority-invalid, and no-green-by-omission inputs instead of accepting them as valid receipt truth.
 
 ## Functional requirements
 
-### FR-001 — Canonical valid control
+### FR-001 — Canonical valid controls
 
-The corpus MUST begin from one deterministic known-good Receipt v1 control that passes both the exact current JSON Schema validator and exact current semantic validator.
+The corpus MUST implement both deterministic known-good Receipt v1 controls frozen in `CASE_REGISTRY.md`:
 
-The control MUST use only repository-owned test data and MUST NOT require a real repository checkout, network, external service, donor source, model, secret, or clock-dependent data.
+1. `control-valid-line-receipt`;
+2. `control-valid-branch-receipt`.
 
-### FR-002 — Explicit mutation registry
+Both controls MUST pass the exact current JSON Schema validator and exact current semantic validator before invalid cases are evaluated.
 
-Every adversarial case MUST have a stable case ID, one declared mutation function or fixture delta, a short contract rationale, and one declared expected rejection layer:
+The controls MUST use only repository-owned test data and MUST NOT require a real repository checkout, network, external service, donor source, model, secret, or clock-dependent data.
 
-- `schema`; or
-- `semantic`.
+### FR-002 — Exact mutation registry
 
-Semantic-layer cases MUST additionally declare one or more exact expected semantic issue codes.
+Every adversarial case MUST correspond exactly to one frozen entry in `CASE_REGISTRY.md` with its stable case ID, minimum mutation, declared expected rejection layer, and required semantic issue code(s) where applicable.
 
-No random mutation generator, unconstrained fuzz loop, or opaque generated case is allowed.
+No implementation-time case addition, removal, rename, merge, split, skip, reclassification, required-code weakening, random mutation generator, unconstrained fuzz loop, or opaque generated case is allowed.
 
-### FR-003 — One-fault principle
+### FR-003 — Minimum-fault principle
 
-Each adversarial case SHOULD introduce one material contract fault relative to the valid control unless a compound state is necessary to reach one indivisible semantic contradiction. Compound cases MUST document why the condition cannot be represented faithfully as a single-field mutation.
+Each adversarial case MUST preserve the minimum material contract fault defined by `CASE_REGISTRY.md`.
 
-The runner MUST preserve the original valid control and create an isolated candidate per case.
+For semantic cases, implementation MAY perform only the minimum additional bookkeeping explicitly permitted by the registry to keep the candidate schema-valid and isolate the named semantic invariant. Such bookkeeping MUST NOT remove the named fault, change its expected layer, or substitute another expected issue code.
+
+The runner MUST preserve the original valid controls and create an isolated fresh candidate per case.
 
 ### FR-004 — Schema-boundary honesty
 
@@ -49,66 +67,74 @@ A schema-declared case that passes schema validation is a corpus failure.
 
 A case declared `semantic` MUST first pass the exact current JSON Schema and then fail the exact current `validateReceiptSemantics` boundary.
 
-The observed semantic issue-code set MUST contain the case's required issue codes. Additional issue codes MAY be observed when the mutation necessarily violates another invariant, but the corpus MUST NOT hide absence of the required code behind aggregate failure.
+The observed semantic issue-code set MUST contain every code frozen for that case in `CASE_REGISTRY.md`. Additional issue codes MAY be observed only when they are deterministic consequences of the same minimum mutation; they MUST NOT hide absence of a required code.
 
-### FR-006 — Valid controls
+### FR-006 — Exact valid-control accounting
 
-The corpus MUST include at least:
+Both frozen controls MUST execute and pass both validators. A rejected or omitted control is a corpus failure.
 
-1. the untouched canonical valid receipt;
-2. a structurally distinct valid control exercising one optional receipt surface used by the adversarial cases, such as branch evidence or an allowed non-clean exit state, if that can be represented without expanding scope.
+The corpus MUST NOT substitute another valid control without a separately canonical planning amendment.
 
-Every valid control MUST pass both validators. The corpus MUST fail if a valid control is rejected.
+### FR-007 — Exact adversarial domains
 
-### FR-007 — Required adversarial domains
+The exact individual cases are defined in `CASE_REGISTRY.md`. Collectively they cover:
 
-The corpus MUST cover, where deterministic current-contract representation exists:
+1. schema-boundary shape/path/admission/exercise constraints;
+2. evidence/reference integrity;
+3. artifact/task binding;
+4. source/comparison identity and changed-scope semantics;
+5. command-surface authority facts;
+6. task status/execution observations and timing;
+7. selection/exercise consistency;
+8. summary/completeness/exit consistency;
+9. branch-evidence identity/order/summary consistency.
 
-1. evidence/reference integrity;
-2. artifact/task binding;
-3. source/comparison identity;
-4. canonical paths and changed ranges;
-5. command-surface authority/admission;
-6. task status/reason/execution observations;
-7. execution timeline consistency;
-8. selection/exercise consistency;
-9. summary/completeness/exit consistency;
-10. privacy-sensitive persisted-value rules that are already deterministic contract invariants.
+No additional domain or case is implementation-authorized by this requirement.
 
-If a roadmap example cannot be deterministically classified by the current contract, the corpus MUST record it as an explicit limitation rather than inventing a detector.
+Privacy scope remains limited to deterministic contract rules. Arbitrary secret-looking-string rejection is not part of the frozen registry and MUST NOT be invented.
 
 ### FR-008 — No green by omission
 
 The corpus runner MUST fail if:
 
-- an invalid authorized case is accepted;
+- an invalid frozen case is accepted;
 - a semantic case is rejected only at schema when semantic reachability is required;
-- a required semantic issue code is absent;
-- a valid control is rejected;
-- a case is not executed;
-- a duplicate case ID or missing expectation prevents complete accounting.
+- any required semantic issue code is absent;
+- either valid control is rejected or omitted;
+- a declared case is not executed exactly once;
+- a duplicate case ID exists;
+- expectation metadata is incomplete;
+- an undeclared case contributes to qualification counts;
+- exact frozen accounting differs from `2 + 44 = 46`, with `8` schema and `36` semantic invalid cases.
 
 A partial corpus execution is not a pass.
 
-### FR-009 — Deterministic result accounting
+### FR-009 — Deterministic exact result accounting
 
-The runner MUST emit or expose deterministic case accounting sufficient to prove:
+The runner MUST expose deterministic accounting sufficient to prove:
 
-- total declared cases;
-- total executed cases;
-- valid controls passed;
-- invalid cases rejected at expected layer;
-- required semantic issue codes observed;
-- accepted invalid case IDs, if any;
-- skipped/unexecuted case IDs, if any.
+- registry version = `SPEC009-CASE-REGISTRY-V1`;
+- valid-control count = `2`;
+- invalid-case count = `44`;
+- schema-case count = `8`;
+- semantic-case count = `36`;
+- total declared execution count = `46`;
+- total executed count = `46` for GO;
+- every invalid case was rejected at its frozen layer;
+- every semantic required issue code was observed;
+- accepted invalid case IDs = `[]` for GO;
+- skipped/unexecuted case IDs = `[]` for GO;
+- undeclared qualification case IDs = `[]` for GO.
 
 Case ordering MUST be stable.
 
-### FR-010 — Product gap handling
+### FR-010 — Product gap and planning-truth handling
 
-If an invalid authorized case is accepted, implementation MUST NOT repair `src/**`, schema, validator, exit semantics, or the corpus expectation inside the same corpus task unless a later separately canonical recovery unit explicitly authorizes that repair.
+If an invalid frozen case is accepted, implementation MUST NOT repair `src/**`, schema, validator, exit semantics, or the corpus expectation inside T115.
 
-The failed corpus evidence MUST be preserved and the corresponding product repair must return to planning.
+The failed corpus evidence MUST be preserved and product repair must return to a separately reviewed recovery planning/authorization chain.
+
+If exact evidence proves a frozen expected layer or required issue code factually wrong, T115 MUST also stop and return to a separately reviewed Spec 009 planning amendment. Implementation observation is not authority to rewrite registry truth.
 
 ### FR-011 — No dependency or execution expansion
 
@@ -136,30 +162,37 @@ The focused corpus run MUST be deterministic and bounded by the ordinary test ru
 
 ### NFR-002 — Reviewability
 
-The mutation registry MUST be readable as explicit named cases. Reviewers must be able to identify what field/state changes and why the candidate is invalid without executing a generator.
+The frozen registry MUST remain readable as explicit named cases. Reviewers must be able to identify the minimum fault, expected layer, and required semantic issue codes without executing a generator.
 
 ### NFR-003 — Stable identities
 
-Case IDs and expectation categories MUST be stable under refactoring. Renaming a case or changing its expected layer/code is a material contract change requiring review.
+Case IDs, expected layers, and required semantic code sets are frozen planning-contract data. Any change is material and requires a separately reviewed canonical planning amendment.
 
-### NFR-004 — Minimal implementation
+### NFR-004 — Exact minimal implementation
 
-Prefer one focused contract-test surface and, only if needed for reuse/readability, one small test helper or fixture surface. Do not create a product-facing adversarial API, plugin interface, generalized mutation engine, benchmark service, or new CLI command.
+T115 MUST use exactly one new tracked implementation path:
+
+- `tests/receipt-adversarial-corpus.contract.test.ts`
+
+No second helper, fixture, product-facing adversarial API, plugin interface, generalized mutation engine, benchmark service, or new CLI command is authorized. If one file is later proven materially unreviewable, T115 stops and returns to planning before any second path is added.
 
 ## Acceptance criteria
 
 `SPEC_009 = GO` only if the implementation authorized after planning proves all of the following on exact final heads and canonical merges:
 
-1. the corpus is complete against the final authorized case registry;
-2. all valid controls pass schema and semantic validation;
-3. every invalid case is rejected at its declared layer;
-4. every semantic case includes its required issue code(s);
-5. no case is skipped or omitted;
-6. no product/schema/validator/dependency/workflow/historical-result mutation occurs in the corpus implementation task;
-7. exact-head Project CI succeeds on all required lanes;
-8. fresh independent substantive exact-head review reports no unresolved material finding;
-9. guarded merge and post-merge parent/tree/signature/PR/main proof succeed;
-10. any discovered accepted-invalid gap is handled honestly as `NO_GO / RETURN_TO_PLANNING`, not patched opportunistically.
+1. registry version is exactly `SPEC009-CASE-REGISTRY-V1`;
+2. both frozen valid controls execute and pass schema + semantic validation;
+3. all 44 invalid cases execute exactly once;
+4. all 8 schema cases fail schema validation;
+5. all 36 semantic cases pass schema first and fail semantic validation;
+6. every semantic case includes every frozen required issue code;
+7. total declared/executed count is exactly `46` for GO;
+8. accepted invalid, skipped/unexecuted, and undeclared qualification case ID sets are all empty for GO;
+9. T115 changes exactly one tracked test path and no product/schema/validator/dependency/workflow/historical-result path;
+10. exact-head Project CI succeeds on all required lanes on the original qualifying attempt for the final implementation head;
+11. fresh independent substantive exact-head review reports no unresolved material finding;
+12. guarded merge and post-merge parent/tree/signature/PR/main proof succeed;
+13. any discovered accepted-invalid gap or factually wrong frozen expectation is handled honestly as `NO_GO / RETURN_TO_PLANNING`, not patched opportunistically.
 
 ## Out of scope
 
