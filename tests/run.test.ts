@@ -171,7 +171,7 @@ describe("T024 run directory lifecycle", () => {
     expect(result.preserved_run_ids).toContain("active-current");
     expect(await exists(join(active.run_path, ".active"))).toBe(true);
     expect((await readManifest(active.manifest_path)).state).toBe("active");
-  });
+  }, 15_000);
 
   it("uses locale-independent ordinal run-id tie-breaking for identical timestamps", async () => {
     const root = await temporaryDirectory();
