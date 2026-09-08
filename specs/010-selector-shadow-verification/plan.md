@@ -23,7 +23,7 @@ Exactly:
 
 Exactly:
 
-- `.github/workflows/self-verify.yml` — add the T117 invocation and upload the additional observation artifact.
+- `.github/workflows/self-verify.yml` — add the T117 invocation, set the prospectively frozen end-to-end job timeout, and upload the additional observation artifact.
 
 ### T119 — Reconciliation
 
@@ -104,7 +104,7 @@ The output path is under a private temporary directory outside repository source
 
 If the root test script no longer equals `vitest run` or expected local runtime cannot be proven, emit `UNAVAILABLE_FULL_SUITE_CONTRACT` without running an alternate command.
 
-## 7. Bounded reference execution
+## 7. Bounded reference execution and end-to-end budget
 
 T117 uses one fixed full-suite process with:
 
@@ -112,12 +112,24 @@ T117 uses one fixed full-suite process with:
 - inherited current trusted same-repository CI environment;
 - no secret persistence;
 - ignored stdout/stderr or bounded in-memory diagnostics only; no raw output in artifact;
-- explicit `20 minute` timeout;
+- exact `10 minute` reference timeout;
 - reliable exit/signal/spawn classification;
 - process-group termination on the supported live Ubuntu lane when timeout occurs;
 - no retry.
 
-A normal numeric exit, including nonzero due test failures, is a completed runner observation only if valid structured JSON was produced and parsed.
+T118 MUST change the existing `self-verify` job from `timeout-minutes: 30` to exactly `timeout-minutes: 60`. The prospective end-to-end budget is frozen before live observation:
+
+```text
+checkout + setup + exact install/build + artifact publication reserve = 20 minutes
+existing Spec 006 self-verification allowance                         = 20 minutes
+T117 full-suite reference timeout                                     = 10 minutes
+contingency / orderly cleanup reserve                                 = 10 minutes
+TOTAL                                                                 = 60 minutes
+```
+
+Neither the 60-minute job timeout nor the 10-minute reference timeout may be increased after observing a T118 live result. A need to exceed either bound is `NO_GO / RETURN_TO_PLANNING`, not permission to retry or widen the budget.
+
+A normal numeric Vitest exit, including nonzero due test failures, is a completed runner observation only if valid structured JSON was produced and parsed.
 
 Timeout/spawn failure/missing report/malformed report is `UNAVAILABLE_FULL_SUITE_EXECUTION` and does not create selector misses.
 
@@ -277,6 +289,7 @@ Required deterministic proof includes:
 - exact `scripts.test == "vitest run"` requirement;
 - missing/changed script unavailable without alternate command;
 - no implicit install/npm-exec/npx path;
+- exact 10-minute reference timeout and no-retry policy;
 - bounded timeout/spawn/report failure unavailable;
 - valid Vitest JSON full-suite failure extraction;
 - outside-repository path rejection;
@@ -307,6 +320,8 @@ existing exact-head checkout/install/build
   -> upload exact three artifacts
 ```
 
+T118 changes the existing job timeout only from `30` to the pre-authorized `60` minutes. It must not alter the frozen 60-minute budget after observing live behavior.
+
 Artifact upload paths:
 
 - existing `self-verification-receipt.json`;
@@ -327,7 +342,7 @@ No new action, permission, secret, fork path, or workflow is added.
 
 ## 16. First live observation
 
-T118 cannot close based on static YAML alone. The exact final T118 PR head must produce a downloadable selector-shadow artifact in the eligible same-repository workflow run.
+T118 cannot close based on static YAML alone. The exact final T118 PR head must produce a downloadable selector-shadow artifact in the eligible same-repository workflow run **within the frozen 60-minute job budget**, with the selector-shadow full-suite reference independently bounded to 10 minutes.
 
 The live artifact must prove:
 
@@ -339,7 +354,7 @@ The live artifact must prove:
 - no workflow source drift;
 - observed selector misses, if any, remain non-gating and are published exactly.
 
-If the first observation is unavailable because the plan's frozen assumptions are wrong, stop and return to planning rather than patching around the evidence.
+If the first observation is unavailable because the plan's frozen assumptions or timeout budget are wrong, stop and return to planning rather than patching around, rerunning, or increasing the budget after the evidence.
 
 ## 17. Task ordering and qualification
 
@@ -361,7 +376,7 @@ For T117 and T118:
 12. verify ordered parents, tree, GitHub signature, PR merged/closed state, and canonical main;
 13. durably close the task ledger before the successor.
 
-T118 additionally requires the live exact-head selector-shadow artifact before merge/closeout if the workflow executes on the final head.
+T118 additionally requires proof that the exact final workflow has `timeout-minutes: 60`, that T117's reference timeout is exactly 10 minutes, and that the live exact-head selector-shadow artifact was published before the job completed successfully.
 
 ## 18. T119 closeout
 
@@ -399,7 +414,8 @@ Return to planning if implementation requires any of:
 - threshold invention;
 - new telemetry/trend service;
 - unsupported alternate test command;
-- source drift suppression.
+- source drift suppression;
+- increasing the frozen 60-minute T118 job timeout or 10-minute T117 reference timeout after live evidence.
 
 ## 20. Authorization
 
