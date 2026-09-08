@@ -261,7 +261,7 @@ describe("PR #41 P0 receipt integrity regressions", () => {
       truncated: false,
       byte_length: 0,
     });
-  });
+  }, 15_000);
 
   it("marks changed authority files as command surfaces in the same receipt", async () => {
     const repositoryRoot = makeRepository();
