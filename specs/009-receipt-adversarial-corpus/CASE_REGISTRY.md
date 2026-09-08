@@ -12,16 +12,16 @@ This file is the exact planning-time case registry for T115.
 
 T115 MUST implement and execute every case in this registry exactly once per focused corpus execution, plus both valid controls. T115 MUST NOT add, remove, rename, merge, split, skip, reclassify, or weaken any case expectation without a separately reviewed Spec 009 planning amendment that becomes canonical before implementation continues.
 
-This registry removes implementation-time discretion over corpus completeness and candidate construction. It exists specifically to prevent green-by-omission and test-to-green mutation.
+This registry removes implementation-time discretion over corpus completeness, baseline construction, and candidate construction. It exists specifically to prevent green-by-omission and test-to-green mutation.
 
 ## Exact candidate-construction rule
 
 For every invalid case, the source control and every permitted field mutation are fixed below.
 
 - Unless a row explicitly says `branch control`, its source is `control-valid-line-receipt`.
-- Start each case from a fresh deep copy of its named source control.
+- Start each case from a fresh deep copy of its named exact source control.
 - Apply exactly the assignments/additions/removals written in that row.
-- Leave every field not named in that row unchanged from the source control.
+- Leave every field not named in that row unchanged from the exact source control.
 - No additional bookkeeping, normalization, compensation, alternative mutation, fallback mutation, or implementation-selected equivalent is permitted.
 - If the exact listed assignments cannot reach the declared validator boundary on the then-canonical implementation base, T115 stops and returns to Spec 009 planning. Implementation MUST NOT substitute another candidate.
 
@@ -37,69 +37,215 @@ For `schema` cases:
 1. exact current `validateReceiptJsonSchema` MUST reject the candidate;
 2. no semantic-validator outcome may substitute for schema rejection.
 
-## Control anchors
+## Exact frozen controls
 
-Both controls are deterministic test-owned Receipt v1 objects. Their complete objects must satisfy both exact validators. The following identity/state anchors are frozen because registry mutations reference them:
+The controls below are complete planning-time Receipt v1 objects. No field value may be selected at implementation time. T115 MUST construct these objects exactly, modulo TypeScript syntax needed to represent the same JSON value.
 
 ### `control-valid-line-receipt`
 
-- `run.run_id = "run-1"`
-- `run.started_at = "2026-01-01T00:00:00.000Z"`
-- `run.finished_at = "2026-01-01T00:00:03.000Z"`
-- `source.start.head_sha = comparison.base_ref = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"`
-- `source.start.repository_id = source.end.repository_id = "remote:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"`
-- `source.start.repository_id_kind = source.end.repository_id_kind = "remote"`
-- `source.start.portable = source.end.portable = true`
-- `source.start.tree_digest = source.end.tree_digest`
-- `stability = "stable"`
-- exactly one changed file at `comparison.changed_files[0]`:
-  - `path = "src/example.ts"`
-  - `change_kind = "modified"`
-  - `line_semantics = "text"`
-  - `changed_new_line_ranges = [[10, 10]]`
-  - `is_command_surface = false`
-- `changed_code.changed_file_count = 1`
-- `changed_code.changed_text_line_count = 1`
-- selection root counts are `selected=1`, `deselected=0`, `total=1`, with `widened=false`, `widen_triggers=[]`, `limitations=[]`, and exactly one ordinal-1 pass whose counts are also `1/0/1`
-- exactly one task at `tasks[0]`:
-  - `task_id = "task-test"`
-  - `task_type = "test"`
-  - `command_surface_changed = false`
-  - `changed_authority_paths = []`
-  - `execution_admission = "normal"`
-  - `status = "PASS"`
-  - `started_at = "2026-01-01T00:00:01.000Z"`
-  - `finished_at = "2026-01-01T00:00:02.000Z"`
-  - `duration_ms = 1000`
-  - `observations = { runs: 1, failures: 0 }`
-  - `evidence_ids = ["e-test", "e-coverage"]`
-  - `artifact_refs = []`
-- exactly two evidence records:
-  - `evidence[0]`: `evidence_id="e-test"`, `run_id="run-1"`, `task_id="task-test"`, `sequence=1`, `kind="test_result"`, `artifact_id=null`
-  - `evidence[1]`: `evidence_id="e-coverage"`, `run_id="run-1"`, `task_id="task-test"`, `sequence=2`, `kind="coverage"`, `artifact_id=null`
-- `artifacts = []`
-- exactly one line exercise record at `exercise.records[0]`: `path="src/example.ts"`, `line=10`, `state="EXERCISED"`, `execution_count=1`, `source_task_ids=["task-test"]`
-- line exercise aggregates: `changed_executable_lines=1`, `exercised_lines=1`, `not_exercised_lines=0`, `unresolved_lines=0`, `changed_files_with_zero_exercised_lines=0`
-- `findings = []`
-- summary task counts have `PASS=1` and every other status `0`; `finding_count=0`; `completeness="complete"`; `exit_code=0`
-
-Other Receipt v1 required fields not named above must use deterministic literals and remain identical across every control construction; they are not case-selection inputs.
+```json
+{
+  "schema_version": "1.0",
+  "run": {
+    "run_id": "run-1",
+    "ascout_version": "0.1.0-m1",
+    "started_at": "2026-01-01T00:00:00.000Z",
+    "finished_at": "2026-01-01T00:00:03.000Z",
+    "config_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "source": {
+    "start": {
+      "repository_id": "remote:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "repository_id_kind": "remote",
+      "portable": true,
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "detached": false,
+      "shallow": false,
+      "tree_digest_version": 1,
+      "tree_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "tracked_index_entry_count": 1,
+      "unstaged_changed_count": 1,
+      "included_untracked_count": 0
+    },
+    "end": {
+      "repository_id": "remote:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "repository_id_kind": "remote",
+      "portable": true,
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "detached": false,
+      "shallow": false,
+      "tree_digest_version": 1,
+      "tree_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "tracked_index_entry_count": 1,
+      "unstaged_changed_count": 1,
+      "included_untracked_count": 0
+    }
+  },
+  "comparison": {
+    "kind": "working_tree_vs_head",
+    "base_ref": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "includes_staged": true,
+    "includes_unstaged": true,
+    "includes_untracked_nonignored": true,
+    "changed_files": [
+      {
+        "path": "src/example.ts",
+        "change_kind": "modified",
+        "line_semantics": "text",
+        "changed_new_line_ranges": [[10, 10]],
+        "is_test_file": false,
+        "is_snapshot": false,
+        "is_command_surface": false
+      }
+    ]
+  },
+  "selection": {
+    "mode": "native_related",
+    "initial_scope": { "kind": "repository", "path": null },
+    "selected_test_count": 1,
+    "deselected_test_count": 0,
+    "total_test_count": 1,
+    "widened": false,
+    "widen_triggers": [],
+    "passes": [
+      {
+        "ordinal": 1,
+        "mode": "native_related",
+        "scope": { "kind": "repository", "path": null },
+        "trigger": null,
+        "selected_test_count": 1,
+        "deselected_test_count": 0,
+        "total_test_count": 1
+      }
+    ],
+    "limitations": []
+  },
+  "tasks": [
+    {
+      "task_id": "task-test",
+      "task_type": "test",
+      "authorized_by": "discovery",
+      "source_path": "package.json",
+      "argv": ["vitest", "related", "src/example.ts", "--run"],
+      "argv_redacted": false,
+      "tool_name": "vitest",
+      "tool_version": "4.1.10",
+      "command_surface_changed": false,
+      "changed_authority_paths": [],
+      "execution_admission": "normal",
+      "status": "PASS",
+      "reason_code": null,
+      "reason_text": null,
+      "exit_code": 0,
+      "started_at": "2026-01-01T00:00:01.000Z",
+      "finished_at": "2026-01-01T00:00:02.000Z",
+      "duration_ms": 1000,
+      "observations": { "runs": 1, "failures": 0 },
+      "cache_state": "not_applicable",
+      "selected_test_count": 1,
+      "deselected_test_count": 0,
+      "evidence_ids": ["e-test", "e-coverage"],
+      "artifact_refs": [],
+      "output_truncated": false
+    }
+  ],
+  "changed_code": {
+    "changed_file_count": 1,
+    "changed_text_line_count": 1
+  },
+  "exercise": {
+    "changed_executable_lines": 1,
+    "exercised_lines": 1,
+    "not_exercised_lines": 0,
+    "unresolved_lines": 0,
+    "changed_files_with_zero_exercised_lines": 0,
+    "records": [
+      {
+        "path": "src/example.ts",
+        "line": 10,
+        "state": "EXERCISED",
+        "execution_count": 1,
+        "source_task_ids": ["task-test"]
+      }
+    ]
+  },
+  "test_changes": [],
+  "findings": [],
+  "evidence": [
+    {
+      "evidence_id": "e-test",
+      "run_id": "run-1",
+      "task_id": "task-test",
+      "sequence": 1,
+      "kind": "test_result",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "artifact_id": null,
+      "redacted": false,
+      "truncated": false
+    },
+    {
+      "evidence_id": "e-coverage",
+      "run_id": "run-1",
+      "task_id": "task-test",
+      "sequence": 2,
+      "kind": "coverage",
+      "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "artifact_id": null,
+      "redacted": false,
+      "truncated": false
+    }
+  ],
+  "artifacts": [],
+  "stability": "stable",
+  "summary": {
+    "task_status_counts": {
+      "PASS": 1,
+      "FAIL": 0,
+      "FLAKY": 0,
+      "BLOCKED": 0,
+      "ERROR": 0,
+      "NOT_APPLICABLE": 0,
+      "NOT_RUN": 0
+    },
+    "finding_count": 0,
+    "completeness": "complete",
+    "exit_code": 0
+  }
+}
+```
 
 ### `control-valid-branch-receipt`
 
-Start from the line control and add exactly two canonically ordered EXERCISED branch records:
+The branch control is exactly `control-valid-line-receipt` with only these five `exercise` properties added; every pre-existing field/value remains byte-for-value equivalent as a JSON value:
 
-1. `{ path:"src/example.ts", line:10, block_id:"block-1", branch_id:"branch-1", taken:1, state:"EXERCISED" }`
-2. `{ path:"src/example.ts", line:10, block_id:"block-1", branch_id:"branch-2", taken:1, state:"EXERCISED" }`
+```json
+{
+  "branch_records": [
+    {
+      "path": "src/example.ts",
+      "line": 10,
+      "block_id": "block-1",
+      "branch_id": "branch-1",
+      "taken": 1,
+      "state": "EXERCISED"
+    },
+    {
+      "path": "src/example.ts",
+      "line": 10,
+      "block_id": "block-1",
+      "branch_id": "branch-2",
+      "taken": 1,
+      "state": "EXERCISED"
+    }
+  ],
+  "exercised_branches": 2,
+  "not_exercised_branches": 0,
+  "unresolved_branches": 0,
+  "changed_files_with_zero_exercised_branches": 0
+}
+```
 
-Branch aggregates are exactly:
-
-- `exercised_branches=2`
-- `not_exercised_branches=0`
-- `unresolved_branches=0`
-- `changed_files_with_zero_exercised_branches=0`
-
-Both controls are mandatory. A corpus that rejects either control is `NO_GO`.
+Both controls are mandatory and MUST pass both exact validators unchanged before any invalid case executes. If either frozen control is rejected on the then-canonical implementation base, T115 stops and returns to planning; implementation MUST NOT repair or replace the control.
 
 ## Fixed mutation constants
 
@@ -220,12 +366,13 @@ It MUST also prove:
 - every declared ID is unique;
 - every declared case executed exactly once;
 - no undeclared case contributed to qualification counts;
-- both valid controls passed both validators;
+- both exact frozen valid controls passed both validators unchanged;
 - all 8 schema cases failed schema validation;
 - all 36 semantic cases passed schema validation first and then failed semantic validation;
 - every semantic case observed every required semantic issue code;
 - accepted invalid case IDs = `[]` for GO;
-- skipped/unexecuted case IDs = `[]` for GO.
+- skipped/unexecuted case IDs = `[]` for GO;
+- baseline-control deviations = `[]` for GO.
 
 Any mismatch is a corpus failure.
 
@@ -237,4 +384,4 @@ No separate arbitrary secret-string rejection case is authorized. Current redact
 
 This registry is part of the planning contract, not implementation-owned test data.
 
-If implementation evidence shows that one listed expectation or exact candidate construction is factually wrong because current canonical schema/semantic behavior differs from this plan, T115 MUST stop and return to Spec 009 planning. It MUST NOT silently edit the mutation, expected layer, or required code in the implementation branch.
+If implementation evidence shows that one frozen control, listed expectation, or exact candidate construction is factually wrong because current canonical schema/semantic behavior differs from this plan, T115 MUST stop and return to Spec 009 planning. It MUST NOT silently edit the baseline, mutation, expected layer, or required code in the implementation branch.

@@ -4,206 +4,178 @@
 
 ## Audit role
 
-This repository-side audit checks the complete Spec 009 planning package after reconciliation of the latest independent exact-head review. It does not substitute for a fresh independent substantive review of the new final head.
+This repository-side audit checks the complete Spec 009 planning package after reconciliation of all independent material findings observed through former exact candidate `e89da2dcd704893527829c9f61eddad0638b1285`. It does not substitute for fresh independent review of the successor final head.
 
 ## Canonical planning input
 
-Planning began from:
+- canonical planning base: `fb6bb2ec152e41da05901509b0b62d1eb3636648`
+- canonical base tree: `f2a7331aaac4108375979afda3d706f9aa2e0fd7`
+- planning ledger: Issue #252
 
-- canonical `main`: `fb6bb2ec152e41da05901509b0b62d1eb3636648`;
-- canonical base tree: `f2a7331aaac4108375979afda3d706f9aa2e0fd7`;
-- planning ledger: Issue #252.
-
-Spec 007 was already terminal under the current specification and remains isolated from Spec 009.
+Spec 007 remains terminal and isolated.
 
 ## Exact frozen planning contract
 
 `CASE_REGISTRY.md` freezes `SPEC009-CASE-REGISTRY-V1`:
 
-- valid controls: `2`;
-- invalid cases: `44`;
-- schema invalid cases: `8`;
-- semantic invalid cases: `36`;
-- total declared executions: `46`.
+- valid controls: `2`
+- invalid cases: `44`
+- schema invalid cases: `8`
+- semantic invalid cases: `36`
+- total declared executions: `46`
 
-The registry also freezes:
+The registry now freezes complete baseline truth, not selected anchors:
 
-- the control identity/state anchors used by candidate construction;
-- the source control for every invalid case;
-- every permitted assignment/addition/removal for every invalid case;
-- the expected rejection layer;
-- required semantic issue codes.
+1. `control-valid-line-receipt` is one complete exact JSON Receipt v1 value with every run, source, comparison, selection, task, changed-code, exercise, test-change, finding, evidence, artifact, stability, and summary field fixed.
+2. `control-valid-branch-receipt` is exactly that line control plus five specified branch-group properties and exactly two canonically ordered branch records.
+3. Both controls must pass exact schema and semantic validators unchanged before invalid cases execute.
+4. Every invalid case binds an exact source control and exact assignments/additions/removals.
+5. Every unlisted candidate field remains unchanged.
+6. No baseline literal, bookkeeping operation, alternate candidate, fallback mutation, normalization, or equivalent construction may be implementation-selected.
 
-For each case, implementation must deep-copy the named source control, apply exactly the listed operations, and leave every unlisted field unchanged. No compensating bookkeeping, normalization, equivalent mutation, alternate candidate, or fallback construction is authorized.
-
-If the exact frozen candidate cannot reach its declared validator boundary on the then-canonical implementation base, T115 stops and returns to planning.
+If a frozen control is rejected or an exact candidate cannot reach its frozen boundary on the then-canonical implementation base, T115 stops and returns to planning.
 
 ## Exact implementation boundary
 
-The only planned T115 tracked implementation path is:
+Only one tracked T115 implementation path is planned:
 
-- `tests/receipt-adversarial-corpus.contract.test.ts`
+`tests/receipt-adversarial-corpus.contract.test.ts`
 
-No second helper/fixture path, product path, schema path, workflow, dependency, benchmark-result path, release surface, or Spec 007 evidence surface is authorized.
+No second helper/fixture path, product/schema/workflow/dependency/result/release/Spec007 evidence path is authorized.
 
 ## Workflow audit
 
-### 1. Constitution and governance alignment
+### Constitution and governance
 
-PASS. The package strengthens Evidence Before Claims, No Green by Omission, Source-Bound Truth, Explicit Authority, Native Capability Before Invention, bounded execution, and benchmark-gated growth.
+PASS. Evidence Before Claims, No Green by Omission, Source-Bound Truth, Explicit Authority, Native Capability Before Invention, bounded execution, and benchmark-gated growth are preserved.
 
-### 2. Feature specification
+### Specification and clarification
 
-PASS. `spec.md` binds exact control/candidate construction, exact accounting, exact one-path scope, failure separation, and non-goals without granting implementation authority.
+PASS. `spec.md` and `clarifications.md` bind the registry as planning authority, preserve schema-first semantic evaluation, reject product repair during measurement, and require separate implementation authorization.
 
-### 3. Clarifications
+### YAGNI reviews
 
-PASS. `clarifications.md` removes implementation-time bookkeeping discretion, defines exact frozen candidate handling, preserves validator layering, and states the separate authorization gate.
+PASS. Both Ponytail reviews converge on one test path, no new dependency/workflow/product API/result publication, exact corpus accounting, and no generalized mutation framework.
 
-### 4. First Ponytail / YAGNI review
+### Technical plan
 
-PASS. `ponytail-review.md` now reflects the final exact contract rather than its earlier preliminary design. It requires `2 / 44 / 8 / 36 / 46`, both controls, and one tracked T115 path with no conditional helper authority.
+PASS. `plan.md` reuses exact current validators and requires construction from registry-frozen controls/candidates.
 
-### 5. Technical plan
+### Exact registry
 
-PASS. `plan.md` reuses exact current validators and binds the runner to exact source controls and exact candidate assignments from the registry.
+PASS subject to fresh independent final-head verification. Controls and candidate operations are fully specified before implementation authorization.
 
-### 6. Second Ponytail / YAGNI review
+### Tasks
 
-PASS. `plan-ponytail-review.md` preserves one tracked implementation path and no result-publication task.
+PASS. Only `T115 -> T116` is planned. T115 is measurement-only; T116 is reconciliation/next-frontier governance.
 
-### 7. Exact adversarial registry
+### Supply chain
 
-PASS. Every case has a stable ID, exact source control, exact candidate construction, expected layer, and required semantic issue code(s) where applicable. All unlisted fields are frozen unchanged.
+PASS. No new external dependency, service, dataset, model, network, or license obligation is planned.
 
-### 8. Tasks
+## Independent review reconciliation
 
-PASS. `tasks.md` contains only dependency-ordered `T115 -> T116`, binds T115 to exact candidate construction, and prohibits product repair or registry/candidate substitution inside T115.
+### F1 — Candidate construction discretion
 
-### 9. Requirements checklist
+Former exact head `fcba20f4a037b81ff15bb5e31b74f5ec999d3575` allowed general bookkeeping and alternative mutation construction.
 
-PASS. Existing checklist requirements remain satisfied. The exact candidate-construction freeze strengthens stable identity, complete accounting, one-path YAGNI, and no-green-by-omission requirements.
-
-### 10. Cross-artifact analysis
-
-PASS. `analysis.md` records and reconciles the latest independent findings, confirms exact candidate construction, and finds no remaining material contradiction after reconciliation.
-
-### 11. Supply-chain review
-
-PASS. No new external source, dependency, service, dataset, model, or license obligation is introduced.
-
-## Independent exact-head review reconciliation
-
-CodeRabbit completed a fresh substantive review of former candidate head:
-
-`fcba20f4a037b81ff15bb5e31b74f5ec999d3575`
-
-The review identified two material findings.
-
-### F1 — Candidate construction remained discretionary
-
-The former registry allowed implementation-selected bookkeeping through general wording such as `strictly necessary`, `if needed`, and `or otherwise violate`.
-
-Reconciliation now incorporated into the planning package:
-
-- removed the general bookkeeping allowance;
-- froze control identity/state anchors used by candidate construction;
-- froze the source control for every invalid case;
-- froze exact assignments/additions/removals for every case;
-- required all unlisted fields to remain unchanged;
-- replaced alternative construction wording with one exact construction;
-- froze compound compensation explicitly where required;
-- made inability to reach the frozen boundary a stop-and-return-to-planning condition.
+Reconciled through exact per-case operations and a strict unlisted-fields-unchanged rule.
 
 `F1 = RECONCILED_PROSPECTIVELY`
 
-### F2 — Preliminary Ponytail statements contradicted the final contract
+### F2 — Stale Ponytail preliminary contract
 
-The former Ponytail review retained an approximate case count, conditional second control, and possible second helper path.
+The same former head retained approximate-count, conditional-control, and helper-path language.
 
-Reconciliation now incorporated into the planning package:
-
-- exact `2 / 44 / 8 / 36 / 46` accounting;
-- both controls mandatory;
-- exactly one tracked T115 implementation path;
-- explicit supersession of preliminary count/control/path wording;
-- no conditional helper authority.
+Reconciled to exact `2 / 44 / 8 / 36 / 46` accounting, both controls mandatory, and one tracked T115 path only.
 
 `F2 = RECONCILED_PROSPECTIVELY`
 
-The review of `fcba20f4...` does not qualify any later head. A new fresh independent substantive exact-head review is mandatory after this reconciliation commit.
+### F3 — Baseline control construction discretion
+
+Fresh CodeRabbit review of exact head `e89da2dcd704893527829c9f61eddad0638b1285` found that the registry still specified only selected control anchors while allowing all other required fields to be implementation-chosen deterministic literals. Because 41 invalid cases sourced the line control and branch control derived from it, exact candidate identity remained incomplete.
+
+Reconciliation now incorporated:
+
+- the complete line-control JSON value is frozen field-by-field;
+- exact `ascout_version`, config digest, source state, Git/tree identities, selection mode/pass, task authorization/argv/tool/cache/runtime fields, evidence SHA-256 values, exercise, and summary are all explicit;
+- no unspecified required field remains;
+- the branch control is exactly the line control plus five exact branch properties only;
+- both frozen controls must pass both validators unchanged;
+- control rejection is a stop-and-return-to-planning condition;
+- GO accounting requires `baseline-control deviations = []`.
+
+`F3 = RECONCILED_PROSPECTIVELY / REQUIRES_FRESH_FINAL_HEAD_REVIEW`
+
+No prior review qualifies the successor head.
 
 ## Acceptance audit
 
-For future authorized T115 GO, focused evidence must prove exactly:
+Future authorized T115 GO must prove exactly:
 
-- registry version = `SPEC009-CASE-REGISTRY-V1`;
-- valid controls = `2` and both pass schema + semantic validation;
-- invalid cases = `44` and all execute exactly once;
-- schema invalid cases = `8` and all fail schema validation;
-- semantic invalid cases = `36`, all pass schema first, then fail semantic validation;
-- every semantic case observes every required semantic issue code;
-- total declared/executed count = `46`;
-- accepted invalid case IDs = `[]`;
-- skipped/unexecuted case IDs = `[]`;
-- undeclared qualification case IDs = `[]`;
-- candidate-construction deviations = `[]`.
+```text
+registry_version = SPEC009-CASE-REGISTRY-V1
+valid_control_count = 2
+invalid_case_count = 44
+schema_case_count = 8
+semantic_case_count = 36
+total_declared_execution_count = 46
+total_executed_count = 46
+accepted_invalid_case_ids = []
+skipped_or_unexecuted_case_ids = []
+undeclared_qualification_case_ids = []
+baseline_control_deviations = []
+```
 
-No aggregate percentage or partial pass may substitute for exact accounting.
+Additionally:
+
+- both exact frozen controls pass schema + semantic validation unchanged;
+- all 8 schema cases fail schema validation;
+- all 36 semantic cases pass schema first and fail semantic validation;
+- every required semantic issue code is observed.
+
+No percentage threshold or partial execution may substitute.
 
 ## Failure-governance audit
-
-PASS.
 
 If an invalid case is accepted:
 
 `T115 = NO_GO / PRODUCT_GAP_DISCOVERED`
 
-If a frozen candidate cannot reach its declared boundary, or a frozen layer/code/candidate is factually wrong:
+If a frozen control is rejected, exact candidate is unreachable at its declared boundary, or a frozen candidate/layer/code is factually wrong:
 
 `T115 = NO_GO / RETURN_TO_PLANNING`
 
-In either case:
+T115 must preserve observed evidence and must not repair `src/**`, schema, baseline controls, candidate construction, layers, or required codes.
 
-- preserve the observed evidence;
-- do not change `src/**` or schema;
-- do not substitute candidate construction;
-- do not weaken expected layer/code;
-- return to separately reviewed planning/authorization.
+## Prior evidence handling
 
-## Prior non-qualifying CI/review evidence
-
-Earlier planning heads and their CI/review evidence remain historical only. In particular:
-
-- head `89e19c00f01274e9440dbd1cb154440fb963fa89` had a non-qualifying original Project CI attempt with a Windows/Node 24 timeout failure;
-- head `fcba20f4a037b81ff15bb5e31b74f5ec999d3575` received the substantive review that produced F1/F2 and therefore cannot be merged unchanged as qualified planning.
-
-No rerun-to-green or stale-review substitution is permitted.
+All CI/review evidence on earlier planning heads is historical only. No stale CI/review, rerun-to-green, or provider summary may qualify the successor final head.
 
 ## Planning merge gate
 
-Before this planning package may become canonical, require all of the following on the exact unchanged post-reconciliation final head:
+Before planning may merge, require on the exact unchanged successor final head:
 
-1. base remains canonical `fb6bb2ec152e41da05901509b0b62d1eb3636648` unless live canonical governance legitimately advances first;
-2. base-to-head diff contains only Spec 009 planning artifacts;
-3. no `.planning-seed` or implementation/product/test/workflow/dependency/result mutation remains;
-4. exact frozen registry/accounting/candidate-construction contract is present;
-5. Self Verification succeeds on the exact final head where applicable;
-6. Project CI succeeds across every required OS/Node lane on the original qualifying attempt for that exact final head;
-7. fresh independent substantive exact-head review covers registry completeness, candidate construction, layer/code accuracy, governance, YAGNI, failure separation, Spec 007 isolation, and branch purity;
+1. canonical base still equals the expected live `main`;
+2. diff contains only Spec 009 planning artifacts;
+3. no seed/implementation/product/test/workflow/dependency/result/release mutation;
+4. complete frozen controls, exact registry/accounting, and exact candidate construction are present;
+5. Self Verification success where applicable;
+6. Project CI original attempt succeeds on all six required OS/Node lanes;
+7. fresh independent substantive exact-head review covers complete controls, candidate reachability, layer/code correctness, governance, YAGNI, failure separation, Spec 007 isolation, and branch purity;
 8. every material finding is reconciled on that same final head;
-9. zero unresolved material review threads remain;
-10. live ruleset and observable branch-protection truth are reverified;
-11. canonical `main` and exact PR head are unchanged immediately before merge;
-12. guarded normal merge uses the exact expected head SHA;
-13. post-merge ordered parents, merge tree, GitHub signature, PR state, canonical main, and exact canonical path delta are verified;
-14. Issue #252 closes `SPEC_009_PLANNING = CLOSED_CANONICAL`;
-15. implementation remains unauthorized until a separate `IMPLEMENTATION_AUTHORIZATION.md` is independently qualified, guarded-merged, and post-merge verified.
+9. zero unresolved material review threads;
+10. live ruleset and observable branch-protection truth reverified;
+11. canonical `main` and PR head unchanged immediately before merge;
+12. guarded normal merge with exact expected head SHA;
+13. post-merge ordered-parent/tree/signature/PR/main/path proof;
+14. Issue #252 closes `SPEC_009_PLANNING = CLOSED_CANONICAL / IMPLEMENTATION_AUTHORIZATION_REQUIRED`;
+15. implementation remains unauthorized until a separate `IMPLEMENTATION_AUTHORIZATION.md` is independently qualified, guarded-merged, post-merge verified, and its ledger closes effective.
 
 ## Final audit decision
 
-`FINAL_PLAN_AUDIT = PASS / F1_F2_RECONCILED / READY_FOR_FRESH_FINAL_HEAD_QUALIFICATION`
+`FINAL_PLAN_AUDIT = PASS / F1_F2_F3_RECONCILED / READY_FOR_FRESH_FINAL_HEAD_QUALIFICATION`
 
-`REGISTRY = SPEC009-CASE-REGISTRY-V1 / EXACT_CANDIDATES_FROZEN`
+`REGISTRY = SPEC009-CASE-REGISTRY-V1 / COMPLETE_CONTROLS_AND_EXACT_CANDIDATES_FROZEN`
 
 `IMPLEMENTATION_AUTHORIZED = NO`
