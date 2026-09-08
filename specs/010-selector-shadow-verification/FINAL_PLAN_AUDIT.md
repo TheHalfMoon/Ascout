@@ -83,21 +83,41 @@ T119:
 
 ## F13 — Failure/return-to-planning behavior
 
-**PASS.** The package forbids ad hoc fallback after live evidence. Any unplanned command/runtime/source/identity requirement returns to planning.
+**PASS.** The package forbids ad hoc fallback after live evidence. Any unplanned command/runtime/source/identity requirement or insufficient frozen timeout budget returns to planning.
 
 ## F14 — Historical evidence preservation
 
 **PASS.** T078/T091 and Spec 007 evidence remain immutable.
 
-## Final audit disposition
+## F15 — End-to-end execution budget
 
-No material planning deficiency remains in the audited content.
+**PASS AFTER EXTERNAL REVIEW REMEDIATION.**
+
+The first exact-head CodeRabbit review identified a material planning gap: the existing 30-minute `self-verify` job could not be proven to cover setup, the existing Spec 006 self-verification allowance, the originally larger reference timeout, cleanup, and artifact upload.
+
+The planning package now prospectively freezes:
 
 ```text
-FINAL_PLAN_AUDIT = PASS
+T118 job timeout = 60 minutes
+checkout/setup/install/build/artifact publication reserve = 20 minutes
+existing Spec 006 self-verification allowance = 20 minutes
+T117 full-suite reference timeout = 10 minutes
+contingency/orderly-cleanup reserve = 10 minutes
+```
+
+The budget is defined before T117/T118 implementation and before live observation. T117 contracts must prove the exact 10-minute reference bound. T118 must set exactly `timeout-minutes: 60` and must publish the live artifact within that bound. Neither timeout may be increased after observing live evidence; insufficiency requires `NO_GO / RETURN_TO_PLANNING`.
+
+This closes the external review finding in planning content. Because the planning branch changed, all qualification evidence from the prior head is stale for canonical merge eligibility and a fresh exact-head CI/review cycle is required.
+
+## Final audit disposition
+
+No material planning deficiency remains in the audited content after F15 remediation.
+
+```text
+FINAL_PLAN_AUDIT = PASS_AFTER_F15_REMEDIATION
 MATERIAL_FINDINGS = 0
-PLANNING_READY_FOR_EXACT_HEAD_QUALIFICATION = YES
+PLANNING_READY_FOR_FRESH_EXACT_HEAD_QUALIFICATION = YES
 IMPLEMENTATION_AUTHORITY = NO
 ```
 
-The planning package is not canonical merely because this file exists. The final exact branch head must still pass current CI/review/branch-purity requirements and guarded merge before any implementation authorization may be created.
+The planning package is not canonical merely because this file exists. The final exact branch head must still pass fresh current CI/review/branch-purity requirements and guarded merge before any implementation authorization may be created.
