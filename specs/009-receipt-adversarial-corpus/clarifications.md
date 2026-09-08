@@ -1,0 +1,106 @@
+# Specification 009 — Clarifications
+
+**Status:** `PLANNING / IMPLEMENTATION_NOT_AUTHORIZED`
+
+## C1 — Is Spec 009 a product feature?
+
+No. It is a bounded trust-verification corpus around existing Receipt v1 validators. It does not change public receipt semantics, CLI behavior, selection behavior, or execution authority.
+
+## C2 — Why is this allowed after Spec 007 became terminal?
+
+Spec 009 is independent of T113/T114. It does not reuse the failed execution route, publish historical-corpus metrics, or change any Spec 007 surface. It advances a separate M1.2 trust workstream named in the roadmap.
+
+## C3 — Why not selector shadow mode first?
+
+T078's known Ascout selector miss was repaired through Spec 002, and T091 published zero selector misses in the six-case replay while preserving unavailable outcomes. That is not universal proof, but it removes the strongest known selector defect as the immediate frontier. A receipt adversarial corpus remains an explicit roadmap gap with direct constitutional relevance and lower implementation complexity.
+
+## C4 — What is the authoritative valid receipt?
+
+The two authoritative corpus controls are the complete JSON values frozen field-by-field in `CASE_REGISTRY.md`. Implementation must construct those exact values inside the one authorized test file. No required or optional control field used by the corpus is implementation-selected, normalized, substituted, or replaced by another deterministic literal.
+
+`control-valid-branch-receipt` is exactly the complete frozen `control-valid-line-receipt` plus the five exact branch-group properties frozen in the registry; every pre-existing field remains unchanged.
+
+Both exact frozen controls must pass both exact current validators unchanged before invalid cases execute. If either control is rejected on the then-canonical implementation base, T115 stops and returns to planning; implementation may not repair or replace it.
+
+## C5 — Must every mutation be one field?
+
+No. Some semantic invariants require compound candidate construction. `CASE_REGISTRY.md` therefore freezes the complete permitted assignment/add/remove set for every case.
+
+For each case, implementation must deep-copy the exact frozen named source control, apply exactly the listed operations, and change no unlisted field. There is no implementation-time baseline, bookkeeping, or alternate-equivalent-candidate discretion.
+
+## C6 — What decides schema vs semantic rejection?
+
+The current contract layering decides it:
+
+- malformed shape/type/enum/required/additional-property conditions belong to `validateReceiptJsonSchema`;
+- structurally valid but internally contradictory Receipt v1 states belong to `validateReceiptSemantics`.
+
+A semantic case must pass schema first.
+
+## C7 — Are exact semantic issue codes required?
+
+Yes. `CASE_REGISTRY.md` freezes the required semantic issue code set for each semantic case. The runner checks containment, not exact equality, because one exact candidate can deterministically trigger another dependent invariant. Missing any required code is a failure. Changing a required code requires a separately reviewed planning amendment.
+
+## C8 — Can the corpus use snapshots?
+
+Not as sole authority. Human-readable snapshots may assist review only if separately justified, but exact control values, case identity, source control, exact candidate assignments, expected layer, required issue codes, and exact accounting remain explicit data/assertions.
+
+## C9 — Can implementation add fast-check, a fuzzer, or a mutation library?
+
+No. The gap is a small known adversarial contract corpus. A generalized generator adds dependency and complexity without evidence that it is needed.
+
+## C10 — How many cases are required?
+
+Exactly the registry frozen in `CASE_REGISTRY.md`:
+
+- `2` valid controls;
+- `44` invalid cases;
+- `8` schema-boundary invalid cases;
+- `36` semantic-boundary invalid cases;
+- `46` total declared executions.
+
+T115 may not add, remove, rename, merge, split, skip, or reclassify cases. Any registry change requires a separately reviewed Spec 009 planning amendment that becomes canonical before implementation continues.
+
+## C11 — Is an accepted invalid case automatically a failing test?
+
+Yes. It is a material corpus failure. The implementation task must preserve that failure and return to planning for a separately authorized product repair. Do not modify `src/**`, schema, baseline controls, candidate construction, or a registry expectation in the same task.
+
+## C12 — Can current validators be refactored to make cases easier to test?
+
+No. The corpus must exercise the current validation exports as they exist. Any product refactor requires separate authority.
+
+## C13 — What about privacy/secret mutation cases?
+
+Only deterministic existing contract rules may be tested. The Constitution explicitly rejects claims of universal secret detection. `CASE_REGISTRY.md` therefore authorizes no arbitrary secret-string rejection case; existing execution/persistence redaction tests retain that responsibility.
+
+## C14 — Does the corpus need a published benchmark result file?
+
+No. A durable repository result JSON is not required to prove a deterministic contract test. Exact focused-test evidence, Project CI, review, and canonical merge proof are sufficient. YAGNI rejects a new benchmark-result lifecycle.
+
+## C15 — Should the corpus run in ordinary Project CI?
+
+Yes, by being an ordinary Vitest contract test included by the existing test command. No new workflow is planned.
+
+## C16 — May the corpus invoke the CLI?
+
+No under the current plan. The exact target is schema + semantic validation. CLI end-to-end coverage already exists elsewhere and would broaden this unit. Any need for CLI execution requires a planning amendment.
+
+## C17 — How are valid controls prevented from drifting stale?
+
+Every corpus execution constructs both complete frozen controls exactly and validates them first against both exact current validators. The runner must prove baseline-control deviations are `[]`. A rejected or divergent control fails the suite and requires reconciliation; it is never silently rewritten during qualification.
+
+## C18 — What is the implementation surface?
+
+Exactly one new test path is planned:
+
+`tests/receipt-adversarial-corpus.contract.test.ts`
+
+No second helper or fixture path is authorized. If one file is later proven materially unreviewable, return to planning before adding another path.
+
+## C19 — What if the exact frozen control or candidate does not reach its planned boundary?
+
+T115 stops and returns to Spec 009 planning. It may not repair or replace a frozen control, add compensating bookkeeping, choose a different baseline or mutation, relax the layer, or rewrite the required code.
+
+## C20 — Does Spec 009 authorize implementation now?
+
+No. Planning must merge canonically first. A separate `IMPLEMENTATION_AUTHORIZATION.md` and durable authorization ledger must then bind the exact planning merge, exact registry, both complete frozen controls, exact candidate constructions, exact one-path T115 surface, and T116 ledger-only authority.
