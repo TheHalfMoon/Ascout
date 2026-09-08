@@ -76,6 +76,21 @@ function boundBytes(value: any = receipt()): { receiptBytes: Buffer; envelopeByt
   return { receiptBytes, envelopeBytes: Buffer.from(JSON.stringify(envelope), "utf8") };
 }
 
+
+async function writeVitestAuthority(root: string, version = "4.1.10", bin = "vitest.mjs"): Promise<void> {
+  await writeFile(join(root, "package.json"), JSON.stringify({
+    scripts: { test: "vitest run" },
+    devDependencies: { vitest: version },
+  }));
+  await writeFile(join(root, "package-lock.json"), JSON.stringify({
+    lockfileVersion: 3,
+    packages: {
+      "": { devDependencies: { vitest: version } },
+      "node_modules/vitest": { version, bin: { vitest: bin } },
+    },
+  }));
+}
+
 async function evidenceFiles(value: any = receipt()): Promise<{
   root: string;
   receiptPath: string;
@@ -385,7 +400,7 @@ describe("T117 selector-shadow comparator contract", () => {
     const vitestDir = join(root, "node_modules", "vitest");
     await mkdir(binDir, { recursive: true });
     await mkdir(vitestDir, { recursive: true });
-    await writeFile(join(root, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    await writeVitestAuthority(root);
     const launcherPath = join(binDir, process.platform === "win32" ? "vitest.cmd" : "vitest");
     await writeFile(launcherPath, "arbitrary launcher that must never become the reference executable\n");
     await writeFile(join(vitestDir, "package.json"), JSON.stringify({
@@ -404,6 +419,49 @@ describe("T117 selector-shadow comparator contract", () => {
     expect(runtime.executablePath).not.toBe(await realpath(launcherPath));
   });
 
+  it("rejects installed Vitest identity that differs from root and lockfile authority", async () => {
+    const root = await trackedMkdtemp(join(tmpdir(), "ascout-t117-vitest-identity-"));
+    const binDir = join(root, "node_modules", ".bin");
+    const vitestDir = join(root, "node_modules", "vitest");
+    await mkdir(binDir, { recursive: true });
+    await mkdir(vitestDir, { recursive: true });
+    await writeVitestAuthority(root);
+    await writeFile(join(binDir, process.platform === "win32" ? "vitest.cmd" : "vitest"), "launcher\n");
+    await writeFile(join(vitestDir, "package.json"), JSON.stringify({
+      name: "vitest",
+      version: "9.9.9",
+      bin: { vitest: "vitest.mjs" },
+    }));
+    await writeFile(join(vitestDir, "vitest.mjs"), "export {};\n");
+
+    await expect(shadow.resolveLocalVitestRuntime(root)).rejects.toMatchObject({
+      code: "UNAVAILABLE_FULL_SUITE_CONTRACT",
+    });
+  });
+
+  it("rejects Vitest authority when root package and lockfile identities disagree", async () => {
+    const root = await trackedMkdtemp(join(tmpdir(), "ascout-t117-vitest-lock-"));
+    const binDir = join(root, "node_modules", ".bin");
+    const vitestDir = join(root, "node_modules", "vitest");
+    await mkdir(binDir, { recursive: true });
+    await mkdir(vitestDir, { recursive: true });
+    await writeVitestAuthority(root);
+    const lock = JSON.parse(await readFile(join(root, "package-lock.json"), "utf8"));
+    lock.packages["node_modules/vitest"].version = "4.1.9";
+    await writeFile(join(root, "package-lock.json"), JSON.stringify(lock));
+    await writeFile(join(binDir, process.platform === "win32" ? "vitest.cmd" : "vitest"), "launcher\n");
+    await writeFile(join(vitestDir, "package.json"), JSON.stringify({
+      name: "vitest",
+      version: "4.1.10",
+      bin: { vitest: "vitest.mjs" },
+    }));
+    await writeFile(join(vitestDir, "vitest.mjs"), "export {};\n");
+
+    await expect(shadow.resolveLocalVitestRuntime(root)).rejects.toMatchObject({
+      code: "UNAVAILABLE_FULL_SUITE_CONTRACT",
+    });
+  });
+
   it("rejects a Vitest manifest whose declared bin escapes the installed Vitest package", async () => {
     const root = await trackedMkdtemp(join(tmpdir(), "ascout-t117-vitest-escape-"));
     const binDir = join(root, "node_modules", ".bin");
@@ -412,7 +470,7 @@ describe("T117 selector-shadow comparator contract", () => {
     await mkdir(binDir, { recursive: true });
     await mkdir(vitestDir, { recursive: true });
     await mkdir(otherDir, { recursive: true });
-    await writeFile(join(root, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    await writeVitestAuthority(root, "4.1.10", "../other-package/runner.mjs");
     await writeFile(join(binDir, process.platform === "win32" ? "vitest.cmd" : "vitest"), "launcher\n");
     await writeFile(join(otherDir, "runner.mjs"), "export {};\n");
     await writeFile(join(vitestDir, "package.json"), JSON.stringify({

@@ -346,6 +346,21 @@ export async function resolveLocalVitestRuntime(repositoryRoot, fsOps = { readFi
   catch { unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT"); }
   validateRootPackageContract(packageValue);
 
+  let packageLockValue;
+  try { packageLockValue = JSON.parse((await fsOps.readFile(resolve(repositoryRoot, "package-lock.json"), "utf8")).toString()); }
+  catch { unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT"); }
+  const declaredVitestVersion = packageValue?.devDependencies?.vitest;
+  const lockRoot = packageLockValue?.packages?.[""];
+  const lockedVitest = packageLockValue?.packages?.["node_modules/vitest"];
+  if (
+    typeof declaredVitestVersion !== "string" || declaredVitestVersion.length === 0 || declaredVitestVersion.includes("\0") ||
+    !isRecord(lockRoot) || !isRecord(lockRoot.devDependencies) || lockRoot.devDependencies.vitest !== declaredVitestVersion ||
+    !isRecord(lockedVitest) || lockedVitest.version !== declaredVitestVersion ||
+    !isRecord(lockedVitest.bin) || typeof lockedVitest.bin.vitest !== "string" || lockedVitest.bin.vitest.length === 0
+  ) {
+    unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
+  }
+
   let rootReal;
   let nodeModulesReal;
   try {
@@ -383,9 +398,10 @@ export async function resolveLocalVitestRuntime(repositoryRoot, fsOps = { readFi
   if (
     !isRecord(vitestManifest) ||
     vitestManifest.name !== "vitest" ||
-    typeof vitestManifest.version !== "string" || vitestManifest.version.length === 0 || vitestManifest.version.includes("\0") ||
+    vitestManifest.version !== declaredVitestVersion ||
     !isRecord(vitestManifest.bin) ||
     typeof vitestManifest.bin.vitest !== "string" || vitestManifest.bin.vitest.length === 0 || vitestManifest.bin.vitest.includes("\0") ||
+    vitestManifest.bin.vitest !== lockedVitest.bin.vitest ||
     isAbsolute(vitestManifest.bin.vitest)
   ) {
     unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
