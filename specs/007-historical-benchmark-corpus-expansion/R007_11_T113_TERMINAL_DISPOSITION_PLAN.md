@@ -360,7 +360,7 @@ If qualification requires any product, test, workflow, dependency, result, manif
 
 ## Qualification gate
 
-Before this terminal planning decision may become canonical require:
+Before this terminal planning decision may become canonical, the following are required:
 
 1. exact one-path planning purity;
 2. exact final head/tree verification;
