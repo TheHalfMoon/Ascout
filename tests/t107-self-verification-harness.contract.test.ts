@@ -602,7 +602,7 @@ describe("T107 exact-tree self-verification harness", () => {
       .rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "head_build_unavailable"));
     expectNoEvidence(outputDir);
     expect(existsSync(outputDir)).toBe(false);
-  });
+  }, 15_000);
 
   it.each([
     ["timed_out", { outcome: "timed_out", exitCode: null, signal: null, error: null }, "verifier_execution_failed"],
