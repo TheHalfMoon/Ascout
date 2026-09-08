@@ -6,7 +6,7 @@
 
 What is the smallest repository change that can prove whether the existing Receipt v1 contract rejects a bounded set of known high-risk invalid states without changing product behavior?
 
-Answer: one deterministic Vitest contract file built from an explicit valid fixture plus a table of named mutations and expectations.
+Answer: exactly one deterministic Vitest contract file implementing the exact frozen `SPEC009-CASE-REGISTRY-V1` controls and cases.
 
 ## Rejected complexity
 
@@ -16,7 +16,7 @@ Rejected. A reusable mutation DSL or framework would invent abstraction before m
 
 ### R2 — Property-based testing dependency
 
-Rejected. No evidence currently requires `fast-check` or equivalent. The target cases are known contract invariants and can be enumerated directly.
+Rejected. No evidence currently requires `fast-check` or equivalent. The target cases are frozen contract invariants and can be enumerated directly.
 
 ### R3 — Fuzzing engine
 
@@ -32,11 +32,15 @@ Rejected. Existing Project CI already runs Vitest on the supported OS/Node matri
 
 ### R6 — Persistent benchmark-result JSON
 
-Rejected by default. Deterministic test assertions plus exact-head CI provide sufficient qualification evidence. A result file would create a new publication lifecycle with little incremental value.
+Rejected. Deterministic focused assertions plus exact-head CI/review/merge evidence are sufficient. A result file would create a new publication lifecycle with no demonstrated incremental authority.
 
-### R7 — Large fixture directory
+### R7 — Fixture directory or second tracked helper
 
-Rejected. Prefer an in-test fixture factory and explicit mutation registry. External JSON fixtures are justified only if inline representation becomes materially unreadable.
+Rejected. T115 is exactly one tracked implementation path:
+
+- `tests/receipt-adversarial-corpus.contract.test.ts`
+
+Both deterministic controls, the registry representation, and mutation runner remain in that file. If this exact one-file boundary later proves materially unreviewable, T115 stops and returns to planning before any second path is added.
 
 ### R8 — Product refactor for testability
 
@@ -54,18 +58,25 @@ Rejected. Spec 009 targets current Receipt v1 only. Future schema versions requi
 
 Rejected. Spec 009 is independent of Spec 007 and does not modify selector behavior.
 
-## Minimal retained design
+## Final minimal retained design
 
-1. one valid Receipt v1 factory/control;
-2. one explicit registry of approximately 25–45 stable adversarial cases;
-3. per case: ID, expected layer, mutation, required semantic code(s) when applicable;
-4. at least two valid controls if the second control can cover an optional semantic surface without extra architecture;
-5. ordinary Vitest execution in existing Project CI;
-6. zero new dependency/workflow/product/schema/result path;
-7. accepted invalid case => fail and return to separate recovery planning.
+The preliminary design choices in earlier revisions of this review are superseded by the exact frozen planning contract below. There is no remaining approximate count, optional control, or conditional helper authority.
+
+1. registry version exactly `SPEC009-CASE-REGISTRY-V1`;
+2. exactly `2` mandatory valid controls;
+3. exactly `44` invalid cases;
+4. exactly `8` schema-boundary invalid cases;
+5. exactly `36` semantic-boundary invalid cases;
+6. exactly `46` total declared executions;
+7. every invalid case has a frozen ID, exact candidate-construction mutation, expected layer, and required semantic code(s) where applicable;
+8. exactly one tracked T115 implementation path: `tests/receipt-adversarial-corpus.contract.test.ts`;
+9. ordinary Vitest execution in existing Project CI;
+10. zero new dependency/workflow/product/schema/result path;
+11. accepted invalid case => fail and return to separate recovery planning;
+12. factually wrong frozen candidate/layer/code => stop and return to planning, never rewrite inside T115.
 
 ## Complexity conclusion
 
-`YAGNI_RESULT = PASS / SINGLE_TEST_SURFACE_PREFERRED`
+`YAGNI_RESULT = PASS / EXACT_SINGLE_TEST_SURFACE / FROZEN_REGISTRY`
 
-The plan should authorize exactly `tests/receipt-adversarial-corpus.contract.test.ts` unless final cross-artifact review demonstrates a concrete readability or reuse reason for one additional test-only helper.
+No second helper/fixture path and no implementation-time corpus-design discretion are authorized.

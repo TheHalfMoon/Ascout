@@ -19,25 +19,26 @@ T115 is bound to:
 
 - `specs/009-receipt-adversarial-corpus/CASE_REGISTRY.md`;
 - registry version `SPEC009-CASE-REGISTRY-V1`;
+- exact control anchors and per-case candidate assignments;
 - `2` valid controls;
 - `44` invalid cases;
 - `8` schema-boundary invalid cases;
 - `36` semantic-boundary invalid cases;
 - `46` total declared executions.
 
-T115 MUST NOT add, remove, rename, merge, split, skip, reclassify, or weaken any registry case or required semantic issue code. Any registry change requires a separately reviewed planning amendment that becomes canonical before T115 continues.
+T115 MUST NOT change a control anchor, candidate assignment, case ID, source control, expected layer, or required semantic issue code. It MUST NOT add, remove, rename, merge, split, skip, reclassify, or weaken any registry case. Any registry change requires a separately reviewed planning amendment that becomes canonical before T115 continues.
 
 ### Required implementation
 
-1. Construct both deterministic valid Receipt v1 controls frozen in `CASE_REGISTRY.md` and prove each passes exact current `validateReceiptJsonSchema` and `validateReceiptSemantics`.
-2. Implement the exact frozen adversarial case registry with the exact stable case IDs and declared order/layers/codes.
-3. Every case mutates a fresh control; no mutation leaks between cases.
-4. Semantic cases must pass schema before semantic rejection is evaluated.
-5. Schema cases must fail schema; they are not credited for a later semantic failure.
-6. Execute every declared case exactly once per focused corpus run.
-7. Fail if an invalid case is accepted, a required issue code is missing, a valid control is rejected, a case ID is duplicated, expectation metadata is incomplete, an expected case is unexecuted, an undeclared case contributes to qualification counts, or exact registry accounting differs.
-8. Permit only the minimum bookkeeping changes explicitly allowed by `CASE_REGISTRY.md` to keep a semantic candidate schema-valid and isolate the named invariant.
-9. Do not add dependencies, workflows, product APIs, CLI commands, benchmark result files, network calls, random mutation engines, generated opaque cases, or second helper/fixture paths.
+1. Construct both deterministic valid Receipt v1 controls conforming exactly to the anchors frozen in `CASE_REGISTRY.md` and prove each passes exact current `validateReceiptJsonSchema` and `validateReceiptSemantics`.
+2. Implement the exact frozen adversarial registry with exact stable IDs, source controls, candidate assignments, declared order/layers/codes.
+3. Every case deep-copies its frozen source control; no mutation leaks between cases.
+4. Apply exactly the assignments/additions/removals listed for that case and change no unlisted field.
+5. Semantic cases must pass schema before semantic rejection is evaluated.
+6. Schema cases must fail schema; they are not credited for a later semantic failure.
+7. Execute every declared case exactly once per focused corpus run.
+8. Fail if an invalid case is accepted, a required issue code is missing, a valid control is rejected, a case ID is duplicated, expectation metadata is incomplete, a candidate differs from the frozen construction, an expected case is unexecuted, an undeclared case contributes to qualification counts, or exact registry accounting differs.
+9. Do not add dependencies, workflows, product APIs, CLI commands, benchmark result files, network calls, random mutation engines, generated opaque cases, alternative candidates, or second helper/fixture paths.
 10. Do not mutate `src/**`, receipt schema, historical results, selector behavior, Spec 007 workflow/evidence, package files, or release surfaces.
 
 ### Focused qualification
@@ -53,11 +54,12 @@ The exact implementation head must show:
 - semantic-case count = `36` and every one passes schema first, then fails semantic validation;
 - total declared execution count = `46`;
 - every declared ID is unique and executed exactly once;
+- every candidate matches its frozen construction;
 - every semantic required-code assertion passes;
 - accepted invalid case IDs = `[]` for GO;
 - skipped/unexecuted case IDs = `[]` for GO;
 - no undeclared case contributes to qualification counts;
-- no mutation expectation is changed merely to obtain green;
+- no candidate or expectation is changed merely to obtain green;
 - exact one-path purity against the exact canonical implementation base.
 
 ### Product-gap and planning-truth rule
@@ -66,9 +68,9 @@ If any frozen invalid case is accepted by current validators:
 
 `T115 = NO_GO / PRODUCT_GAP_DISCOVERED`
 
-Preserve the failing case and exact observed output. Do not repair `src/**`, schema, or registry expectation in T115. Create a separately reviewed recovery planning unit before any product mutation.
+Preserve the failing case and exact observed output. Do not repair `src/**`, schema, candidate construction, or registry expectation in T115. Create a separately reviewed recovery planning unit before any product mutation.
 
-If a frozen expected layer or required semantic code is shown by exact current source/evidence to be factually wrong, T115 also stops. That observation requires a separately reviewed Spec 009 planning amendment; implementation may not silently reclassify the case.
+If an exact frozen candidate cannot reach its declared boundary, or a frozen expected layer/required semantic code is shown by exact current source/evidence to be factually wrong, T115 also stops. That observation requires a separately reviewed Spec 009 planning amendment; implementation may not substitute or reclassify the case.
 
 ### Merge qualification
 
@@ -112,19 +114,20 @@ Record:
 - accepted invalid case IDs, if any;
 - unexecuted/skipped case IDs, if any;
 - undeclared qualification case IDs, if any;
+- candidate-construction deviations, if any;
 - explicit statement that no product/schema/dependency/workflow/historical-result mutation occurred.
 
-If T115 qualified with exact complete accounting and no accepted invalid case:
+If T115 qualified with exact complete accounting, exact candidate construction, and no accepted invalid case:
 
 `T116 = CLOSED_CANONICAL`
 
 `SPEC_009 = CLOSED_CANONICAL / GO`
 
-If T115 found an accepted invalid case:
+If T115 found an accepted invalid case or planning-truth mismatch:
 
 `SPEC_009 = NO_GO / RETURN_TO_PLANNING`
 
-T116 MUST NOT mark the discovered product gap repaired.
+T116 MUST NOT mark the discovered product/planning gap repaired.
 
 After T116, re-read live canonical governance and determine the next genuinely authorized frontier. Do not promote selector shadow, M2, or any other roadmap item automatically.
 
@@ -141,6 +144,7 @@ Across T115–T116:
 - no product/selector/CLI behavior mutation;
 - no generalized fuzzing/property framework;
 - no benchmark-result publication;
+- no alternate candidate construction;
 - no second T115 tracked implementation path;
 - no release/tag/npm publication;
 - no force-push/rebase/destructive history rewrite;
@@ -148,4 +152,4 @@ Across T115–T116:
 
 ## Authorization gate
 
-T115 cannot begin until this planning package, including `CASE_REGISTRY.md`, is independently qualified, guarded-merged, post-merge verified, Issue #252 closes canonical, and a separate durable Spec 009 implementation authorization explicitly binds the exact planning merge, registry version, and exact T115/T116 authority.
+T115 cannot begin until this planning package, including the exact candidate-construction registry, is independently qualified, guarded-merged, post-merge verified, Issue #252 closes canonical, and a separate durable Spec 009 implementation authorization explicitly binds the exact planning merge, registry version, and exact T115/T116 authority.

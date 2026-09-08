@@ -16,11 +16,13 @@ T078's known Ascout selector miss was repaired through Spec 002, and T091 publis
 
 ## C4 — What is the authoritative valid receipt?
 
-Implementation must construct the deterministic Receipt v1 controls required by `CASE_REGISTRY.md` using current repository types/helpers or test-owned local factories. A control is authoritative only as a test control after it passes both exact current validators. Do not copy a stale historical JSON artifact and assume it remains valid.
+Implementation must construct the deterministic Receipt v1 controls required by `CASE_REGISTRY.md` using test-owned local factory logic in the one authorized test file. The registry freezes all control anchors used by candidate construction. Each control is authoritative only after it passes both exact current validators.
 
 ## C5 — Must every mutation be one field?
 
-Prefer one material fault. A compound mutation is allowed only where `CASE_REGISTRY.md` explicitly permits the minimum bookkeeping necessary to keep a semantic candidate schema-valid and isolate the named semantic invariant. No implementation-time compound case may be invented.
+No. Some semantic invariants require compound candidate construction. `CASE_REGISTRY.md` therefore freezes the complete permitted assignment/add/remove set for every case.
+
+For each case, implementation must deep-copy the named source control, apply exactly the listed operations, and change no unlisted field. There is no implementation-time bookkeeping discretion and no alternate equivalent candidate.
 
 ## C6 — What decides schema vs semantic rejection?
 
@@ -33,11 +35,11 @@ A semantic case must pass schema first.
 
 ## C7 — Are exact semantic issue codes required?
 
-Yes. `CASE_REGISTRY.md` freezes the required semantic issue code set for each semantic case. The runner checks containment, not exact equality, because one minimum mutation can legitimately trigger another dependent invariant. Missing any required code is a failure. Changing a required code requires a separately reviewed planning amendment.
+Yes. `CASE_REGISTRY.md` freezes the required semantic issue code set for each semantic case. The runner checks containment, not exact equality, because one exact candidate can deterministically trigger another dependent invariant. Missing any required code is a failure. Changing a required code requires a separately reviewed planning amendment.
 
 ## C8 — Can the corpus use snapshots?
 
-Not as sole authority. Human-readable snapshots may assist review only if separately justified, but case identity, expected layer, required issue codes, and exact accounting remain explicit data/assertions.
+Not as sole authority. Human-readable snapshots may assist review only if separately justified, but case identity, source control, exact candidate assignments, expected layer, required issue codes, and exact accounting remain explicit data/assertions.
 
 ## C9 — Can implementation add fast-check, a fuzzer, or a mutation library?
 
@@ -57,7 +59,7 @@ T115 may not add, remove, rename, merge, split, skip, or reclassify cases. Any r
 
 ## C11 — Is an accepted invalid case automatically a failing test?
 
-Yes. It is a material corpus failure. The implementation task must preserve that failure and return to planning for a separately authorized product repair. Do not modify `src/**`, schema, or a registry expectation in the same task.
+Yes. It is a material corpus failure. The implementation task must preserve that failure and return to planning for a separately authorized product repair. Do not modify `src/**`, schema, candidate construction, or a registry expectation in the same task.
 
 ## C12 — Can current validators be refactored to make cases easier to test?
 
@@ -91,6 +93,10 @@ Exactly one new test path is planned:
 
 No second helper or fixture path is authorized. If one file is later proven materially unreviewable, return to planning before adding another path.
 
-## C19 — Does Spec 009 authorize implementation now?
+## C19 — What if the exact frozen candidate is not schema-valid or does not produce its required code?
 
-No. Planning must merge canonically first. A separate `IMPLEMENTATION_AUTHORIZATION.md` and durable authorization ledger must then bind the exact planning merge, exact registry, exact one-path T115 surface, and T116 ledger-only authority.
+T115 stops and returns to Spec 009 planning. It may not add compensating bookkeeping, choose a different mutation, relax the layer, or rewrite the required code.
+
+## C20 — Does Spec 009 authorize implementation now?
+
+No. Planning must merge canonically first. A separate `IMPLEMENTATION_AUTHORIZATION.md` and durable authorization ledger must then bind the exact planning merge, exact registry, exact candidate constructions, exact one-path T115 surface, and T116 ledger-only authority.

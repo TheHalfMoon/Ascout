@@ -21,6 +21,7 @@
 - `CASE_REGISTRY.md`
 - `tasks.md`
 - `checklists/requirements.md`
+- CodeRabbit exact-head planning review on former candidate `fcba20f4a037b81ff15bb5e31b74f5ec999d3575`
 
 ## Constitution alignment
 
@@ -30,7 +31,7 @@ Aligned. The corpus requires explicit validator evidence per case and forbids ag
 
 ### No Green by Omission
 
-Aligned. `SPEC009-CASE-REGISTRY-V1` freezes 2 valid controls, 44 invalid cases, and 46 total declared executions. Every declared case/control must execute and be accounted for; a skipped, unexecuted, reclassified, or undeclared qualification case fails the corpus.
+Aligned. `SPEC009-CASE-REGISTRY-V1` freezes 2 valid controls, 44 invalid cases, and 46 total declared executions. It also freezes source controls and exact candidate assignments. Every declared case/control must execute and be accounted for; a skipped, substituted, unexecuted, reclassified, or undeclared qualification case fails the corpus.
 
 ### Source-Bound Truth
 
@@ -72,7 +73,7 @@ The planning rationale uses this only as prioritization evidence: there is no un
 
 ## Exact registry analysis
 
-Planning now freezes `SPEC009-CASE-REGISTRY-V1` rather than deferring case-count/layer/code selection to implementation.
+Planning freezes `SPEC009-CASE-REGISTRY-V1` rather than deferring corpus design to implementation.
 
 Exact accounting:
 
@@ -82,16 +83,60 @@ Exact accounting:
 - semantic cases: `36`;
 - total declared executions: `46`.
 
-The registry was checked against the current canonical Receipt v1 schema/model validation surfaces before freezing. Required semantic code names are planning-time contract data, not implementation guesses.
+The registry freezes:
 
-If implementation evidence proves a frozen layer/code expectation factually wrong, T115 stops and returns to planning. It may not rewrite the registry in the implementation branch.
+- control identity/state anchors used by cases;
+- the source control for every case;
+- exact per-case assignments/additions/removals;
+- expected layer;
+- required semantic issue codes.
+
+Implementation must leave all unlisted fields unchanged. There is no alternate-candidate or compensating-bookkeeping authority.
+
+If implementation evidence proves a frozen candidate/layer/code expectation factually wrong, T115 stops and returns to planning. It may not rewrite the registry in the implementation branch.
+
+## Exact-head review reconciliation
+
+CodeRabbit's fresh substantive review of candidate `fcba20f4a037b81ff15bb5e31b74f5ec999d3575` identified two material planning findings.
+
+### F1 — Candidate construction remained discretionary
+
+Finding: the registry's general `strictly necessary` bookkeeping allowance and phrases such as `if needed` / `or otherwise violate` allowed T115 to select concrete candidate construction.
+
+Reconciliation:
+
+- removed the general bookkeeping allowance;
+- froze control anchors used by mutations;
+- froze exact per-case source controls and operations;
+- required all unlisted fields to remain unchanged;
+- replaced every alternative mutation phrase with one exact construction;
+- froze compound compensation explicitly, including source-end repository mismatch and selection-widening cases;
+- made exact-candidate mismatch a stop-and-return-to-planning condition.
+
+`F1 = RECONCILED_PROSPECTIVELY / REQUIRES_FRESH_FINAL_HEAD_REVIEW`
+
+### F2 — Preliminary Ponytail statements contradicted final contract
+
+Finding: `ponytail-review.md` still retained an approximate 25–45 case count, a conditional second control, and possible second helper path.
+
+Reconciliation:
+
+- replaced the preliminary retained-design section with exact `2 / 44 / 8 / 36 / 46` accounting;
+- made both controls mandatory;
+- made the one tracked T115 path absolute;
+- stated explicitly that preliminary count/control/path language is superseded.
+
+`F2 = RECONCILED_PROSPECTIVELY / REQUIRES_FRESH_FINAL_HEAD_REVIEW`
+
+No review against `fcba20f4...` qualifies any later head. Fresh independent exact-head review remains mandatory after these reconciliations.
 
 ## Requirements-to-plan mapping
 
 | Requirement domain | Plan/registry coverage | Task ownership |
 | --- | --- | --- |
-| valid controls | plan §§3,5; registry controls | T115 |
+| valid controls | plan §§3,5; registry controls/anchors | T115 |
 | stable explicit case registry | `CASE_REGISTRY.md`; plan §§4,5,13 | T115 |
+| exact candidate construction | registry exact-candidate rule; spec FR-003; plan §5 | T115 |
 | schema/semantic layer separation | plan §§2,5; registry | T115 |
 | evidence/artifact integrity | registry evidence/artifact cases | T115 |
 | source/comparison integrity | registry source/comparison cases | T115 |
@@ -101,18 +146,18 @@ If implementation evidence proves a frozen layer/code expectation factually wron
 | selection/exercise | registry selection/exercise/branch cases | T115 |
 | summary/exit | registry aggregate/decision cases | T115 |
 | privacy honesty | registry privacy boundary; plan §7 | T115 |
-| product-gap separation | plan §9; tasks product-gap rule | T115 / recovery planning if needed |
+| product/planning-gap separation | plan §9; tasks failure rule | T115 / recovery planning if needed |
 | canonical reconciliation | plan §11; tasks T116 | T116 |
 
 No requirement lacks task ownership.
 
 ## Path-scope analysis
 
-Planning converges on exactly one implementation path:
+Planning authorizes exactly one implementation path:
 
 - `tests/receipt-adversarial-corpus.contract.test.ts`
 
-Clarifications, plan, tasks, and registry change-control permit no second helper/fixture path. Any need for another tracked implementation path requires a new planning amendment before implementation continues.
+Clarifications, both YAGNI reviews, plan, tasks, and registry permit no second helper/fixture path. Any need for another tracked implementation path requires a new planning amendment before implementation continues.
 
 No planning artifact authorizes a product file, schema file, workflow, dependency file, benchmark result, historical artifact, or second T115 implementation path.
 
@@ -121,9 +166,10 @@ No planning artifact authorizes a product file, schema file, workflow, dependenc
 All controlling artifacts agree:
 
 - accepted invalid case => T115 `NO_GO / PRODUCT_GAP_DISCOVERED`;
+- exact candidate cannot reach frozen boundary => stop and return to planning;
 - frozen layer/code shown wrong => stop and return to planning;
 - no product repair inside T115;
-- no registry rewrite inside T115;
+- no candidate substitution or registry rewrite inside T115;
 - separately reviewed recovery/planning amendment required;
 - T116 cannot convert such a failure into `SPEC_009 = GO`;
 - exact 46-execution accounting is required for GO.
@@ -132,16 +178,14 @@ All controlling artifacts agree:
 
 All controlling artifacts require final implementation exact-head focused evidence, Project CI, independent substantive review, material-finding reconciliation, zero unresolved threads, guarded merge, and post-merge proof.
 
-Planning itself must receive the same freshness discipline before canonical merge. This self-analysis does not substitute for the fresh independent external exact-head planning review.
+Planning itself must receive the same freshness discipline before canonical merge. This self-analysis does not substitute for fresh independent external exact-head planning review after F1/F2 reconciliation.
 
 ## Open ambiguities
 
-None material.
-
-The previously open implementation-time discretion over final case count/layer/code selection is closed by `CASE_REGISTRY.md`. Registry mutations require planning amendment authority.
+None material identified after F1/F2 reconciliation.
 
 ## Conclusion
 
-`CROSS_ARTIFACT_ANALYSIS = PASS / INTERNALLY_CONSISTENT / REGISTRY_FROZEN`
+`CROSS_ARTIFACT_ANALYSIS = PASS / F1_F2_RECONCILED / EXACT_CANDIDATES_FROZEN`
 
-The package is bounded, constitution-aligned, roadmap-consistent, independent from Spec 007 terminal execution, protected against green-by-omission, and ready for an updated final plan audit plus fresh exact-head external review.
+The package is bounded, constitution-aligned, roadmap-consistent, independent from Spec 007 terminal execution, protected against green-by-omission and candidate substitution, and requires fresh final-head qualification before merge.

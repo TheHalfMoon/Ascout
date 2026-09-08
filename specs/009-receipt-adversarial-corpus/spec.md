@@ -20,6 +20,8 @@ The exact corpus registry is `CASE_REGISTRY.md`, version `SPEC009-CASE-REGISTRY-
 - `36` semantic-boundary invalid cases;
 - `46` total declared executions.
 
+The registry also freezes the control anchors, source control for every case, exact permitted field assignments, expected rejection layer, and required semantic issue codes.
+
 The exact planned T115 tracked implementation surface is one file only:
 
 - `tests/receipt-adversarial-corpus.contract.test.ts`
@@ -45,15 +47,19 @@ The controls MUST use only repository-owned test data and MUST NOT require a rea
 
 ### FR-002 — Exact mutation registry
 
-Every adversarial case MUST correspond exactly to one frozen entry in `CASE_REGISTRY.md` with its stable case ID, minimum mutation, declared expected rejection layer, and required semantic issue code(s) where applicable.
+Every adversarial case MUST correspond exactly to one frozen entry in `CASE_REGISTRY.md` with its stable case ID, source control, exact permitted assignments/additions/removals, declared expected rejection layer, and required semantic issue code(s) where applicable.
 
-No implementation-time case addition, removal, rename, merge, split, skip, reclassification, required-code weakening, random mutation generator, unconstrained fuzz loop, or opaque generated case is allowed.
+No implementation-time case addition, removal, rename, merge, split, skip, reclassification, required-code weakening, alternate candidate, fallback mutation, random mutation generator, unconstrained fuzz loop, or opaque generated case is allowed.
 
-### FR-003 — Minimum-fault principle
+### FR-003 — Exact candidate-construction principle
 
-Each adversarial case MUST preserve the minimum material contract fault defined by `CASE_REGISTRY.md`.
+Each adversarial candidate MUST be constructed exactly as `CASE_REGISTRY.md` specifies:
 
-For semantic cases, implementation MAY perform only the minimum additional bookkeeping explicitly permitted by the registry to keep the candidate schema-valid and isolate the named semantic invariant. Such bookkeeping MUST NOT remove the named fault, change its expected layer, or substitute another expected issue code.
+1. deep-copy the frozen source control named for that case;
+2. apply exactly the listed assignments/additions/removals;
+3. leave every unlisted field unchanged.
+
+No extra bookkeeping, normalization, compensation, implementation-selected equivalent, or alternate mutation is authorized. If the exact listed candidate cannot reach the declared validator boundary on the then-canonical implementation base, T115 stops and returns to planning.
 
 The runner MUST preserve the original valid controls and create an isolated fresh candidate per case.
 
@@ -67,7 +73,7 @@ A schema-declared case that passes schema validation is a corpus failure.
 
 A case declared `semantic` MUST first pass the exact current JSON Schema and then fail the exact current `validateReceiptSemantics` boundary.
 
-The observed semantic issue-code set MUST contain every code frozen for that case in `CASE_REGISTRY.md`. Additional issue codes MAY be observed only when they are deterministic consequences of the same minimum mutation; they MUST NOT hide absence of a required code.
+The observed semantic issue-code set MUST contain every code frozen for that case in `CASE_REGISTRY.md`. Deterministic additional issue codes MAY be observed, but they MUST NOT hide absence of a required code or authorize a different candidate construction.
 
 ### FR-006 — Exact valid-control accounting
 
@@ -105,9 +111,10 @@ The corpus runner MUST fail if:
 - a duplicate case ID exists;
 - expectation metadata is incomplete;
 - an undeclared case contributes to qualification counts;
+- candidate construction differs from the frozen per-case assignments;
 - exact frozen accounting differs from `2 + 44 = 46`, with `8` schema and `36` semantic invalid cases.
 
-A partial corpus execution is not a pass.
+A partial or substituted corpus execution is not a pass.
 
 ### FR-009 — Deterministic exact result accounting
 
@@ -130,11 +137,11 @@ Case ordering MUST be stable.
 
 ### FR-010 — Product gap and planning-truth handling
 
-If an invalid frozen case is accepted, implementation MUST NOT repair `src/**`, schema, validator, exit semantics, or the corpus expectation inside T115.
+If an invalid frozen case is accepted, implementation MUST NOT repair `src/**`, schema, validator, exit semantics, candidate construction, or the corpus expectation inside T115.
 
 The failed corpus evidence MUST be preserved and product repair must return to a separately reviewed recovery planning/authorization chain.
 
-If exact evidence proves a frozen expected layer or required issue code factually wrong, T115 MUST also stop and return to a separately reviewed Spec 009 planning amendment. Implementation observation is not authority to rewrite registry truth.
+If exact evidence proves a frozen candidate construction, expected layer, or required issue code factually wrong, T115 MUST also stop and return to a separately reviewed Spec 009 planning amendment. Implementation observation is not authority to rewrite registry truth.
 
 ### FR-011 — No dependency or execution expansion
 
@@ -162,11 +169,11 @@ The focused corpus run MUST be deterministic and bounded by the ordinary test ru
 
 ### NFR-002 — Reviewability
 
-The frozen registry MUST remain readable as explicit named cases. Reviewers must be able to identify the minimum fault, expected layer, and required semantic issue codes without executing a generator.
+The frozen registry MUST remain readable as explicit named cases. Reviewers must be able to identify the source control, exact candidate assignments, expected layer, and required semantic issue codes without executing a generator.
 
-### NFR-003 — Stable identities
+### NFR-003 — Stable identities and candidates
 
-Case IDs, expected layers, and required semantic code sets are frozen planning-contract data. Any change is material and requires a separately reviewed canonical planning amendment.
+Case IDs, source controls, exact candidate assignments, expected layers, and required semantic code sets are frozen planning-contract data. Any change is material and requires a separately reviewed canonical planning amendment.
 
 ### NFR-004 — Exact minimal implementation
 
@@ -182,7 +189,7 @@ No second helper, fixture, product-facing adversarial API, plugin interface, gen
 
 1. registry version is exactly `SPEC009-CASE-REGISTRY-V1`;
 2. both frozen valid controls execute and pass schema + semantic validation;
-3. all 44 invalid cases execute exactly once;
+3. all 44 invalid cases execute exactly once using exactly their frozen candidate assignments;
 4. all 8 schema cases fail schema validation;
 5. all 36 semantic cases pass schema first and fail semantic validation;
 6. every semantic case includes every frozen required issue code;
@@ -192,7 +199,7 @@ No second helper, fixture, product-facing adversarial API, plugin interface, gen
 10. exact-head Project CI succeeds on all required lanes on the original qualifying attempt for the final implementation head;
 11. fresh independent substantive exact-head review reports no unresolved material finding;
 12. guarded merge and post-merge parent/tree/signature/PR/main proof succeed;
-13. any discovered accepted-invalid gap or factually wrong frozen expectation is handled honestly as `NO_GO / RETURN_TO_PLANNING`, not patched opportunistically.
+13. any discovered accepted-invalid gap or factually wrong frozen candidate/layer/code is handled honestly as `NO_GO / RETURN_TO_PLANNING`, not patched opportunistically.
 
 ## Out of scope
 

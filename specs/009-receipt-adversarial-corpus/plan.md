@@ -7,7 +7,7 @@ Canonical planning base: `fb6bb2ec152e41da05901509b0b62d1eb3636648`
 
 ## 1. Design summary
 
-Implement a single deterministic Vitest contract suite that constructs valid Receipt v1 controls, applies the exact explicit named mutations frozen in `CASE_REGISTRY.md`, and checks the exact current receipt JSON Schema and semantic validator boundaries.
+Implement a single deterministic Vitest contract suite that constructs the exact Receipt v1 controls, applies the exact candidate assignments frozen in `CASE_REGISTRY.md`, and checks the exact current receipt JSON Schema and semantic validator boundaries.
 
 No product code, schema, workflow, dependency, historical result, or CLI surface is planned.
 
@@ -31,19 +31,14 @@ No copy of the schema is permitted in the corpus.
 
 ## 3. Fixture architecture
 
-Within the one authorized test file, define deterministic test-owned factory logic that returns a fresh Receipt v1 object per control/case execution.
+Within the one authorized test file, define deterministic test-owned factory logic that returns fresh Receipt v1 controls conforming exactly to the identity/state anchors frozen in `CASE_REGISTRY.md`.
 
 Requirements:
 
 - deterministic literals only;
-- valid full lowercase Git object IDs and SHA-256 values;
-- stable source start/end identity;
-- one executed PASS test task;
-- resolvable evidence/artifact references;
-- one changed executable line that is exercised;
-- complete selection accounting;
-- complete timing and observations;
-- summary derived consistently with a clean exit 0;
+- all registry-frozen anchors exact;
+- all other required fields deterministic and validator-valid;
+- identical unlisted control values across constructions;
 - no absolute paths, credentials, network identity, or real secret values.
 
 Both controls frozen in `CASE_REGISTRY.md` are mandatory:
@@ -51,9 +46,9 @@ Both controls frozen in `CASE_REGISTRY.md` are mandatory:
 1. `control-valid-line-receipt`;
 2. `control-valid-branch-receipt`.
 
-The branch control must extend the line control with a minimal canonically ordered branch-evidence group and matching branch aggregates.
+The branch control must extend the line control with exactly the two branch records and branch aggregates frozen in the registry.
 
-Both controls MUST pass both exact validators before any mutation cases execute.
+Both controls MUST pass both exact validators before any invalid case executes.
 
 ## 4. Mutation case type
 
@@ -62,6 +57,7 @@ The test may use a local test-only shape equivalent to:
 ```ts
 type AdversarialCase = {
   id: string;
+  sourceControl: "line" | "branch";
   expectedLayer: "schema" | "semantic";
   requiredSemanticCodes?: readonly string[];
   mutate(candidate: Record<string, unknown>): void;
@@ -70,19 +66,20 @@ type AdversarialCase = {
 
 This shape is not a product API and MUST remain local to the one authorized test file.
 
-Case IDs, expected layers, and required semantic issue codes are frozen by `CASE_REGISTRY.md`. Implementation may not invent, omit, rename, merge, split, skip, or reclassify cases.
+Case IDs, source controls, exact candidate assignments, expected layers, and required semantic issue codes are frozen by `CASE_REGISTRY.md`. Implementation may not invent, omit, rename, merge, split, skip, reclassify, or substitute cases or candidate constructions.
 
 ## 5. Runner algorithm
 
-For each execution:
+For each focused corpus execution:
 
-1. construct both fresh valid controls;
+1. construct fresh exact line and branch controls;
 2. prove both schema valid;
 3. prove both semantic valid;
 4. verify registry version, exact case counts, unique IDs, and complete expectation metadata;
 5. for every frozen case in stable declared order:
-   - construct a fresh source control;
-   - apply exactly that case mutation plus only the minimum registry-authorized bookkeeping needed to keep a semantic case schema-valid and isolate the named invariant;
+   - deep-copy exactly the source control declared for that case;
+   - apply exactly the assignments/additions/removals frozen in its registry row;
+   - change no unlisted field;
    - run exact schema validation;
    - if expected layer is `schema`, require schema invalid;
    - if expected layer is `semantic`, require schema valid, then run semantic validation and require invalid;
@@ -93,13 +90,13 @@ For each execution:
    - `schema_case_count = 8`;
    - `semantic_case_count = 36`;
    - `total_declared_execution_count = 46`;
-7. fail if any declared case is unexecuted or any undeclared case contributes to qualification counts.
+7. fail if any declared case is unexecuted, any undeclared case contributes to qualification counts, or any candidate differs from its frozen construction.
 
-No retries and no mutation of expected outcomes based on observed results.
+No retries, no alternative candidates, no normalization-to-pass, and no mutation of expected outcomes based on observed results.
 
 ## 6. Frozen case domains
 
-The exact individual cases are defined only in `CASE_REGISTRY.md`. This section is a domain map and does not grant implementation discretion to add cases.
+The exact individual cases and candidate constructions are defined only in `CASE_REGISTRY.md`. This section is a domain map and grants no implementation discretion.
 
 ### 6.1 Evidence/reference integrity
 
@@ -111,7 +108,7 @@ Frozen cases cover comparison/source binding, source repository identity, stabil
 
 ### 6.3 Paths and changed ranges
 
-Frozen schema/semantic cases cover canonical changed-file path rejection and positive/inverted/overlapping/non-text/deleted range semantics without a combinatorial path matrix.
+Frozen schema/semantic cases cover canonical changed-file path rejection and positive/inverted/overlapping/non-text/deleted range semantics.
 
 ### 6.4 Command authority/admission
 
@@ -144,8 +141,8 @@ Run the one new contract file through the existing Vitest command used by the re
 The focused result must prove:
 
 - registry version is exactly `SPEC009-CASE-REGISTRY-V1`;
-- both valid controls pass;
-- all 44 invalid cases execute exactly once;
+- both exact valid controls pass;
+- all 44 invalid cases execute exactly once using their exact frozen candidate constructions;
 - all 8 schema cases fail schema validation;
 - all 36 semantic cases pass schema first and fail semantic validation;
 - all required semantic codes are present;
@@ -162,9 +159,9 @@ Use existing Project CI on exact final head. No new CI workflow is authorized.
 Require fresh independent substantive exact-head review covering:
 
 - registry completeness and exact accounting;
+- exact candidate construction;
 - contract-layer classification;
 - required issue-code correctness;
-- mutation minimality;
 - no hidden product change;
 - no YAGNI violation;
 - no Spec 007 scope leakage.
@@ -173,14 +170,14 @@ Any mutation after review invalidates review freshness.
 
 ## 9. Failure handling
 
-If the corpus finds an accepted invalid case, a frozen expectation is factually wrong, or a valid control is rejected:
+If the corpus finds an accepted invalid case, an exact candidate cannot reach its frozen boundary, a frozen expectation is factually wrong, or a valid control is rejected:
 
 1. keep the failing case/control and observed evidence unchanged;
-2. do not change product/schema/validator or registry expectation in T115;
+2. do not change product/schema/validator, candidate construction, or registry expectation in T115;
 3. record exact case/control ID and observed validator outputs in the durable task ledger;
 4. classify T115 `NO_GO / PRODUCT_GAP_DISCOVERED` when an invalid case is accepted, otherwise the exact applicable planning-reconciliation failure;
 5. return to a separately reviewed Spec 009 planning/recovery unit;
-6. after any canonical amendment/repair, rerun the unchanged factual case under new exact-head qualification.
+6. after any canonical amendment/repair, rerun the canonically authorized candidate under new exact-head qualification.
 
 This preserves the distinction between measurement, planning truth, and repair.
 
@@ -199,12 +196,12 @@ A separate result-publication task is removed by YAGNI review.
 
 ## 12. Authorization boundary
 
-This plan grants no implementation authority. After planning merges canonically, create a separate authorization artifact that binds the exact planning merge, `SPEC009-CASE-REGISTRY-V1`, the exact one-path T115 implementation surface, and T116 ledger-only closeout.
+This plan grants no implementation authority. After planning merges canonically, create a separate authorization artifact that binds the exact planning merge, `SPEC009-CASE-REGISTRY-V1`, the exact candidate-construction registry, the exact one-path T115 implementation surface, and T116 ledger-only closeout.
 
 ## 13. Registry change control
 
 `CASE_REGISTRY.md` is part of the planning contract.
 
-Any addition, deletion, rename, merge, split, skip, expected-layer change, or required semantic-code change is a material planning mutation. It requires a separately reviewed Spec 009 planning amendment that becomes canonical before T115 continues.
+Any control-anchor change, candidate-assignment change, addition, deletion, rename, merge, split, skip, expected-layer change, or required semantic-code change is a material planning mutation. It requires a separately reviewed Spec 009 planning amendment that becomes canonical before T115 continues.
 
 Implementation-time observation is never authority to edit the registry merely to obtain green.
