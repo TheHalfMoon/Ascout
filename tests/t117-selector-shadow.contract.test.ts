@@ -177,6 +177,24 @@ describe("T117 selector-shadow comparator contract", () => {
     );
   });
 
+  it("rejects mutually bound Spec 006 receipt exits outside the retained shadow set", () => {
+    for (const exitCode of [2, 5]) {
+      const value = receipt();
+      value.summary.exit_code = exitCode;
+      const { receiptBytes, envelopeBytes } = boundBytes(value);
+      expect(() => shadow.validateBoundEvidence(receiptBytes, envelopeBytes)).toThrowError(
+        expect.objectContaining({ code: "receipt_exit_invalid" }),
+      );
+    }
+  });
+
+  it.each([0, 1, 3, 4])("accepts retained Spec 006 shadow receipt exit %i", (exitCode) => {
+    const value = receipt();
+    value.summary.exit_code = exitCode;
+    const { receiptBytes, envelopeBytes } = boundBytes(value);
+    expect(shadow.validateBoundEvidence(receiptBytes, envelopeBytes).receipt.summary.exit_code).toBe(exitCode);
+  });
+
   it.each(["PASS", "FAIL", "FLAKY"])("accepts %s as a comparable normal-admission test task", (status) => {
     const value = receipt();
     value.tasks[0].status = status;

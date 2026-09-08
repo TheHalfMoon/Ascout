@@ -147,6 +147,9 @@ export function validateBoundEvidence(receiptBytes, envelopeBytes) {
   if (!Number.isSafeInteger(envelope.receipt_exit_code) || envelope.receipt_exit_code !== receipt.summary.exit_code) {
     fail("receipt_exit_mismatch", "selector-shadow receipt exit does not match the bound envelope");
   }
+  if (![0, 1, 3, 4].includes(envelope.receipt_exit_code)) {
+    fail("receipt_exit_invalid", "selector-shadow receipt exit is not retained Spec 006 shadow evidence");
+  }
 
   return Object.freeze({ envelope, receipt, identities, receiptDigest });
 }
