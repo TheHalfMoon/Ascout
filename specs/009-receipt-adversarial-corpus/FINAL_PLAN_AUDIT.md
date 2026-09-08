@@ -28,7 +28,7 @@ PASS. `spec.md` defines purpose, requirements, acceptance, and explicit non-goal
 
 ### 3. Material clarification
 
-PASS. `clarifications.md` resolves validator layering, fixture authority, mutation minimality, privacy limits, failure handling, implementation surface, and authorization sequencing.
+PASS. `clarifications.md` resolves validator layering, exact registry authority, valid-control authority, mutation minimality, privacy limits, failure handling, exact one-path implementation surface, and authorization sequencing.
 
 ### 4. First Ponytail/YAGNI reduction
 
@@ -36,25 +36,39 @@ PASS. `ponytail-review.md` rejects generalized mutation/fuzz frameworks, new CLI
 
 ### 5. Technical plan
 
-PASS. `plan.md` reuses exact current validators, defines a one-file fixture/case registry/runner design, establishes failure handling, and binds qualification expectations.
+PASS. `plan.md` reuses exact current validators, binds the one-path implementation to `SPEC009-CASE-REGISTRY-V1`, establishes exact accounting/failure handling, and binds qualification expectations.
 
 ### 6. Second Ponytail/YAGNI reduction
 
-PASS. `plan-ponytail-review.md` removes the separate result-publication task and preserves a one-path implementation preference.
+PASS. `plan-ponytail-review.md` removes the separate result-publication task and preserves one tracked implementation path.
 
-### 7. Implementation tasks
+### 7. Exact adversarial registry
 
-PASS. `tasks.md` contains only dependency-ordered T115 -> T116 and prevents product repair inside T115.
+PASS. `CASE_REGISTRY.md` freezes implementation-time case discretion:
 
-### 8. Requirements-quality checklist
+- valid controls: `2`;
+- invalid cases: `44`;
+- schema invalid cases: `8`;
+- semantic invalid cases: `36`;
+- total declared executions: `46`.
 
-PASS. `checklists/requirements.md` covers scope, trust, corpus design, YAGNI, qualification, cross-spec safety, and planning completeness.
+Every case has a stable ID, exact expected layer, and required semantic issue code(s) where applicable. The registry prohibits add/remove/rename/merge/split/skip/reclassification or required-code weakening without a separately reviewed canonical planning amendment.
 
-### 9. Cross-artifact analysis
+The required semantic code names were checked against current canonical Receipt v1 validation source before the registry was frozen. A later factual mismatch is a stop-and-return-to-planning condition, not implementation authority to rewrite expectations.
 
-PASS. `analysis.md` finds no material contradiction, missing task ownership, path-scope mismatch, or Spec 007 authority leakage.
+### 8. Implementation tasks
 
-### 10. Supply-chain review
+PASS. `tasks.md` contains only dependency-ordered T115 -> T116, binds T115 to the exact registry and one tracked test path, and prevents product or expectation repair inside T115.
+
+### 9. Requirements-quality checklist
+
+PASS. `checklists/requirements.md` covers scope, trust, corpus design, YAGNI, qualification, cross-spec safety, and planning completeness. The frozen registry strengthens its stable-ID and complete-accounting requirements without weakening any checklist item.
+
+### 10. Cross-artifact analysis
+
+PASS. `analysis.md` incorporates the frozen registry, removes implementation-time code-name discretion, and finds no material contradiction, missing task ownership, path-scope mismatch, or Spec 007 authority leakage.
+
+### 11. Supply-chain review
 
 PASS. No new external source, dependency, network requirement, dataset, model, or license obligation is planned.
 
@@ -64,7 +78,7 @@ The planning rationale is evidence-backed:
 
 - receipt adversarial testing is explicitly named in the post-M1 roadmap;
 - the Constitution makes receipt integrity a core product invariant;
-- current tests are feature/regression oriented rather than one dedicated bounded adversarial corpus;
+- current tests are feature/regression oriented rather than one dedicated bounded exact-accounting adversarial corpus;
 - T091 reports the known T078 Ascout selector miss repaired in the six-case replay while preserving unavailable outcomes;
 - Spec 009 does not claim selector correctness from that result;
 - Spec 007 terminal failure is preserved and not used as authority for new T113 execution.
@@ -77,16 +91,22 @@ Final planned implementation surface is exactly:
 
 Planning authorizes no other implementation path.
 
-A later implementation authorization may not silently add a helper path. Any need for a second path requires planning reconciliation before implementation.
+A later implementation authorization may not add a helper/fixture path without a new planning amendment.
 
 ## Acceptance audit
 
-The acceptance rule is appropriately absolute for the bounded declared corpus:
+The acceptance rule is absolute for the frozen bounded corpus:
 
-- every valid control must be accepted;
-- every invalid case must be rejected at its declared layer;
-- every semantic case must expose required semantic issue code(s);
-- every declared case must execute;
+- registry version must be `SPEC009-CASE-REGISTRY-V1`;
+- both valid controls must be accepted by schema and semantic validators;
+- all 44 invalid cases must execute exactly once;
+- all 8 schema cases must fail schema validation;
+- all 36 semantic cases must pass schema first and fail semantic validation;
+- every semantic case must expose all required semantic issue code(s);
+- total declared execution count must equal `46`;
+- no declared case may be skipped/unexecuted;
+- no undeclared case may contribute to qualification counts;
+- accepted invalid case IDs must be `[]` for GO;
 - no accepted invalid case may be hidden by an aggregate score.
 
 No invented percentage threshold is used.
@@ -95,13 +115,22 @@ No invented percentage threshold is used.
 
 PASS. If an invalid case is accepted:
 
-- T115 fails;
+- T115 fails as `NO_GO / PRODUCT_GAP_DISCOVERED`;
 - the case remains unchanged;
 - no `src/**` or schema repair occurs inside T115;
+- no registry expectation is weakened;
 - exact failure evidence is recorded;
 - a separate recovery planning/authorization chain is required.
 
+If a frozen expected layer/code is factually wrong, T115 also stops and returns to planning rather than silently changing the test.
+
 This preserves measurement provenance and avoids test-to-green repair inside the measurement unit.
+
+## Planning branch evidence already observed
+
+An earlier planning head `89e19c00f01274e9440dbd1cb154440fb963fa89` is not qualifying evidence for the final planning head. Its original Project CI attempt included a Windows/Node 24 failure in two pre-existing redaction regression tests due to `5000ms` timeouts. No rerun was used to convert that attempt into qualifying evidence.
+
+All planning qualification must therefore be re-established from scratch on the final unchanged planning head after the registry-freeze mutations.
 
 ## Planning merge gate
 
@@ -111,20 +140,23 @@ Before this planning package may become canonical, require all of the following 
 2. no `.planning-seed` or accidental file remains in the final diff;
 3. no implementation/product/test/workflow/dependency/result mutation is present;
 4. exact final head/tree and base-to-head scope are verified;
-5. exact-head Self Verification succeeds where applicable;
-6. exact-head Project CI succeeds across all required lanes on the qualifying attempt;
-7. fresh independent substantive exact-head review covers correctness, governance, scope, YAGNI, validator layering, failure separation, and branch purity;
-8. every material finding is reconciled on the final head;
-9. zero unresolved material review threads remain;
-10. live ruleset/protection truth is reverified;
-11. canonical `main` remains the expected PR base immediately before merge;
-12. merge is guarded by exact expected head SHA;
-13. post-merge ordered parents, merge tree, GitHub signature, PR state, canonical main, and exact path delta are verified;
-14. Issue #252 closes `SPEC_009_PLANNING = CLOSED_CANONICAL`;
-15. implementation remains unauthorized until a separate authorization artifact is independently qualified and merged.
+5. exact frozen registry and accounting are present;
+6. exact-head Self Verification succeeds where applicable;
+7. exact-head Project CI succeeds across all required lanes on the original qualifying attempt for that final head;
+8. fresh independent substantive exact-head review covers correctness, governance, scope, registry completeness, issue-code/layer correctness, YAGNI, failure separation, and branch purity;
+9. every material finding is reconciled on the final head;
+10. zero unresolved material review threads remain;
+11. live ruleset/protection truth is reverified;
+12. canonical `main` remains the expected PR base immediately before merge;
+13. merge is guarded by exact expected head SHA;
+14. post-merge ordered parents, merge tree, GitHub signature, PR state, canonical main, and exact path delta are verified;
+15. Issue #252 closes `SPEC_009_PLANNING = CLOSED_CANONICAL`;
+16. implementation remains unauthorized until a separate authorization artifact is independently qualified and merged.
 
 ## Final audit decision
 
 `FINAL_PLAN_AUDIT = PASS / READY_FOR_FRESH_INDEPENDENT_EXACT_HEAD_REVIEW`
+
+`REGISTRY = SPEC009-CASE-REGISTRY-V1 / FROZEN`
 
 `IMPLEMENTATION_AUTHORIZED = NO`
