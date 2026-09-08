@@ -1,12 +1,13 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { lstat, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { link, lstat, mkdtemp, readFile, realpath, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep, win32 as pathWin32 } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const REFERENCE_TIMEOUT_MS = 10 * 60 * 1000;
 const REFERENCE_CLEANUP_TIMEOUT_MS = 30 * 1000;
+const WINDOWS_TREE_KILL_TIMEOUT_MS = 5 * 1000;
 
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -245,22 +246,24 @@ export async function parseVitestFailureReport(reportText, normalizePath) {
 
   const failures = [];
   for (const suite of report.testResults) {
-    if (!isRecord(suite)) continue;
-    if (!Array.isArray(suite.assertionResults)) {
-      if (suite.status === "failed") unavailable("UNAVAILABLE_FULL_SUITE_REPORT");
-      continue;
-    }
-    const failedAssertions = suite.assertionResults.filter((assertion) => isRecord(assertion) && assertion.status === "failed");
-    if (failedAssertions.length === 0) continue;
-    if (typeof suite.name !== "string" || suite.name.length === 0 || suite.name.includes("\0")) {
+    if (
+      !isRecord(suite) ||
+      typeof suite.name !== "string" || suite.name.length === 0 || suite.name.includes("\0") ||
+      typeof suite.status !== "string" || suite.status.length === 0 || suite.status.includes("\0") ||
+      !Array.isArray(suite.assertionResults)
+    ) {
       unavailable("UNAVAILABLE_FULL_SUITE_REPORT");
     }
     const path = await normalizePath(suite.name);
-    for (const assertion of failedAssertions) {
-      if (typeof assertion.fullName !== "string" || assertion.fullName.length === 0 || assertion.fullName.includes("\0")) {
+    for (const assertion of suite.assertionResults) {
+      if (
+        !isRecord(assertion) ||
+        typeof assertion.status !== "string" || assertion.status.length === 0 || assertion.status.includes("\0") ||
+        typeof assertion.fullName !== "string" || assertion.fullName.length === 0 || assertion.fullName.includes("\0")
+      ) {
         unavailable("UNAVAILABLE_FULL_SUITE_REPORT");
       }
-      failures.push({ path, test_id: assertion.fullName });
+      if (assertion.status === "failed") failures.push({ path, test_id: assertion.fullName });
     }
   }
   return sortDeduplicateIdentities(failures);
@@ -376,6 +379,48 @@ export async function resolveLocalVitestRuntime(repositoryRoot, fsOps = { readFi
   return Object.freeze({ executablePath, version: vitestManifest.version, repositoryRoot: rootReal });
 }
 
+function windowsTaskkillPath(environment = process.env) {
+  const systemRoot = environment.SystemRoot;
+  if (
+    typeof systemRoot !== "string" ||
+    systemRoot.length === 0 ||
+    systemRoot.includes("\0") ||
+    !pathWin32.isAbsolute(systemRoot) ||
+    systemRoot.startsWith("\\\\")
+  ) {
+    return null;
+  }
+  return pathWin32.join(systemRoot, "System32", "taskkill.exe");
+}
+
+export function terminateWindowsProcessTree(rootPid, adapters = {}) {
+  if (!Number.isSafeInteger(rootPid) || rootPid <= 0) return false;
+  const taskkillPath = windowsTaskkillPath(adapters.environment ?? process.env);
+  if (taskkillPath === null) return false;
+  const spawnSyncFn = adapters.spawnSyncFn ?? spawnSync;
+  const result = spawnSyncFn(taskkillPath, ["/PID", String(rootPid), "/T", "/F"], {
+    shell: false,
+    windowsHide: true,
+    stdio: "ignore",
+    timeout: WINDOWS_TREE_KILL_TIMEOUT_MS,
+  });
+  return (
+    (result.error === undefined || result.error === null) &&
+    result.signal == null &&
+    (result.status === 0 || result.status === 128)
+  );
+}
+
+function terminatePosixProcessGroup(rootPid) {
+  if (!Number.isSafeInteger(rootPid) || rootPid <= 0) return false;
+  try {
+    process.kill(-rootPid, "SIGKILL");
+    return true;
+  } catch (error) {
+    return error?.code === "ESRCH";
+  }
+}
+
 export async function executeVitestReference(runtime, reportPath, timeoutMs = REFERENCE_TIMEOUT_MS) {
   if (timeoutMs !== REFERENCE_TIMEOUT_MS) {
     fail("reference_timeout_invalid", "selector-shadow reference timeout must remain exactly 10 minutes");
@@ -384,6 +429,7 @@ export async function executeVitestReference(runtime, reportPath, timeoutMs = RE
   return await new Promise((resolvePromise) => {
     let settled = false;
     let timedOut = false;
+    let cleanupConfirmed = false;
     let timer = null;
     let cleanupTimer = null;
     let child;
@@ -405,30 +451,37 @@ export async function executeVitestReference(runtime, reportPath, timeoutMs = RE
         stdio: ["ignore", "ignore", "ignore"],
       });
     } catch {
-      finish({ outcome: "spawn_error", exitCode: null, signal: null });
+      finish({ outcome: "spawn_error", exitCode: null, signal: null, cleanupComplete: true });
       return;
     }
 
     child.once("error", () => {
+      if (timedOut && !cleanupConfirmed) return;
       finish(timedOut
-        ? { outcome: "timed_out", exitCode: null, signal: "SIGKILL" }
-        : { outcome: "spawn_error", exitCode: null, signal: null });
+        ? { outcome: "timed_out", exitCode: null, signal: "SIGKILL", cleanupComplete: true }
+        : { outcome: "spawn_error", exitCode: null, signal: null, cleanupComplete: true });
     });
     child.once("close", (exitCode, signal) => {
+      if (timedOut && !cleanupConfirmed) return;
       finish(timedOut
-        ? { outcome: "timed_out", exitCode: null, signal: "SIGKILL" }
-        : { outcome: "completed", exitCode, signal });
+        ? { outcome: "timed_out", exitCode: null, signal: "SIGKILL", cleanupComplete: true }
+        : { outcome: "completed", exitCode, signal, cleanupComplete: true });
     });
 
     timer = setTimeout(() => {
       if (settled) return;
       timedOut = true;
-      try {
-        if (process.platform !== "win32" && Number.isInteger(child.pid)) process.kill(-child.pid, "SIGKILL");
-        else child.kill("SIGKILL");
-      } catch {}
+      const rootPid = child.pid;
+      const cleaned = process.platform === "win32"
+        ? terminateWindowsProcessTree(rootPid)
+        : terminatePosixProcessGroup(rootPid);
+      if (!cleaned) {
+        finish({ outcome: "cleanup_error", exitCode: null, signal: null, cleanupComplete: false });
+        return;
+      }
+      cleanupConfirmed = true;
       cleanupTimer = setTimeout(() => {
-        finish({ outcome: "timed_out", exitCode: null, signal: "SIGKILL" });
+        finish({ outcome: "cleanup_error", exitCode: null, signal: null, cleanupComplete: false });
       }, REFERENCE_CLEANUP_TIMEOUT_MS);
     }, REFERENCE_TIMEOUT_MS);
   });
@@ -528,7 +581,7 @@ export async function publishObservationAtomically(
   repositoryRoot,
   outputPath,
   observation,
-  fsOps = { lstat, realpath, rename, rm, writeFile },
+  fsOps = { link, lstat, realpath, rm, unlink, writeFile },
 ) {
   if (!isAbsolute(outputPath)) fail("output_path_invalid", "selector-shadow output path must be absolute");
   const repositoryReal = await fsOps.realpath(resolve(repositoryRoot));
@@ -556,13 +609,14 @@ export async function publishObservationAtomically(
       fail("output_parent_changed", "selector-shadow output parent changed before publication");
     }
     try {
-      await fsOps.lstat(target);
-      fail("output_exists", "selector-shadow output target appeared before publication");
+      await fsOps.link(stage, target);
     } catch (error) {
-      if (error instanceof SelectorShadowIntegrityError) throw error;
-      if (error?.code !== "ENOENT") fail("output_unavailable", "selector-shadow output target cannot be revalidated safely");
+      if (error?.code === "EEXIST") {
+        fail("output_exists", "selector-shadow output target appeared before publication");
+      }
+      fail("output_unavailable", "selector-shadow output could not be published with exclusive final-path ownership");
     }
-    await fsOps.rename(stage, target);
+    await fsOps.unlink(stage);
     staged = false;
   } finally {
     if (staged) {
@@ -573,7 +627,7 @@ export async function publishObservationAtomically(
 
 export async function runSelectorShadow(input, adapters = {}) {
   const repositoryRoot = resolve(input.repositoryRoot ?? process.cwd());
-  const fsOps = adapters.fsOps ?? { lstat, mkdtemp, readFile, realpath, rename, rm, stat, writeFile };
+  const fsOps = adapters.fsOps ?? { link, lstat, mkdtemp, readFile, realpath, rm, stat, unlink, writeFile };
   const captureSourceState = adapters.captureSourceState ?? captureReconstructedSourceState;
   const resolveRuntime = adapters.resolveRuntime ?? ((root) => resolveLocalVitestRuntime(root, fsOps));
   const executeReference = adapters.executeReference ?? executeVitestReference;
