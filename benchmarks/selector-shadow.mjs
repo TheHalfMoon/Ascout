@@ -133,6 +133,12 @@ export function validateBoundEvidence(receiptBytes, envelopeBytes) {
     verifierHeadSha: requireFullObjectId(envelope.verifier_head_sha, "verifier head"),
     verifierHeadTreeSha: requireFullObjectId(envelope.verifier_head_tree_sha, "verifier head tree"),
   });
+  if (
+    identities.targetHeadSha !== identities.verifierHeadSha ||
+    identities.targetTreeSha !== identities.verifierHeadTreeSha
+  ) {
+    fail("envelope_identity_mismatch", "selector-shadow envelope target and verifier H/HT identities are inconsistent");
+  }
 
   if (!isRecord(receipt) || !isRecord(receipt.summary) || !Number.isSafeInteger(receipt.summary.exit_code)) {
     fail("receipt_contract_invalid", "selector-shadow bound receipt summary is invalid");
@@ -273,7 +279,7 @@ function runGit(repositoryRoot, args) {
   return result;
 }
 
-export async function captureReconstructedSourceState(repositoryRoot) {
+export async function captureReconstructedSourceState(repositoryRoot, identities = null) {
   const head = runGit(repositoryRoot, ["rev-parse", "--verify", "HEAD^{commit}"]);
   const tree = runGit(repositoryRoot, ["write-tree"]);
   const unstaged = runGit(repositoryRoot, ["diff", "--quiet", "--"]);
@@ -281,10 +287,24 @@ export async function captureReconstructedSourceState(repositoryRoot) {
   if (head.status !== 0 || tree.status !== 0 || ![0, 1].includes(unstaged.status) || status.status !== 0) {
     fail("git_execution_failed", "selector-shadow source identity Git observation failed");
   }
+
+  let targetHeadTreeSha = null;
+  if (identities !== null) {
+    if (!isRecord(identities) || typeof identities.targetHeadSha !== "string") {
+      fail("target_head_identity_invalid", "selector-shadow target head identity is unavailable for tree verification");
+    }
+    const targetTree = runGit(repositoryRoot, ["rev-parse", "--verify", `${identities.targetHeadSha}^{tree}`]);
+    if (targetTree.status !== 0) {
+      fail("target_head_tree_unresolvable", "selector-shadow target head tree cannot be resolved from Git");
+    }
+    targetHeadTreeSha = requireFullObjectId(targetTree.stdout.trim(), "resolved target head tree");
+  }
+
   const untracked = status.stdout.split(/\r?\n/u).filter((line) => line.startsWith("?? "));
   return Object.freeze({
     headSha: head.stdout.trim(),
     treeSha: tree.stdout.trim(),
+    targetHeadTreeSha,
     unstagedClean: unstaged.status === 0,
     nonignoredUntrackedClean: untracked.length === 0,
   });
@@ -294,6 +314,7 @@ function requireInitialSourceState(state, identities) {
   if (
     state.headSha !== identities.mergeBaseSha ||
     state.treeSha !== identities.targetTreeSha ||
+    state.targetHeadTreeSha !== identities.targetTreeSha ||
     state.unstagedClean !== true ||
     state.nonignoredUntrackedClean !== true
   ) {
@@ -304,6 +325,7 @@ function requireInitialSourceState(state, identities) {
 function postSourceStateStable(state, identities) {
   return state.headSha === identities.mergeBaseSha &&
     state.treeSha === identities.targetTreeSha &&
+    state.targetHeadTreeSha === identities.targetTreeSha &&
     state.unstagedClean === true &&
     state.nonignoredUntrackedClean === true;
 }
@@ -564,7 +586,7 @@ export async function runSelectorShadow(input, adapters = {}) {
     fsOps.readFile(input.envelopePath),
   ]);
   const bound = validateBoundEvidence(Buffer.from(receiptBytes), Buffer.from(envelopeBytes));
-  requireInitialSourceState(await captureSourceState(repositoryRoot), bound.identities);
+  requireInitialSourceState(await captureSourceState(repositoryRoot, bound.identities), bound.identities);
 
   const taskClassification = classifyAscoutTestTask(bound.receipt);
   const taskObservation = ascoutTaskObservation(bound.receipt, taskClassification.task);
@@ -595,7 +617,7 @@ export async function runSelectorShadow(input, adapters = {}) {
   const reportArea = await prepareReportArea(repositoryRoot);
   try {
     const execution = await executeReference(runtime, reportArea.reportPath, REFERENCE_TIMEOUT_MS);
-    const finalState = await captureSourceState(repositoryRoot);
+    const finalState = await captureSourceState(repositoryRoot, bound.identities);
     if (!postSourceStateStable(finalState, bound.identities)) {
       const observation = unavailableObservation(
         bound,
