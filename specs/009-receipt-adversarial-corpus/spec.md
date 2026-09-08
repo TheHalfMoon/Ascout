@@ -20,13 +20,13 @@ The exact corpus registry is `CASE_REGISTRY.md`, version `SPEC009-CASE-REGISTRY-
 - `36` semantic-boundary invalid cases;
 - `46` total declared executions.
 
-The registry also freezes the control anchors, source control for every case, exact permitted field assignments, expected rejection layer, and required semantic issue codes.
+The registry also freezes both complete valid-control JSON values, the source control for every invalid case, exact permitted field assignments/additions/removals, expected rejection layer, and required semantic issue codes. No control field or baseline literal used by the corpus is implementation-selected.
 
 The exact planned T115 tracked implementation surface is one file only:
 
 - `tests/receipt-adversarial-corpus.contract.test.ts`
 
-Any registry mutation or second tracked implementation path requires a separately reviewed Spec 009 planning amendment that becomes canonical before implementation continues.
+Any complete-control field/value change, registry mutation, or second tracked implementation path requires a separately reviewed Spec 009 planning amendment that becomes canonical before implementation continues.
 
 ## User value
 
@@ -36,12 +36,14 @@ A developer or reviewer should be able to trust that Ascout's receipt validators
 
 ### FR-001 — Canonical valid controls
 
-The corpus MUST implement both deterministic known-good Receipt v1 controls frozen in `CASE_REGISTRY.md`:
+The corpus MUST implement both deterministic known-good Receipt v1 controls exactly as the complete JSON values frozen in `CASE_REGISTRY.md`:
 
 1. `control-valid-line-receipt`;
 2. `control-valid-branch-receipt`.
 
-Both controls MUST pass the exact current JSON Schema validator and exact current semantic validator before invalid cases are evaluated.
+No required or optional control field used by the corpus may be selected, normalized, substituted, or otherwise changed at implementation time. The branch control is exactly the complete frozen line control plus the five exact branch-group properties frozen in the registry.
+
+Both controls MUST pass the exact current JSON Schema validator and exact current semantic validator unchanged before invalid cases are evaluated. A rejected frozen control requires stop-and-return-to-planning; implementation MUST NOT repair or replace it.
 
 The controls MUST use only repository-owned test data and MUST NOT require a real repository checkout, network, external service, donor source, model, secret, or clock-dependent data.
 
@@ -55,13 +57,13 @@ No implementation-time case addition, removal, rename, merge, split, skip, recla
 
 Each adversarial candidate MUST be constructed exactly as `CASE_REGISTRY.md` specifies:
 
-1. deep-copy the frozen source control named for that case;
+1. deep-copy the exact frozen source control named for that case;
 2. apply exactly the listed assignments/additions/removals;
-3. leave every unlisted field unchanged.
+3. leave every unlisted field unchanged from that exact frozen source control.
 
-No extra bookkeeping, normalization, compensation, implementation-selected equivalent, or alternate mutation is authorized. If the exact listed candidate cannot reach the declared validator boundary on the then-canonical implementation base, T115 stops and returns to planning.
+No extra bookkeeping, normalization, compensation, implementation-selected equivalent, alternate baseline, or alternate mutation is authorized. If either frozen control is rejected, or if the exact listed candidate cannot reach the declared validator boundary on the then-canonical implementation base, T115 stops and returns to planning.
 
-The runner MUST preserve the original valid controls and create an isolated fresh candidate per case.
+The runner MUST preserve the original exact valid controls and create an isolated fresh candidate per case.
 
 ### FR-004 — Schema-boundary honesty
 
@@ -77,7 +79,7 @@ The observed semantic issue-code set MUST contain every code frozen for that cas
 
 ### FR-006 — Exact valid-control accounting
 
-Both frozen controls MUST execute and pass both validators. A rejected or omitted control is a corpus failure.
+Both exact frozen controls MUST execute and pass both validators unchanged. A rejected, omitted, or baseline-divergent control is a corpus failure and returns T115 to planning.
 
 The corpus MUST NOT substitute another valid control without a separately canonical planning amendment.
 
@@ -106,7 +108,7 @@ The corpus runner MUST fail if:
 - an invalid frozen case is accepted;
 - a semantic case is rejected only at schema when semantic reachability is required;
 - any required semantic issue code is absent;
-- either valid control is rejected or omitted;
+- either exact frozen valid control is rejected, omitted, or differs from its registry-frozen JSON value;
 - a declared case is not executed exactly once;
 - a duplicate case ID exists;
 - expectation metadata is incomplete;
@@ -114,7 +116,7 @@ The corpus runner MUST fail if:
 - candidate construction differs from the frozen per-case assignments;
 - exact frozen accounting differs from `2 + 44 = 46`, with `8` schema and `36` semantic invalid cases.
 
-A partial or substituted corpus execution is not a pass.
+A partial, substituted, or baseline-divergent corpus execution is not a pass.
 
 ### FR-009 — Deterministic exact result accounting
 
@@ -131,17 +133,18 @@ The runner MUST expose deterministic accounting sufficient to prove:
 - every semantic required issue code was observed;
 - accepted invalid case IDs = `[]` for GO;
 - skipped/unexecuted case IDs = `[]` for GO;
-- undeclared qualification case IDs = `[]` for GO.
+- undeclared qualification case IDs = `[]` for GO;
+- baseline-control deviations = `[]` for GO.
 
 Case ordering MUST be stable.
 
 ### FR-010 — Product gap and planning-truth handling
 
-If an invalid frozen case is accepted, implementation MUST NOT repair `src/**`, schema, validator, exit semantics, candidate construction, or the corpus expectation inside T115.
+If an invalid frozen case is accepted, implementation MUST NOT repair `src/**`, schema, validator, exit semantics, baseline controls, candidate construction, or the corpus expectation inside T115.
 
 The failed corpus evidence MUST be preserved and product repair must return to a separately reviewed recovery planning/authorization chain.
 
-If exact evidence proves a frozen candidate construction, expected layer, or required issue code factually wrong, T115 MUST also stop and return to a separately reviewed Spec 009 planning amendment. Implementation observation is not authority to rewrite registry truth.
+If exact evidence proves a frozen control, candidate construction, expected layer, or required issue code factually wrong, T115 MUST also stop and return to a separately reviewed Spec 009 planning amendment. Implementation observation is not authority to rewrite registry truth.
 
 ### FR-011 — No dependency or execution expansion
 
@@ -169,11 +172,11 @@ The focused corpus run MUST be deterministic and bounded by the ordinary test ru
 
 ### NFR-002 — Reviewability
 
-The frozen registry MUST remain readable as explicit named cases. Reviewers must be able to identify the source control, exact candidate assignments, expected layer, and required semantic issue codes without executing a generator.
+The frozen registry MUST remain readable as explicit named cases. Reviewers must be able to identify the exact source control, exact candidate assignments, expected layer, and required semantic issue codes without executing a generator.
 
-### NFR-003 — Stable identities and candidates
+### NFR-003 — Stable identities, controls, and candidates
 
-Case IDs, source controls, exact candidate assignments, expected layers, and required semantic code sets are frozen planning-contract data. Any change is material and requires a separately reviewed canonical planning amendment.
+Complete valid-control field/value sets, case IDs, source controls, exact candidate assignments, expected layers, and required semantic code sets are frozen planning-contract data. Any change is material and requires a separately reviewed canonical planning amendment.
 
 ### NFR-004 — Exact minimal implementation
 
@@ -188,18 +191,18 @@ No second helper, fixture, product-facing adversarial API, plugin interface, gen
 `SPEC_009 = GO` only if the implementation authorized after planning proves all of the following on exact final heads and canonical merges:
 
 1. registry version is exactly `SPEC009-CASE-REGISTRY-V1`;
-2. both frozen valid controls execute and pass schema + semantic validation;
+2. both exact frozen valid controls execute and pass schema + semantic validation unchanged, with baseline-control deviations `[]`;
 3. all 44 invalid cases execute exactly once using exactly their frozen candidate assignments;
 4. all 8 schema cases fail schema validation;
 5. all 36 semantic cases pass schema first and fail semantic validation;
 6. every semantic case includes every frozen required issue code;
 7. total declared/executed count is exactly `46` for GO;
-8. accepted invalid, skipped/unexecuted, and undeclared qualification case ID sets are all empty for GO;
+8. accepted invalid, skipped/unexecuted, undeclared qualification, and baseline-control-deviation sets are all empty for GO;
 9. T115 changes exactly one tracked test path and no product/schema/validator/dependency/workflow/historical-result path;
 10. exact-head Project CI succeeds on all required lanes on the original qualifying attempt for the final implementation head;
 11. fresh independent substantive exact-head review reports no unresolved material finding;
 12. guarded merge and post-merge parent/tree/signature/PR/main proof succeed;
-13. any discovered accepted-invalid gap or factually wrong frozen candidate/layer/code is handled honestly as `NO_GO / RETURN_TO_PLANNING`, not patched opportunistically.
+13. any discovered accepted-invalid gap, rejected frozen control, or factually wrong frozen candidate/layer/code is handled honestly as `NO_GO / RETURN_TO_PLANNING` or the exact applicable product-gap disposition, not patched opportunistically.
 
 ## Out of scope
 

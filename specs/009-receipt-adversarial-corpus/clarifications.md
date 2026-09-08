@@ -16,13 +16,17 @@ T078's known Ascout selector miss was repaired through Spec 002, and T091 publis
 
 ## C4 — What is the authoritative valid receipt?
 
-Implementation must construct the deterministic Receipt v1 controls required by `CASE_REGISTRY.md` using test-owned local factory logic in the one authorized test file. The registry freezes all control anchors used by candidate construction. Each control is authoritative only after it passes both exact current validators.
+The two authoritative corpus controls are the complete JSON values frozen field-by-field in `CASE_REGISTRY.md`. Implementation must construct those exact values inside the one authorized test file. No required or optional control field used by the corpus is implementation-selected, normalized, substituted, or replaced by another deterministic literal.
+
+`control-valid-branch-receipt` is exactly the complete frozen `control-valid-line-receipt` plus the five exact branch-group properties frozen in the registry; every pre-existing field remains unchanged.
+
+Both exact frozen controls must pass both exact current validators unchanged before invalid cases execute. If either control is rejected on the then-canonical implementation base, T115 stops and returns to planning; implementation may not repair or replace it.
 
 ## C5 — Must every mutation be one field?
 
 No. Some semantic invariants require compound candidate construction. `CASE_REGISTRY.md` therefore freezes the complete permitted assignment/add/remove set for every case.
 
-For each case, implementation must deep-copy the named source control, apply exactly the listed operations, and change no unlisted field. There is no implementation-time bookkeeping discretion and no alternate equivalent candidate.
+For each case, implementation must deep-copy the exact frozen named source control, apply exactly the listed operations, and change no unlisted field. There is no implementation-time baseline, bookkeeping, or alternate-equivalent-candidate discretion.
 
 ## C6 — What decides schema vs semantic rejection?
 
@@ -39,7 +43,7 @@ Yes. `CASE_REGISTRY.md` freezes the required semantic issue code set for each se
 
 ## C8 — Can the corpus use snapshots?
 
-Not as sole authority. Human-readable snapshots may assist review only if separately justified, but case identity, source control, exact candidate assignments, expected layer, required issue codes, and exact accounting remain explicit data/assertions.
+Not as sole authority. Human-readable snapshots may assist review only if separately justified, but exact control values, case identity, source control, exact candidate assignments, expected layer, required issue codes, and exact accounting remain explicit data/assertions.
 
 ## C9 — Can implementation add fast-check, a fuzzer, or a mutation library?
 
@@ -59,7 +63,7 @@ T115 may not add, remove, rename, merge, split, skip, or reclassify cases. Any r
 
 ## C11 — Is an accepted invalid case automatically a failing test?
 
-Yes. It is a material corpus failure. The implementation task must preserve that failure and return to planning for a separately authorized product repair. Do not modify `src/**`, schema, candidate construction, or a registry expectation in the same task.
+Yes. It is a material corpus failure. The implementation task must preserve that failure and return to planning for a separately authorized product repair. Do not modify `src/**`, schema, baseline controls, candidate construction, or a registry expectation in the same task.
 
 ## C12 — Can current validators be refactored to make cases easier to test?
 
@@ -83,7 +87,7 @@ No under the current plan. The exact target is schema + semantic validation. CLI
 
 ## C17 — How are valid controls prevented from drifting stale?
 
-Every corpus execution validates both exact controls first against both exact current validators. A rejected control fails the suite and requires reconciliation; it is never silently rewritten during qualification without review.
+Every corpus execution constructs both complete frozen controls exactly and validates them first against both exact current validators. The runner must prove baseline-control deviations are `[]`. A rejected or divergent control fails the suite and requires reconciliation; it is never silently rewritten during qualification.
 
 ## C18 — What is the implementation surface?
 
@@ -93,10 +97,10 @@ Exactly one new test path is planned:
 
 No second helper or fixture path is authorized. If one file is later proven materially unreviewable, return to planning before adding another path.
 
-## C19 — What if the exact frozen candidate is not schema-valid or does not produce its required code?
+## C19 — What if the exact frozen control or candidate does not reach its planned boundary?
 
-T115 stops and returns to Spec 009 planning. It may not add compensating bookkeeping, choose a different mutation, relax the layer, or rewrite the required code.
+T115 stops and returns to Spec 009 planning. It may not repair or replace a frozen control, add compensating bookkeeping, choose a different baseline or mutation, relax the layer, or rewrite the required code.
 
 ## C20 — Does Spec 009 authorize implementation now?
 
-No. Planning must merge canonically first. A separate `IMPLEMENTATION_AUTHORIZATION.md` and durable authorization ledger must then bind the exact planning merge, exact registry, exact candidate constructions, exact one-path T115 surface, and T116 ledger-only authority.
+No. Planning must merge canonically first. A separate `IMPLEMENTATION_AUTHORIZATION.md` and durable authorization ledger must then bind the exact planning merge, exact registry, both complete frozen controls, exact candidate constructions, exact one-path T115 surface, and T116 ledger-only authority.
