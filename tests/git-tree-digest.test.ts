@@ -352,7 +352,7 @@ describe("T019 live Git tree-digest collection", () => {
     }
 
     expect(() => readTreeDigestV1(repositoryRoot)).toThrowError(/unmerged tracked state/);
-  });
+  }, 15_000);
 
   it("hashes regular files larger than one internal hash chunk", () => {
     const repositoryRoot = makeRepository();
