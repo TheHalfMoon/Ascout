@@ -80,7 +80,13 @@ async function evidenceFiles(value: any = receipt()): Promise<{
 }
 
 function stableState() {
-  return { headSha: M, treeSha: HT, unstagedClean: true, nonignoredUntrackedClean: true };
+  return {
+    headSha: M,
+    treeSha: HT,
+    targetHeadTreeSha: HT,
+    unstagedClean: true,
+    nonignoredUntrackedClean: true,
+  };
 }
 
 describe("T117 selector-shadow comparator contract", () => {
@@ -93,7 +99,23 @@ describe("T117 selector-shadow comparator contract", () => {
       mergeBaseSha: M,
       targetHeadSha: H,
       targetTreeSha: HT,
+      verifierHeadSha: H,
+      verifierHeadTreeSha: HT,
     });
+  });
+
+  it("rejects inconsistent Spec 006 verifier and target H/HT aliases", () => {
+    const { receiptBytes, envelopeBytes } = boundBytes();
+    for (const [field, value] of [
+      ["verifier_head_sha", "e".repeat(40)],
+      ["verifier_head_tree_sha", "f".repeat(40)],
+    ]) {
+      const envelope = JSON.parse(envelopeBytes.toString("utf8"));
+      envelope[field] = value;
+      expect(() => shadow.validateBoundEvidence(receiptBytes, Buffer.from(JSON.stringify(envelope)))).toThrowError(
+        expect.objectContaining({ code: "envelope_identity_mismatch" }),
+      );
+    }
   });
 
   it("rejects receipt replacement instead of comparing unbound bytes", () => {
@@ -418,6 +440,16 @@ describe("T117 selector-shadow comparator contract", () => {
     let published = false;
     await expect(shadow.runSelectorShadow(files, {
       captureSourceState: async () => ({ ...stableState(), headSha: H }),
+      publish: async () => { published = true; },
+    })).rejects.toMatchObject({ code: "source_binding_mismatch" });
+    expect(published).toBe(false);
+  });
+
+  it("fails integrity when the declared HT is not the actual H tree", async () => {
+    const files = await evidenceFiles();
+    let published = false;
+    await expect(shadow.runSelectorShadow(files, {
+      captureSourceState: async () => ({ ...stableState(), targetHeadTreeSha: "e".repeat(40) }),
       publish: async () => { published = true; },
     })).rejects.toMatchObject({ code: "source_binding_mismatch" });
     expect(published).toBe(false);
