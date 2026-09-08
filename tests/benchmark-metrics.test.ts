@@ -520,6 +520,25 @@ expect(await fixture.readLifecycle()).toEqual(["comparator:cold", "comparator:wa
 } finally { await fixture.cleanup(); }
 });
 
+it("rejects malformed structured reports through the exact wrapper lifecycle without producing membership truth", async () => {
+const fixture = await createR00709WrapperFixture();
+try {
+const testing = await r00707Testing();
+const timed = await testing.timedCommandPair(fixture.caseRecord, fixture.repo, fixture.root, "yarn test:ci --run", "R007-09 wrapper");
+expect(timed.cold).toMatchObject({ status: "passed", exit_code: 0, clean_success: true });
+expect(timed.warm).toMatchObject({ status: "passed", exit_code: 0, clean_success: true });
+await fixture.setMode("malformed");
+let membership: unknown;
+let failure: unknown;
+try {
+membership = await testing.membershipAudit(fixture.caseRecord, fixture.repo, fixture.root, "yarn test:ci --run", timed.cold.exit_code, "R007-09 wrapper");
+} catch (error) { failure = error; }
+expect(failure).toBeInstanceOf(SyntaxError);
+expect(membership).toBeUndefined();
+expect(await fixture.readLifecycle()).toEqual(["comparator:cold", "comparator:warm", "proof"]);
+} finally { await fixture.cleanup(); }
+});
+
 it("does not promote wrong reviewed path or test identity into membership truth", async () => {
 const fixture = await createR00709WrapperFixture();
 try {
