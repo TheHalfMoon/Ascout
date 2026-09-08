@@ -1,11 +1,12 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { lstat, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const REFERENCE_TIMEOUT_MS = 10 * 60 * 1000;
+const REFERENCE_CLEANUP_TIMEOUT_MS = 30 * 1000;
 
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
@@ -102,11 +103,8 @@ export function validateBoundEvidence(receiptBytes, envelopeBytes) {
   }
 
   let envelope;
-  let receipt;
   try { envelope = JSON.parse(envelopeBytes.toString("utf8")); }
   catch { fail("envelope_json_invalid", "selector-shadow envelope is not valid JSON"); }
-  try { receipt = JSON.parse(receiptBytes.toString("utf8")); }
-  catch { fail("receipt_json_invalid", "selector-shadow receipt is not valid JSON"); }
 
   if (!isRecord(envelope) || envelope.schema_version !== 1 || envelope.classification !== "SHADOW_NON_GATING") {
     fail("envelope_contract_invalid", "selector-shadow envelope schema/classification is invalid");
@@ -114,6 +112,18 @@ export function validateBoundEvidence(receiptBytes, envelopeBytes) {
   if (envelope.receipt_file !== "self-verification-receipt.json") {
     fail("envelope_contract_invalid", "selector-shadow envelope receipt file identity is invalid");
   }
+  if (typeof envelope.receipt_sha256 !== "string" || !SHA256.test(envelope.receipt_sha256)) {
+    fail("receipt_digest_invalid", "selector-shadow envelope receipt digest is invalid");
+  }
+
+  const receiptDigest = sha256(receiptBytes);
+  if (receiptDigest !== envelope.receipt_sha256) {
+    fail("receipt_digest_mismatch", "selector-shadow receipt bytes do not match the bound envelope digest");
+  }
+
+  let receipt;
+  try { receipt = JSON.parse(receiptBytes.toString("utf8")); }
+  catch { fail("receipt_json_invalid", "selector-shadow receipt is not valid JSON"); }
 
   const identities = Object.freeze({
     eventBaseSha: requireFullObjectId(envelope.event_base_tip_sha, "event base tip"),
@@ -124,13 +134,6 @@ export function validateBoundEvidence(receiptBytes, envelopeBytes) {
     verifierHeadTreeSha: requireFullObjectId(envelope.verifier_head_tree_sha, "verifier head tree"),
   });
 
-  if (typeof envelope.receipt_sha256 !== "string" || !SHA256.test(envelope.receipt_sha256)) {
-    fail("receipt_digest_invalid", "selector-shadow envelope receipt digest is invalid");
-  }
-  const receiptDigest = sha256(receiptBytes);
-  if (receiptDigest !== envelope.receipt_sha256) {
-    fail("receipt_digest_mismatch", "selector-shadow receipt bytes do not match the bound envelope digest");
-  }
   if (!isRecord(receipt) || !isRecord(receipt.summary) || !Number.isSafeInteger(receipt.summary.exit_code)) {
     fail("receipt_contract_invalid", "selector-shadow bound receipt summary is invalid");
   }
@@ -235,20 +238,18 @@ export async function parseVitestFailureReport(reportText, normalizePath) {
   if (!isRecord(report) || !Array.isArray(report.testResults)) unavailable("UNAVAILABLE_FULL_SUITE_REPORT");
 
   const failures = [];
-  for (const suiteValue of report.testResults) {
-    if (!isRecord(suiteValue)) continue;
-    const assertions = suiteValue.assertionResults;
-    const suiteClaimsFailure = suiteValue.status === "failed";
-    if (!Array.isArray(assertions)) {
-      if (suiteClaimsFailure) unavailable("UNAVAILABLE_FULL_SUITE_REPORT");
+  for (const suite of report.testResults) {
+    if (!isRecord(suite)) continue;
+    if (!Array.isArray(suite.assertionResults)) {
+      if (suite.status === "failed") unavailable("UNAVAILABLE_FULL_SUITE_REPORT");
       continue;
     }
-    const failedAssertions = assertions.filter((assertion) => isRecord(assertion) && assertion.status === "failed");
+    const failedAssertions = suite.assertionResults.filter((assertion) => isRecord(assertion) && assertion.status === "failed");
     if (failedAssertions.length === 0) continue;
-    if (typeof suiteValue.name !== "string" || suiteValue.name.length === 0 || suiteValue.name.includes("\0")) {
+    if (typeof suite.name !== "string" || suite.name.length === 0 || suite.name.includes("\0")) {
       unavailable("UNAVAILABLE_FULL_SUITE_REPORT");
     }
-    const path = await normalizePath(suiteValue.name);
+    const path = await normalizePath(suite.name);
     for (const assertion of failedAssertions) {
       if (typeof assertion.fullName !== "string" || assertion.fullName.length === 0 || assertion.fullName.includes("\0")) {
         unavailable("UNAVAILABLE_FULL_SUITE_REPORT");
@@ -354,18 +355,25 @@ export async function resolveLocalVitestRuntime(repositoryRoot, fsOps = { readFi
 }
 
 export async function executeVitestReference(runtime, reportPath, timeoutMs = REFERENCE_TIMEOUT_MS) {
-  if (timeoutMs !== REFERENCE_TIMEOUT_MS) fail("reference_timeout_invalid", "selector-shadow reference timeout must remain exactly 10 minutes");
+  if (timeoutMs !== REFERENCE_TIMEOUT_MS) {
+    fail("reference_timeout_invalid", "selector-shadow reference timeout must remain exactly 10 minutes");
+  }
   const started = Date.now();
   return await new Promise((resolvePromise) => {
     let settled = false;
+    let timedOut = false;
+    let timer = null;
+    let cleanupTimer = null;
     let child;
-    let timer;
+
     const finish = (value) => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
+      if (cleanupTimer) clearTimeout(cleanupTimer);
       resolvePromise(Object.freeze({ ...value, durationMs: Math.max(0, Date.now() - started) }));
     };
+
     try {
       child = spawn(runtime.executablePath, ["run", "--reporter=json", `--outputFile=${reportPath}`], {
         cwd: runtime.repositoryRoot,
@@ -378,15 +386,28 @@ export async function executeVitestReference(runtime, reportPath, timeoutMs = RE
       finish({ outcome: "spawn_error", exitCode: null, signal: null });
       return;
     }
-    child.once("error", () => finish({ outcome: "spawn_error", exitCode: null, signal: null }));
-    child.once("close", (exitCode, signal) => finish({ outcome: "completed", exitCode, signal }));
+
+    child.once("error", () => {
+      finish(timedOut
+        ? { outcome: "timed_out", exitCode: null, signal: "SIGKILL" }
+        : { outcome: "spawn_error", exitCode: null, signal: null });
+    });
+    child.once("close", (exitCode, signal) => {
+      finish(timedOut
+        ? { outcome: "timed_out", exitCode: null, signal: "SIGKILL" }
+        : { outcome: "completed", exitCode, signal });
+    });
+
     timer = setTimeout(() => {
       if (settled) return;
+      timedOut = true;
       try {
         if (process.platform !== "win32" && Number.isInteger(child.pid)) process.kill(-child.pid, "SIGKILL");
         else child.kill("SIGKILL");
       } catch {}
-      finish({ outcome: "timed_out", exitCode: null, signal: "SIGKILL" });
+      cleanupTimer = setTimeout(() => {
+        finish({ outcome: "timed_out", exitCode: null, signal: "SIGKILL" });
+      }, REFERENCE_CLEANUP_TIMEOUT_MS);
     }, REFERENCE_TIMEOUT_MS);
   });
 }
@@ -468,11 +489,31 @@ function comparableObservation(bound, taskObservation, runtimeVersion, durationM
   });
 }
 
-export async function publishObservationAtomically(repositoryRoot, outputPath, observation, fsOps = { lstat, readFile, realpath, rename, rm, writeFile }) {
+export async function preparePrivateReportArea(repositoryRoot, fsOps = { lstat, mkdtemp, realpath, rm }) {
+  const repositoryReal = await fsOps.realpath(resolve(repositoryRoot));
+  const tempParentReal = await fsOps.realpath(tmpdir());
+  const created = await fsOps.mkdtemp(join(tempParentReal, "ascout-selector-shadow-"));
+  const root = await fsOps.realpath(created);
+  const rootStats = await fsOps.lstat(root);
+  if (!rootStats.isDirectory() || rootStats.isSymbolicLink() || isInside(repositoryReal, root)) {
+    try { await fsOps.rm(root, { recursive: true, force: true }); } catch {}
+    fail("reference_output_invalid", "selector-shadow private report directory is unsafe");
+  }
+  return Object.freeze({ root, reportPath: join(root, "vitest-results.json") });
+}
+
+export async function publishObservationAtomically(
+  repositoryRoot,
+  outputPath,
+  observation,
+  fsOps = { lstat, realpath, rename, rm, writeFile },
+) {
   if (!isAbsolute(outputPath)) fail("output_path_invalid", "selector-shadow output path must be absolute");
   const repositoryReal = await fsOps.realpath(resolve(repositoryRoot));
   const parentReal = await fsOps.realpath(dirname(resolve(outputPath)));
-  if (isInside(repositoryReal, parentReal)) fail("output_inside_repository", "selector-shadow output must be outside repository source identity");
+  if (isInside(repositoryReal, parentReal)) {
+    fail("output_inside_repository", "selector-shadow output must be outside repository source identity");
+  }
   const target = join(parentReal, basename(outputPath));
   try {
     await fsOps.lstat(target);
@@ -489,7 +530,9 @@ export async function publishObservationAtomically(repositoryRoot, outputPath, o
     await fsOps.writeFile(stage, bytes, { flag: "wx", mode: 0o600 });
     staged = true;
     const parentAfter = await fsOps.realpath(parentReal);
-    if (parentAfter !== parentReal || isInside(repositoryReal, parentAfter)) fail("output_parent_changed", "selector-shadow output parent changed before publication");
+    if (parentAfter !== parentReal || isInside(repositoryReal, parentAfter)) {
+      fail("output_parent_changed", "selector-shadow output parent changed before publication");
+    }
     try {
       await fsOps.lstat(target);
       fail("output_exists", "selector-shadow output target appeared before publication");
@@ -506,18 +549,14 @@ export async function publishObservationAtomically(repositoryRoot, outputPath, o
   }
 }
 
-async function readReportText(reportPath, fsOps) {
-  try { return await fsOps.readFile(reportPath, "utf8"); }
-  catch { unavailable("UNAVAILABLE_FULL_SUITE_EXECUTION"); }
-}
-
 export async function runSelectorShadow(input, adapters = {}) {
   const repositoryRoot = resolve(input.repositoryRoot ?? process.cwd());
-  const fsOps = adapters.fsOps ?? { lstat, readFile, realpath, rename, rm, stat, writeFile };
+  const fsOps = adapters.fsOps ?? { lstat, mkdtemp, readFile, realpath, rename, rm, stat, writeFile };
   const captureSourceState = adapters.captureSourceState ?? captureReconstructedSourceState;
   const resolveRuntime = adapters.resolveRuntime ?? ((root) => resolveLocalVitestRuntime(root, fsOps));
   const executeReference = adapters.executeReference ?? executeVitestReference;
   const normalizePath = adapters.normalizePath ?? ((machineName) => normalizeReportedPath(repositoryRoot, machineName, fsOps));
+  const prepareReportArea = adapters.prepareReportArea ?? ((root) => preparePrivateReportArea(root, fsOps));
   const publish = adapters.publish ?? ((observation) => publishObservationAtomically(repositoryRoot, input.outputPath, observation, fsOps));
 
   const [receiptBytes, envelopeBytes] = await Promise.all([
@@ -525,13 +564,21 @@ export async function runSelectorShadow(input, adapters = {}) {
     fsOps.readFile(input.envelopePath),
   ]);
   const bound = validateBoundEvidence(Buffer.from(receiptBytes), Buffer.from(envelopeBytes));
-  const initialState = await captureSourceState(repositoryRoot);
-  requireInitialSourceState(initialState, bound.identities);
+  requireInitialSourceState(await captureSourceState(repositoryRoot), bound.identities);
 
   const taskClassification = classifyAscoutTestTask(bound.receipt);
   const taskObservation = ascoutTaskObservation(bound.receipt, taskClassification.task);
   if (!taskClassification.available) {
     const observation = unavailableObservation(bound, taskObservation, taskClassification.reasonCode);
+    await publish(observation);
+    return observation;
+  }
+
+  let ascoutFailed;
+  try { ascoutFailed = extractAscoutFailureIdentities(bound.receipt, taskClassification.task); }
+  catch (error) {
+    if (!(error instanceof SelectorShadowUnavailableError)) throw error;
+    const observation = unavailableObservation(bound, taskObservation, error.code);
     await publish(observation);
     return observation;
   }
@@ -545,11 +592,22 @@ export async function runSelectorShadow(input, adapters = {}) {
     return observation;
   }
 
-  const workRoot = await realpath(tmpdir());
-  const reportPath = join(workRoot, `ascout-selector-shadow-${process.pid}-${randomBytes(8).toString("hex")}.json`);
-  let execution;
+  const reportArea = await prepareReportArea(repositoryRoot);
   try {
-    execution = await executeReference(runtime, reportPath, REFERENCE_TIMEOUT_MS);
+    const execution = await executeReference(runtime, reportArea.reportPath, REFERENCE_TIMEOUT_MS);
+    const finalState = await captureSourceState(repositoryRoot);
+    if (!postSourceStateStable(finalState, bound.identities)) {
+      const observation = unavailableObservation(
+        bound,
+        taskObservation,
+        "UNAVAILABLE_SOURCE_DRIFT",
+        runtime.version,
+        execution.durationMs,
+      );
+      await publish(observation);
+      return observation;
+    }
+
     if (execution.outcome !== "completed" || !Number.isInteger(execution.exitCode)) {
       const observation = unavailableObservation(
         bound,
@@ -563,10 +621,15 @@ export async function runSelectorShadow(input, adapters = {}) {
     }
 
     let reportText;
-    try { reportText = await readReportText(reportPath, fsOps); }
-    catch (error) {
-      if (!(error instanceof SelectorShadowUnavailableError)) throw error;
-      const observation = unavailableObservation(bound, taskObservation, error.code, runtime.version, execution.durationMs);
+    try { reportText = await fsOps.readFile(reportArea.reportPath, "utf8"); }
+    catch {
+      const observation = unavailableObservation(
+        bound,
+        taskObservation,
+        "UNAVAILABLE_FULL_SUITE_EXECUTION",
+        runtime.version,
+        execution.durationMs,
+      );
       await publish(observation);
       return observation;
     }
@@ -592,34 +655,13 @@ export async function runSelectorShadow(input, adapters = {}) {
       return observation;
     }
 
-    let ascoutFailed;
-    try { ascoutFailed = extractAscoutFailureIdentities(bound.receipt, taskClassification.task); }
-    catch (error) {
-      if (!(error instanceof SelectorShadowUnavailableError)) throw error;
-      const observation = unavailableObservation(bound, taskObservation, error.code, runtime.version, execution.durationMs);
-      await publish(observation);
-      return observation;
-    }
-
-    const finalState = await captureSourceState(repositoryRoot);
-    if (!postSourceStateStable(finalState, bound.identities)) {
-      const observation = unavailableObservation(
-        bound,
-        taskObservation,
-        "UNAVAILABLE_SOURCE_DRIFT",
-        runtime.version,
-        execution.durationMs,
-      );
-      await publish(observation);
-      return observation;
-    }
-
     const comparison = compareFailureIdentities(fullSuiteFailed, ascoutFailed);
     const observation = comparableObservation(bound, taskObservation, runtime.version, execution.durationMs, comparison);
     await publish(observation);
     return observation;
   } finally {
-    try { await fsOps.rm(reportPath, { force: true }); } catch {}
+    try { await fsOps.rm(reportArea.root, { recursive: true, force: true }); }
+    catch { fail("reference_cleanup_failed", "selector-shadow private report directory could not be removed cleanly"); }
   }
 }
 
@@ -632,7 +674,9 @@ export function parseCliArguments(argv) {
   ]);
   for (let index = 0; index < argv.length; index += 1) {
     const key = mapping.get(argv[index]);
-    if (!key || index + 1 >= argv.length || values[key] !== null) fail("cli_invalid", "selector-shadow CLI arguments are invalid");
+    if (!key || index + 1 >= argv.length || values[key] !== null) {
+      fail("cli_invalid", "selector-shadow CLI arguments are invalid");
+    }
     values[key] = argv[index + 1];
     index += 1;
   }
