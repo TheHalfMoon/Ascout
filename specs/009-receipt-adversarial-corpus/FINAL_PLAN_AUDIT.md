@@ -6,11 +6,15 @@
 
 This repository-side audit checks the complete Spec 009 planning package after reconciliation of all independent material findings observed through former exact candidate `e89da2dcd704893527829c9f61eddad0638b1285` and the later repository-side complete-baseline wording consistency correction. It does not substitute for fresh independent review of the successor final head.
 
-## Canonical planning input
+## Planning input and live qualification base
 
-- canonical planning base: `fb6bb2ec152e41da05901509b0b62d1eb3636648`
-- canonical base tree: `f2a7331aaac4108375979afda3d706f9aa2e0fd7`
+- planning inception base: `fb6bb2ec152e41da05901509b0b62d1eb3636648`
+- planning inception-base tree: `f2a7331aaac4108375979afda3d706f9aa2e0fd7`
+- live qualification base: `9093ee06c45234d1dee0fbe30d3a0d8fd415fe6f`
+- live qualification-base tree: `79b10c40d72e464c58e8afc52386f27a515fd584`
 - planning ledger: Issue #252
+
+The inception base records where Spec 009 planning began. The live qualification base is the authoritative base for final branch-purity, CI, review, and merge qualification after canonical CI repair #254/#255.
 
 Spec 007 remains terminal and isolated.
 
@@ -173,7 +177,7 @@ All CI/review evidence on earlier planning heads is historical only. No stale CI
 
 Before planning may merge, require on the exact unchanged successor final head:
 
-1. canonical base still equals the expected live `main`;
+1. canonical live qualification base still equals the expected live `main`;
 2. diff contains only Spec 009 planning artifacts;
 3. no seed/implementation/product/test/workflow/dependency/result/release mutation;
 4. complete frozen controls, exact registry/accounting, and exact candidate construction are present consistently across all controlling artifacts;
