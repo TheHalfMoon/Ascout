@@ -31,7 +31,7 @@ Only this exact set difference for a comparable observation:
 ```text
 (full-suite failed repository-relative path, fullName)
   MINUS
-(Asc​​out test-finding repository-relative path, rule_or_test_id)
+(Ascout test-finding repository-relative path, rule_or_test_id)
 ```
 
 Every unmatched full-suite failed identity is a selector miss observation.
@@ -82,7 +82,7 @@ That identity is not comparable. If this prevents a complete comparison of full-
 
 ## C17 — What about retries/flakes?
 
-Asc​​out receipt truth remains authoritative for its `FAIL`/`FLAKY` classification. The shadow reference records the one full-suite observation required by this spec. Spec 010 does not add flake reproduction logic or reinterpret Ascout's existing findings.
+Ascout receipt truth remains authoritative for its `FAIL`/`FLAKY` classification. The shadow reference records the one full-suite observation required by this spec. Spec 010 does not add flake reproduction logic or reinterpret Ascout's existing findings.
 
 ## C18 — What durations are recorded?
 
