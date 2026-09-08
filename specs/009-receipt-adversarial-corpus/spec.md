@@ -2,7 +2,8 @@
 
 **Status:** `PLANNING / IMPLEMENTATION_NOT_AUTHORIZED`  
 **Planning ledger:** Issue #252  
-**Canonical planning base:** `fb6bb2ec152e41da05901509b0b62d1eb3636648`
+**Planning inception base:** `fb6bb2ec152e41da05901509b0b62d1eb3636648`  
+**Live qualification base:** `9093ee06c45234d1dee0fbe30d3a0d8fd415fe6f`
 
 ## Purpose
 
