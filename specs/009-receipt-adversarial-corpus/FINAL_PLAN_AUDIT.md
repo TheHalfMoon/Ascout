@@ -4,7 +4,7 @@
 
 ## Audit role
 
-This repository-side audit checks the complete Spec 009 planning package after reconciliation of all independent material findings observed through former exact candidate `e89da2dcd704893527829c9f61eddad0638b1285`. It does not substitute for fresh independent review of the successor final head.
+This repository-side audit checks the complete Spec 009 planning package after reconciliation of all independent material findings observed through former exact candidate `e89da2dcd704893527829c9f61eddad0638b1285` and the later repository-side complete-baseline wording consistency correction. It does not substitute for fresh independent review of the successor final head.
 
 ## Canonical planning input
 
@@ -24,7 +24,7 @@ Spec 007 remains terminal and isolated.
 - semantic invalid cases: `36`
 - total declared executions: `46`
 
-The registry now freezes complete baseline truth, not selected anchors:
+The registry freezes complete baseline truth, not selected anchors:
 
 1. `control-valid-line-receipt` is one complete exact JSON Receipt v1 value with every run, source, comparison, selection, task, changed-code, exercise, test-change, finding, evidence, artifact, stability, and summary field fixed.
 2. `control-valid-branch-receipt` is exactly that line control plus five specified branch-group properties and exactly two canonically ordered branch records.
@@ -51,7 +51,7 @@ PASS. Evidence Before Claims, No Green by Omission, Source-Bound Truth, Explicit
 
 ### Specification and clarification
 
-PASS. `spec.md` and `clarifications.md` bind the registry as planning authority, preserve schema-first semantic evaluation, reject product repair during measurement, and require separate implementation authorization.
+PASS. `spec.md` and `clarifications.md` bind both complete frozen controls and the registry as planning authority, preserve schema-first semantic evaluation, reject product repair during measurement, and require separate implementation authorization.
 
 ### YAGNI reviews
 
@@ -59,7 +59,7 @@ PASS. Both Ponytail reviews converge on one test path, no new dependency/workflo
 
 ### Technical plan
 
-PASS. `plan.md` reuses exact current validators and requires construction from registry-frozen controls/candidates.
+PASS. `plan.md` reuses exact current validators, requires both complete registry-frozen control JSON values with no implementation-selected baseline literal, and requires exact registry-frozen candidates.
 
 ### Exact registry
 
@@ -67,7 +67,7 @@ PASS subject to fresh independent final-head verification. Controls and candidat
 
 ### Tasks
 
-PASS. Only `T115 -> T116` is planned. T115 is measurement-only; T116 is reconciliation/next-frontier governance.
+PASS. Only `T115 -> T116` is planned. T115 is measurement-only; T116 is reconciliation/next-frontier governance. T115 explicitly requires exact frozen-control fidelity and `baseline-control deviations = []`.
 
 ### Supply chain
 
@@ -95,7 +95,7 @@ Reconciled to exact `2 / 44 / 8 / 36 / 46` accounting, both controls mandatory, 
 
 Fresh CodeRabbit review of exact head `e89da2dcd704893527829c9f61eddad0638b1285` found that the registry still specified only selected control anchors while allowing all other required fields to be implementation-chosen deterministic literals. Because 41 invalid cases sourced the line control and branch control derived from it, exact candidate identity remained incomplete.
 
-Reconciliation now incorporated:
+Reconciliation incorporated:
 
 - the complete line-control JSON value is frozen field-by-field;
 - exact `ascout_version`, config digest, source state, Git/tree identities, selection mode/pass, task authorization/argv/tool/cache/runtime fields, evidence SHA-256 values, exercise, and summary are all explicit;
@@ -105,9 +105,26 @@ Reconciliation now incorporated:
 - control rejection is a stop-and-return-to-planning condition;
 - GO accounting requires `baseline-control deviations = []`.
 
-`F3 = RECONCILED_PROSPECTIVELY / REQUIRES_FRESH_FINAL_HEAD_REVIEW`
+`F3 = RECONCILED_PROSPECTIVELY`
 
-No prior review qualifies the successor head.
+No prior review qualifies a successor head.
+
+## Repository-side consistency correction
+
+A repository-side re-audit of candidate `16dcb57b9e75520f8dfce9a6f80b9e150920d3e7` found that four planning artifacts retained stale anchor-era wording even though `CASE_REGISTRY.md`, `analysis.md`, and this audit had already frozen complete controls. In particular, `plan.md` still allowed `all other required fields` to use deterministic literals, and related artifacts still referred to selected `control anchors`.
+
+Commit `05283f42fad23cbc2c49021395ba712d54f800a8` corrects exactly:
+
+- `spec.md`;
+- `plan.md`;
+- `tasks.md`;
+- `clarifications.md`.
+
+Those artifacts now uniformly require the two complete frozen control JSON values, prohibit implementation-selected baseline literals or alternate baselines, require frozen-control rejection to return to planning, and include baseline-control fidelity in GO accounting.
+
+This was a repository-side self-audit finding, not independent review evidence. Therefore all CI/review from `16dcb57b...` is stale for final qualification and a new independent exact-head review remains mandatory.
+
+`INTERNAL_COMPLETE_BASELINE_WORDING_CORRECTION = RECONCILED_PROSPECTIVELY / REQUIRES_FRESH_FINAL_HEAD_QUALIFICATION`
 
 ## Acceptance audit
 
@@ -150,7 +167,7 @@ T115 must preserve observed evidence and must not repair `src/**`, schema, basel
 
 ## Prior evidence handling
 
-All CI/review evidence on earlier planning heads is historical only. No stale CI/review, rerun-to-green, or provider summary may qualify the successor final head.
+All CI/review evidence on earlier planning heads is historical only. No stale CI/review, rerun-to-green, provider summary, provider availability message, or self-audit may qualify the successor final head.
 
 ## Planning merge gate
 
@@ -159,7 +176,7 @@ Before planning may merge, require on the exact unchanged successor final head:
 1. canonical base still equals the expected live `main`;
 2. diff contains only Spec 009 planning artifacts;
 3. no seed/implementation/product/test/workflow/dependency/result/release mutation;
-4. complete frozen controls, exact registry/accounting, and exact candidate construction are present;
+4. complete frozen controls, exact registry/accounting, and exact candidate construction are present consistently across all controlling artifacts;
 5. Self Verification success where applicable;
 6. Project CI original attempt succeeds on all six required OS/Node lanes;
 7. fresh independent substantive exact-head review covers complete controls, candidate reachability, layer/code correctness, governance, YAGNI, failure separation, Spec 007 isolation, and branch purity;
@@ -174,7 +191,7 @@ Before planning may merge, require on the exact unchanged successor final head:
 
 ## Final audit decision
 
-`FINAL_PLAN_AUDIT = PASS / F1_F2_F3_RECONCILED / READY_FOR_FRESH_FINAL_HEAD_QUALIFICATION`
+`FINAL_PLAN_AUDIT = PASS / F1_F2_F3_AND_INTERNAL_BASELINE_WORDING_RECONCILED / READY_FOR_FRESH_FINAL_HEAD_QUALIFICATION`
 
 `REGISTRY = SPEC009-CASE-REGISTRY-V1 / COMPLETE_CONTROLS_AND_EXACT_CANDIDATES_FROZEN`
 

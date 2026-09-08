@@ -13,6 +13,7 @@
 - Issue #252
 - every Spec 009 planning artifact
 - CodeRabbit exact-head planning reviews through candidate `e89da2dcd704893527829c9f61eddad0638b1285`
+- repository-side final consistency re-audit through candidate `05283f42fad23cbc2c49021395ba712d54f800a8`
 
 ## Constitution alignment
 
@@ -52,7 +53,7 @@ Planning freezes `SPEC009-CASE-REGISTRY-V1`:
 - semantic cases: `36`;
 - total declared executions: `46`.
 
-The registry now freezes the complete JSON value of `control-valid-line-receipt`, not only selected anchors. Every Receipt v1 field used by that control is explicit, including run metadata, source start/end state, comparison, selection, task authority/runtime fields, changed-code facts, line exercise, test changes, findings, evidence digests/bindings, artifacts, stability, and summary.
+The registry freezes the complete JSON value of `control-valid-line-receipt`, not only selected anchors. Every Receipt v1 field used by that control is explicit, including run metadata, source start/end state, comparison, selection, task authority/runtime fields, changed-code facts, line exercise, test changes, findings, evidence digests/bindings, artifacts, stability, and summary.
 
 `control-valid-branch-receipt` is also exact: it is the complete line control plus exactly five specified branch-group properties with two exact canonically ordered records. No other baseline field may differ.
 
@@ -100,9 +101,26 @@ Reconciliation:
 - made any frozen-control rejection a stop-and-return-to-planning condition;
 - added `baseline-control deviations = []` to GO accounting.
 
-`F3 = RECONCILED_PROSPECTIVELY / REQUIRES_FRESH_FINAL_HEAD_REVIEW`
+`F3 = RECONCILED_PROSPECTIVELY`
 
-No review of `e89da2d...` qualifies the successor head containing this reconciliation.
+No review of `e89da2d...` qualifies a successor head containing this reconciliation.
+
+## Repository-side final consistency correction
+
+A later repository-side re-audit of candidate `16dcb57b9e75520f8dfce9a6f80b9e150920d3e7` found stale wording in four planning artifacts that still referred to selected `control anchors` or allowed `all other required fields` to use deterministic literals. That wording contradicted the already-frozen complete-control truth in `CASE_REGISTRY.md`, this analysis, and `FINAL_PLAN_AUDIT.md`.
+
+Commit `05283f42fad23cbc2c49021395ba712d54f800a8` reconciles that wording forward-only in exactly:
+
+- `spec.md`;
+- `plan.md`;
+- `tasks.md`;
+- `clarifications.md`.
+
+The corrected artifacts now require both complete frozen control JSON values exactly, prohibit every implementation-selected baseline literal, require `baseline-control deviations = []`, and make frozen-control rejection a stop-and-return-to-planning condition.
+
+This repository-side correction is not independent review evidence. It invalidates all CI/review evidence from `16dcb57b...` for final qualification and requires fresh exact-head qualification on the successor final head.
+
+`INTERNAL_COMPLETE_BASELINE_WORDING_CORRECTION = RECONCILED_PROSPECTIVELY / REQUIRES_FRESH_FINAL_HEAD_QUALIFICATION`
 
 ## Requirements-to-plan mapping
 
@@ -148,10 +166,10 @@ The final planning head must independently prove exact planning-only scope, Self
 
 ## Open ambiguities
 
-None material identified after F1/F2/F3 prospective reconciliation. Fresh independent exact-head review remains required to validate that conclusion.
+None material identified after F1/F2/F3 reconciliation and the repository-side complete-baseline wording correction. Fresh independent exact-head review remains required to validate that conclusion.
 
 ## Conclusion
 
-`CROSS_ARTIFACT_ANALYSIS = PASS / F1_F2_F3_RECONCILED / COMPLETE_CONTROLS_AND_EXACT_CANDIDATES_FROZEN`
+`CROSS_ARTIFACT_ANALYSIS = PASS / F1_F2_F3_AND_INTERNAL_BASELINE_WORDING_RECONCILED / COMPLETE_CONTROLS_AND_EXACT_CANDIDATES_FROZEN`
 
 `IMPLEMENTATION_AUTHORIZED = NO`
