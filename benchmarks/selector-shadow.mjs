@@ -159,15 +159,19 @@ export function classifyAscoutTestTask(receipt) {
     fail("receipt_task_contract_invalid", "selector-shadow receipt task/selection structure is invalid");
   }
   const testTasks = receipt.tasks.filter((task) => isRecord(task) && task.task_type === "test");
+  if (receipt.selection.mode === "no_test_task" && testTasks.length <= 1) {
+    const task = testTasks[0] ?? null;
+    if (task !== null && (typeof task.task_id !== "string" || task.task_id.length === 0 || task.task_id.includes("\0"))) {
+      fail("test_task_identity_invalid", "selector-shadow Ascout test task identity is invalid");
+    }
+    return Object.freeze({ available: false, reasonCode: "UNAVAILABLE_ASCOUT_SELECTION", task });
+  }
   if (testTasks.length !== 1) {
     fail("test_task_ambiguous", "selector-shadow requires exactly one bound Ascout test task");
   }
   const task = testTasks[0];
   if (typeof task.task_id !== "string" || task.task_id.length === 0 || task.task_id.includes("\0")) {
     fail("test_task_identity_invalid", "selector-shadow Ascout test task identity is invalid");
-  }
-  if (receipt.selection.mode === "no_test_task") {
-    return Object.freeze({ available: false, reasonCode: "UNAVAILABLE_ASCOUT_SELECTION", task });
   }
   if (task.execution_admission !== "normal" || task.command_surface_changed !== false) {
     return Object.freeze({ available: false, reasonCode: "UNAVAILABLE_ASCOUT_ADMISSION", task });
@@ -399,8 +403,8 @@ export async function resolveLocalVitestRuntime(repositoryRoot, fsOps = { readFi
     unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
   }
 
-  const executablePath = process.platform === "win32" ? process.execPath : vitestEntrypointPath;
-  const executableArgsPrefix = process.platform === "win32" ? Object.freeze([vitestEntrypointPath]) : Object.freeze([]);
+  const executablePath = process.execPath;
+  const executableArgsPrefix = Object.freeze([vitestEntrypointPath]);
   return Object.freeze({
     executablePath,
     executableArgsPrefix,
@@ -521,13 +525,14 @@ export async function executeVitestReference(runtime, reportPath, timeoutMs = RE
 
 function ascoutTaskObservation(receipt, task) {
   const selection = receipt.selection;
+  const hasTask = isRecord(task);
   return Object.freeze({
-    task_id: task.task_id,
-    status: COMPARABLE_STATUSES.has(task.status) ? task.status : null,
-    duration_ms: safeIntegerOrNull(task.duration_ms),
+    task_id: hasTask && typeof task.task_id === "string" ? task.task_id : null,
+    status: hasTask && COMPARABLE_STATUSES.has(task.status) ? task.status : null,
+    duration_ms: hasTask ? safeIntegerOrNull(task.duration_ms) : null,
     selection_mode: typeof selection.mode === "string" ? selection.mode : null,
-    selected_test_count: safeIntegerOrNull(task.selected_test_count),
-    deselected_test_count: safeIntegerOrNull(task.deselected_test_count),
+    selected_test_count: hasTask ? safeIntegerOrNull(task.selected_test_count) : null,
+    deselected_test_count: hasTask ? safeIntegerOrNull(task.deselected_test_count) : null,
     total_test_count: safeIntegerOrNull(selection.total_test_count),
     widened: typeof selection.widened === "boolean" ? selection.widened : false,
     widen_triggers: Array.isArray(selection.widen_triggers)
@@ -701,6 +706,7 @@ export async function runSelectorShadow(input, adapters = {}) {
   }
 
   const reportArea = await prepareReportArea(repositoryRoot);
+  let operationFailed = false;
   try {
     const execution = await executeReference(runtime, reportArea.reportPath, REFERENCE_TIMEOUT_MS);
     const finalState = await captureSourceState(repositoryRoot, bound.identities);
@@ -767,9 +773,16 @@ export async function runSelectorShadow(input, adapters = {}) {
     const observation = comparableObservation(bound, taskObservation, runtime.version, execution.durationMs, comparison);
     await publish(observation);
     return observation;
+  } catch (error) {
+    operationFailed = true;
+    throw error;
   } finally {
     try { await fsOps.rm(reportArea.root, { recursive: true, force: true }); }
-    catch { fail("reference_cleanup_failed", "selector-shadow private report directory could not be removed cleanly"); }
+    catch {
+      if (!operationFailed) {
+        fail("reference_cleanup_failed", "selector-shadow private report directory could not be removed cleanly");
+      }
+    }
   }
 }
 

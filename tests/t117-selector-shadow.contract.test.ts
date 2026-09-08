@@ -4,13 +4,26 @@ import { link as fsLink, lstat, mkdtemp, mkdir, readFile, realpath, rm, unlink, 
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 let shadow: any;
 
 beforeAll(async () => {
   const moduleUrl = new URL("../benchmarks/selector-shadow.mjs", import.meta.url).href;
   shadow = await import(/* @vite-ignore */ moduleUrl);
+});
+
+const trackedTempDirectories = new Set<string>();
+
+async function trackedMkdtemp(prefix: string): Promise<string> {
+  const directory = await mkdtemp(prefix);
+  trackedTempDirectories.add(directory);
+  return directory;
+}
+
+afterAll(async () => {
+  await Promise.all([...trackedTempDirectories].map((directory) => rm(directory, { recursive: true, force: true })));
+  trackedTempDirectories.clear();
 });
 
 const B = "a".repeat(40);
@@ -69,8 +82,8 @@ async function evidenceFiles(value: any = receipt()): Promise<{
   envelopePath: string;
   outputPath: string;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "ascout-t117-"));
-  const evidence = await mkdtemp(join(tmpdir(), "ascout-t117-evidence-"));
+  const root = await trackedMkdtemp(join(tmpdir(), "ascout-t117-"));
+  const evidence = await trackedMkdtemp(join(tmpdir(), "ascout-t117-evidence-"));
   const { receiptBytes, envelopeBytes } = boundBytes(value);
   const receiptPath = join(evidence, "self-verification-receipt.json");
   const envelopePath = join(evidence, "self-verification-envelope.json");
@@ -237,12 +250,13 @@ describe("T117 selector-shadow comparator contract", () => {
     );
   });
 
-  it("keeps no_test_task selection explicitly unavailable", () => {
-    const value = receipt();
+  it("keeps no_test_task selection explicitly unavailable even when no test task exists", () => {
+    const value = receipt({ tasks: [] });
     value.selection.mode = "no_test_task";
     expect(shadow.classifyAscoutTestTask(value)).toMatchObject({
       available: false,
       reasonCode: "UNAVAILABLE_ASCOUT_SELECTION",
+      task: null,
     });
   });
 
@@ -343,8 +357,8 @@ describe("T117 selector-shadow comparator contract", () => {
   });
 
   it("normalizes only repository-contained reported paths and rejects outside paths", async () => {
-    const root = await mkdtemp(join(tmpdir(), "ascout-t117-path-root-"));
-    const outside = await mkdtemp(join(tmpdir(), "ascout-t117-path-outside-"));
+    const root = await trackedMkdtemp(join(tmpdir(), "ascout-t117-path-root-"));
+    const outside = await trackedMkdtemp(join(tmpdir(), "ascout-t117-path-outside-"));
     await mkdir(join(root, "tests"), { recursive: true });
     await writeFile(join(root, "tests", "a.test.ts"), "export {};\n");
     await writeFile(join(outside, "outside.test.ts"), "export {};\n");
@@ -366,7 +380,7 @@ describe("T117 selector-shadow comparator contract", () => {
   });
 
   it("binds execution to the declared Vitest package bin instead of an arbitrary .bin launcher", async () => {
-    const root = await mkdtemp(join(tmpdir(), "ascout-t117-vitest-runtime-"));
+    const root = await trackedMkdtemp(join(tmpdir(), "ascout-t117-vitest-runtime-"));
     const binDir = join(root, "node_modules", ".bin");
     const vitestDir = join(root, "node_modules", "vitest");
     await mkdir(binDir, { recursive: true });
@@ -385,18 +399,13 @@ describe("T117 selector-shadow comparator contract", () => {
     const vitestEntrypoint = await realpath(join(vitestDir, "vitest.mjs"));
     expect(runtime.vitestEntrypointPath).toBe(vitestEntrypoint);
     expect(runtime.version).toBe("4.1.10");
-    if (process.platform === "win32") {
-      expect(runtime.executablePath).toBe(process.execPath);
-      expect(runtime.executableArgsPrefix).toEqual([vitestEntrypoint]);
-    } else {
-      expect(runtime.executablePath).toBe(vitestEntrypoint);
-      expect(runtime.executableArgsPrefix).toEqual([]);
-    }
+    expect(runtime.executablePath).toBe(process.execPath);
+    expect(runtime.executableArgsPrefix).toEqual([vitestEntrypoint]);
     expect(runtime.executablePath).not.toBe(await realpath(launcherPath));
   });
 
   it("rejects a Vitest manifest whose declared bin escapes the installed Vitest package", async () => {
-    const root = await mkdtemp(join(tmpdir(), "ascout-t117-vitest-escape-"));
+    const root = await trackedMkdtemp(join(tmpdir(), "ascout-t117-vitest-escape-"));
     const binDir = join(root, "node_modules", ".bin");
     const vitestDir = join(root, "node_modules", "vitest");
     const otherDir = join(root, "node_modules", "other-package");
@@ -418,7 +427,7 @@ describe("T117 selector-shadow comparator contract", () => {
   });
 
   it("launches the bound runtime prefix before the frozen Vitest reference arguments", async () => {
-    const root = await mkdtemp(join(tmpdir(), "ascout-t117-vitest-argv-"));
+    const root = await trackedMkdtemp(join(tmpdir(), "ascout-t117-vitest-argv-"));
     const reportPath = join(root, "report.json");
     const entrypointPath = join(root, "entrypoint.mjs");
     await writeFile(entrypointPath, [
@@ -441,7 +450,7 @@ describe("T117 selector-shadow comparator contract", () => {
 
   it("uses native Windows tree termination and proves descendants do not survive cleanup", async () => {
     if (process.platform !== "win32") return;
-    const controlRoot = await mkdtemp(join(tmpdir(), "ascout-t117-win-tree-"));
+    const controlRoot = await trackedMkdtemp(join(tmpdir(), "ascout-t117-win-tree-"));
     const pidPath = join(controlRoot, "child.pid");
     const childProgram = "setInterval(() => {}, 1000);";
     const parentProgram = [
@@ -552,7 +561,7 @@ describe("T117 selector-shadow comparator contract", () => {
     for (const mutate of [
       (value: any) => { value.tasks[0].status = "BLOCKED"; },
       (value: any) => { value.tasks[0].execution_admission = "refused_changed_surface"; },
-      (value: any) => { value.selection.mode = "no_test_task"; },
+      (value: any) => { value.selection.mode = "no_test_task"; value.tasks = []; },
     ]) {
       const value = receipt();
       mutate(value);
@@ -614,6 +623,48 @@ describe("T117 selector-shadow comparator contract", () => {
       expect(observation.comparison.reason_code).toBe(scenario.code);
       expect(observation.comparison.available).toBe(false);
     }
+  });
+
+  it("preserves a primary failure when private-report cleanup also fails", async () => {
+    const files = await evidenceFiles();
+    const reportRoot = await trackedMkdtemp(join(tmpdir(), "ascout-t117-cleanup-primary-"));
+    const reportPath = join(reportRoot, "vitest-results.json");
+    await expect(shadow.runSelectorShadow(files, {
+      fsOps: {
+        readFile,
+        rm: async () => { throw new Error("cleanup failed"); },
+      },
+      captureSourceState: async () => stableState(),
+      resolveRuntime: async () => ({ executablePath: process.execPath, executableArgsPrefix: [], version: "4.1.10", repositoryRoot: files.root }),
+      prepareReportArea: async () => ({ root: reportRoot, reportPath }),
+      executeReference: async () => {
+        await writeFile(reportPath, JSON.stringify({ testResults: [] }));
+        return { outcome: "completed", exitCode: 0, signal: null, durationMs: 1 };
+      },
+      normalizePath: async (name: string) => name,
+      publish: async () => { throw new shadow.SelectorShadowIntegrityError("primary_failure", "primary failure"); },
+    })).rejects.toMatchObject({ code: "primary_failure" });
+  });
+
+  it("reports cleanup failure when the main selector-shadow operation succeeded", async () => {
+    const files = await evidenceFiles();
+    const reportRoot = await trackedMkdtemp(join(tmpdir(), "ascout-t117-cleanup-success-"));
+    const reportPath = join(reportRoot, "vitest-results.json");
+    await expect(shadow.runSelectorShadow(files, {
+      fsOps: {
+        readFile,
+        rm: async () => { throw new Error("cleanup failed"); },
+      },
+      captureSourceState: async () => stableState(),
+      resolveRuntime: async () => ({ executablePath: process.execPath, executableArgsPrefix: [], version: "4.1.10", repositoryRoot: files.root }),
+      prepareReportArea: async () => ({ root: reportRoot, reportPath }),
+      executeReference: async () => {
+        await writeFile(reportPath, JSON.stringify({ testResults: [] }));
+        return { outcome: "completed", exitCode: 0, signal: null, durationMs: 1 };
+      },
+      normalizePath: async (name: string) => name,
+      publish: async () => {},
+    })).rejects.toMatchObject({ code: "reference_cleanup_failed" });
   });
 
   it("fails integrity before publication when the reconstructed subject does not match M/HT", async () => {
@@ -680,8 +731,8 @@ describe("T117 selector-shadow comparator contract", () => {
   });
 
   it("publishes atomically only to a new absolute file outside repository source identity", async () => {
-    const repo = await mkdtemp(join(tmpdir(), "ascout-t117-publish-repo-"));
-    const outside = await mkdtemp(join(tmpdir(), "ascout-t117-publish-outside-"));
+    const repo = await trackedMkdtemp(join(tmpdir(), "ascout-t117-publish-repo-"));
+    const outside = await trackedMkdtemp(join(tmpdir(), "ascout-t117-publish-outside-"));
     const output = join(outside, "selector-shadow-observation.json");
     const observation = { schema_version: 1, classification: "SELECTOR_SHADOW_NON_GATING" };
     await shadow.publishObservationAtomically(repo, output, observation);
@@ -693,8 +744,8 @@ describe("T117 selector-shadow comparator contract", () => {
   });
 
   it("fails closed on a final-path publication race without overwriting the competing file", async () => {
-    const repo = await mkdtemp(join(tmpdir(), "ascout-t117-race-repo-"));
-    const outside = await mkdtemp(join(tmpdir(), "ascout-t117-race-outside-"));
+    const repo = await trackedMkdtemp(join(tmpdir(), "ascout-t117-race-repo-"));
+    const outside = await trackedMkdtemp(join(tmpdir(), "ascout-t117-race-outside-"));
     const output = join(outside, "selector-shadow-observation.json");
     const observation = { schema_version: 1, classification: "SELECTOR_SHADOW_NON_GATING" };
     let raceCreated = false;
