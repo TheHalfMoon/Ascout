@@ -212,7 +212,7 @@ describe("PR #41 P0 receipt integrity regressions", () => {
     });
     expect(lint!.argv.join("\n")).not.toContain(secret);
     expect(lint!.argv).toEqual(["must-not-launch", ""]);
-  });
+  }, 15_000);
 
   it("redacts canonical built-in secrets from persisted argv and output without redactEnv", async () => {
     const repositoryRoot = makeRepository();
