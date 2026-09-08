@@ -437,6 +437,7 @@ describe("T107 exact-tree self-verification harness", () => {
       await releaseExactHeadRuntime(fixture.root, prepared);
     }
   }, 15_000);
+
   it("binds schema and installed dependency-tree assets against post-build tampering", async () => {
     const fixture = createBuildableFixture();
     const prepared = await prepareExactHeadRuntime(fixture.root, fixture.head, { requireExistingHeadBuild: false });
@@ -676,6 +677,7 @@ describe("T107 exact-tree self-verification harness", () => {
     expectNoEvidence(join(displacedParent, "evidence"));
     expectNoEvidence(outputDir);
   });
+
   it.skipIf(process.platform === "win32")("keeps evidence out of repository when private staging is replaced after validation", async () => {
     const simple = createSimpleRepository();
     const outputDir = temporaryOutputPath("ascout-t107-stage-race-");
