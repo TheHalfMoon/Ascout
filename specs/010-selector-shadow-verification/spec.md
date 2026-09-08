@@ -174,9 +174,23 @@ Require root `package.json` `scripts.test` to equal exactly `vitest run`. Resolv
 
 If this exact contract is not present, classify unavailable. Do not infer another script/runner command.
 
-### FR-010-006 — Bounded reference execution
+### FR-010-006 — Bounded end-to-end execution
 
-Reference execution MUST have an explicit timeout and reliable process completion semantics. Timeout, spawn error, missing report, malformed report, or runner integrity failure is unavailable shadow evidence.
+T118 MUST set the existing `self-verify` job timeout to exactly `60` minutes before selector-shadow execution becomes canonical.
+
+The 60-minute budget is allocated prospectively as follows:
+
+```text
+checkout + setup + exact install/build + artifact publication reserve = 20 minutes
+existing Spec 006 self-verification allowance                         = 20 minutes
+Spec 010 full-suite reference timeout                                = 10 minutes
+contingency / orderly cleanup reserve                                 = 10 minutes
+TOTAL                                                                 = 60 minutes
+```
+
+T117 MUST enforce the full-suite reference timeout at exactly 10 minutes. T118 MUST NOT increase either the 60-minute job timeout or the 10-minute reference timeout after observing a live result. Any need for more time requires return to planning and a separately reviewed amendment.
+
+Reference execution MUST use reliable process completion semantics. Timeout, spawn error, missing report, malformed report, or runner integrity failure is unavailable shadow evidence.
 
 Full-suite assertion failures are valid observations and MUST NOT be converted into harness failure merely because the runner exits nonzero.
 
@@ -224,7 +238,7 @@ Spec 010 MUST NOT change `src/**`, Receipt v1 schema/model/validator, CLI flags,
 
 ### FR-010-015 — Existing workflow reuse
 
-Use the existing `.github/workflows/self-verify.yml` same-repository lane rather than creating a new workflow or new permission surface. Existing exact-SHA `actions/upload-artifact` remains unchanged except for adding the new bounded artifact path after implementation-time revalidation.
+Use the existing `.github/workflows/self-verify.yml` same-repository lane rather than creating a new workflow or new permission surface. T118 may change `timeout-minutes` only from the current `30` to the prospectively frozen `60` required by FR-010-006. Existing exact-SHA `actions/upload-artifact` remains unchanged except for adding the new bounded artifact path after implementation-time revalidation.
 
 ### FR-010-016 — Qualification
 
@@ -252,16 +266,17 @@ Spec 010 may close `GO` only when exact evidence proves:
 2. exact reconstructed subject identity is checked before and after reference execution;
 3. changed/admission-refused/incomparable test tasks never trigger reference execution or selector-pass claims;
 4. the exact current Ascout root `vitest run` contract is frozen and no implicit install occurs;
-5. structured full-suite Vitest JSON is required for failure identity;
-6. exact `(path, test_id)` comparison publishes every unmatched full-suite failure;
-7. unavailable observations remain unavailable with reasons;
-8. no threshold or causal claim is added;
-9. observation artifact is separate, bounded, privacy-safe, and non-gating;
-10. no `src/**`, receipt/schema/selector/package/dependency/historical-result mutation occurs;
-11. T118 produces one valid live same-repository exact-head observation artifact;
-12. Project CI remains six-lane qualified;
-13. independent exact-head review has no unresolved material findings;
-14. guarded merges and post-merge proof close each implementation task canonically.
+5. T117 enforces the prospectively frozen 10-minute full-suite timeout and T118 sets exactly a 60-minute job timeout with the documented end-to-end reserve;
+6. structured full-suite Vitest JSON is required for failure identity;
+7. exact `(path, test_id)` comparison publishes every unmatched full-suite failure;
+8. unavailable observations remain unavailable with reasons;
+9. no threshold or causal claim is added;
+10. observation artifact is separate, bounded, privacy-safe, and non-gating;
+11. no `src/**`, receipt/schema/selector/package/dependency/historical-result mutation occurs;
+12. T118 produces one valid live same-repository exact-head observation artifact before the frozen budget expires;
+13. Project CI remains six-lane qualified;
+14. independent exact-head review has no unresolved material findings;
+15. guarded merges and post-merge proof close each implementation task canonically.
 
 ## Governance
 
