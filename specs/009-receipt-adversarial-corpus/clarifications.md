@@ -16,11 +16,11 @@ T078's known Ascout selector miss was repaired through Spec 002, and T091 publis
 
 ## C4 — What is the authoritative valid receipt?
 
-Implementation should construct a deterministic Receipt v1 test fixture using current repository types/helpers or a small test-owned factory. The fixture is authoritative only as a test control after it passes both exact current validators. Do not copy a stale historical JSON artifact and assume it remains valid.
+Implementation must construct the deterministic Receipt v1 controls required by `CASE_REGISTRY.md` using current repository types/helpers or test-owned local factories. A control is authoritative only as a test control after it passes both exact current validators. Do not copy a stale historical JSON artifact and assume it remains valid.
 
 ## C5 — Must every mutation be one field?
 
-Prefer one material fault. A compound mutation is allowed only when the invalid semantic state cannot be reached otherwise, and the case must document the minimum necessary compound change.
+Prefer one material fault. A compound mutation is allowed only where `CASE_REGISTRY.md` explicitly permits the minimum bookkeeping necessary to keep a semantic candidate schema-valid and isolate the named semantic invariant. No implementation-time compound case may be invented.
 
 ## C6 — What decides schema vs semantic rejection?
 
@@ -33,11 +33,11 @@ A semantic case must pass schema first.
 
 ## C7 — Are exact semantic issue codes required?
 
-Yes. Each semantic case declares at least one required issue code. The runner checks containment, not exact equality, because one minimal mutation can legitimately trigger another dependent invariant. Missing the required code is a failure.
+Yes. `CASE_REGISTRY.md` freezes the required semantic issue code set for each semantic case. The runner checks containment, not exact equality, because one minimum mutation can legitimately trigger another dependent invariant. Missing any required code is a failure. Changing a required code requires a separately reviewed planning amendment.
 
 ## C8 — Can the corpus use snapshots?
 
-Not as sole authority. Human-readable snapshots may assist review only if separately justified, but case identity, expected layer, and required issue codes must remain explicit data/assertions.
+Not as sole authority. Human-readable snapshots may assist review only if separately justified, but case identity, expected layer, required issue codes, and exact accounting remain explicit data/assertions.
 
 ## C9 — Can implementation add fast-check, a fuzzer, or a mutation library?
 
@@ -45,23 +45,31 @@ No. The gap is a small known adversarial contract corpus. A generalized generato
 
 ## C10 — How many cases are required?
 
-Planning should target a bounded registry of approximately 25–45 cases, enough to cover the named high-risk domains without creating combinatorial matrices. Exact final count is determined during implementation only within the authorized domains; adding a new domain is out of scope.
+Exactly the registry frozen in `CASE_REGISTRY.md`:
+
+- `2` valid controls;
+- `44` invalid cases;
+- `8` schema-boundary invalid cases;
+- `36` semantic-boundary invalid cases;
+- `46` total declared executions.
+
+T115 may not add, remove, rename, merge, split, skip, or reclassify cases. Any registry change requires a separately reviewed Spec 009 planning amendment that becomes canonical before implementation continues.
 
 ## C11 — Is an accepted invalid case automatically a failing test?
 
-Yes. It is a material corpus failure. The implementation task must preserve that failure and return to planning for a separately authorized product repair. Do not modify `src/**` or weaken the expected outcome in the same task.
+Yes. It is a material corpus failure. The implementation task must preserve that failure and return to planning for a separately authorized product repair. Do not modify `src/**`, schema, or a registry expectation in the same task.
 
 ## C12 — Can current validators be refactored to make cases easier to test?
 
-No by default. The corpus must exercise the current public/internal validation exports as they exist. Any product refactor requires separate authority.
+No. The corpus must exercise the current validation exports as they exist. Any product refactor requires separate authority.
 
 ## C13 — What about privacy/secret mutation cases?
 
-Only test deterministic existing contract rules. The Constitution explicitly rejects claims of universal secret detection. If the current contract cannot deterministically classify an arbitrary secret-looking string as invalid, that example is documented as outside corpus authority rather than forced into a fake expectation.
+Only deterministic existing contract rules may be tested. The Constitution explicitly rejects claims of universal secret detection. `CASE_REGISTRY.md` therefore authorizes no arbitrary secret-string rejection case; existing execution/persistence redaction tests retain that responsibility.
 
 ## C14 — Does the corpus need a published benchmark result file?
 
-No by default. A durable repository result JSON is not required to prove a deterministic contract test. Project CI logs and the merged focused contract test are sufficient unless the implementation plan identifies a concrete provenance need that cannot be satisfied otherwise. YAGNI favors no new benchmark-result artifact.
+No. A durable repository result JSON is not required to prove a deterministic contract test. Exact focused-test evidence, Project CI, review, and canonical merge proof are sufficient. YAGNI rejects a new benchmark-result lifecycle.
 
 ## C15 — Should the corpus run in ordinary Project CI?
 
@@ -69,20 +77,20 @@ Yes, by being an ordinary Vitest contract test included by the existing test com
 
 ## C16 — May the corpus invoke the CLI?
 
-Not required. The primary target is exact schema + semantic validation. CLI end-to-end coverage already exists elsewhere and would broaden this unit. Add CLI execution only through a separately justified task if a corpus case cannot be proven at the validator boundary.
+No under the current plan. The exact target is schema + semantic validation. CLI end-to-end coverage already exists elsewhere and would broaden this unit. Any need for CLI execution requires a planning amendment.
 
 ## C17 — How are valid controls prevented from drifting stale?
 
-Every corpus execution validates controls first against both exact current validators. A rejected control fails the suite and requires reconciliation; it is never silently rewritten during qualification without review.
+Every corpus execution validates both exact controls first against both exact current validators. A rejected control fails the suite and requires reconciliation; it is never silently rewritten during qualification without review.
 
 ## C18 — What is the implementation surface?
 
-The preferred implementation is exactly one new test path:
+Exactly one new test path is planned:
 
 `tests/receipt-adversarial-corpus.contract.test.ts`
 
-A second test-only helper path may be authorized only if the final plan proves the single file would materially harm readability or duplicate an existing canonical fixture helper. No product path is authorized by planning.
+No second helper or fixture path is authorized. If one file is later proven materially unreviewable, return to planning before adding another path.
 
 ## C19 — Does Spec 009 authorize implementation now?
 
-No. Planning must merge canonically first. A separate `IMPLEMENTATION_AUTHORIZATION.md` and durable authorization ledger must then bind the exact planning merge and exact implementation path(s).
+No. Planning must merge canonically first. A separate `IMPLEMENTATION_AUTHORIZATION.md` and durable authorization ledger must then bind the exact planning merge, exact registry, exact one-path T115 surface, and T116 ledger-only authority.
