@@ -347,6 +347,80 @@ describe("T117 selector-shadow comparator contract", () => {
     );
   });
 
+  it("binds execution to the declared Vitest package bin instead of an arbitrary .bin launcher", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ascout-t117-vitest-runtime-"));
+    const binDir = join(root, "node_modules", ".bin");
+    const vitestDir = join(root, "node_modules", "vitest");
+    await mkdir(binDir, { recursive: true });
+    await mkdir(vitestDir, { recursive: true });
+    await writeFile(join(root, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    const launcherPath = join(binDir, process.platform === "win32" ? "vitest.cmd" : "vitest");
+    await writeFile(launcherPath, "arbitrary launcher that must never become the reference executable\n");
+    await writeFile(join(vitestDir, "package.json"), JSON.stringify({
+      name: "vitest",
+      version: "4.1.10",
+      bin: { vitest: "vitest.mjs" },
+    }));
+    await writeFile(join(vitestDir, "vitest.mjs"), "export {};\n");
+
+    const runtime = await shadow.resolveLocalVitestRuntime(root);
+    const vitestEntrypoint = await realpath(join(vitestDir, "vitest.mjs"));
+    expect(runtime.vitestEntrypointPath).toBe(vitestEntrypoint);
+    expect(runtime.version).toBe("4.1.10");
+    if (process.platform === "win32") {
+      expect(runtime.executablePath).toBe(process.execPath);
+      expect(runtime.executableArgsPrefix).toEqual([vitestEntrypoint]);
+    } else {
+      expect(runtime.executablePath).toBe(vitestEntrypoint);
+      expect(runtime.executableArgsPrefix).toEqual([]);
+    }
+    expect(runtime.executablePath).not.toBe(await realpath(launcherPath));
+  });
+
+  it("rejects a Vitest manifest whose declared bin escapes the installed Vitest package", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ascout-t117-vitest-escape-"));
+    const binDir = join(root, "node_modules", ".bin");
+    const vitestDir = join(root, "node_modules", "vitest");
+    const otherDir = join(root, "node_modules", "other-package");
+    await mkdir(binDir, { recursive: true });
+    await mkdir(vitestDir, { recursive: true });
+    await mkdir(otherDir, { recursive: true });
+    await writeFile(join(root, "package.json"), JSON.stringify({ scripts: { test: "vitest run" } }));
+    await writeFile(join(binDir, process.platform === "win32" ? "vitest.cmd" : "vitest"), "launcher\n");
+    await writeFile(join(otherDir, "runner.mjs"), "export {};\n");
+    await writeFile(join(vitestDir, "package.json"), JSON.stringify({
+      name: "vitest",
+      version: "4.1.10",
+      bin: { vitest: "../other-package/runner.mjs" },
+    }));
+
+    await expect(shadow.resolveLocalVitestRuntime(root)).rejects.toMatchObject({
+      code: "UNAVAILABLE_FULL_SUITE_CONTRACT",
+    });
+  });
+
+  it("launches the bound runtime prefix before the frozen Vitest reference arguments", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ascout-t117-vitest-argv-"));
+    const reportPath = join(root, "report.json");
+    const entrypointPath = join(root, "entrypoint.mjs");
+    await writeFile(entrypointPath, [
+      'import { writeFileSync } from "node:fs";',
+      'const outputArg = process.argv.find((value) => value.startsWith("--outputFile="));',
+      'if (!outputArg) process.exit(9);',
+      'writeFileSync(outputArg.slice("--outputFile=".length), JSON.stringify({ argv: process.argv.slice(2) }));',
+    ].join("\n"));
+
+    const execution = await shadow.executeVitestReference({
+      executablePath: process.execPath,
+      executableArgsPrefix: [entrypointPath],
+      repositoryRoot: root,
+    }, reportPath, shadow.REFERENCE_TIMEOUT_MS);
+    expect(execution).toMatchObject({ outcome: "completed", exitCode: 0, cleanupComplete: true });
+    expect(JSON.parse(await readFile(reportPath, "utf8"))).toEqual({
+      argv: ["run", "--reporter=json", `--outputFile=${reportPath}`],
+    });
+  });
+
   it("uses native Windows tree termination and proves descendants do not survive cleanup", async () => {
     if (process.platform !== "win32") return;
     const controlRoot = await mkdtemp(join(tmpdir(), "ascout-t117-win-tree-"));

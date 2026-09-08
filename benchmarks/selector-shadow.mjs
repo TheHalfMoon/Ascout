@@ -346,37 +346,65 @@ export async function resolveLocalVitestRuntime(repositoryRoot, fsOps = { readFi
     nodeModulesReal = await fsOps.realpath(resolve(rootReal, "node_modules"));
   } catch { unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT"); }
 
-  const executableCandidates = process.platform === "win32"
+  const launcherCandidates = process.platform === "win32"
     ? ["node_modules/.bin/vitest.cmd", "node_modules/.bin/vitest.exe"]
     : ["node_modules/.bin/vitest", "node_modules/.bin/vitest.exe"];
-
-  let executablePath = null;
-  for (const relativePath of executableCandidates) {
+  let localLauncherProven = false;
+  for (const relativePath of launcherCandidates) {
     try {
-      const candidateReal = await fsOps.realpath(resolve(rootReal, relativePath));
-      const candidateStats = await fsOps.stat(candidateReal);
-      if (candidateStats.isFile() && isInside(nodeModulesReal, candidateReal)) {
-        executablePath = candidateReal;
+      const launcherReal = await fsOps.realpath(resolve(rootReal, relativePath));
+      const launcherStats = await fsOps.stat(launcherReal);
+      if (launcherStats.isFile() && isInside(nodeModulesReal, launcherReal)) {
+        localLauncherProven = true;
         break;
       }
     } catch {}
   }
-  if (executablePath === null) unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
+  if (!localLauncherProven) unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
 
   let vitestManifest;
+  let vitestPackageRoot;
   try {
     const manifestReal = await fsOps.realpath(resolve(rootReal, "node_modules/vitest/package.json"));
     if (!isInside(nodeModulesReal, manifestReal)) unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
+    vitestPackageRoot = dirname(manifestReal);
     vitestManifest = JSON.parse((await fsOps.readFile(manifestReal, "utf8")).toString());
   } catch (error) {
     if (error instanceof SelectorShadowUnavailableError) throw error;
     unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
   }
-  if (!isRecord(vitestManifest) || vitestManifest.name !== "vitest" || typeof vitestManifest.version !== "string" || vitestManifest.version.length === 0) {
+  if (
+    !isRecord(vitestManifest) ||
+    vitestManifest.name !== "vitest" ||
+    typeof vitestManifest.version !== "string" || vitestManifest.version.length === 0 || vitestManifest.version.includes("\0") ||
+    !isRecord(vitestManifest.bin) ||
+    typeof vitestManifest.bin.vitest !== "string" || vitestManifest.bin.vitest.length === 0 || vitestManifest.bin.vitest.includes("\0") ||
+    isAbsolute(vitestManifest.bin.vitest)
+  ) {
     unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
   }
 
-  return Object.freeze({ executablePath, version: vitestManifest.version, repositoryRoot: rootReal });
+  let vitestEntrypointPath;
+  try {
+    vitestEntrypointPath = await fsOps.realpath(resolve(vitestPackageRoot, vitestManifest.bin.vitest));
+    const entrypointStats = await fsOps.stat(vitestEntrypointPath);
+    if (!entrypointStats.isFile() || !isInside(vitestPackageRoot, vitestEntrypointPath)) {
+      unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
+    }
+  } catch (error) {
+    if (error instanceof SelectorShadowUnavailableError) throw error;
+    unavailable("UNAVAILABLE_FULL_SUITE_CONTRACT");
+  }
+
+  const executablePath = process.platform === "win32" ? process.execPath : vitestEntrypointPath;
+  const executableArgsPrefix = process.platform === "win32" ? Object.freeze([vitestEntrypointPath]) : Object.freeze([]);
+  return Object.freeze({
+    executablePath,
+    executableArgsPrefix,
+    vitestEntrypointPath,
+    version: vitestManifest.version,
+    repositoryRoot: rootReal,
+  });
 }
 
 function windowsTaskkillPath(environment = process.env) {
@@ -443,7 +471,8 @@ export async function executeVitestReference(runtime, reportPath, timeoutMs = RE
     };
 
     try {
-      child = spawn(runtime.executablePath, ["run", "--reporter=json", `--outputFile=${reportPath}`], {
+      const argsPrefix = Array.isArray(runtime.executableArgsPrefix) ? runtime.executableArgsPrefix : [];
+      child = spawn(runtime.executablePath, [...argsPrefix, "run", "--reporter=json", `--outputFile=${reportPath}`], {
         cwd: runtime.repositoryRoot,
         shell: false,
         windowsHide: true,
