@@ -4,7 +4,7 @@
 
 ## Scope
 
-This analysis checks `GAP_EVIDENCE.md`, `spec.md`, `clarifications.md`, `ponytail-review.md`, `plan.md`, `plan-ponytail-review.md`, `tasks.md`, `SUPPLY_CHAIN_REVIEW.md`, and `checklists/requirements.md` for authority, scope, semantics, dependency, and YAGNI consistency.
+This analysis checks `GAP_EVIDENCE.md`, `spec.md`, `clarifications.md`, `ponytail-review.md`, `plan.md`, `plan-ponytail-review.md`, `tasks.md`, `SUPPLY_CHAIN_REVIEW.md`, and `checklists/requirements.md` for authority, scope, semantics, dependency, bounded-execution, and YAGNI consistency.
 
 ## A1 — Authority chain
 
@@ -129,9 +129,27 @@ Finding: **PASS**.
 
 No consumed T113 run, ref, donor evidence, historical result, or terminal disposition is mutated/reinterpreted.
 
-## A18 — Internal consistency finding
+## A18 — End-to-end timeout budget
 
-No material contradiction, ambiguous authority transfer, missing task dependency, or unjustified implementation surface was identified in the current planning package.
+Finding: **PASS AFTER REVIEW REMEDIATION**.
+
+The first external exact-head review identified that a bounded reference process alone did not guarantee the existing 30-minute `self-verify` job could complete setup, Spec 006 verification, the new reference, and artifact upload.
+
+The planning package now freezes before any T118 live observation:
+
+```text
+T118 self-verify job timeout = 60 minutes
+checkout/setup/install/build/artifact reserve = 20 minutes
+existing Spec 006 self-verification allowance = 20 minutes
+T117 full-suite reference timeout = 10 minutes
+contingency/orderly-cleanup reserve = 10 minutes
+```
+
+`spec.md`, `plan.md`, `tasks.md`, and the requirements checklist agree on this budget. Neither the 60-minute job timeout nor 10-minute reference timeout may be widened after observing live evidence; insufficiency requires return to planning.
+
+## A19 — Internal consistency finding
+
+No material contradiction, ambiguous authority transfer, missing task dependency, unjustified implementation surface, or unbounded execution assumption remains in the current planning package.
 
 `CROSS_ARTIFACT_ANALYSIS = PASS`
 
