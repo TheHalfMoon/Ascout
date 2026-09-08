@@ -1,5 +1,6 @@
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { link as fsLink, lstat, mkdtemp, mkdir, readFile, realpath, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -87,6 +88,40 @@ function stableState() {
     unstagedClean: true,
     nonignoredUntrackedClean: true,
   };
+}
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
+}
+
+function processExists(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function readPidEventually(path: string): Promise<number> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    try {
+      const value = Number.parseInt((await readFile(path, "utf8")).trim(), 10);
+      if (Number.isSafeInteger(value) && value > 0) return value;
+    } catch {}
+    await sleep(25);
+  }
+  throw new Error("child PID was not published in time");
+}
+
+async function waitForProcessExit(pid: number): Promise<boolean> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (!processExists(pid)) return true;
+    await sleep(25);
+  }
+  return !processExists(pid);
 }
 
 describe("T117 selector-shadow comparator contract", () => {
@@ -274,6 +309,21 @@ describe("T117 selector-shadow comparator contract", () => {
     }), async (name: string) => name)).rejects.toMatchObject({ code: "UNAVAILABLE_FULL_SUITE_REPORT" });
   });
 
+  it("rejects every structurally incomplete Vitest suite and assertion record", async () => {
+    const invalidReports = [
+      { testResults: [null] },
+      { testResults: [{ name: "tests/a.test.ts", status: "passed" }] },
+      { testResults: [{ name: "tests/a.test.ts", status: "passed", assertionResults: {} }] },
+      { testResults: [{ name: "tests/a.test.ts", status: "passed", assertionResults: [{ status: "passed" }] }] },
+      { testResults: [{ name: "", status: "passed", assertionResults: [] }] },
+    ];
+    for (const report of invalidReports) {
+      await expect(shadow.parseVitestFailureReport(JSON.stringify(report), async (name: string) => name)).rejects.toMatchObject({
+        code: "UNAVAILABLE_FULL_SUITE_REPORT",
+      });
+    }
+  });
+
   it("normalizes only repository-contained reported paths and rejects outside paths", async () => {
     const root = await mkdtemp(join(tmpdir(), "ascout-t117-path-root-"));
     const outside = await mkdtemp(join(tmpdir(), "ascout-t117-path-outside-"));
@@ -295,6 +345,43 @@ describe("T117 selector-shadow comparator contract", () => {
     expect(() => shadow.validateRootPackageContract({ scripts: {} })).toThrowError(
       expect.objectContaining({ code: "UNAVAILABLE_FULL_SUITE_CONTRACT" }),
     );
+  });
+
+  it("uses native Windows tree termination and proves descendants do not survive cleanup", async () => {
+    if (process.platform !== "win32") return;
+    const controlRoot = await mkdtemp(join(tmpdir(), "ascout-t117-win-tree-"));
+    const pidPath = join(controlRoot, "child.pid");
+    const childProgram = "setInterval(() => {}, 1000);";
+    const parentProgram = [
+      'const { spawn } = require("node:child_process");',
+      'const { writeFileSync } = require("node:fs");',
+      `const child = spawn(process.execPath, ["-e", ${JSON.stringify(childProgram)}], { stdio: "ignore", windowsHide: true });`,
+      "writeFileSync(process.argv[1], String(child.pid));",
+      "setInterval(() => {}, 1000);",
+    ].join("\n");
+    const parent = spawn(process.execPath, ["-e", parentProgram, pidPath], {
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    const parentPid = parent.pid ?? -1;
+    expect(parentPid).toBeGreaterThan(0);
+    let childPid = -1;
+    try {
+      childPid = await readPidEventually(pidPath);
+      expect(processExists(parentPid)).toBe(true);
+      expect(processExists(childPid)).toBe(true);
+      expect(shadow.terminateWindowsProcessTree(parentPid)).toBe(true);
+      expect(await waitForProcessExit(parentPid)).toBe(true);
+      expect(await waitForProcessExit(childPid)).toBe(true);
+    } finally {
+      if (processExists(parentPid)) {
+        try { process.kill(parentPid); } catch {}
+      }
+      if (childPid > 0 && processExists(childPid)) {
+        try { process.kill(childPid); } catch {}
+      }
+      await rm(controlRoot, { recursive: true, force: true });
+    }
   });
 
   it("uses exactly one 10-minute full-suite reference and preserves selector misses as successful non-gating evidence", async () => {
@@ -414,6 +501,8 @@ describe("T117 selector-shadow comparator contract", () => {
       { result: { outcome: "completed", exitCode: 1, signal: null, durationMs: 1 }, write: null, code: "UNAVAILABLE_FULL_SUITE_EXECUTION" },
       { result: { outcome: "completed", exitCode: 1, signal: null, durationMs: 1 }, write: "{", code: "UNAVAILABLE_FULL_SUITE_REPORT" },
       { result: { outcome: "completed", exitCode: 1, signal: null, durationMs: 1 }, write: JSON.stringify({ testResults: [] }), code: "UNAVAILABLE_FULL_SUITE_REPORT" },
+      { result: { outcome: "completed", exitCode: 0, signal: null, durationMs: 1 }, write: JSON.stringify({ testResults: [null] }), code: "UNAVAILABLE_FULL_SUITE_REPORT" },
+      { result: { outcome: "completed", exitCode: 0, signal: null, durationMs: 1 }, write: JSON.stringify({ testResults: [{ name: "tests/a.test.ts", status: "passed" }] }), code: "UNAVAILABLE_FULL_SUITE_REPORT" },
     ];
     for (const scenario of scenarios) {
       const files = await evidenceFiles();
@@ -509,6 +598,29 @@ describe("T117 selector-shadow comparator contract", () => {
     await expect(shadow.publishObservationAtomically(repo, join(repo, "inside.json"), observation)).rejects.toMatchObject({
       code: "output_inside_repository",
     });
+  });
+
+  it("fails closed on a final-path publication race without overwriting the competing file", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "ascout-t117-race-repo-"));
+    const outside = await mkdtemp(join(tmpdir(), "ascout-t117-race-outside-"));
+    const output = join(outside, "selector-shadow-observation.json");
+    const observation = { schema_version: 1, classification: "SELECTOR_SHADOW_NON_GATING" };
+    let raceCreated = false;
+    await expect(shadow.publishObservationAtomically(repo, output, observation, {
+      lstat,
+      realpath,
+      rm,
+      unlink,
+      writeFile,
+      link: async (source: string, target: string) => {
+        if (!raceCreated) {
+          raceCreated = true;
+          await writeFile(target, "competing-evidence\n", { flag: "wx", mode: 0o600 });
+        }
+        return fsLink(source, target);
+      },
+    })).rejects.toMatchObject({ code: "output_exists" });
+    expect(await readFile(output, "utf8")).toBe("competing-evidence\n");
   });
 
   it("requires exact absolute CLI evidence paths and rejects extra or duplicate arguments", () => {
