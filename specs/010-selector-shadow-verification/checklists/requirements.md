@@ -41,6 +41,15 @@
 - [x] Unavailable is distinct from no-miss.
 - [x] No recall threshold or universal recall claim.
 
+## Execution budget
+
+- [x] T117 full-suite reference timeout is frozen prospectively at exactly 10 minutes.
+- [x] T118 existing `self-verify` job timeout is frozen prospectively at exactly 60 minutes.
+- [x] The 60-minute budget explicitly reserves 20 minutes for checkout/setup/install/build/artifact publication, 20 minutes for existing Spec 006 self-verification, 10 minutes for the full-suite reference, and 10 minutes for contingency/orderly cleanup.
+- [x] The 60-minute job timeout covers setup, self-verification, reference execution, cleanup, and artifact upload rather than only the reference process.
+- [x] Neither timeout may be increased after live evidence; insufficient budget requires `NO_GO / RETURN_TO_PLANNING`.
+- [x] T118 live qualification requires artifact publication before successful completion within the frozen 60-minute budget.
+
 ## Artifact and privacy
 
 - [x] One separate `SELECTOR_SHADOW_NON_GATING` JSON artifact.
@@ -71,7 +80,7 @@
 - [x] Zero unresolved material threads is required.
 - [x] Guarded expected-head merge and post-merge identity proof are required.
 - [x] First live T118 observation is mandatory before T118 closeout.
-- [x] Stop/return-to-planning conditions are explicit.
+- [x] Stop/return-to-planning conditions include timeout-budget insufficiency.
 
 `REQUIREMENTS_QUALITY = PASS`
 
