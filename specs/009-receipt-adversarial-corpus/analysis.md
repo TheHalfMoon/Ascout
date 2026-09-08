@@ -18,6 +18,7 @@
 - `ponytail-review.md`
 - `plan.md`
 - `plan-ponytail-review.md`
+- `CASE_REGISTRY.md`
 - `tasks.md`
 - `checklists/requirements.md`
 
@@ -29,7 +30,7 @@ Aligned. The corpus requires explicit validator evidence per case and forbids ag
 
 ### No Green by Omission
 
-Aligned. Every declared case must execute and be accounted for; a skipped or unexecuted case fails the corpus.
+Aligned. `SPEC009-CASE-REGISTRY-V1` freezes 2 valid controls, 44 invalid cases, and 46 total declared executions. Every declared case/control must execute and be accounted for; a skipped, unexecuted, reclassified, or undeclared qualification case fails the corpus.
 
 ### Source-Bound Truth
 
@@ -69,60 +70,78 @@ T078's historical one-case Ascout selector miss is preserved. T091's later six-c
 
 The planning rationale uses this only as prioritization evidence: there is no unresolved published selector miss with a known bounded repair target stronger than the explicit receipt-adversarial gap.
 
+## Exact registry analysis
+
+Planning now freezes `SPEC009-CASE-REGISTRY-V1` rather than deferring case-count/layer/code selection to implementation.
+
+Exact accounting:
+
+- valid controls: `2`;
+- invalid cases: `44`;
+- schema cases: `8`;
+- semantic cases: `36`;
+- total declared executions: `46`.
+
+The registry was checked against the current canonical Receipt v1 schema/model validation surfaces before freezing. Required semantic code names are planning-time contract data, not implementation guesses.
+
+If implementation evidence proves a frozen layer/code expectation factually wrong, T115 stops and returns to planning. It may not rewrite the registry in the implementation branch.
+
 ## Requirements-to-plan mapping
 
-| Requirement domain | Plan coverage | Task ownership |
+| Requirement domain | Plan/registry coverage | Task ownership |
 | --- | --- | --- |
-| valid controls | plan §§3,5 | T115 |
-| stable explicit case registry | plan §§4,5 | T115 |
-| schema/semantic layer separation | plan §§2,5 | T115 |
-| evidence/artifact integrity | plan §6.1 | T115 |
-| source/comparison integrity | plan §6.2 | T115 |
-| paths/ranges | plan §6.3 | T115 |
-| command authority | plan §6.4 | T115 |
-| timing/observations | plan §6.5 | T115 |
-| selection/exercise | plan §6.6 | T115 |
-| summary/exit | plan §6.7 | T115 |
-| privacy honesty | plan §7 | T115 |
-| product-gap separation | plan §9 | T115 / recovery planning if needed |
-| canonical reconciliation | plan §11 | T116 |
+| valid controls | plan §§3,5; registry controls | T115 |
+| stable explicit case registry | `CASE_REGISTRY.md`; plan §§4,5,13 | T115 |
+| schema/semantic layer separation | plan §§2,5; registry | T115 |
+| evidence/artifact integrity | registry evidence/artifact cases | T115 |
+| source/comparison integrity | registry source/comparison cases | T115 |
+| paths/ranges | registry schema/path and changed-scope cases | T115 |
+| command authority | registry command-authority cases | T115 |
+| timing/observations | registry timing/observation cases | T115 |
+| selection/exercise | registry selection/exercise/branch cases | T115 |
+| summary/exit | registry aggregate/decision cases | T115 |
+| privacy honesty | registry privacy boundary; plan §7 | T115 |
+| product-gap separation | plan §9; tasks product-gap rule | T115 / recovery planning if needed |
+| canonical reconciliation | plan §11; tasks T116 | T116 |
 
 No requirement lacks task ownership.
 
 ## Path-scope analysis
 
-Planning converges on one implementation path:
+Planning converges on exactly one implementation path:
 
 - `tests/receipt-adversarial-corpus.contract.test.ts`
 
-This is consistent across clarifications, both YAGNI reviews, plan, tasks, and checklist.
+Clarifications, plan, tasks, and registry change-control permit no second helper/fixture path. Any need for another tracked implementation path requires a new planning amendment before implementation continues.
 
-No planning artifact authorizes a second helper, product file, schema file, workflow, dependency file, benchmark result, or historical artifact.
+No planning artifact authorizes a product file, schema file, workflow, dependency file, benchmark result, historical artifact, or second T115 implementation path.
 
 ## Failure-state consistency
 
-All artifacts agree:
+All controlling artifacts agree:
 
-- accepted invalid case => T115 failure;
+- accepted invalid case => T115 `NO_GO / PRODUCT_GAP_DISCOVERED`;
+- frozen layer/code shown wrong => stop and return to planning;
 - no product repair inside T115;
-- separately reviewed recovery planning required;
+- no registry rewrite inside T115;
+- separately reviewed recovery/planning amendment required;
 - T116 cannot convert such a failure into `SPEC_009 = GO`;
-- complete all-valid rejection accounting is required for GO.
+- exact 46-execution accounting is required for GO.
 
 ## Review/qualification consistency
 
-All artifacts require final implementation exact-head CI, independent substantive review, material-finding reconciliation, zero unresolved threads, guarded merge, and post-merge proof.
+All controlling artifacts require final implementation exact-head focused evidence, Project CI, independent substantive review, material-finding reconciliation, zero unresolved threads, guarded merge, and post-merge proof.
 
-Planning itself must receive the same freshness discipline before canonical merge. This self-analysis does not substitute for the independent final planning audit or fresh external exact-head review.
+Planning itself must receive the same freshness discipline before canonical merge. This self-analysis does not substitute for the fresh independent external exact-head planning review.
 
 ## Open ambiguities
 
 None material.
 
-Implementation must re-read current semantic issue codes immediately before authoring each case. Planning deliberately does not freeze guessed code names that have not been verified from current source.
+The previously open implementation-time discretion over final case count/layer/code selection is closed by `CASE_REGISTRY.md`. Registry mutations require planning amendment authority.
 
 ## Conclusion
 
-`CROSS_ARTIFACT_ANALYSIS = PASS / INTERNALLY_CONSISTENT`
+`CROSS_ARTIFACT_ANALYSIS = PASS / INTERNALLY_CONSISTENT / REGISTRY_FROZEN`
 
-The package is bounded, constitution-aligned, roadmap-consistent, independent from Spec 007 terminal execution, and ready for independent final planning audit plus fresh exact-head branch-purity review.
+The package is bounded, constitution-aligned, roadmap-consistent, independent from Spec 007 terminal execution, protected against green-by-omission, and ready for an updated final plan audit plus fresh exact-head external review.
