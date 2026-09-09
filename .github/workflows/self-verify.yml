@@ -10,7 +10,7 @@ jobs:
   self-verify:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Checkout exact PR head
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -55,6 +55,15 @@ jobs:
             --head-sha "$PR_HEAD_SHA" \
             --output-dir "$RUNNER_TEMP/self-verification"
 
+      - name: Capture selector-shadow observation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node benchmarks/selector-shadow.mjs \
+            --receipt "$RUNNER_TEMP/self-verification/self-verification-receipt.json" \
+            --envelope "$RUNNER_TEMP/self-verification/self-verification-envelope.json" \
+            --output "$RUNNER_TEMP/self-verification/selector-shadow-observation.json"
+
       - name: Upload bounded self-verification evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -62,5 +71,6 @@ jobs:
           path: |
             ${{ runner.temp }}/self-verification/self-verification-receipt.json
             ${{ runner.temp }}/self-verification/self-verification-envelope.json
+            ${{ runner.temp }}/self-verification/selector-shadow-observation.json
           if-no-files-found: error
           retention-days: 30
