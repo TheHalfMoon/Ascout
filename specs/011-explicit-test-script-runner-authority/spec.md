@@ -96,7 +96,7 @@ Any other value, including values that contain an allowlisted substring plus add
 
 ### FR-011-003 — Ambiguous-only application
 
-Apply explicit authority only when `jsTestRunner` would otherwise be `ambiguous` with exactly candidates `{jest, vitest}` in the same discovered scope. If the allowlisted script selects exactly one of those two candidates, resolve to that runner and record explicit script authority with source path `package.json`. Otherwise preserve the existing ambiguous outcome byte-for-byte, including candidates, reason code, reason text, and source paths.
+Apply explicit authority only when `jsTestRunner` would otherwise be `ambiguous` with exactly candidates `{jest, vitest}` in the same discovered scope and with ambiguous `sourcePaths` exactly `["package.json"]`, meaning both runner declarations are in the root manifest. If the allowlisted root script selects exactly one of those two candidates, resolve to that runner and record explicit script authority with source path `package.json`. Otherwise preserve the existing outcome byte-for-byte, including candidates, reason code, reason text, and source paths; a root allowlisted script with nested runner declarations therefore remains ambiguous and discards no declaration provenance.
 
 ### FR-011-004 — No state expansion
 
@@ -116,7 +116,7 @@ The existing `classifyCommandSurfaces` test authority set, including root `packa
 
 ### FR-011-008 — Fail-closed script taxonomy
 
-Planning must freeze an exhaustive fail-closed taxonomy covering at minimum: missing script, non-string script, empty script, whitespace-padded script, composite script, indirect executor script, unsupported runner script, unsafe path/character script, and contradictory single-runner script. Each category must map to preserved ambiguous behavior, never to an inferred runner.
+Planning must freeze an exhaustive fail-closed taxonomy covering at minimum: missing script, non-string script, empty script, whitespace-padded script, composite script, indirect executor script, unsupported runner script, unsafe path/character script, and contradictory single-runner script. Each category must preserve the existing discovery outcome without inferring a runner: when discovery already reports exactly `{jest, vitest}` ambiguous, preserve that ambiguous outcome byte-for-byte; for `absent`, `unsupported`, already-`resolved`, or any other existing state, preserve that existing state unchanged.
 
 ### FR-011-009 — Determinism and purity
 
