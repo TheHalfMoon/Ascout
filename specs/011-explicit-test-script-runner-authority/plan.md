@@ -64,12 +64,13 @@ In the runner-resolution path (conceptually inside `discoverProjectFromFiles` af
 1. compute the existing `discoverRunner(scopedManifests)` outcome;
 2. if outcome state is not `ambiguous`, return it unchanged;
 3. if ambiguous candidates are not exactly `{jest, vitest}` (sorted comparison), return it unchanged;
-4. compute explicit authority from the in-scope root manifest;
-5. if authority is null, return the ambiguous outcome unchanged byte-for-byte;
-6. if authority names a runner not in the ambiguous candidate set, return the ambiguous outcome unchanged;
-7. otherwise return `{ state: "resolved", value: authority, sourcePaths: ["package.json"] }` with explicit provenance indicating script authority.
+4. if ambiguous `sourcePaths` are not exactly `["package.json"]`, return the ambiguous outcome unchanged byte-for-byte, so nested runner declarations never resolve from a root script and no declaration provenance is discarded;
+5. compute explicit authority from the in-scope root manifest;
+6. if authority is null, return the ambiguous outcome unchanged byte-for-byte;
+7. if authority names a runner not in the ambiguous candidate set, return the ambiguous outcome unchanged;
+8. otherwise return `{ state: "resolved", value: authority, sourcePaths: ["package.json"] }` with explicit provenance indicating script authority.
 
-The resolved `sourcePaths` remains `["package.json"]` because both the declarations and the script live in the root manifest on the measured shape. No new path is introduced.
+The resolved `sourcePaths` remains `["package.json"]` because resolution is constrained to the measured shape where both declarations and the script live in the root manifest. No new path is introduced and no nested declaration path is discarded.
 
 Implementation must preserve the exact existing ambiguous `reasonCode`, `reasonText`, `candidates`, and `sourcePaths` values on every non-resolving path. Tests must assert byte-level preservation, not merely state preservation.
 
@@ -127,8 +128,9 @@ Focused contracts must cover at minimum these root `scripts.test` shapes, each p
 
 Positive contracts must cover:
 
-- `"vitest run"` with both declared resolves to `vitest`;
-- `"jest"` with both declared resolves to `jest`;
+- `"vitest run"` with both runners declared in the root manifest resolves to `vitest`;
+- `"jest"` with both runners declared in the root manifest resolves to `jest`;
+- `"vitest run"` with nested runner declarations (ambiguous `sourcePaths` beyond `["package.json"]`) preserves ambiguous without discarding declaration provenance;
 - single vitest declaration with either script preserves resolved vitest;
 - single jest declaration with either script preserves resolved jest;
 - no declared runner with allowlisted script preserves absent;
