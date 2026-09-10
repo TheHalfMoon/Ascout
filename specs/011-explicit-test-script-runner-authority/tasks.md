@@ -32,13 +32,13 @@ Implement the repository-internal rule defined by `spec.md` and `plan.md`:
 
 1. derive explicit authority only from the in-scope root `package.json` `scripts.test` exact string;
 2. accept only exactly `"vitest run"` as vitest authority and exactly `"jest"` as jest authority;
-3. apply authority only when existing runner resolution would otherwise be `ambiguous` with exactly candidates `{jest, vitest}`;
-4. resolve to the allowlisted candidate when it is a member of that ambiguous set, otherwise preserve the ambiguous outcome byte-for-byte;
-5. never change `absent`, `unsupported`, or already-`resolved` outcomes;
+3. apply authority only when existing runner resolution would otherwise be `ambiguous` with exactly candidates `{jest, vitest}` and ambiguous `sourcePaths` exactly `["package.json"]`, meaning both declarations are in the root manifest;
+4. resolve to the allowlisted candidate when it is a member of that root-ambiguous set, otherwise preserve the existing outcome byte-for-byte, including nested-declaration ambiguous preservation with no provenance loss;
+5. never change `absent`, `unsupported`, or already-`resolved` outcomes, and never map a non-ambiguous state to ambiguous;
 6. make Vitest and Jest planners consume the single post-authority discovery value without duplicating script parsing;
 7. preserve all existing scope, config-ambiguity, local-runtime, coverage-provider, run-id, and artifact-path gates;
 8. preserve existing `classifyCommandSurfaces` test authority and per-invocation changed-surface admission;
-9. preserve `NOT_RUN(js_test_runner_ambiguous)` with identical reason code, text, candidates, and source paths for every non-allowlisted script shape;
+9. preserve `NOT_RUN(js_test_runner_ambiguous)` with identical reason code, text, candidates, and source paths for every non-allowlisted script shape and every nested-declaration ambiguous shape;
 10. keep evaluation synchronous, total, deterministic, and free of I/O, processes, network, clock, randomness, and environment reads.
 
 ### Focused proof
