@@ -34,7 +34,7 @@ All prior-head CI/review evidence, if any, is stale for merge qualification afte
 11. Changed-surface admission is unchanged; explicit resolution never auto-admits.
 12. No-green-by-omission is preserved for remaining ambiguous outcomes.
 13. Evaluation is synchronous, total, deterministic, and free of I/O, processes, network, clock, randomness, and environment reads.
-14. Only existing `sourcePaths: ["package.json"]` and the resolved runner value are exposed; no new persisted script text, absolute path, credential, token, environment, actor/host identity, repository URL, or raw stdout/stderr.
+14. Only existing `sourcePaths: ["package.json"]` and the resolved runner value are exposed; no new runtime provenance field is required and no new persisted script text, absolute path, credential, token, environment, actor/host identity, repository URL, or raw stdout/stderr; explicit authority is proven by focused contracts, not by a new marker.
 15. Task order is exactly `T120 -> T121`.
 16. T120 candidate paths are exactly `src/discovery.ts`, `src/tools/vitest.ts`, `src/tools/jest.ts`, and `tests/t120-explicit-script-authority.contract.test.ts`.
 17. T121 is ledger/governance only by default.
@@ -45,6 +45,7 @@ All prior-head CI/review evidence, if any, is stale for merge qualification afte
 22. Discovery evaluation requires no new timeout, retry, or budget; no benchmark replay or separate live-observation gate beyond standard Self Verification is required for T120.
 23. Each material unit requires exact-head Self Verification, original-attempt six-lane Project CI, fresh independent substantive review, zero unresolved material threads, live rules/protection revalidation, guarded expected-head normal merge, and post-merge proof.
 24. No force-push, rebase, destructive history rewrite, consumed-attempt reinterpretation, or fabricated evidence.
+25. The twelve new files under `specs/011-explicit-test-script-runner-authority/` are the authorized planning output under Issue #277; existing canonical specs `001` through `010` remain unchanged as proven by the base-to-head diff.
 
 ## Founder-side findings
 
