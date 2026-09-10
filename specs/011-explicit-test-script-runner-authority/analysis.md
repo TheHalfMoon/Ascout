@@ -53,13 +53,13 @@ Explicit authority is a pure deterministic function of the already-collected dis
 
 Finding: **PASS**.
 
-Root-only exact-string authority with a frozen two-entry allowlist is consistent across gap, spec, clarifications, plan, reductions, tasks, and checklist. Ambiguous-only application, single/absent/unsupported preservation, byte-identical ambiguous retention, and unchanged `classifyCommandSurfaces` admission are stated identically everywhere. No auto-admission, alternate-command inference, shell, or implicit install is allowed.
+Root-only exact-string authority with a frozen two-entry allowlist is consistent across gap, spec, clarifications, plan, reductions, tasks, and checklist. Ambiguous-only application constrained to root-manifest declarations, single/absent/unsupported preservation, byte-identical existing-outcome retention including nested-declaration ambiguous preservation, and unchanged `classifyCommandSurfaces` admission are stated identically everywhere. No auto-admission, alternate-command inference, shell, or implicit install is allowed.
 
 ## A8 — Failure and unavailable semantics
 
 Finding: **PASS**.
 
-Every relevant artifact states that non-allowlisted scripts preserve `ambiguous(js_test_runner_ambiguous)` and that remaining `NOT_RUN` tasks retain reasons and incompleteness exit behavior. Unavailable shadow comparisons remain unavailable; no new pass claim is created.
+Every relevant artifact states that non-allowlisted scripts preserve the existing discovery outcome without inferring a runner, that remaining `NOT_RUN` tasks retain reasons and incompleteness exit behavior, and that nested-declaration ambiguous outcomes preserve declaration provenance. Unavailable shadow comparisons remain unavailable; no new pass claim is created.
 
 ## A9 — Non-gating and threshold semantics
 
