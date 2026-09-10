@@ -104,7 +104,7 @@ Apply explicit authority only when `jsTestRunner` would otherwise be `ambiguous`
 
 ### FR-011-005 — Authority provenance
 
-When explicit authority resolves the runner, the resolved outcome must expose that it was derived from the explicit root test script and not merely from declaration coexistence. The provenance must identify `package.json` as the authority source without persisting raw credential-bearing, absolute-path, or secret material. When no authority applies, no new provenance field may manufacture a resolved identity.
+When explicit authority resolves the runner, the resolved outcome reuses the existing `DiscoveryResolution` resolved shape with `sourcePaths: ["package.json"]`; no new runtime provenance field is required. Explicit authority is proven by focused contracts showing that an otherwise-ambiguous root-manifest input becomes resolved, not by a new persisted marker. The resolved shape is identical to an existing root-only single-declaration outcome by design, which is acceptable because both declarations and the script live in the same root manifest. When no authority applies, no new field may manufacture a resolved identity.
 
 ### FR-011-006 — Planner integration
 
@@ -171,3 +171,5 @@ Spec 011 may close `GO` only when exact evidence proves:
 ## Governance
 
 Planning artifacts do not authorize implementation. T120 requires this planning package to merge canonically and a separate durable implementation-authorization artifact/ledger bound to the exact planning merge.
+
+The twelve new files under `specs/011-explicit-test-script-runner-authority/` are the authorized planning output under Issue #277. The `MUST NOT mutate specs` boundary in Issue #277 refers to existing canonical specs `001` through `010`, which this planning branch leaves unchanged as proven by the exact base-to-head diff containing no `specs/00*` path. New planning-directory creation follows the canonical Spec 010 precedent in which planning PR #262 added exactly twelve files under `specs/010-selector-shadow-verification/` before canonical merge.
