@@ -29,7 +29,7 @@ Until this artifact itself becomes canonical and Issue #279 closes effective:
 - T121 remains blocked;
 - no other repository surface follows from this candidate.
 
-After this artifact becomes canonical and Issue #279 closes `SPEC_011_T120_AUTHORIZATION = CLOSED_CANONICAL / EFFECTIVE`, only the bounded T120 authority below becomes effective.
+After this artifact is independently qualified, guarded-merged, post-merge verified, becomes canonical, and Issue #279 closes `SPEC_011_T120_AUTHORIZATION = CLOSED_CANONICAL / EFFECTIVE`, only the bounded T120 authority below becomes effective.
 
 ## T120 authorized tracked surface
 
