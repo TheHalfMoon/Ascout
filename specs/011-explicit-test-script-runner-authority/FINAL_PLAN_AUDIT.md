@@ -43,7 +43,7 @@ Determine whether the Spec 011 planning package is sufficiently complete, bounde
 
 ## F6 — Command authority
 
-**PASS.** Root-only frozen allowlist (`"vitest run"` and `"jest"`), ambiguous-only application, single/absent/unsupported preservation, byte-identical ambiguous retention, and unchanged admission are enforced consistently.
+**PASS.** Root-only frozen allowlist (`"vitest run"` and `"jest"`), ambiguous-only application constrained to root-manifest declarations, single/absent/unsupported preservation without mapping non-ambiguous states to ambiguous, byte-identical existing-outcome retention including nested-declaration provenance preservation, and unchanged admission are enforced consistently.
 
 ## F7 — Runner semantics
 
