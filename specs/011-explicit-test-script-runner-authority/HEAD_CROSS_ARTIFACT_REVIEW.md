@@ -27,8 +27,8 @@ All prior-head CI/review evidence, if any, is stale for merge qualification afte
 4. Ascout root `scripts.test` is exactly `vitest run` with both `vitest` and `jest` declared; discovery currently reports ambiguous with candidates `["jest","vitest"]`.
 5. Explicit authority source is root-only `package.json` `scripts.test`.
 6. The frozen allowlist is exactly `"vitest run" -> vitest` and `"jest" -> jest`, with exact string equality and no repair, parsing, or shell interpretation.
-7. Authority applies only to ambiguous `{jest, vitest}` coexistence; single, absent, and unsupported states are unchanged.
-8. Non-resolving scripts preserve byte-identical ambiguous behavior with identical reason code, text, candidates, and source paths.
+7. Authority applies only to ambiguous `{jest, vitest}` coexistence with ambiguous `sourcePaths` exactly `["package.json"]`, meaning both declarations are in the root manifest; single, absent, and unsupported states are unchanged and never map to ambiguous.
+8. Non-resolving scripts preserve the existing discovery outcome byte-for-byte with identical reason code, text, candidates, and source paths; nested-declaration ambiguous outcomes preserve declaration provenance and never resolve from a root script.
 9. Missing, non-string, empty, padded, composite, indirect, unsupported, unsafe, and contradictory shapes all remain fail-closed.
 10. Vitest and Jest planners consume the single post-authority discovery value without duplicated script parsing; all downstream scope, config, runtime, coverage, run-id, and artifact gates are unchanged.
 11. Changed-surface admission is unchanged; explicit resolution never auto-admits.
