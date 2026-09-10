@@ -68,9 +68,9 @@ In the runner-resolution path (conceptually inside `discoverProjectFromFiles` af
 5. compute explicit authority from the in-scope root manifest;
 6. if authority is null, return the ambiguous outcome unchanged byte-for-byte;
 7. if authority names a runner not in the ambiguous candidate set, return the ambiguous outcome unchanged;
-8. otherwise return `{ state: "resolved", value: authority, sourcePaths: ["package.json"] }` with explicit provenance indicating script authority.
+8. otherwise return `{ state: "resolved", value: authority, sourcePaths: ["package.json"] }` reusing the existing resolved shape with no new runtime field; explicit authority is proven by focused contracts, not by a new persisted marker.
 
-The resolved `sourcePaths` remains `["package.json"]` because resolution is constrained to the measured shape where both declarations and the script live in the root manifest. No new path is introduced and no nested declaration path is discarded.
+The resolved `sourcePaths` remains `["package.json"]` because resolution is constrained to the measured shape where both declarations and the script live in the root manifest. No new path is introduced and no nested declaration path is discarded. The resolved shape is intentionally identical to an existing root-only single-declaration outcome.
 
 Implementation must preserve the exact existing ambiguous `reasonCode`, `reasonText`, `candidates`, and `sourcePaths` values on every non-resolving path. Tests must assert byte-level preservation, not merely state preservation.
 
