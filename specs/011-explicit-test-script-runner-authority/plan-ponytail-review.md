@@ -10,7 +10,7 @@ Apply Ponytail/YAGNI a second time directly to the technical plan in `plan.md`, 
 
 ### 1. Separate authority storage versus resolved-value reuse
 
-**Reduced.** No new discovery field, receipt field, or artifact is needed to carry script authority. The existing `jsTestRunner` resolved outcome plus its `sourcePaths` already conveys the decision to planners. Provenance is conveyed by the fact that an ambiguous input became resolved from root `package.json`; no new persisted object is justified.
+**Reduced.** No new discovery field, receipt field, or artifact is needed to carry script authority. The existing `jsTestRunner` resolved outcome plus its `sourcePaths` already conveys the decision to planners. The resolved shape is intentionally identical to an existing root-only single-declaration outcome; explicit authority is proven by focused contracts showing that an otherwise-ambiguous root-manifest input became resolved, not by a new runtime marker. No new persisted object is justified, and `spec.md` FR-011-005 is aligned with this reuse.
 
 ### 2. Planner-side script parsing
 
