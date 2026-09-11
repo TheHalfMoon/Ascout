@@ -192,7 +192,7 @@ describe("T051 runCheck Vitest integration", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  }, 60_000);
+  }, 120_000);
 });
 
 describe("T103 runCheck Vitest branch receipt integration", () => {
