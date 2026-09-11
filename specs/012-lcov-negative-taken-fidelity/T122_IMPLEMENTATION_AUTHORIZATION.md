@@ -33,12 +33,16 @@ After this artifact is independently qualified, guarded-merged, post-merge verif
 
 ## T122 authorized tracked surface
 
-Exactly two tracked repository paths are authorized for T122:
+Exactly two tracked repository paths are authorized for T122 (amended to four paths
+by Amendment 01, Issue #286; the amended surface below is effective once this
+amendment chain closes `CLOSED_CANONICAL / EFFECTIVE`):
 
 - `src/coverage/lcov.ts`;
-- `tests/t122-lcov-negative-taken.contract.test.ts` (new).
+- `tests/t122-lcov-negative-taken.contract.test.ts` (new);
+- `tests/fixtures/lcov/branch-cases.json` (reconcile the superseded `-1` expectation only);
+- `tests/t101-lcov-branch-parser.contract.test.ts` (remove `-1` from the invalid set and pin negative-unknown; all other invalid shapes stay).
 
-No third path — including line-coverage behavior beyond the pinned negative-`DA` case, downstream planner/receipt/validator/exit/CLI behavior, `benchmarks/**`, workflows, schemas, discovery/planners/selectors, config surface, package metadata, lockfiles, benchmark results, Spec 007, or release/tag/publication material — is authorized as T122 implementation surface.
+No fifth path — including line-coverage behavior beyond the pinned negative-`DA` case, downstream planner/receipt/validator/exit/CLI behavior, `benchmarks/**`, workflows, schemas, discovery/planners/selectors, config surface, package metadata, lockfiles, benchmark results, Spec 007, or release/tag/publication material — is authorized as T122 implementation surface.
 
 ## Frozen behavior delta
 
@@ -65,7 +69,7 @@ persisted field, no T120/T121 absorption. On any material mismatch:
 Before T122 may merge, the T122 branch must prove on its exact head:
 
 - reverified canonical base;
-- branch purity (exactly the two authorized paths);
+- branch purity (exactly the four authorized paths);
 - focused contract tests pass;
 - full `npm test`, `npm run typecheck`, `npm run build` pass as applicable;
 - exact-head Self Verification success;

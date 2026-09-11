@@ -21,10 +21,12 @@ exact head under its existing authorization.
 
 ### Authorized candidate paths after separate implementation authorization
 
-Exactly:
+Exactly (amended by Amendment 01, Issue #286):
 
 - `src/coverage/lcov.ts`
 - `tests/t122-lcov-negative-taken.contract.test.ts` (new)
+- `tests/fixtures/lcov/branch-cases.json` (reconcile the superseded `-1` expectation only)
+- `tests/t101-lcov-branch-parser.contract.test.ts` (remove `-1` from the invalid set and pin negative-unknown; all other invalid shapes stay)
 
 ### Required behavior
 
@@ -52,7 +54,7 @@ telemetry, plugin framework, parser, executor, config knob, or persisted field.
 Before T122 may merge:
 
 - exact current canonical base reverified;
-- branch contains only the two authorized paths;
+- branch contains only the four authorized paths;
 - focused tests pass;
 - full repository `npm test`, `npm run typecheck`, and `npm run build` pass as applicable;
 - exact-head Self Verification succeeds for the PR head as governed;
