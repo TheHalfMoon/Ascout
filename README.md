@@ -9,7 +9,7 @@ Ascout's M1 goal is deliberately narrow: make changed-code verification harder t
 
 ## Status
 
-Ascout has completed canonical **M1 release hardening** and the bounded **M2 selection-configuration fidelity** milestone. M2 adds benchmark-backed single-package nested Jest/Vitest configuration fidelity while preserving the M1 receipt, trust, admission, dependency, and publication boundaries. The package remains version `0.0.0`, `private: true`, and unpublished.
+Ascout has completed canonical **M1 release hardening** and the bounded **M2 selection-configuration fidelity** milestone. M2 adds benchmark-backed single-package nested Jest/Vitest configuration fidelity while preserving the M1 receipt, trust, admission, dependency, and publication boundaries. The package is version `0.1.0`, remains `private: true`, and is not published to npm. Spec 013 qualifies an npm-compatible tarball for GitHub Release distribution; a GitHub Release is separate from npm-registry publication.
 
 Canonical T087 selected the repository package identity `@thehalfmoon/ascout` while preserving the executable name `ascout`. The scoped identity is a repository decision, not a claim that authenticated npm scope ownership or publication authority has been proven; any future publication requires separate authenticated npm scope/ownership evidence and separate release/publication authority.
 
@@ -77,7 +77,7 @@ Project CI runs Node 22 and Node 24 on Linux, macOS, and Windows Server 2025. Su
 
 ## Use from the repository today
 
-The canonical package identity is selected, but the package remains private and unpublished. Use an exact source checkout until a future publication is separately authorized and proven.
+The canonical package identity is selected, the package remains `private: true`, and Ascout is not published to npm. Use an exact source checkout, or an exact verified GitHub Release tarball asset when one is available; GitHub Release distribution does not imply npm-registry publication.
 
 ```sh
 git clone https://github.com/TheHalfMoon/Ascout.git
@@ -95,7 +95,7 @@ ascout doctor
 ascout check [--allow-changed-command-surface] [--format json|agent]
 ```
 
-When running directly from this repository before package publication, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
+When running directly from a source checkout rather than an installed release asset, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
 
 ### Package identity and future installation
 
@@ -117,7 +117,7 @@ This identity selection does not prove authenticated ownership of the npm scope 
 npm install --global @thehalfmoon/ascout
 ```
 
-Until that separate publication evidence exists, use the source-checkout workflow above.
+Until separate npm publication evidence exists, do not use an npm-registry install. Use the source-checkout workflow above, or an exact verified GitHub Release tarball asset when one is available.
 
 ## Quickstart in a trusted project
 
