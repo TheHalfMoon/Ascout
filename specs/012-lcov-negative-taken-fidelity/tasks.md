@@ -54,7 +54,7 @@ telemetry, plugin framework, parser, executor, config knob, or persisted field.
 Before T122 may merge:
 
 - exact current canonical base reverified;
-- branch contains only the two authorized paths;
+- branch contains only the four authorized paths;
 - focused tests pass;
 - full repository `npm test`, `npm run typecheck`, and `npm run build` pass as applicable;
 - exact-head Self Verification succeeds for the PR head as governed;

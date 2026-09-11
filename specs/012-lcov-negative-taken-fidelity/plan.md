@@ -93,7 +93,7 @@ applicable on the exact implementation head.
 ## 8. Qualification and merge gates
 
 T122 requires the standard exact-head gates: reverified canonical base, one-task branch
-purity (exactly the two authorized paths), focused proof, full tests/typecheck/build,
+purity (exactly the four authorized paths), focused proof, full tests/typecheck/build,
 exact-head Self Verification success, original-attempt six-lane Project CI success,
 fresh independent substantive exact-head review with zero unresolved material threads,
 live rules/protection revalidation, unchanged base immediately before guarded

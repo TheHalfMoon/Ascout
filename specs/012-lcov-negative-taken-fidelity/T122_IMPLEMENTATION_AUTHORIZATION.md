@@ -69,7 +69,7 @@ persisted field, no T120/T121 absorption. On any material mismatch:
 Before T122 may merge, the T122 branch must prove on its exact head:
 
 - reverified canonical base;
-- branch purity (exactly the two authorized paths);
+- branch purity (exactly the four authorized paths);
 - focused contract tests pass;
 - full `npm test`, `npm run typecheck`, `npm run build` pass as applicable;
 - exact-head Self Verification success;
