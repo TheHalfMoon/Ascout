@@ -62,11 +62,13 @@ No third tracked path is authorized for T124 implementation.
 T124 may make only the release-identity mutation required by canonical Spec 013:
 
 1. change `package.json` version from `0.0.0` to `0.1.0`;
-2. change only the corresponding existing package-version identities in `package-lock.json` from `0.0.0` to `0.1.0`;
-3. keep package name `@thehalfmoon/ascout` unchanged;
-4. keep binary name and mapping unchanged;
-5. keep `private: true` unchanged;
-6. preserve the dependency graph byte-for-byte except for the authorized version values.
+2. change exactly `package-lock.json` top-level `version` from `0.0.0` to `0.1.0`;
+3. change exactly `package-lock.json` `packages[""].version` from `0.0.0` to `0.1.0`;
+4. keep every other `package-lock.json` field unchanged, including the historical root `name`;
+5. keep package name `@thehalfmoon/ascout` unchanged;
+6. keep binary name and mapping unchanged;
+7. keep `private: true` unchanged;
+8. preserve the dependency graph byte-for-byte except for the three authorized version values.
 
 ## Hard prohibitions
 
@@ -93,7 +95,8 @@ Before T124 may merge, the exact T124 head must prove:
 - branch purity: exactly `package.json` and `package-lock.json`;
 - semantic diff limited to the authorized version identities;
 - `private: true`, package name, bin mapping, scripts, engines, and dependency graph unchanged;
-- standard install/typecheck/test/build/package gates pass as applicable;
+- standard install/typecheck/test/build gates pass as applicable;
+- the focused package-content/version assertions required by canonical Spec 013 pass explicitly;
 - exact-head Self Verification succeeds;
 - original-attempt six-lane Project CI succeeds;
 - fresh independent substantive exact-head review reports no unresolved material finding;
