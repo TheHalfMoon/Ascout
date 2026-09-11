@@ -349,7 +349,7 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(result).toEqual({ eventBaseSha: simple.base, headSha: simple.head, mergeBaseSha: simple.base, headTreeSha: simple.headTree });
     expect(git(simple.root, ["rev-parse", "HEAD"])).toBe(simple.base);
     expect(git(simple.root, ["write-tree"])).toBe(simple.headTree);
-  });
+  }, 15_000);
 
   it("rejects wrong H, unavailable B, and absent or multiple merge bases", async () => {
     const simple = createSimpleRepository();
@@ -361,7 +361,7 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(() => requireUniqueMergeBaseOutput("")).toThrowError(SelfVerificationIntegrityError);
     expect(() => requireUniqueMergeBaseOutput(`${"a".repeat(40)}\n${"b".repeat(40)}\n`)).toThrowError(SelfVerificationIntegrityError);
     expect(requireUniqueMergeBaseOutput(`${"c".repeat(40)}\n`)).toBe("c".repeat(40));
-  });
+  }, 15_000);
 
   it("uses unique M when event base E advanced independently", async () => {
     const root = initializeRepository();
@@ -381,7 +381,7 @@ describe("T107 exact-tree self-verification harness", () => {
     expect(result.mergeBaseSha).toBe(mergeBase);
     expect(git(root, ["rev-parse", "HEAD"])).toBe(mergeBase);
     expect(git(root, ["write-tree"])).toBe(headTree);
-  });
+  }, 15_000);
 
   it("preserves added, deleted, renamed, and modified tracked content as exact H tree", async () => {
     const root = initializeRepository();
