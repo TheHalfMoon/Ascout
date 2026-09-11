@@ -14,11 +14,15 @@ normalization, validation, planner, receipt, or execution behavior.
 
 ### T122 — Normalizer rule plus contracts
 
-Exactly:
+Exactly (amended by Amendment 01, Issue #286):
 
 - `src/coverage/lcov.ts` — accept `^-\d+$` taken tokens as unknown in the branch
   normalizer only;
-- `tests/t122-lcov-negative-taken.contract.test.ts` — new focused deterministic contracts.
+- `tests/t122-lcov-negative-taken.contract.test.ts` — new focused deterministic contracts;
+- `tests/fixtures/lcov/branch-cases.json` — reconcile the single superseded `-1`
+  expectation to the unknown shape; no other fixture changes;
+- `tests/t101-lcov-branch-parser.contract.test.ts` — remove `-1` from the invalid
+  taken set and pin negative-unknown; all other invalid shapes stay invalid.
 
 ### T123 — Reconciliation
 

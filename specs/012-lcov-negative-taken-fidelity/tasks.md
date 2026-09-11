@@ -21,10 +21,12 @@ exact head under its existing authorization.
 
 ### Authorized candidate paths after separate implementation authorization
 
-Exactly:
+Exactly (amended by Amendment 01, Issue #286):
 
 - `src/coverage/lcov.ts`
 - `tests/t122-lcov-negative-taken.contract.test.ts` (new)
+- `tests/fixtures/lcov/branch-cases.json` (reconcile the superseded `-1` expectation only)
+- `tests/t101-lcov-branch-parser.contract.test.ts` (remove `-1` from the invalid set and pin negative-unknown; all other invalid shapes stay)
 
 ### Required behavior
 
