@@ -101,3 +101,15 @@ NPM_PUBLICATION = FORBIDDEN
 SPEC_014_EXECUTION_FRONTIER = BLOCKED_BY_SPEC_013_T128
 SPEC_015_EXECUTION_FRONTIER = BLOCKED_BY_SPEC_013_T128
 ```
+
+## Failure discipline
+
+Any required R013-01 qualification failure is preserved as first-attempt evidence and blocks merge/activation.
+
+This applies to path purity, semantic-diff review, package-content proof, install/typecheck/test/build, Self Verification, any Project CI lane, independent review, review-thread state, pre-merge governance/race proof, guarded merge, post-merge identity proof, and push-triggered post-merge CI.
+
+A failed gate MUST NOT be normalized into PASS through rerun-to-green, selective omission, hidden weakening, in-place scope widening, assertion/test/workflow changes, or unrecorded environment changes.
+
+If a failure proves a new defect or an independently justified environment/governance issue, preserve the original evidence and create separate prospective repair/recovery authority before any additional mutation.
+
+A successor R013-01 repair candidate must qualify from its own exact source identity. CI, review, package, verification, or other qualification evidence from a failed repair candidate MUST NOT substitute for successor-candidate evidence.
