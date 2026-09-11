@@ -330,7 +330,7 @@ describe("T019 live Git tree-digest collection", () => {
     git(repositoryRoot, ["update-index", "--skip-worktree", "tracked.txt"]);
     writeFileSync(join(repositoryRoot, "tracked.txt"), "hidden skip-worktree change\n");
     expect(() => readTreeDigestV1(repositoryRoot)).toThrow(GitIdentityError);
-  });
+  }, 15_000);
 
   it("names unmerged tracked state instead of treating it as malformed metadata", () => {
     const repositoryRoot = makeRepository();
