@@ -207,7 +207,7 @@ describe("T101 LCOV branch parser contracts", () => {
   });
 
   it("rejects invalid taken tokens instead of coercing them", () => {
-    for (const taken of ["-1", "1.5", "NaN", "9007199254740992"]) {
+    for (const taken of ["1.5", "NaN", "9007199254740992"]) {
       expect(
         normalizeLcovBranchCoverage(
           `SF:/repo/src/taken.ts\nBRDA:1,0,0,${taken}\nend_of_record\n`,
@@ -220,6 +220,28 @@ describe("T101 LCOV branch parser contracts", () => {
         reason: "LCOV branch taken count is invalid",
       });
     }
+  });
+
+  it("maps signed-negative taken tokens to unknown instead of failing closed", () => {
+    expect(
+      normalizeLcovBranchCoverage(
+        "SF:/repo/src/taken.ts\nBRDA:1,0,0,-1\nend_of_record\n",
+        "/repo",
+      ),
+    ).toEqual({
+      outcome: "resolved",
+      observations: [
+        {
+          path: "src/taken.ts",
+          line: 1,
+          block_id: "0",
+          branch_id: "0",
+          taken: null,
+          state: "BRANCH_UNRESOLVED",
+          reason: "LCOV branch taken count is unknown",
+        },
+      ],
+    });
   });
 
   it("fails closed when repeated valid branch counts overflow the safe integer range", () => {

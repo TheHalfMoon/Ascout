@@ -60,6 +60,7 @@ const REASON_NO_BRANCH_DATA = "no usable branch coverage records";
 const REASON_UNKNOWN_TAKEN = "LCOV branch taken count is unknown";
 
 const UNSIGNED_DECIMAL = /^\d+$/u;
+const NEGATIVE_DECIMAL = /^-\d+$/u;
 const WINDOWS_ABSOLUTE = /^(?:[A-Za-z]:[\\/]|\\\\)/u;
 const URI_SCHEME = /^[A-Za-z][A-Za-z0-9+.-]*:/u;
 
@@ -329,8 +330,12 @@ export function normalizeLcovBranchCoverage(
     const line = parsePositiveSafeInteger(fields[0]);
     if (line === null) return unresolvedBranch(REASON_MALFORMED_BRANCH);
 
-    const taken = fields[3] === "-" ? null : parseNonnegativeSafeInteger(fields[3]);
-    if (fields[3] !== "-" && taken === null) return unresolvedBranch(REASON_INVALID_TAKEN);
+    const taken = fields[3] === "-" || NEGATIVE_DECIMAL.test(fields[3])
+      ? null
+      : parseNonnegativeSafeInteger(fields[3]);
+    if (fields[3] !== "-" && !NEGATIVE_DECIMAL.test(fields[3]) && taken === null) {
+      return unresolvedBranch(REASON_INVALID_TAKEN);
+    }
 
     if (!addBranchObservation(observations, currentSource, line, fields[1], fields[2], taken)) {
       return unresolvedBranch(REASON_INVALID_TAKEN);
