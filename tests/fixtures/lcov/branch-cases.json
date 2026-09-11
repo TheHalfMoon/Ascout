@@ -111,7 +111,7 @@
       "id": "fail-closed-invalid-taken",
       "purpose": "invalid taken tokens fail closed",
       "repoRoot": "/repo",
-      "input": "SF:/repo/src/taken.ts\nBRDA:1,0,0,-1\nend_of_record\n",
+      "input": "SF:/repo/src/taken.ts\nBRDA:1,0,0,+1\nend_of_record\n",
       "expected": {
         "outcome": "unresolved",
         "observations": null,
