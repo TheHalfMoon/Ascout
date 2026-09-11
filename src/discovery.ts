@@ -423,6 +423,37 @@ function discoverRunner(allManifests: readonly PackageManifest[]): DiscoveryReso
   return { state: "resolved", value, sourcePaths: sortedUnique(sources[value]) };
 }
 
+function explicitTestScriptAuthority(root: PackageManifest | undefined): JsTestRunner | null {
+  if (root === undefined || root.invalid) return null;
+  const scripts = root.value["scripts"];
+  if (typeof scripts !== "object" || scripts === null || Array.isArray(scripts)) return null;
+  const test = (scripts as JsonRecord)["test"];
+  if (test === "vitest run") return "vitest";
+  if (test === "jest") return "jest";
+  return null;
+}
+
+function resolveRunnerWithExplicitScriptAuthority(
+  scopedManifests: readonly PackageManifest[],
+): DiscoveryResolution<JsTestRunner> {
+  const outcome = discoverRunner(scopedManifests);
+  if (outcome.state !== "ambiguous") return outcome;
+  if (
+    outcome.candidates.length !== 2 ||
+    outcome.candidates[0] !== "jest" ||
+    outcome.candidates[1] !== "vitest"
+  ) {
+    return outcome;
+  }
+  if (outcome.sourcePaths.length !== 1 || outcome.sourcePaths[0] !== "package.json") {
+    return outcome;
+  }
+  const root = scopedManifests.find(({ path }) => path === "package.json");
+  const authority = explicitTestScriptAuthority(root);
+  if (authority === null || (authority !== "jest" && authority !== "vitest")) return outcome;
+  return { state: "resolved", value: authority, sourcePaths: ["package.json"] };
+}
+
 function basename(path: string): string {
   const index = path.lastIndexOf("/");
   return index < 0 ? path : path.slice(index + 1);
@@ -585,7 +616,7 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
     packageManager: discoverPackageManager(normalized, root),
     workspace,
     packageScriptAuthority: discoverPackageScriptAuthority(scopedManifests),
-    jsTestRunner: discoverRunner(scopedManifests),
+    jsTestRunner: resolveRunnerWithExplicitScriptAuthority(scopedManifests),
     pytestBasic: discoverPytest(normalized, roots),
     tools: {
       typescript: discoverNodeTool(normalized, scopedManifests, "typescript", roots, false),
