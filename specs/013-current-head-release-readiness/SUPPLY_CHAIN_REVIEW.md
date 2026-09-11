@@ -17,10 +17,14 @@ T125 uses existing local/native tools already within the release-hardening bound
 - Node/npm from the supported matrix;
 - existing repository build/test/self-verification/benchmark machinery;
 - `npm pack` and local tarball install;
+- read-only `npm audit --omit=dev --json` against the configured npm advisory service, with tool version,
+  endpoint, UTC execution time, raw report digest, and result retained as time-bound qualification evidence;
 - SHA-256 hashing.
 
 T127 uses the repository's existing GitHub authority to create one tag and one GitHub Release.
-No npm credential or registry write is part of Spec 013.
+No npm credential or registry write is part of Spec 013. The advisory lookup is a read-only,
+time-bound release-qualification input rather than a new product/runtime service dependency; any
+unresolved production advisory blocks T125 rather than triggering an in-scope dependency refresh.
 
 ## Distribution boundary
 

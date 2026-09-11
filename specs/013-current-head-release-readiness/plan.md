@@ -35,8 +35,10 @@ T124 receives normal exact-head PR qualification before merge:
 - focused package-content contract success;
 - exact two-path semantic diff review;
 - no unrelated branch delta;
-- fresh substantive review and zero unresolved material threads;
-- guarded expected-head normal merge and post-merge proof.
+- fresh independent substantive exact-head review and zero unresolved material review threads;
+- immediate pre-merge revalidation of canonical `main`, unique merge base, repository rulesets,
+  observable branch protection, and absence of a conflicting release chain;
+- unchanged expected head followed by a guarded normal merge and post-merge proof.
 
 T124 does not create a tag, release, or tarball for publication.
 
@@ -49,15 +51,21 @@ Node, and npm versions and then execute the current release obligations.
 Required local/candidate gates include exact-lockfile install, typecheck, full tests, build,
 current package-content contracts, current self-verification/benchmark obligations, actual
 `npm pack --ignore-scripts`, exact tarball file-list/manifest inspection, temporary-consumer
-installation, production dependency graph inspection, representative CLI paths, and final
-source cleanliness.
+installation, production dependency graph inspection, and a read-only `npm audit --omit=dev --json`
+against the configured npm advisory service. The qualification record must preserve npm version,
+registry/advisory endpoint, UTC execution time, raw advisory-report SHA-256, and result; any
+unresolved production advisory is `NO_GO`. Representative CLI paths and final source cleanliness
+remain required.
 
 The tarball bytes are then frozen by filename, size, and SHA-256. T125 evidence is stored in
 repository-native issue/action artifacts, not by committing a post-qualification file onto
 the candidate source tree.
 ## 5. T126 publication authorization
 
-After T125 passes, create a separate durable authorization record bound to:
+After T125 passes, create a separate durable repository-native authorization as one unedited
+top-level comment on a dedicated T126 GitHub issue. Only an authenticated comment authored by the
+repository owner/founder account `TheHalfMoon` is eligible to become effective. Record the issue
+number, comment ID/URL, created/updated timestamps, SHA-256 of the UTF-8 comment body, and bind it to:
 
 - exact candidate commit and tree;
 - exact tag name `v0.1.0`;
@@ -66,17 +74,23 @@ After T125 passes, create a separate durable authorization record bound to:
 - explicit prohibition on npm publication;
 - confirmation that no later source mutation occurred.
 
-Authorization is invalid if any bound identity changes.
+The record is effective only while it remains present, authored by `TheHalfMoon`, unedited
+(`updated_at == created_at`), unsuperseded, and byte-identical to its recorded body digest.
+Supersession requires a new unedited `TheHalfMoon` comment naming the prior comment ID. Any
+candidate or tarball identity change requires fresh T125 qualification before replacement authority.
 
 ## 6. T127 publication and T128 closeout
 
-T127 creates an annotated or lightweight Git tag `v0.1.0` pointing exactly to the qualified
-candidate, pushes it normally, creates the GitHub Release from that tag, and uploads the exact
-qualified tarball. No rebuild is permitted between qualification and upload.
+T127 first refetches and validates the complete T126 authorization identity, then requires live
+`refs/heads/main` to still equal the T125-qualified candidate. It creates tag `v0.1.0` pointing
+exactly to that candidate, pushes it normally, creates the GitHub Release from that tag, and
+uploads the exact qualified tarball. No rebuild is permitted between qualification and upload.
 
-T128 verifies the live tag target, GitHub Release state, attached asset identity/digest,
-release text, candidate ancestry, and absence of npm publication claims. Only then may the
-release chain be marked `CLOSED_CANONICAL`.
+T128 requires live `main` to still equal the qualified candidate, downloads the attached asset,
+recomputes filename/size/SHA-256, and inspects the downloaded tarball for exact package name,
+version, `private`, `bin`, `files`, and forbidden-surface identity. It also verifies tag target,
+GitHub Release state/text, candidate ancestry, T126 authorization integrity, and absence of npm
+publication claims. Any mismatch blocks `CLOSED_CANONICAL`.
 
 ## 7. Failure discipline
 

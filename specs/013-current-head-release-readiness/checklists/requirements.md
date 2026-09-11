@@ -18,6 +18,11 @@
 - [x] Tag target is required to equal the qualified candidate exactly.
 - [x] Release upload must reuse qualified tarball bytes without rebuild.
 - [x] Post-publication verification is mandatory before closeout.
+- [x] T125 includes a time-bound, read-only production advisory gate with recorded tool/source/time/report digest.
+- [x] T126 defines the authorized GitHub principal, authentication evidence, immutable comment identity, and supersession rules.
+- [x] T126/T127 no-source GitHub mutations have explicit exceptions to the source-commit branch/PR rule.
+- [x] T127 requires live `refs/heads/main` to equal the qualified candidate before publication.
+- [x] T128 redownloads the release asset, rehashes it, rechecks package identity, and requires exact `main` equality.
 - [x] npm credentials/publication are prohibited in this spec.
 - [x] Failure returns to planning/repair instead of weakening gates.
 - [x] No new runtime subsystem, dependency, action, service, or release bot is introduced.

@@ -21,14 +21,25 @@ requirements checklist, supply-chain review, and cross-artifact analysis.
 5. T124 is a version-only two-file mutation; no dependency resolution or package identity
    cleanup is smuggled into release preparation. PASS.
 6. T125 qualifies the post-version exact source and freezes one tarball by SHA-256. PASS.
-7. T126 provides a separate durable publication-authority gate. PASS.
-8. T127 cannot rebuild or publish npm; T128 verifies live publication identity. PASS.
-9. Existing CI/self-verification/npm/Git primitives are reused; no release subsystem or new
-   supply-chain surface is introduced. PASS.
-10. Failure discipline is forward-only and fail-closed; no rerun-to-green substitution,
+7. T125 includes a time-bound read-only production advisory gate and records tool/source/time/report
+   identity; unresolved production advisories fail closed. PASS.
+8. T126 provides a separate durable publication-authority gate bound to an authenticated, unedited
+   GitHub comment by repository owner/founder account `TheHalfMoon` with explicit supersession rules. PASS.
+9. Source/metadata commits retain task-scoped branch/PR discipline; T126 issue authorization and T127
+   Git tag/Release mutations are explicit no-source exceptions with task-specific proof. PASS.
+10. T127 requires live `main` equality with the qualified candidate and cannot rebuild or publish npm. PASS.
+11. T128 redownloads and rehashes the GitHub asset, reinspects package identity, and requires exact
+    `main` equality before closeout. PASS.
+12. Existing CI/self-verification/npm/Git/GitHub primitives are reused; no release subsystem, new
+    product dependency, registry credential, or registry-write surface is introduced. PASS.
+13. Failure discipline is forward-only and fail-closed; no rerun-to-green substitution,
     force-push, rebase, tag movement, or gate weakening is authorized. PASS.
-11. The five-task dependency order is necessary to preserve source and authority identity. PASS.
-12. Planning artifacts do not themselves authorize implementation or publication. PASS.
+14. The five-task dependency order is necessary to preserve source and authority identity. PASS.
+15. Planning artifacts do not themselves authorize implementation or publication. PASS.
+
+## External-review reconciliation
+
+The prior frozen head `f7a3fb7752fd0e957897202a51e5cbea1b476607` received a fresh CodeRabbit review that identified five Major planning findings: T124 governance revalidation, T126/T127 branch/PR policy ambiguity, T125 advisory qualification, T126 authorization-principal integrity, and T128 downloadable-asset/main verification. The current plan, tasks, checklist, supply-chain review, and analysis reconcile all five. The prior HEAD review is therefore superseded and MUST NOT be used for merge qualification.
 
 ## Audit disposition
 

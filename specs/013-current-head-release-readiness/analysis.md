@@ -29,11 +29,20 @@
    in T124. No dependency-resolution or package-identity mutation is authorized. PASS.
 6. **Qualification ordering:** metadata mutation precedes exact-candidate qualification; no source mutation follows T125 before publication. PASS.
 7. **Artifact identity:** tarball filename, size, and SHA-256 are required by qualification and publication authorization; rebuilding afterward is forbidden. PASS.
-8. **Publication authority:** T126 remains separate from T125 success. PASS.
-9. **Post-release truth:** T128 verifies live tag, release, and asset identity before closeout. PASS.
-10. **Supply chain:** no new dependency, action, service, or registry-write surface exists. PASS.
-11. **Failure discipline:** material defects return to planning or repair; gates are not weakened. PASS.
-12. **Task dependency order:** all artifacts agree on `T124 -> T125 -> T126 -> T127 -> T128`. PASS.
+8. **Publication authority:** T126 remains separate from T125 success and now binds effectiveness to an
+   authenticated, unedited GitHub comment authored by `TheHalfMoon`, with comment/body identity and
+   explicit supersession rules. PASS.
+9. **Repository mutation workflow:** source/metadata commits still require a task-scoped branch/PR;
+   T126 issue authorization and T127 Git tag/Release actions are explicit no-source exceptions with
+   task-specific identity verification. PASS.
+10. **Advisory qualification:** T125 includes a read-only production advisory gate with npm version,
+    endpoint, UTC time, raw report digest, and `NO_GO` on any unresolved production advisory. PASS.
+11. **Post-release truth:** T127/T128 require live `main` equality with the qualified candidate;
+    T128 redownloads and rehashes the asset and rechecks package identity before closeout. PASS.
+12. **Supply chain:** no new dependency, action, credential, or registry-write surface exists; the
+    advisory lookup is a time-bound read-only qualification input, not a product dependency. PASS.
+13. **Failure discipline:** material defects return to planning or repair; gates are not weakened. PASS.
+14. **Task dependency order:** all artifacts agree on `T124 -> T125 -> T126 -> T127 -> T128`. PASS.
 
 ## Conflicts resolved
 
