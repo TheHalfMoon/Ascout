@@ -45,6 +45,10 @@ function initFixture(): { root: string; head: string } {
   const root = mkdtempSync(join(tmpdir(), "ascout-candidate-fixture-"));
   trackedDirs.push(root);
   git(root, ["init", "-b", "main"]);
+  // Hermetic bytes: CI Windows runners default core.autocrlf to true,
+  // which would rewrite fixture checkouts to CRLF. Pin the fixture repo
+  // to exact bytes so identity assertions stay deterministic everywhere.
+  git(root, ["config", "core.autocrlf", "false"]);
   writeFileSync(join(root, "src.js"), "module.exports = 1;\n", "utf8");
   git(root, ["add", "src.js"]);
   git(root, [
