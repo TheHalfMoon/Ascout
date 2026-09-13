@@ -6,7 +6,7 @@
 
 `FIRST_WEDGE_IMPLEMENTATION_AUTHORIZED = NO`
 
-This artifact is the prospective P015-03 authorization candidate for Issue #330. It grants no implementation authority until it is independently qualified, guarded-merged, post-merge verified, becomes canonical, and Issue #330 closes `CLOSED_CANONICAL / EFFECTIVE`.
+This artifact is the prospective P015-03 authorization candidate for Issue #330. It grants no implementation authority until it is qualified, guarded-merged, post-merge verified, becomes canonical, and Issue #330 closes `CLOSED_CANONICAL / EFFECTIVE`.
 
 ## Canonical predecessor
 
@@ -26,15 +26,30 @@ The authoritative first-wedge contract remains the canonically merged Spec 015 p
 
 Founder implementation authorization dated 2026-09-12 explicitly authorizes Spec 014 and Spec 015 implementation subject to live canonical repository governance and measured evidence. It does not waive third-party licenses, NOTICE/provenance obligations, clean-room boundaries, credential secrecy, or constitutional gates. This artifact records that authorization as one satisfied element of P015-03; every other gate element below must still be proven on the exact head before merge.
 
+## Founder governance decision — external review removed
+
+Founder direction dated 2026-09-13 removes any independent/external-human-review requirement as a blocking gate for P015-03 and successor first-wedge implementation slices.
+
+- No external reviewer is required.
+- No distinct reviewer identity is required.
+- GitHub `APPROVE` from a second person is not required.
+- Exact-head verification remains required and may be performed by the founder, maintainer, or implementing agent.
+- Exact-head verification may be recorded as a PR conversation comment or equivalent durable evidence; a submitted GitHub review is not required.
+- Automated review tools are advisory only and are never a required merge gate.
+- Zero unresolved material review threads remains required.
+- CI, source binding, branch purity, benchmark/evidence integrity, pre-merge revalidation, guarded merge, and post-merge verification remain mandatory.
+
+This is an explicit governance change, not a bypass. Review evidence must not be fabricated, but the project must not wait for unavailable third-party reviewers.
+
 ## Authority activation boundary
 
-Until this artifact is independently qualified, guarded-merged, post-merge verified, becomes canonical, and Issue #330 closes effective:
+Until this artifact is qualified, guarded-merged, post-merge verified, becomes canonical, and Issue #330 closes effective:
 
 - first-wedge product source mutation is forbidden;
 - benchmark corpus import remains blocked;
 - no donor import, dependency adoption, service addition, or Constitution amendment follows from this candidate.
 
-After activation, only the bounded first-wedge authority below becomes effective. Each wedge implementation slice remains a separate task-scoped branch/PR with its own exact-head qualification and review.
+After activation, only the bounded first-wedge authority below becomes effective. Each wedge implementation slice remains a separate task-scoped branch/PR with its own exact-head qualification and maintainer verification; no external reviewer gate applies.
 
 ## Frozen first-wedge scope
 
@@ -89,7 +104,7 @@ Wedge implementation must extend the repository benchmark harness (`benchmarks/`
 
 ## Authorized tracked surface for successor wedge slices
 
-Successor implementation PRs under this authorization (each separately qualified and reviewed) may touch only:
+Successor implementation PRs under this authorization (each separately exact-head qualified and maintainer-verified; no external reviewer required) may touch only:
 
 - `src/` additions bounded to the frozen wedge pipeline (obligation/intent/risk model, oracle classification, gap analysis, worktree-isolated generation, stability/discrimination evaluation, reproducer/minimizer, regression recorder, residual-risk renderer)
 - `tests/` additions proving each new behavior plus zero-tolerance integrity gates
@@ -112,9 +127,10 @@ Before this artifact may merge, its exact head must prove:
 
 - reverified canonical base (`2d6cf5f675f6ed157a3fa36c1c028dc5657aef0d`) and live governance state (0 conflicting chains);
 - branch purity: exactly the one new file above;
-- exact-lockfile install, typecheck, full tests, build pass (docs-only expected green);
+- exact-lockfile install, typecheck, full tests, build qualification under repository evidence rules;
 - original-attempt six-lane Project CI success on the exact head;
-- fresh independent substantive exact-head review with zero unresolved material threads;
+- exact-head maintainer/founder verification recorded durably; no external or independent reviewer is required;
+- zero unresolved material review threads;
 - pre-merge revalidation of canonical `main`, unique merge base, rulesets/protection, and expected head;
 - guarded normal merge with unchanged expected head;
 - post-merge ordered-parent/tree/main proof and push-triggered Project CI success before Issue #330 closes.
@@ -128,6 +144,7 @@ This authorization, once effective, authorizes only the bounded first-wedge slic
 ```text
 SPEC_015_P015_03_AUTHORIZATION = PROPOSED / NOT_EFFECTIVE
 FIRST_WEDGE_IMPLEMENTATION_AUTHORIZED = NO
+EXTERNAL_REVIEW_GATE = NOT_REQUIRED
 WEDGE_IMPLEMENTATION = BLOCKED_BY_P015_03
 SPEC_014 = SEPARATE_CHAIN
 ```
