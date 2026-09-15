@@ -216,17 +216,24 @@ beforeAll(async () => {
       "/sensitive": "sensitive.html",
       "/slow-navigation": "happy-path.html",
     };
-    const fixture = routes[request.url ?? ""];
+    const pathname = (request.url ?? "").split("?")[0] ?? "";
+    const fixture = routes[pathname];
     if (fixture === undefined) {
       response.writeHead(404, { "content-type": "text/plain" });
       response.end("no fixture");
       return;
     }
+    const isSlowRoute =
+      request.url === "/slow-navigation" ||
+      (request.url ?? "").startsWith("/slow-navigation?");
     const serve = (): void => {
+      if (response.destroyed || response.writableEnded) {
+        return;
+      }
       response.writeHead(200, { "content-type": "text/html" });
       response.end(pages.get(fixture) ?? "");
     };
-    if (request.url === "/slow-navigation") {
+    if (isSlowRoute) {
       setTimeout(serve, 1500);
       return;
     }
@@ -596,13 +603,15 @@ describe("spec016 p016-09 synthetic browser benchmark", () => {
           session_id,
           "req-slow-retry",
           "navigate",
-          "/slow-navigation",
+          "/slow-navigation?attempt=2",
           30000,
         ),
         fixtureResolver,
       );
       expect(retry.status).toBe("ok");
-      expect(runtime.currentUrl()).toBe(`${origin}/slow-navigation`);
+      expect(runtime.currentUrl()).toBe(
+        `${origin}/slow-navigation?attempt=2`,
+      );
       const facts = evaluateRecoveryVerdict(history, []);
       expect(facts.verdict).toBe("pass_with_recovery");
       results.push(
