@@ -208,15 +208,29 @@ function sleep(ms: number): Promise<void> {
  * Coordinates Chromium provisioning with the P016-04 integration
  * file: if the executable is absent, another suite worker may be
  * provisioning it right now (concurrent `install --with-deps`
- * self-conflicts on OS package locks), so poll for its appearance
- * before provisioning here. Falls back to provisioning when nobody
- * else supplies the browser within the wait budget.
+ * self-conflicts on OS package locks), so wait for a genuinely
+ * launchable browser before proceeding. Readiness is proven by a
+ * real probe launch, not by the presence of one executable path:
+ * a mid-install browser directory can contain the main executable
+ * while the headless-shell binary is still missing. Falls back to
+ * provisioning here when nobody else supplies a working browser
+ * within the wait budget.
  */
 async function waitForProvisionedChromium(): Promise<void> {
   const deadline = Date.now() + CHROMIUM_WAIT_MS;
   for (;;) {
     if (existsSync(chromium.executablePath())) {
-      return;
+      try {
+        const probe = await launchPlaywrightSession(
+          makeSession("bench-probe"),
+          { headless: true },
+        );
+        await probe.dispose();
+        return;
+      } catch {
+        // Not launchable yet (partial install or competing
+        // provisioner); keep waiting for a working browser.
+      }
     }
     if (Date.now() >= deadline) {
       break;
@@ -229,7 +243,6 @@ async function waitForProvisionedChromium(): Promise<void> {
 }
 
 beforeAll(async () => {
-  await waitForProvisionedChromium();
   for (const name of [
     "happy-path.html",
     "rename-equivalent.html",
@@ -285,6 +298,7 @@ beforeAll(async () => {
   });
   const address = server.address() as AddressInfo;
   origin = `http://127.0.0.1:${address.port}`;
+  await waitForProvisionedChromium();
 }, HOOK_TIMEOUT_MS);
 
 afterAll(async () => {

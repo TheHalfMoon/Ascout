@@ -67,7 +67,9 @@ sandbox containers without browser provisioning stay env-blocked
 per the P016-04 precedent, with CI as the gating evidence and
 cross-lane agreement as the reproducibility proof. Browser
 provisioning is coordinated with the P016-04 integration file: the
-benchmark polls for the installed executable (default 300s, override
-`BENCHMARK_CHROMIUM_WAIT_MS`) before provisioning itself, because
-concurrent `install --with-deps` runs self-conflict on OS package
-locks.
+benchmark waits for a genuinely launchable browser via probe
+launches (default 300s, override `BENCHMARK_CHROMIUM_WAIT_MS`)
+before provisioning itself, because concurrent
+`install --with-deps` runs self-conflict on OS package locks and a
+mid-install directory can hold the main executable while the
+headless-shell binary is still missing.
