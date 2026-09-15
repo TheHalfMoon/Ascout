@@ -15,7 +15,13 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
-    "noEmitOnError": true
+    "noEmitOnError": true,
+    // skipLibCheck (added P016-04 with the first third-party runtime
+    // dependency): Playwright's own .d.ts references DOM lib globals, which
+    // fails validation under "lib": ["ES2023"]. This skips validation of
+    // third-party declaration files only; every strictness flag above still
+    // applies in full to src/**. See docs/browser-playwright-adapter.md.
+    "skipLibCheck": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules", ".ascout"]
