@@ -1,12 +1,14 @@
-# Spec 016 HEAD Cross-Artifact Review
+# Spec 016 HEAD Cross-Artifact Review (Post-Reconciliation)
 
-**Status:** `PASS_FOR_CURRENT_PLANNING_HEAD / MUST_REFRESH_AFTER_PREDECESSOR_RECONCILIATION`
+**Status:** `PASS_FOR_RECONCILED_HEAD`
 **Planning ledger:** Issue #342
-**Reviewed planning head before review materialization:** `2be11e8461c2bc4469be1d0de6cab87f080c02f1`
+**Reconciled canonical main:** `d3e79aa59149b13f7f2ae85f6295ea7da9a52bfa`
+**Reviewed planning head before review materialization:** `f79e0502a0bea6836346b037f0f06b631870f8ca`
+**Review date:** 2026-09-15
 
 ## Review scope
 
-Reviewed the complete Spec 016 planning package against one another for:
+Reviewed the complete reconciled Spec 016 planning package against one another for:
 
 - product objective;
 - first-wedge boundaries;
@@ -18,34 +20,49 @@ Reviewed the complete Spec 016 planning package against one another for:
 - provenance policy;
 - risk controls;
 - Constitution compatibility;
-- implementation handoff.
+- implementation handoff;
+- predecessor reconciliation correctness.
 
 ## Result
 
 No unresolved material design contradiction remains on the reviewed planning head.
 
-The previously identified planning inconsistencies are reconciled:
+Verified on the reconciled head:
 
-- the hard-integrity taxonomy is one nine-gate vocabulary;
+- the hard-integrity taxonomy is one nine-gate vocabulary shared verbatim
+  between `spec.md` and `BENCHMARK_DESIGN.md`;
 - `recovery_history_erasure` is explicit;
-- `REQ-ORACLE-MESH` has a concrete acceptance owner at P016-05;
+- `REQ-ORACLE-MESH` has a concrete acceptance owner at P016-05
+  (P016-02 references, P016-09 benchmark-validates);
 - P016-00 is explicitly before P016-01 and must be cited by the authorization artifact;
 - deterministic browser evidence remains a prerequisite for agentic/model expansion;
-- donor-source permissions do not erase provenance requirements.
+- donor-source permissions do not erase provenance requirements;
+- reconciliation edits are header/status-only (8 insertions, 3 deletions across
+  7 files) plus the clean forward merge; no requirement, gate, task, or
+  boundary text was altered.
 
-## Branch-purity interpretation
+## Branch-purity computation
 
-The planning branch is intentionally documentation-only. Product source, tests, workflows and dependencies are not authorized by this planning package.
+Computed against reconciled canonical `main`
+`d3e79aa59149b13f7f2ae85f6295ea7da9a52bfa`:
 
-Before the planning PR is opened/merged after Spec 015 closeout, branch purity MUST be recomputed against the then-current canonical `main`; this review cannot pre-authorize a future reconciled head.
+- 21 changed files, all under `specs/016-browser-agentic-verification/`;
+- additions only relative to the merge base line (3253 insertions);
+- zero product source, test, workflow, dependency, or configuration changes.
+
+The planning branch remains intentionally documentation-only.
 
 ## Freshness rule
 
-A forward merge/reconciliation of final Spec 015 `main`, or any material planning change after this review, invalidates this exact-head review for merge qualification. Regenerate/reconcile affected claims and perform a fresh exact-head review before planning merge.
+Any material planning change after the reviewed head, or any further
+main advance requiring reconciliation, invalidates this exact-head review for
+merge qualification. The planning PR still requires its own exact-head review
+at qualification time (CI + maintainer verification + zero unresolved material
+threads on the PR head).
 
 ```text
-CURRENT_PLANNING_HEAD_CROSS_ARTIFACT_REVIEW = PASS
+RECONCILED_PLANNING_HEAD_CROSS_ARTIFACT_REVIEW = PASS
 OPEN_MATERIAL_FINDINGS = 0
-FINAL_POST_SPEC015_REVIEW_REQUIRED = YES
+PR_HEAD_REVIEW_AT_QUALIFICATION_REQUIRED = YES
 IMPLEMENTATION_AUTHORITY = NO
 ```

@@ -93,10 +93,10 @@
 ## Open items before canonical planning merge
 
 - [x] Reconcile planning branch to live `main` after active Spec 015 PR #341 and any successor first-wedge closeout changes. — Done 2026-09-15: forward merge `d2f310045915582f7ca91e41e62371f8995f30e4` of final main `d3e79aa59149b13f7f2ae85f6295ea7da9a52bfa` (PR #341 merged, wedge `CLOSED_CANONICAL / COMPLETE`, Issue #318 closed).
-- [ ] Reverify exact current Playwright source/package candidate at planning qualification time.
-- [ ] Confirm no new canonical Spec 014/015 decision conflicts with Spec 016 boundary.
-- [ ] Run exact-head cross-artifact consistency review.
-- [ ] Run final planning audit as a distinct pass/session; no external person required unless later governance says otherwise.
+- [x] Reverify exact current Playwright source/package candidate at planning qualification time. — Done 2026-09-15: pin `d1ead3ecca23182f2d06d761c28e3d4edafb6595` resolves upstream (2026-09-11), Apache-2.0; implementation must still pin the actual package version.
+- [x] Confirm no new canonical Spec 014/015 decision conflicts with Spec 016 boundary. — Done 2026-09-15: zero Spec 014 paths on reconciled main; Spec 015 delta is the additive residual slice only, satisfying predecessor preconditions.
+- [x] Run exact-head cross-artifact consistency review. — Done 2026-09-15: post-reconciliation review at `f79e0502a0bea6836346b037f0f06b631870f8ca`, PASS, 0 findings; PR-head review still required at qualification.
+- [x] Run final planning audit as a distinct pass/session; no external person required unless later governance says otherwise. — Done 2026-09-15: post-reconciliation audit at `f79e0502a0bea6836346b037f0f06b631870f8ca`, `READY_FOR_PLANNING_PR`, 0 findings.
 - [ ] Qualify planning-only PR with repository-required CI and maintainer verification.
 
 ```text
