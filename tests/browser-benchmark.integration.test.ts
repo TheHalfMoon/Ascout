@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo, Server } from "node:net";
+import { chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   createActionRequest,
@@ -187,8 +188,48 @@ function attemptOutputs(log: readonly BrowserActionAttempt[]): string[] {
   );
 }
 
-beforeAll(async () => {
+const CHROMIUM_WAIT_MS = (() => {
+  const raw = process.env.BENCHMARK_CHROMIUM_WAIT_MS;
+  if (raw === undefined) {
+    return 300000;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 300000;
+})();
+const CHROMIUM_POLL_MS = 2000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/**
+ * Coordinates Chromium provisioning with the P016-04 integration
+ * file: if the executable is absent, another suite worker may be
+ * provisioning it right now (concurrent `install --with-deps`
+ * self-conflicts on OS package locks), so poll for its appearance
+ * before provisioning here. Falls back to provisioning when nobody
+ * else supplies the browser within the wait budget.
+ */
+async function waitForProvisionedChromium(): Promise<void> {
+  const deadline = Date.now() + CHROMIUM_WAIT_MS;
+  for (;;) {
+    if (existsSync(chromium.executablePath())) {
+      return;
+    }
+    if (Date.now() >= deadline) {
+      break;
+    }
+    await sleep(
+      Math.min(CHROMIUM_POLL_MS, Math.max(deadline - Date.now(), 0)),
+    );
+  }
   ensureChromiumInstalled();
+}
+
+beforeAll(async () => {
+  await waitForProvisionedChromium();
   for (const name of [
     "happy-path.html",
     "rename-equivalent.html",
