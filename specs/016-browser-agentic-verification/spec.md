@@ -76,18 +76,21 @@ Browser expansion MUST be justified by Ascout-owned benchmarks measuring Ascout 
 
 ## 4. Hard invariants
 
-The following counts must remain zero in qualifying benchmarks:
+The canonical benchmark-integrity vocabulary is shared verbatim with `BENCHMARK_DESIGN.md`. The following counts must remain zero in qualifying benchmarks:
 
 ```text
-cross_tree_evidence_leakage = 0
-source_binding_violations = 0
 fabricated_pass = 0
 hidden_applicable_not_run = 0
+cross_tree_evidence_leakage = 0
+source_binding_violation = 0
 silent_semantic_heal = 0
-secret_leakage_from_ascout_artifacts = 0
 cache_authority_escalation = 0
-model_only_unqualified_pass = 0
+secret_leakage_from_ascout_owned_artifacts = 0
+unqualified_model_only_pass = 0
+recovery_history_erasure = 0
 ```
+
+A planning or implementation artifact that uses a different name for one of these gates MUST map it explicitly to this canonical vocabulary rather than creating a second integrity taxonomy.
 
 ## 5. Explicit non-goals for the first wedge
 
