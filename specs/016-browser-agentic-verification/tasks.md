@@ -15,6 +15,7 @@
 7. Agents/models are proposal-only unless an oracle is explicitly classified and authorized.
 8. Prefer native Playwright capability over proprietary browser reimplementation.
 9. Do not create a graph database, cloud service, public plugin SDK or browser farm under this plan.
+10. `P016-00 PREDECESSOR_CLOSEOUT` is a hard predecessor gate. `P016-01` MUST cite its durable closeout evidence before it can become effective.
 
 ## Dependency order
 
@@ -57,6 +58,7 @@ Deliverable: one durable closeout reference in the Spec 016 authorization artifa
 
 Create a bounded authorization artifact that freezes:
 
+- durable evidence proving `P016-00 PREDECESSOR_CLOSEOUT` is satisfied;
 - first browser wedge scope;
 - exact Playwright dependency/version strategy;
 - no Momentic source import in deterministic first wedge unless separately qualified;
@@ -64,7 +66,9 @@ Create a bounded authorization artifact that freezes:
 - benchmark targets;
 - security/privacy constraints;
 - no cloud/mobile/browser-farm scope;
-- exact-head qualification and guarded merge requirements.
+- exact-head qualification and guarded merge requirements;
+- canonical nine-gate benchmark-integrity vocabulary from `spec.md` / `BENCHMARK_DESIGN.md`;
+- explicit requirement ownership declaring `REQ-ORACLE-MESH` acceptance authority at P016-05, with P016-02 carrying policy references and P016-09 benchmark validation only.
 
 No product mutation until this gate closes `CLOSED_CANONICAL / EFFECTIVE`.
 
@@ -96,6 +100,7 @@ Acceptance:
 - deterministic serialization/digest;
 - dangling obligation refs fail closed;
 - natural-language text remains data, not executable authority;
+- oracle policy references are represented but do not yet constitute browser oracle evidence;
 - no browser dependency yet.
 
 ## P016-03 — BrowserExecutor contract
@@ -132,9 +137,9 @@ Acceptance:
 - no core source mutation;
 - synthetic integration tests.
 
-## P016-05 — Browser evidence binding
+## P016-05 — Browser evidence binding and oracle-record authority
 
-Emit Ascout-owned evidence for browser execution.
+Emit Ascout-owned evidence for browser execution. This task owns the first concrete acceptance surface for `REQ-ORACLE-MESH`; P016-02 only carries oracle policy references and P016-09 later validates the behavior in benchmarks.
 
 Acceptance:
 
@@ -144,7 +149,12 @@ Acceptance:
 - console/page errors captured;
 - screenshot/trace references use content digests where available;
 - source drift checked before final verdict;
-- cross-tree evidence rejection tests.
+- cross-tree evidence rejection tests;
+- every browser assertion emits or references an explicit oracle record;
+- oracle records classify type, authority, provenance, source binding and evidence refs;
+- deterministic state/network/accessibility oracles remain distinguishable from visual/model/human oracles;
+- model output cannot silently acquire deterministic PASS authority;
+- malformed, dangling or contradictory oracle records fail closed.
 
 ## P016-06 — Deterministic locator policy
 
@@ -187,7 +197,8 @@ Acceptance:
 - retry budgets visible;
 - semantic recovery blocks ordinary PASS;
 - no final-state-only truth collapse;
-- recovery serialization/digest tests.
+- recovery serialization/digest tests;
+- `recovery_history_erasure = 0` remains an explicit integrity condition.
 
 ## P016-08 — Trace/artifact ingestion
 
@@ -217,6 +228,8 @@ Create owned minimal web fixtures for:
 - sensitive input/trace fixture.
 
 Gate deterministic browser expansion on benchmark integrity.
+
+Acceptance includes all nine canonical hard gates from `BENCHMARK_DESIGN.md` / `spec.md`, including `recovery_history_erasure = 0` and `unqualified_model_only_pass = 0`.
 
 ## P016-10 — Journey evidence model
 
