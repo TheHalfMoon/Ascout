@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture Shop Double Submit</title></head>
+<body>
+<main>
+<h1>Fixture Shop</h1>
+<button id="place-order" data-testid="place-order" type="button">Place order</button>
+<div id="submit-count" data-testid="submit-count">0</div>
+</main>
+<script>
+let count = 0;
+document.getElementById("place-order").addEventListener("click", () => {
+  count += 1;
+  document.getElementById("submit-count").textContent = String(count);
+});
+</script>
+</body></html>

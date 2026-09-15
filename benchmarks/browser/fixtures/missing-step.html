@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture Checkout Wizard</title></head>
+<body>
+<main>
+<h1>Checkout</h1>
+<ol id="wizard-steps" data-testid="wizard-steps">
+<li data-step="cart">Cart</li>
+<li data-step="submit">Submit</li>
+</ol>
+<button id="submit-order" data-testid="submit-order" type="button">Submit</button>
+<div id="wizard-result" data-testid="wizard-result" aria-live="polite"></div>
+</main>
+<script>
+document.getElementById("submit-order").addEventListener("click", () => {
+  document.getElementById("wizard-result").textContent = "Submitted without review";
+});
+</script>
+</body></html>

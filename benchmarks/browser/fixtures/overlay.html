@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture Shop Overlay</title></head>
+<body>
+<main>
+<h1>Fixture Shop</h1>
+<label for="customer-name">Name</label>
+<input id="customer-name" data-testid="customer-name" type="text" autocomplete="off">
+<button id="place-order" data-testid="place-order" type="button">Place order</button>
+<div id="order-result" data-testid="order-result" aria-live="polite"></div>
+</main>
+<div id="promo-overlay" data-testid="promo-overlay"
+  style="position:fixed;inset:0;background:rgba(0,0,0,0.5);color:white;
+  display:flex;align-items:center;justify-content:center;">Promotion</div>
+<script>
+setTimeout(() => {
+  document.getElementById("promo-overlay").remove();
+}, 3000);
+document.getElementById("place-order").addEventListener("click", () => {
+  const name = document.getElementById("customer-name").value;
+  document.getElementById("order-result").textContent = "Order for " + name;
+});
+</script>
+</body></html>

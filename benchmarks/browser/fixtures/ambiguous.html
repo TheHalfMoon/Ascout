@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture Shop Ambiguous</title></head>
+<body>
+<main>
+<h1>Fixture Shop</h1>
+<button id="place-order-top" data-testid="place-order" type="button">Place order</button>
+<button id="place-order-bottom" data-testid="place-order" type="button">Place order</button>
+<div id="order-result" data-testid="order-result" aria-live="polite"></div>
+<div id="match-count" data-testid="match-count"></div>
+</main>
+<script>
+document.getElementById("match-count").textContent = String(
+  document.querySelectorAll('[data-testid="place-order"]').length,
+);
+document.getElementById("place-order-top").addEventListener("click", () => {
+  document.getElementById("order-result").textContent = "Order from top";
+});
+document.getElementById("place-order-bottom").addEventListener("click", () => {
+  document.getElementById("order-result").textContent = "Order from bottom";
+});
+</script>
+</body></html>
