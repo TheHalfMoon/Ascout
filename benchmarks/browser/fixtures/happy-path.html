@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture Shop</title></head>
+<body>
+<main>
+<h1>Fixture Shop</h1>
+<label for="customer-name">Name</label>
+<input id="customer-name" data-testid="customer-name" type="text" autocomplete="off">
+<button id="place-order" data-testid="place-order" type="button">Place order</button>
+<div id="order-result" data-testid="order-result" aria-live="polite"></div>
+</main>
+<script>
+document.getElementById("place-order").addEventListener("click", () => {
+  const name = document.getElementById("customer-name").value;
+  document.getElementById("order-result").textContent = "Order for " + name;
+});
+</script>
+</body></html>

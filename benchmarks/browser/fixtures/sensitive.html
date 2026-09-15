@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Fixture Login</title></head>
+<body>
+<main>
+<h1>Login</h1>
+<label for="login-user">Username</label>
+<input id="login-user" data-testid="login-user" type="text" autocomplete="off">
+<label for="login-password">Password</label>
+<input id="login-password" data-testid="login-password" type="password" autocomplete="off">
+<button id="login-submit" data-testid="login-submit" type="button">Log in</button>
+<div id="login-result" data-testid="login-result" aria-live="polite"></div>
+</main>
+<script>
+document.getElementById("login-submit").addEventListener("click", () => {
+  const user = document.getElementById("login-user").value;
+  document.getElementById("login-result").textContent = "Welcome " + user;
+});
+</script>
+</body></html>
