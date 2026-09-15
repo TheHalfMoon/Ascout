@@ -92,7 +92,7 @@
 
 ## Open items before canonical planning merge
 
-- [ ] Reconcile planning branch to live `main` after active Spec 015 PR #341 and any successor first-wedge closeout changes.
+- [x] Reconcile planning branch to live `main` after active Spec 015 PR #341 and any successor first-wedge closeout changes. — Done 2026-09-15: forward merge `d2f310045915582f7ca91e41e62371f8995f30e4` of final main `d3e79aa59149b13f7f2ae85f6295ea7da9a52bfa` (PR #341 merged, wedge `CLOSED_CANONICAL / COMPLETE`, Issue #318 closed).
 - [ ] Reverify exact current Playwright source/package candidate at planning qualification time.
 - [ ] Confirm no new canonical Spec 014/015 decision conflicts with Spec 016 boundary.
 - [ ] Run exact-head cross-artifact consistency review.

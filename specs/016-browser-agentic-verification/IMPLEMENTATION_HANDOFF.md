@@ -4,6 +4,7 @@
 **Planning ledger:** Issue #342
 **Planning branch:** `plan/016-browser-agentic-verification`
 **Planning base:** `506bd09e7e6fbc0ce5cc080ed55eb7a34aa4644e`
+**Reconciled canonical main:** `d3e79aa59149b13f7f2ae85f6295ea7da9a52bfa` (forward merge `d2f310045915582f7ca91e41e62371f8995f30e4`, Spec 015 first wedge `CLOSED_CANONICAL / COMPLETE`, Issue #318 closed)
 
 ## 1. When this handoff becomes actionable
 

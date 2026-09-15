@@ -3,10 +3,11 @@
 **Status:** `PLANNING_ONLY`
 **Planning ledger:** Issue #342
 **Planning base:** `506bd09e7e6fbc0ce5cc080ed55eb7a34aa4644e`
+**Reconciled canonical main:** `d3e79aa59149b13f7f2ae85f6295ea7da9a52bfa` (forward merge `d2f310045915582f7ca91e41e62371f8995f30e4`, Spec 015 first wedge `CLOSED_CANONICAL / COMPLETE`, Issue #318 closed)
 
 ## 1. Current Ascout truth
 
-At this planning base, Spec 015 first-wedge implementation has already established evidence-bound quality primitives through merged slices for obligation/oracle modeling, deterministic gap detection, stability classification, candidate proposals, isolated candidate worktrees, discrimination proof, admission decisions, failure reproduction/minimization, and defect/regression records. PR #341 is the active residual-risk/release-decision slice and remains outside this planning branch.
+At the original planning base, Spec 015 first-wedge implementation had established evidence-bound quality primitives through nine merged slices; PR #341 (residual-risk/release-decision) was the active tenth slice. At the reconciled canonical main, all ten slices are merged: obligation/oracle modeling, deterministic gap detection, stability classification, candidate proposals, isolated candidate worktrees, discrimination proof, admission decisions, failure reproduction/minimization, defect/regression records, and residual-risk/release-decision rendering (PR #341 merged at `d3e79aa59149b13f7f2ae85f6295ea7da9a52bfa`, post-merge Project CI run 34940899817 6/6 SUCCESS). The Spec 015 first wedge is `CLOSED_CANONICAL / COMPLETE` (Issue #318 closed 2026-09-15) and its residual-risk/release-decision semantics are canonical.
 
 This gives Ascout a verification brain but not a browser execution surface.
 

@@ -108,7 +108,7 @@
 
 **Risk:** Spec 016 planning interferes with active Spec 015 implementation.
 
-**Mitigation:** planning branch only while Spec 015 chain is active; no Spec 016 implementation PR/dependency until predecessor closeout.
+**Mitigation:** planning branch only while Spec 015 chain is active; no Spec 016 implementation PR/dependency until predecessor closeout. — Predecessor closed 2026-09-15 (Issue #318, `CLOSED_CANONICAL / COMPLETE`); this package now proceeds to planning-PR qualification while implementation stays gated on P016-00/P016-01.
 
 ## R016-19 — Over-scoping into mobile/API/security
 
