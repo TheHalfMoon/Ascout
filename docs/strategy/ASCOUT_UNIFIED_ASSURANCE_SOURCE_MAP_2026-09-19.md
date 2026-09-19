@@ -670,3 +670,56 @@ STUDY
 The goal is not to maximize imported code.
 
 The goal is to maximize proven capability while keeping Ascout's trust model coherent.
+
+
+---
+
+## 14. Normative Kernux classification amendment — 2026-09-19
+
+Earlier classification of `TheHalfMoon/kernux` as only a governance/provenance reference is superseded by this section.
+
+### TheHalfMoon/kernux
+
+Observed planning snapshot:
+
+```text
+44e8ec21f7a3b402cc78a9a6c8e7cb176dc39b46
+```
+
+Disposition:
+
+```text
+PRIMARY_REALITY_EXECUTION_FABRIC_DONOR
+PROTOCOL_AND_ADAPTER_TARGET
+CAPABILITY/GRANT_MODEL_DONOR
+RUNTIME_EVIDENCE_DONOR
+NOT_ASCOUT_CLAIM_AUTHORITY
+```
+
+Use:
+
+- provider-neutral capability kernel concepts;
+- typed CapabilityRequest / Grant semantics;
+- browser/web runtime;
+- deterministic CDP/Playwright layer;
+- AgentQL/TinyFish-style semantic browser layer;
+- computer/app/files/process/PTY capabilities;
+- local/WSL/container/VM/SSH/remote runtime negotiation;
+- execution-host process truth;
+- event/artifact/evidence lineage;
+- replay/recovery/idempotency semantics;
+- sandbox/lab lifecycle;
+- cross-platform runtime qualification.
+
+Do not:
+
+- make Kernux a second Ascout truth kernel;
+- infer qualification from advertised runtime capabilities;
+- treat a disconnect as process exit;
+- bypass P016 browser intent/oracle semantics;
+- claim unimplemented Kernux roadmap capabilities as available;
+- require Kernux cloud for Ascout local core.
+
+Founding Kernux donors (Orca, AgentQL/TinyFish, Desktop Commander) should normally enter Ascout **through Kernux contracts**, not as parallel direct integrations, unless a later benchmark proves a specific gap.
+
+Implementation-time Kernux intake must re-pin exact protocol/source/components and apply the Source Candidate Registry rules in this source map.
