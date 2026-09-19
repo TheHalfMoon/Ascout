@@ -457,6 +457,7 @@ allowed effects
 network scope
 credential refs
 secret policy
+dynamic target authorization ref when active/adversarial network execution is requested
 evidence requirements
 budget
 retry/recovery policy
@@ -477,10 +478,27 @@ container/VM/image identity
 browser version
 app/service identity
 configuration
+selected EngineQualification/runtime-qualification ref
+selected bounded Grant ref + consequence/effect class
 credential capability identity without plaintext
+dynamic target authorization identity when active/adversarial network execution is present
 network scope
 lineage
 ```
+
+### 3.2.1 Kernux bridge authorization invariants
+
+Before execution, the Ascout-to-Kernux bridge MUST prove all of the following:
+
+1. the selected runtime/engine qualification matches the exact implementation/configuration used by the run;
+2. the selected bounded Grant is valid for the subject, resource, runtime, action, lifetime/use budget, and current policy revision;
+3. the Grant consequence/effect class is **less than or equal to** the `RealityTestPlan.allowed effects` ceiling;
+4. if the selected Grant exceeds that ceiling, execution is refused before the first effect;
+5. for W2 / active-adversarial network execution, the plan carries a current immutable `DynamicTargetAuthorization` reference and the target/destination remains within it;
+6. `RealityRun` binds the selected qualification ref and Grant ref;
+7. any refusal records the plan, requested effect, selected qualification (if any), selected Grant (if any), and refusal reason without leaking credential material.
+
+No runtime, model, browser page, repository content, or adapter may widen the plan effect ceiling.
 
 ### 3.3 LabManifest
 
