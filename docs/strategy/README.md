@@ -44,3 +44,29 @@ If any roadmap wording appears to conflict with the Constitution, canonical Mast
 > **Ascout should become the evidence-bound verification authority for software changes: it determines what changed, what evidence actually challenged that change, what passed, what failed, what remains unverified, and whether a resulting claim is safe to use.**
 
 This direction extends the founding identity — **Verify everything AI ships** — while preserving the constitutional rules of evidence before claims, no green by omission, source-bound truth, native capability first, conservative verification, and minimal trusted core.
+
+
+---
+
+## Unified Assurance planning package — 2026-09-19
+
+The following documents form one planning package for the proposed convergence of Ascout, Kodac, Sentrdel, and Kernux-backed Reality Verification. They are implementation-ready planning inputs, but they do **not** independently authorize implementation.
+
+Recommended read order:
+
+1. [`ASCOUT_UNIFIED_ASSURANCE_MASTER_PLAN_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_MASTER_PLAN_2026-09-19.md) — product thesis and overall architecture.
+2. [`ASCOUT_UNIFIED_ASSURANCE_CONTRACT_FREEZE_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_CONTRACT_FREEZE_2026-09-19.md) — frozen truth, authority, evidence, finding, coverage, effect, and Reality Verification contracts.
+3. [`ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_BLUEPRINT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_BLUEPRINT_2026-09-19.md) — dependency-ordered implementation program from P0 through P18.
+4. [`ASCOUT_UNIFIED_ASSURANCE_TASK_REGISTRY_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_TASK_REGISTRY_2026-09-19.md) — bounded implementation tasks and acceptance gates.
+5. [`ASCOUT_UNIFIED_ASSURANCE_GAP_AUDIT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_GAP_AUDIT_2026-09-19.md) — 74 mapped material gap classes and closures.
+6. [`ASCOUT_KERNUX_REALITY_VERIFICATION_FABRIC_2026-09-19.md`](./ASCOUT_KERNUX_REALITY_VERIFICATION_FABRIC_2026-09-19.md) — real web/app/API/lab/runtime verification architecture.
+7. [`ASCOUT_UNIFIED_ASSURANCE_SOURCE_MAP_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_SOURCE_MAP_2026-09-19.md) — internal/external source portfolio and source-admission rules.
+8. [`ASCOUT_UNIFIED_ASSURANCE_FINAL_READINESS_AUDIT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_FINAL_READINESS_AUDIT_2026-09-19.md) — independent planning completeness challenge and final verdict.
+9. [`ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_HANDOFF_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_HANDOFF_2026-09-19.md) — exact start condition and first-wedge execution instructions.
+
+The package intentionally keeps the first implementation wedge limited to shared assurance contracts. Review, Test, Security, Kernux Reality Verification, remote runtime, dynamic Cyber, donor migration, and release engineering remain dependency-ordered later phases with separate authority/effect gates.
+
+```text
+IMPLEMENTATION_READY_PLAN = YES
+IMPLEMENTATION_AUTHORITY = NO
+```
