@@ -1,0 +1,88 @@
+:root {
+  /* Brand neutrals */
+  --ascout-field-night: #0A0D17;
+  --ascout-field-ink: #121728;
+  --ascout-graphite: #22283A;
+  --ascout-steel: #778096;
+  --ascout-mist: #D7DCE6;
+  --ascout-paper: #F4F3EC;
+  --ascout-white: #FFFFFF;
+
+  /* Brand signals */
+  --ascout-proof-blue: #3867FF;
+  --ascout-scan-cyan: #43D4F3;
+  --ascout-evidence-lime: #D8F36A;
+  --ascout-signal-violet: #8A73FF;
+
+  /* Semantic states */
+  --ascout-supported: #25C87A;
+  --ascout-failed: #FF5964;
+  --ascout-warning: #F2B84B;
+  --ascout-blocked: #9C7BFF;
+  --ascout-unknown: #8A93A6;
+  --ascout-not-run: #A7ADB9;
+
+  /* Typography
+   * PP Mondwest requires an appropriate commercial license.
+   * Do not commit redistributed font files unless the license permits it.
+   */
+  --ascout-font-display: "PP Mondwest", "Courier New", ui-monospace, monospace;
+  --ascout-font-ui: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --ascout-font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  /* Spacing */
+  --ascout-space-1: 4px;
+  --ascout-space-2: 8px;
+  --ascout-space-3: 12px;
+  --ascout-space-4: 16px;
+  --ascout-space-6: 24px;
+  --ascout-space-8: 32px;
+  --ascout-space-12: 48px;
+  --ascout-space-16: 64px;
+  --ascout-space-24: 96px;
+
+  /* Radius */
+  --ascout-radius-1: 4px;
+  --ascout-radius-2: 6px;
+  --ascout-radius-3: 10px;
+  --ascout-radius-round: 999px;
+
+  /* Evidence field */
+  --ascout-grid-unit: 8px;
+  --ascout-grid-major: 32px;
+
+  /* Motion */
+  --ascout-motion-micro: 150ms;
+  --ascout-motion-panel: 220ms;
+  --ascout-motion-evidence: 320ms;
+
+  /* Brand-only gradient */
+  --ascout-evidence-horizon:
+    linear-gradient(
+      180deg,
+      #17162A 0%,
+      #253D6B 28%,
+      #3FBFDE 62%,
+      #D8F36A 100%
+    );
+}
+
+[data-theme="dark"] {
+  --ascout-bg: #0A0D17;
+  --ascout-surface: #111526;
+  --ascout-surface-raised: #171C30;
+  --ascout-text: #F4F3EC;
+  --ascout-text-muted: #9CA5B8;
+  --ascout-border: #2A3147;
+  --ascout-grid-line: rgb(255 255 255 / 0.06);
+}
+
+[data-theme="light"] {
+  --ascout-bg: #F4F3EC;
+  --ascout-surface: #FFFFFF;
+  --ascout-surface-raised: #FFFFFF;
+  --ascout-text: #0A0D17;
+  --ascout-text-muted: #616A7D;
+  --ascout-border: #D9DDE5;
+  --ascout-grid-line: rgb(10 13 23 / 0.05);
+}
