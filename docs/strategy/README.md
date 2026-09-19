@@ -58,7 +58,7 @@ Recommended read order:
 2. [`ASCOUT_UNIFIED_ASSURANCE_CONTRACT_FREEZE_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_CONTRACT_FREEZE_2026-09-19.md) — frozen truth, authority, evidence, finding, coverage, effect, and Reality Verification contracts.
 3. [`ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_BLUEPRINT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_BLUEPRINT_2026-09-19.md) — dependency-ordered implementation program from P0 through P18.
 4. [`ASCOUT_UNIFIED_ASSURANCE_TASK_REGISTRY_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_TASK_REGISTRY_2026-09-19.md) — bounded implementation tasks and acceptance gates.
-5. [`ASCOUT_UNIFIED_ASSURANCE_GAP_AUDIT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_GAP_AUDIT_2026-09-19.md) — 74 mapped material gap classes and closures.
+5. [`ASCOUT_UNIFIED_ASSURANCE_GAP_AUDIT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_GAP_AUDIT_2026-09-19.md) — 75 mapped material gap classes and closures.
 6. [`ASCOUT_KERNUX_REALITY_VERIFICATION_FABRIC_2026-09-19.md`](./ASCOUT_KERNUX_REALITY_VERIFICATION_FABRIC_2026-09-19.md) — real web/app/API/lab/runtime verification architecture.
 7. [`ASCOUT_UNIFIED_ASSURANCE_SOURCE_MAP_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_SOURCE_MAP_2026-09-19.md) — internal/external source portfolio and source-admission rules.
 8. [`ASCOUT_UNIFIED_ASSURANCE_FINAL_READINESS_AUDIT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_FINAL_READINESS_AUDIT_2026-09-19.md) — independent planning completeness challenge and final verdict.
