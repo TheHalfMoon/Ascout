@@ -2,7 +2,9 @@
 
 **Status:** IMPLEMENTATION-READY PLANNING / NO IMPLEMENTATION AUTHORITY  
 **Date:** 2026-09-19  
-**Task namespace:** `UA-*` planning namespace only  
+**Task namespace:** `UA-*` planning namespace only
+
+**Canonical phase naming:** zero-padded phase identifiers are authoritative for exact-name checks (for example `UA-P01` with tasks `UA-P01-T01` through `UA-P01-T18`).  
 **Important:** These IDs do not replace active Spec 016 task IDs. Exact successor spec numbering is assigned only after live reconciliation.
 
 ## 0. Execution rule
@@ -405,7 +407,8 @@ P0 -> P1 -> P2
 P2 -> P3 -> P4
 P2 -> P5
 P2 -> P6 -> P7
-P1 + P5 -> P8 -> P9 -> P10
+P1 -> P8 contract tasks (UA-P08-T01..T07)
+P1 + P5 -> P8 completion / P9 entry -> P10
 P6 -> P11
 P9 + P11 + Constitution authority -> P12
 P3 + P5 + P6 -> P13
@@ -423,7 +426,9 @@ Allowed after P2:
 
 - P3 Review and P5 Test may proceed in parallel if contract surfaces are frozen.
 - P6 Security may proceed in parallel with P4 publication.
-- P8 contract work may start after P1, but real execution bridge must wait for actual qualified Kernux capabilities and P5 integration.
+- P8 contract work (UA-P08-T01 through UA-P08-T07) may start after P1.
+- P5 is a predecessor only for UA-P08-T08 through UA-P08-T17, P8 phase completion, and P9 entry.
+- Real execution bridge work also waits for actual qualified Kernux capabilities.
 
 Disallowed:
 
