@@ -47,3 +47,32 @@ INITIAL_SYMBOL_CONCEPT_DEFINED = YES
 FONT_LICENSE_INTAKE_REQUIRED = YES
 RUNTIME_UI_IMPLEMENTATION_AUTHORITY = NO
 ```
+
+
+## High-fidelity prototype
+
+A static interaction prototype is available at:
+
+- `prototype/index.html`
+- `prototype/styles.css`
+- `prototype/app.js`
+- `prototype/README.md`
+
+It demonstrates the frozen direction for Home, Review, Test, Security, Cyber, Assure, Lab/Reality, the Evidence Inspector, Target Bar, and Run Timeline.
+
+No build step is required.
+
+## Freeze
+
+The agreed identity and product-interface direction is frozen in:
+
+- `ASCOUT_BRAND_UI_FREEZE.md`
+
+The freeze exists to prevent visual redesign from distracting from Ascout implementation.
+
+```text
+BRAND_STRATEGY_FROZEN = YES
+VISUAL_DIRECTION_FROZEN = YES
+PRODUCT_UI_INFORMATION_ARCHITECTURE_FROZEN = YES
+PRODUCTION_UI_IMPLEMENTED = NO
+```
