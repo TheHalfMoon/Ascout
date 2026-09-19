@@ -913,3 +913,44 @@ Alibaba, Cloudflare, Kodac, Sentrdel, WePLD Assurance Fabric, and the broader do
 
 Ascout is the product.
 Ascout owns the truth contract.
+
+
+---
+
+## 18. Normative Kernux Reality Execution Amendment — 2026-09-19
+
+This section is normative where earlier text is silent or narrower.
+
+Kernux is now a **PRIMARY_EXECUTION_FABRIC_DONOR / ADAPTER_TARGET** for Ascout Reality Verification.
+
+Updated capability map:
+
+```text
+ASCOUT = TRUST KERNEL + USER EXPERIENCE + CLAIM AUTHORITY
+KODAC = REVIEW / WORKFLOW / GITHUB / QUALIFICATION
+SENTRDEL = SECURITY / INVARIANTS / COVERAGE / RETEST
+KERNUX = WEB / COMPUTER / APP / LAB / LOCAL-REMOTE RUNTIME EXECUTION
+WEPLD ASSURANCE FABRIC = SHARED ASSURANCE ARCHITECTURE
+ALIBABA OPEN CODE REVIEW = PRIMARY AI REVIEW ENGINE CANDIDATE
+CLOUDFLARE SECURITY AUDIT SKILL = DEEP AUDIT METHOD CANDIDATE
+```
+
+`ascout test` therefore has two layers:
+
+```text
+CODE VERIFICATION
++ REALITY VERIFICATION
+```
+
+Reality Verification may require the exact reviewed candidate to be built and exercised through qualified Kernux browser, web, computer, app, files/process/PTY, local, lab, WSL, container, VM, SSH, or paired-runtime capabilities.
+
+Kernux Events/Artifacts/Evidence are execution observations. They do not grant Ascout PASS. Ascout normalizes them into the canonical Evidence/Coverage/Finding model and retains final ClaimAssessment authority.
+
+The detailed contract is frozen in:
+
+- `ASCOUT_KERNUX_REALITY_VERIFICATION_FABRIC_2026-09-19.md`
+- `ASCOUT_UNIFIED_ASSURANCE_CONTRACT_FREEZE_2026-09-19.md`
+- `ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_BLUEPRINT_2026-09-19.md`
+- `ASCOUT_UNIFIED_ASSURANCE_TASK_REGISTRY_2026-09-19.md`
+
+Implementation must not claim Kernux capabilities that are only planned upstream. Availability and qualification remain explicit.
