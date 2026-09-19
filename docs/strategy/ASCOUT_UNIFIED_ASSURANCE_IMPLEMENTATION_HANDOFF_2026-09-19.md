@@ -54,7 +54,7 @@ Do not redesign:
 
 Canonical first-wedge phase identifier: `UA-P01`.
 
-`UA-P01` is the exact phase/task namespace used by the registry and exact-name checks. References to unpadded `UA-P01` in older planning prose are non-canonical aliases and must not be used for authorization or scheduler matching.
+`UA-P01` is the exact phase/task namespace used by the registry and exact-name checks. References to unpadded `UA-P1` in older planning prose are non-canonical aliases and must not be used for authorization or scheduler matching.
 
 Recommended scope:
 
