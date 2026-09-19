@@ -864,12 +864,31 @@ The following additional gap classes are now part of the canonical planning audi
 
 Each row has an explicit owner, acceptance condition, planning evidence reference, and closure state. These references prove planning ownership only; they do not constitute implementation evidence.
 
+### G75 — Canonical code exists beyond proven historical authorization
+
+Owner: UA-P00 / UA-P01 successor authorization.
+
+Risk:
+Canonical P016-10..13 implementation could be misread as proof that P016-10+ had effective authority, normalizing authorization bypass or contaminating successor authority.
+
+Closure:
+Preserve the merged code/history and exact CI evidence, but classify historical authority provenance separately. The successor unified-assurance authorization must acknowledge that Issue #344 authorized P016-02..09 only, record that no separate P016-10..13 activation ledger was found in this live audit, characterize existing P016-10..13 code as implementation input, and explicitly decide the P016-14+ successor frontier. No retroactive authority artifact may claim to have existed before the merges.
+
+Acceptance:
+The canonical successor authorization contains the reconciliation, does not rewrite history, does not cite P016-10..13 as authorization precedent, and no UA implementation task starts until that authorization is effective.
+
+Planning evidence:
+Issue #344 closeout; PRs #354-#357; Spec 016 task/handoff authorization boundaries; Final Readiness Audit §37.1.
+
+Status: GOVERNANCE_DEBT_IDENTIFIED / RECONCILIATION_REQUIRED_BEFORE_UA-P01.
+
 Updated audit state:
 
 ```text
 BASE_GAP_CLASSES = 60
 KERNUX_REALITY_ADDITIONAL_GAP_CLASSES = 14
-TOTAL_MAPPED_GAP_CLASSES = 74
+LEGACY_GOVERNANCE_ADDITIONAL_GAP_CLASSES = 1
+TOTAL_MAPPED_GAP_CLASSES = 75
 KNOWN_MATERIAL_GAP_CLASSES_WITHOUT_OWNER = 0
 IMPLEMENTATION_COMPLETE = NO
 ```
