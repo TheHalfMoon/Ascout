@@ -270,7 +270,10 @@ Risk:
 Tools inherit broad environment credentials or follow redirects with secrets.
 
 Closure:
-Credential capabilities are least privilege, explicit, redacted in evidence, and rebound on every destination/origin. Child environments are allowlisted.
+Credential capabilities are least privilege, explicit, redacted in evidence, and rebound on every destination/origin. Child environments are allowlisted. Sensitive credentials require authenticated TLS with certificate validation. Sensitive credentials are rejected on cleartext HTTP. Redirects and destination changes re-run the transport and destination authorization checks before credentials may be forwarded. HTTP test paths are permitted only with explicitly classified non-sensitive synthetic credentials.
+
+Acceptance:
+A sensitive credential presented to an HTTP target, invalid/untrusted TLS endpoint, or unauthorized redirect is withheld before transmission; only explicitly non-sensitive synthetic credentials may use an approved HTTP-only fixture.
 
 Status: DESIGN_CLOSED / HOST_EXECUTION_WORK_MISSING.
 
@@ -840,47 +843,26 @@ PROJECT_COMPLETION = NOT_ESTABLISHED
 
 The following additional gap classes are now part of the canonical planning audit:
 
-### G61 — Reality Verification reduced to browser automation
-Closure: include browser, API/service, native app, process, filesystem, installation, recovery, lab, remote, and cross-application journeys.
+### G61-G74 structured ownership matrix
 
-### G62 — Hidden mock substitution
-Closure: SubstrateClass is explicit; a mock/emulator cannot satisfy REAL_COMPONENT or REAL_EXTERNAL_AUTHORIZED requirements.
+| Gap | Owner | Closure | Acceptance | Planning evidence | State |
+| --- | --- | --- | --- | --- | --- |
+| G61 Reality Verification reduced to browser automation | UA-P08 / UA-P09 | Reality covers browser, API/service, native app, process, filesystem, install/recovery, lab, remote, and cross-app journeys | Benchmark demonstrates at least one non-browser real substrate and preserves substrate class in evidence | Reality Fabric §§2, 8-13; Task Registry P8/P9 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G62 Hidden mock substitution | UA-P08 | `SubstrateClass` is mandatory and lower classes cannot satisfy stronger claims | REAL_COMPONENT-required fixture refuses mock/emulator-only evidence | Contract Freeze §3.4; Reality Fabric §§19-20 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G63 Reviewed source differs from executed artifact | UA-P08 | RealityRun binds source/tree and build artifact digest | Wrong artifact/source pairing blocks claim before reconciliation | Contract Freeze §3.2; Reality Fabric §7 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G64 Execution-host truth lost | UA-P08 / UA-P10 | Kernux runtime owns process lifecycle truth; controller/UI state is non-authoritative | Disconnect/timeout fixture cannot become process exit/success | Reality Fabric §§9, 30; Task Registry P10 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G65 Dirty developer environment creates false confidence | UA-P09 | Clean claims require qualified disposable LabManifest environment | Seeded developer-state contamination is detected by clean-lab run | Contract Freeze §3.3; Reality Fabric §§11, 30 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G66 Reality test performs unintended external transaction | UA-P08 / UA-P12 | App/network actions are effect-classified and externally effectful actions require explicit bounded authority | Unauthorized external side effect is refused before first effect | Contract Freeze §§5, 3.2.1; Reality Fabric §§15-16 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G67 Real web test leaks authenticated state | UA-P08 | Browser contexts isolated by default; reuse is explicit and scoped | Cross-project authenticated-state leakage benchmark remains zero | Reality Fabric §§8, 30; Task Registry UA-P08-T15 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G68 Vision fallback presented as deterministic | UA-P08 | Action mechanism and provenance are recorded; deterministic/typed methods preferred | Vision action cannot be labeled deterministic or satisfy deterministic-only oracle requirement | Reality Fabric §§4, 10, 17 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G69 Runtime capability advertisement mistaken for qualification | UA-P02 / UA-P09 | Exact implementation/configuration must match qualification profile | Self-described capability without qualification yields NOT_QUALIFIED | Contract Freeze §§2.5-2.6, 3.2.1; Blueprint P2/P9 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G70 Cleanup omitted from verification | UA-P08 / UA-P09 | Cleanup is part of RealityTestPlan and may be claim-bearing | Required cleanup missing/failing yields MISSING/INCOMPLETE, never clean PASS | Reality Fabric §§11, 29-30; Task Registry UA-P08-T12 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G71 Retry duplicates real-world effects | UA-P04 / UA-P08 / UA-P10 | Side-effect retry requires idempotency or reconciliation; ambiguous outcome fails closed | Retry/reconnect corpus proves no duplicate side effect | Blueprint P4/P10; Reality Fabric §30 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G72 Remote runtime expands trust silently | UA-P10 | Fresh Constitution decision, enrollment, mutual identity, host-policy intersection, revocation, evidence | Remote phase cannot start without effective authority and host/controller policy intersection | Blueprint P10; Task Registry UA-P10-T01..T11 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G73 Planned Kernux capability fabricated as current | UA-P02 / UA-P08 | Availability and qualification are explicit; roadmap-only capability is unavailable | Missing Kernux capability yields NOT_RUN/NOT_QUALIFIED and claim impact | Reality Fabric §26; Blueprint P8 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
+| G74 Reality evidence bypasses Ascout reconciliation | UA-P01 / UA-P08 / UA-P13 | Kernux events are observations; all claim-bearing evidence is normalized/reconciled by Ascout | Direct Kernux event cannot create SUPPORTED ClaimAssessment | Contract Freeze §§1-2; Reality Fabric §§18, 25 | DESIGN_CLOSED / IMPLEMENTATION_MISSING |
 
-### G63 — Reviewed source differs from executed artifact
-Closure: RealityRun binds exact source/tree to build artifact digest; mismatch blocks claim.
-
-### G64 — Execution-host truth lost
-Closure: Kernux runtime owns process lifecycle truth; UI/controller disconnect or timeout is not process exit.
-
-### G65 — Dirty developer environment creates false confidence
-Closure: claims requiring clean behavior use qualified disposable LabManifest environments.
-
-### G66 — Reality test performs unintended external transaction
-Closure: app/network actions are effect-classified; external side effects require explicit bounded authority.
-
-### G67 — Real web test leaks authenticated state
-Closure: isolated browser context by default; explicit named reuse; cross-project leakage benchmark is mandatory.
-
-### G68 — Vision fallback presented as deterministic
-Closure: action mechanism and confidence/provenance are recorded; typed/deterministic methods preferred.
-
-### G69 — Runtime capability advertisement mistaken for qualification
-Closure: exact implementation/configuration must satisfy qualification profile; unsupported guarantee fails visible.
-
-### G70 — Cleanup omitted from verification
-Closure: cleanup is part of RealityTestPlan and can be claim-bearing; required cleanup failure remains visible.
-
-### G71 — Retry duplicates real-world effects
-Closure: side-effect retries require idempotency/reconciliation; ambiguity fails closed.
-
-### G72 — Remote runtime expands trust silently
-Closure: fresh Constitution compatibility decision, enrollment, mutual identity, host-policy intersection, revocation, and evidence required before remote phase.
-
-### G73 — Planned Kernux capability fabricated as current
-Closure: Engine availability/qualification is explicit; roadmap-only capability yields NOT_RUN/NOT_QUALIFIED.
-
-### G74 — Reality evidence bypasses Ascout reconciliation
-Closure: Kernux Events/Artifacts/Evidence are observations only; all claim-bearing use passes through Ascout normalization and ClaimAssessment.
+Each row has an explicit owner, acceptance condition, planning evidence reference, and closure state. These references prove planning ownership only; they do not constitute implementation evidence.
 
 Updated audit state:
 
