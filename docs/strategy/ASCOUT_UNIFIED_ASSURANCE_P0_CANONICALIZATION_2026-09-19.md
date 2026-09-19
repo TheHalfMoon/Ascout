@@ -40,42 +40,43 @@ ratified = 2026-08-21
 amended by this planning PR = NO
 ```
 
-Classification vocabulary:
+Classification vocabulary is exactly the frozen contract vocabulary:
 
 ```text
-COMPATIBLE_CURRENT
-COMPATIBLE_IF_EFFECT_FREE
-FRESH_DECISION_REQUIRED
-AMENDMENT_LIKELY_REQUIRED
-INHERITS_PREDECESSOR_AUTHORITY
+CONSTITUTION_COMPATIBLE
+CONSTITUTION_AMENDMENT_REQUIRED
+DEFERRED
 ```
 
-| Phase | Current classification | Reason / authorization condition |
+| Phase | Frozen classification | Reason / authorization condition |
 | --- | --- | --- |
-| UA-P00 Planning canonicalization | COMPATIBLE_CURRENT | Documentation, provenance, review, CI, merge, and bounded authorization artifacts do not widen product execution authority. |
-| UA-P01 Shared assurance contracts | COMPATIBLE_CURRENT | Pure contracts/validators/tests only; no model, network, donor engine, publication, sandbox, remote runtime, or source mutation. |
-| UA-P02 Engine registry/planner | COMPATIBLE_IF_EFFECT_FREE | Declarative registration/planning is compatible while it does not execute external engines or widen the M1 core requirement set. |
-| UA-P03 Review v1 / OpenCodeReview | FRESH_DECISION_REQUIRED | Introduces optional AI/provider review execution beyond M1. It must remain non-authoritative, optional/local-first compatible, and separately authorized. If it becomes required core or requires mandatory cloud/API-key operation, amendment review is required. |
-| UA-P04 Kodac workflow/publication | FRESH_DECISION_REQUIRED | Durable workflow is compatible in principle; GitHub/publication side effects need explicit effect authority and cannot be inferred from repository ownership. |
-| UA-P05 Unified Test | FRESH_DECISION_REQUIRED | Expands beyond M1 into mutation/property/fuzz/performance/API/browser and related test classes explicitly excluded from M1. Fresh compatibility review must bind exact adapters/effects. |
-| UA-P06 Sentrdel Security | AMENDMENT_LIKELY_REQUIRED | Security-suite orchestration is explicitly outside M1 and adds a new security evidence/control-plane subsystem. |
-| UA-P07 Deep Security Audit | AMENDMENT_LIKELY_REQUIRED | Multi-agent/deep security audit orchestration and validation exceed the current M1 surface. |
-| UA-P08 Kernux Reality contracts T01..T07 | COMPATIBLE_IF_EFFECT_FREE | Contract/schema work only may proceed after UA-P01 if separately authorized. |
-| UA-P08 Kernux Reality execution T08..T17 | AMENDMENT_LIKELY_REQUIRED | Real browser/app/process/host execution introduces a broader capability/effect kernel and must not inherit authority from P016 or repository ownership. |
-| UA-P09 Isolated Lab/runtime qualification | AMENDMENT_LIKELY_REQUIRED | Untrusted/isolation/sandbox execution is explicitly outside M1. |
-| UA-P10 Remote runtime | AMENDMENT_LIKELY_REQUIRED | Remote host enrollment, mutual identity, remote effects, and revocation require a constitutional decision before authorization. |
-| UA-P11 Cyber/threat model | FRESH_DECISION_REQUIRED | Threat-model data contracts may be effect-free; threat-intel/adversarial execution must not start without a fresh decision. |
-| UA-P12 Dynamic authorized security | AMENDMENT_LIKELY_REQUIRED | External/active/adversarial targets are outside trusted-local M1 and require explicit target/effect authority plus constitutional approval. |
-| UA-P13 Assure composite claims | INHERITS_PREDECESSOR_AUTHORITY | Claim reconciliation itself adds no execution authority; it may only combine evidence already valid under upstream authorities and cannot upgrade missing evidence. |
-| UA-P14 Explain/reproduce/retest | INHERITS_PREDECESSOR_AUTHORITY | Explain is effect-free; reproduce/retest may only use executors already authorized for the target/effect class. |
-| UA-P15 CLI/MCP/IDE/GitHub surfaces | FRESH_DECISION_REQUIRED | New product/control surfaces require review; public arbitrary plugin execution remains prohibited unless explicitly amended. |
-| UA-P16 Donor migration/parity | INHERITS_PREDECESSOR_AUTHORITY | Migration may occur only for already-authorized capabilities and qualified sources; migration itself cannot widen authority. |
-| UA-P17 Packaging/supply-chain/release | FRESH_DECISION_REQUIRED | Packaging/attestation can be effect-free; publication, update channels, signing keys, or release writes require separate authority. |
-| UA-P18 Conformance/closeout | COMPATIBLE_CURRENT | Evidence-only conformance and completion accounting create no new runtime authority. |
+| UA-P00 Planning canonicalization | CONSTITUTION_COMPATIBLE | Documentation, provenance, review, CI, merge, and bounded authorization artifacts do not widen product execution authority. |
+| UA-P01 Shared assurance contracts | CONSTITUTION_COMPATIBLE | Pure contracts/validators/tests only; no model, network, donor engine, publication, sandbox, remote runtime, or source mutation outside the bounded contract implementation. |
+| UA-P02 Engine registry/planner | CONSTITUTION_COMPATIBLE | Declarative registration/planning only. External engine execution remains outside this phase. |
+| UA-P03 Review v1 / OpenCodeReview | CONSTITUTION_AMENDMENT_REQUIRED | Adds AI/provider review execution beyond M1. The amendment/review must preserve optional/local-first core behavior, non-authoritative model output, provenance, and no silent publication. |
+| UA-P04 Kodac workflow/publication | CONSTITUTION_AMENDMENT_REQUIRED | Adds durable workflow/publication effects beyond the current M1 product surface. GitHub effects need explicit authority independent of repository ownership. |
+| UA-P05 Unified Test | CONSTITUTION_AMENDMENT_REQUIRED | Expands into verification classes explicitly outside M1, including mutation/property/fuzz/performance/API/browser-related orchestration. |
+| UA-P06 Sentrdel Security | CONSTITUTION_AMENDMENT_REQUIRED | Security-suite orchestration and a security evidence/control-plane subsystem are outside M1. |
+| UA-P07 Deep Security Audit | CONSTITUTION_AMENDMENT_REQUIRED | Multi-agent/deep security audit orchestration exceeds the current M1 surface. |
+| UA-P08 Kernux Reality contracts T01..T07 | CONSTITUTION_COMPATIBLE | Contract/schema work is effect-free and creates no runtime authority. |
+| UA-P08 Kernux Reality execution T08..T17 | CONSTITUTION_AMENDMENT_REQUIRED | Real browser/app/process/host execution introduces a broader capability/effect kernel beyond M1. |
+| UA-P09 Isolated Lab/runtime qualification | CONSTITUTION_AMENDMENT_REQUIRED | Untrusted/isolation/sandbox execution is explicitly outside M1. |
+| UA-P10 Remote runtime | DEFERRED | Remote host enrollment/trust/effects remain blocked until a future constitutional amendment and explicit runtime authority exist. |
+| UA-P11 Cyber/threat model | CONSTITUTION_AMENDMENT_REQUIRED | Cyber/threat-intelligence/adversarial capability is outside M1; purely descriptive planning does not authorize execution. |
+| UA-P12 Dynamic authorized security | DEFERRED | External active/adversarial targets remain blocked until Lab/isolation predecessors, a constitutional amendment, and exact DynamicTargetAuthorization authority exist. |
+| UA-P13 Assure composite claims | CONSTITUTION_COMPATIBLE | Claim reconciliation adds no execution authority and may only consume evidence valid under already-authorized predecessors. |
+| UA-P14 Explain/reproduce/retest | CONSTITUTION_COMPATIBLE | Explain is effect-free; reproduce/retest may only call already-authorized executors and cannot widen their effect ceilings. |
+| UA-P15 CLI/MCP/IDE/GitHub surfaces | CONSTITUTION_AMENDMENT_REQUIRED | Adds product/control/publication surfaces outside M1; arbitrary public plugin execution remains prohibited absent explicit ratification. |
+| UA-P16 Donor migration/parity | CONSTITUTION_COMPATIBLE | Migration is limited to already-authorized capabilities and separately qualified source intake; it cannot widen authority. |
+| UA-P17 Packaging/supply-chain/release | CONSTITUTION_AMENDMENT_REQUIRED | Release/update/signing/publication effects exceed current M1 authority even though local packaging analysis may be effect-free. |
+| UA-P18 Conformance/closeout | CONSTITUTION_COMPATIBLE | Evidence-only conformance and completion accounting create no new runtime authority. |
 
-Hard rule:
+Hard rules:
 
-> A later planning classification is not implementation authority. Every phase marked `FRESH_DECISION_REQUIRED` or `AMENDMENT_LIKELY_REQUIRED` is blocked until a live exact-scope constitutional decision is recorded. A phase marked `INHERITS_PREDECESSOR_AUTHORITY` cannot exceed the authority of the evidence/executors it consumes.
+1. `CONSTITUTION_COMPATIBLE` is compatibility classification only; it never grants implementation authority.
+2. `CONSTITUTION_AMENDMENT_REQUIRED` blocks phase implementation until the amendment is canonically ratified and the phase receives separate implementation authority.
+3. `DEFERRED` blocks all phase implementation until a future canonical decision reclassifies the phase and all predecessor/authority gates are satisfied.
+4. A compatible phase may consume only effects/evidence already within its explicit authorization; compatibility never widens a predecessor executor's authority.
 
 ## 3. Owner repository inventory gate
 
@@ -109,14 +110,30 @@ This seed identifies selected planning candidates. It is **not** an import/admis
 | SRC-ALIBABA-OCR | `alibaba/open-code-review` | `bedfeb1085819b563e6db38496cc6f9c9dfcc9b9` | external review engine | EXTERNAL_ENGINE_ADAPTER first | external review observation only; no direct PASS/publication | SELECTED_PRIMARY_REVIEW_ENGINE_CANDIDATE |
 | SRC-CLOUDFLARE-AUDIT | `cloudflare/security-audit-skill` | `c1c8a8c1471069fb0e188eeaff69b8e8db6564a8` | external audit-method donor | PATTERN_ONLY / DERIVED method only after provenance | method guidance only; no trust-root authority | SELECTED_PRIMARY_AUDIT_METHOD_REFERENCE |
 
-Observed external root licenses at this planning head:
+### 4.1 P0 root license and NOTICE disposition
+
+The P0 gate performs a bounded planning-time root legal-file review at the exact planning revisions. It does **not** claim path-level or dependency-level source admission.
+
+| Source | Exact revision | Root license observation | Root NOTICE / third-party notice observation | P0 disposition |
+| --- | --- | --- | --- | --- |
+| `TheHalfMoon/Kodac` | `406b335277f2df1e3dedf24cdb45847dff919d44` | Apache-2.0 `LICENSE` present | no root `NOTICE`, `THIRD_PARTY_NOTICE`, or equivalent legal-notice file observed in the root listing | ROOT_LICENSE_REVIEWED / ROOT_NOTICE_ABSENT / SELECTED_PATH_NESTED_REVIEW_REQUIRED |
+| `TheHalfMoon/Sentrdel` | `f5747319a50831ef7cee983d253c0ca5503c9a64` | Apache-2.0 `LICENSE` present | no root `NOTICE`, `THIRD_PARTY_NOTICE`, or equivalent legal-notice file observed in the root listing | ROOT_LICENSE_REVIEWED / ROOT_NOTICE_ABSENT / SELECTED_PATH_NESTED_REVIEW_REQUIRED |
+| `TheHalfMoon/kernux` | `aefc90d753af6d0b2111976bcc38d2d675d7f352` | Apache-2.0 `LICENSE` present | no root `NOTICE` file observed; `third_party/notices/` exists with README, machine-readable inventory, and preserved license snapshots | ROOT_LICENSE_REVIEWED / THIRD_PARTY_NOTICE_SYSTEM_PRESENT / SELECTED_COMPONENT_NOTICE_REVIEW_REQUIRED |
+| `alibaba/open-code-review` | `bedfeb1085819b563e6db38496cc6f9c9dfcc9b9` | Apache-2.0 `LICENSE` present | no root `NOTICE`, `THIRD_PARTY_NOTICE`, or equivalent legal-notice file observed in the root listing | ROOT_LICENSE_REVIEWED / ROOT_NOTICE_ABSENT / SELECTED_PATH_NESTED_REVIEW_REQUIRED |
+| `cloudflare/security-audit-skill` | `c1c8a8c1471069fb0e188eeaff69b8e8db6564a8` | MIT `LICENSE` present | no separate root `NOTICE` file observed; the MIT copyright and permission notice in `LICENSE` must be preserved where its terms require | ROOT_LICENSE_REVIEWED / LICENSE_NOTICE_TEXT_PRESENT / SELECTED_PATH_NESTED_REVIEW_REQUIRED |
+
+For Kernux, the existing third-party notice inventory is evidence about Kernux's recorded third-party material only. It does not automatically satisfy Ascout's future notice/provenance obligations for whichever Kernux components Ascout may select.
+
+For all five sources:
 
 ```text
-SRC-ALIBABA-OCR = Apache-2.0
-SRC-CLOUDFLARE-AUDIT = MIT
+P0_ROOT_LICENSE_NOTICE_REVIEW = COMPLETE
+PATH_LEVEL_LICENSE_REVIEW = NOT_COMPLETE
+DEPENDENCY_NESTED_LICENSE_REVIEW = NOT_COMPLETE
+SOURCE_ADMISSION = NOT_GRANTED
 ```
 
-Source use permission does not replace nested third-party/license/security qualification.
+Path-level/nested license, NOTICE, attribution, dependency, and security review remains mandatory immediately before any copied/derived/dependency intake. Source use permission does not replace those gates.
 
 ## 5. Freshness result
 
@@ -158,7 +175,7 @@ UA-P00-T01 LIVE RECONCILIATION = SATISFIED
 UA-P00-T02 CONSTITUTION MATRIX = SATISFIED_AS_PLANNING
 UA-P00-T03 OWNER SOURCE INVENTORY = SATISFIED
 UA-P00-T04 SOURCE REGISTRY SEED = SATISFIED_AS_PLANNING
-UA-P00-T05 FRESH PRIMARY PINS = SATISFIED_AS_PLANNING
+UA-P00-T05 FRESH PRIMARY PINS + ROOT LICENSE/NOTICE DISPOSITION = SATISFIED_AS_PLANNING
 UA-P00-T06 CROSS-ARTIFACT CONSISTENCY = SATISFIED_AS_PLANNING
 
 UA-P00-T07 FINAL EXACT-HEAD REVIEW = PENDING
