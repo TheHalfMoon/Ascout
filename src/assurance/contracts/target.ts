@@ -8,6 +8,15 @@ const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 const SHA256_HEX = /^[a-f0-9]{64}$/u;
 const OPAQUE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const REPOSITORY_ID = /^(remote|local):([a-f0-9]{64})$/u;
+const NODE_RUNTIME_VERSION =
+  /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
+const PACKAGE_MANAGER_VERSION = /^[0-9]+\.[0-9]+\.[0-9]+$/u;
+const PLATFORM_TOKEN = /^[A-Za-z0-9._-]{1,64}$/u;
+const LOCKFILE_BY_MANAGER = {
+  npm: "package-lock.json",
+  pnpm: "pnpm-lock.yaml",
+  yarn: "yarn.lock",
+} as const;
 const SAFE_RELATIVE_PATH =
   /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
@@ -239,9 +248,18 @@ function parseEnvironmentIdentity(value: unknown): EnvironmentV1 | null {
   if (record.runtime_name !== "node") {
     throw new TypeError("environment_identity.runtime_name must equal node");
   }
-  const runtimeVersion = requireOpaqueId(record.runtime_version, "environment_identity.runtime_version");
-  const platform = requireOpaqueId(record.platform, "environment_identity.platform");
-  const architecture = requireOpaqueId(record.architecture, "environment_identity.architecture");
+  if (typeof record.runtime_version !== "string" || !NODE_RUNTIME_VERSION.test(record.runtime_version)) {
+    throw new TypeError("environment_identity.runtime_version is invalid");
+  }
+  if (typeof record.platform !== "string" || !PLATFORM_TOKEN.test(record.platform)) {
+    throw new TypeError("environment_identity.platform is invalid");
+  }
+  if (typeof record.architecture !== "string" || !PLATFORM_TOKEN.test(record.architecture)) {
+    throw new TypeError("environment_identity.architecture is invalid");
+  }
+  const runtimeVersion = record.runtime_version;
+  const platform = record.platform;
+  const architecture = record.architecture;
   const manager = record.package_manager;
   if (manager !== null && manager !== "npm" && manager !== "pnpm" && manager !== "yarn") {
     throw new TypeError("environment_identity.package_manager is invalid");
@@ -249,7 +267,13 @@ function parseEnvironmentIdentity(value: unknown): EnvironmentV1 | null {
   const managerVersion =
     record.package_manager_version === null
       ? null
-      : requireOpaqueId(record.package_manager_version, "environment_identity.package_manager_version");
+      : typeof record.package_manager_version === "string" &&
+          PACKAGE_MANAGER_VERSION.test(record.package_manager_version)
+        ? record.package_manager_version
+        : null;
+  if (record.package_manager_version !== null && managerVersion === null) {
+    throw new TypeError("environment_identity.package_manager_version is invalid");
+  }
   const managerSource = record.package_manager_source;
   if (managerSource !== "package_json" && managerSource !== "lockfile" && managerSource !== "unavailable") {
     throw new TypeError("environment_identity.package_manager_source is invalid");
@@ -270,6 +294,41 @@ function parseEnvironmentIdentity(value: unknown): EnvironmentV1 | null {
   if (record.lockfile_sha256 !== null && lockfileSha === null) {
     throw new TypeError("environment_identity.lockfile_sha256 must be lowercase sha256 or null");
   }
+
+  if (managerSource === "unavailable") {
+    if (
+      manager !== null ||
+      managerVersion !== null ||
+      lockfilePath !== null ||
+      lockfileSha !== null
+    ) {
+      throw new TypeError("environment_identity unavailable state is internally inconsistent");
+    }
+  } else {
+    if (manager === null) {
+      throw new TypeError("environment_identity resolved package manager is required");
+    }
+    const expectedLockfile = LOCKFILE_BY_MANAGER[manager];
+    if (managerSource === "package_json") {
+      if (managerVersion === null) {
+        throw new TypeError("environment_identity package_json source requires manager version");
+      }
+      if ((lockfilePath === null) !== (lockfileSha === null)) {
+        throw new TypeError("environment_identity lockfile path/digest must be present together");
+      }
+      if (lockfilePath !== null && lockfilePath !== expectedLockfile) {
+        throw new TypeError("environment_identity lockfile path does not match package manager");
+      }
+    } else {
+      if (managerVersion !== null) {
+        throw new TypeError("environment_identity lockfile source forbids manager version");
+      }
+      if (lockfilePath !== expectedLockfile || lockfileSha === null) {
+        throw new TypeError("environment_identity lockfile source requires exact lockfile identity");
+      }
+    }
+  }
+
   return {
     runtime_name: "node",
     runtime_version: runtimeVersion,

@@ -229,6 +229,84 @@ describe("UA-P01-T01 AssuranceTarget", () => {
     ).toThrow("environment_identity.lockfile_path");
   });
 
+  it("rejects malformed runtime and platform identity fields", () => {
+    const input = targetInput();
+
+    expect(() =>
+      createAssuranceTargetV1({
+        ...input,
+        environment_identity: { ...environment(), runtime_version: "latest" },
+      }),
+    ).toThrow("environment_identity.runtime_version is invalid");
+
+    expect(() =>
+      createAssuranceTargetV1({
+        ...input,
+        environment_identity: { ...environment(), platform: "darwin/arm64" },
+      }),
+    ).toThrow("environment_identity.platform is invalid");
+  });
+
+  it("rejects internally inconsistent unavailable package-manager state", () => {
+    const input = targetInput();
+    const malformedEnvironment = {
+      ...environment(),
+      package_manager_source: "unavailable" as const,
+    };
+
+    expect(() =>
+      createAssuranceTargetV1({
+        ...input,
+        environment_identity: malformedEnvironment,
+      }),
+    ).toThrow("environment_identity unavailable state is internally inconsistent");
+  });
+
+  it("rejects package-json source without a manager version", () => {
+    const input = targetInput();
+    const malformedEnvironment = {
+      ...environment(),
+      package_manager_version: null,
+    };
+
+    expect(() =>
+      createAssuranceTargetV1({
+        ...input,
+        environment_identity: malformedEnvironment,
+      }),
+    ).toThrow("environment_identity package_json source requires manager version");
+  });
+
+  it("rejects a lockfile identity that does not match the package manager", () => {
+    const input = targetInput();
+    const malformedEnvironment = {
+      ...environment(),
+      lockfile_path: "yarn.lock",
+    };
+
+    expect(() =>
+      createAssuranceTargetV1({
+        ...input,
+        environment_identity: malformedEnvironment,
+      }),
+    ).toThrow("environment_identity lockfile path does not match package manager");
+  });
+
+  it("rejects lockfile-source state that carries a package-manager version", () => {
+    const input = targetInput();
+    const malformedEnvironment = {
+      ...environment(),
+      package_manager_source: "lockfile" as const,
+    };
+
+    expect(() =>
+      createAssuranceTargetV1({
+        ...input,
+        environment_identity: malformedEnvironment,
+      }),
+    ).toThrow("environment_identity lockfile source forbids manager version");
+  });
+
   it("rejects cross-target source binding even when target_id is reused", () => {
     const expected = createAssuranceTargetV1(targetInput());
     const actual = createAssuranceTargetV1({
