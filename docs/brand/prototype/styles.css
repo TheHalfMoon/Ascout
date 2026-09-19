@@ -44,3 +44,6 @@ code,pre,time{font-family:var(--mono)}
 @media(max-width:900px){.app-shell{grid-template-columns:58px 1fr}.inspector{display:none}.timeline-drawer{right:0}.target-meta .chip{display:none}.lab-grid,.split-layout{grid-template-columns:1fr}.live-app{grid-row:auto}.coverage-map{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.main-view{padding:18px}.hero{grid-template-columns:1fr}.hero-frame{display:none}.hero h1{font-size:48px}.mode-grid,.claim-board,.authority-grid,.stat-grid{grid-template-columns:1fr}.coverage-map{grid-template-columns:1fr}.page-head{display:block}.claim-state{margin-top:16px;text-align:left}.target .slash,.target span:not(.target-label){display:none}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+.mode-card:focus-visible,.nav-item:focus-visible,.icon-btn:focus-visible,.command-btn:focus-visible,.text-btn:focus-visible,.primary-btn:focus-visible,.drawer-head button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+html[data-theme="light"] .pixel-a{color:var(--night)}
