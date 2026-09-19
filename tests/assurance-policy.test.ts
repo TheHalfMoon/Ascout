@@ -186,13 +186,28 @@ describe("UA-P01-T03 AssurancePolicySnapshot", () => {
       "trusted_policy_source.source_kind is invalid",
     );
   });
-  it("requires at least one trusted policy source", () => {
+  it("requires at least one trusted policy source and canonical provenance", () => {
     expect(() =>
       createAssurancePolicySnapshotV1({
         ...input(),
         trusted_policy_sources: [],
       }),
     ).toThrow("trusted_policy_sources must not be empty");
+
+    expect(() =>
+      createAssurancePolicySnapshotV1({
+        ...input(),
+        trusted_policy_sources: [
+          {
+            source_id: "trusted:user-only",
+            source_kind: "TRUSTED_USER",
+            content_sha256: A,
+          },
+        ],
+      }),
+    ).toThrow(
+      "trusted_policy_sources must include CANONICAL_REPOSITORY provenance",
+    );
   });
 
   it("rejects duplicate or overlapping policy source identities", () => {
@@ -312,18 +327,29 @@ describe("UA-P01-T03 AssurancePolicySnapshot", () => {
     );
   });
 
-  it("forbids credential material egress in this policy contract", () => {
+  it("represents explicit-policy credential egress without granting authority", () => {
+    const snapshot = createAssurancePolicySnapshotV1({
+      ...input(),
+      data_egress_rules: {
+        ...input().data_egress_rules,
+        credential_material_egress: "EXPLICIT_POLICY_ONLY",
+      },
+    });
+
+    expect(snapshot.data_egress_rules.credential_material_egress).toBe(
+      "EXPLICIT_POLICY_ONLY",
+    );
+    expect("credential_authority" in snapshot).toBe(false);
+
     expect(() =>
       createAssurancePolicySnapshotV1({
         ...input(),
         data_egress_rules: {
           ...input().data_egress_rules,
-          credential_material_egress: "EXPLICIT_POLICY_ONLY" as never,
+          credential_material_egress: "ALLOW_UNBOUNDED" as never,
         },
       }),
-    ).toThrow(
-      "data_egress_rules.credential_material_egress must equal DENY",
-    );
+    ).toThrow("data_egress_rules.credential_material_egress is invalid");
   });
 
   it("rejects authority-like fields rather than treating policy as execution grant", () => {

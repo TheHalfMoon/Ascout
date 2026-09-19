@@ -71,7 +71,7 @@ export interface AssuranceRiskAcceptancePolicyV1 {
 export interface AssuranceDataEgressPolicyV1 {
   readonly source_egress: "DENY" | "EXPLICIT_POLICY_ONLY";
   readonly artifact_egress: "DENY" | "EXPLICIT_POLICY_ONLY";
-  readonly credential_material_egress: "DENY";
+  readonly credential_material_egress: "DENY" | "EXPLICIT_POLICY_ONLY";
 }
 
 export interface AssurancePolicySnapshotV1 {
@@ -242,7 +242,11 @@ function canonicalizeSources<T extends { readonly source_id: string }>(
     throw new TypeError(field + " contains too many policy sources");
   }
   const sorted = [...values].sort((left, right) =>
-    left.source_id.localeCompare(right.source_id),
+    left.source_id < right.source_id
+      ? -1
+      : left.source_id > right.source_id
+        ? 1
+        : 0,
   );
   const ids = sorted.map((source) => source.source_id);
   if (new Set(ids).size !== ids.length) {
@@ -500,15 +504,18 @@ function parseDataEgressPolicy(value: unknown): AssuranceDataEgressPolicyV1 {
   ) {
     throw new TypeError("data_egress_rules.artifact_egress is invalid");
   }
-  if (record.credential_material_egress !== "DENY") {
+  if (
+    record.credential_material_egress !== "DENY" &&
+    record.credential_material_egress !== "EXPLICIT_POLICY_ONLY"
+  ) {
     throw new TypeError(
-      "data_egress_rules.credential_material_egress must equal DENY",
+      "data_egress_rules.credential_material_egress is invalid",
     );
   }
   return {
     source_egress: record.source_egress,
     artifact_egress: record.artifact_egress,
-    credential_material_egress: "DENY",
+    credential_material_egress: record.credential_material_egress,
   };
 }
 
@@ -559,6 +566,11 @@ export function parseAssurancePolicySnapshotV1(
   const trusted = record.trusted_policy_sources.map(parseTrustedPolicySource);
   if (trusted.length === 0) {
     throw new TypeError("trusted_policy_sources must not be empty");
+  }
+  if (!trusted.some((source) => source.source_kind === "CANONICAL_REPOSITORY")) {
+    throw new TypeError(
+      "trusted_policy_sources must include CANONICAL_REPOSITORY provenance",
+    );
   }
   requireCanonicalSources(trusted, "trusted_policy_sources");
 
@@ -611,6 +623,11 @@ export function createAssurancePolicySnapshotV1(
   );
   if (trusted.length === 0) {
     throw new TypeError("trusted_policy_sources must not be empty");
+  }
+  if (!trusted.some((source) => source.source_kind === "CANONICAL_REPOSITORY")) {
+    throw new TypeError(
+      "trusted_policy_sources must include CANONICAL_REPOSITORY provenance",
+    );
   }
   const advisory = canonicalizeSources(
     input.repository_advisory_policy_sources.map(parseAdvisoryPolicySource),
