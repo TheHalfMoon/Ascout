@@ -184,7 +184,7 @@ Required outputs:
 - Constitution compatibility matrix;
 - owner-wide source inventory disposition;
 - planning PR review/CI;
-- explicit implementation authorization for UA-P1 only.
+- explicit implementation authorization for UA-P01 only.
 
 Exit gate:
 
@@ -196,7 +196,7 @@ FIRST_WEDGE_AUTHORIZED = YES
 
 No runtime code before this gate.
 
-### UA-P1 — Assurance contracts and compatibility spine
+### UA-P01 — Assurance contracts and compatibility spine
 
 **Goal:** add shared contracts without changing existing `ascout check` behavior.
 
@@ -663,7 +663,7 @@ Project completion only if every required row is PROVEN or explicitly N/A.
 The first implementation authorization should be deliberately small:
 
 ```text
-UA-P1 only
+UA-P01 only
 ```
 
 Specifically:
@@ -675,11 +675,12 @@ Specifically:
 5. EngineDescriptor/Qualification/Run;
 6. EvidenceRef;
 7. Finding/Lifecycle;
-8. CoverageClaim/OmissionRecord;
-9. ClaimAssessment;
-10. schema + semantic validators;
-11. focused adversarial corpus;
-12. no CLI behavior change except optional hidden/internal tests.
+8. CoverageClaim;
+9. OmissionRecord/ContradictionRecord;
+10. ClaimAssessment;
+11. schema + semantic validators;
+12. focused adversarial corpus;
+13. no CLI behavior change except optional hidden/internal tests.
 
 Why:
 
@@ -690,7 +691,7 @@ Why:
 
 ## 6. Second implementation wedge
 
-After UA-P1 canonical closure:
+After UA-P01 canonical closure:
 
 ```text
 UA-P2 + minimal UA-P3
