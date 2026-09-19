@@ -492,7 +492,8 @@ The canonical planning audit maps:
 ```text
 base gap classes = 60
 Kernux Reality additions = 14
-total mapped material gap classes = 74
+legacy governance additions = 1
+total mapped material gap classes = 75
 known material gap classes without owner = 0
 ```
 
