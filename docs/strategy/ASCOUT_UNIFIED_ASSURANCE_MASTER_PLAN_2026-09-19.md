@@ -361,11 +361,11 @@ Engine output cannot exceed its authority ceiling.
 
 ### 5.2 Alibaba OpenCodeReview integration
 
-Observed planning snapshot:
+Fresh planning snapshot:
 
 ~~~text
 repository: alibaba/open-code-review
-snapshot: 7a571b78d3493b249f6ad14d835c6a79a0a67d2e
+snapshot: bedfeb1085819b563e6db38496cc6f9c9dfcc9b9
 license observed: Apache-2.0
 ~~~
 
