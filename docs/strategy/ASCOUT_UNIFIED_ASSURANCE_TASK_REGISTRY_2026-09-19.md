@@ -196,25 +196,25 @@ Current status of all tasks below: `PLANNED`.
 
 # P8 — Kernux Reality local bridge
 
-| Task | Depends on | P05 exit | Deliverable | Acceptance |
-|---|---|---|---|---|
-| UA-P08-T01 | P1 exit | — | RealityTestPlan | Exact substrate/effects/oracles/cleanup |
-| UA-P08-T02 | T01 | — | RealityRun | Source/build/runtime/browser/app identity |
-| UA-P08-T03 | T02 | — | LabManifest contract | Reproducible environment identity |
-| UA-P08-T04 | T03 | — | SubstrateClass enforcement | Mock cannot satisfy REAL_COMPONENT |
-| UA-P08-T05 | T04 | — | Re-pin Kernux protocol | Exact implementation/protocol identity |
-| UA-P08-T06 | T05 | — | Kernux capability discovery adapter | Runtime capabilities negotiated, not inferred |
-| UA-P08-T07 | T06 | — | Grant/effect mapping | Ascout intent cannot self-authorize |
-| UA-P08-T08 | T07 | P05 | Real web bridge | Real app/service + isolated browser + trace/oracles |
-| UA-P08-T09 | T08 | P05 | Real API/service bridge | Real process/port/request/side-effect/termination |
-| UA-P08-T10 | T09 | P05 | Process/files/PTY evidence import | Execution-host truth preserved |
-| UA-P08-T11 | T10 | P05 | Real desktop/app bridge | Typed/accessibility first; vision fallback visible |
-| UA-P08-T12 | T11 | P05 | Cleanup contract | Required cleanup outcome claim-bearing |
-| UA-P08-T13 | T12 | P05 | Build artifact/source binding | Wrong artifact blocks claim |
-| UA-P08-T14 | T13 | P05 | Reality benchmark fixture app | Complete owned fixture with 12 seeded defects |
-| UA-P08-T15 | T14 | P05 | Reality benchmark v1 | All seeded defects detected honestly |
-| UA-P08-T16 | T15 | P05 | `ascout test --real` local profile | No hidden mock substitution |
-| UA-P08-T17 | T16 | P05 | P8 qualification | Reality hard gates zero |
+| Task | Depends on | Deliverable | Acceptance |
+|---|---|---|---|
+| UA-P08-T01 | P1 exit | RealityTestPlan | Exact substrate/effects/oracles/cleanup |
+| UA-P08-T02 | T01 | RealityRun | Source/build/runtime/browser/app identity |
+| UA-P08-T03 | T02 | LabManifest contract | Reproducible environment identity |
+| UA-P08-T04 | T03 | SubstrateClass enforcement | Mock cannot satisfy REAL_COMPONENT |
+| UA-P08-T05 | T04 | Re-pin Kernux protocol | Exact implementation/protocol identity |
+| UA-P08-T06 | T05 | Kernux capability discovery adapter | Runtime capabilities negotiated, not inferred |
+| UA-P08-T07 | T06 | Grant/effect mapping | Ascout intent cannot self-authorize |
+| UA-P08-T08 | T07, P5 exit | Real web bridge | Real app/service + isolated browser + trace/oracles |
+| UA-P08-T09 | T08, P5 exit | Real API/service bridge | Real process/port/request/side-effect/termination |
+| UA-P08-T10 | T09, P5 exit | Process/files/PTY evidence import | Execution-host truth preserved |
+| UA-P08-T11 | T10, P5 exit | Real desktop/app bridge | Typed/accessibility first; vision fallback visible |
+| UA-P08-T12 | T11, P5 exit | Cleanup contract | Required cleanup outcome claim-bearing |
+| UA-P08-T13 | T12, P5 exit | Build artifact/source binding | Wrong artifact blocks claim |
+| UA-P08-T14 | T13, P5 exit | Reality benchmark fixture app | Complete owned fixture with 12 seeded defects |
+| UA-P08-T15 | T14, P5 exit | Reality benchmark v1 | All seeded defects detected honestly |
+| UA-P08-T16 | T15, P5 exit | `ascout test --real` local profile | No hidden mock substitution |
+| UA-P08-T17 | T16, P5 exit | P8 qualification | Reality hard gates zero |
 
 ---
 
