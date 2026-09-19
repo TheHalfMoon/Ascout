@@ -498,6 +498,37 @@ known material gap classes without owner = 0
 
 This does **not** claim future software will have zero bugs. It means no material architecture/product/trust/operations gap identified in this planning review is left without an owner, gate, or explicit defer boundary.
 
+## 37.1 Legacy Spec 016 authority reconciliation — REQUIRED
+
+Live canonical history shows:
+
+- Issue #344 closed `P016-01` as `CLOSED_CANONICAL / EFFECTIVE` for **P016-02 through P016-09 only**;
+- the same authorization explicitly excluded `P016-10+` pending a separate benchmark-justified authorization;
+- PRs #354, #355, #356, and #357 later merged P016-10 through P016-13;
+- their PR records show exact-head CI and maintainer verification, but this audit did not find a separate canonical second authorization ledger that made P016-10 through P016-13 effective before those merges.
+
+Disposition:
+
+```text
+P016_10_13_CODE_PRESENCE = CANONICAL_FACT
+P016_10_13_TECHNICAL_VALIDITY = NOT_REVOKED_BY_THIS_AUDIT
+P016_10_13_AUTHORITY_PROVENANCE = INCOMPLETE
+P016_10_13_MERGE_HISTORY = PRESERVE
+RETROACTIVE_AUTHORITY_FABRICATION = FORBIDDEN
+```
+
+The unified program MUST NOT delete, rewrite, or pretend those merges did not happen. It also MUST NOT cite those merges as precedent for bypassing authorization.
+
+Before `UA-P01` implementation begins, the successor authorization artifact must explicitly:
+
+1. acknowledge the P016-10..13 authority-provenance gap;
+2. classify the existing code as canonical implementation input requiring characterization, not as proof that broader authority existed;
+3. preserve all existing evidence/history;
+4. state whether the unified program supersedes the unexecuted P016-14+ frontier;
+5. prevent any new implementation work from inheriting authority from this historical gap.
+
+This is a governance reconciliation gate, not a request to rewrite history.
+
 ## 38. Remaining pre-implementation actions
 
 These are execution prerequisites, not missing plan design:
