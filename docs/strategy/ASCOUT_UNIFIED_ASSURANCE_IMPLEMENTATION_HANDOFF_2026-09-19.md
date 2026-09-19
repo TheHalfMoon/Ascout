@@ -12,7 +12,8 @@ Do not implement from this handoff until:
 2. active Spec 016 authority is closed or successor authority explicitly reconciles overlap;
 3. planning PR is canonically merged;
 4. exact-head planning qualification is green;
-5. a separate implementation authorization explicitly authorizes UA-P01.
+5. a separate implementation authorization explicitly authorizes UA-P01;
+6. that authorization reconciles the canonical P016-10..13 code against the historical authority-provenance gap recorded by the readiness audit, and explicitly decides the unexecuted P016-14+ successor frontier.
 
 ## 2. Read order
 
