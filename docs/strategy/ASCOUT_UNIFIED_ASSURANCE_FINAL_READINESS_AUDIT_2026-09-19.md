@@ -461,7 +461,7 @@ Absolute-zero integrity gates cannot be overridden by aggregate scores.
 First authorized wedge is intentionally:
 
 ```text
-UA-P1 contracts only
+UA-P01 contracts only
 ```
 
 No model.
@@ -534,15 +534,18 @@ This is a governance reconciliation gate, not a request to rewrite history.
 
 ## 38. Remaining pre-implementation actions
 
-These are execution prerequisites, not missing plan design:
+P0 planning-time reconciliation, owner-source inventory, Constitution classification, source-registry seed, and primary-source root license/NOTICE disposition are now materialized in the P0 canonicalization record.
 
-1. reconcile planning branch to then-current main;
-2. run owner-wide source inventory at that time;
-3. re-pin implementation sources;
-4. run fresh Constitution compatibility matrix;
-5. exact-head planning review/CI;
-6. canonical merge;
-7. issue a separate implementation authorization for UA-P1.
+The remaining gates before any `UA-P01` source mutation are:
+
+1. exact-head planning review with zero unresolved material findings;
+2. exact-head Project CI and Self Verification success;
+3. guarded canonical planning merge from the unchanged expected head;
+4. post-merge main/tree/push-CI proof;
+5. a separate canonical/effective `UA-P01` implementation authorization that reconciles G75 and explicitly decides the P016-14+ frontier;
+6. fresh live Constitution/governance revalidation at that authorization head.
+
+`UA-P01` admits no donor source or external engine, so implementation-time donor re-pinning begins only when a later authorized phase actually selects a donor/component.
 
 ## 39. Final audit verdict
 
@@ -564,4 +567,4 @@ IMPLEMENTATION_AUTHORITY = NO
 PROJECT_IMPLEMENTED = NO
 ```
 
-The plan is ready to be canonicalized and then implemented from UA-P1 without product redesign.
+The plan is ready to be canonicalized and then implemented from UA-P01 without product redesign.
