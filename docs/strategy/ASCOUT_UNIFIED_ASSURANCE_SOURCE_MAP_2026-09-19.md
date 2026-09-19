@@ -723,3 +723,26 @@ Do not:
 Founding Kernux donors (Orca, AgentQL/TinyFish, Desktop Commander) should normally enter Ascout **through Kernux contracts**, not as parallel direct integrations, unless a later benchmark proves a specific gap.
 
 Implementation-time Kernux intake must re-pin exact protocol/source/components and apply the Source Candidate Registry rules in this source map.
+
+
+---
+
+## 15. Owner-wide repository inventory closure — 2026-09-19
+
+The full accessible `TheHalfMoon` repository portfolio was enumerated and screened in:
+
+- `ASCOUT_OWNER_REPOSITORY_SOURCE_INVENTORY_2026-09-19.md`
+
+Live inventory result:
+
+```text
+ACCESSIBLE_OWNER_REPOSITORIES = 33
+PUBLIC_REPOSITORIES = 26
+PRIVATE_REPOSITORIES = 7
+ACCESSIBLE_REPOSITORIES_CONSIDERED = 33_OF_33
+UNCLASSIFIED_OWNER_REPOSITORIES = 0
+```
+
+Because Ascout is public, private repository names/details are intentionally not copied into this public planning package. Private sources remain non-public candidate context unless a later source-admission record proves that disclosure/reuse is authorized.
+
+The inventory does not admit any source. Exact revision/component pinning, license/NOTICE review, nested third-party review, security qualification, authority ceiling, and benchmark/parity requirements remain mandatory immediately before implementation intake.
