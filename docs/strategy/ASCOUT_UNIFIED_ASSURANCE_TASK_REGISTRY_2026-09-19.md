@@ -47,7 +47,7 @@ Current status of all tasks below: `PLANNED`.
 | UA-P00-T07 | T06 | Independent final planning review | Zero unresolved material findings |
 | UA-P00-T08 | T07 | Exact-head planning CI/self-verification | Required checks success; failures preserved |
 | UA-P00-T09 | T08 | Canonical planning merge | Guarded expected-head merge |
-| UA-P00-T10 | T09 | First-wedge implementation authorization | Authority covers UA-P1 only |
+| UA-P00-T10 | T09 | First-wedge implementation authorization | Authority covers UA-P01 only |
 
 ---
 
