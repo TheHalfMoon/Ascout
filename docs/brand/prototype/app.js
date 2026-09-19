@@ -16,7 +16,14 @@ function render(view) {
   main.replaceChildren(template.content.cloneNode(true));
   navItems.forEach((item) => item.classList.toggle("active", item.dataset.view === view));
   document.querySelectorAll("[data-view-card]").forEach((card) => {
-    card.addEventListener("click", () => render(card.dataset.viewCard));
+    const open = () => render(card.dataset.viewCard);
+    card.addEventListener("click", open);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        open();
+      }
+    });
   });
   main.focus({ preventScroll: true });
 }
