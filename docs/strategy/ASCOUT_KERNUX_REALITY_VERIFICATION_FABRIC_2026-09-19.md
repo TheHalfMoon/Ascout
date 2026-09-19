@@ -210,6 +210,7 @@ allowed_effects
 network_scope
 credential_refs
 secret_policy
+dynamic_target_authorization_ref when the plan contains W2 / active-adversarial network actions
 evidence_requirements
 timeout_budget
 retry_policy
@@ -217,6 +218,8 @@ recovery_policy
 ```
 
 The plan is data. It is not process, network, browser, host, or external-side-effect authority.
+
+For W2 / active-adversarial network actions, execution is forbidden unless the plan carries an immutable `DynamicTargetAuthorization` reference and the adapter/kernel revalidates that authorization immediately before the first request and after every redirect or destination change. Ordinary W1 non-adversarial verification does not require this dynamic-authorization binding unless it escalates into active/adversarial behavior.
 
 ## 7. Reality Run identity
 
@@ -232,7 +235,10 @@ Every real execution must bind:
 - browser engine/version;
 - application/service identity;
 - configuration identity;
+- selected EngineQualification / runtime-qualification reference;
+- selected bounded Grant reference and its consequence/effect class;
 - credential capability identity without plaintext;
+- immutable DynamicTargetAuthorization identity when W2 / active-adversarial network actions are present;
 - network scope identity;
 - run lineage.
 
@@ -658,22 +664,37 @@ Kodac-derived workflow and side-effect discipline strengthens durable execution,
 
 ## 29. New hard gates
 
+Hard gates use typed evidence states:
+
 ```text
-REAL_TARGET_IDENTITY_MISMATCH = 0
-REAL_BUILD_ARTIFACT_MISMATCH = 0
-UNQUALIFIED_RUNTIME_USED_FOR_REQUIRED_CLAIM = 0
-HIDDEN_MOCK_SUBSTITUTION = 0
-UNAUTHORIZED_NETWORK_EFFECT = 0
-UNAUTHORIZED_APP_SIDE_EFFECT = 0
-CROSS_PROJECT_BROWSER_STATE_LEAK = 0
-UNTRACKED_CREDENTIAL_USE = 0
-PROCESS_STATE_FABRICATION = 0
-MISSING_REQUIRED_CLEANUP = 0
-EVIDENCE_FROM_DIFFERENT_RUNTIME_OR_BUILD = 0
-REALITY_TEST_RESULT_WITHOUT_REQUIRED_ORACLE = 0
+PROVEN
+PARTIAL
+MISSING
+NOT_APPLICABLE
 ```
 
-Aggregate pass rate cannot override these.
+`NOT_APPLICABLE` requires an explicit claim/profile justification. An unevaluated, unavailable, refused, timed-out, or unqualified gate is `MISSING` or `PARTIAL`; it is never treated as clear merely because no violation was observed.
+
+Planning-time state is intentionally not green:
+
+| Hard gate | Planning state | Release requirement |
+| --- | --- | --- |
+| REAL_TARGET_IDENTITY_INTEGRITY | MISSING | PROVEN |
+| REAL_BUILD_ARTIFACT_BINDING | MISSING | PROVEN |
+| REQUIRED_RUNTIME_QUALIFICATION | MISSING | PROVEN |
+| NO_HIDDEN_MOCK_SUBSTITUTION | MISSING | PROVEN |
+| NETWORK_EFFECT_AUTHORIZATION | MISSING | PROVEN or justified NOT_APPLICABLE |
+| APP_EFFECT_AUTHORIZATION | MISSING | PROVEN or justified NOT_APPLICABLE |
+| BROWSER_CONTEXT_ISOLATION | MISSING | PROVEN when browser state is used |
+| CREDENTIAL_USE_ACCOUNTING | MISSING | PROVEN when credentials are used |
+| PROCESS_LIFECYCLE_TRUTH | MISSING | PROVEN when processes are part of the claim |
+| REQUIRED_CLEANUP | MISSING | PROVEN when cleanup is required |
+| RUNTIME_BUILD_EVIDENCE_CONSISTENCY | MISSING | PROVEN |
+| REQUIRED_ORACLE_EVIDENCE | MISSING | PROVEN |
+
+A release/claim profile may proceed only when every applicable hard gate is `PROVEN`. Missing runtime, cleanup, authorization, qualification, or oracle evidence preserves `NOT_QUALIFIED`, refusal, or incomplete claim behavior.
+
+Aggregate pass rate cannot override these typed hard gates.
 
 ## 30. Additional gap closures
 
