@@ -832,3 +832,62 @@ IMPLEMENTATION_COMPLETE = NO
 MERGER_COMPLETE = NO
 PROJECT_COMPLETION = NOT_ESTABLISHED
 ~~~
+
+
+---
+
+## 10. Kernux Reality Verification gap-audit amendment — 2026-09-19
+
+The following additional gap classes are now part of the canonical planning audit:
+
+### G61 — Reality Verification reduced to browser automation
+Closure: include browser, API/service, native app, process, filesystem, installation, recovery, lab, remote, and cross-application journeys.
+
+### G62 — Hidden mock substitution
+Closure: SubstrateClass is explicit; a mock/emulator cannot satisfy REAL_COMPONENT or REAL_EXTERNAL_AUTHORIZED requirements.
+
+### G63 — Reviewed source differs from executed artifact
+Closure: RealityRun binds exact source/tree to build artifact digest; mismatch blocks claim.
+
+### G64 — Execution-host truth lost
+Closure: Kernux runtime owns process lifecycle truth; UI/controller disconnect or timeout is not process exit.
+
+### G65 — Dirty developer environment creates false confidence
+Closure: claims requiring clean behavior use qualified disposable LabManifest environments.
+
+### G66 — Reality test performs unintended external transaction
+Closure: app/network actions are effect-classified; external side effects require explicit bounded authority.
+
+### G67 — Real web test leaks authenticated state
+Closure: isolated browser context by default; explicit named reuse; cross-project leakage benchmark is mandatory.
+
+### G68 — Vision fallback presented as deterministic
+Closure: action mechanism and confidence/provenance are recorded; typed/deterministic methods preferred.
+
+### G69 — Runtime capability advertisement mistaken for qualification
+Closure: exact implementation/configuration must satisfy qualification profile; unsupported guarantee fails visible.
+
+### G70 — Cleanup omitted from verification
+Closure: cleanup is part of RealityTestPlan and can be claim-bearing; required cleanup failure remains visible.
+
+### G71 — Retry duplicates real-world effects
+Closure: side-effect retries require idempotency/reconciliation; ambiguity fails closed.
+
+### G72 — Remote runtime expands trust silently
+Closure: fresh Constitution compatibility decision, enrollment, mutual identity, host-policy intersection, revocation, and evidence required before remote phase.
+
+### G73 — Planned Kernux capability fabricated as current
+Closure: Engine availability/qualification is explicit; roadmap-only capability yields NOT_RUN/NOT_QUALIFIED.
+
+### G74 — Reality evidence bypasses Ascout reconciliation
+Closure: Kernux Events/Artifacts/Evidence are observations only; all claim-bearing use passes through Ascout normalization and ClaimAssessment.
+
+Updated audit state:
+
+```text
+BASE_GAP_CLASSES = 60
+KERNUX_REALITY_ADDITIONAL_GAP_CLASSES = 14
+TOTAL_MAPPED_GAP_CLASSES = 74
+KNOWN_MATERIAL_GAP_CLASSES_WITHOUT_OWNER = 0
+IMPLEMENTATION_COMPLETE = NO
+```
