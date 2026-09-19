@@ -764,20 +764,21 @@ Cross-platform packaging, optional companion binaries, supply-chain attestations
 
 ## 14. First implementation wedge
 
-The first wedge should be deliberately narrow:
+The first implementation wedge is `UA-P01` and is deliberately contract-only:
 
 ~~~text
-Unified contracts
-+ Engine registry
-+ Review profile
-+ Alibaba OpenCodeReview adapter
-+ existing Ascout test adapter
-+ normalized Evidence/Finding/Coverage output
+Shared assurance contracts
++ structural schemas and semantic validators
++ deterministic serialization/digests
++ adversarial contract tests
++ existing `ascout check` compatibility proof
 ~~~
 
-Do NOT put Sentrdel source migration, Cloudflare deep audit, OpenSandbox, dynamic cyber, threat-intel servers, IDE UI, or auto-fix into the first wedge.
+It explicitly excludes engine registry implementation, OpenCodeReview invocation, provider/model network access, Sentrdel/Kernux execution, GitHub publication, dynamic security, and source mutation beyond the bounded contract implementation.
 
-The first killer workflow:
+After `UA-P01` closes canonically, `UA-P02` may add the Engine Registry/planner and `UA-P03` may introduce the first Review adapter.
+
+The first later user-value workflow after those predecessor phases is:
 
 ~~~text
 ascout review --diff
