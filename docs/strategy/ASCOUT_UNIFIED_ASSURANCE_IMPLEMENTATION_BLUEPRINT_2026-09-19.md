@@ -173,7 +173,7 @@ No raw browser/computer bypass for claim-bearing reality tests.
 
 ## 4. Delivery phases
 
-### UA-P0 — Planning canonicalization and authority
+### UA-P00 — Planning canonicalization and authority
 
 **Goal:** make the plan canonical and safe to implement.
 
@@ -228,7 +228,7 @@ Exit gate:
 - `ascout check` output unchanged except explicitly approved additive internals;
 - adversarial contract corpus passes.
 
-### UA-P2 — Engine registry and planner
+### UA-P02 — Engine registry and planner
 
 **Goal:** make engines declarative and qualified before integrating them.
 
@@ -255,7 +255,7 @@ Exit gate:
 - planner is deterministic for identical input snapshot;
 - no external process/network yet.
 
-### UA-P3 — Review v1 with Alibaba OpenCodeReview
+### UA-P03 — Review v1 with Alibaba OpenCodeReview
 
 **Goal:** ship useful `ascout review` without weakening evidence rules.
 
@@ -297,7 +297,7 @@ hidden_unreviewed_scope = 0
 model_only_completion = 0
 ```
 
-### UA-P4 — Kodac workflow/publication convergence
+### UA-P04 — Kodac workflow/publication convergence
 
 **Goal:** add durable review workflow and safe GitHub effects.
 
@@ -321,7 +321,7 @@ Exit gate:
 - duplicate retry cannot double-publish;
 - publication requires explicit effect authority.
 
-### UA-P5 — Unified Test profile
+### UA-P05 — Unified Test profile
 
 **Goal:** make existing Ascout verification a first-class Test profile.
 
@@ -347,7 +347,7 @@ Exit gate:
 - omitted test class visible;
 - test PASS never becomes broader assurance PASS.
 
-### UA-P6 — Sentrdel Security integration
+### UA-P06 — Sentrdel Security integration
 
 **Goal:** ship `ascout security` with deterministic security evidence.
 
@@ -376,7 +376,7 @@ Exit gate:
 - imported SARIF does not become verified truth automatically;
 - false-positive rejection requires evidence.
 
-### UA-P7 — Deep Security Audit orchestration
+### UA-P07 — Deep Security Audit orchestration
 
 **Goal:** adapt Cloudflare audit method into Ascout.
 
@@ -406,7 +406,7 @@ Exit gate:
 - every skipped region is visible;
 - hunter consensus alone cannot validate.
 
-### UA-P8 — Kernux Reality contracts and local bridge
+### UA-P08 — Kernux Reality contracts and local bridge
 
 **Goal:** make `ascout test --real` executable on qualified local Kernux capabilities.
 
@@ -438,7 +438,7 @@ missing_required_cleanup = 0
 cross_project_browser_state_leak = 0
 ```
 
-### UA-P9 — Isolated Lab and runtime qualification
+### UA-P09 — Isolated Lab and runtime qualification
 
 **Goal:** support reproducible clean environments.
 
@@ -694,7 +694,7 @@ Why:
 After UA-P01 canonical closure:
 
 ```text
-UA-P2 + minimal UA-P3
+UA-P02 + minimal UA-P03
 ```
 
 Deliver:
@@ -716,8 +716,8 @@ This creates the first new user-visible value without pulling all systems forwar
 After Review v1:
 
 ```text
-UA-P5 Unified Test
-+ minimal UA-P6 Sentrdel Security
+UA-P05 Unified Test
++ minimal UA-P06 Sentrdel Security
 ```
 
 Then Reality Verification follows when Kernux capabilities are actually qualified.
