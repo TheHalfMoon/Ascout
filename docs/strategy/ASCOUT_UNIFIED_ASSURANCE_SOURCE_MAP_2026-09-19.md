@@ -135,6 +135,12 @@ Primary source documents:
 
 ### TheHalfMoon/wepld — Assurance Fabric
 
+Fresh planning snapshot:
+
+```text
+765f9d4ae0588ca06b0f65cd76de16eaa8a5c246
+```
+
 Disposition: PRIMARY_ARCHITECTURE_DONOR.
 
 This is the strongest internal architecture match for the founder direction.
@@ -285,7 +291,8 @@ Repository:
 
 ~~~text
 alibaba/open-code-review
-observed main snapshot: 7a571b78d3493b249f6ad14d835c6a79a0a67d2e
+fresh planning snapshot: bedfeb1085819b563e6db38496cc6f9c9dfcc9b9
+historical first-observation snapshot: 7a571b78d3493b249f6ad14d835c6a79a0a67d2e
 observed root license: Apache-2.0
 ~~~
 
@@ -680,11 +687,19 @@ Earlier classification of `TheHalfMoon/kernux` as only a governance/provenance r
 
 ### TheHalfMoon/kernux
 
-Observed planning snapshot:
+Fresh planning snapshot:
+
+```text
+aefc90d753af6d0b2111976bcc38d2d675d7f352
+```
+
+Historical first-observation snapshot:
 
 ```text
 44e8ec21f7a3b402cc78a9a6c8e7cb176dc39b46
 ```
+
+The fresh head is 10 commits ahead of the historical observation. The observed delta adds protocol/conformance fixtures, generated-contract updates, SpecGrain evidence, and protocol tooling. It does not invalidate the capability/runtime/evidence role assigned here; implementation still requires a fresh component-level pin and qualification.
 
 Disposition:
 
@@ -746,3 +761,28 @@ UNCLASSIFIED_OWNER_REPOSITORIES = 0
 Because Ascout is public, private repository names/details are intentionally not copied into this public planning package. Private sources remain non-public candidate context unless a later source-admission record proves that disclosure/reuse is authorized.
 
 The inventory does not admit any source. Exact revision/component pinning, license/NOTICE review, nested third-party review, security qualification, authority ceiling, and benchmark/parity requirements remain mandatory immediately before implementation intake.
+
+
+---
+
+## 16. P0 primary-source freshness revalidation — 2026-09-19
+
+Immediately before planning qualification, the primary sources were re-read from their live default branches:
+
+| Source | Fresh observed head | Delta from first planning observation | Disposition |
+| --- | --- | --- | --- |
+| `TheHalfMoon/Kodac` | `406b335277f2df1e3dedf24cdb45847dff919d44` | unchanged | planning source current |
+| `TheHalfMoon/Sentrdel` | `f5747319a50831ef7cee983d253c0ca5503c9a64` | unchanged | planning source current |
+| `TheHalfMoon/kernux` | `aefc90d753af6d0b2111976bcc38d2d675d7f352` | +10 commits | role revalidated; protocol/conformance work advanced |
+| `TheHalfMoon/wepld` | `765f9d4ae0588ca06b0f65cd76de16eaa8a5c246` | fresh pin established | architecture donor current |
+| `alibaba/open-code-review` | `bedfeb1085819b563e6db38496cc6f9c9dfcc9b9` | +3 commits | core review role unchanged; observed delta is IDE/editor integration work |
+| `cloudflare/security-audit-skill` | `c1c8a8c1471069fb0e188eeaff69b8e8db6564a8` | unchanged | audit-method donor current |
+
+External root-license observations were also rechecked:
+
+```text
+alibaba/open-code-review = Apache-2.0
+cloudflare/security-audit-skill = MIT
+```
+
+These are planning-time observations, not permanent implementation pins. Every implementation intake still re-pins exact selected paths/components immediately before admission.
