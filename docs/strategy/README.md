@@ -61,8 +61,9 @@ Recommended read order:
 5. [`ASCOUT_UNIFIED_ASSURANCE_GAP_AUDIT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_GAP_AUDIT_2026-09-19.md) — 75 mapped material gap classes and closures.
 6. [`ASCOUT_KERNUX_REALITY_VERIFICATION_FABRIC_2026-09-19.md`](./ASCOUT_KERNUX_REALITY_VERIFICATION_FABRIC_2026-09-19.md) — real web/app/API/lab/runtime verification architecture.
 7. [`ASCOUT_UNIFIED_ASSURANCE_SOURCE_MAP_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_SOURCE_MAP_2026-09-19.md) — internal/external source portfolio and source-admission rules.
-8. [`ASCOUT_UNIFIED_ASSURANCE_FINAL_READINESS_AUDIT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_FINAL_READINESS_AUDIT_2026-09-19.md) — independent planning completeness challenge and final verdict.
-9. [`ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_HANDOFF_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_HANDOFF_2026-09-19.md) — exact start condition and first-wedge execution instructions.
+8. [`ASCOUT_OWNER_REPOSITORY_SOURCE_INVENTORY_2026-09-19.md`](./ASCOUT_OWNER_REPOSITORY_SOURCE_INVENTORY_2026-09-19.md) — owner-wide 33-repository discovery/classification, with private-source non-disclosure boundary.
+9. [`ASCOUT_UNIFIED_ASSURANCE_FINAL_READINESS_AUDIT_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_FINAL_READINESS_AUDIT_2026-09-19.md) — independent planning completeness challenge and final verdict.
+10. [`ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_HANDOFF_2026-09-19.md`](./ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_HANDOFF_2026-09-19.md) — exact start condition and first-wedge execution instructions.
 
 The package intentionally keeps the first implementation wedge limited to shared assurance contracts. Review, Test, Security, Kernux Reality Verification, remote runtime, dynamic Cyber, donor migration, and release engineering remain dependency-ordered later phases with separate authority/effect gates.
 
