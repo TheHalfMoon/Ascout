@@ -12,7 +12,7 @@ Do not implement from this handoff until:
 2. active Spec 016 authority is closed or successor authority explicitly reconciles overlap;
 3. planning PR is canonically merged;
 4. exact-head planning qualification is green;
-5. a separate implementation authorization explicitly authorizes UA-P1.
+5. a separate implementation authorization explicitly authorizes UA-P01.
 
 ## 2. Read order
 
@@ -51,6 +51,10 @@ Do not redesign:
 - adapter-first donor strategy.
 
 ## 4. First implementation authorization
+
+Canonical first-wedge phase identifier: `UA-P01`.
+
+`UA-P01` is the exact phase/task namespace used by the registry and exact-name checks. References to unpadded `UA-P01` in older planning prose are non-canonical aliases and must not be used for authorization or scheduler matching.
 
 Recommended scope:
 
