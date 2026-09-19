@@ -18,8 +18,10 @@ Is the unified Ascout plan complete enough that an implementation agent can begi
 - `ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_BLUEPRINT_2026-09-19.md`
 - `ASCOUT_UNIFIED_ASSURANCE_TASK_REGISTRY_2026-09-19.md`
 - `ASCOUT_UNIFIED_ASSURANCE_IMPLEMENTATION_HANDOFF_2026-09-19.md`
+- `ASCOUT_OWNER_REPOSITORY_SOURCE_INVENTORY_2026-09-19.md`
+- `ASCOUT_UNIFIED_ASSURANCE_P0_CANONICALIZATION_2026-09-19.md`
 
-The readiness verdict also checks the handoff's exact first-wedge start conditions, forbidden effects, and UA-P01 execution instructions.
+The readiness verdict also checks the handoff's exact first-wedge start conditions, forbidden effects, and UA-P01 execution instructions. The P0 canonicalization record supplies the required phase-by-phase Constitution classification, owner-source completion, source-registry seed, and fresh primary-source observations.
 
 ## 2. Audit method
 
