@@ -122,6 +122,21 @@ describe("UA-P01-T15 canonical assurance serialization", () => {
     }
   });
 
+  it("rejects ill-formed Unicode strings and keys before UTF-8 ordering", () => {
+    expect(() => canonicalAssuranceJsonV1("\ud800")).toThrow(
+      "string must contain well-formed Unicode",
+    );
+    expect(() => canonicalAssuranceJsonV1("\udc00")).toThrow(
+      "string must contain well-formed Unicode",
+    );
+
+    const value: Record<string, unknown> = {};
+    value["\ud800"] = 1;
+    expect(() => canonicalAssuranceJsonV1(value)).toThrow(
+      "string must contain well-formed Unicode",
+    );
+  });
+
   it("rejects primitive values outside JSON", () => {
     const values: unknown[] = [
       undefined,
