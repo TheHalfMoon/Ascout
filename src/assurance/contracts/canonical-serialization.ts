@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { types } from "node:util";
 
 export const ASSURANCE_CANONICAL_SERIALIZATION_VERSION = 1 as const;
 
@@ -144,6 +145,9 @@ function serializeValue(
   }
 
   const objectValue = value as object;
+  if (types.isProxy(objectValue)) {
+    return fail(path, "Proxy values are unsupported");
+  }
   if (stack.has(objectValue)) {
     return fail(path, "cyclic object graphs are unsupported");
   }
