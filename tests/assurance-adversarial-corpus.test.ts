@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  canonicalAssuranceJsonV1,
+  canonicalAssuranceSha256V1,
+} from "../src/assurance/contracts/canonical-serialization.js";
+
 import { createClaimAssessmentV1 } from "../src/assurance/contracts/claim-assessment.js";
 import { createEngineDescriptorV1 } from "../src/assurance/contracts/engine-descriptor.js";
 import { createEngineQualificationV1 } from "../src/assurance/contracts/engine-qualification.js";
