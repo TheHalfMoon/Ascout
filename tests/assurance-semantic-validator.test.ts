@@ -769,7 +769,7 @@ describe("UA-P01-T14 semantic graph validator", () => {
         mandatory_evidence_ids: ["evidence:missing"],
       }),
     ).toThrow(
-      "mandatory evidence not supporting the claim must remain visible",
+      "SUPPORTED claim assessment is missing mandatory supporting evidence: evidence:missing",
     );
   });
 
