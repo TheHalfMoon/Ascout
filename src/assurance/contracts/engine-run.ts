@@ -33,6 +33,16 @@ export interface EngineRunRuntimeIdentityV1 {
   readonly platform_identity: EnginePlatformIdentityV1;
 }
 
+export interface EngineRunCommandIdentityV1 {
+  readonly command_id: string;
+  readonly command_sha256: string;
+}
+
+export interface EngineRunRetainedStreamArtifactRefsV1 {
+  readonly stdout_artifact_ref: string | null;
+  readonly stderr_artifact_ref: string | null;
+}
+
 export interface EngineRunInputContextManifestV1 {
   readonly manifest_id: string;
   readonly input_refs: readonly string[];
@@ -53,6 +63,7 @@ export interface EngineRunV1 {
   readonly engine_id: string;
   readonly qualification_id: string;
   readonly configuration_identity: EngineConfigurationIdentityV1;
+  readonly command_identity: EngineRunCommandIdentityV1;
   readonly runtime_identity: EngineRunRuntimeIdentityV1;
   readonly started_at_epoch_ms: number;
   readonly ended_at_epoch_ms: number;
@@ -60,8 +71,10 @@ export interface EngineRunV1 {
   readonly result_class: string;
   readonly input_context_manifest: EngineRunInputContextManifestV1;
   readonly output_artifact_refs: readonly string[];
+  readonly retained_stream_artifact_refs: EngineRunRetainedStreamArtifactRefsV1;
   readonly finding_refs: readonly string[];
   readonly coverage_refs: readonly string[];
+  readonly coverage_limitations: readonly string[];
   readonly omissions: readonly string[];
   readonly limitations: readonly string[];
   readonly retry_recovery_lineage: EngineRunRetryRecoveryLineageV1;
@@ -202,6 +215,22 @@ function parseCanonicalTextList(
   return parsed;
 }
 
+function parseCommandIdentity(value: unknown): EngineRunCommandIdentityV1 {
+  const record = requireRecord(value, "command_identity");
+  requireExactKeys(
+    record,
+    ["command_id", "command_sha256"],
+    "command_identity",
+  );
+  return {
+    command_id: requireOpaqueId(record.command_id, "command_identity.command_id"),
+    command_sha256: requireSha256(
+      record.command_sha256,
+      "command_identity.command_sha256",
+    ),
+  };
+}
+
 function parseConfigurationIdentity(
   value: unknown,
 ): EngineConfigurationIdentityV1 {
@@ -284,6 +313,27 @@ function parseInputContextManifest(
   };
 }
 
+function parseRetainedStreamArtifactRefs(
+  value: unknown,
+): EngineRunRetainedStreamArtifactRefsV1 {
+  const record = requireRecord(value, "retained_stream_artifact_refs");
+  requireExactKeys(
+    record,
+    ["stdout_artifact_ref", "stderr_artifact_ref"],
+    "retained_stream_artifact_refs",
+  );
+  return {
+    stdout_artifact_ref: requireNullableOpaqueId(
+      record.stdout_artifact_ref,
+      "retained_stream_artifact_refs.stdout_artifact_ref",
+    ),
+    stderr_artifact_ref: requireNullableOpaqueId(
+      record.stderr_artifact_ref,
+      "retained_stream_artifact_refs.stderr_artifact_ref",
+    ),
+  };
+}
+
 function parseRetryRecoveryLineage(
   value: unknown,
 ): EngineRunRetryRecoveryLineageV1 {
@@ -327,6 +377,24 @@ function parseRetryRecoveryLineage(
   };
 }
 
+function requireRetainedStreamArtifactRefsResolve(
+  streams: EngineRunRetainedStreamArtifactRefsV1,
+  outputArtifactRefs: readonly string[],
+): void {
+  for (const [field, value] of [
+    ["stdout_artifact_ref", streams.stdout_artifact_ref],
+    ["stderr_artifact_ref", streams.stderr_artifact_ref],
+  ] as const) {
+    if (value !== null && !outputArtifactRefs.includes(value)) {
+      throw new TypeError(
+        "retained_stream_artifact_refs." +
+          field +
+          " must resolve in output_artifact_refs",
+      );
+    }
+  }
+}
+
 function requireTimeOrder(startedAt: number, endedAt: number): void {
   if (endedAt < startedAt) {
     throw new TypeError(
@@ -347,6 +415,7 @@ export function parseEngineRunV1(value: unknown): EngineRunV1 {
       "engine_id",
       "qualification_id",
       "configuration_identity",
+      "command_identity",
       "runtime_identity",
       "started_at_epoch_ms",
       "ended_at_epoch_ms",
@@ -354,8 +423,10 @@ export function parseEngineRunV1(value: unknown): EngineRunV1 {
       "result_class",
       "input_context_manifest",
       "output_artifact_refs",
+      "retained_stream_artifact_refs",
       "finding_refs",
       "coverage_refs",
+      "coverage_limitations",
       "omissions",
       "limitations",
       "retry_recovery_lineage",
@@ -374,6 +445,18 @@ export function parseEngineRunV1(value: unknown): EngineRunV1 {
   const endedAt = requireEpochMs(record.ended_at_epoch_ms, "ended_at_epoch_ms");
   requireTimeOrder(startedAt, endedAt);
 
+  const outputArtifactRefs = parseCanonicalOpaqueIds(
+    record.output_artifact_refs,
+    "output_artifact_refs",
+  );
+  const retainedStreamArtifactRefs = parseRetainedStreamArtifactRefs(
+    record.retained_stream_artifact_refs,
+  );
+  requireRetainedStreamArtifactRefsResolve(
+    retainedStreamArtifactRefs,
+    outputArtifactRefs,
+  );
+
   return {
     schema_version: ENGINE_RUN_SCHEMA_VERSION,
     run_id: requireOpaqueId(record.run_id, "run_id"),
@@ -384,6 +467,7 @@ export function parseEngineRunV1(value: unknown): EngineRunV1 {
     configuration_identity: parseConfigurationIdentity(
       record.configuration_identity,
     ),
+    command_identity: parseCommandIdentity(record.command_identity),
     runtime_identity: parseRuntimeIdentity(record.runtime_identity),
     started_at_epoch_ms: startedAt,
     ended_at_epoch_ms: endedAt,
@@ -392,12 +476,14 @@ export function parseEngineRunV1(value: unknown): EngineRunV1 {
     input_context_manifest: parseInputContextManifest(
       record.input_context_manifest,
     ),
-    output_artifact_refs: parseCanonicalOpaqueIds(
-      record.output_artifact_refs,
-      "output_artifact_refs",
-    ),
+    output_artifact_refs: outputArtifactRefs,
+    retained_stream_artifact_refs: retainedStreamArtifactRefs,
     finding_refs: parseCanonicalOpaqueIds(record.finding_refs, "finding_refs"),
     coverage_refs: parseCanonicalOpaqueIds(record.coverage_refs, "coverage_refs"),
+    coverage_limitations: parseCanonicalTextList(
+      record.coverage_limitations,
+      "coverage_limitations",
+    ),
     omissions: parseCanonicalTextList(record.omissions, "omissions"),
     limitations: parseCanonicalTextList(record.limitations, "limitations"),
     retry_recovery_lineage: parseRetryRecoveryLineage(
@@ -415,6 +501,7 @@ export function createEngineRunV1(input: EngineRunInputV1): EngineRunV1 {
     engine_id: input.engine_id,
     qualification_id: input.qualification_id,
     configuration_identity: input.configuration_identity,
+    command_identity: input.command_identity,
     runtime_identity: input.runtime_identity,
     started_at_epoch_ms: input.started_at_epoch_ms,
     ended_at_epoch_ms: input.ended_at_epoch_ms,
@@ -435,8 +522,13 @@ export function createEngineRunV1(input: EngineRunInputV1): EngineRunV1 {
       input.output_artifact_refs,
       "output_artifact_refs",
     ),
+    retained_stream_artifact_refs: input.retained_stream_artifact_refs,
     finding_refs: normalizeOpaqueIds(input.finding_refs, "finding_refs"),
     coverage_refs: normalizeOpaqueIds(input.coverage_refs, "coverage_refs"),
+    coverage_limitations: normalizeTextList(
+      input.coverage_limitations,
+      "coverage_limitations",
+    ),
     omissions: normalizeTextList(input.omissions, "omissions"),
     limitations: normalizeTextList(input.limitations, "limitations"),
     retry_recovery_lineage: input.retry_recovery_lineage,
