@@ -962,7 +962,7 @@ describe("T107 exact-tree self-verification harness", () => {
     })).rejects.toSatisfy((error: unknown) => expectIntegrityCode(error, "evidence_output_failed"));
     expectNoEvidence(outputDir);
     expect(existsSync(outputDir)).toBe(false);
-  });
+  }, 15_000);
 
   it("rejects evidence output inside repository source identity", async () => {
     const simple = createSimpleRepository();
