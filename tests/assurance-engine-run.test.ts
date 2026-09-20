@@ -274,6 +274,10 @@ function runInput() {
     engine_id: "engine:ascout-native",
     qualification_id: "qualification:ascout-native-v1",
     configuration_identity: configuration(),
+    command_identity: {
+      command_id: "command:ascout-check-v1",
+      command_sha256: E,
+    },
     runtime_identity: {
       runtime_id: "runtime:node24-linux-x64",
       runtime_sha256: F,
@@ -288,9 +292,17 @@ function runInput() {
       input_refs: ["input:target", "input:plan", "input:target"],
       context_refs: ["context:policy", "context:qualification"],
     },
-    output_artifact_refs: ["artifact:z", "artifact:a"],
+    output_artifact_refs: ["artifact:z", "artifact:stdout", "artifact:a"],
+    retained_stream_artifact_refs: {
+      stdout_artifact_ref: "artifact:stdout",
+      stderr_artifact_ref: null,
+    },
     finding_refs: ["finding:b", "finding:a"],
     coverage_refs: ["coverage:b", "coverage:a"],
+    coverage_limitations: [
+      "Generated files were outside the selected coverage scope.",
+      "No remote runtime coverage was requested.",
+    ],
     omissions: [
       "Optional telemetry was not requested.",
       "No remote provider context was available.",
@@ -316,9 +328,25 @@ describe("UA-P01-T07 EngineRun", () => {
       "input:plan",
       "input:target",
     ]);
-    expect(run.output_artifact_refs).toEqual(["artifact:a", "artifact:z"]);
+    expect(run.command_identity).toEqual({
+      command_id: "command:ascout-check-v1",
+      command_sha256: E,
+    });
+    expect(run.output_artifact_refs).toEqual([
+      "artifact:a",
+      "artifact:stdout",
+      "artifact:z",
+    ]);
+    expect(run.retained_stream_artifact_refs).toEqual({
+      stdout_artifact_ref: "artifact:stdout",
+      stderr_artifact_ref: null,
+    });
     expect(run.finding_refs).toEqual(["finding:a", "finding:b"]);
     expect(run.coverage_refs).toEqual(["coverage:a", "coverage:b"]);
+    expect(run.coverage_limitations).toEqual([
+      "Generated files were outside the selected coverage scope.",
+      "No remote runtime coverage was requested.",
+    ]);
     expect(run.omissions).toEqual([
       "No remote provider context was available.",
       "Optional telemetry was not requested.",
@@ -663,6 +691,74 @@ describe("UA-P01-T07 EngineRun", () => {
     ).toThrow("output_artifact_refs[0]");
   });
 
+  it("requires exact bounded command identity without executing it", () => {
+    expect(() =>
+      createEngineRunV1({
+        ...runInput(),
+        command_identity: {
+          command_id: "/private/bin/ascout",
+          command_sha256: E,
+        },
+      }),
+    ).toThrow("command_identity.command_id");
+
+    expect(() =>
+      createEngineRunV1({
+        ...runInput(),
+        command_identity: {
+          command_id: "command:ascout-check-v1",
+          command_sha256: "not-a-digest",
+        },
+      }),
+    ).toThrow("command_identity.command_sha256 must be lowercase sha256");
+  });
+
+  it("requires retained stdout/stderr refs to resolve in output artifacts", () => {
+    expect(() =>
+      createEngineRunV1({
+        ...runInput(),
+        retained_stream_artifact_refs: {
+          stdout_artifact_ref: "artifact:missing",
+          stderr_artifact_ref: null,
+        },
+      }),
+    ).toThrow(
+      "retained_stream_artifact_refs.stdout_artifact_ref must resolve in output_artifact_refs",
+    );
+
+    expect(() =>
+      createEngineRunV1({
+        ...runInput(),
+        retained_stream_artifact_refs: {
+          stdout_artifact_ref: null,
+          stderr_artifact_ref: "artifact:missing",
+        },
+      }),
+    ).toThrow(
+      "retained_stream_artifact_refs.stderr_artifact_ref must resolve in output_artifact_refs",
+    );
+  });
+
+  it("keeps coverage limitations explicit, bounded, and canonical", () => {
+    const run = createEngineRunV1(runInput());
+
+    expect(() =>
+      parseEngineRunV1({
+        ...run,
+        coverage_limitations: [...run.coverage_limitations].reverse(),
+      }),
+    ).toThrow("coverage_limitations must be unique and canonically sorted");
+
+    expect(() =>
+      createEngineRunV1({
+        ...runInput(),
+        coverage_limitations: ["line one\nline two"],
+      }),
+    ).toThrow(
+      "coverage_limitations[0] must be bounded non-empty single-line text",
+    );
+  });
+
   it("rejects malformed runtime and platform digests", () => {
     expect(() =>
       createEngineRunV1({
@@ -705,6 +801,8 @@ describe("UA-P01-T07 EngineRun", () => {
     expect("provider_authority" in run).toBe(false);
     expect("credential_authority" in run).toBe(false);
     expect("retry_authority" in run).toBe(false);
+    expect("command_authority" in run).toBe(false);
+    expect("artifact_read_authority" in run).toBe(false);
   });
 
   it("uses only explicit caller-supplied timing data", () => {
