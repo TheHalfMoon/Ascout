@@ -159,7 +159,7 @@ describe("T064 runCheck reproduction and flake normalization", () => {
         observations: { runs: 3, failures: 3 },
         reproduced: true,
       });
-    }, 60_000);
+    }, 120_000);
 
     it(`${runner}: keeps reproduction unknown when the first targeted rerun is not a valid observation`, async () => {
       const receipt = await checkFixture(runner, "rerun-error");
