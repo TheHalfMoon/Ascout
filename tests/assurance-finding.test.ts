@@ -35,7 +35,7 @@ function location(path = "src/example.ts", line = 17) {
   } as const;
 }
 
-function findingInput(status = "OPEN" as const) {
+function findingInput(status: FindingStatusV1 = "OPEN") {
   return {
     finding_id: "finding:ua-p01-t09",
     kind: "CORRECTNESS",
