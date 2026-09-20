@@ -130,12 +130,12 @@ describe("T022 run lock", () => {
 
     await expect(acquireRunLock(aliasRoot)).rejects.toMatchObject({
       code: "run_lock_held",
-    }, 15_000);
+    });
     expect(existsSync(lockPath(physicalRoot))).toBe(true);
     expect(existsSync(lockPath(aliasRoot))).toBe(true);
 
     await first.release();
-  });
+  }, 15_000);
 
   it("recovers only after the persisted main owner is definitely dead", async () => {
     const repositoryRoot = temporaryRepository();
