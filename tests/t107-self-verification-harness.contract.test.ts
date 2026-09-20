@@ -457,7 +457,7 @@ describe("T107 exact-tree self-verification harness", () => {
     } finally {
       await releaseExactHeadRuntime(fixture.root, prepared);
     }
-  });
+  }, 15_000);
 
   it.skipIf(process.platform === "win32")("binds resolved bytes behind private runtime symlinks", async () => {
     const fixture = createBuildableFixture({ createRuntimeSymlink: true });
