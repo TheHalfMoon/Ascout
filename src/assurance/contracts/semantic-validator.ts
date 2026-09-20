@@ -465,7 +465,7 @@ function validateFindingGraph(
   graph: ParsedSemanticGraphV1,
   runMap: ReadonlyMap<string, EngineRunV1>,
   evidenceMap: ReadonlyMap<string, EvidenceRefV1>,
-): void {
+): ReadonlyMap<string, FindingV1> {
   const findingMap = uniqueMap(
     graph.findings,
     (finding) => finding.finding_id,
@@ -508,6 +508,8 @@ function validateFindingGraph(
       available_evidence_ids: evidenceIds,
     });
   }
+
+  return findingMap;
 }
 
 function validateCoverageAndConflictGraph(
@@ -564,6 +566,29 @@ function validateCoverageAndConflictGraph(
   }
 
   return { coverageMap, omissionMap, contradictionMap };
+}
+
+function validateRunOutputRefs(
+  runMap: ReadonlyMap<string, EngineRunV1>,
+  findingMap: ReadonlyMap<string, FindingV1>,
+  coverageMap: ReadonlyMap<string, CoverageClaimV1>,
+): void {
+  for (const run of runMap.values()) {
+    for (const findingRef of run.finding_refs) {
+      requireFromMap(
+        findingMap,
+        findingRef,
+        "engine run finding_refs",
+      );
+    }
+    for (const coverageRef of run.coverage_refs) {
+      requireFromMap(
+        coverageMap,
+        coverageRef,
+        "engine run coverage_refs",
+      );
+    }
+  }
 }
 
 function validateClaimEvidenceFreshness(
@@ -637,10 +662,16 @@ export function validateAssuranceSemanticGraphV1(value: unknown): void {
   const { runMap } = validateEngineGraph(graph);
   const evidenceMap = validateEvidenceGraph(graph, runMap);
 
-  validateFindingGraph(graph, runMap, evidenceMap);
+  const findingMap = validateFindingGraph(
+    graph,
+    runMap,
+    evidenceMap,
+  );
 
   const { coverageMap, omissionMap, contradictionMap } =
     validateCoverageAndConflictGraph(graph, runMap, evidenceMap);
+
+  validateRunOutputRefs(runMap, findingMap, coverageMap);
 
   assertClaimAssessmentResolvesV1(graph.claim_assessment, {
     target: graph.target,
