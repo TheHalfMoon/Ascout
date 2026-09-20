@@ -127,6 +127,7 @@ function requirePlainObjectShape(
       );
     }
 
+    requireWellFormedUnicode(key, path + "." + key);
     stringKeys.push(key);
   }
 
