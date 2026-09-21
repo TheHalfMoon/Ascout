@@ -342,6 +342,36 @@ describe("UA-P02-T02 Availability model", () => {
     );
   });
 
+  it("rejects availability lookup against a different registry snapshot", () => {
+    const first = registryEntry(
+      "engine:first",
+      "implementation:first",
+      A,
+      "configuration:first",
+      B,
+    );
+    const second = registryEntry(
+      "engine:second",
+      "implementation:second",
+      C,
+      "configuration:second",
+      D,
+    );
+    const firstRegistry = createEngineRegistryV1([first]);
+    const secondRegistry = createEngineRegistryV1([first, second]);
+    const snapshot = createEngineAvailabilitySnapshotV1(firstRegistry, [
+      observation(first, "AVAILABLE", "LOCAL_IMPLEMENTATION_PRESENT"),
+    ]);
+
+    expect(() =>
+      findEngineAvailabilityEntryV1(
+        secondRegistry,
+        snapshot,
+        identityFor(first),
+      ),
+    ).toThrow("availability snapshot registry identity mismatch");
+  });
+
   it("returns no availability for a valid but unregistered identity", () => {
     const registered = registryEntry(
       "engine:native",
