@@ -204,11 +204,13 @@ describe("UA-P02-T02 Availability model", () => {
     ]);
 
     expect(
-      findEngineAvailabilityEntryV1(registry, snapshot, identityFor(first)),
-    )?.state).toBe("UNAVAILABLE");
+      findEngineAvailabilityEntryV1(registry, snapshot, identityFor(first))
+        ?.state,
+    ).toBe("UNAVAILABLE");
     expect(
-      findEngineAvailabilityEntryV1(registry, snapshot, identityFor(second)),
-    )?.state).toBe("AVAILABLE");
+      findEngineAvailabilityEntryV1(registry, snapshot, identityFor(second))
+        ?.state,
+    ).toBe("AVAILABLE");
   });
 
   it("rejects observations for unregistered exact identities", () => {
