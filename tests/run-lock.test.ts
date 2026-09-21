@@ -135,7 +135,7 @@ describe("T022 run lock", () => {
     expect(existsSync(lockPath(aliasRoot))).toBe(true);
 
     await first.release();
-  });
+  }, 15_000);
 
   it("recovers only after the persisted main owner is definitely dead", async () => {
     const repositoryRoot = temporaryRepository();

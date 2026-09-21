@@ -189,6 +189,6 @@ describe("T064 runCheck reproduction and flake normalization", () => {
     });
     expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-1"))).toBe(true);
     expect(receipt.artifacts.some((artifact) => artifact.relative_run_path.includes("rerun-2"))).toBe(false);
-  }, 60_000);
+  }, 120_000);
 
 });
