@@ -110,6 +110,7 @@ describe("UA-P02-T02 Availability model", () => {
 
     const snapshot = createEngineAvailabilitySnapshotV1(registry, []);
 
+    expect(snapshot.registry_sha256).toBe(canonicalAssuranceSha256V1(registry));
     expect(snapshot.entries).toEqual([
       {
         identity: identityFor(engine),

@@ -37,6 +37,7 @@ export interface EngineAvailabilityEntryV1 {
 
 export interface EngineAvailabilitySnapshotV1 {
   readonly schema_version: 1;
+  readonly registry_sha256: string;
   readonly entries: readonly EngineAvailabilityEntryV1[];
 }
 
@@ -177,6 +178,7 @@ export function createEngineAvailabilitySnapshotV1(
 
   return deepFreeze({
     schema_version: ENGINE_AVAILABILITY_SCHEMA_VERSION,
+    registry_sha256: canonicalAssuranceSha256V1(registry),
     entries,
   });
 }
@@ -186,6 +188,10 @@ export function findEngineAvailabilityEntryV1(
   snapshot: EngineAvailabilitySnapshotV1,
   identity: EngineRegistryIdentityV1,
 ): EngineAvailabilityEntryV1 | undefined {
+  if (snapshot.registry_sha256 !== canonicalAssuranceSha256V1(registry)) {
+    throw new TypeError("availability snapshot registry identity mismatch");
+  }
+
   const registered = findEngineRegistryEntryV1(registry, identity);
   if (registered === undefined) {
     return undefined;
