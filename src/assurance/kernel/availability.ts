@@ -1,4 +1,7 @@
-import {\n  canonicalAssuranceJsonV1,\n  canonicalAssuranceSha256V1,\n} from "../contracts/canonical-serialization.js";
+import {
+  canonicalAssuranceJsonV1,
+  canonicalAssuranceSha256V1,
+} from "../contracts/canonical-serialization.js";
 import {
   findEngineRegistryEntryV1,
   type EngineRegistryEntryV1,
