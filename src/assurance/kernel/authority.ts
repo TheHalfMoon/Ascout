@@ -1,3 +1,4 @@
+import { canonicalAssuranceSha256V1 } from "../contracts/canonical-serialization.js";
 import {
   ASSURANCE_EFFECT_CLASSES,
   type AssuranceEffectClass,
@@ -36,6 +37,7 @@ export interface EngineAuthorityRequestV1 {
 
 export interface EngineAuthorityDecisionV1 {
   readonly schema_version: 1;
+  readonly registry_sha256: string;
   readonly identity: EngineRegistryIdentityV1;
   readonly capabilities: readonly string[];
   readonly effect_classes: readonly AssuranceEffectClass[];
@@ -135,6 +137,15 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
+export function assertEngineAuthorityDecisionRegistryV1(
+  registry: EngineRegistryV1,
+  decision: EngineAuthorityDecisionV1,
+): void {
+  if (decision.registry_sha256 !== canonicalAssuranceSha256V1(registry)) {
+    throw new TypeError("engine authority decision registry identity mismatch");
+  }
+}
+
 export function evaluateEngineAuthorityCeilingV1(
   registry: EngineRegistryV1,
   request: EngineAuthorityRequestV1,
@@ -157,6 +168,7 @@ export function evaluateEngineAuthorityCeilingV1(
   const capabilities = normalizeCapabilities(record.capabilities);
   const effectClasses = normalizeEffects(record.effect_classes);
   const descriptor = registered.descriptor;
+  const registrySha256 = canonicalAssuranceSha256V1(registry);
 
   const identity: EngineRegistryIdentityV1 = {
     engine_id: descriptor.engine_id,
@@ -170,6 +182,7 @@ export function evaluateEngineAuthorityCeilingV1(
   if (undeclaredCapability !== undefined) {
     return deepFreeze({
       schema_version: ENGINE_AUTHORITY_CHECK_SCHEMA_VERSION,
+      registry_sha256: registrySha256,
       identity,
       capabilities,
       effect_classes: effectClasses,
@@ -185,6 +198,7 @@ export function evaluateEngineAuthorityCeilingV1(
   if (undeclaredEffect !== undefined) {
     return deepFreeze({
       schema_version: ENGINE_AUTHORITY_CHECK_SCHEMA_VERSION,
+      registry_sha256: registrySha256,
       identity,
       capabilities,
       effect_classes: effectClasses,
@@ -201,6 +215,7 @@ export function evaluateEngineAuthorityCeilingV1(
   if (exceedsCeiling) {
     return deepFreeze({
       schema_version: ENGINE_AUTHORITY_CHECK_SCHEMA_VERSION,
+      registry_sha256: registrySha256,
       identity,
       capabilities,
       effect_classes: effectClasses,
@@ -212,6 +227,7 @@ export function evaluateEngineAuthorityCeilingV1(
 
   return deepFreeze({
     schema_version: ENGINE_AUTHORITY_CHECK_SCHEMA_VERSION,
+    registry_sha256: registrySha256,
     identity,
     capabilities,
     effect_classes: effectClasses,
