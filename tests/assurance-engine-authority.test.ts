@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { canonicalAssuranceSha256V1 } from "../src/assurance/contracts/canonical-serialization.js";
 import {
   createEngineDescriptorV1,
   type EngineDescriptorInputV1,
 } from "../src/assurance/contracts/engine-descriptor.js";
 import type { AssuranceEffectClass } from "../src/assurance/contracts/intent.js";
 import {
+  assertEngineAuthorityDecisionRegistryV1,
   evaluateEngineAuthorityCeilingV1,
   type EngineAuthorityRequestV1,
 } from "../src/assurance/kernel/authority.js";
@@ -111,6 +113,7 @@ describe("UA-P02-T03 Authority ceiling enforcement", () => {
 
     expect(decision).toEqual({
       schema_version: 1,
+      registry_sha256: canonicalAssuranceSha256V1(registry),
       identity: identityFor(engine),
       capabilities: ["capability:review", "capability:test"],
       effect_classes: [
@@ -225,6 +228,59 @@ describe("UA-P02-T03 Authority ceiling enforcement", () => {
         },
       }),
     ).toThrow("engine authority request identity is not registered");
+  });
+
+  it("rejects stale authority decisions after canonical registry authority drift", () => {
+    const higher = registryEntry(
+      ["E0_READ_ONLY_ANALYSIS", "E1_LOCAL_DETERMINISTIC_PROCESS"],
+      "E1_LOCAL_DETERMINISTIC_PROCESS",
+    );
+    const lower = registryEntry(
+      ["E0_READ_ONLY_ANALYSIS", "E1_LOCAL_DETERMINISTIC_PROCESS"],
+      "E0_READ_ONLY_ANALYSIS",
+    );
+    const higherRegistry = createEngineRegistryV1([higher]);
+    const lowerRegistry = createEngineRegistryV1([lower]);
+
+    expect(identityFor(higher)).toEqual(identityFor(lower));
+
+    const priorDecision = evaluateEngineAuthorityCeilingV1(
+      higherRegistry,
+      requestFor(
+        higher,
+        ["capability:review"],
+        ["E1_LOCAL_DETERMINISTIC_PROCESS"],
+      ),
+    );
+    const currentDecision = evaluateEngineAuthorityCeilingV1(
+      lowerRegistry,
+      requestFor(
+        lower,
+        ["capability:review"],
+        ["E1_LOCAL_DETERMINISTIC_PROCESS"],
+      ),
+    );
+
+    expect(priorDecision.result).toBe("WITHIN_CEILING");
+    expect(currentDecision.result).toBe("DENIED");
+    expect(currentDecision.reason_code).toBe(
+      "EFFECT_EXCEEDS_DESCRIPTOR_AUTHORITY_CEILING",
+    );
+    expect(priorDecision.registry_sha256).not.toBe(
+      currentDecision.registry_sha256,
+    );
+    expect(() =>
+      assertEngineAuthorityDecisionRegistryV1(
+        lowerRegistry,
+        priorDecision,
+      ),
+    ).toThrow("engine authority decision registry identity mismatch");
+    expect(() =>
+      assertEngineAuthorityDecisionRegistryV1(
+        lowerRegistry,
+        currentDecision,
+      ),
+    ).not.toThrow();
   });
 
   it("canonicalizes requested capability and effect ordering deterministically", () => {
