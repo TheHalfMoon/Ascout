@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "provenance_class": "C",
+  "upstream_repository": "https://github.com/google/artemis",
+  "upstream_commit_sha": "371aa6df56880643da57b30da936e9812fb0ec66",
+  "upstream_tree": "697c3fe48b51b8453938989f383b4a8471a4f5a1",
+  "tracked_entries_including_trees": 966,
+  "blob_paths": 796,
+  "unique_blobs": 781,
+  "ascout_paths": ["vendor/google-artemis/**"],
+  "use_type": "copied + adapted",
+  "upstream_license": "Apache-2.0",
+  "license_compatibility_review": "PASS subject to notice preservation",
+  "modifications_inside_snapshot": "none",
+  "floating_upstream_dependency": false,
+  "runtime_activated": false,
+  "network_authority": false,
+  "provider_authority": false,
+  "adb_mutation_authority": false
+}
