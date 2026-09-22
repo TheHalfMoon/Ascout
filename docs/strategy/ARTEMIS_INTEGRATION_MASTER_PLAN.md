@@ -1,7 +1,8 @@
 # Ascout × ARTEMIS Full Integration Master Plan
 
 Status: IMPLEMENTATION_READY / DONOR_NOT_YET_IMPORTED
-Planning base: Ascout main @ e10130fc29b4a8d2030fdb0278620a5248bb875a
+Planning base: Ascout main @ 8a211b40c99d940cfa6eb7306a4c252076762051
+Canonical predecessor: UA-P02 CLOSED_CANONICAL / COMPLETE at 8a211b40c99d940cfa6eb7306a4c252076762051
 ARTEMIS donor: google/artemis @ 371aa6df56880643da57b30da936e9812fb0ec66
 
 ## 1. Objective
