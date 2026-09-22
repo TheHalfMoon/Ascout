@@ -132,3 +132,15 @@ This file does not replace any third-party license text or attribution that a fu
 - Notice preservation: donor LICENSE, copyright headers, and notice material preserved inside the immutable snapshot; no modifications inside the snapshot
 - Runtime authority: none granted by source presence; activation requires separate phased authorization and qualification
 - Provenance record: `docs/mobile/artemis-a0-provenance.json`
+
+## Donor snapshot — google/artemis (ARTEMIS A13 release admission)
+
+- Upstream: `https://github.com/google/artemis`
+- Pinned commit: `371aa6df56880643da57b30da936e9812fb0ec66`
+- Pinned tree: `697c3fe48b51b8453938989f383b4a8471a4f5a1`
+- License: Apache-2.0
+- Release scope: contract, adapter, evidence, and documentation layers under `vendor/google-artemis/**`, `src/assurance/engines/mobile-artemis/**`, `python/ascout_mobile_bridge/**`, `schemas/mobile-artemis/**`, `docs/mobile/**`
+- Phases admitted: ARTEMIS-A0 through ARTEMIS-A12 closed canonically; A13 gates recorded in `docs/mobile/artemis-a13-release.md`
+- Donor telemetry: off by default; no telemetry destination admitted
+- Runtime authority: none granted by source presence or by release admission
+- Provenance record: `docs/mobile/artemis-a0-provenance.json`
