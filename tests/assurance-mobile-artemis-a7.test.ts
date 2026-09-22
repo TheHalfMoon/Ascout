@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluateProCheckpointsV1,
+  parseProIncidentV1,
   planProRunV1,
   recommendProRecoveryV1,
   summarizeProPlanV1,
@@ -127,7 +128,23 @@ describe("ARTEMIS-A7 bounded incident recovery", () => {
     ).toEqual({ decision: "ABORT_RUN", reason: "protocol stale" });
     expect(
       recommendProRecoveryV1({ incident_id: "in:5", kind: "MYSTERY", step_id: "s1", attempts_used: 0 }),
-    ).toEqual({ decision: "ABORT_RUN", reason: "incident kind unknown" });
+    ).toEqual({
+      decision: "ABORT_RUN",
+      reason: "incident kind must be ACTION_FAILED, CHECKPOINT_VIOLATED, BUDGET_EXHAUSTED, or PROTOCOL_STALE",
+    });
+  });
+
+  it("validates incidents with exact keys before deciding", () => {
+    const parsed = parseProIncidentV1({ incident_id: "in:1", kind: "ACTION_FAILED", step_id: "s1", attempts_used: 0 });
+    expect(parsed.ok).toBe(true);
+    expect(parseProIncidentV1({ incident_id: "in:1", kind: "ACTION_FAILED", step_id: "s1" }).ok).toBe(false);
+    expect(parseProIncidentV1(null).ok).toBe(false);
+    expect(
+      recommendProRecoveryV1({ incident_id: "in:1", kind: "ACTION_FAILED", step_id: "s1", attempts_used: 0, extra: 1 }),
+    ).toEqual({
+      decision: "ABORT_RUN",
+      reason: "incident must contain exactly incident_id, kind, step_id, attempts_used",
+    });
   });
 });
 

@@ -187,10 +187,56 @@ export interface ProIncidentV1 {
   readonly attempts_used: number;
 }
 
-export type ProRecovery =
-  | { readonly decision: "RETRY_STEP" }
-  | { readonly decision: "SKIP_TO_CHECKPOINT" }
-  | { readonly decision: "ABORT_RUN"; readonly reason: string };
+export function parseProIncidentV1(
+  incident: unknown,
+): { readonly ok: true; readonly value: ProIncidentV1 } | { readonly ok: false; readonly reason: string } {
+  try {
+    if (typeof incident !== "object" || incident === null || Array.isArray(incident)) {
+      throw new TypeError("incident must be an object");
+    }
+    const record = incident as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    if (
+      keys.length !== 4 ||
+      keys[0] !== "attempts_used" ||
+      keys[1] !== "incident_id" ||
+      keys[2] !== "kind" ||
+      keys[3] !== "step_id"
+    ) {
+      throw new TypeError("incident must contain exactly incident_id, kind, step_id, attempts_used");
+    }
+    if (typeof record["incident_id"] !== "string" || !OPAQUE_ID.test(record["incident_id"])) {
+      throw new TypeError("incident_id must be an opaque id");
+    }
+    if (typeof record["kind"] !== "string" || !INCIDENT_KINDS.includes(record["kind"])) {
+      throw new TypeError("incident kind must be ACTION_FAILED, CHECKPOINT_VIOLATED, BUDGET_EXHAUSTED, or PROTOCOL_STALE");
+    }
+    if (typeof record["step_id"] !== "string" || !OPAQUE_ID.test(record["step_id"])) {
+      throw new TypeError("step_id must be an opaque id");
+    }
+    if (
+      typeof record["attempts_used"] !== "number" ||
+      !Number.isInteger(record["attempts_used"]) ||
+      record["attempts_used"] < 0
+    ) {
+      throw new TypeError("attempts_used must be a non-negative integer");
+    }
+    return {
+      ok: true,
+      value: {
+        incident_id: record["incident_id"] as string,
+        kind: record["kind"] as ProIncidentKind,
+        step_id: record["step_id"] as string,
+        attempts_used: record["attempts_used"] as number,
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : "incident refused",
+    };
+  }
+}
 
 const INCIDENT_KINDS: readonly string[] = [
   "ACTION_FAILED",
@@ -199,38 +245,27 @@ const INCIDENT_KINDS: readonly string[] = [
   "PROTOCOL_STALE",
 ];
 
-export function recommendProRecoveryV1(incident: {
-  readonly incident_id: unknown;
-  readonly kind: unknown;
-  readonly step_id: unknown;
-  readonly attempts_used: unknown;
-}): ProRecovery {
-  if (typeof incident.incident_id !== "string" || !OPAQUE_ID.test(incident.incident_id)) {
-    return { decision: "ABORT_RUN", reason: "incident identity invalid" };
+export type ProRecovery =
+  | { readonly decision: "RETRY_STEP" }
+  | { readonly decision: "SKIP_TO_CHECKPOINT" }
+  | { readonly decision: "ABORT_RUN"; readonly reason: string };
+
+export function recommendProRecoveryV1(incident: unknown): ProRecovery {
+  const parsed = parseProIncidentV1(incident);
+  if (!parsed.ok) {
+    return { decision: "ABORT_RUN", reason: parsed.reason };
   }
-  if (typeof incident.kind !== "string" || !INCIDENT_KINDS.includes(incident.kind)) {
-    return { decision: "ABORT_RUN", reason: "incident kind unknown" };
-  }
-  if (typeof incident.step_id !== "string" || !OPAQUE_ID.test(incident.step_id)) {
-    return { decision: "ABORT_RUN", reason: "incident step invalid" };
-  }
-  if (
-    typeof incident.attempts_used !== "number" ||
-    !Number.isInteger(incident.attempts_used) ||
-    incident.attempts_used < 0
-  ) {
-    return { decision: "ABORT_RUN", reason: "attempt count invalid" };
-  }
-  if (incident.kind === "BUDGET_EXHAUSTED" || incident.kind === "PROTOCOL_STALE") {
+  const valid = parsed.value;
+  if (valid.kind === "BUDGET_EXHAUSTED" || valid.kind === "PROTOCOL_STALE") {
     return {
       decision: "ABORT_RUN",
-      reason: incident.kind === "BUDGET_EXHAUSTED" ? "budget exhausted" : "protocol stale",
+      reason: valid.kind === "BUDGET_EXHAUSTED" ? "budget exhausted" : "protocol stale",
     };
   }
-  if (incident.attempts_used >= PRO_RECOVERY_MAX_ATTEMPTS) {
+  if (valid.attempts_used >= PRO_RECOVERY_MAX_ATTEMPTS) {
     return { decision: "ABORT_RUN", reason: "recovery attempts exhausted" };
   }
-  if (incident.kind === "CHECKPOINT_VIOLATED") {
+  if (valid.kind === "CHECKPOINT_VIOLATED") {
     return { decision: "SKIP_TO_CHECKPOINT" };
   }
   return { decision: "RETRY_STEP" };
