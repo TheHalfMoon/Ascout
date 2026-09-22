@@ -19,6 +19,8 @@ export const RELEASE_PHASES = [
 
 export type ReleasePhase = (typeof RELEASE_PHASES)[number];
 
+const RELEASE_PHASE_LIST: readonly ReleasePhase[] = RELEASE_PHASES;
+
 export interface ReleaseCloseoutsV1 {
   readonly a0: string;
   readonly a1: string;
@@ -94,7 +96,7 @@ export function admitReleaseV1(candidate: ReleaseCandidateV1): ReleaseAdmissionV
     reasons.push("donor telemetry not off: " + telemetry.reason);
   }
   const closeouts = candidate.closeouts;
-  for (const phase of RELEASE_PHASES) {
+  for (const phase of RELEASE_PHASE_LIST) {
     const ref = closeouts[phase];
     if (typeof ref !== "string" || !OPAQUE_ID.test(ref)) {
       reasons.push("phase " + phase + " closeout missing");
