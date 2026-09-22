@@ -119,3 +119,16 @@ This conclusion is scoped to the exact direct package versions below. Transitive
 The T086 review does not treat process isolation, development-only status, or npm registry availability as a substitute for license terms. It also does not assume that a permissive direct package makes every possible future bundled artifact attribution-free. The T082 package-content gate proves the current Ascout tarball surface separately; any future bundling/vendor change must re-evaluate redistribution and notice obligations.
 
 This file does not replace any third-party license text or attribution that a future packaged distribution is legally required to carry.
+
+## Donor snapshot — google/artemis (ARTEMIS A0)
+
+- Upstream: `https://github.com/google/artemis`
+- Pinned commit: `371aa6df56880643da57b30da936e9812fb0ec66`
+- Pinned tree: `697c3fe48b51b8453938989f383b4a8471a4f5a1`
+- License: Apache-2.0
+- Ascout paths: `vendor/google-artemis/**` plus separately reviewed adapters
+- Use type: copied + adapted, Class C provenance
+- Snapshot content: complete repository snapshot at the exact commit (796 blob paths)
+- Notice preservation: donor LICENSE, copyright headers, and notice material preserved inside the immutable snapshot; no modifications inside the snapshot
+- Runtime authority: none granted by source presence; activation requires separate phased authorization and qualification
+- Provenance record: `docs/mobile/artemis-a0-provenance.json`
