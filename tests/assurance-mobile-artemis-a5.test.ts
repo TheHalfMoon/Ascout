@@ -6,6 +6,7 @@ import {
   frameworkOfNodeV1,
   LOCATOR_STRATEGIES,
   matchDynamicTargetV1,
+  parseDynamicTargetV1,
   planLocatorV1,
 } from "../src/assurance/engines/mobile-artemis/locating.js";
 
@@ -82,6 +83,19 @@ describe("ARTEMIS-A5 literal dynamic-target matching", () => {
     expect(
       matchDynamicTargetV1({ rule: "exact", pattern: "" }, candidates).ok,
     ).toBe(false);
+    expect(
+      matchDynamicTargetV1(
+        { rule: "exact", pattern: "Header", extra: 1 },
+        candidates,
+      ).ok,
+    ).toBe(false);
+  });
+
+  it("validates dynamic targets with exact keys", () => {
+    const parsed = parseDynamicTargetV1({ rule: "prefix", pattern: "Item " });
+    expect(parsed.ok).toBe(true);
+    expect(parseDynamicTargetV1({ rule: "prefix" }).ok).toBe(false);
+    expect(parseDynamicTargetV1(null).ok).toBe(false);
   });
 });
 

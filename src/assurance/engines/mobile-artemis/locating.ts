@@ -129,31 +129,59 @@ export interface DynamicMatchV1 {
   readonly rule: DynamicMatchRule;
 }
 
+export function parseDynamicTargetV1(
+  target: unknown,
+): { readonly ok: true; readonly value: DynamicTargetV1 } | { readonly ok: false; readonly reason: string } {
+  try {
+    if (typeof target !== "object" || target === null || Array.isArray(target)) {
+      throw new TypeError("dynamic target must be an object");
+    }
+    const record = target as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    if (keys.length !== 2 || keys[0] !== "pattern" || keys[1] !== "rule") {
+      throw new TypeError("dynamic target must contain exactly rule and pattern");
+    }
+    if (record["rule"] !== "exact" && record["rule"] !== "prefix" && record["rule"] !== "contains") {
+      throw new TypeError("dynamic match rule must be exact, prefix, or contains");
+    }
+    const pattern = requireSelector(record["pattern"], "dynamic pattern");
+    return {
+      ok: true,
+      value: { rule: record["rule"] as DynamicMatchRule, pattern },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      reason: error instanceof Error ? error.message : "dynamic target refused",
+    };
+  }
+}
+
 export type DynamicMatchResult =
   | { readonly ok: true; readonly value: readonly DynamicMatchV1[] }
   | { readonly ok: false; readonly reason: string };
 
 export function matchDynamicTargetV1(
-  target: { readonly rule: unknown; readonly pattern: unknown },
+  target: unknown,
   candidates: readonly unknown[],
 ): DynamicMatchResult {
   try {
-    if (target.rule !== "exact" && target.rule !== "prefix" && target.rule !== "contains") {
-      throw new TypeError("dynamic match rule must be exact, prefix, or contains");
-    }
-    const pattern = requireSelector(target.pattern, "dynamic pattern");
+    const parsed = parseDynamicTargetV1(target);
+    if (!parsed.ok) throw new TypeError(parsed.reason);
+    const rule = parsed.value.rule;
+    const pattern = parsed.value.pattern;
     if (candidates.length > DYNAMIC_CANDIDATE_MAX) {
       throw new TypeError("candidate bound exceeded");
     }
     const matches: DynamicMatchV1[] = [];
     for (const candidate of candidates) {
       if (typeof candidate !== "string") continue;
-      if (target.rule === "exact" && candidate === pattern) {
+      if (rule === "exact" && candidate === pattern) {
         matches.push({ candidate, rule: "exact" });
-      } else if (target.rule === "prefix" && candidate.startsWith(pattern)) {
+      } else if (rule === "prefix" && candidate.startsWith(pattern)) {
         matches.push({ candidate, rule: "prefix" });
       } else if (
-        target.rule === "contains" &&
+        rule === "contains" &&
         pattern.length > 0 &&
         candidate.includes(pattern)
       ) {
