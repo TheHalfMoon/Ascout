@@ -1,7 +1,7 @@
-import type { MobileEffect } from "./effects.js";
+import { MOBILE_EFFECTS, type MobileEffect } from "./effects.js";
 import type { EvidenceArtifactRefV1 } from "./evidence.js";
 import type { FlashStatusV1 } from "./flash.js";
-import type { MobileCompletionState } from "./protocol.js";
+import { MOBILE_COMPLETION_STATES, type MobileCompletionState } from "./protocol.js";
 
 export const MOBILE_SURFACES = [
   "REVIEW",
@@ -48,21 +48,7 @@ const OPAQUE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const SHA256_HEX = /^[a-f0-9]{64}$/u;
 const GIT_SHA_HEX = /^[a-f0-9]{40}$/u;
 
-const MOBILE_EFFECT_SET: readonly string[] = [
-  "DEVICE_READ",
-  "DEVICE_INPUT",
-  "APP_LAUNCH",
-  "APP_INSTALL",
-  "APP_UNINSTALL",
-  "FILE_PUSH",
-  "FILE_PULL",
-  "LOGCAT_READ",
-  "SCREEN_CAPTURE",
-  "SCREEN_RECORD",
-  "ADB_SHELL_READ",
-  "ADB_SHELL_MUTATE",
-  "DEVICE_SETTINGS_MUTATE",
-];
+const MOBILE_EFFECT_SET: readonly string[] = MOBILE_EFFECTS;
 
 const FLASH_STATUSES: readonly string[] = [
   "READY",
@@ -77,18 +63,7 @@ const FLASH_STATUSES: readonly string[] = [
   "FAILED",
 ];
 
-const COMPLETION_STATES: readonly string[] = [
-  "PASS",
-  "FAIL",
-  "BLOCKED",
-  "INCOMPLETE",
-  "INCONCLUSIVE",
-  "REFUSED",
-  "ERROR",
-  "NOT_RUN",
-  "STALE",
-  "UNKNOWN",
-];
+const COMPLETION_STATES: readonly string[] = MOBILE_COMPLETION_STATES;
 
 function requireOpaqueId(value: unknown, field: string): string {
   if (typeof value !== "string" || !OPAQUE_ID.test(value)) {
