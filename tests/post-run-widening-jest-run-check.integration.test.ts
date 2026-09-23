@@ -1,4 +1,4 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -20,10 +20,16 @@ function run(root: string, file: string, argv: readonly string[]): void {
 function initializeFixture(): string {
   const root = mkdtempSync(join(tmpdir(), "ascout-t054-jest-check-"));
   mkdirSync(join(root, "src"), { recursive: true });
-  cpSync(resolve("node_modules"), join(root, "node_modules"), { recursive: true });
+  // Bounded fixture: Jest planning reads exactly two discovery contracts from
+  // disk (the node_modules/.bin/jest executable probe and the installed
+  // node_modules/jest/package.json version). A full node_modules copy
+  // (~93 MB / ~6k files) only adds Windows I/O inside the 60 s budget, so
+  // provide just those two contracts instead.
+  const fixtureJestDir = join(root, "node_modules", "jest");
+  mkdirSync(fixtureJestDir, { recursive: true });
+  copyFileSync(resolve("node_modules", "jest", "package.json"), join(fixtureJestDir, "package.json"));
 
   const binRoot = join(root, "node_modules", ".bin");
-  rmSync(binRoot, { recursive: true, force: true });
   writeNodeCommandShim(
     binRoot,
     "jest",
