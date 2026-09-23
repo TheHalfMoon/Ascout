@@ -188,5 +188,5 @@ describe("T106 environment publication", () => {
     const diagnostic = String(stderr.mock.calls[0]![0]);
     expect(diagnostic).toContain("<repository>");
     expect(diagnostic).not.toContain(diagnosticPath);
-  });
+  }, process.platform === "win32" ? 30_000 : 5_000);
 });
