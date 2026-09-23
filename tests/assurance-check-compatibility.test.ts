@@ -61,6 +61,7 @@ const EXPECTED_USAGE = [
   "  ascout init",
   "  ascout doctor",
   "  ascout check [--allow-changed-command-surface] [--format json|agent]",
+  "  ascout review [--format json|terminal]",
 ].join("\n");
 
 afterEach(() => {

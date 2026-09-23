@@ -10,21 +10,31 @@ import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./d
 import { readWorkingTreeComparison } from "./git.js";
 import { renderReceiptAgent } from "./receipt/agent.js";
 import { renderReceiptJson } from "./receipt/json.js";
+import {
+  buildEmptyReviewScopeV1,
+  buildReviewAbsenceReportV1,
+  defaultUnavailableExecutionV1,
+  renderReviewJsonV1,
+  renderReviewTerminalV1,
+} from "./assurance/review/review-command.js";
 
-const COMMANDS = ["init", "doctor", "check"] as const;
+const COMMANDS = ["init", "doctor", "check", "review"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const FORMAT_FLAG = "--format";
 const CHECK_FORMATS = ["json", "agent"] as const;
+const REVIEW_FORMATS = ["json", "terminal"] as const;
+const REVIEW_WRITE_FLAGS = ["--publish", "--write", "--output", "--push"] as const;
 
 export type CliCommand = (typeof COMMANDS)[number];
 export type CheckFormat = (typeof CHECK_FORMATS)[number];
+export type ReviewFormat = (typeof REVIEW_FORMATS)[number];
 
 type EntryDisposition = "direct" | "not_direct" | "resolution_error";
 
 export interface CliInvocation {
   command: CliCommand;
   allowChangedCommandSurface: boolean;
-  format?: CheckFormat;
+  format?: CheckFormat | ReviewFormat;
 }
 
 interface DoctorResult {
@@ -44,6 +54,10 @@ function isCheckFormat(value: string): value is CheckFormat {
   return CHECK_FORMATS.includes(value as CheckFormat);
 }
 
+function isReviewFormat(value: string): value is ReviewFormat {
+  return REVIEW_FORMATS.includes(value as ReviewFormat);
+}
+
 export function parseCliArgs(argv: readonly string[]): CliInvocation {
   const [commandToken, ...rest] = argv;
 
@@ -56,10 +70,18 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   }
 
   let allowChangedCommandSurface = false;
-  let format: CheckFormat | undefined;
+  let format: CheckFormat | ReviewFormat | undefined;
 
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index]!;
+
+    if ((REVIEW_WRITE_FLAGS as readonly string[]).includes(token)) {
+      if (commandToken === "review") {
+        throw new CliUsageError(
+          `${token} is refused: ascout review is read-only and has no write or publication authority.`,
+        );
+      }
+    }
 
     if (token === ALLOW_CHANGED_COMMAND_SURFACE) {
       if (commandToken !== "check") {
@@ -75,19 +97,32 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     }
 
     if (token === FORMAT_FLAG) {
-      if (commandToken !== "check") {
-        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check command.`);
+      if (commandToken !== "check" && commandToken !== "review") {
+        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check or review command.`);
       }
       if (format !== undefined) {
         throw new CliUsageError(`${FORMAT_FLAG} may be supplied only once.`);
       }
       const value = rest[index + 1];
-      if (value === undefined) {
-        throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${CHECK_FORMATS.join("|")}.`);
+      if (commandToken === "check") {
+        if (value === undefined) {
+          throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${CHECK_FORMATS.join("|")}.`);
+        }
+        if (!isCheckFormat(value)) {
+          throw new CliUsageError(
+            `Unsupported check format: ${value}. Expected one of: ${CHECK_FORMATS.join("|")}.`,
+          );
+        }
+        format = value;
+        index += 1;
+        continue;
       }
-      if (!isCheckFormat(value)) {
+      if (value === undefined) {
+        throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${REVIEW_FORMATS.join("|")}.`);
+      }
+      if (!isReviewFormat(value)) {
         throw new CliUsageError(
-          `Unsupported check format: ${value}. Expected one of: ${CHECK_FORMATS.join("|")}.`,
+          `Unsupported review format: ${value}. Expected one of: ${REVIEW_FORMATS.join("|")}.`,
         );
       }
       format = value;
@@ -111,6 +146,7 @@ export function usageText(): string {
     "  ascout init",
     "  ascout doctor",
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
+    `  ascout review [${FORMAT_FLAG} json|terminal]`,
   ].join("\n");
 }
 
@@ -161,6 +197,58 @@ async function runInit(): Promise<number> {
   }
 }
 
+async function runReview(
+  repositoryRoot: string,
+  format: ReviewFormat | undefined,
+): Promise<number> {
+  const sourceState = composeSourceState(repositoryRoot);
+  const comparison = readWorkingTreeComparison(
+    repositoryRoot,
+    sourceState.head_sha,
+  );
+  const seen = new Set<string>();
+  const files: string[] = [];
+  for (const file of comparison.changed_files) {
+    if (file.change_kind === "deleted") {
+      continue;
+    }
+    if (!seen.has(file.path)) {
+      seen.add(file.path);
+      files.push(file.path);
+    }
+  }
+  files.sort();
+  const outputFormat: ReviewFormat = format ?? "terminal";
+  if (files.length === 0) {
+    const report = buildEmptyReviewScopeV1(
+      sourceState.repository_id,
+      sourceState.head_sha,
+    );
+    if (outputFormat === "json") {
+      process.stdout.write(renderReviewJsonV1(report));
+    } else {
+      console.error(renderReviewTerminalV1(report));
+    }
+    return 0;
+  }
+  const report = buildReviewAbsenceReportV1(
+    sourceState.repository_id,
+    sourceState.head_sha,
+    defaultUnavailableExecutionV1(
+      sourceState.head_sha,
+      "profile:review-default",
+      "capsule:review-default",
+    ),
+    [{ group_id: "group:working-tree", files }],
+  );
+  if (outputFormat === "json") {
+    process.stdout.write(renderReviewJsonV1(report));
+  } else {
+    console.error(renderReviewTerminalV1(report));
+  }
+  return 0;
+}
+
 export async function runCli(argv: readonly string[]): Promise<number> {
   try {
     const invocation = parseCliArgs(argv);
@@ -184,6 +272,12 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       const result = runDoctor(process.cwd());
       console.error(result.output);
       return result.exitCode;
+    }
+    if (invocation.command === "review") {
+      // parseCliArgs admits only json|terminal for the review command,
+      // so this narrowing reflects parser-guaranteed input.
+      const reviewFormat = invocation.format as ReviewFormat | undefined;
+      return await runReview(process.cwd(), reviewFormat);
     }
     console.error(`ascout ${invocation.command}: not implemented.`);
     return 2;
