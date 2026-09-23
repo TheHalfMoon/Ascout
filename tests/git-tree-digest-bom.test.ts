@@ -58,5 +58,5 @@ describe("T019 UTF-8 Git pathname preservation", () => {
     const changed = readTreeDigestV1(repositoryRoot);
     expect(changed.unstaged_changed_count).toBe(1);
     expect(changed.tree_digest).not.toBe(clean.tree_digest);
-  });
+  }, process.platform === "win32" ? 30_000 : 5_000);
 });
