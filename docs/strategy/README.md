@@ -72,3 +72,38 @@ The package intentionally keeps the first implementation wedge limited to shared
 IMPLEMENTATION_READY_PLAN = YES
 IMPLEMENTATION_AUTHORITY = NO
 ```
+
+
+---
+
+## Local Zero-Cost Verification OS planning package — 2026-09-22
+
+This package hardens the Unified Assurance roadmap around a founder-level commercial and architectural invariant: Ascout must remain local-first and normal customer verification must not require Ascout-operated compute, model inference, browsers, devices, workers, runtime databases, vector stores, queues, or artifact storage.
+
+It does not create a second roadmap. It reconciles new donor/capability sources and local-only commercial/runtime constraints into the existing UA-P03 → UA-P18 program and the separately governed ARTEMIS mobile program.
+
+Recommended read order:
+
+1. [`ASCOUT_LOCAL_ZERO_COST_VERIFICATION_OS_MASTER_PLAN_2026-09-22.md`](./ASCOUT_LOCAL_ZERO_COST_VERIFICATION_OS_MASTER_PLAN_2026-09-22.md) — product thesis, local-first architecture, Capability/Decision/Reality fabrics, Watch, Agent Assurance, Failure Intelligence, Challenge Graph, Evidence Memory, subscription/runtime model, and no-gap closure matrix.
+2. [`ASCOUT_DONOR_CAPABILITY_ADMISSION_MATRIX_2026-09-22.md`](./ASCOUT_DONOR_CAPABILITY_ADMISSION_MATRIX_2026-09-22.md) — Treg, Laya, SemIf, Decider, Bespoke Nimble, Jev, TinyFish/AgentQL, Desktop Commander, ARTEMIS, and founder-owned source dispositions, pins, license/permission gates, and maintenance boundaries.
+3. [`ASCOUT_LOCAL_ZERO_COST_ROADMAP_RECONCILIATION_2026-09-22.md`](./ASCOUT_LOCAL_ZERO_COST_ROADMAP_RECONCILIATION_2026-09-22.md) — exact mapping into UA-P03 through UA-P18, ARTEMIS coexistence, pre-P03 cost/privacy/location compatibility gate, sequencing and dependency rules.
+4. [`ASCOUT_ZERO_OPERATOR_RUNTIME_COST_QUALIFICATION_2026-09-22.md`](./ASCOUT_ZERO_OPERATOR_RUNTIME_COST_QUALIFICATION_2026-09-22.md) — clean-machine, offline, no-provider-key, cost-contamination, telemetry, local entitlement, optional-engine absence, BYOK/BYO infrastructure, and final economics release proof.
+
+Key invariant:
+
+```text
+OPERATOR_VARIABLE_RUNTIME_INFRASTRUCTURE_COST_PER_USER = 0
+MANDATORY_ASCOUT_CLOUD = NO
+USER_OWNED_COMPUTE_AND_STORAGE = YES
+REMOTE_PAID_PROVIDERS = EXPLICIT_USER_OPT_IN_ONLY
+```
+
+Planning status:
+
+```text
+LOCAL_ZERO_COST_ARCHITECTURE = DEFINED
+DONOR_DISPOSITIONS = DEFINED
+UA_ROADMAP_RECONCILIATION = DEFINED
+FINAL_ECONOMICS_QUALIFICATION = DEFINED
+IMPLEMENTATION_AUTHORITY_FROM_THIS_PACKAGE = NO
+```
