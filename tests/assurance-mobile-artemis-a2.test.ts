@@ -65,8 +65,12 @@ function probeInput(
     adbCandidates: [...DEFAULT_ADB_CANDIDATES],
     sidecarScriptPath: SIDECAR_PATH,
     requestId: "req:a2-unit",
-    versionTimeoutMs: 5000,
-    handshakeTimeoutMs: 5000,
+    // Live-runner path spawns real subprocesses; use the product probe
+    // bounds (not tighter harness-only values) so loaded Windows CI
+    // runners are accommodated. See issue #485 (post-merge run
+    // 35823947220, windows-2025/node-24 live-probe 5000ms timeout).
+    versionTimeoutMs: VERSION_PROBE_TIMEOUT_MS,
+    handshakeTimeoutMs: HANDSHAKE_TIMEOUT_MS,
     runner: fakeRunner(() => exitOk("")),
     ...overrides,
   };
