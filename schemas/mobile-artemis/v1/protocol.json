@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ascout:mobile-artemis:protocol:v1",
+  "title": "Ascout Mobile ARTEMIS Protocol v1",
+  "description": "Versioned request/event/result/artifact envelopes for the isolated mobile sidecar. Contracts only; no execution authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_version", "envelope"],
+  "properties": {
+    "protocol_version": {"const": 1},
+    "envelope": {"$ref": "#/$defs/envelope"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "gitSha": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+    "opaqueId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "mobileEffect": {
+      "type": "string",
+      "enum": [
+        "DEVICE_READ",
+        "DEVICE_INPUT",
+        "APP_LAUNCH",
+        "APP_INSTALL",
+        "APP_UNINSTALL",
+        "FILE_PUSH",
+        "FILE_PULL",
+        "LOGCAT_READ",
+        "SCREEN_CAPTURE",
+        "SCREEN_RECORD",
+        "ADB_SHELL_READ",
+        "ADB_SHELL_MUTATE",
+        "DEVICE_SETTINGS_MUTATE"
+      ]
+    },
+    "completionState": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "BLOCKED",
+        "INCOMPLETE",
+        "INCONCLUSIVE",
+        "REFUSED",
+        "ERROR",
+        "NOT_RUN",
+        "STALE",
+        "UNKNOWN"
+      ]
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol_version", "run_id", "source_digest", "engine_descriptor_digest", "donor_sha"],
+      "properties": {
+        "protocol_version": {"const": 1},
+        "run_id": {"$ref": "#/$defs/opaqueId"},
+        "source_digest": {"$ref": "#/$defs/sha256"},
+        "engine_descriptor_digest": {"$ref": "#/$defs/sha256"},
+        "donor_sha": {"$ref": "#/$defs/gitSha"}
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_steps", "max_seconds"],
+      "properties": {
+        "max_steps": {"type": "integer", "minimum": 0, "maximum": 1000000},
+        "max_seconds": {"type": "integer", "minimum": 0, "maximum": 1000000}
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol_version", "request_id", "effect", "action", "budgets", "context"],
+      "properties": {
+        "protocol_version": {"const": 1},
+        "request_id": {"$ref": "#/$defs/opaqueId"},
+        "effect": {"$ref": "#/$defs/mobileEffect"},
+        "action": {"$ref": "#/$defs/opaqueId"},
+        "budgets": {"$ref": "#/$defs/budgets"},
+        "context": {"$ref": "#/$defs/context"}
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol_version", "event_id", "request_id", "kind", "observed_at"],
+      "properties": {
+        "protocol_version": {"const": 1},
+        "event_id": {"$ref": "#/$defs/opaqueId"},
+        "request_id": {"$ref": "#/$defs/opaqueId"},
+        "kind": {"$ref": "#/$defs/opaqueId"},
+        "observed_at": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "kind", "sha256", "byte_length"],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/opaqueId"},
+        "kind": {"$ref": "#/$defs/opaqueId"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "byte_length": {"type": "integer", "minimum": 0, "maximum": 1099511627776}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["protocol_version", "request_id", "completion_state", "attempted_actions", "blocked_actions"],
+      "properties": {
+        "protocol_version": {"const": 1},
+        "request_id": {"$ref": "#/$defs/opaqueId"},
+        "completion_state": {"$ref": "#/$defs/completionState"},
+        "attempted_actions": {"type": "array", "maxItems": 1024, "items": {"$ref": "#/$defs/opaqueId"}},
+        "blocked_actions": {"type": "array", "maxItems": 1024, "items": {"$ref": "#/$defs/opaqueId"}}
+      }
+    },
+    "envelope": {"oneOf": [{"$ref": "#/$defs/request"}, {"$ref": "#/$defs/event"}, {"$ref": "#/$defs/result"}]}
+  }
+}
