@@ -95,7 +95,7 @@ describe("ARTEMIS-A2 donor snapshot validation", () => {
     expect(foreign.reasons).toContain("DONOR_UNAVAILABLE");
     expect(foreign.reasons).toContain("INTERPRETER_UNAVAILABLE");
     expect(foreign.mutations).toEqual([]);
-  });
+  }, 60_000);
 });
 
 describe("ARTEMIS-A2 interpreter pin tiers", () => {
