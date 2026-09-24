@@ -128,9 +128,6 @@ describe("T007 CLI startup smoke", () => {
     process.chdir(repositoryRoot);
 
     git(repositoryRoot, ["init", "-q"]);
-    git(repositoryRoot, ["config", "user.name", "Ascout Test"]);
-    git(repositoryRoot, ["config", "user.email", "ascout@example.invalid"]);
-    git(repositoryRoot, ["config", "commit.gpgsign", "false"]);
     git(repositoryRoot, ["config", "core.autocrlf", "false"]);
 
     const secret = "doctor-must-not-render-this-secret";
@@ -146,7 +143,18 @@ describe("T007 CLI startup smoke", () => {
     );
     writeFileSync(join(repositoryRoot, "tracked.txt"), "base\n", "utf8");
     git(repositoryRoot, ["add", "--all"]);
-    git(repositoryRoot, ["commit", "-q", "-m", "base"]);
+    git(repositoryRoot, [
+      "-c",
+      "user.name=Ascout Test",
+      "-c",
+      "user.email=ascout@example.invalid",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-q",
+      "-m",
+      "base",
+    ]);
 
     const sensitiveChangedPath = "customer-acquisition-secret-plan.txt";
     writeFileSync(join(repositoryRoot, sensitiveChangedPath), "private\n", "utf8");
