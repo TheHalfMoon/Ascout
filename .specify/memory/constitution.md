@@ -108,6 +108,21 @@ Ratified by UA-P04 Implementation Authorization (Issue #527, PR #528, effective 
 9. Kodac-derived patterns are observations and discipline only. Kodac must not become a second policy or claim authority. Ascout owns final evidence, finding, coverage, freshness, and claim semantics.
 10. All local-zero-cost gates remain enforced: zero operator runtime cost, offline core, no mandatory Ascout backend, no silent paid fallback, telemetry off by default, local artifact retention by default, explicit data egress, optional engine absence explicit, entitlement truth independence, model source and weight provenance, donor permission and notice, and clean-machine local execution.
 
+### Amendment A05 — Unified Test profile
+
+Ratified by UA-P05 Implementation Authorization (Issue #542, PR #543, effective on post-merge qualification of merge cac7af64820347eaad26f97fbfab1d6b34f7079b). Scope is UA-P05 unified test effects only. All M1 principles remain in force.
+
+1. Ascout may orchestrate deterministic testing as a first-class Test profile with QUICK, STANDARD, DEEP, and RELEASE policies, adapter-first, with budgets and predicted effect classes visible in the plan.
+2. The existing check and test selection and execution behavior is preserved with PASS, FAIL, FLAKY, BLOCKED, ERROR, and NOT_RUN semantics unchanged. Affected scope that cannot be narrowed safely must widen visibly.
+3. Unified Coverage and Omission projection must keep test selection, execution, changed-code exercise, deselection accounting, and unknown limitations visible. Deselected tests must not be presented as passed.
+4. External runner, contract, schema, property, fuzz, mutation, performance, and recovery outputs are normalized as observations. They never self-attest and never override missing or failed mandatory evidence.
+5. Property, fuzz, mutation, performance, and recovery adapters are admitted only when qualified with explicit counterexamples, effect requirements, attempted, killed, and survived accounting, and budget enforcement. Unsupported scope yields explicit omission, never clean PASS.
+6. P016 browser evidence projection reuses IntentTest, oracle, and journey truth without inventing new browser authority. No hidden mock substitution is permitted.
+7. Failure Intelligence observations (reproduced, contradictory, flaky, environment failure, harness failure, product regression, unknown) remain observations. Root-cause probabilities are never canonical facts. Environment and harness failure remain distinguishable from product PASS. Retry success never erases the original failure.
+8. An additive `ascout test` command may exist. `ascout check` remains unchanged and `ascout test` is additive only.
+9. All local-zero-cost gates remain enforced: zero operator runtime cost, offline core, no mandatory Ascout backend, no silent paid fallback, telemetry off by default, local artifact retention by default, explicit data egress, optional engine absence explicit, entitlement truth independence, model source and weight provenance, donor permission and notice, and clean-machine local execution.
+10. No mandatory network, account, key, provider, daemon, server, database, or paid fallback is introduced for any core claim. Missing capability remains explicit NOT_RUN or INCOMPLETE.
+
 ## Development Workflow and Quality Gates
 
 All product work MUST follow the canonical founding sequence unless a constitutional amendment explicitly changes it:
@@ -147,4 +162,4 @@ Principles protecting evidence integrity, no-green-by-omission, source binding, 
 
 Ponytail/YAGNI is a complexity gate, not an architecture generator. GitHub Spec Kit is the canonical specification workflow, pinned initially by `.specify/PROVENANCE.md`.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-09-24
+**Version**: 1.2.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-09-24
