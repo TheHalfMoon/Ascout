@@ -2,15 +2,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   createAssertionResponse,
+  createSessionIdentity,
 } from "../src/browser/executor.js";
 import {
   assembleEvidenceBundle,
   attachOracleRef,
+  createAccessibilityFact,
   createNetworkRecord,
   createOracleRecord,
   recordActionAttempt,
 } from "../src/browser/evidence.js";
-import { createIntentTest } from "../src/browser/intent.js";
+import { createIntentTest, intentDigest } from "../src/browser/intent.js";
 import {
   createJourney,
   createJourneyEdge,
@@ -22,6 +24,24 @@ const SOURCE = "tree:5e27cf02000000000000000000000000000000";
 const OTHER_SOURCE = "tree:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SESSION = "session-t04-1";
 const OTHER_SESSION = "session-t04-2";
+
+function makeSessionIdentity(source: string = SOURCE, session: string = SESSION) {
+  return createSessionIdentity({
+    application_origin: "https://example.com",
+    browser_profile: "stable",
+    engine: { channel: "stable", name: "chromium", version: "1.63.0" },
+    environment: {
+      arch: "x64",
+      os: "linux",
+      runtime: "node",
+      runtime_version: "24",
+    },
+    session_id: session,
+    source_identity: source,
+  });
+}
+
+const REAL_SESSION = makeSessionIdentity();
 
 function makeIntent(source: string = SOURCE) {
   return createIntentTest(
@@ -54,7 +74,11 @@ function makeIntent(source: string = SOURCE) {
   );
 }
 
-function makeOracle(id = "oracle-1", overrides: Record<string, unknown> = {}) {
+function makeOracle(
+  id = "oracle-1",
+  overrides: Record<string, unknown> = {},
+  source: string = SOURCE,
+) {
   return createOracleRecord({
     authority: "gating",
     calibration_state: null,
@@ -64,7 +88,7 @@ function makeOracle(id = "oracle-1", overrides: Record<string, unknown> = {}) {
     producer: "ascout",
     provenance: { detail: null, origin: "browser-adapter" },
     required_evidence_types: ["network-record"],
-    source_identity: SOURCE,
+    source_identity: source,
     version: "1",
     ...overrides,
   });
@@ -75,8 +99,9 @@ function makeBundle(
   session: string = SESSION,
   oracleIds: readonly string[] = ["oracle-1"],
   bundleId = "bundle-1",
+  boundIntentDigest: string | null = intentDigest(makeIntent(source)),
 ) {
-  const oracles = oracleIds.map((id) => makeOracle(id));
+  const oracles = oracleIds.map((id) => makeOracle(id, {}, source));
   const attempt = recordActionAttempt(
     0,
     { kind: "click", target: "#login" },
@@ -111,7 +136,7 @@ function makeBundle(
     bundle_id: bundleId,
     console_records: [],
     dom_facts: [],
-    intent_digest: null,
+    intent_digest: boundIntentDigest,
     network_records: [
       createNetworkRecord({
         method: "GET",
@@ -126,6 +151,59 @@ function makeBundle(
     oracle_records: oracles,
     session_id: session,
     source_identity: source,
+  });
+}
+
+function makeFailedBundle() {
+  const attempt = recordActionAttempt(
+    0,
+    { kind: "click", target: "#login" },
+    {
+      duration_ms: 5,
+      error: { code: "E_ACTION", message: "action failed" },
+      evidence_refs: [],
+      request_id: "req-failed",
+      session_id: SESSION,
+      source_identity: SOURCE,
+      status: "failed",
+    },
+  );
+  const assertion = attachOracleRef(
+    createAssertionResponse({
+      duration_ms: 2,
+      error: { code: "E_ASSERTION", message: "assertion failed" },
+      evidence_refs: [],
+      oracle_ref: null,
+      request_id: "assert-failed",
+      session_id: SESSION,
+      source_identity: SOURCE,
+      status: "failed",
+    }),
+    "oracle-1",
+  );
+  return assembleEvidenceBundle({
+    accessibility_facts: [],
+    artifacts: [],
+    assertions: [assertion],
+    attempts: [attempt],
+    bundle_id: "bundle-failed",
+    console_records: [],
+    dom_facts: [],
+    intent_digest: intentDigest(makeIntent()),
+    network_records: [
+      createNetworkRecord({
+        method: "GET",
+        record_id: "net-failed",
+        request_count: 1,
+        response_status: 200,
+        session_id: SESSION,
+        source_identity: SOURCE,
+        url: "https://example.com/login",
+      }),
+    ],
+    oracle_records: [makeOracle()],
+    session_id: SESSION,
+    source_identity: SOURCE,
   });
 }
 
@@ -169,6 +247,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
       intent: makeIntent(),
       journey: makeJourney(),
       profile: "STANDARD",
+      session_identity: REAL_SESSION,
       substrate: "real-browser",
       substrate_reason: null,
       unknown_limitations: [],
@@ -179,6 +258,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
     expect(projection.bundle_id).toBe("bundle-1");
     expect(projection.journey_id).toBe("journey-1");
     expect(projection.session_id).toBe(SESSION);
+    expect(projection.session_identity_bound).toBe(true);
     expect(projection.source_identity).toBe(SOURCE);
     expect(projection.attempt_count).toBe(1);
     expect(projection.assertion_count).toBe(1);
@@ -186,7 +266,36 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
     expect(projection.node_count).toBe(2);
     expect(projection.edge_count).toBe(2);
     expect(projection.missing_evidence).toEqual([]);
-    expect(projection.substitute_declared).toBe(false);
+    expect(projection.substitute_declared).toBe(true);
+    expect(projection.substrate_verified).toBe(false);
+  });
+
+  it("marks absent and mismatched intent bindings explicitly", () => {
+    const intent = makeIntent();
+    const missing = projectBrowserEvidenceV1({
+      bundle: makeBundle(SOURCE, SESSION, ["oracle-1"], "bundle-missing", null),
+      intent,
+      journey: makeJourney(),
+      profile: "STANDARD",
+      session_identity: REAL_SESSION,
+      substrate: "real-browser",
+      substrate_reason: null,
+      unknown_limitations: [],
+    });
+    expect(missing.missing_evidence).toContain("bound-intent-digest:absent");
+    const mismatch = projectBrowserEvidenceV1({
+      bundle: makeBundle(SOURCE, SESSION, ["oracle-1"], "bundle-mismatch", "0".repeat(64)),
+      intent,
+      journey: makeJourney(),
+      profile: "STANDARD",
+      session_identity: REAL_SESSION,
+      substrate: "real-browser",
+      substrate_reason: null,
+      unknown_limitations: [],
+    });
+    expect(mismatch.missing_evidence).toContain("bound-intent-digest:mismatch");
+    expect(mismatch.blocking_reasons).toContain("bound-intent-digest:mismatch");
+    expect(mismatch.expected_intent_digest).toBe(intentDigest(intent));
   });
 
   it("preserves oracle outcomes without upgrading them", () => {
@@ -230,7 +339,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
       bundle_id: "bundle-2",
       console_records: [],
       dom_facts: [],
-      intent_digest: null,
+      intent_digest: intentDigest(makeIntent()),
       network_records: [
         createNetworkRecord({
           method: "GET",
@@ -251,6 +360,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
       intent: makeIntent(),
       journey: null,
       profile: "DEEP",
+      session_identity: REAL_SESSION,
       substrate: "real-browser",
       substrate_reason: null,
       unknown_limitations: [],
@@ -263,12 +373,58 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
     expect(model?.oracle_kind).toBe("semantic_model");
   });
 
+  it("preserves failed execution and zero-edge coverage as blocking reasons", () => {
+    const failed = projectBrowserEvidenceV1({
+      bundle: makeFailedBundle(),
+      intent: makeIntent(),
+      journey: makeJourney(),
+      profile: "STANDARD",
+      session_identity: REAL_SESSION,
+      substrate: "real-browser",
+      substrate_reason: null,
+      unknown_limitations: [],
+    });
+    expect(failed.blocking_reasons).toEqual(
+      expect.arrayContaining([
+        "attempt 0 failed: E_ACTION",
+        "assertion assert-failed failed: E_ASSERTION",
+      ]),
+    );
+    const emptyJourney = createJourney({
+      edges: [],
+      journey_id: "journey-empty",
+      nodes: [
+        createJourneyNode({
+          label: "login page",
+          node_id: "node-empty",
+          obligation_refs: ["obl:login"],
+        }),
+      ],
+      obligation_refs: ["obl:login"],
+      oracle_refs: ["oracle-1"],
+      session_id: SESSION,
+      source_identity: SOURCE,
+    });
+    const empty = projectBrowserEvidenceV1({
+      bundle: makeBundle(),
+      intent: makeIntent(),
+      journey: emptyJourney,
+      profile: "STANDARD",
+      session_identity: REAL_SESSION,
+      substrate: "real-browser",
+      substrate_reason: null,
+      unknown_limitations: [],
+    });
+    expect(empty.blocking_reasons).toContain("no-observed-or-inferred-traversal");
+  });
+
   it("preserves journey provenance and observed/inferred distinction", () => {
     const projection = projectBrowserEvidenceV1({
       bundle: makeBundle(),
       intent: makeIntent(),
       journey: makeJourney(),
       profile: "STANDARD",
+      session_identity: REAL_SESSION,
       substrate: "real-browser",
       substrate_reason: null,
       unknown_limitations: [],
@@ -283,12 +439,57 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
     expect(projection.inferred_edge_count).toBe(1);
   });
 
+  it("counts accessibility evidence for state observations", () => {
+    const stateOracle = makeOracle("oracle-state", {
+      oracle_kind: "application_state_deterministic",
+      required_evidence_types: ["state-observation"],
+    });
+    const stateBundle = assembleEvidenceBundle({
+      accessibility_facts: [
+        createAccessibilityFact({
+          fact_id: "a11y-1",
+          name: "Welcome",
+          observation: "visible",
+          property: "visible",
+          role: "heading",
+          session_id: SESSION,
+          source_identity: SOURCE,
+        }),
+      ],
+      artifacts: [],
+      assertions: [],
+      attempts: [],
+      bundle_id: "bundle-state",
+      console_records: [],
+      dom_facts: [],
+      intent_digest: intentDigest(makeIntent()),
+      network_records: [],
+      oracle_records: [stateOracle],
+      session_id: SESSION,
+      source_identity: SOURCE,
+    });
+    const projection = projectBrowserEvidenceV1({
+      bundle: stateBundle,
+      intent: makeIntent(),
+      journey: makeJourney(),
+      profile: "STANDARD",
+      session_identity: REAL_SESSION,
+      substrate: "real-browser",
+      substrate_reason: null,
+      unknown_limitations: [],
+    });
+    expect(projection.missing_evidence).not.toContain(
+      "oracle:oracle-state:missing:state-observation",
+    );
+  });
+
   it("keeps missing and unknown evidence explicit", () => {
     const projection = projectBrowserEvidenceV1({
       bundle: null,
       intent: makeIntent(),
       journey: null,
       profile: "QUICK",
+      session_identity: null,
       substrate: "unknown",
       substrate_reason: "no browser run selected",
       unknown_limitations: ["browser coverage partial"],
@@ -302,29 +503,32 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
     expect(projection.substitute_declared).toBe(true);
   });
 
-  it("rejects hidden mock substitution", () => {
+  it("does not treat a structural session identity as execution provenance", () => {
     expect(() =>
       projectBrowserEvidenceV1({
-        bundle: makeBundle(),
-        intent: makeIntent("mock:tree:1"),
-        journey: null,
-        profile: "STANDARD",
-        substrate: "real-browser",
-        substrate_reason: null,
-        unknown_limitations: [],
-      }),
-    ).toThrow(TypeError);
-    expect(() =>
-      projectBrowserEvidenceV1({
-        bundle: makeBundle(),
+        bundle: null,
         intent: makeIntent(),
         journey: null,
         profile: "STANDARD",
+        session_identity: null,
         substrate: "real-browser",
         substrate_reason: null,
         unknown_limitations: [],
       }),
-    ).not.toThrow();
+    ).toThrow("session identity");
+    const projection = projectBrowserEvidenceV1({
+      bundle: null,
+      intent: makeIntent(),
+      journey: null,
+      profile: "STANDARD",
+      session_identity: REAL_SESSION,
+      substrate: "real-browser",
+      substrate_reason: null,
+      unknown_limitations: [],
+    });
+    expect(projection.substitute_declared).toBe(true);
+    expect(projection.substrate_verified).toBe(false);
+    expect(projection.session_id).toBe(SESSION);
   });
 
   it("preserves the real-vs-mock substrate distinction", () => {
@@ -333,6 +537,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
       intent: makeIntent(),
       journey: null,
       profile: "STANDARD",
+      session_identity: null,
       substrate: "fixture",
       substrate_reason: "deterministic unit fixture",
       unknown_limitations: [],
@@ -345,12 +550,27 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
         bundle: null,
         intent: makeIntent(),
         journey: null,
-        profile: "STANDARD",
-        substrate: "mock",
+      profile: "STANDARD",
+      session_identity: null,
+      substrate: "mock",
         substrate_reason: null,
         unknown_limitations: [],
       }),
     ).toThrow(TypeError);
+  });
+
+  it("canonicalizes valid unsorted oracle identifiers", () => {
+    const projection = projectBrowserEvidenceV1({
+      bundle: makeBundle(SOURCE, SESSION, ["oracle-2", "oracle-1"], "bundle-unsorted"),
+      intent: makeIntent(),
+      journey: makeJourney(),
+      profile: "STANDARD",
+      session_identity: REAL_SESSION,
+      substrate: "real-browser",
+      substrate_reason: null,
+      unknown_limitations: [],
+    });
+    expect(projection.oracle_ids).toEqual(["oracle-1", "oracle-2"]);
   });
 
   it("is deterministic with canonical ordering", () => {
@@ -359,6 +579,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
       intent: makeIntent(),
       journey: makeJourney(),
       profile: "RELEASE",
+      session_identity: REAL_SESSION,
       substrate: "real-browser",
       substrate_reason: null,
       unknown_limitations: [],
@@ -368,6 +589,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
       intent: makeIntent(),
       journey: makeJourney(),
       profile: "RELEASE",
+      session_identity: REAL_SESSION,
       substrate: "real-browser",
       substrate_reason: null,
       unknown_limitations: [],
@@ -382,6 +604,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
         intent: makeIntent(),
         journey: null,
         profile: "STANDARD",
+        session_identity: REAL_SESSION,
         substrate: "real-browser",
         substrate_reason: null,
         unknown_limitations: [],
@@ -393,6 +616,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
         intent: makeIntent(),
         journey: makeJourney(SOURCE, OTHER_SESSION),
         profile: "STANDARD",
+        session_identity: REAL_SESSION,
         substrate: "real-browser",
         substrate_reason: null,
         unknown_limitations: [],
@@ -406,6 +630,7 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
       intent: makeIntent(),
       journey: makeJourney(),
       profile: "STANDARD",
+      session_identity: null,
       substrate: "unknown",
       substrate_reason: "browser not run",
       unknown_limitations: [],
@@ -426,17 +651,25 @@ describe("UA-P05-T04 P016 browser evidence projection", () => {
       intent,
       journey,
       profile: "STANDARD",
+      session_identity: REAL_SESSION,
       substrate: "real-browser",
       substrate_reason: null,
       unknown_limitations: [],
     });
     expect(JSON.stringify({ bundle, intent, journey })).toBe(before);
     expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first.plan_visible_fields)).toBe(true);
+    expect(Object.isFrozen(first.oracle_ids)).toBe(true);
+    expect(Object.isFrozen(first.oracles)).toBe(true);
+    expect(Object.isFrozen(first.oracles[0])).toBe(true);
+    expect(Object.isFrozen(first.journey_edge_kinds[0])).toBe(true);
+    expect(() => (first.plan_visible_fields as string[]).push("mutable")).toThrow();
     const second = projectBrowserEvidenceV1({
       bundle,
       intent,
       journey,
       profile: "STANDARD",
+      session_identity: REAL_SESSION,
       substrate: "real-browser",
       substrate_reason: null,
       unknown_limitations: [],
