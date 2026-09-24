@@ -93,6 +93,21 @@ The headline is the mission; the receipt is the technical contract.
 
 M1 does not include untrusted-repository sandboxing, CI/SARIF as a first-class Ascout surface, browser orchestration, security-suite orchestration, mutation/property/fuzz/DAST/load testing, accessibility/performance verification, a semantic repository graph, AI reasoning, test generation, or automatic source fixing.
 
+### Amendment A04 — Durable workflow and separate publication effect
+
+Ratified by UA-P04 Implementation Authorization (Issue #527, PR #528, effective on post-merge qualification of merge 11d898fccbed77edbf5d270385881200879660f6). Scope is UA-P04 durable workflow and GitHub publication effects only. All M1 principles remain in force.
+
+1. Ascout may persist local durable workflow evidence (run, stage, attempt, event, freshness, idempotency, and reconciliation records) as bounded local evidence in `.ascout/`, ignored by default, with documented retention, redaction of secret-bearing values, and no mandatory daemon, server, database, cloud storage, or external service.
+2. GitHub publication is a separate effect, never part of core verification. A review result, Watch event, model output, Jev result, or local event does not implicitly grant publication authority. Generation, PublicationIntent, authorization, effect, and PublicationReceipt are distinct.
+3. Publication requires all of the following bound to the effect: exact repository identity, exact issue, pull request, or comment target, exact source head, exact publication payload digest, redaction and classification decision, authority identity, attempt identity, effect result, and reconciliation state.
+4. Never publish from stale evidence. Never publish sensitive evidence without classification and redaction. Unknown publication outcome must not cause blind retry. A retry must not create duplicate comments or effects.
+5. Publication requires explicit effect authority intersecting intent ceiling, policy ceiling, engine descriptor ceiling, phase authority, explicit network policy, explicit provider policy, and explicit data-egress policy. Any missing intersection fails closed.
+6. Tests and qualification must not perform live GitHub publication. Publication behavior is proven with exact-head fixtures and durable receipt semantics only.
+7. Configuration remains a correction and override surface. It must not become a workflow, prerequisite-graph, automation, or notification language.
+8. P04 durable stage, attempt, and event semantics may be reused by future Watch work. P04 must not create a generic notification command center, a general workflow automation system, a communication platform, a ChromaDB-dependent system, or any mandatory external service.
+9. Kodac-derived patterns are observations and discipline only. Kodac must not become a second policy or claim authority. Ascout owns final evidence, finding, coverage, freshness, and claim semantics.
+10. All local-zero-cost gates remain enforced: zero operator runtime cost, offline core, no mandatory Ascout backend, no silent paid fallback, telemetry off by default, local artifact retention by default, explicit data egress, optional engine absence explicit, entitlement truth independence, model source and weight provenance, donor permission and notice, and clean-machine local execution.
+
 ## Development Workflow and Quality Gates
 
 All product work MUST follow the canonical founding sequence unless a constitutional amendment explicitly changes it:
@@ -132,4 +147,4 @@ Principles protecting evidence integrity, no-green-by-omission, source binding, 
 
 Ponytail/YAGNI is a complexity gate, not an architecture generator. GitHub Spec Kit is the canonical specification workflow, pinned initially by `.specify/PROVENANCE.md`.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-08-21
+**Version**: 1.1.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-09-24
