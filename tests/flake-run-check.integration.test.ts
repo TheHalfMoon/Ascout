@@ -1,4 +1,4 @@
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { runCheck } from "../src/check.js";
 import { validateReceiptSemantics } from "../src/receipt/model.js";
+import { writeNodeCommandShim } from "./helpers/native-command-shim.js";
 
 type Runner = "vitest" | "jest";
 type Scenario = "flaky" | "stable" | "rerun-error" | "malformed-rerun";
@@ -68,17 +69,27 @@ function initializeFixture(runner: Runner, scenario: Scenario): string {
   const root = mkdtempSync(join(tmpdir(), `ascout-t064-${runner}-${scenario}-`));
   mkdirSync(join(root, "src"), { recursive: true });
   mkdirSync(join(root, "tests"), { recursive: true });
-  cpSync(resolve("node_modules"), join(root, "node_modules"), { recursive: true });
-  const binRoot = join(root, "node_modules", ".bin");
-  rmSync(binRoot, { recursive: true, force: true });
-  mkdirSync(binRoot, { recursive: true });
-  const executable = join(binRoot, runner);
-  writeFileSync(executable, runnerShim());
-  chmodSync(executable, 0o755);
-  writeFileSync(
-    join(binRoot, `${runner}.cmd`),
-    `@ECHO off\r\nnode "%~dp0${runner}" %*\r\n`,
+  // Bounded fixture: runCheck discovery/planning reads exactly the
+  // node_modules/.bin/<runner> executable probe, the installed
+  // node_modules/<runner>/package.json version, and (vitest only) the
+  // node_modules/@vitest/coverage-v8/package.json provider contract.
+  // A full node_modules copy (~93 MB / ~6k files) only adds Windows I/O
+  // inside the test budgets, so provide just those contracts instead.
+  const fixturePackageDir = join(root, "node_modules", runner);
+  mkdirSync(fixturePackageDir, { recursive: true });
+  copyFileSync(
+    resolve("node_modules", runner, "package.json"),
+    join(fixturePackageDir, "package.json"),
   );
+  if (runner === "vitest") {
+    const coverageDir = join(root, "node_modules", "@vitest", "coverage-v8");
+    mkdirSync(coverageDir, { recursive: true });
+    copyFileSync(
+      resolve("node_modules", "@vitest", "coverage-v8", "package.json"),
+      join(coverageDir, "package.json"),
+    );
+  }
+  writeNodeCommandShim(join(root, "node_modules", ".bin"), runner, runnerShim());
 
   writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
   writeFileSync(join(root, "t064-scenario.txt"), `${scenario}\n`);
