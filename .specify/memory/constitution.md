@@ -123,6 +123,19 @@ Ratified by UA-P05 Implementation Authorization (Issue #542, PR #543, effective 
 9. All local-zero-cost gates remain enforced: zero operator runtime cost, offline core, no mandatory Ascout backend, no silent paid fallback, telemetry off by default, local artifact retention by default, explicit data egress, optional engine absence explicit, entitlement truth independence, model source and weight provenance, donor permission and notice, and clean-machine local execution.
 10. No mandatory network, account, key, provider, daemon, server, database, or paid fallback is introduced for any core claim. Missing capability remains explicit NOT_RUN or INCOMPLETE.
 
+### Amendment A06 — Sentrdel Security integration
+
+Ratified by UA-P06 Implementation Authorization (Issue #566, PR #567, effective on post-merge qualification of merge 9b96c991f1a3f8f61f83a1542ce0562616cb09bb). Scope is UA-P06 Sentrdel security effects only. All M1 principles remain in force.
+
+1. Ascout may integrate Sentrdel security capability as a first-class Security profile, adapter-first, with engine descriptors, versioned requests, and evidence normalization; Sentrdel outputs are observations and findings inputs, never a second truth kernel and never global PASS.
+2. Sentrdel capability is characterized before use: Evidence, Coverage, and UNKNOWN semantics are frozen per capability, and unsupported scope blocks totality claims rather than degrading silently.
+3. SAST, secrets, SCA/dependency/SBOM, and IaC/CI security outputs are normalized with rule, location, provenance, inventory, advisory freshness, and reachability states preserved. Synthetic secrets benchmarks must never place plaintext secrets in Ascout artifacts.
+4. SARIF is interchange only, never canonical truth. Proof and reproduction references must link deterministic reproductions. A fix cannot verify without new evidence; remediation without retest remains open.
+5. An additive `ascout security` command may exist with local, read-only default. `ascout check`, `ascout review`, and `ascout test` remain unchanged and `ascout security` is additive only.
+6. No Rust toolchain, daemon, server, database, or mandatory network is required for any core claim. The Sentrdel engine is integrated through an external-engine adapter boundary; absence, version mismatch, or denial yields explicit NOT_RUN or INCOMPLETE, never PASS.
+7. All local-zero-cost gates remain enforced: zero operator runtime cost, offline core, no mandatory Ascout backend, no silent paid fallback, telemetry off by default, local artifact retention by default, explicit data egress, optional engine absence explicit, entitlement truth independence, model source and weight provenance, donor permission and notice, and clean-machine local execution.
+8. No mandatory network, account, key, provider, daemon, server, database, or paid fallback is introduced for any core claim. Missing capability remains explicit NOT_RUN or INCOMPLETE.
+
 ## Development Workflow and Quality Gates
 
 All product work MUST follow the canonical founding sequence unless a constitutional amendment explicitly changes it:
@@ -162,4 +175,4 @@ Principles protecting evidence integrity, no-green-by-omission, source binding, 
 
 Ponytail/YAGNI is a complexity gate, not an architecture generator. GitHub Spec Kit is the canonical specification workflow, pinned initially by `.specify/PROVENANCE.md`.
 
-**Version**: 1.2.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-09-24
+**Version**: 1.3.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-09-27
