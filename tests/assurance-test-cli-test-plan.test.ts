@@ -88,6 +88,49 @@ describe("UA-P05-T09 additive test command", () => {
     });
   });
 
+  it("renders budgets and predicted effects for every profile in both formats", async () => {
+    for (const token of ["quick", "standard", "deep", "release"] as const) {
+      const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+      const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+      expect(await runCli(["test", "--profile", token])).toBe(0);
+      const terminal = error.mock.calls.flat().map(String).join("\n");
+      expect(terminal).toContain(`profile: ${token.toUpperCase()}`);
+      expect(terminal).toContain("max_wall_time_ms:");
+      expect(terminal).toContain("max_cost_microunits:");
+      expect(terminal).toContain("E0_READ_ONLY_ANALYSIS");
+
+      vi.restoreAllMocks();
+      const jsonStdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+      const jsonError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+      expect(await runCli(["test", "--profile", token, "--format", "json"])).toBe(0);
+      expect(jsonError).not.toHaveBeenCalled();
+      const rendered = String(jsonStdout.mock.calls[0]?.[0]);
+      const plan = JSON.parse(rendered) as {
+        profile: string;
+        budgets: Record<string, number>;
+        predicted_effect_classes: string[];
+      };
+      expect(plan.profile).toBe(token.toUpperCase());
+      expect(Object.keys(plan.budgets).sort()).toEqual(
+        [
+          "max_artifact_bytes",
+          "max_concurrency",
+          "max_cost_microunits",
+          "max_engine_runs",
+          "max_model_tokens",
+          "max_network_egress_bytes",
+          "max_network_requests",
+          "max_wall_time_ms",
+        ].sort(),
+      );
+      expect(plan.predicted_effect_classes.length).toBeGreaterThan(0);
+
+      vi.restoreAllMocks();
+    }
+  });
+
   it("exits usage error without executing anything for unknown profiles", async () => {
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
