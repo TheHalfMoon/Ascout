@@ -305,7 +305,10 @@ describe("UA-P04-T11 phase qualification sentinel", () => {
     expect(usageText()).not.toContain("ascout publish");
     expect(usageText()).not.toContain("ascout workflow");
     expect(() => parseCliArgs(["publish"])).toThrow(CliUsageError);
-    expect(() => parseCliArgs(["test"])).toThrow(CliUsageError);
+    expect(parseCliArgs(["test"])).toEqual({
+      command: "test",
+      allowChangedCommandSurface: false,
+    });
     expect(() => parseCliArgs(["review", "--publish"])).toThrow(CliUsageError);
   });
 });

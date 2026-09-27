@@ -17,24 +17,37 @@ import {
   renderReviewJsonV1,
   renderReviewTerminalV1,
 } from "./assurance/review/review-command.js";
+import {
+  buildTestPlanV1,
+  renderTestPlanJsonV1,
+  renderTestPlanTerminalV1,
+  TEST_PLAN_DEFAULT_PROFILE,
+} from "./assurance/test/test-plan-command.js";
+import type { TestProfile } from "./assurance/test/profile-policy.js";
 
-const COMMANDS = ["init", "doctor", "check", "review"] as const;
+const COMMANDS = ["init", "doctor", "check", "review", "test"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const FORMAT_FLAG = "--format";
+const PROFILE_FLAG = "--profile";
 const CHECK_FORMATS = ["json", "agent"] as const;
 const REVIEW_FORMATS = ["json", "terminal"] as const;
+const TEST_FORMATS = ["json", "terminal"] as const;
+const TEST_PROFILE_TOKENS = ["quick", "standard", "deep", "release"] as const;
 const REVIEW_WRITE_FLAGS = ["--publish", "--write", "--output", "--push"] as const;
 
 export type CliCommand = (typeof COMMANDS)[number];
 export type CheckFormat = (typeof CHECK_FORMATS)[number];
 export type ReviewFormat = (typeof REVIEW_FORMATS)[number];
+export type TestFormat = (typeof TEST_FORMATS)[number];
+export type TestProfileToken = (typeof TEST_PROFILE_TOKENS)[number];
 
 type EntryDisposition = "direct" | "not_direct" | "resolution_error";
 
 export interface CliInvocation {
   command: CliCommand;
   allowChangedCommandSurface: boolean;
-  format?: CheckFormat | ReviewFormat;
+  format?: CheckFormat | ReviewFormat | TestFormat;
+  profile?: TestProfile;
 }
 
 interface DoctorResult {
@@ -58,6 +71,27 @@ function isReviewFormat(value: string): value is ReviewFormat {
   return REVIEW_FORMATS.includes(value as ReviewFormat);
 }
 
+function isTestFormat(value: string): value is TestFormat {
+  return TEST_FORMATS.includes(value as TestFormat);
+}
+
+function isTestProfileToken(value: string): value is TestProfileToken {
+  return TEST_PROFILE_TOKENS.includes(value as TestProfileToken);
+}
+
+function resolveTestProfileToken(value: TestProfileToken): TestProfile {
+  if (value === "quick") {
+    return "QUICK";
+  }
+  if (value === "standard") {
+    return "STANDARD";
+  }
+  if (value === "deep") {
+    return "DEEP";
+  }
+  return "RELEASE";
+}
+
 export function parseCliArgs(argv: readonly string[]): CliInvocation {
   const [commandToken, ...rest] = argv;
 
@@ -70,7 +104,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   }
 
   let allowChangedCommandSurface = false;
-  let format: CheckFormat | ReviewFormat | undefined;
+  let format: CheckFormat | ReviewFormat | TestFormat | undefined;
+  let profile: TestProfile | undefined;
 
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index]!;
@@ -97,8 +132,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     }
 
     if (token === FORMAT_FLAG) {
-      if (commandToken !== "check" && commandToken !== "review") {
-        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check or review command.`);
+      if (commandToken !== "check" && commandToken !== "review" && commandToken !== "test") {
+        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check, review, or test command.`);
       }
       if (format !== undefined) {
         throw new CliUsageError(`${FORMAT_FLAG} may be supplied only once.`);
@@ -120,12 +155,43 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       if (value === undefined) {
         throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${REVIEW_FORMATS.join("|")}.`);
       }
+      if (commandToken === "test") {
+        if (!isTestFormat(value)) {
+          throw new CliUsageError(
+            `Unsupported test format: ${value}. Expected one of: ${TEST_FORMATS.join("|")}.`,
+          );
+        }
+        format = value;
+        index += 1;
+        continue;
+      }
       if (!isReviewFormat(value)) {
         throw new CliUsageError(
           `Unsupported review format: ${value}. Expected one of: ${REVIEW_FORMATS.join("|")}.`,
         );
       }
       format = value;
+      index += 1;
+      continue;
+    }
+
+    if (token === PROFILE_FLAG) {
+      if (commandToken !== "test") {
+        throw new CliUsageError(`${PROFILE_FLAG} is valid only with the test command.`);
+      }
+      if (profile !== undefined) {
+        throw new CliUsageError(`${PROFILE_FLAG} may be supplied only once.`);
+      }
+      const value = rest[index + 1];
+      if (value === undefined) {
+        throw new CliUsageError(`${PROFILE_FLAG} requires one of: ${TEST_PROFILE_TOKENS.join("|")}.`);
+      }
+      if (!isTestProfileToken(value)) {
+        throw new CliUsageError(
+          `Unsupported test profile: ${value}. Expected one of: ${TEST_PROFILE_TOKENS.join("|")}.`,
+        );
+      }
+      profile = resolveTestProfileToken(value);
       index += 1;
       continue;
     }
@@ -137,6 +203,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     command: commandToken,
     allowChangedCommandSurface,
     ...(format === undefined ? {} : { format }),
+    ...(profile === undefined ? {} : { profile }),
   };
 }
 
@@ -147,6 +214,7 @@ export function usageText(): string {
     "  ascout doctor",
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${FORMAT_FLAG} json|terminal]`,
+    `  ascout test [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
   ].join("\n");
 }
 
@@ -196,7 +264,6 @@ async function runInit(): Promise<number> {
     return 1;
   }
 }
-
 async function runReview(
   repositoryRoot: string,
   format: ReviewFormat | undefined,
@@ -249,6 +316,16 @@ async function runReview(
   return 0;
 }
 
+function runTestPlan(profile: TestProfile, format: TestFormat | undefined): number {
+  const plan = buildTestPlanV1(profile);
+  if (format === "json") {
+    process.stdout.write(renderTestPlanJsonV1(plan));
+  } else {
+    console.error(renderTestPlanTerminalV1(plan));
+  }
+  return 0;
+}
+
 export async function runCli(argv: readonly string[]): Promise<number> {
   try {
     const invocation = parseCliArgs(argv);
@@ -278,6 +355,12 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // so this narrowing reflects parser-guaranteed input.
       const reviewFormat = invocation.format as ReviewFormat | undefined;
       return await runReview(process.cwd(), reviewFormat);
+    }
+    if (invocation.command === "test") {
+      // parseCliArgs admits only json|terminal for the test command,
+      // so this narrowing reflects parser-guaranteed input.
+      const testFormat = invocation.format as TestFormat | undefined;
+      return runTestPlan(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, testFormat);
     }
     console.error(`ascout ${invocation.command}: not implemented.`);
     return 2;
