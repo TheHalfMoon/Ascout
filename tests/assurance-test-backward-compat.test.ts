@@ -9,8 +9,11 @@ const FIXTURE_ROOT = join(
   "fixtures",
 );
 
-// Byte-exact SHA-256 pins over the existing check golden fixture corpus
-// as of UA-P05-T11. Any mutation of these fixtures breaks this sentinel.
+// Byte-exact SHA-256 pins over LF-normalized fixture content. Rationale:
+// git checkout line-ending conversion (CRLF on some Windows runners)
+// changes working-tree bytes without changing fixture content, so the
+// sentinel normalizes CRLF to LF before hashing. A content mutation of
+// any fixture still breaks the pin on every platform.
 const GOLDEN_FIXTURE_DIGESTS: Readonly<Record<string, string>> = {
   "admission/cases.json":
     "c2be0e67482f65527c91321f878380f674a0c3c146dd7a41d78c7fb6e9b8976f",
@@ -38,7 +41,8 @@ const GOLDEN_FIXTURE_DIGESTS: Readonly<Record<string, string>> = {
 
 function sha256HexOfFixture(relativePath: string): string {
   const bytes = readFileSync(join(FIXTURE_ROOT, relativePath));
-  return createHash("sha256").update(bytes).digest("hex");
+  const normalized = bytes.toString("utf8").split(/\r?\n/).join("\n");
+  return createHash("sha256").update(normalized, "utf8").digest("hex");
 }
 
 describe("UA-P05-T11 backward compatibility sentinel", () => {
