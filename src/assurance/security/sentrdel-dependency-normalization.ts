@@ -59,6 +59,8 @@ import {
   buildSentrdelCapabilitiesV1,
   getSentrdelCapabilityV1,
   SENTRDEL_CAPABILITY_IDS,
+  SENTRDEL_CAPABILITY_STATUSES,
+  SENTRDEL_UNKNOWN_TOKENS,
 } from "./sentrdel-capability-characterization.js";
 import {
   SENTRDEL_ADAPTER_ALLOWED_CAPABILITIES,
@@ -84,6 +86,7 @@ import {
   SENTRDEL_EXTERNAL_ATTESTATION_TOKENS,
   SENTRDEL_OBSERVATION_CLAIM_CLASSES,
   SENTRDEL_OBSERVATION_COVERAGE_STATES,
+  SENTRDEL_OBSERVATION_RESOLUTION_STATES,
   SENTRDEL_PROVENANCE_STATES,
   type SentrdelNormalizedObservationV1,
   type SentrdelObservationClaimClassV1,
@@ -574,6 +577,187 @@ function separatorFlexibleTokens(tokens: readonly string[]): string {
     .join("|");
 }
 
+/**
+ * A CLAIM-SHAPE sweep, which is deliberately not a spelling allowlist.
+ *
+ * Enumerating spellings cannot work: free text reaches the same claim in forms no
+ * finite list anticipates ("all dependencies scanned", "full graph", "inventory
+ * complete", "reachability computed", "unaffected", "zero risk"). Rather than
+ * chase spellings, this rejects the SHAPE of a promoted assertion: a coverage or
+ * safety NOUN that is asserted as a completed fact rather than negated.
+ *
+ * A claim is treated as negating, hedged, or descriptive when the same clause
+ * carries a negator or an unknown/hedging marker. That is the fail-closed
+ * direction: an honest limitation says what was NOT covered, and this permits
+ * exactly that. A bare positive assertion of coverage or safety is rejected
+ * because a T08 delta observation never earns one.
+ */
+const COVERAGE_SAFETY_NOUNS = [
+  "inventory",
+  "graph",
+  "sbom",
+  "reachability",
+  "risk",
+  "coverage",
+  "scan",
+  "scanned",
+  "dependency graph",
+  "dependency inventory",
+  "credential",
+  "credentials",
+  "secret",
+  "secrets",
+  "breach",
+  "compromise",
+  "triage",
+  "verification",
+  "proof",
+  "guarantee",
+] as const;
+
+/**
+ * Promoted ADJECTIVES and fixed phrases.
+ *
+ * A noun sweep alone cannot catch a claim whose whole content is an adjective
+ * ("unaffected", "trusted", "cleared") or a fixed idiom ("no advisories apply").
+ * These are matched directly. A negated form ("not unaffected") is not a real
+ * concern here: the structural negatives on the record remain literal-false, so
+ * this list narrows the reader-facing text and never grants authority.
+ */
+const PROMOTED_ADJECTIVES = [
+  "unaffected",
+  "trusted",
+  "cleared",
+  "untainted",
+  "complete",
+  "comprehensive",
+  "exhaustive",
+  "total",
+  "full",
+  "unreachable",
+  "unexploitable",
+  "immutable",
+  "authoritative",
+] as const;
+
+const PROMOTED_PHRASES = [
+  "no advisories apply",
+  "no advisory applies",
+  "all dependencies",
+  "everything is verified",
+  "nothing to report",
+  "all good",
+  "zero findings",
+  "no findings",
+  "no issues",
+  "as expected",
+] as const;
+
+/** Negators and hedges: these make a coverage or safety noun honest. */
+const NEGATING_MARKERS = [
+  "not",
+  "no",
+  "never",
+  "none",
+  "cannot",
+  "can not",
+  "without",
+  "unproven",
+  "unknown",
+  "unavailable",
+  "uncomputed",
+  "not computed",
+  "delta only",
+  "delta-only",
+  "partial",
+  "partial only",
+  "bounded",
+  "limited",
+  "unscanned",
+  "not covered",
+  "incomplete",
+  "narrower",
+  "only",
+  "merely",
+  "is not",
+  "does not",
+  "did not",
+  "stale",
+  "deferred",
+  "unverified",
+  "unresolved",
+  "absent",
+  "excluded",
+  "ignored",
+  "skipped",
+  "out of scope",
+] as const;
+
+const NOUN_PATTERN = new RegExp(
+  `(?<![A-Za-z0-9_])(?:${separatorFlexibleTokens(COVERAGE_SAFETY_NOUNS)})(?![A-Za-z0-9_])`,
+  "iu",
+);
+
+const ADJECTIVE_PATTERN = new RegExp(
+  `(?<![A-Za-z0-9_])(?:${separatorFlexibleTokens(PROMOTED_ADJECTIVES)})(?![A-Za-z0-9_])`,
+  "iu",
+);
+
+const PHRASE_PATTERN = new RegExp(
+  // Each phrase is compiled independently and then joined. These phrases contain
+  // SPACES, so they must NOT be routed through `separatorFlexibleTokens` and then
+  // split on "|": doing so would cut the phrases at that separator and corrupt the
+  // alternation, producing a pattern that matches unintended text.
+  PROMOTED_PHRASES.map(
+    (phrase) => `(?<![A-Za-z0-9_])${phrase}(?![A-Za-z0-9_])`,
+  ).join("|"),
+  "iu",
+);
+
+const NEGATOR_PATTERN = new RegExp(
+  `(?<![A-Za-z0-9_])(?:${separatorFlexibleTokens(NEGATING_MARKERS)})(?![A-Za-z0-9_])`,
+  "iu",
+);
+
+const NO_KNOWN_VULNERABILITY_PATTERN = new RegExp(
+  // A "no known ... vulnerabilit(y|ies)" claim is the canonical phrasing of
+  // ADVISORY_STALE != NO_KNOWN_VULNERABILITY, and it is reachable in free text
+  // with a short intervening noun ("no known dependency vulnerabilities").
+  //
+  // The intervening filler is deliberately BOUNDED to a few word characters: an
+  // unbounded filler would let an innocent "no" early in a sentence reach an
+  // unrelated "vulnerabilit" many words later, which is a false positive on honest
+  // text. Three word characters covers "known" and a short qualifier while
+  // refusing to scan a whole clause.
+  "(?<![A-Za-z0-9_])no(?![A-Za-z0-9_])[A-Za-z0-9_ -]{0,24}vulnerabilit(?:y|ies)(?![A-Za-z0-9_])",
+  "iu",
+);
+
+/**
+ * True when a persisted string asserts a completed coverage or safety fact.
+ *
+ * Deliberately conservative in the SAFE direction only: it returns true (reject)
+ * for a bare positive noun or adjective assertion, and false (permit) when a
+ * negator or hedge is present anywhere in the same string. It is a lexical
+ * narrowing of the caller-facing text, not an authority claim, so the record's
+ * structural negatives remain the load-bearing control.
+ */
+export function assertsPromotedCoverageOrSafety(value: string): boolean {
+  if (PHRASE_PATTERN.test(value)) {
+    return true;
+  }
+  // A "no known vulnerabilities" claim is rejected on its own: it asserts an
+  // ABSENCE of risk, which is precisely the ADVISORY_STALE !=
+  // NO_KNOWN_VULNERABILITY violation, and a negator must not excuse it.
+  if (NO_KNOWN_VULNERABILITY_PATTERN.test(value)) {
+    return true;
+  }
+  if (!NOUN_PATTERN.test(value) && !ADJECTIVE_PATTERN.test(value)) {
+    return false;
+  }
+  return !NEGATOR_PATTERN.test(value);
+}
+
 const ESCALATION_PATTERN = new RegExp(
   // The boundary is an asymmetric non-word-character class rather than `\b`,
   // because `\b` requires a word character on BOTH sides: a hyphenated claim such
@@ -635,6 +819,36 @@ const REQUIRES_RESOLVABLE_PROVENANCE = new Set<string>(
 const REQUIRES_RULE_ID = new Set<string>(
   SENTRDEL_CLAIM_CLASSES_REQUIRING_RULE_ID,
 );
+
+/**
+ * Vocabulary membership sets used by the invariant gates.
+ *
+ * A gate that only checks that a negative says `false` is incomplete: a
+ * hand-built or forged record can attach a promoted value to that same field and
+ * still pass. These sets let each gate verify that every state value it carries
+ * is an actual member of the canonical vocabulary that owns it, so an
+ * out-of-vocabulary promotion is reported rather than ratified.
+ */
+const UNKNOWN_TOKEN_SET = new Set<string>(SENTRDEL_UNKNOWN_TOKENS);
+const RESOLUTION_SET = new Set<string>(SENTRDEL_OBSERVATION_RESOLUTION_STATES);
+const CAPABILITY_STATUS_SET = new Set<string>(SENTRDEL_CAPABILITY_STATUSES);
+
+/**
+ * Record a vocabulary-membership failure.
+ *
+ * `owner` names the canonical vocabulary that owns the field, so the reason
+ * points at the source of truth rather than at T08.
+ */
+function requireMember(
+  value: unknown,
+  vocabulary: ReadonlySet<string>,
+  field: string,
+  reasons: string[],
+): void {
+  if (typeof value !== "string" || !vocabulary.has(value)) {
+    reasons.push(`${field} must be a member of the canonical vocabulary`);
+  }
+}
 
 const INPUT_KEYS = [
   "schema_version",
@@ -1408,9 +1622,15 @@ export function validateSentrdelScaInputV1(
   // A second, case-insensitive sweep over the same canonical T04 attestation
   // vocabulary. This is what stops a lowercase "the repository is secure" from
   // persisting verbatim into a reader-facing record.
+  //
+  // A NEGATED attestation is permitted, because naming a claim in order to deny
+  // it is honest: "clean corpus metadata is not evidence of safety" is precisely
+  // the boundary this module exists to preserve. Only a BARE positive attestation
+  // is rejected. This is a lexical narrowing of the reader-facing text and never
+  // grants authority; the record's structural negatives remain load-bearing.
   scanStrings(
     persistedStrings,
-    (value) => ATTESTATION_PATTERN_CI.test(value),
+    (value) => ATTESTATION_PATTERN_CI.test(value) && !NEGATOR_PATTERN.test(value),
     "dependency input must never self-attest",
     reasons,
   );
@@ -1418,6 +1638,16 @@ export function validateSentrdelScaInputV1(
     persistedStrings,
     (value) => ESCALATION_PATTERN.test(value),
     "dependency input must not carry a vulnerability, exploitability, reachability, or safety claim",
+    reasons,
+  );
+  // The claim-shape sweep: a bare positive assertion of coverage or safety is
+  // rejected even when its spelling is absent from every spelling list. A
+  // limitation that NEGATES or hedges the noun is permitted, because that is
+  // exactly what an honest limitation says.
+  scanStrings(
+    persistedStrings,
+    assertsPromotedCoverageOrSafety,
+    "dependency input must not assert completed coverage or safety",
     reasons,
   );
 
@@ -1930,6 +2160,62 @@ export function assertSentrdelScaInvariantsV1(
   if (observation.assurance_effect !== "NONE") {
     reasons.push("dependency normalization must have no assurance effect");
   }
+
+  // Vocabulary membership. A negative saying `false` is not enough: a forged
+  // record can attach an out-of-vocabulary PROMOTED value to the very field the
+  // negative lives on, and a gate that only reads the boolean would ratify it.
+  // Every state value below is checked against the canonical vocabulary that owns
+  // it, so a promotion is reported rather than accepted.
+  requireMember(observation.execution_state, EXECUTION_STATE_SET, "execution_state", reasons);
+  requireMember(observation.capability_status, CAPABILITY_STATUS_SET, "capability_status", reasons);
+  requireMember(observation.claim_class, CLAIM_CLASS_SET, "claim_class", reasons);
+  requireMember(observation.authority, new Set<string>(SENTRDEL_SCA_AUTHORITIES), "authority", reasons);
+  requireMember(observation.engine_id, new Set<string>([SENTRDEL_ENGINE_ID]), "engine_id", reasons);
+  requireMember(observation.engine_version, new Set<string>([SENTRDEL_ENGINE_VERSION]), "engine_version", reasons);
+  requireMember(observation.reachability_state, REACHABILITY_SET, "reachability_state", reasons);
+  requireMember(observation.identity.ecosystem, ECOSYSTEM_SET, "identity.ecosystem", reasons);
+  requireMember(observation.rule.rule_resolution, RESOLUTION_SET, "rule.rule_resolution", reasons);
+  requireMember(observation.provenance.state, PROVENANCE_SET, "provenance.state", reasons);
+  requireMember(observation.advisory.freshness_state, FRESHNESS_SET, "advisory.freshness_state", reasons);
+  requireMember(observation.advisory.version_match_state, VERSION_MATCH_SET, "advisory.version_match_state", reasons);
+  requireMember(observation.coverage.observation_state, COVERAGE_STATE_SET, "coverage.observation_state", reasons);
+  requireMember(observation.coverage.aggregate_state, AGGREGATE_STATE_SET, "coverage.aggregate_state", reasons);
+  requireMember(observation.coverage.dependency_coverage, new Set<string>(SENTRDEL_SCA_DELTA_COVERAGE_STATES), "coverage.dependency_coverage", reasons);
+  requireMember(observation.severity_state, new Set<string>(SENTRDEL_SCA_SEVERITY_STATES), "severity_state", reasons);
+  requireMember(observation.effect_facts, new Set<string>(["E0_READ_ONLY_ANALYSIS"]), "effect_facts", reasons);
+  requireMember(observation.network_facts, new Set<string>(["NO_NETWORK"]), "network_facts", reasons);
+  requireMember(observation.egress_facts, new Set<string>(["NO_EGRESS"]), "egress_facts", reasons);
+
+  // The derived canonical tokens must be the ones their own state maps to, so a
+  // forged token cannot announce a corpus or reachability conclusion the record
+  // never earned.
+  const expectedFreshnessToken =
+    SENTRDEL_SCA_FRESHNESS_CANONICAL_TOKENS[observation.advisory.freshness_state];
+  if (observation.advisory.canonical_freshness_token !== (expectedFreshnessToken ?? null)) {
+    reasons.push(
+      "the advisory canonical freshness token must be the one its freshness state maps to",
+    );
+  }
+  const expectedReachabilityToken =
+    SENTRDEL_SCA_REACHABILITY_CANONICAL_TOKENS[observation.reachability_state];
+  if (observation.canonical_reachability_token !== (expectedReachabilityToken ?? null)) {
+    reasons.push(
+      "the canonical reachability token must be the one its reachability state maps to",
+    );
+  }
+
+  // Carried token arrays must be members of the canonical vocabularies, and a
+  // coverage loss must be one the canonical T05 mapping actually binds.
+  for (const token of observation.coverage.unknown_states) {
+    if (!UNKNOWN_TOKEN_SET.has(token)) {
+      reasons.push(`unknown state is not a canonical UNKNOWN token: ${String(token)}`);
+    }
+  }
+  for (const loss of observation.coverage.coverage_loss_reasons) {
+    if (!LOSS_REASON_SET.has(loss)) {
+      reasons.push(`coverage loss reason is not canonical: ${String(loss)}`);
+    }
+  }
   if (observation.finding_emitted) {
     reasons.push("DEPENDENCY_OBSERVATION != FINDING: a dependency record must never emit a Finding");
   }
@@ -2292,11 +2578,54 @@ export function assertSentrdelSbomInvariantsV1(
   if (gap.limitations.length === 0) {
     reasons.push("an sbom gap must state explicit limitations");
   }
+  // The frozen SBOM boundary must be present on the gap itself, exactly as it is
+  // on a dependency observation. Without this, a gap could carry only a caller
+  // string such as "CLEAN" and the canonical boundary would exist only in source.
+  for (const required of SENTRDEL_SBOM_KNOWN_LIMITATIONS) {
+    if (!gap.limitations.includes(required)) {
+      reasons.push("an sbom gap must carry the frozen SBOM truth boundary");
+      break;
+    }
+  }
+  // The gap's carried arrays must be members of the canonical vocabularies too.
+  // Non-empty is not enough: an invented token is as unprovable as a promoted one.
   if (gap.unknown_states.length === 0) {
     reasons.push("an sbom gap must state the capability's unknown tokens");
   }
+  for (const token of gap.unknown_states) {
+    if (!UNKNOWN_TOKEN_SET.has(token)) {
+      reasons.push(`unknown state is not a canonical UNKNOWN token: ${String(token)}`);
+    }
+  }
   if (gap.coverage_loss_reasons.length === 0) {
     reasons.push("an sbom gap must carry a canonical coverage loss");
+  }
+  for (const loss of gap.coverage_loss_reasons) {
+    if (!LOSS_REASON_SET.has(loss)) {
+      reasons.push(`coverage loss reason is not canonical: ${String(loss)}`);
+    }
+  }
+  // Vocabulary membership, for the same reason as the observation gate.
+  requireMember(gap.capability_status, new Set<string>(["NOT_CHARACTERIZED"]), "capability_status", reasons);
+  requireMember(gap.capability_id, new Set<string>([SENTRDEL_SBOM_CAPABILITY_ID]), "capability_id", reasons);
+  requireMember(gap.authority, new Set<string>(["SBOM_COVERAGE_GAP_ONLY"]), "authority", reasons);
+  requireMember(gap.inventory_state, new Set<string>(SENTRDEL_SBOM_INVENTORY_STATES), "inventory_state", reasons);
+  requireMember(gap.scope_claim, new Set<string>(SENTRDEL_SBOM_SCOPE_CLAIMS), "scope_claim", reasons);
+  requireMember(gap.coverage_state, AGGREGATE_STATE_SET, "coverage_state", reasons);
+  requireMember(gap.execution_state, new Set<string>(["NOT_RUN"]), "execution_state", reasons);
+  requireMember(gap.assurance_effect, new Set<string>(["NONE"]), "assurance_effect", reasons);
+  requireMember(gap.engine_id, new Set<string>([SENTRDEL_ENGINE_ID]), "engine_id", reasons);
+  if (gap.engine_pin !== SENTRDEL_PINNED_REVISION) {
+    reasons.push("the sbom gap must bind the exact Sentrdel pin");
+  }
+  if (gap.engine_tree !== SENTRDEL_PINNED_TREE) {
+    reasons.push("the sbom gap must bind the exact Sentrdel tree");
+  }
+  if (gap.engine_pin_ref !== SENTRDEL_PIN_REF) {
+    reasons.push("the sbom gap must bind the exact Sentrdel pin ref");
+  }
+  if (gap.reason !== SENTRDEL_SBOM_GAP_REASON) {
+    reasons.push("the sbom gap reason must be the pinned not-characterized reason");
   }
   return { ok: reasons.length === 0, reasons: Object.freeze(reasons) };
 }

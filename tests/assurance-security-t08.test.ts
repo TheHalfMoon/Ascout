@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assertsPromotedCoverageOrSafety,
   assertSentrdelSbomInvariantsV1,
   assertSentrdelScaInvariantsV1,
   buildSentrdelSbomGapV1,
@@ -1513,6 +1514,181 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
           ),
         }),
       ).valid,
+    ).toBe(false);
+  });
+
+  it("regression: bare coverage and safety assertions are rejected by claim shape", () => {
+    // Found by the exact-head T08 Jev re-review. A spelling allowlist cannot
+    // work: free text reaches the same claim in forms no finite list anticipates.
+    // The claim-shape sweep rejects a bare positive assertion of coverage or
+    // safety instead, while permitting an honest NEGATED limitation.
+    for (const claim of [
+      "all dependencies scanned",
+      "full graph",
+      "complete inventory",
+      "reachability computed",
+      "unreachable",
+      "complete sbom",
+      "inventory complete",
+      "unaffected",
+      "trusted",
+      "zero risk",
+      "cleared",
+      "no advisories apply",
+      "no known dependency vulnerabilities",
+      "full inventory",
+      "total coverage",
+      "all good",
+      "zero findings",
+      "no issues",
+      "comprehensive scan",
+      "exhaustive coverage",
+    ]) {
+      const result = validateSentrdelScaInputV1(input({ limitations: [claim] }));
+      expect(result.valid, `"${claim}" must be rejected`).toBe(false);
+      expect(result.reasons.join(" ")).toContain(
+        "must not assert completed coverage or safety",
+      );
+    }
+    // An honest limitation NEGATES or hedges what it names, and must stay valid.
+    for (const honest of [
+      "Cargo lockfile delta only; no transitive graph",
+      "advisory corpus is stale",
+      "serde 1.0.190 observed in Cargo.lock",
+      "reachability not computed at this pin",
+      "clean corpus metadata is not evidence of safety",
+      "inventory is unproven",
+      "no full graph is claimed",
+      "scan is delta only",
+      "risk is not assessed",
+      "graph is not resolved",
+      "sbom is unavailable",
+      "coverage is partial",
+    ]) {
+      expect(
+        validateSentrdelScaInputV1(input({ limitations: [honest] })).valid,
+        `"${honest}" must remain admissible`,
+      ).toBe(true);
+    }
+    // The sweep must not fire on ordinary identity fields. An advisory reference
+    // legitimately contains the word "advisory", so a noun list that included it
+    // would reject every well-formed record.
+    for (const honest of [
+      "advisory:synthetic-0001",
+      "advisory-corpus:synthetic-osv",
+      "rule:t08-dependency-delta",
+      "evidence:sentrdel-dependency-001",
+      "Cargo.lock",
+    ]) {
+      expect(assertsPromotedCoverageOrSafety(honest)).toBe(false);
+    }
+  });
+
+  it("regression: both gates verify vocabulary membership, not only negatives", () => {
+    // Found by the exact-head T08 Jev re-review. A gate that only checks a
+    // negative says `false` still ratifies a record that attaches an
+    // out-of-vocabulary PROMOTED value to that same field. Both gates now verify
+    // every state value is a member of the canonical vocabulary that owns it.
+    const observation = normalized();
+    for (const [field, value] of [
+      ["reachability_state", "REACHABLE"],
+      ["reachability_state", "NOT_REACHABLE"],
+      ["reachability_state", "REACHABILITY_COMPUTED"],
+      ["capability_status", "COMPLETE"],
+      ["network_facts", "NETWORK_REQUIRED"],
+      ["effect_facts", "E1"],
+      ["egress_facts", "EGRESS_ALLOWED"],
+    ] as const) {
+      const mutated = { ...observation, [field]: value };
+      expect(
+        assertSentrdelScaInvariantsV1(mutated as never).ok,
+        `${field}=${String(value)} must be reported`,
+      ).toBe(false);
+    }
+    // Nested advisory and coverage values are checked too.
+    for (const [field, value] of [
+      ["version_match_state", "VULNERABLE"],
+      ["version_match_state", "SAFE"],
+      ["freshness_state", "ADVISORY_CORPUS_COMPLETE"],
+    ] as const) {
+      const mutated = {
+        ...observation,
+        advisory: { ...observation.advisory, [field]: value },
+      };
+      expect(
+        assertSentrdelScaInvariantsV1(mutated as never).ok,
+        `advisory.${field}=${value} must be reported`,
+      ).toBe(false);
+    }
+    for (const [field, value] of [
+      ["observation_state", "COMPLETE_WITHIN_STATED_SCOPE_TOTAL"],
+      ["aggregate_state", "TOTALLY_COVERED"],
+    ] as const) {
+      const mutated = {
+        ...observation,
+        coverage: { ...observation.coverage, [field]: value },
+      };
+      expect(
+        assertSentrdelScaInvariantsV1(mutated as never).ok,
+        `coverage.${field}=${value} must be reported`,
+      ).toBe(false);
+    }
+    // A forged canonical token must not announce a conclusion the record never
+    // earned, and a non-canonical token or loss reason is reported.
+    expect(
+      assertSentrdelScaInvariantsV1({
+        ...observation,
+        canonical_reachability_token: "REACHABLE",
+      } as never).ok,
+    ).toBe(false);
+    expect(
+      assertSentrdelScaInvariantsV1({
+        ...observation,
+        coverage: {
+          ...observation.coverage,
+          unknown_states: ["NOT_A_CANONICAL_TOKEN"],
+        },
+      } as never).ok,
+    ).toBe(false);
+    expect(
+      assertSentrdelScaInvariantsV1({
+        ...observation,
+        coverage: {
+          ...observation.coverage,
+          coverage_loss_reasons: ["NOT_A_CANONICAL_LOSS"],
+        },
+      } as never).ok,
+    ).toBe(false);
+
+    // The SBOM gap gate applies the same discipline.
+    const gap = buildSentrdelSbomGapV1();
+    for (const [field, value] of [
+      ["coverage_state", "TOTALLY_COVERED"],
+      ["scope_claim", "COVERED"],
+      ["inventory_state", "COMPLETE"],
+    ] as const) {
+      expect(
+        assertSentrdelSbomInvariantsV1({ ...gap, [field]: value } as never).ok,
+        `gap ${field}=${value} must be reported`,
+      ).toBe(false);
+    }
+    // A gap whose frozen boundary has been replaced is reported.
+    expect(
+      assertSentrdelSbomInvariantsV1({ ...gap, limitations: ["CLEAN"] } as never)
+        .ok,
+    ).toBe(false);
+    // A gap carrying an invented token or loss reason is reported.
+    expect(
+      assertSentrdelSbomInvariantsV1({
+        ...gap,
+        unknown_states: ["NOT_A_CANONICAL_TOKEN"],
+      } as never).ok,
+    ).toBe(false);
+    expect(
+      assertSentrdelSbomInvariantsV1({
+        ...gap,
+        coverage_loss_reasons: ["NOT_A_CANONICAL_LOSS"],
+      } as never).ok,
     ).toBe(false);
   });
 });
