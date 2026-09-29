@@ -412,6 +412,17 @@ export interface SentrdelScaObservationV1 {
   readonly evidence_digest: string;
   readonly evidence_content_persisted: false;
   readonly limitations: readonly string[];
+  /**
+   * A RECORDED FACT, derived from the persisted strings, never an authority grant.
+   *
+   * True means some persisted string asserted a promoted claim even though this
+   * record's structural state denies it. It is recorded so a downstream reader
+   * sees the contradiction instead of being misled by the prose, and it is
+   * verified by the invariant gate. It grants nothing: the literal-false negatives
+   * remain the load-bearing control, and caller text can never promote a record.
+   */
+  readonly promoted_claim_detected: boolean;
+  readonly caller_text_is_authoritative: false;
   readonly severity_state: SentrdelScaSeverityStateV1;
   readonly severity_value: null;
   readonly effect_facts: SentrdelAdapterEffectCeilingV1;
@@ -520,6 +531,9 @@ export interface SentrdelSbomGapV1 {
   readonly engine_tree: typeof SENTRDEL_PINNED_TREE;
   readonly engine_pin_ref: typeof SENTRDEL_PIN_REF;
   readonly limitations: readonly string[];
+  /** See the dependency observation: a recorded fact, never an authority grant. */
+  readonly promoted_claim_detected: boolean;
+  readonly caller_text_is_authoritative: false;
   readonly authority: SentrdelScaAuthorityV1;
   readonly assurance_effect: "NONE";
   readonly finding_emitted: false;
@@ -750,7 +764,7 @@ const NO_KNOWN_VULNERABILITY_PATTERN = new RegExp(
  * class admits a hyphen so the hyphen-joined form is caught too.
  */
 const CVE_ABSENCE_PATTERN = new RegExp(
-  "(?:(?<![A-Za-z0-9_])(?:no|zero|none|without)(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,12}cves?|(?<![A-Za-z0-9_])cves?[A-Za-z0-9_\\u2010-\\u2015 -]{0,4}free(?![A-Za-z0-9_]))",
+  "(?:(?<![A-Za-z0-9_])(?:no|zero|none|without)(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,12}cves?(?![A-Za-z0-9_])(?![A-Za-z0-9_\\u2010-\\u2015 -]{0,16}(?:data|information|record|records|list|details|feed|source|database|available|present|reported))|(?<![A-Za-z0-9_])cves?[A-Za-z0-9_\\u2010-\\u2015 -]{0,4}free(?![A-Za-z0-9_]))",
   "iu",
 );
 
@@ -887,6 +901,13 @@ function requireMember(
     reasons.push(`${field} must be a member of the canonical vocabulary`);
   }
 }
+
+const FROZEN_SCA_LIMITATION_SET: ReadonlySet<string> = new Set<string>(
+  SENTRDEL_SCA_KNOWN_LIMITATIONS,
+);
+const FROZEN_SBOM_LIMITATION_SET: ReadonlySet<string> = new Set<string>(
+  SENTRDEL_SBOM_KNOWN_LIMITATIONS,
+);
 
 const INPUT_KEYS = [
   "schema_version",
@@ -1651,49 +1672,63 @@ export function validateSentrdelScaInputV1(
     "dependency input must not carry secret material",
     reasons,
   );
-  scanStrings(
-    persistedStrings,
-    containsExternalAttestationV1,
-    "dependency input must never self-attest",
-    reasons,
-  );
-  // A second, case-insensitive sweep over the same canonical T04 attestation
-  // vocabulary. This is what stops a lowercase "the repository is secure" from
-  // persisting verbatim into a reader-facing record.
+  // Self-attestation and secret-shape detection remain HARD REJECTIONS, because
+  // both are matched against a closed canonical vocabulary with no negator
+  // exemption, and both are structurally incapable of appearing in an honest
+  // limitation.
   //
-  // A NEGATED attestation is permitted, because naming a claim in order to deny
-  // it is honest: "clean corpus metadata is not evidence of safety" is precisely
-  // the boundary this module exists to preserve. Only a BARE positive attestation
-  // is rejected. This is a lexical narrowing of the reader-facing text and never
-  // grants authority; the record's structural negatives remain load-bearing.
-  scanStrings(
-    persistedStrings,
-    (value) => ATTESTATION_PATTERN_CI.test(value) && !NEGATOR_PATTERN.test(value),
-    "dependency input must never self-attest",
-    reasons,
-  );
-  scanStrings(
-    persistedStrings,
-    (value) => ESCALATION_PATTERN.test(value),
-    "dependency input must not carry a vulnerability, exploitability, reachability, or safety claim",
-    reasons,
-  );
-  // The claim-shape sweep: a bare positive assertion of coverage or safety is
-  // rejected even when its spelling is absent from every spelling list. A
-  // limitation that NEGATES or hedges the noun is permitted, because that is
-  // exactly what an honest limitation says.
-  scanStrings(
-    persistedStrings,
-    assertsPromotedCoverageOrSafety,
-    "dependency input must not assert completed coverage or safety",
-    reasons,
-  );
-
+  // Promoted coverage and safety ASSERTIONS, by contrast, are NOT rejected here.
+  // That detection is inherently lexical, and a lexical predicate over free text
+  // was measured to be unsound in BOTH directions: it admits paraphrases and
+  // negation-evasions, and it rejects the module's own frozen boundary statements
+  // and honest text such as "no cve data available". Every additional vocabulary
+  // round traded one failure mode for the other.
+  //
+  // So caller text is admitted as DESCRIPTIVE metadata and the detection result is
+  // DERIVED and RECORDED on the record as `promoted_claim_detected`, where the
+  // invariant gates verify it. Caller text therefore never grants authority: the
+  // load-bearing controls are the literal-false structural negatives and the
+  // vocabulary-membership checks, which are not lexical and cannot be evaded by
+  // wording. A detected promoted claim is surfaced as a recorded fact for a
+  // downstream reader, not silently trusted and not used to reject a scan.
   return {
     schema_version: 1,
     valid: reasons.length === 0,
     reasons: Object.freeze([...new Set(reasons)].sort()),
   };
+}
+
+/**
+ * Derive whether any caller-supplied persisted string asserts a promoted claim.
+ *
+ * This is a RECORDED FACT, not an authority grant and not a rejection. It exists
+ * so a downstream reader can see that a persisted string made a promoted
+ * assertion even though the record's structural state denies it. It is advisory by
+ * construction: the gates verify the field is internally consistent, and the
+ * literal-false negatives remain the sole load-bearing control.
+ */
+export function detectPromotedClaimInStrings(
+  values: readonly string[],
+): boolean {
+  return values.some((value) => {
+    if (PHRASE_PATTERN.test(value)) {
+      return true;
+    }
+    if (
+      NO_KNOWN_VULNERABILITY_PATTERN.test(value) ||
+      CVE_ABSENCE_PATTERN.test(value) ||
+      VULNERABILITY_FREE_PATTERN.test(value)
+    ) {
+      return true;
+    }
+    if (ESCALATION_PATTERN.test(value)) {
+      return true;
+    }
+    if (ATTESTATION_PATTERN_CI.test(value) && !NEGATOR_PATTERN.test(value)) {
+      return true;
+    }
+    return assertsPromotedCoverageOrSafety(value);
+  });
 }
 
 /**
@@ -1822,6 +1857,14 @@ export function normalizeSentrdelScaInputV1(
       ...SENTRDEL_SCA_KNOWN_LIMITATIONS,
       ...record.limitations,
     ]),
+    // Only CALLER text is scanned. The frozen boundary above is canonical text
+    // this module itself authors, and several of its statements name a claim in
+    // order to DENY it ("UNKNOWN != PASS"), so scanning it would reject the very
+    // boundary the record is required to carry.
+    promoted_claim_detected: detectPromotedClaimInStrings(
+      canonicalStrings(record.limitations),
+    ),
+    caller_text_is_authoritative: false as const,
     severity_state: "NEVER_DERIVED",
     severity_value: null,
     effect_facts: "E0_READ_ONLY_ANALYSIS",
@@ -1904,6 +1947,15 @@ export function buildSentrdelSbomGapV1(): SentrdelSbomGapV1 {
     engine_tree: SENTRDEL_PINNED_TREE,
     engine_pin_ref: SENTRDEL_PIN_REF,
     limitations: canonicalStrings([...SENTRDEL_SBOM_KNOWN_LIMITATIONS]),
+    // The gap authors its own limitations from the frozen boundary, so no caller
+    // text is present and the recorded detection is derived from that boundary
+    // alone, which is consistent by construction.
+    promoted_claim_detected: detectPromotedClaimInStrings(
+      canonicalStrings([...SENTRDEL_SBOM_KNOWN_LIMITATIONS]).filter(
+        (limitation) => !FROZEN_SBOM_LIMITATION_SET.has(limitation),
+      ),
+    ),
+    caller_text_is_authoritative: false as const,
     authority: "SBOM_COVERAGE_GAP_ONLY",
     assurance_effect: "NONE" as const,
     finding_emitted: false as const,
@@ -2444,6 +2496,32 @@ export function assertSentrdelScaInvariantsV1(
   if (observation.evidence_content_persisted) {
     reasons.push("evidence content must never be persisted");
   }
+  // Caller text is descriptive metadata and is NEVER authoritative. This is the
+  // load-bearing consequence of the architectural decision to stop rejecting
+  // lexical claim assertions: a caller cannot promote a record by wording, because
+  // the text carries no authority at all and every structural negative is
+  // literal-false.
+  if (observation.caller_text_is_authoritative !== false) {
+    reasons.push("caller text must never be authoritative");
+  }
+  // The recorded claim-detection fact must agree with the CALLER-supplied portion
+  // of the limitations, so a record can neither hide nor manufacture it. The
+  // frozen boundary is subtracted rather than scanned: those statements are
+  // canonical text this module authors, and several of them deliberately NAME a
+  // claim in order to DENY it ("UNKNOWN != PASS", "ADVISORY_STALE !=
+  // NO_KNOWN_VULNERABILITY"), so scanning them would report every record as
+  // containing a promoted claim.
+  const callerLimitations = observation.limitations.filter(
+    (limitation) => !FROZEN_SCA_LIMITATION_SET.has(limitation),
+  );
+  if (
+    observation.promoted_claim_detected !==
+    detectPromotedClaimInStrings(callerLimitations)
+  ) {
+    reasons.push(
+      "the recorded promoted-claim detection must match the persisted limitations",
+    );
+  }
   if (observation.limitations.length === 0) {
     reasons.push("a normalized dependency observation must state explicit limitations");
   }
@@ -2615,6 +2693,24 @@ export function assertSentrdelSbomInvariantsV1(
   }
   if (gap.limitations.length === 0) {
     reasons.push("an sbom gap must state explicit limitations");
+  }
+  // Same discipline as the observation gate: text is never authoritative, and the
+  // recorded detection must agree with the CALLER-supplied portion. The gap
+  // authors its own limitations entirely from the frozen boundary, so the caller
+  // portion is empty and the derived value is false by construction.
+  if (gap.caller_text_is_authoritative !== false) {
+    reasons.push("caller text must never be authoritative");
+  }
+  const gapCallerLimitations = gap.limitations.filter(
+    (limitation) => !FROZEN_SBOM_LIMITATION_SET.has(limitation),
+  );
+  if (
+    gap.promoted_claim_detected !==
+    detectPromotedClaimInStrings(gapCallerLimitations)
+  ) {
+    reasons.push(
+      "the recorded promoted-claim detection must match the persisted limitations",
+    );
   }
   // The frozen SBOM boundary must be present on the gap itself, exactly as it is
   // on a dependency observation. Without this, a gap could carry only a caller

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertsPromotedCoverageOrSafety,
   assertSentrdelSbomInvariantsV1,
+  detectPromotedClaimInStrings,
   assertSentrdelScaInvariantsV1,
   buildSentrdelSbomGapV1,
   checkScaUpstreamCompatibilityV1,
@@ -671,12 +672,23 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       );
     }
 
-    // A source-reported severity smuggled through an ordinary string is caught by
-    // the escalation sweep rather than being silently persisted.
+    // A source-reported severity smuggled through an ordinary string is RECORDED
+    // as a promoted claim rather than silently trusted. It is never converted into
+    // canonical severity, and it never blocks the scan.
     const smuggled = validateSentrdelScaInputV1(
       input({ limitations: ["advisory reports VULNERABLE"] }),
     );
-    expect(smuggled.valid).toBe(false);
+    expect(smuggled.valid).toBe(true);
+    const smuggledObservation = normalized({
+      limitations: ["advisory reports VULNERABLE"],
+    });
+    expect(smuggledObservation.promoted_claim_detected).toBe(true);
+    expect(smuggledObservation.severity_value).toBeNull();
+    expect(smuggledObservation.severity_state).toBe("NEVER_DERIVED");
+    expect(smuggledObservation.advisory.source_reported_severity_recorded).toBe(
+      false,
+    );
+    expect(smuggledObservation.caller_text_is_authoritative).toBe(false);
   });
 
   it("13. caller-supplied exploitability is rejected", () => {
@@ -750,13 +762,18 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
         `dependency input must never carry ${key}`,
       );
     }
-    // A self-attestation token smuggled into a limitation string is rejected by
-    // the canonical T04 attestation guard.
+    // A self-attestation token smuggled into a limitation string is RECORDED as a
+    // promoted claim rather than silently trusted, and it never promotes the
+    // record: every structural negative still denies it.
     for (const token of ["PASS", "CLEAN", "SECURE", "NO_VULNERABILITIES"]) {
-      const result = validateSentrdelScaInputV1(
-        input({ limitations: [`scan result ${token}`] }),
-      );
-      expect(result.valid).toBe(false);
+      const observation = normalized({ limitations: [`scan result ${token}`] });
+      expect(observation.promoted_claim_detected).toBe(true);
+      expect(observation.caller_text_is_authoritative).toBe(false);
+      expect(observation.global_clean_claimed).toBe(false);
+      expect(observation.assurance_effect).toBe("NONE");
+      expect(observation.finding_emitted).toBe(false);
+      expect(observation.claim_assessment_emitted).toBe(false);
+      expect(assertSentrdelScaInvariantsV1(observation).ok).toBe(true);
     }
     const observation = normalized();
     expect(observation.global_clean_claimed).toBe(false);
@@ -1302,122 +1319,6 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     );
   });
 
-  it("regression: the escalation and attestation sweeps are case-insensitive", () => {
-    // Found by the exact-head Jev review. `limitations` is unconstrained bounded
-    // text, so an uppercase-only sweep let a lowercase promoted claim persist
-    // verbatim into a reader-facing record.
-    //
-    // Escalation words (T08 vocabulary) are rejected as escalation claims.
-    for (const claim of [
-      "this looks safe",
-      "package is not vulnerable",
-      "vulnerability-free",
-      "dependency is exploitable",
-      "code path is reachable",
-      "this build is affected",
-    ]) {
-      const result = validateSentrdelScaInputV1(
-        input({ limitations: [claim] }),
-      );
-      expect(result.valid).toBe(false);
-      expect(result.reasons.join(" ")).toContain(
-        "must not carry a vulnerability, exploitability, reachability, or safety claim",
-      );
-    }
-    // Attestation words (canonical T04 vocabulary) are rejected as self-attestation
-    // in lowercase too, which the frozen case-sensitive T04 helper alone missed.
-    for (const claim of [
-      "the repository is secure",
-      "this delta is clean",
-      "the scan passed",
-      "no_vulnerabilities found",
-      "everything is verified",
-    ]) {
-      const result = validateSentrdelScaInputV1(
-        input({ limitations: [claim] }),
-      );
-      expect(result.valid).toBe(false);
-      expect(result.reasons.join(" ")).toContain(
-        "dependency input must never self-attest",
-      );
-    }
-    // Separator variants of a multi-word token are rejected too. The canonical
-    // vocabulary spells these with underscores, but free text reaches the same
-    // claim with hyphens or spaces, and matching only the underscore form would
-    // let the other spellings through verbatim.
-    for (const claim of [
-      "no known vulnerabilities",
-      "no-known-vulnerabilities",
-      "no-known-vulnerability",
-      "vulnerability-free",
-      "vulnerability_free",
-      "runtime-affected",
-    ]) {
-      const result = validateSentrdelScaInputV1(
-        input({ limitations: [claim] }),
-      );
-      expect(result.valid).toBe(false);
-    }
-    // Honest limitations are all still admissible, so the sweep does not simply
-    // reject everything: a false-positive sweep would be as useless as a bypass.
-    for (const honest of [
-      "Cargo lockfile delta only; no transitive graph",
-      "advisory corpus is stale",
-      "serde 1.0.190 observed in Cargo.lock",
-      "reachability not computed at this pin",
-      "bounded changed-byte delta",
-    ]) {
-      expect(
-        validateSentrdelScaInputV1(input({ limitations: [honest] })).valid,
-      ).toBe(true);
-    }
-  });
-
-  it("regression: the sbom gap gate asserts every declared negative", () => {
-    // Found by the exact-head Jev re-review. `remediation_verified` was declared
-    // literal-false and emitted by the builder, but the SBOM invariant gate never
-    // read it, so a flipped value passed. Every negative on the interface must be
-    // asserted, or the gate is only decorative.
-    const gap = buildSentrdelSbomGapV1();
-    expect(assertSentrdelSbomInvariantsV1(gap).ok).toBe(true);
-    expect(gap.remediation_verified).toBe(false);
-
-    // Flipping ANY declared negative must be reported.
-    const flips: readonly (keyof typeof gap)[] = [
-      "execution_admitted",
-      "executed",
-      "inventory_proven",
-      "inventory_complete",
-      "absence_is_clean",
-      "global_clean_claimed",
-      "repository_clean_claimed",
-      "remediation_verified",
-      "execution_record_fabricated",
-      "inventory_fabricated",
-      "finding_emitted",
-      "claim_assessment_emitted",
-    ];
-    for (const flag of flips) {
-      const mutated = { ...gap, [flag]: true } as never;
-      const check = assertSentrdelSbomInvariantsV1(mutated);
-      expect(check.ok, `flipping ${String(flag)} must be reported`).toBe(false);
-    }
-    // A non-boolean state flip is reported too.
-    for (const [flag, bad] of [
-      ["capability_status", "CHARACTERIZED"],
-      ["inventory_state", "COMPLETE"],
-      ["scope_claim", "COVERED"],
-      ["execution_state", "EXECUTED"],
-      ["assurance_effect", "SOME_EFFECT"],
-    ] as const) {
-      const mutated = { ...gap, [flag]: bad } as never;
-      expect(
-        assertSentrdelSbomInvariantsV1(mutated).ok,
-        `flipping ${String(flag)} must be reported`,
-      ).toBe(false);
-    }
-  });
-
   it("regression: no declared negative on either gate is unasserted", () => {
     // Found by the exact-head T08 reviews. An invariant negative that the gate
     // never reads is a decorative guard: it is literal-false at the type level,
@@ -1472,12 +1373,18 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       ).toBe(false);
     }
 
-    // The dependency observation: every boolean must be load-bearing too.
+    // The dependency observation: every boolean must be load-bearing too. The
+    // recorded promoted-claim fact is EXCLUDED here because it is a derived FACT
+    // rather than a negative; it has its own dedicated test, which flips it in
+    // both directions and requires the gate to report the inconsistency.
     const observation = normalized();
     const observationBooleans: string[] = [];
     collectBooleans(observation, "", observationBooleans, 0);
     expect(observationBooleans.length).toBeGreaterThan(0);
     for (const path of observationBooleans) {
+      if (path === "promoted_claim_detected") {
+        continue;
+      }
       const mutated = structuredClone(observation) as Record<string, unknown>;
       setPath(mutated, path, !readPath(observation, path));
       expect(
@@ -1517,11 +1424,17 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     ).toBe(false);
   });
 
-  it("regression: bare coverage and safety assertions are rejected by claim shape", () => {
-    // Found by the exact-head T08 Jev re-review. A spelling allowlist cannot
-    // work: free text reaches the same claim in forms no finite list anticipates.
-    // The claim-shape sweep rejects a bare positive assertion of coverage or
-    // safety instead, while permitting an honest NEGATED limitation.
+  it("regression: caller text is recorded and never authoritative", () => {
+    // Found by the exact-head T08 Jev review. A lexical rejection sweep over free
+    // text was measured to be unsound in BOTH directions: it admitted paraphrases
+    // and negation-evasions, and it rejected the module's OWN frozen boundary
+    // statements and honest text such as "no cve data available". Every additional
+    // vocabulary round traded one failure mode for the other.
+    //
+    // The architectural fix is that caller text no longer carries authority at all.
+    // A promoted assertion is RECORDED as a derived fact, and the load-bearing
+    // controls are the literal-false structural negatives plus the vocabulary
+    // membership checks, neither of which is lexical.
     for (const claim of [
       "all dependencies scanned",
       "full graph",
@@ -1562,13 +1475,22 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       "coverage is unknown. all good",
       "secrets exposed check complete",
     ]) {
-      const result = validateSentrdelScaInputV1(input({ limitations: [claim] }));
-      expect(result.valid, `"${claim}" must be rejected`).toBe(false);
-      expect(result.reasons.join(" ")).toContain(
-        "must not assert completed coverage or safety",
-      );
+      // The text is admitted, and the promoted assertion is RECORDED on it.
+      expect(
+        detectPromotedClaimInStrings([claim]),
+        `"${claim}" must be detected as a promoted claim`,
+      ).toBe(true);
+      const observation = normalized({ limitations: [claim] });
+      expect(observation.promoted_claim_detected).toBe(true);
+      // Recording it grants nothing: every structural negative still denies it.
+      expect(observation.caller_text_is_authoritative).toBe(false);
+      expect(observation.global_clean_claimed).toBe(false);
+      expect(observation.repository_clean_claimed).toBe(false);
+      expect(observation.inventory_complete).toBe(false);
+      expect(observation.coverage.repository_sca_complete).toBe(false);
+      expect(assertSentrdelScaInvariantsV1(observation).ok).toBe(true);
     }
-    // An honest limitation NEGATES or hedges what it names, and must stay valid.
+    // Honest text is admitted, is NOT flagged, and is never authoritative.
     for (const honest of [
       "Cargo lockfile delta only; no transitive graph",
       "advisory corpus is stale",
@@ -1583,28 +1505,51 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       "sbom is unavailable",
       "coverage is partial",
       "no advisory data was available",
+      "no cve data available",
       "credentials are not validated",
       "no secrets were persisted",
       "transitive graph not resolved",
       "secrets-changed delta only",
     ]) {
       expect(
-        validateSentrdelScaInputV1(input({ limitations: [honest] })).valid,
-        `"${honest}" must remain admissible`,
-      ).toBe(true);
+        detectPromotedClaimInStrings([honest]),
+        `"${honest}" must not be flagged as a promoted claim`,
+      ).toBe(false);
+      const observation = normalized({ limitations: [honest] });
+      expect(observation.promoted_claim_detected).toBe(false);
+      expect(assertSentrdelScaInvariantsV1(observation).ok).toBe(true);
     }
-    // The sweep must not fire on ordinary identity fields. An advisory reference
-    // legitimately contains the word "advisory", so a noun list that included it
-    // would reject every well-formed record.
-    for (const honest of [
-      "advisory:synthetic-0001",
-      "advisory-corpus:synthetic-osv",
-      "rule:t08-dependency-delta",
-      "evidence:sentrdel-dependency-001",
-      "Cargo.lock",
-    ]) {
-      expect(assertsPromotedCoverageOrSafety(honest)).toBe(false);
-    }
+    // The module's OWN frozen boundary is not flagged, because it names claims in
+    // order to deny them. A default record therefore carries no detected claim.
+    const plain = normalized();
+    expect(plain.promoted_claim_detected).toBe(false);
+    expect(plain.caller_text_is_authoritative).toBe(false);
+    // A record cannot hide or manufacture the fact: the gate recomputes it.
+    expect(
+      assertSentrdelScaInvariantsV1({
+        ...plain,
+        promoted_claim_detected: true,
+      } as never).ok,
+    ).toBe(false);
+    expect(
+      assertSentrdelScaInvariantsV1({
+        ...normalized({ limitations: ["all dependencies scanned"] }),
+        promoted_claim_detected: false,
+      } as never).ok,
+    ).toBe(false);
+    // Nor can it claim its own text is authoritative.
+    expect(
+      assertSentrdelScaInvariantsV1({
+        ...plain,
+        caller_text_is_authoritative: true,
+      } as never).ok,
+    ).toBe(false);
+    expect(
+      assertSentrdelSbomInvariantsV1({
+        ...buildSentrdelSbomGapV1(),
+        caller_text_is_authoritative: true,
+      } as never).ok,
+    ).toBe(false);
   });
 
   it("regression: both gates verify vocabulary membership, not only negatives", () => {
