@@ -81,6 +81,7 @@ import {
   containsSecretMaterialV1,
   SENTRDEL_CLAIM_CLASSES_REQUIRING_PROVENANCE,
   SENTRDEL_CLAIM_CLASSES_REQUIRING_RULE_ID,
+  SENTRDEL_EXTERNAL_ATTESTATION_TOKENS,
   SENTRDEL_OBSERVATION_CLAIM_CLASSES,
   SENTRDEL_OBSERVATION_COVERAGE_STATES,
   SENTRDEL_PROVENANCE_STATES,
@@ -545,9 +546,52 @@ const MAX_UNKNOWN_STATES = 32;
 const MAX_LOSS_REASONS = 32;
 const MAX_OBSERVATIONS = 512;
 
+/**
+ * Build a separator-flexible alternation for a token vocabulary.
+ *
+ * A multi-word token such as `VULNERABILITY_FREE` or `NO_KNOWN_VULNERABILITY`
+ * is written in the canonical vocabulary with underscores, but free text
+ * reaches the same claim with hyphens or spaces ("vulnerability-free",
+ * "no known vulnerabilities"). Matching the literal underscore form alone would
+ * let the hyphenated spelling through verbatim, so each underscore inside a token
+ * is compiled to a separator class.
+ */
+function separatorFlexibleTokens(tokens: readonly string[]): string {
+  return tokens
+    .map((token) => token.split("_").join("[_\\u2010-\\u2015 \\-]"))
+    .join("|");
+}
+
 const ESCALATION_PATTERN = new RegExp(
-  `\\b(?:${SENTRDEL_SCA_ESCALATION_TOKENS.join("|")})\\b`,
-  "u",
+  // The boundary is an asymmetric non-word-character class rather than `\b`,
+  // because `\b` requires a word character on BOTH sides: a hyphenated claim such
+  // as "vulnerability-free" has a non-word character where the right-hand
+  // boundary should be, so `\b` would not match and the claim would be accepted
+  // verbatim. `(?<![A-Za-z0-9_])` / `(?![A-Za-z0-9_])` is the correct form.
+  `(?<![A-Za-z0-9_])(?:${separatorFlexibleTokens(SENTRDEL_SCA_ESCALATION_TOKENS)})(?![A-Za-z0-9_])`,
+  // Case-insensitive. `limitations` is unconstrained bounded text, so an
+  // uppercase-only sweep would let "secure, safe" persist verbatim into a
+  // reader-facing record while "SECURE, SAFE" was correctly rejected. This is a
+  // T08-local change; the frozen T04 pattern is deliberately left untouched.
+  "iu",
+);
+
+/**
+ * A case-insensitive sweep over the CANONICAL T04 attestation vocabulary.
+ *
+ * The frozen T04 `containsExternalAttestationV1` helper matches uppercase tokens
+ * only. That is correct for its own boundary but leaves a bypass at T08, where
+ * `limitations` is free bounded text: a caller could write "the repository is
+ * secure" or "this delta is clean" and persist it verbatim, because CLEAN and
+ * SECURE are attestation words rather than T08 escalation tokens.
+ *
+ * This reuses the canonical T04 token list verbatim rather than inventing a
+ * parallel vocabulary; only the boundary form, separator tolerance, and case
+ * sensitivity are T08-local, and the frozen T04 helper is not modified.
+ */
+const ATTESTATION_PATTERN_CI = new RegExp(
+  `(?<![A-Za-z0-9_])(?:${separatorFlexibleTokens(SENTRDEL_EXTERNAL_ATTESTATION_TOKENS)})(?![A-Za-z0-9_])`,
+  "iu",
 );
 
 const CLAIM_CLASS_SET = new Set<string>(SENTRDEL_OBSERVATION_CLAIM_CLASSES);
@@ -719,6 +763,26 @@ function isPositiveIntegerOrNull(value: unknown): value is number | null {
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+/**
+ * The EFFECTIVE aggregate coverage state, derived rather than trusted.
+ *
+ * A caller may only reach `COVERED_WITHIN_STATED_SCOPE` when the observation
+ * state itself is bounded-complete AND no unknown state remains. Because T08
+ * always retains `REACHABILITY_NOT_COMPUTED` (reachability is never computed at
+ * this pin), the unknown set is never empty, so a delta-only run can never
+ * present as covered. This is the aggregation-level enforcement of
+ * DELTA_ONLY != FULL_GRAPH and NO_MATCH_OVER_PARTIAL != SECURE.
+ */
+function effectiveAggregateState(
+  aggregate: string,
+  unknownStates: readonly string[],
+): string {
+  if (aggregate !== "COVERED_WITHIN_STATED_SCOPE") {
+    return aggregate;
+  }
+  return unknownStates.length > 0 ? "PARTIALLY_COVERED" : "COVERED_WITHIN_STATED_SCOPE";
 }
 
 /** Canonical code-unit ordering, independent of locale and traversal order. */
@@ -1176,16 +1240,39 @@ export function validateSentrdelScaInputV1(
       "a non-matching or unknown version match state must not carry an advisory reference",
     );
   }
-  // NO_MATCH_OVER_PARTIAL != SECURE: a zero-match observation may never present as
-  // bounded-complete covered scope, because completeness of a delta scope is
-  // never completeness of a repository.
+  // NO_MATCH_OVER_PARTIAL != SECURE. A zero-match delta may never present as
+  // covered scope. The guard tests the CALLER-SUPPLIED aggregate, not the derived
+  // one: `effectiveAggregateState` deliberately downgrades a covered aggregate to
+  // PARTIALLY_COVERED when unknowns survive, so testing the derived value would
+  // make this guard permanently unsatisfiable and therefore decorative.
   if (
     versionMatchState === "NO_ADVISORY_MATCH_IN_STATED_SCOPE" &&
-    coverageState === "COMPLETE_WITHIN_STATED_SCOPE" &&
     aggregateState === "COVERED_WITHIN_STATED_SCOPE"
   ) {
     reasons.push(
       "a zero-match delta observation may not claim bounded-complete covered scope",
+    );
+  }
+  // DELTA_ONLY != FULL_GRAPH, at the aggregation level. A covered aggregate that
+  // still carries unknown states is a promotion, so it is rejected outright
+  // rather than merely downgraded.
+  if (
+    aggregateState === "COVERED_WITHIN_STATED_SCOPE" &&
+    unknownStates.length > 0
+  ) {
+    reasons.push(
+      "a covered aggregate scope may never coexist with declared unknown states",
+    );
+  }
+  if (aggregateState === "COVERED_WITHIN_STATED_SCOPE" && coverageState === "UNSCANNED") {
+    reasons.push("covered aggregate scope contradicts unscanned coverage");
+  }
+  if (
+    aggregateState === "COVERED_WITHIN_STATED_SCOPE" &&
+    coverageState !== "COMPLETE_WITHIN_STATED_SCOPE"
+  ) {
+    reasons.push(
+      "a covered aggregate scope requires a complete observation state within the stated scope",
     );
   }
   if (
@@ -1306,6 +1393,15 @@ export function validateSentrdelScaInputV1(
     "dependency input must never self-attest",
     reasons,
   );
+  // A second, case-insensitive sweep over the same canonical T04 attestation
+  // vocabulary. This is what stops a lowercase "the repository is secure" from
+  // persisting verbatim into a reader-facing record.
+  scanStrings(
+    persistedStrings,
+    (value) => ATTESTATION_PATTERN_CI.test(value),
+    "dependency input must never self-attest",
+    reasons,
+  );
   scanStrings(
     persistedStrings,
     (value) => ESCALATION_PATTERN.test(value),
@@ -1352,13 +1448,20 @@ export function normalizeSentrdelScaInputV1(
   const reachabilityToken =
     SENTRDEL_SCA_REACHABILITY_CANONICAL_TOKENS[reachabilityState];
 
+  const unknownStates = canonicalStrings(record.unknown_states);
+  const aggregateState = effectiveAggregateState(
+    record.aggregate_coverage_state,
+    unknownStates,
+  );
+
   // Dependency coverage is derived, never supplied: DELTA_ONLY_NOT_FULL_GRAPH is
-  // the only member of the vocabulary, so no caller can widen it.
+  // the only member of the vocabulary, so no caller can widen it. The aggregate
+  // state is likewise derived, so a caller cannot purchase a covered aggregate.
   const coverage: SentrdelScaCoverageV1 = Object.freeze({
     observation_state: record.coverage_state as SentrdelObservationCoverageStateV1,
-    aggregate_state: record.aggregate_coverage_state as SentrdelAggregateCoverageStateV1,
+    aggregate_state: aggregateState as SentrdelAggregateCoverageStateV1,
     dependency_coverage: "DELTA_ONLY_NOT_FULL_GRAPH",
-    unknown_states: canonicalStrings(record.unknown_states),
+    unknown_states: unknownStates,
     coverage_loss_reasons: canonicalLossReasons(
       record.coverage_loss_reasons as readonly SentrdelCoverageLossReasonV1[],
     ),
@@ -1431,7 +1534,14 @@ export function normalizeSentrdelScaInputV1(
     evidence_ref: record.evidence_ref,
     evidence_digest: record.evidence_digest,
     evidence_content_persisted: false as const,
-    limitations: canonicalStrings(record.limitations),
+    // The frozen T08 truth boundary is ATTACHED to every record, not merely
+    // declared alongside it. A caller may add its own bounded limitations, but
+    // can never replace or dilute the canonical boundary statements, which is
+    // what makes those statements load-bearing rather than decorative.
+    limitations: canonicalStrings([
+      ...SENTRDEL_SCA_KNOWN_LIMITATIONS,
+      ...record.limitations,
+    ]),
     severity_state: "NEVER_DERIVED",
     severity_value: null,
     effect_facts: "E0_READ_ONLY_ANALYSIS",
@@ -1879,6 +1989,26 @@ export function assertSentrdelScaInvariantsV1(
   if (observation.repository_sca_complete_claimed) {
     reasons.push("dependency normalization must never claim a complete repository SCA");
   }
+  // DELTA_ONLY != FULL_GRAPH and NO_MATCH_OVER_PARTIAL != SECURE at the aggregation
+  // level. A covered aggregate is only legitimate when the observation state is
+  // bounded-complete AND no unknown state survives, so a record carrying both
+  // `COVERED_WITHIN_STATED_SCOPE` and an unknown state is a promotion and must be
+  // reported rather than ratified.
+  if (observation.coverage.aggregate_state === "COVERED_WITHIN_STATED_SCOPE") {
+    if (observation.coverage.unknown_states.length > 0) {
+      reasons.push(
+        "a covered aggregate scope may never coexist with declared unknown states",
+      );
+    }
+    if (
+      observation.coverage.observation_state !==
+      "COMPLETE_WITHIN_STATED_SCOPE"
+    ) {
+      reasons.push(
+        "a covered aggregate scope requires a complete observation state within the stated scope",
+      );
+    }
+  }
 
   // REACHABILITY_NOT_COMPUTED != EXPLOITABLE.
   if (observation.reachability_computed) {
@@ -1963,6 +2093,17 @@ export function assertSentrdelScaInvariantsV1(
   }
   if (observation.limitations.length === 0) {
     reasons.push("a normalized dependency observation must state explicit limitations");
+  }
+  // The frozen T08 truth boundary must be present on the record itself. Without
+  // this, a caller could ship a record carrying only its own vague limitation and
+  // the canonical boundary would exist only in the source, which is decorative.
+  for (const required of SENTRDEL_SCA_KNOWN_LIMITATIONS) {
+    if (!observation.limitations.includes(required)) {
+      reasons.push(
+        "a normalized dependency observation must carry the frozen T08 truth boundary",
+      );
+      break;
+    }
   }
   if (
     observation.execution_state !== "EXECUTED" &&

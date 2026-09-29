@@ -1215,4 +1215,135 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       );
     }
   });
+
+  it("regression: a caller cannot purchase a covered aggregate over a delta", () => {
+    // Found by the exact-head Jev review. A zero-match observation paired with
+    // coverage_state PARTIAL and aggregate COVERED_WITHIN_STATED_SCOPE previously
+    // passed both the zero-match guard and the aggregate guard, and the invariant
+    // gate then ratified the promotion. That is the aggregation-level violation of
+    // NO_MATCH_OVER_PARTIAL != SECURE and DELTA_ONLY != FULL_GRAPH.
+    const promotion = validateSentrdelScaInputV1(
+      input({
+        version_match_state: "NO_ADVISORY_MATCH_IN_STATED_SCOPE",
+        advisory_ref: null,
+        coverage_state: "PARTIAL",
+        aggregate_coverage_state: "COVERED_WITHIN_STATED_SCOPE",
+      }),
+    );
+    expect(promotion.valid).toBe(false);
+    expect(promotion.reasons.join(" ")).toContain(
+      "a zero-match delta observation may not claim bounded-complete covered scope",
+    );
+
+    // The same promotion attempted on a MATCHING advisory is also refused: a
+    // covered aggregate may never coexist with surviving unknown states, and T08
+    // always retains the reachability token.
+    const matchedPromotion = validateSentrdelScaInputV1(
+      input({
+        coverage_state: "PARTIAL",
+        aggregate_coverage_state: "COVERED_WITHIN_STATED_SCOPE",
+      }),
+    );
+    expect(matchedPromotion.valid).toBe(false);
+    expect(matchedPromotion.reasons.join(" ")).toContain(
+      "a covered aggregate scope may never coexist with declared unknown states",
+    );
+
+    // The emitted record never carries a covered aggregate for a delta run.
+    const emitted = normalized({
+      version_match_state: "NO_ADVISORY_MATCH_IN_STATED_SCOPE",
+      advisory_ref: null,
+    });
+    expect(emitted.coverage.aggregate_state).toBe("PARTIALLY_COVERED");
+
+    // The invariant gate independently refuses a hand-built covered record, so it
+    // can no longer ratify a promotion it is supposed to reject.
+    const forged = {
+      ...normalized(),
+      coverage: {
+        ...normalized().coverage,
+        aggregate_state: "COVERED_WITHIN_STATED_SCOPE",
+      },
+    } as unknown as SentrdelScaObservationV1;
+    const check = assertSentrdelScaInvariantsV1(forged);
+    expect(check.ok).toBe(false);
+    expect(check.reasons.join(" ")).toContain(
+      "a covered aggregate scope may never coexist with declared unknown states",
+    );
+  });
+
+  it("regression: the frozen T08 boundary is attached to every record", () => {
+    // Found by the exact-head Jev review. SENTRDEL_SCA_KNOWN_LIMITATIONS declared
+    // the truth boundary but was never emitted, so a record could carry only a
+    // single vague caller limitation and the boundary was decorative.
+    const observation = normalized({
+      limitations: ["bounded delta only"],
+    });
+    // The caller's own limitation is preserved...
+    expect(observation.limitations).toContain("bounded delta only");
+    // ...and the whole frozen boundary travels with it.
+    for (const required of SENTRDEL_SCA_KNOWN_LIMITATIONS) {
+      expect(observation.limitations).toContain(required);
+    }
+    expect(observation.limitations.length).toBeGreaterThan(
+      SENTRDEL_SCA_KNOWN_LIMITATIONS.length,
+    );
+    // A record that has had the boundary stripped is reported by the gate.
+    const stripped = {
+      ...observation,
+      limitations: ["bounded delta only"],
+    } as unknown as SentrdelScaObservationV1;
+    const check = assertSentrdelScaInvariantsV1(stripped);
+    expect(check.ok).toBe(false);
+    expect(check.reasons.join(" ")).toContain(
+      "must carry the frozen T08 truth boundary",
+    );
+  });
+
+  it("regression: the escalation and attestation sweeps are case-insensitive", () => {
+    // Found by the exact-head Jev review. `limitations` is unconstrained bounded
+    // text, so an uppercase-only sweep let a lowercase promoted claim persist
+    // verbatim into a reader-facing record.
+    //
+    // Escalation words (T08 vocabulary) are rejected as escalation claims.
+    for (const claim of [
+      "this looks safe",
+      "package is not vulnerable",
+      "vulnerability-free",
+      "dependency is exploitable",
+      "code path is reachable",
+      "this build is affected",
+    ]) {
+      const result = validateSentrdelScaInputV1(
+        input({ limitations: [claim] }),
+      );
+      expect(result.valid).toBe(false);
+      expect(result.reasons.join(" ")).toContain(
+        "must not carry a vulnerability, exploitability, reachability, or safety claim",
+      );
+    }
+    // Attestation words (canonical T04 vocabulary) are rejected as self-attestation
+    // in lowercase too, which the frozen case-sensitive T04 helper alone missed.
+    for (const claim of [
+      "the repository is secure",
+      "this delta is clean",
+      "the scan passed",
+      "no_vulnerabilities found",
+      "everything is verified",
+    ]) {
+      const result = validateSentrdelScaInputV1(
+        input({ limitations: [claim] }),
+      );
+      expect(result.valid).toBe(false);
+      expect(result.reasons.join(" ")).toContain(
+        "dependency input must never self-attest",
+      );
+    }
+    // An honest limitation remains admissible.
+    expect(
+      validateSentrdelScaInputV1(
+        input({ limitations: ["Cargo lockfile delta only; no transitive graph"] }),
+      ).valid,
+    ).toBe(true);
+  });
 });
