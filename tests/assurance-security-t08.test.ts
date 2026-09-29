@@ -33,6 +33,7 @@ import {
   zeroMatchesImpliesSecureV1,
   SENTRDEL_SCA_ADVISORY_FRESHNESS_STATES,
   SENTRDEL_SCA_AUTHORITIES,
+  SENTRDEL_SCA_CALLER_LIMITATION_BUDGET,
   SENTRDEL_SCA_CAPABILITY_ID,
   SENTRDEL_SCA_CLAIM_CLASS,
   SENTRDEL_SCA_DELTA_COVERAGE_STATES,
@@ -1339,11 +1340,110 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
         "dependency input must never self-attest",
       );
     }
-    // An honest limitation remains admissible.
+    // Separator variants of a multi-word token are rejected too. The canonical
+    // vocabulary spells these with underscores, but free text reaches the same
+    // claim with hyphens or spaces, and matching only the underscore form would
+    // let the other spellings through verbatim.
+    for (const claim of [
+      "no known vulnerabilities",
+      "no-known-vulnerabilities",
+      "no-known-vulnerability",
+      "vulnerability-free",
+      "vulnerability_free",
+      "runtime-affected",
+    ]) {
+      const result = validateSentrdelScaInputV1(
+        input({ limitations: [claim] }),
+      );
+      expect(result.valid).toBe(false);
+    }
+    // Honest limitations are all still admissible, so the sweep does not simply
+    // reject everything: a false-positive sweep would be as useless as a bypass.
+    for (const honest of [
+      "Cargo lockfile delta only; no transitive graph",
+      "advisory corpus is stale",
+      "serde 1.0.190 observed in Cargo.lock",
+      "reachability not computed at this pin",
+      "bounded changed-byte delta",
+    ]) {
+      expect(
+        validateSentrdelScaInputV1(input({ limitations: [honest] })).valid,
+      ).toBe(true);
+    }
+  });
+
+  it("regression: the sbom gap gate asserts every declared negative", () => {
+    // Found by the exact-head Jev re-review. `remediation_verified` was declared
+    // literal-false and emitted by the builder, but the SBOM invariant gate never
+    // read it, so a flipped value passed. Every negative on the interface must be
+    // asserted, or the gate is only decorative.
+    const gap = buildSentrdelSbomGapV1();
+    expect(assertSentrdelSbomInvariantsV1(gap).ok).toBe(true);
+    expect(gap.remediation_verified).toBe(false);
+
+    // Flipping ANY declared negative must be reported.
+    const flips: readonly (keyof typeof gap)[] = [
+      "execution_admitted",
+      "executed",
+      "inventory_proven",
+      "inventory_complete",
+      "absence_is_clean",
+      "global_clean_claimed",
+      "repository_clean_claimed",
+      "remediation_verified",
+      "execution_record_fabricated",
+      "inventory_fabricated",
+      "finding_emitted",
+      "claim_assessment_emitted",
+    ];
+    for (const flag of flips) {
+      const mutated = { ...gap, [flag]: true } as never;
+      const check = assertSentrdelSbomInvariantsV1(mutated);
+      expect(check.ok, `flipping ${String(flag)} must be reported`).toBe(false);
+    }
+    // A non-boolean state flip is reported too.
+    for (const [flag, bad] of [
+      ["capability_status", "CHARACTERIZED"],
+      ["inventory_state", "COMPLETE"],
+      ["scope_claim", "COVERED"],
+      ["execution_state", "EXECUTED"],
+      ["assurance_effect", "SOME_EFFECT"],
+    ] as const) {
+      const mutated = { ...gap, [flag]: bad } as never;
+      expect(
+        assertSentrdelSbomInvariantsV1(mutated).ok,
+        `flipping ${String(flag)} must be reported`,
+      ).toBe(false);
+    }
+  });
+
+  it("states the caller limitation budget after the frozen boundary is attached", () => {
+    // Found by the exact-head Jev re-review. Attaching the frozen boundary to
+    // every record silently reduced the caller-facing limitation budget, which
+    // was undocumented. The remaining budget is now explicit.
+    expect(SENTRDEL_SCA_CALLER_LIMITATION_BUDGET).toBe(
+      32 - SENTRDEL_SCA_KNOWN_LIMITATIONS.length,
+    );
+    expect(SENTRDEL_SCA_CALLER_LIMITATION_BUDGET).toBeGreaterThan(0);
+    // A caller may still supply its own limitations up to the stated budget.
+    const many = Array.from(
+      { length: SENTRDEL_SCA_CALLER_LIMITATION_BUDGET },
+      (_unused, index) => `caller limitation ${String(index)}`,
+    );
+    const observation = normalized({ limitations: many });
+    expect(observation.limitations.length).toBe(
+      SENTRDEL_SCA_KNOWN_LIMITATIONS.length + many.length,
+    );
+    // Exceeding the canonical cap is still a hard rejection.
     expect(
       validateSentrdelScaInputV1(
-        input({ limitations: ["Cargo lockfile delta only; no transitive graph"] }),
+        input({
+          limitations: Array.from(
+            { length: 33 },
+            (_unused, index) => `caller limitation ${String(index)}`,
+          ),
+        }),
       ).valid,
-    ).toBe(true);
+    ).toBe(false);
   });
 });

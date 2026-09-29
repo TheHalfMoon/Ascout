@@ -251,7 +251,9 @@ export const SENTRDEL_SCA_ESCALATION_TOKENS = [
   "AFFECTED",
   "EXPLOITABLE",
   "EXPLOITABILITY",
+  "NO_KNOWN_VULNERABILITIES",
   "NO_KNOWN_VULNERABILITY",
+  "NO_VULNERABILITIES",
   "PROVEN_VULNERABLE",
   "REACHABLE",
   "RUNTIME_AFFECTED",
@@ -545,6 +547,16 @@ const MAX_LIMITATIONS = 32;
 const MAX_UNKNOWN_STATES = 32;
 const MAX_LOSS_REASONS = 32;
 const MAX_OBSERVATIONS = 512;
+
+/**
+ * Every emitted record carries the whole frozen T08 truth boundary, so the
+ * caller-facing budget for its own limitations is what remains of the canonical
+ * cap. This is stated explicitly rather than left to be discovered, because
+ * silently tightening a documented bound is how a later caller ends up with a
+ * mysterious rejection.
+ */
+export const SENTRDEL_SCA_CALLER_LIMITATION_BUDGET =
+  MAX_LIMITATIONS - SENTRDEL_SCA_KNOWN_LIMITATIONS.length;
 
 /**
  * Build a separator-flexible alternation for a token vocabulary.
@@ -2232,6 +2244,15 @@ export function assertSentrdelSbomInvariantsV1(
   }
   if (gap.repository_clean_claimed) {
     reasons.push("an sbom gap must never claim a repository is clean");
+  }
+  // Every negative declared on this interface must be asserted here. An
+  // unasserted negative is a decorative guard: the field is literal-false at the
+  // type level, but this gate is the sole structural enforcement and is invoked on
+  // objects whose shape is only compile-time checked.
+  if (gap.remediation_verified) {
+    reasons.push(
+      "SBOM_NOT_CHARACTERIZED: the sbom gap must never claim a verified remediation",
+    );
   }
   if (gap.assurance_effect !== "NONE") {
     reasons.push("an sbom gap must have no assurance effect");
