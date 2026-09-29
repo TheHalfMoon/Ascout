@@ -536,4 +536,103 @@ describe("UA-P06-T06 Sentrdel SAST normalization", () => {
     expect(other.engine_pin).toBe(SENTRDEL_PINNED_REVISION);
     expect(other.sast_observation_id).not.toBe(normalized().sast_observation_id);
   });
+
+  it("22. keeps a second source head binding exact", () => {
+    const other = normalized({
+      source_head: HEAD_B,
+      request_id: "request:t06-acceptance-002",
+      raw_evidence_digest: DIGEST_B,
+    });
+    expect(other.source_head).toBe(HEAD_B);
+    expect(other.engine_pin).toBe(SENTRDEL_PINNED_REVISION);
+    expect(other.sast_observation_id).not.toBe(normalized().sast_observation_id);
+  });
+
+  it("19. requires resolvable provenance for a structural claim class", () => {
+    // This mirrors the canonical T04 rule: an unattributable structural
+    // observation must not be admitted by T06.
+    for (const state of ["UNRESOLVED", "ABSENT"]) {
+      const validation = validateSentrdelSastInputV1(
+        input({
+          provenance_state: state,
+          producer_id: null,
+          producer_version: null,
+          collector_ref: null,
+        }),
+      );
+      expect(validation.valid, state).toBe(false);
+      expect(validation.reasons.join(" "), state).toContain(
+        "requires resolvable provenance",
+      );
+      expect(
+        normalizeSentrdelSastInputV1(
+          input({
+            provenance_state: state,
+            producer_id: null,
+            producer_version: null,
+            collector_ref: null,
+          }),
+        ),
+        state,
+      ).toBeUndefined();
+    }
+    // PARTIAL provenance remains admissible: it is resolvable but incomplete.
+    const partial = validateSentrdelSastInputV1(
+      input({ provenance_state: "PARTIAL", collector_ref: null }),
+    );
+    expect(partial.valid).toBe(true);
+  });
+
+  it("19b. refuses a match from a capability that never executed", () => {
+    // AVAILABLE means admitted but not yet run, so it cannot have matched.
+    const available = validateSentrdelSastInputV1(
+      input({ execution_state: "AVAILABLE" }),
+    );
+    expect(available.valid).toBe(false);
+    expect(available.reasons.join(" ")).toContain("may not report one");
+    expect(
+      normalizeSentrdelSastInputV1(input({ execution_state: "AVAILABLE" })),
+    ).toBeUndefined();
+    // The same rule holds for every non-executed state.
+    for (const state of [
+      "AVAILABLE",
+      "UNAVAILABLE",
+      "NOT_QUALIFIED",
+      "NOT_RUN",
+      "INCOMPLETE",
+      "TIMEOUT",
+      "MALFORMED_OUTPUT",
+      "ENGINE_ERROR",
+      "VERSION_MISMATCH",
+      "DENIED_BY_POLICY",
+    ]) {
+      const validation = validateSentrdelSastInputV1(
+        input({ execution_state: state, coverage_loss_reasons: [] }),
+      );
+      expect(validation.valid, state).toBe(false);
+      expect(validation.reasons.join(" "), state).toContain("may not report one");
+    }
+  });
+
+  it("19c. catches a tampered record that reports a match without executing", () => {
+    const observation = normalized();
+    const tampered = {
+      ...observation,
+      execution_state: "AVAILABLE",
+    } as unknown as SentrdelSastObservationV1;
+    const check = assertSentrdelSastInvariantsV1(tampered);
+    expect(check.ok).toBe(false);
+    expect(check.reasons.join(" ")).toContain(
+      "non-executing capability must never report a match",
+    );
+  });
+
+  it("19d. never throws on a partial or malformed record", () => {
+    for (const malformed of [null, undefined, {}, [], "text", 42, true]) {
+      expect(() => checkSastUpstreamCompatibilityV1(malformed)).not.toThrow();
+      expect(() => validateSentrdelSastInputV1(malformed)).not.toThrow();
+      expect(() => normalizeSentrdelSastInputV1(malformed)).not.toThrow();
+    }
+    expect(() => normalizeSentrdelSastSetV1(undefined as never)).not.toThrow();
+  });
 });

@@ -57,6 +57,7 @@ import {
   containsExternalAttestationV1,
   containsSecretMaterialV1,
   SENTRDEL_OBSERVATION_CLAIM_CLASSES,
+  SENTRDEL_CLAIM_CLASSES_REQUIRING_PROVENANCE,
   SENTRDEL_OBSERVATION_RESOLUTION_STATES,
   SENTRDEL_OBSERVATION_COVERAGE_STATES,
   SENTRDEL_PROVENANCE_STATES,
@@ -321,6 +322,9 @@ const PROVENANCE_SET = new Set<string>(SENTRDEL_PROVENANCE_STATES);
 const COVERAGE_STATE_SET = new Set<string>(SENTRDEL_OBSERVATION_COVERAGE_STATES);
 const AGGREGATE_STATE_SET = new Set<string>(SENTRDEL_AGGREGATE_COVERAGE_STATES);
 const RESOLUTION_SET = new Set<string>(SENTRDEL_OBSERVATION_RESOLUTION_STATES);
+const REQUIRES_RESOLVABLE_PROVENANCE = new Set<string>(
+  SENTRDEL_CLAIM_CLASSES_REQUIRING_PROVENANCE,
+);
 const LOSS_REASON_SET = new Set<string>(SENTRDEL_COVERAGE_LOSS_REASONS);
 const EXECUTION_STATE_SET = new Set<string>(SENTRDEL_ADAPTER_EXECUTION_STATES);
 const NON_PRODUCING_SET = new Set<string>(
@@ -785,6 +789,20 @@ export function validateSentrdelSastInputV1(
       reasons.push(`provenance ${key} must be null or a bounded opaque identifier`);
     }
   }
+  // A structural claim class requires resolvable provenance. This mirrors the
+  // canonical T04 rule for SENTRDEL_CLAIM_CLASSES_REQUIRING_PROVENANCE: T06 must
+  // not admit a record the upstream T04 boundary itself would reject, because an
+  // unresolvable producer makes the observation unattributable.
+  if (REQUIRES_RESOLVABLE_PROVENANCE.has(claimClass as string)) {
+    if (
+      input["provenance_state"] === "ABSENT" ||
+      input["provenance_state"] === "UNRESOLVED"
+    ) {
+      reasons.push(
+        `claim class ${String(claimClass)} requires resolvable provenance`,
+      );
+    }
+  }
 
   const unknownStates = canonicalizeStringList(
     input["unknown_states"],
@@ -861,14 +879,22 @@ export function validateSentrdelSastInputV1(
     reasons.push("UNKNOWN coverage requires at least one unknown state");
   }
 
+  // A match may only be reported by a capability that actually executed. The
+  // non-producing set covers explicit absence; AVAILABLE is the remaining
+  // pre-execution state (admitted but not yet run), and it is equally incapable
+  // of having produced a match.
+  if (
+    executionState !== "EXECUTED" &&
+    input["match_state"] !== "UNKNOWN"
+  ) {
+    reasons.push(
+      `execution state ${String(executionState)} produced no match and may not report one`,
+    );
+  }
+
   // A non-producing execution state can never produce a match, and its omission
   // reason is carried deterministically rather than left to the caller.
   if (NON_PRODUCING_SET.has(executionState as string)) {
-    if (input["match_state"] !== "UNKNOWN") {
-      reasons.push(
-        `execution state ${String(executionState)} produced no match and may not report one`,
-      );
-    }
     const requiredReason =
       SENTRDEL_EXECUTION_STATE_LOSS_REASON[executionState as string];
     if (requiredReason !== undefined && !lossReasons.includes(requiredReason)) {
@@ -1325,6 +1351,25 @@ export function assertSentrdelSastInvariantsV1(
     observation.provenance.producer_id === null
   ) {
     reasons.push("COMPLETE provenance must carry a producer identity");
+  }
+  // A structural observation is unattributable without resolvable provenance,
+  // matching the canonical T04 rule for its claim class.
+  if (
+    REQUIRES_RESOLVABLE_PROVENANCE.has(observation.claim_class) &&
+    (observation.provenance.state === "ABSENT" ||
+      observation.provenance.state === "UNRESOLVED")
+  ) {
+    reasons.push(
+      `claim class ${observation.claim_class} requires resolvable provenance`,
+    );
+  }
+  // Only an executed capability may report a match. AVAILABLE is admitted but
+  // not yet run, so it is equally incapable of having produced one.
+  if (
+    observation.execution_state !== "EXECUTED" &&
+    observation.match_state !== "UNKNOWN"
+  ) {
+    reasons.push("a non-executing capability must never report a match");
   }
 
   const record = observation as unknown as Record<string, unknown>;
