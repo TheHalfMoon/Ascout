@@ -1417,6 +1417,75 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     }
   });
 
+  it("regression: no declared negative on either gate is unasserted", () => {
+    // Found by the exact-head T08 reviews. An invariant negative that the gate
+    // never reads is a decorative guard: it is literal-false at the type level,
+    // but the gate is the only structural enforcement and is invoked on objects
+    // whose shape is only compile-time checked. This test enumerates every boolean
+    // member of a real record of each kind, flips it to true, and requires the
+    // corresponding gate to report it.
+    function collectBooleans(
+      value: unknown,
+      prefix: string,
+      acc: string[],
+      depth: number,
+    ): void {
+      if (depth > 1 || typeof value !== "object" || value === null) return;
+      for (const [key, member] of Object.entries(value as Record<string, unknown>)) {
+        if (typeof member === "boolean") {
+          acc.push(`${prefix}${key}`);
+        } else {
+          collectBooleans(member, `${prefix}${key}.`, acc, depth + 1);
+        }
+      }
+    }
+    function setPath(target: Record<string, unknown>, path: string, next: unknown): void {
+      const parts = path.split(".");
+      let cursor = target;
+      for (let index = 0; index < parts.length - 1; index += 1) {
+        cursor = cursor[parts[index] as string] as Record<string, unknown>;
+      }
+      cursor[parts[parts.length - 1] as string] = next;
+    }
+    function readPath(source: unknown, path: string): boolean {
+      let cursor = source as Record<string, unknown>;
+      for (const part of path.split(".")) {
+        cursor = cursor[part] as Record<string, unknown>;
+      }
+      return cursor as unknown as boolean;
+    }
+
+    // The SBOM gap: every negative must be load-bearing. Each boolean is flipped
+    // to the OPPOSITE of its real value, so a positive assertion such as
+    // `is_delta_only: true` is exercised by turning it false, not true.
+    const gap = buildSentrdelSbomGapV1();
+    const gapBooleans: string[] = [];
+    collectBooleans(gap, "", gapBooleans, 0);
+    expect(gapBooleans.length).toBeGreaterThan(0);
+    for (const path of gapBooleans) {
+      const mutated = structuredClone(gap) as Record<string, unknown>;
+      setPath(mutated, path, !readPath(gap, path));
+      expect(
+        assertSentrdelSbomInvariantsV1(mutated as never).ok,
+        `flipping ${path} on the sbom gap must be reported`,
+      ).toBe(false);
+    }
+
+    // The dependency observation: every boolean must be load-bearing too.
+    const observation = normalized();
+    const observationBooleans: string[] = [];
+    collectBooleans(observation, "", observationBooleans, 0);
+    expect(observationBooleans.length).toBeGreaterThan(0);
+    for (const path of observationBooleans) {
+      const mutated = structuredClone(observation) as Record<string, unknown>;
+      setPath(mutated, path, !readPath(observation, path));
+      expect(
+        assertSentrdelScaInvariantsV1(mutated as never).ok,
+        `flipping ${path} on the dependency observation must be reported`,
+      ).toBe(false);
+    }
+  });
+
   it("states the caller limitation budget after the frozen boundary is attached", () => {
     // Found by the exact-head Jev re-review. Attaching the frozen boundary to
     // every record silently reduced the caller-facing limitation budget, which

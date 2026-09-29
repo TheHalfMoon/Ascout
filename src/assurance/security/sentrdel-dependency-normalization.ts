@@ -1995,6 +1995,23 @@ export function assertSentrdelScaInvariantsV1(
   if (observation.identity.full_graph_claimed) {
     reasons.push("dependency identity must never claim a full graph");
   }
+  // The rule identity is preserved, never manufactured. A rule is either present
+  // and pinned, or explicitly absent; the two must agree, so a hand-built record
+  // cannot claim a pinned rule with no rule id.
+  if (
+    observation.rule.rule_id_is_pinned !==
+    (observation.rule.rule_id !== null && observation.rule.rule_resolution === "PRESENT")
+  ) {
+    reasons.push(
+      "a dependency observation must bind a pinned rule exactly when a rule identity is present",
+    );
+  }
+  if (observation.rule.rule_resolution === "PRESENT" && observation.rule.rule_id === null) {
+    reasons.push("a PRESENT rule resolution must carry a rule identity");
+  }
+  if (observation.rule.rule_resolution === "ABSENT" && observation.rule.rule_id !== null) {
+    reasons.push("an ABSENT rule resolution must not carry a rule identity");
+  }
   if (observation.inventory_complete) {
     reasons.push("dependency normalization must never prove a complete inventory");
   }
