@@ -724,12 +724,46 @@ const NO_KNOWN_VULNERABILITY_PATTERN = new RegExp(
   // ADVISORY_STALE != NO_KNOWN_VULNERABILITY, and it is reachable in free text
   // with a short intervening noun ("no known dependency vulnerabilities").
   //
-  // The intervening filler is deliberately BOUNDED to a few word characters: an
-  // unbounded filler would let an innocent "no" early in a sentence reach an
-  // unrelated "vulnerabilit" many words later, which is a false positive on honest
-  // text. Three word characters covers "known" and a short qualifier while
-  // refusing to scan a whole clause.
-  "(?<![A-Za-z0-9_])no(?![A-Za-z0-9_])[A-Za-z0-9_ -]{0,24}vulnerabilit(?:y|ies)(?![A-Za-z0-9_])",
+  // It is matched by STEM rather than by whole word, because the claim is
+  // routinely abbreviated in exactly the forms a whole-word list misses:
+  // "vulns", "cve-free", "vuln-free", "zero known vulnerabilities". Matching the
+  // stem "vulnerab" catches every one of those. The intervening filler is
+  // BOUNDED to a few word characters so an innocent "no" early in a sentence
+  // cannot reach an unrelated "vulnerab" many words later. The stem covers both
+  // the long and the abbreviated spellings ("vulnerability", "vulns", "vuln-free")
+  // because a whole-word list misses the abbreviations, which are exactly the forms
+  // a caller reaches for. The trailing check is a LOOKAHEAD ONLY: the stem is a
+  // prefix of longer words, so a hard character boundary would reject the very
+  // forms being matched.
+  "(?<![A-Za-z0-9_])(?:no|zero|none|nil|never)(?![A-Za-z0-9_])[A-Za-z0-9_ -]{0,24}vuln?(?:erab)?",
+  "iu",
+);
+
+/**
+ * A CVE claim with no scope: "cve-free", "no cve", "no cves".
+ *
+ * A T08 delta observation can never prove the absence of a CVE across a
+ * repository, so any unqualified CVE-absence claim is promoted by definition. Two
+ * shapes are matched, because both are natural to write and neither implies any
+ * evidence: a leading negator ("no cve", "zero cves") and a trailing "free" that
+ * is separated rather than hyphen-joined ("cve free", "cve-free"). The separator
+ * class admits a hyphen so the hyphen-joined form is caught too.
+ */
+const CVE_ABSENCE_PATTERN = new RegExp(
+  "(?:(?<![A-Za-z0-9_])(?:no|zero|none|without)(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,12}cves?|(?<![A-Za-z0-9_])cves?[A-Za-z0-9_\\u2010-\\u2015 -]{0,4}free(?![A-Za-z0-9_]))",
+  "iu",
+);
+
+/**
+ * A "free of vulnerability" claim in either spelling: "vuln-free",
+ * "vulnerability-free", "vuln free".
+ *
+ * Same reasoning as the CVE pattern: a T08 delta observation can never prove that
+ * a dependency is free of a class of problem, so the claim is promoted by
+ * construction and must not be admitted into a reader-facing record.
+ */
+const VULNERABILITY_FREE_PATTERN = new RegExp(
+  "(?<![A-Za-z0-9_])vuln?(?:erabilit(?:y|ies))?[A-Za-z0-9_\\u2010-\\u2015 -]{0,4}free(?![A-Za-z0-9_])",
   "iu",
 );
 
@@ -749,7 +783,11 @@ export function assertsPromotedCoverageOrSafety(value: string): boolean {
   // A "no known vulnerabilities" claim is rejected on its own: it asserts an
   // ABSENCE of risk, which is precisely the ADVISORY_STALE !=
   // NO_KNOWN_VULNERABILITY violation, and a negator must not excuse it.
-  if (NO_KNOWN_VULNERABILITY_PATTERN.test(value)) {
+  if (
+    NO_KNOWN_VULNERABILITY_PATTERN.test(value) ||
+    CVE_ABSENCE_PATTERN.test(value) ||
+    VULNERABILITY_FREE_PATTERN.test(value)
+  ) {
     return true;
   }
   if (!NOUN_PATTERN.test(value) && !ADJECTIVE_PATTERN.test(value)) {

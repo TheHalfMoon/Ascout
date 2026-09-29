@@ -1543,6 +1543,24 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       "no issues",
       "comprehensive scan",
       "exhaustive coverage",
+      "no vulns",
+      "cve-free",
+      "vuln-free",
+      "vulnerability free",
+      "zero known vulnerabilities",
+      "no vulns in the delta",
+      "cve free",
+      "risk eliminated",
+      "breach ruled out",
+      "proof provided",
+      "guarantee given",
+      "graph resolved",
+      "inventory proven",
+      "all dependencies verified",
+      "complete dependency graph",
+      "not affected but all dependencies scanned",
+      "coverage is unknown. all good",
+      "secrets exposed check complete",
     ]) {
       const result = validateSentrdelScaInputV1(input({ limitations: [claim] }));
       expect(result.valid, `"${claim}" must be rejected`).toBe(false);
@@ -1564,6 +1582,11 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       "graph is not resolved",
       "sbom is unavailable",
       "coverage is partial",
+      "no advisory data was available",
+      "credentials are not validated",
+      "no secrets were persisted",
+      "transitive graph not resolved",
+      "secrets-changed delta only",
     ]) {
       expect(
         validateSentrdelScaInputV1(input({ limitations: [honest] })).valid,
