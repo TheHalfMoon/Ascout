@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UA-P06-T04 — Sentrdel external evidence normalization.
  *
  * Central invariant: EXTERNAL OUTPUT NEVER SELF-ATTESTS.
@@ -868,17 +868,19 @@ function normalizeLocation(
   }
   const start = location.start_line;
   const end = location.end_line;
-  const state: SentrdelObservationResolutionStateV1 =
-    location.path.length === 0
-      ? "ABSENT"
-      : start === null && end === null
-        ? "PARTIAL"
-        : start !== null && end !== null
-          ? "PRESENT"
-          : "PARTIAL";
+  const hasPath = location.path.length > 0;
+  const hasBothLines = start !== null && end !== null;
+  // A location is only PRESENT when a path and both line bounds were produced.
+  // Anything less stays explicitly PARTIAL rather than being invented upward.
+  let state: SentrdelObservationResolutionStateV1 = "PARTIAL";
+  if (!hasPath) {
+    state = "ABSENT";
+  } else if (hasBothLines) {
+    state = "PRESENT";
+  }
   return Object.freeze({
     state,
-    path: location.path.length === 0 ? null : location.path,
+    path: hasPath ? location.path : null,
     start_line: start,
     end_line: end,
   });
