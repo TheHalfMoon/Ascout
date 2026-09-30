@@ -1510,6 +1510,14 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       "no secrets were persisted",
       "transitive graph not resolved",
       "secrets-changed delta only",
+      // The module's own boundary statements are written as DENIALS of the claims
+      // they name, so a caller quoting them verbatim must not be flagged either.
+      "ADVISORY_STALE != NO_KNOWN_VULNERABILITY",
+      "SECURITY_PASS != SUPPORTED_CLAIM",
+      "SBOM_UNPROVEN != CLEAN",
+      "DELTA_ONLY != FULL_GRAPH",
+      "no proof of exploitability was produced",
+      "clean corpus metadata is not evidence of safety",
     ]) {
       expect(
         detectPromotedClaimInStrings([honest]),

@@ -1699,7 +1699,26 @@ export function validateSentrdelScaInputV1(
 }
 
 /**
+ * An explicit denial operator, which negates the claim it sits next to.
+ *
+ * A canonical boundary statement is written as a denial: "ADVISORY_STALE !=
+ * NO_KNOWN_VULNERABILITY", "SECURITY_PASS != SUPPORTED_CLAIM". Treating `!=` as
+ * ordinary text made such a statement read as a promoted claim, which is a false
+ * annotation on an advisory field. A denial operator anywhere in the string
+ * therefore exempts it, which is the opposite failure mode to the clause-scoped
+ * negation below: here the operator unambiguously denies what it names, so a
+ * single string-wide test is correct and not evasable.
+ */
+const DENIAL_OPERATOR_PATTERN = new RegExp(
+  "(?:!=|!==|≠|<>|(?<![A-Za-z0-9_])(?:is|are|was|were|does|do|did)(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,6}(?<![A-Za-z0-9_])not(?![A-Za-z0-9_])|(?<![A-Za-z0-9_])no(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,8}(?<![A-Za-z0-9_])proof(?![A-Za-z0-9_])|(?<![A-Za-z0-9_])not(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,8}(?<![A-Za-z0-9_])evidence(?![A-Za-z0-9_]))",
+  "iu",
+);
+
+/**
  * Derive whether any caller-supplied persisted string asserts a promoted claim.
+ *
+ * An explicit denial operator exempts the string outright, because a canonical
+ * boundary statement is written as a denial of the very claim it names.
  *
  * This is a RECORDED FACT, not an authority grant and not a rejection. It exists
  * so a downstream reader can see that a persisted string made a promoted
@@ -1711,6 +1730,11 @@ export function detectPromotedClaimInStrings(
   values: readonly string[],
 ): boolean {
   return values.some((value) => {
+    // An explicit denial operator exempts the string: a canonical boundary
+    // statement is WRITTEN as a denial of the claim it names.
+    if (DENIAL_OPERATOR_PATTERN.test(value)) {
+      return false;
+    }
     if (PHRASE_PATTERN.test(value)) {
       return true;
     }
