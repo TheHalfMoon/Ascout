@@ -1573,6 +1573,34 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     for (const frozen of SENTRDEL_SCA_KNOWN_LIMITATIONS) {
       expect(normalized().limitations).toContain(frozen);
     }
+    // A SYMBOLIC denial operator negates only what FOLLOWS it, so a claim written
+    // BEFORE a trailing operator is still recorded. This is the asymmetric rule
+    // that the previous segment-splitting attempt failed to actually implement.
+    for (const smuggled of [
+      "inventory is complete, this != a claim",
+      "all dependencies scanned != true but it was scanned",
+      "coverage is complete <> a disclaimer",
+      "full graph ≠ a denial",
+      "total coverage !== whatever you say",
+    ]) {
+      expect(
+        detectPromotedClaimInStrings([smuggled]),
+        `"${smuggled}" must be flagged: text before a denial operator is asserted`,
+      ).toBe(true);
+    }
+    // ...while a canonical boundary statement, which asserts nothing before its
+    // operator, is still correctly read as a pure denial.
+    for (const boundary of [
+      "ADVISORY_STALE != NO_KNOWN_VULNERABILITY",
+      "SECURITY_PASS != SUPPORTED_CLAIM",
+      "DELTA_ONLY != FULL_GRAPH",
+      "SBOM_UNPROVEN ≠ CLEAN",
+    ]) {
+      expect(
+        detectPromotedClaimInStrings([boundary]),
+        `"${boundary}" asserts nothing before its operator and must not be flagged`,
+      ).toBe(false);
+    }
     // The module's OWN frozen boundary is not flagged, because it names claims in
     // order to deny them. A default record therefore carries no detected claim.
     const plain = normalized();

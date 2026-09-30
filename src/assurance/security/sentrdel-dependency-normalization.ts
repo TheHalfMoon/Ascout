@@ -418,10 +418,20 @@ export interface SentrdelScaObservationV1 {
    * True means some caller-supplied persisted string matched a shape this module
    * associates with a promoted claim, even though this record's structural state
    * denies it. The name deliberately says "shaped text" rather than "claim
-   * detected", because the measurement is imprecise in BOTH directions: it can
-   * miss an evasion ("repository is not vulnerable, all dependencies scanned", where
-   * a bare comma does not begin a new clause) and it can flag honest text. Chasing
-   * either to zero is an unwinnable arms race, and it was measured as such.
+   * detected", because the measurement is imprecise in BOTH directions.
+   *
+   * The KNOWN RESIDUAL IMPRECISIONS, stated rather than left to be discovered:
+   *   - A BARE COMMA does not begin a clause, so a prose denial can still mask a
+   *     claim joined to it by one.
+   *   - A COMMA-LESS coordinating conjunction ("graph is not resolved and inventory
+   *     complete") is not a clause boundary either.
+   *   - NEGATOR_PATTERN is broad, so a stray "only", "limited" or "partial" in a
+   *     clause exempts that clause from the noun sweep.
+   * Every one of these is confined to this field. Each leaves the string admitted
+   * and unflagged, and none of them can promote anything, because the structural
+   * negatives deny the claim on their own and caller text carries no authority.
+   * Chasing any of them to zero is an unwinnable arms race, so they are accepted,
+   * recorded, and bounded rather than hidden.
    *
    * Therefore NOTHING depends on this field. The load-bearing controls are the
    * literal-false structural negatives and the vocabulary-membership checks,
@@ -1738,17 +1748,25 @@ export function validateSentrdelScaInputV1(
 }
 
 /**
- * An explicit denial operator, which negates the claim it sits next to.
+ * A PROSE denial operator, which negates the clause it sits in.
  *
- * A canonical boundary statement is written as a denial: "ADVISORY_STALE !=
- * NO_KNOWN_VULNERABILITY", "SECURITY_PASS != SUPPORTED_CLAIM". Treating `!=` as
- * ordinary text made such a statement read as a promoted claim, which is a false
- * annotation on an advisory field.
+ * A canonical boundary statement is written as a denial: "no proof of
+ * exploitability was produced", "clean corpus metadata is not evidence of safety".
+ * Treating such text as a claim was a false annotation on an advisory field.
+ *
+ * The SYMBOLIC operators (`!=`, `!==`, `≠`, `<>`) are deliberately NOT members of
+ * this pattern. They are handled by splitting, not by exemption: an operator denies
+ * only what FOLLOWS it, whereas a clause-wide exemption also excuses whatever
+ * precedes it. Folding them in here is what previously made the segment split
+ * unreachable dead code.
  */
-const DENIAL_OPERATOR_PATTERN = new RegExp(
-  "(?:!=|!==|≠|<>|(?<![A-Za-z0-9_])(?:is|are|was|were|does|do|did)(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,6}(?<![A-Za-z0-9_])not(?![A-Za-z0-9_])|(?<![A-Za-z0-9_])no(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,8}(?<![A-Za-z0-9_])proof(?![A-Za-z0-9_])|(?<![A-Za-z0-9_])not(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,8}(?<![A-Za-z0-9_])evidence(?![A-Za-z0-9_]))",
+const PROSE_DENIAL_PATTERN = new RegExp(
+  "(?<![A-Za-z0-9_])(?:is|are|was|were|does|do|did)(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,6}(?<![A-Za-z0-9_])not(?![A-Za-z0-9_])|(?<![A-Za-z0-9_])no(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,8}(?<![A-Za-z0-9_])proof(?![A-Za-z0-9_])|(?<![A-Za-z0-9_])not(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,8}(?<![A-Za-z0-9_])evidence(?![A-Za-z0-9_])",
   "iu",
 );
+
+/** A symbolic denial operator. Whatever follows one is denied, not asserted. */
+const SYMBOLIC_DENIAL_SPLIT = /(?:!==|!=|≠|<>)/u;
 
 /**
  * Split a string into assertion clauses.
@@ -1775,18 +1793,18 @@ function splitClauses(value: string): readonly string[] {
 }
 
 /**
- * Split a clause at a symbolic denial operator.
+ * Split a clause at its FIRST symbolic denial operator.
  *
- * A trailing `!=` otherwise exempts the WHOLE clause, so appending ", this != a
- * claim" defeated detection for a claim stated earlier in the same clause. The
- * symbolic operators are therefore their own boundary, while the prose denial
- * branches ("no ... proof", "not ... evidence") stay in the clause they describe.
+ * Only the text BEFORE the operator is asserted; everything after it is the thing
+ * being denied. That asymmetry is the whole point, and it is what makes a trailing
+ * operator unable to smuggle a claim: "inventory is complete, this != a claim"
+ * still asserts "inventory is complete" and is flagged, while the canonical
+ * boundary statement "ADVISORY_STALE != NO_KNOWN_VULNERABILITY" asserts nothing
+ * before its operator and is correctly read as a pure denial.
  */
-function splitOnDenialOperator(clause: string): readonly string[] {
-  return clause
-    .split(/(?:!==|!=|≠|<>)/u)
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
+function assertableTextBeforeDenialOperator(clause: string): string {
+  const boundary = SYMBOLIC_DENIAL_SPLIT.exec(clause);
+  return boundary === null ? clause : clause.slice(0, boundary.index);
 }
 
 /**
@@ -1810,37 +1828,33 @@ export function detectPromotedClaimInStrings(
 ): boolean {
   return values.some((value) => {
     for (const clause of splitClauses(value)) {
-      // A prose denial ("no proof of", "is not", "not evidence") exempts its whole
-      // clause. A SYMBOLIC denial operator is narrower: it exempts only the segment
-      // it sits in, so a claim stated beside it is still recorded.
-      const proseDenial = DENIAL_OPERATOR_PATTERN.test(clause);
-      const segments = proseDenial ? [clause] : splitOnDenialOperator(clause);
-      for (const clauseSegment of segments) {
-        if (DENIAL_OPERATOR_PATTERN.test(clauseSegment)) {
-          continue;
-        }
-        if (PHRASE_PATTERN.test(clauseSegment)) {
-          return true;
-        }
-        if (
-          NO_KNOWN_VULNERABILITY_PATTERN.test(clauseSegment) ||
-          CVE_ABSENCE_PATTERN.test(clauseSegment) ||
-          VULNERABILITY_FREE_PATTERN.test(clauseSegment)
-        ) {
-          return true;
-        }
-        if (ESCALATION_PATTERN.test(clauseSegment)) {
-          return true;
-        }
-        if (
-          ATTESTATION_PATTERN_CI.test(clauseSegment) &&
-          !NEGATOR_PATTERN.test(clauseSegment)
-        ) {
-          return true;
-        }
-        if (assertsPromotedCoverageOrSafety(clauseSegment)) {
-          return true;
-        }
+      // A PROSE denial ("no proof of", "is not", "not evidence") negates the whole
+      // clause it appears in, so the clause is exempt outright.
+      if (PROSE_DENIAL_PATTERN.test(clause)) {
+        continue;
+      }
+      // A SYMBOLIC denial operator is narrower: it negates only what FOLLOWS it.
+      // Only the text before it is asserted, so a claim written before a trailing
+      // operator is still recorded.
+      const asserted = assertableTextBeforeDenialOperator(clause);
+      if (PHRASE_PATTERN.test(asserted)) {
+        return true;
+      }
+      if (
+        NO_KNOWN_VULNERABILITY_PATTERN.test(asserted) ||
+        CVE_ABSENCE_PATTERN.test(asserted) ||
+        VULNERABILITY_FREE_PATTERN.test(asserted)
+      ) {
+        return true;
+      }
+      if (ESCALATION_PATTERN.test(asserted)) {
+        return true;
+      }
+      if (ATTESTATION_PATTERN_CI.test(asserted) && !NEGATOR_PATTERN.test(asserted)) {
+        return true;
+      }
+      if (assertsPromotedCoverageOrSafety(asserted)) {
+        return true;
       }
     }
     return false;
