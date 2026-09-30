@@ -575,11 +575,13 @@ const MAX_LOSS_REASONS = 32;
 const MAX_OBSERVATIONS = 512;
 
 /**
- * Every emitted record carries the whole frozen T08 truth boundary, so the
- * caller-facing budget for its own limitations is what remains of the canonical
- * cap. This is stated explicitly rather than left to be discovered, because
- * silently tightening a documented bound is how a later caller ends up with a
- * mysterious rejection.
+ * The caller-facing budget for its own limitations.
+ *
+ * Every emitted record also carries the whole frozen T08 truth boundary, so the
+ * canonical cap of 32 applies to the CALLER's entries only. Validating the caller
+ * array against the exported budget rather than against the raw cap is what makes
+ * the constant describe the bound it claims to describe, instead of leaving a
+ * caller to discover a "mysterious rejection" later.
  */
 export const SENTRDEL_SCA_CALLER_LIMITATION_BUDGET =
   MAX_LIMITATIONS - SENTRDEL_SCA_KNOWN_LIMITATIONS.length;
@@ -1453,7 +1455,7 @@ export function validateSentrdelScaInputV1(
     input["limitations"],
     "limitations",
     isBoundedText,
-    MAX_LIMITATIONS,
+    SENTRDEL_SCA_CALLER_LIMITATION_BUDGET,
     reasons,
   );
   if (limitations.length === 0) {
@@ -1700,6 +1702,34 @@ export function validateSentrdelScaInputV1(
   // vocabulary-membership checks, which are not lexical and cannot be evaded by
   // wording. A detected promoted claim is surfaced as a recorded fact for a
   // downstream reader, not silently trusted and not used to reject a scan.
+  // CallER text only. The frozen boundary is subtracted rather than scanned,
+  // because those statements are canonical text this module authors and several
+  // of them deliberately NAME a claim in order to DENY it ("UNKNOWN != PASS").
+  const callerText = limitations.filter(
+    (limitation) => !FROZEN_SCA_LIMITATION_SET.has(limitation),
+  );
+
+  // Two CLOSED-VOCABULARY rejections, restored deliberately.
+  //
+  // The fuzzy prose inference (claim-shape nouns, adjectives, phrases) is an
+  // advisory annotation only, because it was measured to be unsound. These two are
+  // different in kind: each matches a FINITE canonical token list with no negator
+  // exemption, so neither can misfire on honest prose. They therefore remain HARD
+  // REJECTIONS, which is also what canonical T04 does and what T06 and T07 do.
+  // Dropping them would have silently forked the frozen T04 boundary.
+  scanStrings(
+    callerText,
+    containsExternalAttestationV1,
+    "dependency input must never self-attest",
+    reasons,
+  );
+  scanStrings(
+    callerText,
+    (value) => ESCALATION_PATTERN.test(value),
+    "dependency input must not carry a vulnerability, exploitability, reachability, or safety claim",
+    reasons,
+  );
+
   return {
     schema_version: 1,
     valid: reasons.length === 0,
@@ -1731,17 +1761,32 @@ const DENIAL_OPERATOR_PATTERN = new RegExp(
  */
 function splitClauses(value: string): readonly string[] {
   return value
-    // A plain hyphen is NOT a clause boundary: hyphens BIND words, so splitting on
-    // them would tear apart exactly the tokens the sweep needs to see intact,
-    // such as "cve-free", "vulnerability-free", and "no-known-vulnerabilities".
+    // A dash of ANY kind is NOT a clause boundary, not just a plain hyphen. The
+    // separator-flexible patterns deliberately admit en and em dashes, so treating
+    // them as boundaries here would tear apart exactly the tokens those patterns
+    // exist to catch, such as "cve-free" and "cve—free".
     //
-    // `!` is a boundary only when it is NOT the start of `!=`, because the `!` in
-    // a canonical boundary statement like "ADVISORY_STALE != NO_KNOWN_VULNERABILITY"
-    // is part of the denial operator, not a sentence terminator. Splitting there
-    // tore the operator in half and made the statement read as a claim.
-    .split(/[.;?\n\u2014\u2013]+|!(?!=)|,\s*(?:and|but|so|then|yet)\s+/u)
+    // `!` is a boundary only when it does NOT begin `!=`, because the `!` in a
+    // canonical boundary statement like "ADVISORY_STALE != NO_KNOWN_VULNERABILITY"
+    // is part of the denial operator, not a sentence terminator.
+    .split(/[.;?\n]+|!(?!=)|,\s*(?:and|but|so|then|yet)\s+/u)
     .map((clause) => clause.trim())
     .filter((clause) => clause.length > 0);
+}
+
+/**
+ * Split a clause at a symbolic denial operator.
+ *
+ * A trailing `!=` otherwise exempts the WHOLE clause, so appending ", this != a
+ * claim" defeated detection for a claim stated earlier in the same clause. The
+ * symbolic operators are therefore their own boundary, while the prose denial
+ * branches ("no ... proof", "not ... evidence") stay in the clause they describe.
+ */
+function splitOnDenialOperator(clause: string): readonly string[] {
+  return clause
+    .split(/(?:!==|!=|≠|<>)/u)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0);
 }
 
 /**
@@ -1765,32 +1810,37 @@ export function detectPromotedClaimInStrings(
 ): boolean {
   return values.some((value) => {
     for (const clause of splitClauses(value)) {
-      // A denial exempts only its OWN clause: a canonical boundary statement is
-      // WRITTEN as a denial of the claim it names.
-      if (DENIAL_OPERATOR_PATTERN.test(clause)) {
-        continue;
-      }
-      if (PHRASE_PATTERN.test(clause)) {
-        return true;
-      }
-      if (
-        NO_KNOWN_VULNERABILITY_PATTERN.test(clause) ||
-        CVE_ABSENCE_PATTERN.test(clause) ||
-        VULNERABILITY_FREE_PATTERN.test(clause)
-      ) {
-        return true;
-      }
-      if (ESCALATION_PATTERN.test(clause)) {
-        return true;
-      }
-      if (
-        ATTESTATION_PATTERN_CI.test(clause) &&
-        !NEGATOR_PATTERN.test(clause)
-      ) {
-        return true;
-      }
-      if (assertsPromotedCoverageOrSafety(clause)) {
-        return true;
+      // A prose denial ("no proof of", "is not", "not evidence") exempts its whole
+      // clause. A SYMBOLIC denial operator is narrower: it exempts only the segment
+      // it sits in, so a claim stated beside it is still recorded.
+      const proseDenial = DENIAL_OPERATOR_PATTERN.test(clause);
+      const segments = proseDenial ? [clause] : splitOnDenialOperator(clause);
+      for (const clauseSegment of segments) {
+        if (DENIAL_OPERATOR_PATTERN.test(clauseSegment)) {
+          continue;
+        }
+        if (PHRASE_PATTERN.test(clauseSegment)) {
+          return true;
+        }
+        if (
+          NO_KNOWN_VULNERABILITY_PATTERN.test(clauseSegment) ||
+          CVE_ABSENCE_PATTERN.test(clauseSegment) ||
+          VULNERABILITY_FREE_PATTERN.test(clauseSegment)
+        ) {
+          return true;
+        }
+        if (ESCALATION_PATTERN.test(clauseSegment)) {
+          return true;
+        }
+        if (
+          ATTESTATION_PATTERN_CI.test(clauseSegment) &&
+          !NEGATOR_PATTERN.test(clauseSegment)
+        ) {
+          return true;
+        }
+        if (assertsPromotedCoverageOrSafety(clauseSegment)) {
+          return true;
+        }
       }
     }
     return false;

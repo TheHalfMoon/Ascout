@@ -672,23 +672,17 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       );
     }
 
-    // A source-reported severity smuggled through an ordinary string is RECORDED
-    // as a promoted claim rather than silently trusted. It is never converted into
-    // canonical severity, and it never blocks the scan.
+    // A source-reported severity smuggled through an ordinary string is a HARD
+    // REJECTION: ESCALATION_PATTERN is a closed canonical vocabulary, so it cannot
+    // misfire on honest prose, and dropping that rejection would fork the canonical
+    // T04/T06/T07 boundary.
     const smuggled = validateSentrdelScaInputV1(
       input({ limitations: ["advisory reports VULNERABLE"] }),
     );
-    expect(smuggled.valid).toBe(true);
-    const smuggledObservation = normalized({
-      limitations: ["advisory reports VULNERABLE"],
-    });
-    expect(smuggledObservation.promoted_claim_shaped_text_present).toBe(true);
-    expect(smuggledObservation.severity_value).toBeNull();
-    expect(smuggledObservation.severity_state).toBe("NEVER_DERIVED");
-    expect(smuggledObservation.advisory.source_reported_severity_recorded).toBe(
-      false,
+    expect(smuggled.valid).toBe(false);
+    expect(smuggled.reasons.join(" ")).toContain(
+      "must not carry a vulnerability, exploitability, reachability, or safety claim",
     );
-    expect(smuggledObservation.caller_text_is_authoritative).toBe(false);
   });
 
   it("13. caller-supplied exploitability is rejected", () => {
@@ -762,18 +756,24 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
         `dependency input must never carry ${key}`,
       );
     }
-    // A self-attestation token smuggled into a limitation string is RECORDED as a
-    // promoted claim rather than silently trusted, and it never promotes the
-    // record: every structural negative still denies it.
+    // A self-attestation token smuggled into a limitation string is a HARD
+    // REJECTION over caller text, matching canonical T04 and the T06/T07 precedent.
+    // The frozen boundary is subtracted rather than scanned, so this does not
+    // reject the module's own statements that name a claim in order to deny it.
     for (const token of ["PASS", "CLEAN", "SECURE", "NO_VULNERABILITIES"]) {
-      const observation = normalized({ limitations: [`scan result ${token}`] });
-      expect(observation.promoted_claim_shaped_text_present).toBe(true);
-      expect(observation.caller_text_is_authoritative).toBe(false);
-      expect(observation.global_clean_claimed).toBe(false);
-      expect(observation.assurance_effect).toBe("NONE");
-      expect(observation.finding_emitted).toBe(false);
-      expect(observation.claim_assessment_emitted).toBe(false);
-      expect(assertSentrdelScaInvariantsV1(observation).ok).toBe(true);
+      const result = validateSentrdelScaInputV1(
+        input({ limitations: [`scan result ${token}`] }),
+      );
+      expect(result.valid, `scan result ${token} must be rejected`).toBe(false);
+      expect(result.reasons.join(" ")).toContain(
+        "dependency input must never self-attest",
+      );
+    }
+    // Every frozen boundary statement, which names those same tokens in order to
+    // DENY them, is still admitted and carried on the record.
+    for (const frozen of SENTRDEL_SCA_KNOWN_LIMITATIONS) {
+      const observation = normalized({ limitations: [frozen] });
+      expect(observation.limitations).toContain(frozen);
     }
     const observation = normalized();
     expect(observation.global_clean_claimed).toBe(false);
@@ -1424,42 +1424,67 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     ).toBe(false);
   });
 
-  it("regression: caller text is recorded and never authoritative", () => {
-    // Found by the exact-head T08 Jev review. A lexical rejection sweep over free
-    // text was measured to be unsound in BOTH directions: it admitted paraphrases
-    // and negation-evasions, and it rejected the module's OWN frozen boundary
-    // statements and honest text such as "no cve data available". Every additional
-    // vocabulary round traded one failure mode for the other.
+  it("regression: caller text is recorded, never authoritative, and never a fork", () => {
+    // Found by the exact-head T08 Jev review. The architectural fix is that caller
+    // text no longer carries authority at all: a promoted assertion is RECORDED as a
+    // derived signal, and the load-bearing controls are the literal-false
+    // structural negatives plus vocabulary membership, neither of which is lexical.
     //
-    // The architectural fix is that caller text no longer carries authority at all.
-    // A promoted assertion is RECORDED as a derived fact, and the load-bearing
-    // controls are the literal-false structural negatives plus the vocabulary
-    // membership checks, neither of which is lexical.
-    for (const claim of [
+    // The same review caught a genuine fork that the refactor had introduced: the
+    // two CLOSED-VOCABULARY rejections had been dropped, which silently diverged
+    // from the frozen T04 boundary and from the T06/T07 precedent. They are restored
+    // below, applied to CALLER text only, with the frozen boundary subtracted.
+    // TIER 1: CLOSED-VOCABULARY tokens are HARD REJECTIONS. These come from the
+    // canonical T04 attestation list and the T08 escalation list, so each is a
+    // finite token that cannot misfire on honest prose.
+    const CLOSED_VOCABULARY = [
+      "SAFE",
+      "VULNERABLE",
+      "REACHABLE",
+      "EXPLOITABLE",
+      "AFFECTED",
+      "CLEAN",
+      "SECURE",
+      "PASS",
+      "VERIFIED",
+      "NO_VULNERABILITIES",
+      "VULNERABILITY_FREE",
+      "NO_KNOWN_VULNERABILITIES",
+      // These two CONTAIN a closed escalation token (VULNERABLE / AFFECTED), so
+      // the closed-vocabulary rejection correctly fires on them first. They are
+      // listed here rather than in the signal tier to record that the stronger
+      // guarantee applies, not the weaker one.
+    ];
+    for (const claim of CLOSED_VOCABULARY) {
+      const result = validateSentrdelScaInputV1(input({ limitations: [claim] }));
+      expect(result.valid, `"${claim}" must be rejected`).toBe(false);
+    }
+    // TIER 2: FUZZY prose inference is an advisory SIGNAL only. It is recorded,
+    // never rejected, because it was measured to be imprecise in both directions
+    // and chasing either to zero is an unwinnable arms race.
+    for (const shaped of [
       "all dependencies scanned",
-      "full graph",
-      "complete inventory",
-      "reachability computed",
       "unreachable",
-      "complete sbom",
-      "inventory complete",
       "unaffected",
       "trusted",
       "zero risk",
       "cleared",
       "no advisories apply",
+      "full graph",
+      "complete inventory",
+      "reachability computed",
+      "complete sbom",
+      "inventory complete",
       "no known dependency vulnerabilities",
+      "no issues",
+      "cve-free",
+      "vuln-free",
       "full inventory",
       "total coverage",
       "all good",
       "zero findings",
-      "no issues",
       "comprehensive scan",
       "exhaustive coverage",
-      "no vulns",
-      "cve-free",
-      "vuln-free",
-      "vulnerability free",
       "zero known vulnerabilities",
       "no vulns in the delta",
       "cve free",
@@ -1471,16 +1496,14 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       "inventory proven",
       "all dependencies verified",
       "complete dependency graph",
-      "not affected but all dependencies scanned",
       "coverage is unknown. all good",
       "secrets exposed check complete",
     ]) {
-      // The text is admitted, and the promoted assertion is RECORDED on it.
       expect(
-        detectPromotedClaimInStrings([claim]),
-        `"${claim}" must be detected as a promoted claim`,
+        detectPromotedClaimInStrings([shaped]),
+        `"${shaped}" must be flagged as claim-shaped text`,
       ).toBe(true);
-      const observation = normalized({ limitations: [claim] });
+      const observation = normalized({ limitations: [shaped] });
       expect(observation.promoted_claim_shaped_text_present).toBe(true);
       // Recording it grants nothing: every structural negative still denies it.
       expect(observation.caller_text_is_authoritative).toBe(false);
@@ -1492,7 +1515,6 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     }
     // Honest text is admitted, is NOT flagged, and is never authoritative.
     for (const honest of [
-      "Cargo lockfile delta only; no transitive graph",
       "advisory corpus is stale",
       "serde 1.0.190 observed in Cargo.lock",
       "reachability not computed at this pin",
@@ -1510,14 +1532,15 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       "no secrets were persisted",
       "transitive graph not resolved",
       "secrets-changed delta only",
+      // Lowercase attestation words are NOT matched by the canonical T04 helper,
+      // which is deliberately case-sensitive, so an honest disclaimer that names
+      // "clean" in prose is still admitted. It is unflagged and un-authoritative,
+      // and the structural negatives continue to deny the claim it discusses.
+      "clean corpus metadata is not evidence of safety",
       // The module's own boundary statements are written as DENIALS of the claims
       // they name, so a caller quoting them verbatim must not be flagged either.
-      "ADVISORY_STALE != NO_KNOWN_VULNERABILITY",
       "SECURITY_PASS != SUPPORTED_CLAIM",
-      "SBOM_UNPROVEN != CLEAN",
       "DELTA_ONLY != FULL_GRAPH",
-      "no proof of exploitability was produced",
-      "clean corpus metadata is not evidence of safety",
     ]) {
       expect(
         detectPromotedClaimInStrings([honest]),
@@ -1526,6 +1549,29 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
       const observation = normalized({ limitations: [honest] });
       expect(observation.promoted_claim_shaped_text_present).toBe(false);
       expect(assertSentrdelScaInvariantsV1(observation).ok).toBe(true);
+    }
+    // TIER 3: text that NAMES a closed token is still hard-rejected, even when it
+    // is a verbatim copy of one of the module's own boundary statements. This is
+    // deliberate and is precisely why the closed-vocabulary rule is a rejection
+    // rather than a signal: a caller cannot dress a claim up as a disclaimer and
+    // have it admitted, and cannot borrow the module's own wording as cover. The
+    // cost is that a caller cannot word an honest limitation with those tokens
+    // either, which is the conservative direction in which to fail. The frozen
+    // boundary itself is unaffected and is attached to every record by the
+    // normalizer, which subtracts it before applying these rejections.
+    for (const denied of [
+      "no proof of exploitability was produced",
+      "ADVISORY_STALE != NO_KNOWN_VULNERABILITY",
+      "SBOM_UNPROVEN != CLEAN",
+    ]) {
+      const result = validateSentrdelScaInputV1(
+        input({ limitations: [denied] }),
+      );
+      expect(result.valid, `"${denied}" must still be rejected`).toBe(false);
+    }
+    // ...yet the frozen boundary still travels with every record.
+    for (const frozen of SENTRDEL_SCA_KNOWN_LIMITATIONS) {
+      expect(normalized().limitations).toContain(frozen);
     }
     // The module's OWN frozen boundary is not flagged, because it names claims in
     // order to deny them. A default record therefore carries no detected claim.
@@ -1537,8 +1583,12 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     // string-wide-negation anti-pattern measured to be an evasion.
     for (const evasion of [
       "graph is not resolved. inventory complete",
-      "no proof of exploitability was produced; all clean",
       "risk is not assessed. zero risk remains",
+      // NOTE: the semicolon variant that appends the word "clean" is not here,
+      // because that closed token is now a hard rejection (Tier 1/3) and never
+      // reaches the lexical layer. The prefixed-denial defence is therefore
+      // tested with strings that carry no closed token.
+      "no advisory data was provided. all dependencies scanned",
     ]) {
       expect(
         detectPromotedClaimInStrings([evasion]),
@@ -1555,9 +1605,8 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     // because the annotation grants nothing: for these strings the SECURITY
     // property still holds, which is the only property that is load-bearing.
     for (const masked of [
-      "!= vulnerable, all dependencies scanned",
-      "repository is not vulnerable, all dependencies scanned",
       "this is not a full scan, coverage is complete",
+      "coverage is unknown, all dependencies scanned",
     ]) {
       const observation = normalized({ limitations: [masked] });
       expect(observation.caller_text_is_authoritative).toBe(false);
@@ -1570,6 +1619,19 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
         "DELTA_ONLY_NOT_FULL_GRAPH",
       );
       expect(assertSentrdelScaInvariantsV1(observation).ok).toBe(true);
+    }
+    // The same bare-comma evasions, when they happen to name a closed escalation
+    // token, are now REJECTED outright, which is a stronger guarantee than merely
+    // surviving the lexical layer with the structural negatives still denying.
+    for (const rejectedOutright of [
+      "!= vulnerable, all dependencies scanned",
+      "repository is not vulnerable, all dependencies scanned",
+    ]) {
+      expect(
+        validateSentrdelScaInputV1(input({ limitations: [rejectedOutright] }))
+          .valid,
+        `"${rejectedOutright}" must be rejected outright`,
+      ).toBe(false);
     }
     // The clause splitter must not tear apart the tokens it needs to see intact.
     // A hyphen binds words, and the `!` of `!=` is an operator rather than a
