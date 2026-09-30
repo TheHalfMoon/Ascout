@@ -682,7 +682,7 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     const smuggledObservation = normalized({
       limitations: ["advisory reports VULNERABLE"],
     });
-    expect(smuggledObservation.promoted_claim_detected).toBe(true);
+    expect(smuggledObservation.promoted_claim_shaped_text_present).toBe(true);
     expect(smuggledObservation.severity_value).toBeNull();
     expect(smuggledObservation.severity_state).toBe("NEVER_DERIVED");
     expect(smuggledObservation.advisory.source_reported_severity_recorded).toBe(
@@ -767,7 +767,7 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     // record: every structural negative still denies it.
     for (const token of ["PASS", "CLEAN", "SECURE", "NO_VULNERABILITIES"]) {
       const observation = normalized({ limitations: [`scan result ${token}`] });
-      expect(observation.promoted_claim_detected).toBe(true);
+      expect(observation.promoted_claim_shaped_text_present).toBe(true);
       expect(observation.caller_text_is_authoritative).toBe(false);
       expect(observation.global_clean_claimed).toBe(false);
       expect(observation.assurance_effect).toBe("NONE");
@@ -1382,7 +1382,7 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
     collectBooleans(observation, "", observationBooleans, 0);
     expect(observationBooleans.length).toBeGreaterThan(0);
     for (const path of observationBooleans) {
-      if (path === "promoted_claim_detected") {
+      if (path === "promoted_claim_shaped_text_present") {
         continue;
       }
       const mutated = structuredClone(observation) as Record<string, unknown>;
@@ -1481,7 +1481,7 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
         `"${claim}" must be detected as a promoted claim`,
       ).toBe(true);
       const observation = normalized({ limitations: [claim] });
-      expect(observation.promoted_claim_detected).toBe(true);
+      expect(observation.promoted_claim_shaped_text_present).toBe(true);
       // Recording it grants nothing: every structural negative still denies it.
       expect(observation.caller_text_is_authoritative).toBe(false);
       expect(observation.global_clean_claimed).toBe(false);
@@ -1524,25 +1524,79 @@ describe("UA-P06-T08 Sentrdel SCA / dependency / SBOM normalization", () => {
         `"${honest}" must not be flagged as a promoted claim`,
       ).toBe(false);
       const observation = normalized({ limitations: [honest] });
-      expect(observation.promoted_claim_detected).toBe(false);
+      expect(observation.promoted_claim_shaped_text_present).toBe(false);
       expect(assertSentrdelScaInvariantsV1(observation).ok).toBe(true);
     }
     // The module's OWN frozen boundary is not flagged, because it names claims in
     // order to deny them. A default record therefore carries no detected claim.
     const plain = normalized();
-    expect(plain.promoted_claim_detected).toBe(false);
+    expect(plain.promoted_claim_shaped_text_present).toBe(false);
     expect(plain.caller_text_is_authoritative).toBe(false);
+    // A denial operator exempts only its OWN clause. A denial prefixed to a smuggled
+    // claim must not suppress the annotation for the claim beside it, which is the
+    // string-wide-negation anti-pattern measured to be an evasion.
+    for (const evasion of [
+      "graph is not resolved. inventory complete",
+      "no proof of exploitability was produced; all clean",
+      "risk is not assessed. zero risk remains",
+    ]) {
+      expect(
+        detectPromotedClaimInStrings([evasion]),
+        `"${evasion}" must still be flagged despite the prefixed denial`,
+      ).toBe(true);
+      expect(
+        normalized({ limitations: [evasion] })
+          .promoted_claim_shaped_text_present,
+      ).toBe(true);
+    }
+    // The annotation is a best-effort lexical signal, and a BARE COMMA does not
+    // begin a clause, so a denial can still mask a claim joined to it by one. That
+    // imprecision is accepted rather than chased, and it is bounded precisely
+    // because the annotation grants nothing: for these strings the SECURITY
+    // property still holds, which is the only property that is load-bearing.
+    for (const masked of [
+      "!= vulnerable, all dependencies scanned",
+      "repository is not vulnerable, all dependencies scanned",
+      "this is not a full scan, coverage is complete",
+    ]) {
+      const observation = normalized({ limitations: [masked] });
+      expect(observation.caller_text_is_authoritative).toBe(false);
+      expect(observation.global_clean_claimed).toBe(false);
+      expect(observation.repository_clean_claimed).toBe(false);
+      expect(observation.inventory_complete).toBe(false);
+      expect(observation.coverage.repository_sca_complete).toBe(false);
+      expect(observation.coverage.is_full_graph).toBe(false);
+      expect(observation.coverage.dependency_coverage).toBe(
+        "DELTA_ONLY_NOT_FULL_GRAPH",
+      );
+      expect(assertSentrdelScaInvariantsV1(observation).ok).toBe(true);
+    }
+    // The clause splitter must not tear apart the tokens it needs to see intact.
+    // A hyphen binds words, and the `!` of `!=` is an operator rather than a
+    // sentence terminator.
+    for (const [intact, expected] of [
+      ["cve-free", true],
+      ["vulnerability free", true],
+      ["no-known-vulnerabilities", true],
+      ["ADVISORY_STALE != NO_KNOWN_VULNERABILITY", false],
+      ["SECURITY_PASS != SUPPORTED_CLAIM", false],
+    ] as const) {
+      expect(
+        detectPromotedClaimInStrings([intact]),
+        `"${intact}" must be evaluated as one intact token`,
+      ).toBe(expected);
+    }
     // A record cannot hide or manufacture the fact: the gate recomputes it.
     expect(
       assertSentrdelScaInvariantsV1({
         ...plain,
-        promoted_claim_detected: true,
+        promoted_claim_shaped_text_present: true,
       } as never).ok,
     ).toBe(false);
     expect(
       assertSentrdelScaInvariantsV1({
         ...normalized({ limitations: ["all dependencies scanned"] }),
-        promoted_claim_detected: false,
+        promoted_claim_shaped_text_present: false,
       } as never).ok,
     ).toBe(false);
     // Nor can it claim its own text is authoritative.

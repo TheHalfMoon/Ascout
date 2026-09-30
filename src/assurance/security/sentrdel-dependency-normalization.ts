@@ -413,15 +413,24 @@ export interface SentrdelScaObservationV1 {
   readonly evidence_content_persisted: false;
   readonly limitations: readonly string[];
   /**
-   * A RECORDED FACT, derived from the persisted strings, never an authority grant.
+   * A BEST-EFFORT lexical signal, not an authority grant and not a control.
    *
-   * True means some persisted string asserted a promoted claim even though this
-   * record's structural state denies it. It is recorded so a downstream reader
-   * sees the contradiction instead of being misled by the prose, and it is
-   * verified by the invariant gate. It grants nothing: the literal-false negatives
-   * remain the load-bearing control, and caller text can never promote a record.
+   * True means some caller-supplied persisted string matched a shape this module
+   * associates with a promoted claim, even though this record's structural state
+   * denies it. The name deliberately says "shaped text" rather than "claim
+   * detected", because the measurement is imprecise in BOTH directions: it can
+   * miss an evasion ("repository is not vulnerable, all dependencies scanned", where
+   * a bare comma does not begin a new clause) and it can flag honest text. Chasing
+   * either to zero is an unwinnable arms race, and it was measured as such.
+   *
+   * Therefore NOTHING depends on this field. The load-bearing controls are the
+   * literal-false structural negatives and the vocabulary-membership checks,
+   * neither of which is lexical and neither of which can be evaded by wording. This
+   * field exists so a downstream reader is not misled by prose, and both invariant
+   * gates require it to agree with a recomputation so it can be neither hidden nor
+   * manufactured.
    */
-  readonly promoted_claim_detected: boolean;
+  readonly promoted_claim_shaped_text_present: boolean;
   readonly caller_text_is_authoritative: false;
   readonly severity_state: SentrdelScaSeverityStateV1;
   readonly severity_value: null;
@@ -531,8 +540,8 @@ export interface SentrdelSbomGapV1 {
   readonly engine_tree: typeof SENTRDEL_PINNED_TREE;
   readonly engine_pin_ref: typeof SENTRDEL_PIN_REF;
   readonly limitations: readonly string[];
-  /** See the dependency observation: a recorded fact, never an authority grant. */
-  readonly promoted_claim_detected: boolean;
+  /** See the dependency observation: a best-effort lexical signal, never a control. */
+  readonly promoted_claim_shaped_text_present: boolean;
   readonly caller_text_is_authoritative: false;
   readonly authority: SentrdelScaAuthorityV1;
   readonly assurance_effect: "NONE";
@@ -1685,7 +1694,7 @@ export function validateSentrdelScaInputV1(
   // round traded one failure mode for the other.
   //
   // So caller text is admitted as DESCRIPTIVE metadata and the detection result is
-  // DERIVED and RECORDED on the record as `promoted_claim_detected`, where the
+  // DERIVED and RECORDED on the record as `promoted_claim_shaped_text_present`, where the
   // invariant gates verify it. Caller text therefore never grants authority: the
   // load-bearing controls are the literal-false structural negatives and the
   // vocabulary-membership checks, which are not lexical and cannot be evaded by
@@ -1704,10 +1713,7 @@ export function validateSentrdelScaInputV1(
  * A canonical boundary statement is written as a denial: "ADVISORY_STALE !=
  * NO_KNOWN_VULNERABILITY", "SECURITY_PASS != SUPPORTED_CLAIM". Treating `!=` as
  * ordinary text made such a statement read as a promoted claim, which is a false
- * annotation on an advisory field. A denial operator anywhere in the string
- * therefore exempts it, which is the opposite failure mode to the clause-scoped
- * negation below: here the operator unambiguously denies what it names, so a
- * single string-wide test is correct and not evasable.
+ * annotation on an advisory field.
  */
 const DENIAL_OPERATOR_PATTERN = new RegExp(
   "(?:!=|!==|≠|<>|(?<![A-Za-z0-9_])(?:is|are|was|were|does|do|did)(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,6}(?<![A-Za-z0-9_])not(?![A-Za-z0-9_])|(?<![A-Za-z0-9_])no(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,8}(?<![A-Za-z0-9_])proof(?![A-Za-z0-9_])|(?<![A-Za-z0-9_])not(?![A-Za-z0-9_])[A-Za-z0-9_\\u2010-\\u2015 -]{0,8}(?<![A-Za-z0-9_])evidence(?![A-Za-z0-9_]))",
@@ -1715,10 +1721,38 @@ const DENIAL_OPERATOR_PATTERN = new RegExp(
 );
 
 /**
+ * Split a string into assertion clauses.
+ *
+ * A clause boundary is a sentence terminator, a semicolon, a dash, or a comma
+ * followed by a coordinating conjunction that introduces a new assertion. A bare
+ * comma is NOT a boundary, because it routinely joins a qualifier to its noun;
+ * treating it as one would let a single trailing negator exempt every earlier
+ * clause, which is exactly the evasion this split exists to prevent.
+ */
+function splitClauses(value: string): readonly string[] {
+  return value
+    // A plain hyphen is NOT a clause boundary: hyphens BIND words, so splitting on
+    // them would tear apart exactly the tokens the sweep needs to see intact,
+    // such as "cve-free", "vulnerability-free", and "no-known-vulnerabilities".
+    //
+    // `!` is a boundary only when it is NOT the start of `!=`, because the `!` in
+    // a canonical boundary statement like "ADVISORY_STALE != NO_KNOWN_VULNERABILITY"
+    // is part of the denial operator, not a sentence terminator. Splitting there
+    // tore the operator in half and made the statement read as a claim.
+    .split(/[.;?\n\u2014\u2013]+|!(?!=)|,\s*(?:and|but|so|then|yet)\s+/u)
+    .map((clause) => clause.trim())
+    .filter((clause) => clause.length > 0);
+}
+
+/**
  * Derive whether any caller-supplied persisted string asserts a promoted claim.
  *
- * An explicit denial operator exempts the string outright, because a canonical
- * boundary statement is written as a denial of the very claim it names.
+ * Negation is evaluated CLAUSE BY CLAUSE, never string-wide. A string-wide denial
+ * test is itself an evasion: prefixing a denial ("repository is not vulnerable,
+ * all dependencies scanned") suppressed the annotation for a bare promoted claim
+ * in a different clause. A denial exempts only the clause it appears in, so a
+ * canonical boundary statement is correctly read as a denial while a smuggled
+ * claim beside it is still recorded.
  *
  * This is a RECORDED FACT, not an authority grant and not a rejection. It exists
  * so a downstream reader can see that a persisted string made a promoted
@@ -1730,28 +1764,36 @@ export function detectPromotedClaimInStrings(
   values: readonly string[],
 ): boolean {
   return values.some((value) => {
-    // An explicit denial operator exempts the string: a canonical boundary
-    // statement is WRITTEN as a denial of the claim it names.
-    if (DENIAL_OPERATOR_PATTERN.test(value)) {
-      return false;
+    for (const clause of splitClauses(value)) {
+      // A denial exempts only its OWN clause: a canonical boundary statement is
+      // WRITTEN as a denial of the claim it names.
+      if (DENIAL_OPERATOR_PATTERN.test(clause)) {
+        continue;
+      }
+      if (PHRASE_PATTERN.test(clause)) {
+        return true;
+      }
+      if (
+        NO_KNOWN_VULNERABILITY_PATTERN.test(clause) ||
+        CVE_ABSENCE_PATTERN.test(clause) ||
+        VULNERABILITY_FREE_PATTERN.test(clause)
+      ) {
+        return true;
+      }
+      if (ESCALATION_PATTERN.test(clause)) {
+        return true;
+      }
+      if (
+        ATTESTATION_PATTERN_CI.test(clause) &&
+        !NEGATOR_PATTERN.test(clause)
+      ) {
+        return true;
+      }
+      if (assertsPromotedCoverageOrSafety(clause)) {
+        return true;
+      }
     }
-    if (PHRASE_PATTERN.test(value)) {
-      return true;
-    }
-    if (
-      NO_KNOWN_VULNERABILITY_PATTERN.test(value) ||
-      CVE_ABSENCE_PATTERN.test(value) ||
-      VULNERABILITY_FREE_PATTERN.test(value)
-    ) {
-      return true;
-    }
-    if (ESCALATION_PATTERN.test(value)) {
-      return true;
-    }
-    if (ATTESTATION_PATTERN_CI.test(value) && !NEGATOR_PATTERN.test(value)) {
-      return true;
-    }
-    return assertsPromotedCoverageOrSafety(value);
+    return false;
   });
 }
 
@@ -1885,7 +1927,7 @@ export function normalizeSentrdelScaInputV1(
     // this module itself authors, and several of its statements name a claim in
     // order to DENY it ("UNKNOWN != PASS"), so scanning it would reject the very
     // boundary the record is required to carry.
-    promoted_claim_detected: detectPromotedClaimInStrings(
+    promoted_claim_shaped_text_present: detectPromotedClaimInStrings(
       canonicalStrings(record.limitations),
     ),
     caller_text_is_authoritative: false as const,
@@ -1974,7 +2016,7 @@ export function buildSentrdelSbomGapV1(): SentrdelSbomGapV1 {
     // The gap authors its own limitations from the frozen boundary, so no caller
     // text is present and the recorded detection is derived from that boundary
     // alone, which is consistent by construction.
-    promoted_claim_detected: detectPromotedClaimInStrings(
+    promoted_claim_shaped_text_present: detectPromotedClaimInStrings(
       canonicalStrings([...SENTRDEL_SBOM_KNOWN_LIMITATIONS]).filter(
         (limitation) => !FROZEN_SBOM_LIMITATION_SET.has(limitation),
       ),
@@ -2539,7 +2581,7 @@ export function assertSentrdelScaInvariantsV1(
     (limitation) => !FROZEN_SCA_LIMITATION_SET.has(limitation),
   );
   if (
-    observation.promoted_claim_detected !==
+    observation.promoted_claim_shaped_text_present !==
     detectPromotedClaimInStrings(callerLimitations)
   ) {
     reasons.push(
@@ -2729,7 +2771,7 @@ export function assertSentrdelSbomInvariantsV1(
     (limitation) => !FROZEN_SBOM_LIMITATION_SET.has(limitation),
   );
   if (
-    gap.promoted_claim_detected !==
+    gap.promoted_claim_shaped_text_present !==
     detectPromotedClaimInStrings(gapCallerLimitations)
   ) {
     reasons.push(
