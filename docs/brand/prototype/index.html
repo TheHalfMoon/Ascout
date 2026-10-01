@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ascout — Product Identity Prototype</title>
+  <meta name="description" content="Static high-fidelity brand and UI prototype for Ascout." />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="rail" aria-label="Primary navigation">
+      <div class="brand-lockup">
+        <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+          <g fill="currentColor">
+            <rect x="4" y="4" width="16" height="4"/><rect x="4" y="4" width="4" height="16"/>
+            <rect x="44" y="4" width="16" height="4"/><rect x="56" y="4" width="4" height="16"/>
+            <rect x="4" y="56" width="16" height="4"/><rect x="4" y="44" width="4" height="16"/>
+            <rect x="44" y="56" width="16" height="4"/><rect x="56" y="44" width="4" height="16"/>
+            <rect x="28" y="14" width="8" height="6"/><rect x="22" y="20" width="8" height="8"/>
+            <rect x="34" y="20" width="8" height="8"/><rect x="18" y="28" width="8" height="8"/>
+            <rect x="38" y="28" width="8" height="8"/><rect x="16" y="36" width="8" height="12"/>
+            <rect x="40" y="36" width="8" height="12"/><rect x="24" y="34" width="16" height="6"/>
+            <rect x="28" y="44" width="8" height="8"/>
+          </g>
+        </svg>
+        <span class="brand-word">Ascout</span>
+      </div>
+
+      <nav class="nav-list">
+        <button class="nav-item active" data-view="home"><span>⌂</span><b>Home</b></button>
+        <button class="nav-item" data-view="review"><span>⌁</span><b>Review</b></button>
+        <button class="nav-item" data-view="test"><span>⌗</span><b>Test</b></button>
+        <button class="nav-item" data-view="security"><span>◇</span><b>Security</b></button>
+        <button class="nav-item" data-view="cyber"><span>◎</span><b>Cyber</b></button>
+        <button class="nav-item" data-view="assure"><span>▣</span><b>Assure</b></button>
+        <button class="nav-item" data-view="lab"><span>▤</span><b>Lab</b></button>
+      </nav>
+
+      <div class="rail-bottom">
+        <button class="icon-btn" id="themeToggle" title="Toggle theme">◐</button>
+        <button class="icon-btn" title="Settings">⚙</button>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="target-bar">
+        <div class="target">
+          <span class="target-label">TARGET</span>
+          <strong>TheHalfMoon/Ascout</strong>
+          <span class="slash">/</span>
+          <span>main</span>
+          <code>e23331a</code>
+        </div>
+        <div class="target-meta">
+          <span class="chip muted">clean</span>
+          <span class="chip">policy v1</span>
+          <span class="chip runtime">local</span>
+          <button class="command-btn">⌘K</button>
+        </div>
+      </header>
+
+      <main id="mainView" class="main-view" tabindex="-1">
+        <!-- rendered by app.js -->
+      </main>
+
+      <footer class="run-rail">
+        <div class="run-summary">
+          <span class="pulse-dot"></span>
+          <strong>Run 028</strong>
+          <span>target bound</span>
+          <span class="arrow">→</span>
+          <span>plan created</span>
+          <span class="arrow">→</span>
+          <span>8 checks</span>
+          <span class="arrow">→</span>
+          <span class="warning-text">1 missing</span>
+        </div>
+        <button id="timelineToggle" class="text-btn">Timeline</button>
+      </footer>
+    </section>
+
+    <aside class="inspector" aria-label="Evidence inspector">
+      <div class="inspector-header">
+        <div>
+          <span class="eyebrow">EVIDENCE</span>
+          <h2>EVD-8F31</h2>
+        </div>
+        <span class="state-badge observed">OBSERVED</span>
+      </div>
+
+      <div class="evidence-visual">
+        <div class="scan-line"></div>
+        <div class="frame-corner tl"></div><div class="frame-corner tr"></div>
+        <div class="frame-corner bl"></div><div class="frame-corner br"></div>
+        <div class="evidence-cell filled"></div>
+      </div>
+
+      <dl class="evidence-list">
+        <div><dt>Producer</dt><dd>native.test</dd></div>
+        <div><dt>Target</dt><dd><code>e23331a</code></dd></div>
+        <div><dt>Run</dt><dd><code>RUN-028</code></dd></div>
+        <div><dt>Kind</dt><dd>browser.oracle</dd></div>
+        <div><dt>Freshness</dt><dd><span class="tiny-status supported">current</span></dd></div>
+        <div><dt>Digest</dt><dd><code>sha256:8f31…91b2</code></dd></div>
+      </dl>
+
+      <div class="inspector-section">
+        <span class="eyebrow">OBSERVATION</span>
+        <p>Checkout confirmation appeared after the API returned 201 and the persisted order was observed exactly once.</p>
+      </div>
+
+      <div class="inspector-section">
+        <span class="eyebrow">LINEAGE</span>
+        <div class="lineage">
+          <span>TARGET</span><i></i><span>RUN</span><i></i><span>EVIDENCE</span><i></i><span>CLAIM</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <template id="homeTemplate">
+    <section class="hero evidence-field">
+      <div class="hero-copy">
+        <span class="eyebrow">ENGINEERING ASSURANCE</span>
+        <h1>What do you want<br/>to prove?</h1>
+        <p>Review the change. Challenge the behavior. Inspect the evidence. Support only the claim that actually survives.</p>
+      </div>
+      <div class="hero-frame" aria-hidden="true">
+        <div class="hero-frame-inner">
+          <span class="pixel-a">A</span>
+          <span class="frame-caption">SCOUT THE EVIDENCE</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="mode-grid">
+      <article class="mode-card review-card" data-view-card="review" role="button" tabindex="0">
+        <span class="mode-no">01</span><h3>Review</h3><p>Read the change like a senior reviewer.</p><span class="mode-meta">code · spec · architecture</span>
+      </article>
+      <article class="mode-card test-card" data-view-card="test" role="button" tabindex="0">
+        <span class="mode-no">02</span><h3>Test</h3><p>Challenge the behavior, not just the suite.</p><span class="mode-meta">unit · browser · reality</span>
+      </article>
+      <article class="mode-card security-card" data-view-card="security" role="button" tabindex="0">
+        <span class="mode-no">03</span><h3>Security</h3><p>Check the invariants and coverage debt.</p><span class="mode-meta">sast · secrets · supply chain</span>
+      </article>
+      <article class="mode-card cyber-card" data-view-card="cyber" role="button" tabindex="0">
+        <span class="mode-no">04</span><h3>Cyber</h3><p>Model and validate adversarial risk.</p><span class="mode-meta">scope · threat · authorized validation</span>
+      </article>
+      <article class="mode-card assure-card" data-view-card="assure" role="button" tabindex="0">
+        <span class="mode-no">05</span><h3>Assure</h3><p>Ask whether the claim is actually supported.</p><span class="mode-meta">evidence · contradictions · freshness</span>
+      </article>
+      <article class="mode-card lab-card" data-view-card="lab" role="button" tabindex="0">
+        <span class="mode-no">LAB</span><h3>Test it for real.</h3><p>Run the actual product inside a bounded runtime.</p><span class="mode-meta">web · app · api · process · files</span>
+      </article>
+    </section>
+  </template>
+
+  <template id="reviewTemplate">
+    <section class="page-head">
+      <div><span class="eyebrow">REVIEW</span><h1>Read the change.</h1><p>18 of 21 logical groups reviewed. Two unsupported. One truncated.</p></div>
+      <div class="claim-state incomplete"><span>CLAIM</span><strong>INCOMPLETE</strong></div>
+    </section>
+    <section class="split-layout">
+      <div class="panel">
+        <div class="panel-head"><strong>Change groups</strong><span>21</span></div>
+        <div class="list-row selected"><code>src/browser/planner.ts</code><span class="dot warn"></span></div>
+        <div class="list-row"><code>src/evidence/receipt.ts</code><span class="dot ok"></span></div>
+        <div class="list-row"><code>src/cli/check.ts</code><span class="dot ok"></span></div>
+        <div class="list-row"><code>tests/browser/explore.test.ts</code><span class="dot ok"></span></div>
+        <div class="list-row disabled"><code>fixtures/legacy/*</code><span class="tiny-status unknown">unsupported</span></div>
+      </div>
+      <div class="panel code-panel">
+        <div class="panel-head"><strong>src/browser/planner.ts</strong><code>+42 −8</code></div>
+        <pre><span class="ln">54</span> export function planExplore(input: IntentTest) {
+<span class="ln">55</span>   const target = bindTarget(input.target)
+<span class="ln">56</span>   const budget = deriveBudget(input.policy)
+<span class="ln warn-line">57</span>   return model.propose({ target, budget })
+<span class="ln">58</span> }</pre>
+        <div class="finding-card">
+          <div class="finding-top"><span class="severity high">HIGH</span><strong>Model proposal lacks deterministic post-validation</strong></div>
+          <p>The proposal is consumed before the target/location validator proves that every referenced action belongs to the current bound target.</p>
+          <div class="finding-meta"><code>REV-14</code><span>OpenCodeReview</span><span>location validated</span></div>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <template id="testTemplate">
+    <section class="page-head">
+      <div><span class="eyebrow">TEST</span><h1>Challenge the behavior.</h1><p>A passing suite is only one evidence class.</p></div>
+      <div class="claim-state incomplete"><span>CHANGE_VERIFIED</span><strong>INCOMPLETE</strong></div>
+    </section>
+    <section class="matrix">
+      <div class="matrix-row"><strong>Build</strong><span class="bar full"></span><span class="tiny-status supported">PASS</span></div>
+      <div class="matrix-row"><strong>Typecheck</strong><span class="bar full"></span><span class="tiny-status supported">PASS</span></div>
+      <div class="matrix-row"><strong>Unit</strong><span class="bar full"></span><span class="tiny-status supported">PASS</span></div>
+      <div class="matrix-row"><strong>Integration</strong><span class="bar almost"></span><span class="tiny-status supported">PASS</span></div>
+      <div class="matrix-row"><strong>Mutation</strong><span class="bar quarter"></span><span class="tiny-status unknown">NOT RUN</span></div>
+      <div class="matrix-row"><strong>Browser</strong><span class="bar half fail"></span><span class="tiny-status failed">FAIL</span></div>
+      <div class="matrix-row"><strong>Reality</strong><span class="bar none"></span><span class="tiny-status warning">LAB REQUIRED</span></div>
+    </section>
+    <section class="stat-grid">
+      <article><span>74</span><small>checks planned</small></article>
+      <article><span>68</span><small>ran</small></article>
+      <article><span>4</span><small>not run</small></article>
+      <article><span>2</span><small>failed</small></article>
+    </section>
+  </template>
+
+  <template id="securityTemplate">
+    <section class="page-head">
+      <div><span class="eyebrow">SECURITY</span><h1>Check the invariants.</h1><p>Coverage debt stays visible.</p></div>
+      <div class="claim-state blocked"><span>SECURITY_CHECKED</span><strong>BLOCKED</strong></div>
+    </section>
+    <section class="coverage-map evidence-field">
+      <article class="coverage-cell covered"><b>SAST</b><span>covered</span></article>
+      <article class="coverage-cell covered"><b>Secrets</b><span>covered</span></article>
+      <article class="coverage-cell covered"><b>Dependencies</b><span>covered</span></article>
+      <article class="coverage-cell partial"><b>IaC / CI</b><span>partial</span></article>
+      <article class="coverage-cell unknown"><b>Runtime auth</b><span>not run</span></article>
+      <article class="coverage-cell unknown"><b>Dynamic</b><span>not authorized</span></article>
+    </section>
+    <section class="finding-card critical-card">
+      <div class="finding-top"><span class="severity critical">CRITICAL</span><strong>Credential scope exceeds runtime requirement</strong></div>
+      <p>Synthetic credential fixture demonstrates a child process can inherit a broader token than the requested operation requires.</p>
+      <div class="finding-meta"><code>SEC-07</code><span>VALIDATED</span><span>reproduction attached</span></div>
+    </section>
+  </template>
+
+  <template id="cyberTemplate">
+    <section class="page-head">
+      <div><span class="eyebrow">CYBER</span><h1>Bound the adversary.</h1><p>No active validation before target authority is explicit.</p></div>
+      <div class="claim-state refused"><span>DYNAMIC_VALIDATION</span><strong>REFUSED</strong></div>
+    </section>
+    <section class="authority-grid">
+      <article><span>Target</span><strong>staging.example.internal</strong></article>
+      <article><span>Origin</span><strong>https://staging.example.internal</strong></article>
+      <article><span>Ports</span><strong>443 only</strong></article>
+      <article><span>Credentials</span><strong>synthetic-test-user</strong></article>
+      <article><span>Budget</span><strong>200 requests / 10 min</strong></article>
+      <article class="missing"><span>Authorization</span><strong>missing expiry proof</strong></article>
+    </section>
+    <button class="primary-btn disabled" disabled>Start authorized validation</button>
+  </template>
+
+  <template id="assureTemplate">
+    <section class="page-head">
+      <div><span class="eyebrow">ASSURE</span><h1>Is the claim supported?</h1><p>One missing mandatory evidence class keeps the frame open.</p></div>
+      <div class="claim-state incomplete"><span>RELEASE_READY</span><strong>INCOMPLETE</strong></div>
+    </section>
+    <section class="claim-board">
+      <div class="claim-column supported-col"><h3>SUPPORTED BY</h3><p>✓ Build artifact bound to target</p><p>✓ Unit + integration</p><p>✓ Security invariants</p><p>✓ Review current at HEAD</p></div>
+      <div class="claim-column missing-col"><h3>MISSING</h3><p>○ Clean install Reality run</p><p>○ Browser checkout journey</p></div>
+      <div class="claim-column stale-col"><h3>STALE</h3><p>○ macOS package evidence @ previous build</p></div>
+      <div class="claim-column refused-col"><h3>REFUSED</h3><p>○ Production dynamic scan — no authority</p></div>
+    </section>
+  </template>
+
+  <template id="labTemplate">
+    <section class="page-head">
+      <div><span class="eyebrow">LAB / REALITY</span><h1>Test it for real.</h1><p>Actual product, bounded runtime, observable effects.</p></div>
+      <div class="claim-state running"><span>REALITY_TESTED</span><strong>RUNNING</strong></div>
+    </section>
+    <section class="lab-grid">
+      <div class="panel live-app">
+        <div class="panel-head"><strong>Browser · checkout journey</strong><span class="live-pill">LIVE</span></div>
+        <div class="fake-browser">
+          <div class="browser-chrome"><span></span><span></span><span></span><code>127.0.0.1:4173/checkout</code></div>
+          <div class="browser-body"><div class="checkout-card"><small>ORDER #A-1024</small><h3>Ready to verify</h3><button>Place order</button></div></div>
+        </div>
+      </div>
+      <div class="panel runtime-panel">
+        <div class="panel-head"><strong>Runtime truth</strong><code>KRNX-LCL-04</code></div>
+        <div class="runtime-row"><span>browser</span><code>pid 8831</code><span class="tiny-status supported">alive</span></div>
+        <div class="runtime-row"><span>api</span><code>pid 8812</code><span class="tiny-status supported">alive</span></div>
+        <div class="runtime-row"><span>worker</span><code>pid 8820</code><span class="tiny-status warning">watch</span></div>
+        <div class="runtime-row"><span>network</span><code>loopback only</code><span class="tiny-status supported">bounded</span></div>
+        <div class="runtime-row"><span>filesystem</span><code>/tmp/ascout-lab</code><span class="tiny-status supported">bounded</span></div>
+      </div>
+      <div class="panel evidence-stream">
+        <div class="panel-head"><strong>Evidence stream</strong><span>14 events</span></div>
+        <div class="event"><time>00:03.201</time><b>DOM</b><span>button resolved by accessibility role</span></div>
+        <div class="event"><time>00:03.621</time><b>NET</b><span>POST /orders → 201</span></div>
+        <div class="event"><time>00:03.811</time><b>DB</b><span>order observed exactly once</span></div>
+        <div class="event"><time>00:04.020</time><b>UI</b><span>confirmation text visible</span></div>
+      </div>
+      <div class="panel cleanup-panel">
+        <div class="panel-head"><strong>Cleanup</strong><span>pending</span></div>
+        <div class="cleanup-meter"><span style="width:72%"></span></div>
+        <p>Required cleanup remains claim-bearing. The run does not complete until bound processes and temporary state are verified closed.</p>
+      </div>
+    </section>
+  </template>
+
+  <div id="timelineDrawer" class="timeline-drawer" aria-hidden="true">
+    <div class="drawer-head"><strong>Run timeline</strong><button id="closeTimeline">×</button></div>
+    <div class="timeline-item"><time>02:14:01</time><span class="timeline-dot ok"></span><b>Target bound</b><code>e23331a</code></div>
+    <div class="timeline-item"><time>02:14:03</time><span class="timeline-dot ok"></span><b>Plan created</b><span>74 checks</span></div>
+    <div class="timeline-item"><time>02:14:08</time><span class="timeline-dot fail"></span><b>Browser check failed</b><span>checkout oracle</span></div>
+    <div class="timeline-item"><time>02:14:10</time><span class="timeline-dot warn"></span><b>Reality not run</b><span>qualified lab unavailable</span></div>
+    <div class="timeline-item"><time>02:14:11</time><span class="timeline-dot warn"></span><b>Claim incomplete</b><span>missing mandatory evidence</span></div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
