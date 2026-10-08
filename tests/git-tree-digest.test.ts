@@ -28,7 +28,7 @@ const BASE_INDEX = [
   { path: "tests/__snapshots__/ui.snap", mode: "100644", oid: "2".repeat(40), stage: 0 },
 ] as const;
 const temporaryDirectories: string[] = [];
-const NULL_GIT_CONFIG = process.platform === "win32" ? "NUL" : "/dev/null";
+const NULL_GIT_CONFIG = "/dev/null"; // Portable with Git for Windows and POSIX Git.
 const GIT_TEST_ENV = {
   ...process.env,
   GIT_CONFIG_GLOBAL: NULL_GIT_CONFIG,
