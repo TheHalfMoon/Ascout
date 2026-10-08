@@ -82,6 +82,36 @@ describe("UA-P06-T09C source/attempt-bound static inventory", () => {
     expect(a.config_presence_observations[0]?.identity).not.toBe(a.config_presence_observations[1]?.identity);
   });
 
+  it("does not depend on localeCompare or host ICU collation for canonical IDs", () => {
+    const values = {
+      workflows: [workflow({ line: 45 }), workflow({ line: 12 })],
+      configurations: [
+        configuration({ path: ".cursor/mcp.json", signal: "cursor-mcp" }),
+        configuration(),
+      ],
+    };
+    const expected = buildSentrdelT09InventoryV1(values);
+    const original = String.prototype.localeCompare;
+    try {
+      String.prototype.localeCompare = () => {
+        throw new Error("locale-specific sorting is forbidden in evidence identity");
+      };
+      const got = buildSentrdelT09InventoryV1({
+        workflows: [...values.workflows].reverse(),
+        configurations: [...values.configurations].reverse(),
+      });
+      expect(got.inventory_id).toBe(expected.inventory_id);
+      expect(got.workflow_observations.map(x => x.observation_id)).toEqual(
+        expected.workflow_observations.map(x => x.observation_id),
+      );
+      expect(got.config_presence_observations.map(x => x.identity)).toEqual(
+        expected.config_presence_observations.map(x => x.identity),
+      );
+    } finally {
+      String.prototype.localeCompare = original;
+    }
+  });
+
   it("refuses cross-head and cross-attempt pooling for both record types", () => {
     for (const patch of [
       { source_head: "d".repeat(40) }, { request_id: "request:other" },
