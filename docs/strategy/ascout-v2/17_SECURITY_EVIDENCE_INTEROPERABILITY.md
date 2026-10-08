@@ -77,10 +77,10 @@ Ascout kernel: findings lifecycle → ClaimAssessment → exit code   (sole auth
 
 **Engine Profile** (data, versioned per engine release) declares:
 - argv and required flags (for example Gitleaks `--redact`; Trivy never `--quiet`);
-- exit-code meaning (`clean`, `findings`, `error`, `no-input`);
+- **version-qualified native** exit-code meaning (`clean`, `findings`, `error`, `no-input`), normalized *before* Engine Protocol v1; a scanner's findings exit (possibly nonzero) does not mean an internal transport failure; a zero native exit with parse errors or zero expected inputs is not a complete scan;
 - formats produced, and the primary format per evidence kind (Trivy: native JSON primary, SARIF secondary);
 - coverage signals: stderr patterns (Trivy parser `ERROR`), summary counters (Gitleaks commits scanned), required non-zero counts;
-- the redaction requirement for each output.
+- the redaction requirement and a bounded, per-run, access-restricted output destination for each output. Any tool whose native writes cannot be bounded or made secret-safe is not admitted to that execution profile.
 
 Profiles are validated against golden outputs captured from the pinned binary ([13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md)).
 
@@ -106,8 +106,10 @@ SARIF URI rebasing: `file://` absolute URIs and `uriBaseId` bases are rebased to
 1. Run engines with their own redaction where available (Gitleaks `--redact`).
 2. Collect every secret value detected by any engine in the run, plus generic credential patterns, and scrub all raw artifacts of those values.
 3. Drop code-context fields (Trivy `Code.Lines`, SARIF `snippet`, `contextRegion`) by default. They are the observed leak path for **undetected** secrets.
-4. Persist redacted artifacts only. Unredacted output exists only in memory for the duration of the run.
-5. Acceptance: scanning the evidence store for planted values returns zero hits (FMT-06).
+4. **Never hand a native scanner a repository-controlled or predictable output path.** Capture stdout/stderr through bounded pipes. If an engine necessarily writes files, place them only in a broker-created per-run ephemeral directory outside the source checkout, with owner-only permissions, a strict size limit, controlled symlink policy, and a cleanup strategy for process crashes. Never store raw artifacts in repository paths, CI caches, GitHub uploads, shell transcripts, or diagnostic logs. On a platform without a qualifying restrictive location, refuse that scanner profile (`BLOCKED`) rather than claiming private execution.
+5. **Persist only explicitly redacted and schema-validated outputs**, atomically from a bounded staging location; erase temporary raw files on success/failure/cancellation, and perform startup cleanup of abandoned broker-owned directories. Unredacted bytes should exist only transiently in memory **or an explicitly documented, isolated ephemeral spill directory when unavoidable**, not as general-purpose persisted evidence. The design must not claim that deletion guarantees physical erasure or crash-proof confidentiality.
+6. If limits, output ownership, scrub coverage, or cleanup cannot be established, mark the run `INCOMPLETE`/`ERROR`, suppress sensitive output from receipts, and reject any `SUPPORTED` confidentiality or completeness claim.
+7. Acceptance: scanning the evidence store **and diagnostic/log/artifact destinations** for planted values returns zero hits (FMT-06), including a terminated mid-output process, an interrupted cleanup, an undetected secret in an unrelated code-context field, and an engine that insists on a caller-supplied output path. Failure must not publish a partial unredacted receipt.
 
 ## 7. Degraded modes and failure behavior
 
@@ -132,9 +134,9 @@ SARIF URI rebasing: `file://` absolute URIs and `uriBaseId` bases are rebased to
 | FMT-03 | Ingest CycloneDX (1.5, 1.7) and SPDX 2.3 from Syft, Trivy, and OSV-Scanner | Component PURLs, spec version, and producer preserved; OSV CycloneDX vulnerabilities ingested |
 | FMT-04 | OSV GHSA and Trivy CVE results for the same packages | Correlated through aliases into one finding per advisory; `NSWG-ECO-516` preserved as a Trivy-only finding |
 | FMT-05 | Unparseable Terraform | Coverage `PARSE_FAILED` for the file; capability `INCOMPLETE`; never `SUPPORTED` |
-| FMT-06 | Planted secrets | Zero plaintext occurrences in the evidence store, including the undetected-by-Trivy value |
+| FMT-06 | Planted secrets, including a deliberately terminated scanner, captured stderr, native output-file spill, and crash recovery | Zero plaintext occurrences in persisted evidence, diagnostics, caches, and publishable artifacts; no successful confidentiality claim unless raw-output containment/cleanup controls were verified |
 | FMT-07 | Gitleaks on a non-repository directory; OSV with no lockfiles; Syft on an empty directory | `NOT_RUN(no_inputs_detected)` unless predicted; never `SUPPORTED` |
-| FMT-08 | Each engine missing, wrong hash, and DB unavailable | `NOT_RUN(engine_unavailable)` / `VERSION_MISMATCH` / `ERROR`; exit 4 or 2 |
+| FMT-08 | Each engine missing, wrong hash, untrusted self-reported version, unqualified supply source, and DB unavailable | `NOT_RUN(engine_unavailable)` / `VERSION_MISMATCH` / `BLOCKED(unqualified_engine)` / `ERROR`; exit 4 or 2; local hash or self-reported version alone is never publisher provenance |
 | FMT-09 | Sentrdel absent while scanners present | Scanner evidence present; Sentrdel-only capabilities `NOT_RUN`; claim `INCOMPLETE` or `REFUTED`, never `SUPPORTED` |
 | FMT-10 | Shared conformance corpus in Ascout and Sentrdel CI | Identical critical-field mapping on every corpus item |
-| FMT-11 | Engine identity | Recorded from the resolved binary (path digest, SHA-256, `--version`), not from SARIF `tool.driver.version` |
+| FMT-11 | Engine identity, provenance, exit-status translation, and a scanner with native nonzero findings | Record local binary identity separately from publisher/authenticity admission; enforce verified pin or qualified explicit trust. A native findings exit with valid output becomes a finding, not `ENGINE_ERROR`, while an unknown/fatal exit cannot become a clean transport 0 |
