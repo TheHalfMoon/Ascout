@@ -134,10 +134,10 @@ Revision 2 replaces the prose test list of revision 1. Revision 1 referenced 65 
 | ASR-03 | Assure | stale evidence | excluded from support |
 | ASR-04 | Assure | model suggestion | cannot remove a required check |
 | ASR-05 | Assure | plan digest | stable across repeated runs |
-| PST-01 | Provenance | pinned TesterArmy and Pstack source/license/nested rights | imported-file lineage, blob pin, license/NOTICE and package integrity recorded; no unlicensed embedded import |
-| PST-02 | Local runtime | optional donor bootstrap and Node/telemetry safeguards | no paid calls, no default telemetry, no shell side effects or PATH ambiguity; incompatible Node fails closed |
-| PST-03 | Agent workflows | Pstack host capability degradation and independence | Tier 0/1/2 recorded honestly; same-model stances never claim cross-vendor agreement |
-| PST-04 | Agent integration | Pstack installation and session privacy | `--dry-run` first, no silent global instruction replacement; edited files preserved on uninstall; local `serve` default OFF and no session-log publication |
+| MCP-07 | Provenance | pinned TesterArmy and Pstack source/license/nested rights | imported-file lineage, blob pin, license/NOTICE and package integrity recorded; no unlicensed embedded import |
+| MCP-08 | Local runtime | optional donor bootstrap and Node/telemetry safeguards | no paid calls, no default telemetry, no shell side effects or PATH ambiguity; incompatible Node fails closed |
+| MCP-09 | Agent workflows | Pstack host capability degradation and independence | Tier 0/1/2 recorded honestly; same-model stances never claim cross-vendor agreement |
+| MCP-010 | Agent integration | Pstack installation and session privacy | `--dry-run` first, no silent global instruction replacement; edited files preserved on uninstall; local `serve` default OFF and no session-log publication |
 
 ## 5. Benchmarks
 
