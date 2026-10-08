@@ -72,6 +72,12 @@ Severity: Critical / High / Medium / Low. Status for every entry is **OPEN** unl
 - **Action:** A07 adds `REFUTED`. It is valid only when at least one contradicting evidence ref resolves to a validated finding or a FAIL task for the same target, and it maps to exit 1. Additive enum change with a schema version bump; existing fixtures unaffected
 - **Validation:** ADV-09; semantic validator rejects `REFUTED` with zero contradicting refs
 
+### G30 — Repository-controlled Git configuration can launch commands during Ascout runs · DEFECT · High
+- **Evidence:** a local probe on `ca6b6f51` confirmed that a command defined through repository-local Git configuration executed during `ascout doctor`, `ascout review`, and `ascout check` (OBSERVED 2026-10-08). Exploit details are withheld from this public document per `SECURITY.md`. Kodac's gateway shows the same pattern (no configuration neutralization; not tested)
+- **Impact:** under the trusted-local model the repository's own configuration is trusted. Under V2's untrusted-agent model, an agent that can write the workspace can obtain code execution in the verifier, including through the "read-only" `review` command
+- **Action:** V0-T08: run every Git command with repository-controlled execution settings neutralized and a scrubbed Git environment; the ported gateway (K-1) must do the same
+- **Validation:** E2E-NEG-GIT (defined in [13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md) once revision 2 lands); the probe must not execute on any command
+
 ## 2. Medium
 
 | ID | Class | Gap | Evidence | Action | Validation |
