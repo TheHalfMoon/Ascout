@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * Offline FD8 reslice preflight. Evidence only: never merges, checks out,
  * creates branches, fetches, changes repository files, or approves FD8.
