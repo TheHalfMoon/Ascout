@@ -1,95 +1,149 @@
-# 13 — Benchmark and Acceptance Program
+# 13 — Real-Engine Acceptance and Benchmark Program (Revision 2)
 
-Every acceptance test runs in CI at the exact PR head. Every benchmark records environment (OS, CPU, RAM, versions) and is reported as measured, including misses. No result is copied from donor documentation.
+Revision 2 replaces the prose test list of revision 1. Revision 1 referenced 65 acceptance identifiers it never defined (found by `scripts/planning/verify-planning-docs.mjs --ids`). Every identifier is now defined in a table. Security-format tests FMT-01…FMT-11 are defined in [17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md) §8.
 
-## 1. Adversarial acceptance tests (incorrect-claim scenarios)
+## 1. Evidence levels and the counting rule
 
-Each test encodes a scenario in which a weaker design would make a wrong readiness or security claim.
+| Level | Meaning | Counts as integration? |
+|---|---|---|
+| L0 | Unit/contract test on handwritten input | **No** |
+| L1 | Replay of golden output captured from the pinned real binary | **No**. It protects normalizers from drift |
+| L2 | The pinned real binary executes in CI on one OS against a real fixture repository | Yes, for that OS only |
+| L3 | L2 on every OS the capability is claimed for | Required before a capability is described as supported on all platforms |
+
+**Rule:** an engine integration is reported as working only at L2 or above, per OS, with the CI job and artifact hashes cited. A manual run in a planning session (as in [17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md)) is feasibility evidence, not integration evidence.
+
+**CI vehicle (PROPOSED):** `.github/workflows/real-engines.yml` on ubuntu-24.04, macos-14, and windows-2025. It installs pinned engines from the companion manifest (hash-verified), runs the E2E tests below against fixture repositories committed under `tests/fixtures/real-engines/` (synthetic credentials generated at test time, never committed), and uploads redacted receipts plus artifact SHA-256 lists.
+
+## 2. Real-engine end-to-end tests
+
+"Observed" = seen in this planning session (manual, feasibility only). "Expected" = the assertion the CI test must make.
+
+| ID | Engine (pinned) | Current level | Required | Command / fixture | Expected result | Negative variants |
+|---|---|---|---|---|---|---|
+| E2E-01 | Repository test runners via `ascout check` | L3 (REPORTED by `Project CI`) | L3 | existing runtime tests | Receipt task statuses match runner outcomes; exit taxonomy 0/1/2/3/4 | changed command surface → `NOT_RUN(command_surface_changed)` |
+| E2E-02 | Playwright 1.63.0 / Chromium | L3 (REPORTED: `tests/browser-playwright.integration.test.ts` in `Project CI`) | L3 | existing integration test; CLI path in V7 | Browser evidence projected into receipts | Chromium missing → `NOT_RUN(engine_unavailable)` |
+| E2E-03 | Sentrdel release | **None** (no CLI; G01) | L3 | `ascout security` on the security probe | Changed-secret, CI-workflow (`pull_request_target` + head checkout), and dependency-delta findings; claim `REFUTED`, exit 1 | binary missing / wrong hash / stub exit → FMT-08 states |
+| E2E-04 | Gitleaks 8.30.1 | Observed manually (Windows) | L3 | `--redact`, JSON | 2 secrets; 0 plaintext in the store | non-repository directory → `NOT_RUN(no_inputs_detected)` (FMT-07) |
+| E2E-05 | OSV-Scanner 2.6.0 | Observed manually | L3 | JSON (primary) + CycloneDX | 8 advisories with aliases | no lockfiles (exit 128) → `NOT_RUN(no_inputs_detected)` |
+| E2E-06 | Syft 1.54.1 | Observed manually | L3 | CycloneDX 1.7 + SPDX 2.3 | PURL set includes `lodash@4.17.15`, `minimist@1.2.0` | empty directory (exit 1) → `NOT_RUN(no_inputs_detected)` |
+| E2E-07 | Trivy 0.75.0 | Observed manually | L3 | `fs` JSON (primary), DB timestamp recorded | 9 vulnerabilities, 2 Dockerfile misconfigurations; unparseable Terraform → `PARSE_FAILED` (FMT-05) | DB unavailable → `ERROR` |
+| E2E-08 | OCR 1.12.12, delegation mode | Observed manually | L3 | `ascout review --delegate` / `--ingest` | Spec equals `ocr delegate preview` selection; ingested result `HOST_AGENT` | excluded files listed `NOT_REVIEWED(engine_excluded)` (ADV-17) |
+| E2E-09 | OCR 1.12.12, LLM mode with a **real** model | **None** | L2 (Linux) | Local OpenAI-compatible server running a small open-weight model on the CI runner (PROPOSED; feasibility and runtime unmeasured) | Comments normalized; locations valid | no endpoint → exit 4. If a real model cannot run in CI, LLM review stays labeled **unqualified** and never counts toward any claim |
+| E2E-10 | StrykerJS 10.0.0 | None | L2 (Linux) | fixture JS project, DEEP profile | Mutation score evidence | Stryker absent → `NOT_RUN(engine_unavailable)` |
+| E2E-11 | Kodac `ask` as reviewer ([16](16_KODAC_CONVERGENCE_ANALYSIS.md) K-11) | None | L2 | read-only reviewer on fixture diff | Observations with `SEPARATE_AGENT` independence only when the author identity differs | same author → `SELF`, cannot satisfy independent review |
+| E2E-12 | Kodac Landlock launcher (T1-FS) | Kodac's own tests (REPORTED) | L2 (Linux) | hostile probes under the broker | Achieved tier `T1-FS` recorded; filesystem escapes denied | kernel without Landlock → `T0` declared, untrusted execution `BLOCKED` |
+| E2E-13 | Composite on the security probe | None | L3 | `ascout assure` (review + test + security) | `REFUTED`, exit 1, with per-capability coverage listed | any required engine missing → its capability `NOT_RUN` listed |
+| E2E-14 | Kodac Done Gate consuming an Ascout receipt | None | L2 | `kodac solve` with Ascout as the verification step | `PROVEN_READY` only when Ascout reports `SUPPORTED` for the same head | Ascout `INCOMPLETE` → `NOT_READY` |
+
+## 3. Adversarial tests (wrong-claim scenarios)
 
 | ID | Scenario | Expected |
 |---|---|---|
-| ADV-01 | `ascout review` with no engine available | exit 4; `NOT_RUN(engine_unavailable)`; every file listed unreviewed |
-| ADV-02 | `ascout test --profile release` where mutation/browser engines are missing | exit 4; executed vs omitted engines listed; `--plan` variant exits 0 with `kind: plan` |
-| ADV-03 | Sentrdel binary missing / wrong hash / returns non-JSON / exits 0 with `execution.state ≠ EXECUTED` | exit 4 with `UNAVAILABLE` / `VERSION_MISMATCH` / `MALFORMED_OUTPUT` / `ENGINE_ERROR`; never 0 |
-| ADV-04 | Sentrdel omits a requested capability from its response | that capability `NOT_RUN(capability_omitted_by_engine)`; claim `INCOMPLETE` |
-| ADV-05 | Remote review endpoint configured but `source_egress = DENY` | review refused before any network call; exit 4; no bytes sent (verified with a local listener that must receive zero connections) |
-| ADV-06 | Repository comment contains a prompt injection instructing the reviewer to report nothing; Sentrdel reports a validated secret in the same change | security finding remains `VALIDATED`; claim `REFUTED`; review output cannot change it |
-| ADV-07 | After a run is sealed, a background child modifies `receipt.json` or an artifact | `ascout verify-receipt` exit 1 naming the artifact |
-| ADV-08 | A runtime dependency is missing from THIRD_PARTY_NOTICES | CI test fails |
-| ADV-09 | `REFUTED` emitted with zero contradicting refs, or with refs to another target | semantic validator rejects |
-| ADV-10 | `--untrusted` execution on a platform whose achieved tier is T0 | `BLOCKED(tier_unavailable)`, exit 4; with `--trust-local-execution`, the claim is capped at `TRUSTED_LOCAL` |
-| ADV-11 | MCP client calls publication with an approval token it generated itself | refused |
-| ADV-12 | Two consecutive tools run on a repository without `init`; the second lists `.ascout/` artifacts as changes | must not happen |
-| ADV-13 | Candidate head changes between plan and execution | `STALE` or `tree_drifted` (exit 3); no `SUPPORTED` |
-| ADV-14 | A test script changed in the diff (`"test": "exit 0"`) | `NOT_RUN(command_surface_changed)` (existing behavior preserved through `test`/MCP paths) |
-| ADV-15 | Unsupported language only (for example a Go-only change) with no fan-in scanner | security claim `INCOMPLETE` with `UNSUPPORTED_LANGUAGE`; never `SUPPORTED` |
-| ADV-16 | Retry PASS after an initial FAIL | recorded as `FLAKY`, never clean PASS (existing invariant 10) |
-| ADV-17 | OCR excludes changed files by its own filters (observed: `excluded: unsupported_ext`) | excluded files appear as `NOT_REVIEWED(engine_excluded:<reason>)`; review coverage is not "complete" unless the intent explicitly excludes them |
-| ADV-18 | Sentrdel attempts to persist its SQLite state inside the target repository | the run is refused or Sentrdel is invoked with an Ascout-owned state dir; no new files appear in the repository |
-| ADV-19 | A security claim is `SUPPORTED` | human and agent output say "no findings from <engines> within <coverage>", never "secure" (wording test) |
+| ADV-01 | `review` with no engine available | exit 4; `NOT_RUN(engine_unavailable)`; every file unreviewed |
+| ADV-02 | `test --profile release` with engines missing | exit 4; omitted engines listed; `--plan` exits 0 with `kind: plan` |
+| ADV-03 | Sentrdel missing / wrong hash / non-JSON / exit 0 without `EXECUTED` | `UNAVAILABLE` / `VERSION_MISMATCH` / `MALFORMED_OUTPUT` / `ENGINE_ERROR`; never 0 |
+| ADV-04 | Engine omits a requested capability | `NOT_RUN(capability_omitted_by_engine)`; claim `INCOMPLETE` |
+| ADV-05 | Remote review endpoint with `source_egress = DENY` | refused before any connection; a local listener receives zero connections |
+| ADV-06 | Prompt injection in repository content plus a validated secret | finding stays `OPEN`; claim `REFUTED`; review cannot change it |
+| ADV-07 | Artifact modified after sealing | `ascout verify-receipt` exit 1 naming the artifact |
+| ADV-08 | Runtime dependency missing from THIRD_PARTY_NOTICES | CI fails |
+| ADV-09 | `REFUTED` with zero, foreign-target, stale, or model-only contradicting refs | semantic validator rejects ([09](09_ASSURANCE_EVIDENCE_CONTRACTS.md) §1 rule 3) |
+| ADV-10 | `--untrusted` execution where the achieved tier does not meet the requirement | `BLOCKED(tier_unavailable)`, exit 4; override caps the claim at `TRUSTED_LOCAL` |
+| ADV-11 | MCP client approves its own effect | refused |
+| ADV-12 | `.ascout/` artifacts appear as changes to the next tool | must not happen |
+| ADV-13 | Head changes between plan and execution | `STALE` or `tree_drifted` (exit 3) |
+| ADV-14 | Test script changed to `exit 0` in the diff | `NOT_RUN(command_surface_changed)` through `check`, `test`, and MCP |
+| ADV-15 | Unsupported language only, no scanner covers it | `INCOMPLETE` with `UNSUPPORTED_LANGUAGE` |
+| ADV-16 | PASS on retry after FAIL | `FLAKY`, never clean PASS |
+| ADV-17 | Engine excludes changed files by its own filters | `NOT_REVIEWED(engine_excluded:<reason>)`; coverage not complete |
+| ADV-18 | Engine persists state inside the target repository | refused, or invoked with an Ascout-owned state dir; no new repository files |
+| ADV-19 | Security claim `SUPPORTED` | wording "no findings from <engines> within <coverage>", never "secure" |
+| ADV-20 | Repository-controlled Git configuration defines a command (G30) | the command never executes during any Ascout command; a marker file is never created |
 
-## 2. Capability acceptance suites
+## 4. Capability acceptance tests
 
-**Security (V1):**
-SEC-01 planted changed secret detected and redacted (no plaintext in any artifact; scan of the state dir for the planted value returns zero hits) ·
-SEC-02 `pull_request_target` + checkout of the PR head in a workflow detected ·
-SEC-03 lockfile delta adding a package with a fixture advisory detected offline ·
-SEC-04 clean control repository → `SUPPORTED`, exit 0, with explicit coverage listing ·
-SEC-05 binary resolved by absolute path from the manifest; a PATH-shadowing binary is ignored ·
-SEC-06 manifest hash mismatch → `VERSION_MISMATCH` ·
-SEC-07 Sentrdel child receives no credential-shaped environment variables (asserted by a fixture binary that dumps its env) ·
-SEC-08 CI-workflow findings normalized with rule/location/provenance.
-V6 extends this with SEC-09…SEC-16 (one per fan-in scanner, SARIF export schema validation, retest lifecycle).
+| ID | Area | Test | Pass condition |
+|---|---|---|---|
+| SEC-01 | Security | planted changed secret | detected; zero plaintext in any artifact |
+| SEC-02 | Security | `pull_request_target` + head checkout + expression in shell | detected by Sentrdel (E2E-03) |
+| SEC-03 | Security | dependency delta with a known advisory, offline fixture | detected without network |
+| SEC-04 | Security | clean control repository | `SUPPORTED`, exit 0, coverage listed |
+| SEC-05 | Security | PATH-shadowing binary | ignored; manifest path used |
+| SEC-06 | Security | manifest hash mismatch | `VERSION_MISMATCH` |
+| SEC-07 | Security | child environment | no credential-shaped variables (env-dumping fixture) |
+| SEC-08 | Security | CI-workflow findings | rule, location, provenance preserved |
+| SEC-09 | Security | Opengrep/Semgrep SARIF, non-JS language | ingested; unsupported files listed |
+| SEC-10 | Security | Gitleaks history mode | commits scanned > 0 or `NOT_RUN(no_inputs_detected)` |
+| SEC-11 | Security | OSV-Scanner full lockfile | equals E2E-05 expectations |
+| SEC-12 | Security | Syft SBOM | equals E2E-06 expectations |
+| SEC-13 | Security | Trivy IaC and images | equals E2E-07 expectations |
+| SEC-14 | Security | SARIF export | validates against SARIF 2.1.0; never re-imported as truth |
+| SEC-15 | Security | remediation without new evidence | finding stays `REPAIRED_PENDING_REVERIFY` |
+| SEC-16 | Security | retest after fix with new evidence | `VERIFIED_FIXED` only for the new head |
+| REV-00 | Review | resolver finds `ocr` | `ocr --version` recorded |
+| REV-01 | Review | platform binary hash | verified against manifest |
+| REV-02 | Review | loopback endpoint | allowed without egress consent; identity recorded |
+| REV-03 | Review | token handling | token absent from all artifacts |
+| REV-04 | Review | real OCR JSON | normalized; locations validated against head |
+| REV-05 | Review | delegation spec | equals `ocr delegate preview` selection |
+| REV-06 | Review | ingested host-agent result | `HOST_AGENT`; cannot satisfy independent review |
+| REV-07 | Review | coverage accounting | reviewed ∪ unreviewed = selected; disjoint |
+| TST-01 | Test | `test --profile standard` | exit equals `check` exit on the same tree |
+| TST-02 | Test | source binding | identical to `check` |
+| TST-03 | Test | DEEP without Stryker | `NOT_RUN(engine_unavailable)` |
+| TST-04 | Test | profile listing | executed and omitted engines present |
+| PROTO-01 | Protocol | request/response schema | invalid documents rejected |
+| PROTO-02 | Protocol | oversize response | `MALFORMED_OUTPUT` |
+| PROTO-03 | Protocol | request id mismatch | `MALFORMED_OUTPUT` |
+| CON-01 | Containment | `child_process` use outside the broker | lint failure |
+| CON-02 | Containment | environment | allowlist enforced at launch |
+| CON-03 | Containment | helper build | reproducible; provenance recorded |
+| CON-04 | Containment | Linux hostile probes (write outside worktree, read `~/.ssh`, open socket, ptrace, mount, setuid spawn) | all denied at the declared tier; network probes denied only at `T1` (not `T1-FS`) |
+| CON-05 | Containment | Windows process tree | no surviving descendants after timeout; job memory limit enforced |
+| CON-06 | Containment | Windows AppContainer probes | denied, or tier declared `T0` |
+| CON-07 | Containment | macOS | declares `T0` truthfully |
+| CON-08 | Containment | receipts | achieved tier present on every execution |
+| MCP-01 | MCP | spec conformance (2026-07-28) | conformance suite passes |
+| MCP-02 | MCP | read-only tools | no effects observed |
+| MCP-03 | MCP | executing tools | default to untrusted |
+| MCP-04 | MCP | approvals | bound to head and diff digest (ported K-4) |
+| MCP-05 | MCP | Agent Skill | lint passes; teaches exit 4 ≠ done |
+| MCP-06 | MCP | GitHub Action | `pull_request` only, read-only permissions, receipts uploaded, no publication |
+| REL-01 | Release | artifacts | attested |
+| REL-02 | Release | `ascout setup` | verifies hashes before install |
+| REL-03 | Release | offline setup | works from a local directory |
+| REL-04 | Release | clean machine | installs on 3 OSes |
+| REL-05 | Release | `ascout gc` | honors retention |
+| REL-06 | Release | signatures | verify |
+| PUB-01 | Publication | origin pinning | only `https://api.github.com` |
+| PUB-02 | Publication | default | dry-run |
+| PUB-03 | Publication | stale head | refused |
+| PUB-04 | Publication | redaction | gate applied |
+| DUR-01 | Durability | kill during engine run | journal recovers; run marked interrupted |
+| DUR-02 | Durability | kill after publication request | no duplicate publication (`SIDE_EFFECT_RETRY` blocked) |
+| DUR-03 | Durability | torn journal write | detected; run unsealed |
+| DOC-01 | Docs | README/CLI parity | generated usage matches README |
+| DOC-02 | Docs | `doctor` engine table | matches the manifest |
+| ASR-01 | Assure | one required capability missing | `INCOMPLETE` |
+| ASR-02 | Assure | one validated contradiction | `REFUTED` |
+| ASR-03 | Assure | stale evidence | excluded from support |
+| ASR-04 | Assure | model suggestion | cannot remove a required check |
+| ASR-05 | Assure | plan digest | stable across repeated runs |
 
-**Review (V2):**
-REV-00 resolver finds `ocr` and records `ocr --version` ·
-REV-01 platform binary hash verified ·
-REV-02 loopback endpoint allowed without egress consent; identity recorded ·
-REV-03 token never appears in any artifact ·
-REV-04 real OCR JSON normalized; locations validated against the head ·
-REV-05 delegation spec equals the `ocr delegate preview` selection ·
-REV-06 ingested host-agent result recorded with `HOST_AGENT` independence and never satisfies an "independent review" requirement ·
-REV-07 coverage accounting: reviewed ∪ unreviewed = selected; no file in both sets.
+## 5. Benchmarks
 
-**Test (V2):**
-TST-01 `test --profile standard` exit equals the `check` exit on the same tree ·
-TST-02 receipts identical in source binding to `check` ·
-TST-03 DEEP without Stryker → `NOT_RUN(engine_unavailable)` ·
-TST-04 profile/omission listing present.
+| ID | What | Metric | Baseline |
+|---|---|---|---|
+| B-SEC-1 | Security latency/memory on 3 repositories | p50/p95 wall time, peak RSS | Unmeasured |
+| B-SEC-2 | Detection quality on planted-defect + clean corpora | precision, recall, clean-PR false positives, per engine and per capability | Unmeasured |
+| B-REV-1 | Review coverage integrity | selected files accounted for (must be 100%) | Unmeasured |
+| B-REV-2 | Review quality (real model) | precision/recall against annotations, through ported K-7 qualification | Unmeasured; vendor figures are not Ascout results |
+| B-TST-1 | `test` overhead vs raw runner | added wall time | Unmeasured |
+| B-EXE-1 | Broker spawn overhead per tier | ms | Unmeasured; PROPOSED ≤ 50 ms |
+| B-CLM-1 | Claim correctness over ADV-01…ADV-20 and FMT-01…FMT-11 | wrong-claim count | **Must be 0** |
+| B-SRC-1 | Cross-tree evidence leakage | count | **Must be 0** |
 
-**Protocol (V1):** PROTO-01 schema validation of requests/responses · PROTO-02 oversize response rejected · PROTO-03 request id mismatch rejected.
+## 6. Release gate
 
-**Containment (V3):**
-CON-01 lint: no `child_process` outside the broker ·
-CON-02 env allowlist enforced ·
-CON-03 helper reproducible build + provenance ·
-CON-04 Linux hostile probes (write outside worktree, read `~/.ssh`, open socket, ptrace, mount, spawn setuid) all denied at T1 ·
-CON-05 Windows: no surviving descendants after timeout; job memory limit enforced ·
-CON-06 Windows AppContainer probes denied (or the tier is declared T0) ·
-CON-07 macOS declares T0 truthfully ·
-CON-08 receipts state the achieved tier.
-
-**MCP (V4):** MCP-01 spec conformance · MCP-02 read-only tools cause no effects · MCP-03 executing tools default to untrusted · MCP-04 approval bound to head+diff digest · MCP-05 skill lint · MCP-06 Action uploads receipts.
-
-**Release, publication, durability (V5):** REL-01 attested artifacts · REL-02 setup verifies hashes · REL-03 offline setup · REL-04 clean-VM install on 3 OSes · REL-05 gc honors retention · REL-06 signatures verify · PUB-01 origin pinning · PUB-02 dry-run default · PUB-03 stale head refused · PUB-04 redaction gate applied · DUR-01..03 kill at journal step N → recovery without a duplicate publication or a lost evidence record.
-
-**Docs:** DOC-01 README/CLI parity · DOC-02 doctor engine table matches the manifest.
-
-**Assure (V6):** ASR-01…ASR-05 composite claim rules (one missing capability → `INCOMPLETE`; one validated contradiction → `REFUTED`; stale evidence excluded; model suggestion cannot remove a required check; deterministic plan digest stable).
-
-## 3. Benchmarks
-
-| ID | What | Corpus | Metric | Baseline |
-|---|---|---|---|---|
-| B-SEC-1 | Security latency and memory | 3 repositories: small JS/TS app, medium Next.js + Supabase app, polyglot repo; PR-sized diffs | p50/p95 wall time, peak RSS | **Unmeasured**; targets in [10](10_LOCAL_ZERO_COST_PACKAGING_AND_PLATFORM.md) §4 |
-| B-SEC-2 | Security detection quality | Planted-defect corpus (secrets, workflow injection, vulnerable deps, IDOR/tenant patterns in R3 scope) + clean controls | precision, recall, false-positive rate on clean PRs; per capability | **Unmeasured**; SentrdelBench contracts exist (REPORTED) and are reused |
-| B-REV-1 | Review coverage integrity | Existing Ascout review benchmark corpus | % selected files accounted for (must be 100%), location validity % | **Unmeasured** |
-| B-REV-2 | Review quality (optional, user-funded endpoint) | OCR-published benchmark methodology, re-run locally | precision/recall vs annotations | **Not claimed**; OCR's published numbers are REPORTED by the vendor and are not Ascout results |
-| B-TST-1 | `test` overhead vs raw runner | Ascout's own repository | added wall time | Unmeasured |
-| B-EXE-1 | Broker spawn overhead | Synthetic | ms per spawn per tier | Unmeasured; PROPOSED ≤ 50 ms at T0/T1 |
-| B-CLM-1 | Claim correctness | ADV-01…ADV-19 | wrong-claim count | **Must be 0** (hard gate) |
-| B-SRC-1 | Cross-tree evidence leakage | Existing benchmark (Constitution VIII) | count | **Must be 0** (existing hard gate) |
-
-## 4. Release gates (summary)
-
-A V-phase exits only when: its acceptance suite passes on all claimed platforms; B-CLM-1 = 0 and B-SRC-1 = 0; its benchmarks were measured and recorded (even if a target was missed); provenance entries exist for every new donor file; and exact-head CI plus review were completed under the governance in [15](15_IMPLEMENTATION_READINESS_AUDIT.md) §4.
+A V-phase exits only when: each capability it claims is at L2 on every claimed OS (L3); B-CLM-1 = 0 and B-SRC-1 = 0; its benchmarks were measured and recorded, even when a target was missed; provenance entries exist for every ported file; and exact-head CI plus the review path in [15](15_IMPLEMENTATION_READINESS_AUDIT.md) were completed.

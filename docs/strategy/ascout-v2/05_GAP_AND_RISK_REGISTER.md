@@ -76,7 +76,7 @@ Severity: Critical / High / Medium / Low. Status for every entry is **OPEN** unl
 - **Evidence:** a local probe on `ca6b6f51` confirmed that a command defined through repository-local Git configuration executed during `ascout doctor`, `ascout review`, and `ascout check` (OBSERVED 2026-10-08). Exploit details are withheld from this public document per `SECURITY.md`. Kodac's gateway shows the same pattern (no configuration neutralization; not tested)
 - **Impact:** under the trusted-local model the repository's own configuration is trusted. Under V2's untrusted-agent model, an agent that can write the workspace can obtain code execution in the verifier, including through the "read-only" `review` command
 - **Action:** V0-T08: run every Git command with repository-controlled execution settings neutralized and a scrubbed Git environment; the ported gateway (K-1) must do the same
-- **Validation:** E2E-NEG-GIT (defined in [13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md) once revision 2 lands); the probe must not execute on any command
+- **Validation:** ADV-20 ([13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md)); the probe must not execute on any command
 
 ## 2. Medium
 
