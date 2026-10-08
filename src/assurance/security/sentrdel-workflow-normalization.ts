@@ -1,5 +1,5 @@
 /**
- * UA-P06-T09A — bounded GitHub Actions observation normalization.
+ * UA-P06-T09, grain A — bounded GitHub Actions observation normalization.
  *
  * This module consumes untrusted records. It does not execute a scanner,
  * interpret an action, validate a vulnerability, or issue assurance claims.
@@ -16,7 +16,7 @@ import { containsSecretMaterialV1, containsExternalAttestationV1 } from "./sentr
 import { SENTRDEL_ADAPTER_ALLOWED_CAPABILITIES } from "./sentrdel-engine-adapter.js";
 import { SENTRDEL_PINNED_REVISION, SENTRDEL_PINNED_TREE, SENTRDEL_PIN_REF } from "./sentrdel-source-pin.js";
 
-export const SENTRDEL_WORKFLOW_PHASE_AUTHORITY = "UA-P06-T09A" as const;
+export const SENTRDEL_WORKFLOW_PHASE_AUTHORITY = "UA-P06-T09" as const;
 export const SENTRDEL_WORKFLOW_CAPABILITY_ID = "github-actions" as const;
 export const SENTRDEL_GENERIC_IAC_CAPABILITY_ID = "iac-generic" as const;
 
