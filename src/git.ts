@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { hardenedGitArgs, hardenedGitEnv } from "./git-process.js";
 import { createHash } from "node:crypto";
 import {
   closeSync,
@@ -281,13 +282,14 @@ export function resolveRepositoryIdentity(repositoryRoot: string): RepositoryIde
 }
 
 const defaultGitCommandRunner: GitCommandRunner = (repositoryRoot, argv) => {
-  const result = spawnSync("git", [...argv], {
+  const result = spawnSync("git", hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: "utf8",
     shell: false,
     timeout: GIT_METADATA_TIMEOUT_MS,
     maxBuffer: GIT_METADATA_MAX_BUFFER_BYTES,
     windowsHide: true,
+    env: hardenedGitEnv(),
   });
 
   return {
@@ -495,13 +497,14 @@ interface GitBufferCommandResult {
 }
 
 function runGitTreeMetadata(repositoryRoot: string, argv: readonly string[]): GitBufferCommandResult {
-  const result = spawnSync("git", [...argv], {
+  const result = spawnSync("git", hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: null,
     shell: false,
     timeout: GIT_METADATA_TIMEOUT_MS,
     maxBuffer: GIT_TREE_METADATA_MAX_BUFFER_BYTES,
     windowsHide: true,
+    env: hardenedGitEnv(),
   });
 
   return {
