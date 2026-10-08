@@ -35,6 +35,10 @@ describe("UA-P06-T09B pinned static CI/MCP presence", () => {
       [".cursor/mcp.json", "cursor-mcp"],
       [".vscode/mcp.json", "vscode-mcp"],
       [".claude/mcp.json", "claude-mcp"],
+      ["supabase/config.toml", "supabase-config"],
+      ["supabase/seed.sql", "supabase-seed"],
+      ["supabase/migrations/20261008_init.sql", "supabase-migration"],
+      ["supabase/functions/webhook/index.ts", "supabase-function"],
     ] as const;
     for (const [path, signal] of fixtures) {
       expect(classifySentrdelConfigPresencePathV1(path)).toContain(signal);
@@ -48,7 +52,7 @@ describe("UA-P06-T09B pinned static CI/MCP presence", () => {
       expect(record.hosted_posture_verified).toBe(false);
       expect(record.finding_emitted).toBe(false);
     }
-    expect(SENTRDEL_CONFIG_PRESENCE_SIGNALS).toHaveLength(9);
+    expect(SENTRDEL_CONFIG_PRESENCE_SIGNALS).toHaveLength(13);
   });
 
   it("rejects false positive paths and traversal", () => {
@@ -59,6 +63,9 @@ describe("UA-P06-T09B pinned static CI/MCP presence", () => {
       "folder/../Jenkinsfile", "/Jenkinsfile", "C:/Jenkinsfile",
       ".claude/../mcp.json", "src//Jenkinsfile", "config.txt",
       ".github/workflows/run.json", ".circleci/config.yaml/extra",
+      "docs/supabase/config.toml", "supabase/migrations/dir/nested.sql",
+      "supabase/functions/worker", "supabase/migrations/init.txt",
+      "supabase/functions.txt", "supabase/seed.csv",
     ]) {
       expect(classifySentrdelConfigPresencePathV1(path)).toEqual([]);
       expect(validateSentrdelConfigPresenceInputV1(input({ path }))).not.toEqual([]);
