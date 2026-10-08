@@ -45,6 +45,7 @@ describe("UA-P06-T09A bounded CI observation normalization", () => {
     for (const rule of SENTRDEL_WORKFLOW_RULE_IDS) {
       const record = normalizeSentrdelWorkflowObservationV1(input({ rule_id: rule }));
       expect(record.rule_id).toBe(rule);
+      expect(record.phase_authority).toBe("UA-P06-T09");
       expect(record.authority).toBe("CONFIG_OBSERVATION_ONLY");
       expect(record.assurance_effect).toBe("NONE");
       expect(record.finding_emitted).toBe(false);
@@ -91,6 +92,7 @@ describe("UA-P06-T09A bounded CI observation normalization", () => {
   it("never promotes generic IaC absence into clean/supported scope", () => {
     const gap = buildSentrdelGenericIacGapV1();
     expect(gap.capability_id).toBe("iac-generic");
+    expect(gap.phase_authority).toBe("UA-P06-T09");
     expect(gap.status).toBe("NOT_RUN");
     expect(gap.reason_code).toBe("unsupported_at_pinned_source");
     expect(gap.coverage_total).toBe(false);
