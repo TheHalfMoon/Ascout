@@ -28,13 +28,28 @@ Every executed task records the **achieved** tier, not the requested one. A prof
 
 | Tier | Meaning | Linux | Windows | macOS |
 |---|---|---|---|---|
-| **T0 TRUSTED_LOCAL** | Runs as the user; scrubbed env; bounded time/output; process-tree kill | HAVE (`src/process.ts`) | HAVE | HAVE |
-| **T1 CONFINED_FS** | Writes limited to a candidate worktree + temp dir; reads limited to worktree + toolchain paths; network denied at the syscall level | V3: Landlock v4 + seccomp (P01, x86_64; arm64 is new work) | V3: AppContainer launch (new work; G18) | V3 research: Seatbelt profile (deprecated interface, G17) |
-| **T2 ISOLATED_STRONG** | Separate kernel boundary | Optional: gVisor `runsc` if the user installed it (F01) | Optional: WSL2 + T1 inside | none planned |
+| **T0 TRUSTED_LOCAL** | Runs as the user; allowlisted env; bounded time/output; process-tree kill | V1 (ported Kodac gateway over `src/process.ts`) | V1 | V1 |
+| **T1-FS CONFINED_FS** *(revision 2)* | Writes limited to the candidate worktree + temp dir; reads limited to worktree + toolchain paths. **Network not denied** | V3: Kodac Landlock launcher (BSD-3-Clause, [16](16_KODAC_CONVERGENCE_ANALYSIS.md) K-6) | — | — |
+| **T1 CONFINED** | `T1-FS` **plus** network denial | V3: `T1-FS` + unprivileged user/network namespace, each probed at runtime; or Golam's seccomp filter if FD-3 is granted for those files | V3: AppContainer launch without network capabilities (new work; G18) | Research only (G17) |
+| **T2 ISOLATED_STRONG** | Separate kernel boundary | Optional: gVisor `runsc` if the user installed it | Optional: a user-installed Linux VM or container where a Linux `T1`/`T2` is probed | Optional: user-installed Linux VM or container |
 
-**Untrusted-code policy (proposed A07 clause):** executing repository code from a source the user did not author (agent-generated changes, external PR branches, third-party repositories) requires ≥ T1 *achieved*. On a platform where T1 is not qualified, Ascout still performs all **non-executing** analysis (review, Sentrdel static analysis, SBOM), but execution tasks are `BLOCKED(tier_unavailable)` unless the human passes `--trust-local-execution` for that invocation. That flag is recorded and caps the claim at `TRUSTED_LOCAL`.
+WSL2 is an execution *location*, not a tier. It shares the host network and mounts Windows drives by default, so only a Linux tier probed inside WSL2 counts there. On the audit machine (WSL2 kernel 6.18), unprivileged user+network namespaces worked; Landlock did not appear in the readable LSM list, so Landlock inside WSL2 is **unverified** ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-09).
+
+**Untrusted-code policy (proposed A07 clause):** executing repository code from a source the user did not author (agent-generated changes, external PR branches, third-party repositories) requires full `T1` *achieved*; `T1-FS` is not enough. Neutralizing repository-controlled Git and tool configuration (G30, V0-T08) is a precondition for **any** untrusted run, including analysis-only runs. On a platform where `T1` is not qualified (today: macOS; Windows until G18 closes), Ascout still performs all **non-executing** analysis (review, Sentrdel static analysis, SBOM), but execution tasks are `BLOCKED(tier_unavailable)` unless the human passes `--trust-local-execution` for that invocation. That flag is human-only: MCP tools cannot set it ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-11). It is recorded and caps the claim at `TRUSTED_LOCAL`. Analysis engines (scanners, Sentrdel) still parse untrusted content at `T0` on such platforms. That residual risk is declared in every receipt.
 
 How does Ascout know code is untrusted? It does not guess. The user declares it (`--untrusted`). MCP-originated execution requests default to untrusted, because the caller is an agent. Git provenance of the candidate (commits authored after the base by a non-user identity) is shown as an advisory signal only.
+
+### 3.1 What a user gets for untrusted, agent-generated code (revision 2)
+
+| Platform | Analysis-only (review, scanners, Sentrdel) | Executing tests/builds of the untrusted change | Claim ceiling |
+|---|---|---|---|
+| Linux x86_64 with Landlock + user namespaces probed | Runs, after G30 neutralization | Runs at `T1` | Normal |
+| Linux without Landlock or namespaces | Runs at `T0` (declared residual risk) | `BLOCKED(tier_unavailable)`; human override caps the claim | `TRUSTED_LOCAL` with override |
+| Windows (until AppContainer `T1` is qualified) | Runs at `T0` (declared) | `BLOCKED`; recommended path: run inside WSL2 or a VM where a Linux `T1` is probed | `TRUSTED_LOCAL` with override |
+| macOS | Runs at `T0` (declared) | `BLOCKED`; recommended path: a user-installed Linux VM/container, or CI | `TRUSTED_LOCAL` with override |
+| Any platform via the Ascout GitHub Action (`pull_request`, read-only token) | Runs | Runs on the ephemeral CI runner. The runner is the isolation boundary; that is a GitHub property, not an Ascout claim | Normal, labeled `CI_EPHEMERAL` |
+
+No platform gets a containment claim it did not pass a probe for.
 
 ## 4. Credential and environment handling
 
@@ -44,7 +59,7 @@ How does Ascout know code is untrusted? It does not guess. The user declares it 
 
 ## 5. Evidence integrity (closes G07)
 
-1. The evidence root moves to a per-user state directory (`$XDG_STATE_HOME/ascout`, `%LOCALAPPDATA%\Ascout`, `~/Library/Application Support/Ascout`) keyed by repository identity. `.ascout/` becomes an export target only.
+1. From V1, new engine runs write through the ported Kodac private store (K-2: `0o700`, `O_NOFOLLOW`, `O_EXCL`) into a per-user state directory; `check` keeps its v1.0 location until V3 ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-07). The evidence root is a per-user state directory (`$XDG_STATE_HOME/ascout`, `%LOCALAPPDATA%\Ascout`, `~/Library/Application Support/Ascout`) keyed by repository identity. `.ascout/` becomes an export target only.
 2. Each artifact is hashed (SHA-256) as soon as the parent process receives it. Digests are held in memory until the receipt is sealed. The receipt lists every artifact digest plus a run-level Merkle root.
 3. `ascout verify-receipt` re-hashes artifacts and validates schema, source binding, and freshness.
 4. **Non-claim:** this detects tampering after sealing. It does not prevent a T0 child process from lying in its own output before Ascout reads it. Only containment (T1+) and independent re-execution address that, and the receipt says so.

@@ -14,7 +14,7 @@ Rules (deterministic; implemented in the kernel, never in an engine):
 
 1. Any engine state other than `EXECUTED` for a *required* capability → the claim is at best `INCOMPLETE` (missing) or `BLOCKED` (policy/tier).
 2. `MALFORMED_OUTPUT`, `ENGINE_ERROR`, `TIMEOUT` → `ERROR` at task level; the claim cannot be `SUPPORTED`.
-3. A `VALIDATED`/`OPEN` finding of severity ≥ the intent's threshold, or a required task `FAIL`, for the same target → `REFUTED`.
+3. **Finding intake status** depends on the producer: a deterministic result from a qualified engine enters as `OPEN`; a model or agent result enters as `CANDIDATE` and needs deterministic evidence to become `VALIDATED`. `REFUTED` requires at least one `OPEN` or `VALIDATED` finding at or above the intent's severity threshold, or a required task `FAIL`, bound to the same target and fresh. `CANDIDATE` findings never refute. Stale contradicting evidence yields `STALE`, not `REFUTED` ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-03, C-04).
 4. Evidence bound to another source digest → `STALE` (existing freshness engine).
 5. A model-originated observation can raise a finding to `CANDIDATE` only. It can never set `VALIDATED`, close a finding, or contribute supporting evidence for a security claim.
 6. `SUPPORTED` requires every required capability `EXECUTED`, at least one resolvable supporting evidence ref per required capability, zero contradicting validated evidence, and freshness. These are the existing semantic-validator rules, unchanged.
@@ -33,7 +33,7 @@ Every command that makes or reports an assurance statement uses the existing `ch
 
 Non-assurance outputs are explicitly labeled and exit 0 on successful rendering: `ascout test --plan`, `ascout review --delegate` (emits a spec; it is not a review result), `ascout doctor` (0 healthy, 2 broken).
 
-Precedence when several apply: 2 > 3 > 1 > 4 > 0 (identical to `decideReceiptExitCode`).
+Precedence when several apply: 2 > 3 > 1 > 4 > 0 (identical to `decideReceiptExitCode`). Because exit 1 outranks exit 4, every receipt and MCP response carries `completeness` independently. Exit 1 never implies complete coverage ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-02). `review --ingest` is assurance output and uses this table; `review --delegate` is not.
 
 ## 3. Identity fields carried by every engine run
 
@@ -97,7 +97,7 @@ Purpose: a single way for Ascout to invoke any engine and receive bounded, schem
 > 1. A command that is requested to verify, review, test, or security-check MUST NOT exit 0 unless the resulting claim is `SUPPORTED` or the scope is `NOT_APPLICABLE`. Unexecuted requested work exits 4.
 > 2. Plan, delegation-spec, and diagnostic outputs MUST be labeled as non-assurance output in both human and machine formats.
 > 3. The claim vocabulary gains `REFUTED`, valid only with resolvable validated contradicting evidence, mapped to exit 1.
-> 4. Executing source that the user did not author requires an achieved containment tier ≥ T1, or a per-invocation human override that caps the claim at `TRUSTED_LOCAL` and is recorded.
+> 4. Executing source that the user did not author requires an achieved containment tier of full `T1` (filesystem **and** network confinement), or a per-invocation human-only override that caps the claim at `TRUSTED_LOCAL` and is recorded. Repository-controlled Git and tool configuration that can launch commands is neutralized for every untrusted run.
 > 5. Companion engines are invoked only through Ascout's bounded process layer (the Execution Broker once it exists), never through a shell, with engine identity and achieved tier recorded per run. A06 rule 6 is reaffirmed: no companion is required for `check`.
 > 6. A06 rule 5's "remain unchanged" clause for `review` and `test` is superseded for exit-code semantics only.
 
