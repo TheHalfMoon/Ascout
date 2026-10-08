@@ -148,6 +148,7 @@ Revision 2 replaces the prose test list of revision 1. Revision 1 referenced 65 
 | B-REV-1 | Review coverage integrity | selected files accounted for (must be 100%) | Unmeasured |
 | B-REV-2 | Review quality (real model) | precision/recall against annotations, through ported K-7 qualification | Unmeasured; vendor figures are not Ascout results |
 | B-TST-1 | `test` overhead vs raw runner | added wall time | Unmeasured |
+| B-E2E-1 | Optional TesterArmy deterministic web vs pinned Playwright | first-run and replay wall time, peak RSS, cross-head-cache errors, incorrect PASS, default outbound connections | Unmeasured; wrong PASS = 0, cross-head = 0, default egress = 0 |
 | B-EXE-1 | Broker spawn overhead per tier | ms | Unmeasured; PROPOSED ≤ 50 ms |
 | B-CLM-1 | Claim correctness over ADV-01…ADV-20 and FMT-01…FMT-11 | wrong-claim count | **Must be 0** |
 | B-SRC-1 | Cross-tree evidence leakage | count | **Must be 0** |
