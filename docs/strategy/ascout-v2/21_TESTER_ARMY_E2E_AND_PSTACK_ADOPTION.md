@@ -85,8 +85,8 @@ is renamed under founder permission.
 
 | Order | Task | Scope (one bounded PR per task) | Exact acceptance |
 |---|---|---|---|
-| 1 | V0-T10 | Pin and rights-audit the two donors and portable Pstack; verify no unsafe bootstrap; record test/cost baseline | PST-01, PST-02 |
-| 2 | V4-T08 | Optional Pstack skills adapter (verification only), `init --dry-run` and receipt-based uninstall; never write global agent policies automatically | PST-03, PST-04 |
+| 1 | V0-T10 | Pin and rights-audit the two donors and portable Pstack; verify no unsafe bootstrap; record test/cost baseline | MCP-07, MCP-08 |
+| 2 | V4-T08 | Optional Pstack skills adapter (verification only), `init --dry-run` and receipt-based uninstall; never write global agent policies automatically | MCP-09, MCP-010 |
 | 3 | V7-T01 | TesterArmy deterministic web Engine Profile using installed/pinned runner, no model, no telemetry | E2E-15 |
 | 4 | V7-T02 | Broker-bound local app fixture and typed result adapter (no duplicate authority), cache and provenance controls | E2E-16 |
 | 5 | V7-T03 | Cross-platform local web qualification and benchmarks on exact heads; compare native Playwright to detect duplication | E2E-17 |
