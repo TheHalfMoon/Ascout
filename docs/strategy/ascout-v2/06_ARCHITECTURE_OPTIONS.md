@@ -60,7 +60,7 @@ There is one trust kernel. Concretely:
 
 | Sub-option | Rejected because |
 |---|---|
-| Ascout calls Trivy/OSV/Gitleaks directly | Two security ingestion paths; duplicates `sentrdel-engine/src/adapter.rs` |
+| Ascout calls Trivy/OSV/Gitleaks directly | Two security ingestion paths; duplicates `sentrdel-engine/src/adapter.rs`. **Revision 2 reverses this:** Ascout runs scanners and owns format ingestors as observation producers, with a shared conformance corpus ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md) §4) |
 | Host the containment helper in the Sentrdel repository | Couples execution policy to a security analyzer's release cadence. The helper is Ascout mechanism; see DECISION_LOG D-07 |
 | A long-running local daemon for speed | Violates Constitution V; no measured need |
 | SQLite evidence store in core | Constitution V; JSON + content digests are sufficient at current scale |

@@ -30,7 +30,7 @@ Disposition vocabulary (from the founder brief): **ADAPTER** (Ascout/Sentrdel la
 | ARES | `GoCodeAlone/ARES` | — | — | **BLOCKED (inaccessible)** | API returns 404 for the repository and the owner (OBSERVED). Issue #419 stays open; no plan depends on it |
 | OpenSSF Scorecard | `ossf/scorecard` | Apache-2.0 | v5.5.0 | **REFERENCE_ONLY** | Repository-posture heuristics; Sentrdel's GitHub Actions review covers the actionable CI subset locally |
 
-**Single security ingestion path.** Ascout never parses Trivy/OSV/Syft/Gitleaks/Semgrep output itself. Sentrdel already owns a bounded SARIF 2.1.0 adapter (`crates/sentrdel-engine/src/adapter.rs`, `adapt_sarif`) and the sole external process runner (`crates/sentrdel-engine/src/process_tree.rs`, Job Object / process group). Routing all scanners through Sentrdel avoids a second normalization authority.
+**Single security ingestion path.** Ascout never parses Trivy/OSV/Syft/Gitleaks/Semgrep output itself. Sentrdel already owns a bounded SARIF 2.1.0 adapter (`crates/sentrdel-engine/src/adapter.rs`, `adapt_sarif`) and the sole external process runner (`crates/sentrdel-engine/src/process_tree.rs`, Job Object / process group). Routing all scanners through Sentrdel avoids a second normalization authority. *(Revision 2: superseded by [17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md); real-scanner experiments showed this design rejects 20 of 22 real SARIF results and has no SBOM path.)*
 
 ## 3. Testing
 

@@ -34,7 +34,7 @@
           ▼                    ▼                    ▼                  ▼
    sentrdel (Rust)        ocr (Go)          user test runners     Playwright
    companion binary       adapter            (npm/pytest/…)       (in-repo dep)
-          │ fans in (optional, user-installed)
+          │ revision 2: scanners run through the broker and are ingested by Ascout format ingestors (doc 17)
           ▼
    opengrep/semgrep · trivy · osv-scanner · syft · gitleaks  (SARIF/JSON)
 ```
@@ -92,12 +92,12 @@ Status legend: **HAVE** = executing today; **CONTRACT** = contracts exist, no pr
 | Capability | Status | Mechanism |
 |---|---|---|
 | SAST (JS/TS) | **V1** | Sentrdel native |
-| SAST (other languages) | **V6** | Opengrep/Semgrep via Sentrdel SARIF; otherwise `UNSUPPORTED_LANGUAGE` coverage |
+| SAST (other languages) | **V6** | Opengrep/Semgrep, ingested by Ascout's SARIF ingestor ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md)); otherwise `UNSUPPORTED_LANGUAGE` coverage |
 | Secrets (changed) | **V1** | Sentrdel native, redacted |
-| Secrets (history) | V6 | Gitleaks via Sentrdel |
+| Secrets (history) | V6 | Gitleaks through the broker ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md)) |
 | Dependency vulnerabilities | **V1** (delta) / V6 (full) | Sentrdel OSV / OSV-Scanner |
 | SBOM | V6 | Syft → CycloneDX |
-| IaC / containers | V6 | Trivy via Sentrdel |
+| IaC / containers | V6 | Trivy through the broker, native JSON primary ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md)) |
 | CI workflow security | **V1** | Sentrdel `github_actions.rs` (UA-P06-T09 scope) |
 | AuthN/AuthZ, tenant isolation, business logic (bounded JS/TS) | V6 | Sentrdel R2/R3 packs |
 | SARIF export | V6 | P06 |

@@ -36,6 +36,8 @@ Each entry records the 13 fields required by the founder brief. Revisions are th
 - **Acceptance:** V1 acceptance suite ([13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md) §2): planted secret, dangerous workflow, vulnerable dependency delta, and a clean control produce the expected normalized findings; a missing binary yields exit 4 `NOT_RUN(engine_unavailable)`; a version mismatch yields `VERSION_MISMATCH`
 
 ### C02 — Sentrdel external scanner fan-in
+
+**Revision 2:** superseded by [17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md). Scanners run through Ascout's broker; Sentrdel's role becomes optional reconciliation plus its native analyses. The original analysis is kept below for history.
 - **Source:** same revision; `crates/sentrdel-engine/src/adapter.rs` (1,548 LOC, `adapt_sarif`), `crates/sentrdel-engine/src/process_tree.rs` (265 LOC, Job Object / process group)
 - **Capability:** run user-installed scanners (Trivy, OSV-Scanner, Syft, Gitleaks, Opengrep/Semgrep) and adapt SARIF into Sentrdel Evidence
 - **Maturity:** adapter and runner implemented; scanner registrations not implemented
