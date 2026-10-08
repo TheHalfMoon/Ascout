@@ -185,8 +185,10 @@ export function normalizeSentrdelWorkflowObservationV1(
   const unknown = Object.freeze([...input.unknown_tokens].sort());
   const identity = [
     SENTRDEL_WORKFLOW_PHASE_AUTHORITY, input.request_id, input.attempt_id,
-    input.engine_pin, input.source_head, input.rule_id, input.workflow_path,
-    String(input.line), input.evidence_digest, input.coverage_state, ...unknown,
+    input.engine_pin, input.engine_tree, input.engine_version,
+    input.source_head, input.rule_id, input.workflow_path,
+    String(input.line), input.producer_id, input.evidence_ref,
+    input.evidence_digest, input.coverage_state, ...unknown,
   ];
   const digest = createHash("sha256").update(JSON.stringify(identity), "utf8").digest("hex");
   return Object.freeze({
