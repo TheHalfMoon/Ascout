@@ -78,6 +78,17 @@ Severity: Critical / High / Medium / Low. Status for every entry is **OPEN** unl
 - **Action:** V0-T08: run every Git command with repository-controlled execution settings neutralized and a scrubbed Git environment; the ported gateway (K-1) must do the same
 - **Validation:** ADV-20 ([13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md)); the probe must not execute on any command
 
+### Revision 2 additions (2026-10-08)
+
+| ID | Class · Severity | Gap | Evidence | Action | Validation |
+|---|---|---|---|---|---|
+| G31 | DEFECT (design) · High | Revision 1's Sentrdel-only fan-in loses evidence and is a single point of failure | Sentrdel's adapter rejected the whole OSV and Trivy SARIF files (20 of 22 results); no CycloneDX/SPDX/OSV path ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md) §2.3) | D-17 federated ingestion | FMT-01, FMT-03, FMT-09 |
+| G32 | EXTERNAL · High | Scanners report clean with zero coverage | Gitleaks on a non-repository exits 0 ("0 commits scanned … no leaks found"); Trivy reports successes for an unparseable Terraform file, with the error only on stderr | Engine Profiles with coverage signals; stderr capture; never `--quiet` | FMT-05, FMT-07 |
+| G33 | EXTERNAL · High | Scanner output carries plaintext secrets, including secrets the scanner missed | Gitleaks JSON/SARIF snippets; Trivy `Code.Lines` printed an undetected credential | Redaction pass before persistence; drop context fields by default | FMT-06 |
+| G34 | DEFECT (planning) · Medium | Revision 1 referenced 65 acceptance identifiers it never defined | `verify-planning-docs --ids` on #578 | Fixed in revision 3 ([13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md)) | Verifier PASS on the stack head |
+| G35 | PROCESS · High | No working independent review path for architecture documents | OCR excludes Markdown (0 of 21 files reviewable); automated reviewers on #578 did not review (cubic over quota, Qodo trial ended, CodeRabbit skipped); no human review yet | Defined review path in planning governance (revision 7) | Recorded reviews before ratification |
+| G36 | CAPABILITY · Medium | Linux containment donors are partial: the licensed Kodac launcher is filesystem-only; Golam's fs+net+seccomp helper is unlicensed; Landlock inside WSL2 is unverified | [16](16_KODAC_CONVERGENCE_ANALYSIS.md) K-6; [18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-08, C-09 | `T1-FS` + network namespace for full `T1`; runtime probes | CON-04, E2E-12 |
+
 ## 2. Medium
 
 | ID | Class | Gap | Evidence | Action | Validation |

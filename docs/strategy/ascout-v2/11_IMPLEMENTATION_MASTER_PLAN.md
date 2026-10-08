@@ -1,5 +1,7 @@
 # 11 — Implementation Master Plan
 
+**Revision 2 (PROPOSED):** phase contents below were updated for D-16 (Kodac convergence, [16](16_KODAC_CONVERGENCE_ANALYSIS.md)), D-17 (federated security ingestion, [17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md)), and the contradiction ledger ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md)). Exit criteria now use the evidence levels of [13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md) §1: a capability counts only at L2+ on each claimed OS.
+
 **Ordering principle:** every phase ends with a user-runnable command that executes a real engine (or a real containment mechanism) and produces a real, exit-coded claim. No phase may consist only of contracts.
 
 **Priority:** P0 = V0–V2 (minimum honest product); P1 = V3–V5 (safe, agent-native, installable); P2 = V6–V8.
@@ -17,9 +19,9 @@ V0 ─► V1 ─► V2 ─► V3 ─► V4 ─► V5 ─► V6 ─► V7 ─► 
 
 1. **Objective:** make every existing command's exit code and documentation truthful; fix compliance defects. No new capabilities.
 2. **Reuse:** `src/cli.ts`, `src/receipt/model.ts` (`decideReceiptExitCode`), `src/assurance/review/review-command.ts`, `src/assurance/test/test-plan-command.ts`.
-3. **New code:** an exit-mapping function shared by `review`/`test`; a `--plan` flag; a notices-completeness test.
+3. **New code:** an exit-mapping function shared by `review`/`test`; a `--plan` flag; a notices-completeness test; neutralization of repository-controlled Git configuration in every Git invocation (G30); a Node port of Kodac's provenance admission lifecycle and validator ([16](16_KODAC_CONVERGENCE_ANALYSIS.md) K-15); `scripts/planning/verify-planning-docs.mjs`.
 4. **Sources:** Ascout only.
-5. **Dependencies:** FD-1 (A07) for the behavior change.
+5. **Dependencies:** FD-1 (A07) only for the `review`/`test` exit change (V0-T02, V0-T05). V0-T03, T04, T06, T08, and T09 need no amendment.
 6. **Risks:** breaking callers that rely on exit 0 (mitigation in §4).
 7. **Tasks:** V0-T01…T07 ([12](12_TASK_REGISTRY.md)).
 8. **Acceptance:** ADV-01, ADV-02, ADV-08; existing golden fixtures unchanged.
@@ -28,16 +30,16 @@ V0 ─► V1 ─► V2 ─► V3 ─► V4 ─► V5 ─► V6 ─► V7 ─► 
 11. **CI:** existing 6-cell matrix green at the exact head.
 12. **Evidence:** CI run URLs + probe transcript re-run (the `01` §4 table with new exits).
 13. **Exit criteria:** `review`/`test` never exit 0 without execution; notices complete; README parity test passes.
-14. **Blockers:** FD-1.
+14. **Blockers:** FD-1 for V0-T02/T05 only.
 15. **Maintenance burden:** negligible.
 
-## V1 — First real engine: Sentrdel security slice · P0 · ~3–4 weeks
+## V1 — Execution Broker and federated security slice · P0 · ~4–6 weeks
 
-1. **Objective:** `ascout security` executes a released Sentrdel binary on the working tree or a base..head range and produces a normalized claim with the unified exit code. This absorbs UA-P06-T09 (CI workflow security) and UA-P06-T14 (`ascout security` CLI).
-2. **Reuse:** Sentrdel libraries (C01); Ascout K04 normalizers; `src/process.ts` bounded execution; Engine Protocol types (new, thin).
-3. **New code:** Sentrdel `main.rs` dispatch + protocol envelope (Sentrdel repo); Sentrdel release workflow; Ascout `sentrdel-runner.ts`, `security` command, binary resolver with manifest hash check.
+1. **Objective:** port Kodac's execution gateway as the broker (T0) and the private store/receipts. `ascout security` runs pinned scanners (Gitleaks, OSV-Scanner, Syft, Trivy) through it, ingests SARIF/CycloneDX/SPDX/native JSON without critical-field loss, and runs Sentrdel when its release exists. Produces a claim with exit codes 0/1/2/3/4 (a new command, so no amendment needed: C-14). Absorbs UA-P06-T09 (CI workflow security, via Sentrdel) and UA-P06-T14.
+2. **Reuse:** Kodac K-1, K-2, K-3, K-5 (ported); `src/process.ts`; Sentrdel libraries (C01); Ascout K04 normalizers; Engine Protocol types (new, thin).
+3. **New code:** Engine Profiles and format ingestors with URI rebasing and redaction ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md) §4–§6); companion manifest and resolver; `security` command; `real-engines.yml` CI; Sentrdel `main.rs` dispatch and release workflow (Sentrdel repository).
 4. **Sources:** `Sentrdel@f5747319` `crates/sentrdel-cli/src/{lib.rs,main.rs,review.rs}`, `crates/sentrdel-review/src/{git.rs,secrets.rs,github_actions.rs,dependency.rs,reconcile.rs,coverage.rs}`.
-5. **Dependencies:** V0; FD-2.
+5. **Dependencies:** V0-T08 (G30) before any untrusted use. FD-2 blocks only the Sentrdel part (E2E-03), not the scanner path (C-13).
 6. **Risks:** G10 (normalizer/real-output mismatch); G19 (Windows build). Sentrdel's `CliEnvelope` may need a version bump.
 7. **Tasks:** V1-T00…T10.
 8. **Acceptance:** SEC-01…SEC-08 ([13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md) §2); ADV-03, ADV-04.
@@ -46,16 +48,16 @@ V0 ─► V1 ─► V2 ─► V3 ─► V4 ─► V5 ─► V6 ─► V7 ─► 
 11. **CI:** Sentrdel release workflow on 5 targets; Ascout CI downloads the pinned release and runs the V1 acceptance suite on 3 OSes.
 12. **Evidence:** release attestations; golden fixtures captured from the real binary at the pinned version.
 13. **Exit criteria:** planted fixtures detected; missing binary → exit 4; tampered binary → exit 4 with `VERSION_MISMATCH`; clean control → exit 0 with explicit coverage (including `UNSUPPORTED_LANGUAGE` where applicable).
-14. **Blockers:** FD-2; Sentrdel Windows build (prebuilt via the CI image).
+14. **Blockers:** none for the scanner path. Sentrdel capabilities: FD-2 and the Windows build (G19).
 15. **Maintenance:** one pinned companion; re-pin per Sentrdel release.
 
 ## V2 — Review and test execution · P0 · ~3–4 weeks
 
 1. **Objective:** `ascout review` executes OCR (local/BYOK endpoint) or emits a delegation spec and ingests the host agent's result. `ascout test` executes its profile.
-2. **Reuse:** K03 review pipeline, K05 test profile policy and check adapter, K02 `check`, OCR (C03).
+2. **Reuse:** K03 review pipeline, K05 test profile policy and check adapter, K02 `check`, OCR (C03), Kodac reviewer qualification (K-7, ported) to qualify OCR + endpoint + model.
 3. **New code:** `opencode-review-runner.ts` (resolve `ocr`, run `ocr review --format json --output <state>` with `--from/--to`, parse); a delegation round-trip (`ascout review --delegate` → spec; `ascout review --ingest <file>` → observations with `HOST_AGENT` independence); `test` executor wiring; Stryker runner for DEEP when present.
 4. **Sources:** `alibaba/open-code-review@182898cf` CLI contract (JSON output, `delegate` subcommands); Ascout internal.
-5. **Dependencies:** V0. Independent of V1 and can run in parallel with it.
+5. **Dependencies:** V0; the V1 broker (all engines run through it).
 6. **Risks:** OCR JSON schema drift across versions (pin + golden fixtures); egress (G20); injection (G21).
 7. **Tasks:** V2-T01…T09.
 8. **Acceptance:** REV-01…REV-07, TST-01…TST-04; ADV-05, ADV-06.
@@ -69,11 +71,11 @@ V0 ─► V1 ─► V2 ─► V3 ─► V4 ─► V5 ─► V6 ─► V7 ─► 
 
 ## V3 — Execution Broker, containment tiers, evidence integrity · P1 · ~5–7 weeks
 
-1. **Objective:** all child processes go through one broker; the achieved tier is declared; T1 exists on Linux x86_64 (and Windows if G18 succeeds); evidence moves out of the repository with sealed digests; untrusted-mode policy (A07 rule 4) is enforced.
-2. **Reuse:** `src/process.ts`; Golam P01; Winds P02/P03; Kodac F01 (method).
+1. **Objective:** add containment tiers to the V1 broker: `T1-FS` (Kodac Landlock launcher) and full `T1` (plus a network namespace) on Linux, AppContainer `T1` on Windows if G18 succeeds, truthful `T0` on macOS. Seal evidence and add `verify-receipt`. Enforce the untrusted-mode policy (A07 rule 4).
+2. **Reuse:** the V1 broker; Kodac K-6 (Landlock launcher, BSD-3-Clause notice); Winds P02/P03; Kodac F01 (method); Golam P01 only if FD-3 is granted for those files.
 3. **New code:** `src/execution/broker.ts`; `native/ascout-exec` (Rust) with `linux.rs`, `windows.rs`, `macos.rs` (stub declaring T0); `src/evidence/store.ts`; `ascout verify-receipt`.
 4. **Sources:** `Golam@13a379ac` `crates/golamd/src/native_containment_v2.rs`, `bin/golam-native-exec-helper-v2.rs`, hostile probes; `Winds@3bfe45fe` `src/process_scope.rs`.
-5. **Dependencies:** V1, V2; FD-3 (Golam license); FD-4.
+5. **Dependencies:** V1, V2; FD-4. FD-3 only if the Golam alternative is chosen.
 6. **Risks:** Landlock ABI variance; AppContainer complexity; adding a Rust build to Ascout CI.
 7. **Tasks:** V3-T01…T10.
 8. **Acceptance:** CON-01…CON-08 (hostile probes), ADV-07, ADV-10.
@@ -82,13 +84,13 @@ V0 ─► V1 ─► V2 ─► V3 ─► V4 ─► V5 ─► V6 ─► V7 ─► 
 11. **CI:** probe suite on ubuntu-24.04 (T1), windows-2025 (T0 + T1 if delivered), macos-14 (T0 declaration test).
 12. **Evidence:** probe receipts per platform.
 13. **Exit criteria:** every receipt states the achieved tier; untrusted execution on a T0-only platform is `BLOCKED` without an override.
-14. **Blockers:** FD-3, FD-4.
+14. **Blockers:** FD-4.
 15. **Maintenance:** Medium. Native code on 3 OSes is the largest new maintenance item in V2.
 
 ## V4 — Agent-native surfaces · P1 · ~3 weeks
 
 1. **Objective:** coding agents can call Ascout through MCP and are taught, through an Agent Skill, what "verified" means.
-2. **Reuse:** CLI internals; Deskal F02 (design), P07 approval semantics, Diffcipline P05 packaging.
+2. **Reuse:** CLI internals; Kodac one-shot approval runtime (K-4, ported); Deskal F02 (design reference); Diffcipline P05 packaging.
 3. **New code:** `src/mcp/` stdio server (no network listener); tool schemas; approval binding; Agent Skill; GitHub Action.
 4. **Sources:** `Deskal@be21813d` `apps/qdral-mcp`, `crates/qdral-approval/src/lib.rs` (semantics only); `Diffcipline@1e6d14f7` `skills/`, `action.yml`.
 5. **Dependencies:** V2 (tools must execute); V3 for untrusted-default execution through MCP.
@@ -106,7 +108,7 @@ V0 ─► V1 ─► V2 ─► V3 ─► V4 ─► V5 ─► V6 ─► V7 ─► 
 ## V5 — Distribution, durability, publication · P1 · ~4 weeks
 
 1. **Objective:** a user can install Ascout and companions on 3 OSes with verified integrity; runs are crash-recoverable; reviews can be published to GitHub safely.
-2. **Reuse:** `docs/npm-package-identity.md`; K08 + Kodac P04; Winds journal patterns.
+2. **Reuse:** `docs/npm-package-identity.md`; K08 + Kodac GitHub transport (K-10); Kodac durable-workflow semantics (K-9) for the run journal; Ecra's hash-chained verification journal as a design reference only (no license).
 3. **New code:** release workflows, `ascout setup`, manifest, `ascout gc`, a file-based run journal, `github-transport.ts`.
 4. **Sources:** `Kodac@406b3352` `src/github-review/o4b…`, `o4g…`, `o4i…`.
 5. **Dependencies:** V1–V4.
@@ -123,7 +125,7 @@ V0 ─► V1 ─► V2 ─► V3 ─► V4 ─► V5 ─► V6 ─► V7 ─► 
 
 ## V6 — Security breadth, assurance intelligence, independent review · P2 · ~6–8 weeks
 
-Covers UA-P06-T10…T13, T15, T16, scanner fan-in (C02), SBOM, IaC, multi-language SAST, SARIF export (P06), the remediation/retest lifecycle, composite `ascout assure`, deterministic risk-based planning (07 §3F), the separate-agent reviewer (F03), local-model qualification (F05), and agent-harness audit (F04). Acceptance: SEC-09…SEC-16, ASR-01…ASR-05. Gate: benchmark precision/recall reported per scanner with known ground truth; no claim of coverage for an unsupported language.
+Covers UA-P06-T10…T13, T15, T16; Opengrep/Semgrep multi-language SAST and Gitleaks history mode through the V1 ingestion path; Sentrdel reconciliation over sealed artifacts plus the shared conformance corpus (FMT-10); SARIF export (P06); the remediation/retest lifecycle; composite `ascout assure`; deterministic risk-based planning (07 §3F) using ported Kodac continuous assurance (K-8); `kodac ask` as a separate-agent reviewer (K-11, E2E-11); Kodac's Done Gate consuming Ascout receipts (K-12, E2E-14); local-model qualification through ported K-7; and agent-harness audit from ported Kodac compatibility catalogs (K-14). Acceptance: SEC-09…SEC-16, ASR-01…ASR-05. Gate: benchmark precision/recall reported per scanner with known ground truth; no claim of coverage for an unsupported language.
 
 ## V7 — Real application verification · P2 · ~4–6 weeks
 
@@ -144,20 +146,20 @@ A read-mostly UI over receipts and plans that calls the same CLI/MCP interfaces.
 | P06 T09 (IaC/CI) | Next | **Split:** CI-workflow part → V1 (Sentrdel `github_actions.rs` already exists); IaC part → V6 via Trivy fan-in |
 | P06 T10–T13, T15–T16 | Not started | → V6 |
 | P06 T14 `ascout security` | Not started | → **V1 (pulled forward)** |
-| P07 Cloudflare deep audit | Not started | **Superseded:** becomes one agent-assisted audit method inside V6; not a phase |
-| P08 Kernux Reality bridge | Not started | **Deferred indefinitely** (G24) |
+| P07 Cloudflare deep audit | Not started | **Deferred and folded:** delivered as an agent-assisted audit method inside V6. Re-entry as a phase if V6 benchmarks show a capability gap the method closes |
+| P08 Kernux Reality bridge | Not started | **Deferred.** Re-entry when Kernux ships an executable runtime with qualified tests and its README matches its code (G24) |
 | P09 Isolated Lab / provider qualification | Not started | **Replaced by V3** (local containment) + V6 (model qualification) |
-| P10 Remote runtime | Not started | **Deferred** (contradicts zero operator cost unless user-hosted; no demand) |
-| P11 Cyber / threat intel | Not started | **Deferred** |
-| P12 Dynamic authorized security | Not started | **Deferred** until V3 tiers are qualified on ≥ 2 OSes |
+| P10 Remote runtime | Not started | **Deferred.** Re-entry for user-hosted runtimes only (zero operator cost) once V3 tiers pass on ≥ 2 OSes and users request it |
+| P11 Cyber / threat intel | Not started | **Deferred.** Re-entry after V6 security breadth is at L3 |
+| P12 Dynamic authorized security | Not started | **Deferred.** Re-entry when V3 tiers pass on ≥ 2 OSes and written authorization semantics exist |
 | P13 Assure composite | Not started | → V6 |
 | P14 Explain/reproduce/retest | Not started | → V6 (retest), explanations via Sentrdel `explain` |
 | P15 IDE/MCP/GitHub | Not started | → **V4/V5 (pulled forward)** |
-| P16 Donor migration/parity | Not started | **Superseded:** no repository migration; companions stay separate |
+| P16 Donor migration/parity | Not started | **Reshaped:** no repository migration; parity is enforced per port through ported Kodac tests ([16](16_KODAC_CONVERGENCE_ANALYSIS.md) §5) and the shared Sentrdel conformance corpus (FMT-10) |
 | P17 Packaging/release | Not started | → **V5 (pulled forward)**; Sentrdel release → V1 |
 | P18 Final qualification | Not started | Each V-phase has its own exit gate; a final release qualification at V5 |
 
-The old task registry (`ASCOUT_UNIFIED_ASSURANCE_TASK_REGISTRY_2026-09-19.md`) is **not edited**. On ratification, a supersession record is added to `docs/strategy/README.md` that points here.
+No old phase is deleted (founder guidance on FD-5): each is reordered, folded, or deferred with a re-entry criterion. The old task registry (`ASCOUT_UNIFIED_ASSURANCE_TASK_REGISTRY_2026-09-19.md`) is **not edited**. On ratification, a supersession record is added to `docs/strategy/README.md` that points here.
 
 ## 4. Migration and compatibility
 
@@ -180,12 +182,12 @@ The old task registry (`ASCOUT_UNIFIED_ASSURANCE_TASK_REGISTRY_2026-09-19.md`) i
 | Long-running daemon / file watcher | No measured need; Constitution V |
 | Database for evidence | Constitution V; JSON + digests suffice |
 | Re-implementing SAST rules in TypeScript | Sentrdel + Opengrep exist |
-| Direct Ascout integrations with Trivy/OSV/Syft/Gitleaks | Duplicates the Sentrdel fan-in |
+| ~~Direct Ascout integrations with Trivy/OSV/Syft/Gitleaks~~ | **Reversed in revision 2** (D-17): required to avoid a single point of failure and evidence loss |
 | Grype, Checkov | Overlap with OSV-Scanner/Trivy |
-| Remote runtime (UA-P10), cyber/threat intel (P11), dynamic attack (P12) | No containment, no demand, high attack surface |
-| Kernux bridge (P08) | Source not ready (G24) |
-| Kodac runtime import, Kodac Done Gate | Overlap; Ascout ClaimAssessment is stronger |
-| A separate "Cloudflare audit" phase (P07) | It is a prompt method, not an engine |
+| Remote runtime (UA-P10), cyber/threat intel (P11), dynamic attack (P12) — **deferred, not deleted** | No containment, no demand, high attack surface; re-entry criteria in §3 |
+| Kernux bridge (P08) — **deferred** | Source not ready (G24) |
+| Kodac authoring runtime import; porting the Done Gate into Ascout | Authoring is not verification; a ported Done Gate would be a second completion authority. Revision 2 ports 12 other Kodac capabilities and integrates the Done Gate instead ([16](16_KODAC_CONVERGENCE_ANALYSIS.md)) |
+| A separate "Cloudflare audit" phase (P07) — **folded into V6** | It is a prompt method, not an engine |
 | Model-chosen check selection | Not verifiable; deterministic planner suffices |
 | Memory systems (Morize), voice (Wispral), design tools (Lilac/Skelet) | Outside the verification promise |
 | UI before V5 | No stable backend contract yet |
