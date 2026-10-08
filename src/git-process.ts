@@ -9,7 +9,8 @@
  * require separate trust qualification before handling untrusted projects.
  */
 
-const NULL_DEVICE = process.platform === "win32" ? "NUL" : "/dev/null";
+// Git for Windows accepts /dev/null here; the Windows NUL device does not.
+const NULL_DEVICE = "/dev/null";
 
 const GIT_CONFIG_OVERRIDES = [
   "core.fsmonitor=false",
