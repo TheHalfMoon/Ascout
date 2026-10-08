@@ -38,7 +38,7 @@ The goal is near-zero **operator-funded variable runtime cost per subscriber**. 
 | `@thehalfmoon/ascout` (JS) | npm, after scope ownership is proven (existing package-identity decision in `docs/npm-package-identity.md`) | npm provenance attestation |
 | Same, as tarball | GitHub Release asset | SHA-256 + GitHub artifact attestation |
 | `sentrdel` binary (V1) | Sentrdel GitHub Releases: linux-x64, linux-arm64, darwin-arm64, darwin-x64, windows-x64 | SHA-256 + attestation + cosign; Windows/macOS signing when certificates exist |
-| `ascout-exec` helper (V3) | Ascout GitHub Releases, same matrix | Same |
+| Native containment helpers (V3) | Ascout GitHub Releases, same matrix | Same |
 | `ocr` | Upstream GitHub Releases; Ascout ships only a manifest of pinned versions + SHA-256 | Hash verification by `ascout setup` |
 | Agent Skill + GitHub Action (V4) | In the Ascout repository | Tag-pinned |
 

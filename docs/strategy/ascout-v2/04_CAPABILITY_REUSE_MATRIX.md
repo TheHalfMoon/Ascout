@@ -74,7 +74,7 @@ Each entry records the 13 fields required by the founder brief. Revisions are th
 - **Current tests:** REPORTED by Golam (probes exist); not executed in this session
 - **License:** **No LICENSE file in Golam. Blocked on FD-3** (founder relicensing attestation to Apache-2.0)
 - **Third-party deps:** `landlock`, `seccompiler` crates (verify licenses at admission)
-- **Integration target:** `native/ascout-exec/src/linux.rs` (new Rust helper in the Ascout repo, prebuilt per platform)
+- **Integration target:** `native/` containment helpers (revision 2: the Kodac Landlock launcher in C plus a network-namespace launcher; Golam's Rust code only if FD-3 is granted, [18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-15)
 - **Security concerns:** kernel feature availability varies (Landlock ABI). The helper must report the achieved ABI and must fail closed if full enforcement is not achieved
 - **Expected advantage:** an existing hostile-probe-qualified implementation; avoids writing containment from scratch
 - **Acceptance:** port Golam's hostile probes into Ascout's containment qualification suite; all probes must be denied on ubuntu-24.04 CI
@@ -84,7 +84,7 @@ Each entry records the 13 fields required by the founder brief. Revisions are th
 - **Capability:** reliable termination and resource accounting of child process trees. **This is not isolation.**
 - **Maturity:** released (Winds v0.1.0)
 - **License:** MIT OR Apache-2.0
-- **Integration target:** `native/ascout-exec/src/windows.rs`
+- **Integration target:** `native/` Windows helper (Job Objects; AppContainer is new work)
 - **Acceptance:** fork-bomb and orphan tests: no surviving descendants after timeout on windows-2025 CI
 
 ### P03 — Candidate verification contract
