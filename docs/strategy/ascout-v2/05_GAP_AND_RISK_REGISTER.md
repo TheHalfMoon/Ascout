@@ -125,5 +125,5 @@ Severity: Critical / High / Medium / Low. Status for every entry is **OPEN** unl
 | FD-2 | Authorize Sentrdel CLI dispatch + release pipeline work in the Sentrdel repository? | Yes. V1 is blocked otherwise |
 | FD-3 | Attest Apache-2.0 relicensing for specific files from owner repositories without LICENSE files? | Yes, per file, recorded in the provenance register |
 | FD-4 | Accept that macOS/Windows untrusted-code verification is unavailable until V3 qualifies tiers? | Yes. The alternative is an unverifiable claim |
-| FD-5 | Accept removal of UA-P07 (Cloudflare phase), UA-P08 (Kernux bridge), and UA-P10–P12 (remote runtime, cyber, dynamic) from the near-term program? | Yes; see [11](11_IMPLEMENTATION_MASTER_PLAN.md) §3 |
+| FD-5 | Accept *deferral with re-entry criteria* (not removal) of UA-P07 (folded into V6), UA-P08, and UA-P10–P12? | Yes; see [11](11_IMPLEMENTATION_MASTER_PLAN.md) §3 (revision 2 wording) |
 | FD-6 | When to make the first public pre-release (npm scope proof, signing certificates)? | After V5 exit criteria; not required for V0–V4 |

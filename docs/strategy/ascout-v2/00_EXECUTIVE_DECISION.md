@@ -3,6 +3,8 @@
 **Status:** PROPOSED — requires founder ratification.
 **Base:** `main` @ `ca6b6f514e5a8881e2cfa2789b5e5ea43e3aaaad`.
 
+> **Revision 2 note (PROPOSED):** decisions 2 (security fan-in), 4 (Kodac), and 5 (broker timing) were revised. See [16](16_KODAC_CONVERGENCE_ANALYSIS.md), [17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md), and [18](18_CONTRADICTION_RESOLUTION_LEDGER.md). The readiness verdict is restated in [15](15_IMPLEMENTATION_READINESS_AUDIT.md) and the review path in [19](19_PLANNING_GOVERNANCE_AND_REVIEW_PATH.md).
+
 ## 1. Decision
 
 Ascout V2 adopts **Option B+ — one trust kernel with out-of-process companion engines behind a single versioned Engine Protocol and a single Execution Broker** (see [06](06_ARCHITECTURE_OPTIONS.md)).
