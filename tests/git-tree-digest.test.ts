@@ -318,10 +318,10 @@ describe("T019 live Git tree-digest collection", () => {
 
   it("refuses path-aware Git hashing when a repository filter attribute is set", () => {
     const repositoryRoot = makeRepository();
-    writeFileSync(join(repositoryRoot, "tracked.txt"), "base\\n");
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "base\n");
     commitAll(repositoryRoot, "base");
-    writeFileSync(join(repositoryRoot, ".gitattributes"), "*.txt filter=external-driver\\n");
-    writeFileSync(join(repositoryRoot, "tracked.txt"), "modified\\n");
+    writeFileSync(join(repositoryRoot, ".gitattributes"), "*.txt filter=external-driver\n");
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "modified\n");
 
     expect(() => readTreeDigestV1(repositoryRoot)).toThrowError(
       /tree digest refuses Git filter attribute/,
