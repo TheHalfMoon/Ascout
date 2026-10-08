@@ -153,6 +153,38 @@ describe("UA-P06-T09C source/attempt-bound static inventory", () => {
     }
   });
 
+  it("refuses accessor, hidden, symbol, and sparse input mutations", () => {
+    let observed = 0;
+    const getterRecord = { ...workflow() };
+    Object.defineProperty(getterRecord, "workflow_path", {
+      enumerable: true,
+      get() {
+        observed += 1;
+        return observed < 4 ? ".github/workflows/ci.yml" : "../unsafe.yml";
+      },
+    });
+    const hiddenRecord = { ...configuration() };
+    Object.defineProperty(hiddenRecord, "verdict", { value: "PASS", enumerable: false });
+    const symbolRecord = { ...configuration(), [Symbol("bypass")]: "PASS" };
+    const sparseRecords = Array(1);
+    const nestedAccessor = { ...workflow() };
+    const unknownTokens: string[] = ["TIMEOUT"];
+    Object.defineProperty(unknownTokens, "0", {
+      enumerable: true, get: () => "TIMEOUT",
+    });
+    nestedAccessor.unknown_tokens = unknownTokens;
+    for (const input of [
+      { workflows: [getterRecord], configurations: [] },
+      { workflows: [], configurations: [hiddenRecord] },
+      { workflows: [], configurations: [symbolRecord] },
+      { workflows: sparseRecords, configurations: [] },
+      { workflows: [nestedAccessor], configurations: [] },
+    ]) {
+      expect(() => buildSentrdelT09InventoryV1(input)).toThrow(TypeError);
+    }
+    expect(observed).toBe(0);
+  });
+
   it("accepts a single characterized surface without inferring the absent one was checked", () => {
     const a = buildSentrdelT09InventoryV1({ workflows: [workflow()], configurations: [] });
     const b = buildSentrdelT09InventoryV1({ workflows: [], configurations: [configuration()] });
