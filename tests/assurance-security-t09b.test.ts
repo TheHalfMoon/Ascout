@@ -116,6 +116,26 @@ describe("UA-P06-T09B pinned static CI/MCP presence", () => {
     }
   });
 
+  it("rejects mutable accessors, hidden verdicts and nested input side effects", () => {
+    let reads = 0;
+    const changing = { ...input() };
+    Object.defineProperty(changing, "path", {
+      enumerable: true, get() {
+        reads += 1;
+        return reads === 1 ? ".mcp.json" : "../invalid.json";
+      },
+    });
+    const hidden = { ...input() };
+    Object.defineProperty(hidden, "security_verdict", { value: "PASS", enumerable: false });
+    const symbol = { ...input(), [Symbol("fake")]: "PASS" };
+    for (const item of [changing, hidden, symbol]) {
+      expect(validateSentrdelConfigPresenceInputV1(item).length).toBeGreaterThan(0);
+      expect(() => normalizeSentrdelConfigPresenceV1(item)).toThrow(TypeError);
+    }
+    expect(reads).toBe(0);
+    expect(normalizeSentrdelConfigPresenceV1(input()).authority).toBe("STATIC_PRESENCE_ONLY");
+  });
+
   it("rejects null/array/scalar and malformed observations", () => {
     for (const value of [null, undefined, [], 0, "string"]) {
       expect(validateSentrdelConfigPresenceInputV1(value).length).toBeGreaterThan(0);
