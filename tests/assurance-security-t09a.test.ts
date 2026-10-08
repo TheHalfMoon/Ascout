@@ -72,6 +72,10 @@ describe("UA-P06-T09A bounded CI observation normalization", () => {
       .not.toBe(first.observation_id);
     expect(normalizeSentrdelWorkflowObservationV1(input({ attempt_id: "attempt:other" })).observation_id)
       .not.toBe(first.observation_id);
+    expect(normalizeSentrdelWorkflowObservationV1(input({ producer_id: "producer:other" })).observation_id)
+      .not.toBe(first.observation_id);
+    expect(normalizeSentrdelWorkflowObservationV1(input({ evidence_ref: "evidence:other" })).observation_id)
+      .not.toBe(first.observation_id);
   });
 
   it("preserves partial coverage and canonicalizes unknown reasons", () => {
