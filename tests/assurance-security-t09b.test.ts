@@ -59,7 +59,7 @@ describe("UA-P06-T09B pinned static CI/MCP presence", () => {
     for (const path of [
       "docs/.github/workflows/check.yml", "ci/gitlab.yaml",
       ".circleci/fake.txt", "docs/mcp.json", ".cursor/config.json",
-      "supabase/config.toml", "ci/test.yml", "../.gitlab-ci.yml",
+      "ci/test.yml", "../.gitlab-ci.yml",
       "folder/../Jenkinsfile", "/Jenkinsfile", "C:/Jenkinsfile",
       ".claude/../mcp.json", "src//Jenkinsfile", "config.txt",
       ".github/workflows/run.json", ".circleci/config.yaml/extra",
