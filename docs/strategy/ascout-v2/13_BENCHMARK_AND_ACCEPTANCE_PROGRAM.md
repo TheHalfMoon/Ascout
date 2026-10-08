@@ -35,6 +35,10 @@ Revision 2 replaces the prose test list of revision 1. Revision 1 referenced 65 
 | E2E-12 | Kodac Landlock launcher (T1-FS) | Kodac's own tests (REPORTED) | L2 (Linux) | hostile probes under the broker | Achieved tier `T1-FS` recorded; filesystem escapes denied | kernel without Landlock → `T0` declared, untrusted execution `BLOCKED` |
 | E2E-13 | Composite on the security probe | None | L3 | `ascout assure` (review + test + security) | `REFUTED`, exit 1, with per-capability coverage listed | any required engine missing → its capability `NOT_RUN` listed |
 | E2E-14 | Kodac Done Gate consuming an Ascout receipt | None | L2 | `kodac solve` with Ascout as the verification step | `PROVEN_READY` only when Ascout reports `SUPPORTED` for the same head | Ascout `INCOMPLETE` → `NOT_READY` |
+| E2E-15 | TesterArmy e2e 0.18.0, deterministic web (PROPOSED) | None | L2, then L3 on claimed OSes | Pinned runner, no-model local web fixture | Real assertions reach an Ascout receipt on the exact head | missing engine/Node mismatch → `NOT_RUN`; no telemetry or remote inference |
+| E2E-16 | TesterArmy source/replay/egress binding (PROPOSED) | None | L2 | Broker, no-model cache and benign/hostile navigation fixtures | Replayed actions cannot cross head/target; receipt distinguishes assertions from model claims | malicious redirect, cached injection, stale head → BLOCK/INCOMPLETE |
+| E2E-17 | Web integration parity and cross-platform (PROPOSED) | None | L3 | Side-by-side pinned Playwright and e2e on local fixtures | Executable outcomes and coverage truthful across 3 OSes; no duplicate authority | unavailable browser/unsupported OS → `NOT_RUN` not false success |
+| E2E-18 | Explicit agent/mobile opt-in (PROPOSED) | None | L2 only if proven | Local or user-funded endpoint, optional mobile feasibility | Declared cost/egress and evidence; no auto-enabled hosted provider | no model, mobile device or user approval → `NOT_RUN`; never a release blocker for deterministic web |
 
 ## 3. Adversarial tests (wrong-claim scenarios)
 
@@ -130,6 +134,10 @@ Revision 2 replaces the prose test list of revision 1. Revision 1 referenced 65 
 | ASR-03 | Assure | stale evidence | excluded from support |
 | ASR-04 | Assure | model suggestion | cannot remove a required check |
 | ASR-05 | Assure | plan digest | stable across repeated runs |
+| MCP-07 | Provenance | pinned TesterArmy and Pstack source/license/nested rights | imported-file lineage, blob pin, license/NOTICE and package integrity recorded; no unlicensed embedded import |
+| MCP-08 | Local runtime | optional donor bootstrap and Node/telemetry safeguards | no paid calls, no default telemetry, no shell side effects or PATH ambiguity; incompatible Node fails closed |
+| MCP-09 | Agent workflows | Pstack host capability degradation and independence | Tier 0/1/2 recorded honestly; same-model stances never claim cross-vendor agreement |
+| MCP-010 | Agent integration | Pstack installation and session privacy | `--dry-run` first, no silent global instruction replacement; edited files preserved on uninstall; local `serve` default OFF and no session-log publication |
 
 ## 5. Benchmarks
 
@@ -140,6 +148,7 @@ Revision 2 replaces the prose test list of revision 1. Revision 1 referenced 65 
 | B-REV-1 | Review coverage integrity | selected files accounted for (must be 100%) | Unmeasured |
 | B-REV-2 | Review quality (real model) | precision/recall against annotations, through ported K-7 qualification | Unmeasured; vendor figures are not Ascout results |
 | B-TST-1 | `test` overhead vs raw runner | added wall time | Unmeasured |
+| B-E2E-1 | Optional TesterArmy deterministic web vs pinned Playwright | first-run and replay wall time, peak RSS, cross-head-cache errors, incorrect PASS, default outbound connections | Unmeasured; wrong PASS = 0, cross-head = 0, default egress = 0 |
 | B-EXE-1 | Broker spawn overhead per tier | ms | Unmeasured; PROPOSED ≤ 50 ms |
 | B-CLM-1 | Claim correctness over ADV-01…ADV-20 and FMT-01…FMT-11 | wrong-claim count | **Must be 0** |
 | B-SRC-1 | Cross-tree evidence leakage | count | **Must be 0** |

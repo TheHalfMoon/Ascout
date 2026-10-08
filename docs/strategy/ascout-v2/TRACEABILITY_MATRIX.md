@@ -25,4 +25,6 @@ Nothing in this table is complete because a document describes it. The "Today" c
 | R-18 | Zero-coverage scanner runs never yield green | **Violated by engines themselves** (G32) | Engine Profiles | V1-T06 | FMT-05, FMT-07 | B-CLM-1 | CI | V1 exit |
 | R-19 | Kodac completion depends on Ascout's verdict | **Not integrated** | Kodac K-12 | V6-E5 | E2E-14 | — | Recorded Kodac session | V6 exit |
 | R-20 | Repository-controlled configuration cannot execute commands during verification | **Violated** (G30) | Git invocation layer; ported gateway | V0-T08, V1-T03 | ADV-20 | B-CLM-1 | Probe transcript | V0 exit |
+| R-21 | Optional real deterministic web E2E with no model, telemetry or hosted cost by default | **Proposed, not integrated** | TesterArmy e2e C05, existing Playwright and broker | V0-T10, V7-T01…T04 | E2E-15…E2E-18 | B-E2E-1, B-CLM-1 | Locked binary, L2/L3 run receipts, no-egress captures | V7 exit |
+| R-22 | Engineering playbooks cannot self-attest an independent review or change agent policy without consent | **Proposed, not integrated** | Pstack C06, existing Diffcipline/governance | V0-T10, V4-T08 | MCP-07…MCP-010 | B-CLM-1 | Installation receipts, host-tier logs, adverse tests | V4 exit |
 | R-16 | Source binding: zero cross-tree leakage | **Holds** (existing) | K01, K02 | — (preserve) | existing benchmark | B-SRC-1 | Existing | Every release |

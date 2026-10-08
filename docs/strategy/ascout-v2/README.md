@@ -39,6 +39,7 @@ Revision 2 is delivered as bounded stacked PRs on top of #578, each within Diffc
 | 18 | [Contradiction resolution ledger](18_CONTRADICTION_RESOLUTION_LEDGER.md) | Revision 2: C-01…C-20 and where each is resolved |
 | 19 | [Planning governance and review path](19_PLANNING_GOVERNANCE_AND_REVIEW_PATH.md) | Revision 2: Diffcipline handling, review-tool classification, FD guidance |
 | 20 | [Review report for revision 2](20_INDEPENDENT_REVIEW_REPORT.md) | Review attempts, mechanical gates, adversarial findings; states that no independent review was available |
+| 21 | [TesterArmy e2e + Pstack adoption design](21_TESTER_ARMY_E2E_AND_PSTACK_ADOPTION.md) | Revision 3 proposal: pinned donors, phased tasks, trust boundaries and acceptance |
 | — | [Source provenance register](SOURCE_PROVENANCE_REGISTER.md) | Exact source identities for every selected donor |
 | — | [Traceability matrix](TRACEABILITY_MATRIX.md) | Requirement → source → task → test → evidence → gate |
 | — | [Decision log](DECISION_LOG.md) | Numbered decisions with status |

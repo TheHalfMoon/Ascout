@@ -14,6 +14,7 @@ One task = one branch = one PR, merged with a normal merge commit after exact-he
 | V0-T06 | Ascout | — | `check` excludes `.ascout/` via `.git/info/exclude` when `.gitignore` lacks it | ADV-12 |
 | V0-T08 | Ascout | — | Neutralize repository-controlled Git configuration and environment in every Git invocation (G30); details are handled through a private security path | ADV-20 |
 | V0-T09 | Ascout | — | Port Kodac's provenance admission lifecycle and validator to Node (K-15); add `scripts/planning/verify-planning-docs.mjs` and a Diffcipline policy (proposed separately) | Provenance validator rejects a record without rights/pin/audit fields; docs verifier PASS |
+| V0-T10 | Ascout | — | Audit and pin TesterArmy e2e, original/portable Pstack, package/toolchain requirements, notices, and default egress | MCP-07, MCP-08; no donor code admitted yet |
 | V0-T07 | Ascout | T02–T06, T08 | V0 qualification: re-run the [01](01_LIVE_REPOSITORY_AUDIT.md) §4 probe table and the G30 probe; record results | Probe table matches the expected exits; ADV-20 passes |
 
 ## V1 — Execution Broker and federated security slice (P0)
@@ -76,6 +77,7 @@ One task = one branch = one PR, merged with a normal merge commit after exact-he
 | V4-T05 | Ascout | T03 | Agent Skill (`skills/ascout/SKILL.md`) | MCP-05 |
 | V4-T06 | Ascout | V1, V2 | GitHub Action (receipts as artifacts; no publication) | MCP-06 |
 | V4-T07 | Ascout | T01–T06 | V4 qualification | — |
+| V4-T08 | Ascout | V0-T10, T05 | Optional portable Pstack host skill adapter, consented dry-run/install/uninstall and evidence-only verification | MCP-09, MCP-010 |
 
 ## V5 — Distribution, durability, publication (P1)
 
@@ -90,6 +92,15 @@ One task = one branch = one PR, merged with a normal merge commit after exact-he
 | V5-T07 | Ascout | T06 | Publication under K08 policy (dry-run default, exact fresh head) | PUB-02…PUB-04 |
 | V5-T08 | Ascout | T01–T07 | Signing (when certificates exist) | REL-06 |
 | V5-T09 | Ascout | all | 0.2.0 pre-release qualification | FD-6 |
+
+## V7 — Optional TesterArmy web E2E admission (P2; scoped tasks, not replacing V7-E1)
+
+| Task | Repo | Depends | Deliverable | Acceptance |
+|---|---|---|---|---|
+| V7-T01 | Ascout | V0-T10, V1-T03, V1-T05, V2-T06 | Pinned optional TesterArmy deterministic web Engine Profile; telemetry/model disabled | E2E-15 |
+| V7-T02 | Ascout | T01 | Broker-bound local web fixture, raw-result ingestion and head-bound replay receipts | E2E-16 |
+| V7-T03 | Ascout | T02 | Exact-head three-OS qualification vs existing Playwright; measure startup, resource and no-egress | E2E-17, B-E2E-1 |
+| V7-T04 | Ascout | T03, V3 | Explicit-opt-in model branch; mobile feasibility record; no default model/hosted runtime | E2E-18 |
 
 ## V6–V8 (P2) — epics, to be decomposed after V5
 
