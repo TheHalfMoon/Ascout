@@ -6,6 +6,7 @@
  * remote MCP service, or hosted security posture are inspected.
  */
 import { createHash } from "node:crypto";
+import { snapshotSentrdelObservationDataV1 } from "./sentrdel-observation-snapshot.js";
 import {
   buildSentrdelCapabilitiesV1,
   getSentrdelCapabilityV1,
@@ -119,7 +120,7 @@ export function classifySentrdelConfigPresencePathV1(path: string): readonly Sen
   return Object.freeze(signals);
 }
 
-export function validateSentrdelConfigPresenceInputV1(value: unknown): readonly string[] {
+function validatePlainSentrdelConfigPresenceInputV1(value: unknown): readonly string[] {
   const reasons: string[] = [];
   if (!isRecord(value)) return Object.freeze(["input must be a record"]);
   if (Object.keys(value).length !== EXACT_KEYS.length ||
@@ -159,11 +160,24 @@ export function validateSentrdelConfigPresenceInputV1(value: unknown): readonly 
   return Object.freeze(reasons);
 }
 
+/**
+ * Direct callers cannot mutate or conceal fields between validation and output.
+ * This blocks accessor reads but does not sandbox already executing JS code.
+ */
+export function validateSentrdelConfigPresenceInputV1(value: unknown): readonly string[] {
+  try {
+    return validatePlainSentrdelConfigPresenceInputV1(snapshotSentrdelObservationDataV1(value));
+  } catch {
+    return Object.freeze(["input must be immutable plain JSON data"]);
+  }
+}
+
 /** Normalize a bounded external presence report, not proof that Sentrdel ran. */
 export function normalizeSentrdelConfigPresenceV1(value: unknown): SentrdelConfigPresenceObservationV1 {
-  const reasons = validateSentrdelConfigPresenceInputV1(value);
+  const stable = snapshotSentrdelObservationDataV1(value);
+  const reasons = validatePlainSentrdelConfigPresenceInputV1(stable);
   if (reasons.length > 0) throw new TypeError("invalid configuration presence: " + reasons.join("; "));
-  const input = value as SentrdelConfigPresenceInputV1;
+  const input = stable as SentrdelConfigPresenceInputV1;
   const identity = createHash("sha256").update(JSON.stringify([
     SENTRDEL_CONFIG_PRESENCE_AUTHORITY, input.request_id, input.attempt_id,
     input.source_head, input.engine_pin, input.engine_tree, input.signal,
