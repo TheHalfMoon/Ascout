@@ -13,6 +13,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { hardenedGitArgs, hardenedGitEnv } from "../git-process.js";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve, sep } from "node:path";
 import type { CandidateProposal } from "./candidate.js";
@@ -36,10 +37,10 @@ function requireAbsoluteDir(value: string, field: string): void {
 
 function runGit(cwd: string, args: readonly string[]): string {
   try {
-    return execFileSync("git", [...args], {
+    return execFileSync("git", hardenedGitArgs(args), {
       cwd,
       encoding: "utf8",
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: hardenedGitEnv(),
       stdio: ["ignore", "pipe", "pipe"],
       timeout: GIT_TIMEOUT_MS,
     });
