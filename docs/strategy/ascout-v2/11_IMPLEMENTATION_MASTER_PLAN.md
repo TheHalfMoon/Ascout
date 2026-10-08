@@ -131,6 +131,8 @@ Covers UA-P06-T10…T13, T15, T16; Opengrep/Semgrep multi-language SAST and Gitl
 
 `ascout test --browser` exposes the existing Playwright executor through the CLI, with explicit app start commands, an E4 effect, and T1 when available. API test environments come through the user's runners only. Mobile (ARTEMIS) is reconsidered only with a demand signal. Acceptance: the browser benchmark is reproduced through the CLI path.
 
+**Revision 3 addition (PROPOSED):** selectively adapt TesterArmy `e2e` as an *optional* deterministic local-web test provider, not a second evidence authority or replacement for Playwright. Admit no-model tests first via the V1 broker and V2 executor, with telemetry/network/remote-model off by default; require real L2/L3 execution before claims. Gate any agent-driven tests on consent, declared egress, and qualified containment. Defer optional mobile until platform feasibility. Tasks V7-T01…T04; acceptance E2E-15…E2E-18 in [21](21_TESTER_ARMY_E2E_AND_PSTACK_ADOPTION.md).
+
 ## V8 — Professional desktop UI · P2 · scope after V5 usage data
 
 A read-mostly UI over receipts and plans that calls the same CLI/MCP interfaces. No new authority. PR #359 (brand) informs styling. Not started until V5 ships.
