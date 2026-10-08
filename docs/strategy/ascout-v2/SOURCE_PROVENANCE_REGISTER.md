@@ -32,6 +32,8 @@ Founder authorization (from the planning brief) covers owner-controlled rights o
 |---|---|---|---|---|
 | C03 | `alibaba/open-code-review` | `182898cf522da3d04157b422752d028417974e19`, v1.12.12 | Apache-2.0 | Ascout's current pin is `5f8e5ab328e1449ba4d5f14d2a7542117543d753` (16 commits behind) |
 | C04 | `microsoft/playwright` | 1.63.0 pinned (upstream v1.64.0) | Apache-2.0 | **Notice missing** (G11) |
+| C05 | `tester-army/e2e` | `9a32bd4d46412847ef4ee62d7e3e1692aa4cebdc`; `e2e@0.18.0`, `@e2e-dev/web@0.13.0` | Apache-2.0; upstream `LICENSE` and `NOTICE`; re-check nested dependencies before any port | PROPOSED optional deterministic web ADAPTER, not copied yet ([21](21_TESTER_ARMY_E2E_AND_PSTACK_ADOPTION.md)) |
+| C06 | `cursor/plugins/pstack`; portable `reshif/pstack` | Portable `4a07b056091a9ec3957d1dc8a3feef37a60e3134`; original subtree needs exact pin at import | MIT (Lauren Tan); preserve original and portable notices and per-file lineage | PROPOSED optional agent skills/verification workflow, not independent reviewer or execution engine ([21](21_TESTER_ARMY_E2E_AND_PSTACK_ADOPTION.md)) |
 | — | `cloudflare/security-audit-skill` | `c1c8a8c1471069fb0e188eeaff69b8e8db6564a8` | MIT | REFERENCE (method) |
 | — | `google/artemis` | vendored `371aa6df56880643da57b30da936e9812fb0ec66` (upstream `351ca8422f7b5b54e80a9c1ce03a222e02415b6b`) | Apache-2.0 | Existing vendored donor; frozen |
 | — | `aquasecurity/trivy` v0.75.0, `google/osv-scanner` v2.6.0, `anchore/syft` v1.54.1, `gitleaks/gitleaks` v8.30.1, `opengrep/opengrep` v1.30.2, `semgrep/semgrep` v1.180.0, `stryker-mutator/stryker-js` v10.0.0, `google/gvisor` release-20260928.0 | latest release tags observed | Apache-2.0 / MIT / LGPL-2.1 | User-installed; never bundled |
