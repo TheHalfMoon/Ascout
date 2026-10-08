@@ -77,6 +77,7 @@ One task = one branch = one PR, merged with a normal merge commit after exact-he
 | V4-T05 | Ascout | T03 | Agent Skill (`skills/ascout/SKILL.md`) | MCP-05 |
 | V4-T06 | Ascout | V1, V2 | GitHub Action (receipts as artifacts; no publication) | MCP-06 |
 | V4-T07 | Ascout | T01–T06 | V4 qualification | — |
+| V4-T08 | Ascout | V0-T10, T05 | Optional portable Pstack host skill adapter, consented dry-run/install/uninstall and evidence-only verification | PST-03, PST-04 |
 
 ## V5 — Distribution, durability, publication (P1)
 
