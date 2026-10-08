@@ -730,6 +730,35 @@ function digestWorktreeEntry(
   }
 }
 
+/**
+ * Git's path-aware blob conversion may launch a repository-configured clean
+ * filter. Such executable attributes are outside metadata-collection authority.
+ * Query the effective attribute without launching the filter, then refuse it.
+ * This guard does not turn a concurrently mutable repository into a sandbox.
+ */
+function assertNoExecutableGitFilter(repositoryRoot: string, path: string): void {
+  const records = splitNullTerminated(
+    requireSuccessfulGitBuffer(
+      runGitTreeMetadata(repositoryRoot, ["check-attr", "-z", "filter", "--", path]),
+      "unable to inspect Git filter attribute before tree-digest hashing",
+    ),
+    "git check-attr filter output",
+  );
+  if (
+    records.length !== 3 ||
+    decodeUtf8(records[0]!, "git attribute path") !== path ||
+    decodeUtf8(records[1]!, "git attribute name") !== "filter"
+  ) {
+    throw new GitIdentityError("git_metadata_error", "invalid Git filter attribute response");
+  }
+  if (decodeUtf8(records[2]!, "git attribute value") !== "unspecified") {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      `tree digest refuses Git filter attribute on ${path}`,
+    );
+  }
+}
+
 function worktreeGitObjectId(
   repositoryRoot: string,
   path: string,
@@ -739,6 +768,8 @@ function worktreeGitObjectId(
   if (type === "symlink") {
     return gitBlobOidForBytes(readSymlinkTarget(repositoryRoot, path), expectedOid);
   }
+
+  assertNoExecutableGitFilter(repositoryRoot, path);
 
   const output = requireSuccessfulGitBuffer(
     runGitTreeMetadata(repositoryRoot, [
