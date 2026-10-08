@@ -93,7 +93,11 @@ The last command prints usage and exits with a usage error because a command is 
 ascout init
 ascout doctor
 ascout check [--allow-changed-command-surface] [--format json|agent]
+ascout review [--format json|terminal]
+ascout test [--profile quick|standard|deep|release] [--format json|terminal]
 ```
+
+**Current command semantics (v0.1.0):** `ascout check` executes supported local verification tasks and produces an evidence receipt. `ascout review` presently reports review scope or unavailable review execution; it does **not** run a code-review engine. `ascout test` presently creates a test plan; it does **not** execute that plan. Both `review` and `test` can currently exit with code 0 even though no review or advanced test execution took place. That exit status is **not an assurance PASS**. A change to those command exit semantics is proposed separately and requires the appropriate compatibility/governance approval.
 
 When running directly from a source checkout rather than an installed release asset, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
 
