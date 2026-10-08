@@ -12,7 +12,7 @@ Ascout already owns a strong, honest trust kernel (contracts, claim assessment, 
 
 ## Revision 2 (2026-10-08)
 
-Revision 2 is delivered as bounded stacked PRs on top of #578, each within Diffcipline's default limits. It strengthens Kodac reuse ([16](16_KODAC_CONVERGENCE_ANALYSIS.md)), replaces Sentrdel-only security fan-in after real-scanner experiments ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md)), requires real-engine evidence levels ([13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md)), resolves 20 contradictions ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md)), and defines the review path ([19](19_PLANNING_GOVERNANCE_AND_REVIEW_PATH.md)). No founder decision is approved.
+Revision 2 is delivered as bounded stacked PRs on top of #578, each within Diffcipline's default limits. It strengthens Kodac reuse ([16](16_KODAC_CONVERGENCE_ANALYSIS.md)), replaces Sentrdel-only security fan-in after real-scanner experiments ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md)), requires real-engine evidence levels ([13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md)), resolves 20 contradictions ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md)), defines the review path ([19](19_PLANNING_GOVERNANCE_AND_REVIEW_PATH.md)), and records the review attempts and readiness ([20](20_INDEPENDENT_REVIEW_REPORT.md), [15](15_IMPLEMENTATION_READINESS_AUDIT.md)). No founder decision is approved.
 
 ## Reading order
 
@@ -38,6 +38,7 @@ Revision 2 is delivered as bounded stacked PRs on top of #578, each within Diffc
 | 17 | [Security evidence interoperability](17_SECURITY_EVIDENCE_INTEROPERABILITY.md) | Revision 2: real-scanner experiments; federated ingestion; degraded modes |
 | 18 | [Contradiction resolution ledger](18_CONTRADICTION_RESOLUTION_LEDGER.md) | Revision 2: C-01…C-20 and where each is resolved |
 | 19 | [Planning governance and review path](19_PLANNING_GOVERNANCE_AND_REVIEW_PATH.md) | Revision 2: Diffcipline handling, review-tool classification, FD guidance |
+| 20 | [Review report for revision 2](20_INDEPENDENT_REVIEW_REPORT.md) | Review attempts, mechanical gates, adversarial findings; states that no independent review was available |
 | — | [Source provenance register](SOURCE_PROVENANCE_REGISTER.md) | Exact source identities for every selected donor |
 | — | [Traceability matrix](TRACEABILITY_MATRIX.md) | Requirement → source → task → test → evidence → gate |
 | — | [Decision log](DECISION_LOG.md) | Numbered decisions with status |
