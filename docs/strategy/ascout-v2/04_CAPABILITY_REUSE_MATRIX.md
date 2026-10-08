@@ -4,6 +4,8 @@ Each entry records the 13 fields required by the founder brief. Revisions are th
 
 **Totals:** 27 components assessed. 8 are KEEP (existing Ascout code), 4 are COMPANION/ADAPTER engines, 7 are SELECTIVE_PORT/ADAPT, 6 are REFERENCE, and 2 are SUPERSEDE/REJECT.
 
+**Revision 2:** the Kodac dispositions in this matrix (P04, F01, S01) are superseded by [16](16_KODAC_CONVERGENCE_ANALYSIS.md), which compares 18 Kodac capabilities and proposes 12 ports, 2 integrations, 3 retained in Kodac, and 1 reference.
+
 ## 1. Existing Ascout components (KEEP)
 
 | ID | Component (path) | Capability | Maturity | Current tests | V2 role | Acceptance |
@@ -132,5 +134,5 @@ Each entry records the 13 fields required by the founder brief. Revisions are th
 
 | ID | Source | Decision | Reason |
 |---|---|---|---|
-| S01 | Kodac `src/verification/done-gate.ts` | SUPERSEDE | Fixed 6-check list; Ascout ClaimAssessment already models omissions, contradictions, freshness, and coverage |
+| S01 | Kodac `src/verification/done-gate.ts` | SUPERSEDE (revision 1); **revision 2: INTEGRATE** ([16](16_KODAC_CONVERGENCE_ANALYSIS.md) K-12) | Fixed 6-check list; Ascout ClaimAssessment already models omissions, contradictions, freshness, and coverage |
 | S02 | Golam-research, Qdrat | REJECT | Third-party rights (proprietary reconstruction; LGPL HRMS) |
