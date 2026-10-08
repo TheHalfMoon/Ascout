@@ -14,7 +14,7 @@ Rules (deterministic; implemented in the kernel, never in an engine):
 
 1. Any engine state other than `EXECUTED` for a *required* capability → the claim is at best `INCOMPLETE` (missing) or `BLOCKED` (policy/tier).
 2. `MALFORMED_OUTPUT`, `ENGINE_ERROR`, `TIMEOUT` → `ERROR` at task level; the claim cannot be `SUPPORTED`.
-3. **Finding intake status** depends on the producer: a deterministic result from a qualified engine enters as `OPEN`; a model or agent result enters as `CANDIDATE` and needs deterministic evidence to become `VALIDATED`. `REFUTED` requires at least one `OPEN` or `VALIDATED` finding at or above the intent's severity threshold, or a required task `FAIL`, bound to the same target and fresh. `CANDIDATE` findings never refute. Stale contradicting evidence yields `STALE`, not `REFUTED` ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-03, C-04).
+3. **Finding intake status and contradiction qualification are distinct.** A deterministic result from a qualified engine may enter the lifecycle as `OPEN`; a model or agent result enters as `CANDIDATE` and requires independent deterministic corroboration to become `VALIDATED`. `REFUTED` requires a separately validated contradiction predicate: (a) a qualified, provenance-admitted engine at the exact fresh target emits an `OPEN` or `VALIDATED` finding whose rule, severity, scope, coverage, and integrity all pass deterministic checks, or (b) a required task produces an authenticated, source-bound `FAIL` under its admitted runner policy. A merely `OPEN` label **alone** never meets this predicate; `CANDIDATE`, partial/unsupported evidence, engine-reported self-confidence, unknown severity, or a binary with only a self-reported version never refutes. The matched validated contradiction and required capability coverage must remain separately visible even if other capabilities are incomplete. Stale contradicting evidence yields `STALE`, not `REFUTED` ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-03, C-04).
 4. Evidence bound to another source digest → `STALE` (existing freshness engine).
 5. A model-originated observation can raise a finding to `CANDIDATE` only. It can never set `VALIDATED`, close a finding, or contribute supporting evidence for a security claim.
 6. `SUPPORTED` requires every required capability `EXECUTED`, at least one resolvable supporting evidence ref per required capability, zero contradicting validated evidence, and freshness. These are the existing semantic-validator rules, unchanged.
@@ -44,7 +44,7 @@ Already modeled in `engine-run.ts`/`engine-descriptor.ts`. V2 makes these mandat
 | Target | repository identity (privacy-safe), head SHA, tree digest, comparison base |
 | Build | not applicable for static engines; for test runs, lockfile digest + runtime versions |
 | Run | run id, start/end, achieved tier, effects used |
-| Engine | engine id, resolved absolute path digest, binary SHA-256, `--version` output, pinned-version match boolean, supply source (`SETUP_MANIFEST`/`USER_SUPPLIED`) |
+| Engine | engine id, resolved absolute path digest, binary SHA-256, `--version` output, pinned-version match boolean, supply source (`SETUP_MANIFEST`/`USER_SUPPLIED`), **admission decision and its independent upstream-provenance evidence or explicit qualified local trust grant**. Hashing local bytes establishes repeatable identity, not publisher authenticity. A self-reported version is untrusted metadata, not admission. |
 | Configuration | digest of the effective engine config; for OCR, endpoint identity (host + model id, never the token) |
 | Independence | `SELF` (author agent), `HOST_AGENT` (delegation), `SEPARATE_AGENT`, `DETERMINISTIC_TOOL`, `HUMAN` |
 
@@ -87,7 +87,7 @@ Purpose: a single way for Ascout to invoke any engine and receive bounded, schem
 **Rules**
 
 - Any non-JSON output, a missing `request_id` match, or an oversize response → `MALFORMED_OUTPUT`.
-- A process exit code alone never implies success. A response with `execution.state = EXECUTED` *and* process exit 0 is required; the opposite combination → `ENGINE_ERROR`.
+- A process exit code alone never implies success. For **native-protocol engines**, a valid `execution.state = EXECUTED` envelope and the protocol-level clean transport exit code 0 are both required; contradictory transport exits become `ENGINE_ERROR`. For **wrapped native scanners**, an exact-version qualified Engine Profile first classifies the native exit as `clean`, `findings`, `no-input`, or `error`. A native findings exit (including code 1 on some scanners) is not a protocol failure: the wrapper produces a validated internal envelope and its own normalized transport outcome. Unknown exit patterns and stderr fatal/parse warnings are never promoted to `EXECUTED` with complete coverage. Adapters must not silently coerce native findings or errors into `PASS`.
 - Every requested capability must appear in the response; an omitted one is `NOT_RUN(capability_omitted_by_engine)`.
 - Engines that do not speak the protocol (OCR, Stryker, user test runners) are wrapped by an Ascout-side runner that produces the same internal structure from their native output. Sentrdel implements the protocol natively in V1-T01.
 
@@ -96,7 +96,7 @@ Purpose: a single way for Ascout to invoke any engine and receive bounded, schem
 > **Amendment A07 — Truthful process interface and claim refutation.** Scope: all Ascout commands.
 > 1. A command that is requested to verify, review, test, or security-check MUST NOT exit 0 unless the resulting claim is `SUPPORTED` or the scope is `NOT_APPLICABLE`. Unexecuted requested work exits 4.
 > 2. Plan, delegation-spec, and diagnostic outputs MUST be labeled as non-assurance output in both human and machine formats.
-> 3. The claim vocabulary gains `REFUTED`, valid only with resolvable validated contradicting evidence, mapped to exit 1.
+> 3. The claim vocabulary gains `REFUTED`, valid only with resolvable, **independently and deterministically qualified** contradicting evidence (the contradiction predicate in §1 rule 3, not merely a finding lifecycle label), mapped to exit 1.
 > 4. Executing source that the user did not author requires an achieved containment tier of full `T1` (filesystem **and** network confinement), or a per-invocation human-only override that caps the claim at `TRUSTED_LOCAL` and is recorded. Repository-controlled Git and tool configuration that can launch commands is neutralized for every untrusted run.
 > 5. Companion engines are invoked only through Ascout's bounded process layer (the Execution Broker once it exists), never through a shell, with engine identity and achieved tier recorded per run. A06 rule 6 is reaffirmed: no companion is required for `check`.
 > 6. A06 rule 5's "remain unchanged" clause for `review` and `test` is superseded for exit-code semantics only.
