@@ -84,10 +84,14 @@ export function buildSentrdelT09InventoryV1(value: unknown): SentrdelT09Inventor
       throw new TypeError("T09 inventory refuses cross-source, cross-attempt, or cross-pin observations");
     }
   }
+  // UTF-16 code-unit ordering is deterministic across host locales/ICU versions.
+  // Never use localeCompare for identity-bearing or receipt-bearing canonical order.
+  const compareIdentity = (left: string, right: string): number =>
+    left < right ? -1 : left > right ? 1 : 0;
   const sortedWorkflows = Object.freeze([...normalizedWorkflows].sort((a, b) =>
-    a.observation_id.localeCompare(b.observation_id)));
+    compareIdentity(a.observation_id, b.observation_id)));
   const sortedConfig = Object.freeze([...normalizedConfig].sort((a, b) =>
-    a.identity.localeCompare(b.identity)));
+    compareIdentity(a.identity, b.identity)));
 
   const allIds = [...sortedWorkflows.map(x => x.observation_id),
     ...sortedConfig.map(x => x.identity)];
