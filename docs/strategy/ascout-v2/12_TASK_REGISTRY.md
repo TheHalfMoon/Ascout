@@ -93,6 +93,15 @@ One task = one branch = one PR, merged with a normal merge commit after exact-he
 | V5-T08 | Ascout | T01–T07 | Signing (when certificates exist) | REL-06 |
 | V5-T09 | Ascout | all | 0.2.0 pre-release qualification | FD-6 |
 
+## V7 — Optional TesterArmy web E2E admission (P2; scoped tasks, not replacing V7-E1)
+
+| Task | Repo | Depends | Deliverable | Acceptance |
+|---|---|---|---|---|
+| V7-T01 | Ascout | V0-T10, V1-T03, V1-T05, V2-T06 | Pinned optional TesterArmy deterministic web Engine Profile; telemetry/model disabled | E2E-15 |
+| V7-T02 | Ascout | T01 | Broker-bound local web fixture, raw-result ingestion and head-bound replay receipts | E2E-16 |
+| V7-T03 | Ascout | T02 | Exact-head three-OS qualification vs existing Playwright; measure startup, resource and no-egress | E2E-17, B-E2E-1 |
+| V7-T04 | Ascout | T03, V3 | Explicit-opt-in model branch; mobile feasibility record; no default model/hosted runtime | E2E-18 |
+
 ## V6–V8 (P2) — epics, to be decomposed after V5
 
 | Epic | Contents |
