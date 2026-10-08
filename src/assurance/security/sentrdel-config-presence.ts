@@ -1,5 +1,5 @@
 /**
- * UA-P06-T09, grain B: evidence-bound static CI/MCP configuration presence.
+ * UA-P06-T09, grain B: evidence-bound static CI/MCP/Supabase presence.
  *
  * Exact source: pinned Sentrdel config_detection.rs. This is inventory data
  * only. No config contents, dynamic workflow, CI execution, credentials,
@@ -19,6 +19,7 @@ export const SENTRDEL_CONFIG_PRESENCE_CAPABILITY = "config-inspection" as const;
 export const SENTRDEL_CONFIG_PRESENCE_SIGNALS = [
   "github-actions", "gitlab-ci", "azure-pipelines", "jenkins", "circleci",
   "mcp-json", "cursor-mcp", "vscode-mcp", "claude-mcp",
+  "supabase-config", "supabase-seed", "supabase-migration", "supabase-function",
 ] as const;
 export type SentrdelPresenceSignalV1 = (typeof SENTRDEL_CONFIG_PRESENCE_SIGNALS)[number];
 const SIGNAL_SET = new Set<string>(SENTRDEL_CONFIG_PRESENCE_SIGNALS);
@@ -100,6 +101,21 @@ export function classifySentrdelConfigPresencePathV1(path: string): readonly Sen
   if (path === ".cursor/mcp.json") signals.push("cursor-mcp");
   if (path === ".vscode/mcp.json") signals.push("vscode-mcp");
   if (path.startsWith(".claude/") && base === "mcp.json") signals.push("claude-mcp");
+  // Pinned supabase_detection.rs recognizes local path layout, not live posture.
+  if (path === "supabase/config.toml") signals.push("supabase-config");
+  if (path === "supabase/seed.sql") signals.push("supabase-seed");
+  if (path.startsWith("supabase/migrations/")) {
+    const relative = path.slice("supabase/migrations/".length);
+    if (relative.length > 0 && !relative.includes("/") && relative.endsWith(".sql")) {
+      signals.push("supabase-migration");
+    }
+  }
+  if (path.startsWith("supabase/functions/")) {
+    const parts = path.slice("supabase/functions/".length).split("/");
+    if (parts.length >= 2 && parts[0]!.length > 0 && parts[1]!.length > 0) {
+      signals.push("supabase-function");
+    }
+  }
   return Object.freeze(signals);
 }
 
