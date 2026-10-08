@@ -37,6 +37,8 @@ Disposition vocabulary (from the founder brief): **ADAPTER** (Ascout/Sentrdel la
 | Candidate | Canonical repo | License | Latest | Disposition | Reasoning |
 |---|---|---|---|---|---|
 | Playwright | `microsoft/playwright` | Apache-2.0 | v1.64.0 (Ascout pins 1.63.0) | **Existing dependency; keep exact pin** | Re-pin is a routine task. **Missing from THIRD_PARTY_NOTICES** (OBSERVED) |
+| TesterArmy e2e | `tester-army/e2e` | Apache-2.0 + `NOTICE` | `9a32bd4`, SDK 0.18.0, web 0.13.0 | **OPTIONAL ADAPTER / SELECTIVE_PORT (PROPOSED)** | Deterministic web tests before model mode; native test code/replay cache is unsandboxed, telemetry on by default; compare with current Playwright before adoption ([21](21_TESTER_ARMY_E2E_AND_PSTACK_ADOPTION.md)) |
+| Pstack | `cursor/plugins/pstack`; `reshif/pstack` | MIT | portable `4a07b05` | **OPTIONAL WORKFLOW/SKILL ADAPT (PROPOSED)** | Verification playbooks, host-aware degradation and receipt-based install; not an independent review engine or test runner ([21](21_TESTER_ARMY_E2E_AND_PSTACK_ADOPTION.md)) |
 | Vitest / Jest / pytest | `vitest-dev/vitest` (MIT, v5.0.3), `jestjs/jest` (MIT, v30.5.2), `pytest-dev/pytest` (MIT, 9.1.1) | MIT | — | **ADAPTER (existing `src/tools/*`)** | The user's runner, invoked as the repository configures it |
 | StrykerJS | `stryker-mutator/stryker-js` | Apache-2.0 | v10.0.0 | **ADAPTER (DEEP/RELEASE profile, user-installed)** | Feeds the existing mutation normalizer (`src/assurance/test/mutation-adapter.ts`) |
 | fast-check | `dubzzz/fast-check` | MIT | v4.10.2 | **REFERENCE_ONLY** | Used inside the user's tests; Ascout observes results through the runner. No Ascout dependency |
