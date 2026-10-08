@@ -7,6 +7,7 @@
  * generic IaC remains unsupported and must be reported separately.
  */
 import { createHash } from "node:crypto";
+import { snapshotSentrdelObservationDataV1 } from "./sentrdel-observation-snapshot.js";
 import {
   buildSentrdelCapabilitiesV1,
   getSentrdelCapabilityV1,
@@ -113,7 +114,7 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function validateSentrdelWorkflowInputV1(input: unknown): SentrdelWorkflowValidationV1 {
+function validatePlainSentrdelWorkflowInputV1(input: unknown): SentrdelWorkflowValidationV1 {
   const reasons: string[] = [];
   if (!record(input)) {
     return { valid: false, reasons: Object.freeze(["input must be a record"]) };
@@ -175,13 +176,29 @@ export function validateSentrdelWorkflowInputV1(input: unknown): SentrdelWorkflo
   return Object.freeze({ valid: reasons.length === 0, reasons: Object.freeze(reasons) });
 }
 
+/**
+ * Validate a stable snapshot; invalid accessors/hidden data fail closed without
+ * running getters. All exported entry points enforce this boundary themselves.
+ */
+export function validateSentrdelWorkflowInputV1(value: unknown): SentrdelWorkflowValidationV1 {
+  try {
+    return validatePlainSentrdelWorkflowInputV1(snapshotSentrdelObservationDataV1(value));
+  } catch {
+    return Object.freeze({
+      valid: false,
+      reasons: Object.freeze(["input must be immutable plain JSON data"]),
+    });
+  }
+}
+
 /** This is data normalization, not a scan, review result, or proof of runtime execution. */
 export function normalizeSentrdelWorkflowObservationV1(
   value: unknown,
 ): SentrdelWorkflowObservationV1 {
-  const check = validateSentrdelWorkflowInputV1(value);
+  const stable = snapshotSentrdelObservationDataV1(value);
+  const check = validatePlainSentrdelWorkflowInputV1(stable);
   if (!check.valid) throw new TypeError(`invalid workflow observation: ${check.reasons.join("; ")}`);
-  const input = value as SentrdelWorkflowInputV1;
+  const input = stable as SentrdelWorkflowInputV1;
   const unknown = Object.freeze([...input.unknown_tokens].sort());
   const identity = [
     SENTRDEL_WORKFLOW_PHASE_AUTHORITY, input.request_id, input.attempt_id,
