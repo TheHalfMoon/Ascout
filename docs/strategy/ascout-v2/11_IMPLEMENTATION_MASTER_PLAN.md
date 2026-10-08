@@ -73,7 +73,7 @@ V0 ─► V1 ─► V2 ─► V3 ─► V4 ─► V5 ─► V6 ─► V7 ─► 
 
 1. **Objective:** add containment tiers to the V1 broker: `T1-FS` (Kodac Landlock launcher) and full `T1` (plus a network namespace) on Linux, AppContainer `T1` on Windows if G18 succeeds, truthful `T0` on macOS. Seal evidence and add `verify-receipt`. Enforce the untrusted-mode policy (A07 rule 4).
 2. **Reuse:** the V1 broker; Kodac K-6 (Landlock launcher, BSD-3-Clause notice); Winds P02/P03; Kodac F01 (method); Golam P01 only if FD-3 is granted for those files.
-3. **New code:** `src/execution/broker.ts`; `native/ascout-exec` (Rust) with `linux.rs`, `windows.rs`, `macos.rs` (stub declaring T0); `src/evidence/store.ts`; `ascout verify-receipt`.
+3. **New code:** tier selection in the V1 broker; `native/` containment helpers (Kodac Landlock launcher + network-namespace launcher on Linux, Job Objects/AppContainer on Windows, a `T0` declaration on macOS); `src/evidence/store.ts`; `ascout verify-receipt`.
 4. **Sources:** `Golam@13a379ac` `crates/golamd/src/native_containment_v2.rs`, `bin/golam-native-exec-helper-v2.rs`, hostile probes; `Winds@3bfe45fe` `src/process_scope.rs`.
 5. **Dependencies:** V1, V2; FD-4. FD-3 only if the Golam alternative is chosen.
 6. **Risks:** Landlock ABI variance; AppContainer complexity; adding a Rust build to Ascout CI.

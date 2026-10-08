@@ -6,7 +6,7 @@
 |---|---|---|
 | Human invoking Ascout | Trusted for intent and approvals | Grant per-invocation effects |
 | Ascout core process | Trusted computing base | Decide plans, claims, exit codes |
-| `ascout-exec` helper | TCB (small, native, signed) | Apply containment, then `exec` |
+| Native containment helpers (`native/`) | TCB (small, native, signed) | Apply containment, then `exec` |
 | Companion engines (Sentrdel, OCR) at pinned versions | Trusted to execute, **untrusted output** | Produce observations only |
 | User-installed scanners and test runners | Executable chosen by the user; untrusted output | Same |
 | Repository content (code, configs, tests, prompts in comments) | **Untrusted** | Nothing; can only be analyzed or executed under a tier |
@@ -70,7 +70,7 @@ No platform gets a containment claim it did not pass a probe for.
 | Asset | Control |
 |---|---|
 | Ascout npm package | Exact lockfile, `npm ci --ignore-scripts`, provenance attestation at publish (V5) |
-| Companion binaries (Sentrdel, ascout-exec) | Built in CI from an exact SHA, SHA-256 checksums + GitHub artifact attestation + cosign signature; `ascout setup` verifies before install |
+| Companion binaries (Sentrdel, native containment helpers) | Built in CI from an exact SHA, SHA-256 checksums + GitHub artifact attestation + cosign signature; `ascout setup` verifies before install |
 | OCR | Pinned version and per-platform binary SHA-256 recorded in an Ascout manifest; `ascout setup` downloads the GitHub release asset and verifies the hash; npm postinstall is not used |
 | User-installed scanners | Not verified by Ascout; identity (resolved path, SHA-256, `--version`) recorded per run; the receipt states `engine_identity: USER_SUPPLIED` |
 

@@ -29,7 +29,7 @@
 │                              ▼                               │
 │  Publication (K08 + P04, explicit effect, dry-run default)   │
 └──────────────────────────────┬───────────────────────────────┘
-                               │ spawns (through ascout-exec when tier > T0)
+                               │ spawns (through native containment helpers when tier > T0)
           ┌────────────────────┼────────────────────┬──────────────────┐
           ▼                    ▼                    ▼                  ▼
    sentrdel (Rust)        ocr (Go)          user test runners     Playwright
@@ -39,7 +39,7 @@
    opengrep/semgrep · trivy · osv-scanner · syft · gitleaks  (SARIF/JSON)
 ```
 
-`ascout-exec` is a small native helper (Rust, built in Ascout CI, shipped prebuilt per platform) that applies containment before `exec`. Containment sources: Golam P01 (Linux), Winds P02 (Windows Job Objects), plus new work for AppContainer and macOS. Core claims at tier T0 do not need the helper, which keeps Constitution V and A06 rule 6 intact.
+*Revision 2:* the native containment helpers (built in Ascout CI, shipped prebuilt per platform) apply containment before `exec`: the Kodac Landlock launcher (C, BSD-3-Clause notice) plus a network-namespace launcher on Linux, Job Objects (and later AppContainer) on Windows, and none on macOS ([16](16_KODAC_CONVERGENCE_ANALYSIS.md) K-6). Containment sources: Golam P01 (Linux), Winds P02 (Windows Job Objects), plus new work for AppContainer and macOS. Core claims at tier T0 do not need the helper, which keeps Constitution V and A06 rule 6 intact.
 
 ## 2. Command surface (V2 end state)
 
@@ -141,7 +141,7 @@ src/assurance/engines/protocol/                      (V1: Engine Protocol v1 typ
 src/execution/broker.ts                              (V3; wraps src/process.ts)
 src/evidence/store.ts                                (V3)
 src/mcp/                                             (V4)
-native/ascout-exec/                                  (V3; Rust helper, built only in CI)
+native/                                              (V3; containment helpers, built only in CI)
 docs/strategy/ascout-v2/                             (this package)
 ```
 

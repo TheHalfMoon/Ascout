@@ -10,7 +10,7 @@ Status values: **PROPOSED** (this PR), **NEEDS-FOUNDER** (requires an FD decisio
 | D-04 | Add claim state `REFUTED` | Overload `BLOCKED`/`INCONCLUSIVE` | G29 | NEEDS-FOUNDER (FD-1) |
 | D-05 | Sentrdel is the only security engine Ascout calls; it fans in scanners through its SARIF adapter | Ascout integrates each scanner | `sentrdel-engine/src/adapter.rs` | SUPERSEDED by D-17 (proposal) |
 | D-06 | OCR is the review engine; support BYOK/local and delegation; record independence class | Kodac review pipeline; build a reviewer | OCR probes | PROPOSED |
-| D-07 | The containment helper `ascout-exec` lives in the Ascout repository under `native/` and is prebuilt per platform | Host it in Sentrdel; pure-TS containment (not possible); require Docker | [06](06_ARCHITECTURE_OPTIONS.md) §6 | PROPOSED |
+| D-07 | The containment helpers live in the Ascout repository under `native/` and are prebuilt per platform (*amended by revision 2: Kodac's C Landlock launcher plus a namespace launcher instead of a new Rust `ascout-exec` crate*) | Host it in Sentrdel; pure-TS containment (not possible); require Docker | [06](06_ARCHITECTURE_OPTIONS.md) §6 | PROPOSED |
 | D-08 | Honest tiers T0/T1/T2; untrusted execution needs T1 or a recorded override | Claim a "sandbox" with process-level controls only | [08](08_SECURITY_AND_TRUST_MODEL.md) | NEEDS-FOUNDER (FD-4) |
 | D-09 | Evidence moves to a per-user state dir with sealed digests | Keep in-repository `.ascout/` only | G07 | PROPOSED |
 | D-10 | Kodac: port only GitHub transport; supersede Done Gate; no runtime import | Import the Kodac runtime | [01](01_LIVE_REPOSITORY_AUDIT.md) §5B | SUPERSEDED by D-16 (proposal) |
