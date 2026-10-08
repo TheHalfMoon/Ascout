@@ -4,6 +4,8 @@ Records the exact source identity of every component this plan proposes to copy,
 
 Founder authorization (from the planning brief) covers owner-controlled rights only. It does not cover nested third-party code or upstream vendors.
 
+**Revision 2:** embedded upstream lineage found in owner repositories is listed in [02](02_PORTFOLIO_SOURCE_INVENTORY.md) §4b. Golam P01 is now an *alternative* to the licensed Kodac launcher plus a network namespace ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-15), so FD-3 is needed only if that alternative is chosen. Ecra's verification journal (`TheHalfMoon/Ecra` @ `0e2ff8c687c93e6f158da6984a7a6915339b5f3f`, `crates/ecra-verify/src/journal.rs`, no LICENSE file) is a design reference only.
+
 ## 1. Owner repositories (selected components)
 
 | Ref | Repository | Revision (observed 2026-10-08) | Path(s) | License evidence | Reuse | FD-3 needed |

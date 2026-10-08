@@ -7,14 +7,16 @@
 | Inspection depth | Count |
 |---|---|
 | Cloned (full history for Ascout, depth 1 otherwise) | 45 |
-| …of which built and executed in this session | 4 (Ascout, Sentrdel, Winds, Kodac) |
-| …of which inspected at module/file level | 14 (the 4 above + Golam, Deskal, kernux, Diffcipline, SpecGrain, Delethos, commandF, wepld, Orcel, HarnessMind) |
-| …of which inspected at README/structure/LOC level | 29 |
+| …of which built, run, or test-executed | 4: Ascout (build + CLI probes), Sentrdel (Linux build, workspace tests, adapter probe with real SARIF), Kodac (CLI + full test suite, 2,725 tests), Winds (build + `verify` probe) |
+| …of which inspected at module/file level | 15 (the 4 above + Golam, Deskal, kernux, Diffcipline, SpecGrain, Delethos, commandF, wepld, Orcel, HarnessMind, and **Ecra in revision 2**) |
+| …of which inspected at README/structure/LOC level only | 28 |
 | …of which empty on clone | 2 (`Trcel`, 1 private) |
 | API-only (metadata, README, HEAD) | 10 (Gomrey, Qdrat, Inercative, Signthos, MedScale, the archived private repository, the FHIR fork, `wepld/AGILLE`, `wepld/Fehrest`, 1 private size-0 repository) |
 | **Total** | **55** |
 
 Every repository received a disposition.
+
+**Wording rule (revision 2, [18](18_CONTRADICTION_RESOLUTION_LEDGER.md) C-17):** "55" is the number of repositories *discovered and dispositioned*. Only the 15 listed above were examined at code level, and only 4 were executed. A README-level disposition is a triage decision, not a technical assessment.
 
 Disposition vocabulary: **SELECTED** (component-level reuse in V2), **REFERENCE** (patterns/methods only, no code import planned), **GOVERNANCE_TOOL** (used to develop Ascout, not shipped), **NOT_RELEVANT** (business domain unrelated to verification), **REJECT** (rights or risk problem), **EMPTY**.
 
@@ -76,6 +78,33 @@ Disposition vocabulary: **SELECTED** (component-level reuse in V2), **REFERENCE*
 Dispositions for the 11: 1 REFERENCE (concepts only, no import), 10 NOT_RELEVANT or EMPTY.
 
 **No private repository content is selected for import into Ascout.** If a future task selects private code, distribution rights must be established first, because Ascout is public and Apache-2.0.
+
+## 4a. Revision 2 deepened audit
+
+| Repository | Revision 1 depth | Revision 2 finding (OBSERVED) | Disposition |
+|---|---|---|---|
+| Kodac | Module level | Full comparison of 18 capabilities; test suite executed ([16](16_KODAC_CONVERGENCE_ANALYSIS.md)) | SELECTED: 12 ports, 2 integrations |
+| Ecra | README | `crates/ecra-verify` has a hash-chained verification journal (`journal.rs`: `previous_digest` per entry), checkpointing, reconciliation, and a store; `crates/ecra-run` has recovery, SQLite state, and migrations. **No LICENSE file** | REFERENCE for the V3 sealing / V5 journal design; no copy without FD-3 |
+| Gomrey | API metadata | Tree contains claim/evidence-bundle/evidence-span JSON schemas; its foundation is an import of `presenton/presenton` (Apache-2.0) per `docs/evidence/P01_PRESENTON_IMPORT.md` | NOT_RELEVANT (presentation/knowledge domain) |
+| wepld | Module level | `crates/core/src/evidence_store.rs`, `git_topology.rs`, `doctor.rs`; no LICENSE file | REFERENCE (no new capability over Ascout + Kodac) |
+| CommunityFinance-CoFi, safeOCR | README | Tauri desktop ledger; clinical OCR scripts | NOT_RELEVANT |
+
+## 4b. Embedded third-party rights in owner repositories
+
+Founder authorization covers rights the founder controls. It does **not** cover upstream code embedded in owner repositories. Known lineage found in this audit:
+
+| Owner repository | Embedded upstream | Upstream license (OBSERVED unless noted) | Consequence for Ascout |
+|---|---|---|---|
+| Kodac | OpenCode (patch engine), HKUDS DeepCode (pruning, repeat-call, guarded pipeline), DeepSeek Harness (Landlock launcher), spec-kit contracts | MIT; MIT; **BSD-3-Clause**; per Kodac notices | Only the Landlock launcher is ported; its BSD-3-Clause notice travels with it. The MIT-derived authoring modules stay in Kodac |
+| Orcel | `vercel/eve` | Apache-2.0 with NOTICE | Not used |
+| Gomrey | `presenton/presenton` | Apache-2.0 | Not used |
+| Olax | "Paperclip-derived" (per README; exact upstream not identified in this audit) | Unverified | Not used |
+| Lilac | Paper.design ("authorized source/donor" per README) | Not verified | Not used |
+| Qdrat | Horilla HRMS | LGPL-2.1 | REJECT |
+| Golam-research | Reconstruction of a third-party proprietary application | Proprietary upstream | REJECT |
+| Ascout | `google/artemis` (vendored) | Apache-2.0 | Existing notice |
+
+Any future port must check the source file's own header and the repository's notices, not only the repository LICENSE.
 
 ## 4. Existing donor records reconciled
 
