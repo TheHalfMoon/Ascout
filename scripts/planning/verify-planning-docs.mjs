@@ -26,7 +26,8 @@ const TABLE_DEFINITION_RE = /^\|\s*\**([A-Z0-9]+-\d{1,3})\**\s*\|/;
 const HEADING_DEFINITION_RE = /^#{2,4}\s+([A-Z0-9]+-\d{1,3})\b/;
 const LINK_RE = /\]\(([^)#\s]+)(#[^)]*)?\)/g;
 const FD_APPROVAL_RE = /\bFD-\d+\b.*\b(RATIFIED|APPROVED)\b/i;
-const FD_SAFE_RE = /\bnot\b[^|]*\b(ratified|approved)\b|NEEDS-FOUNDER|PROPOSED|recommend|none yet|must not|never mark/i;
+// Negated or pending statements ("not approved", "No FD is approved", "None … ratified") are allowed.
+const FD_SAFE_RE = /\b(not|no|none)\b[^|]*\b(ratified|approved)\b|NEEDS-FOUNDER|PROPOSED|recommend|must not|never mark/i;
 
 function markdownFiles(dir) {
   const out = [];
