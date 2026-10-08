@@ -10,6 +10,10 @@
 
 Ascout already owns a strong, honest trust kernel (contracts, claim assessment, omission and contradiction semantics, deterministic planning, a mature `ascout check` runner, and a qualified Playwright browser path). What it does **not** yet own is a single end-to-end path in which a real review engine, a real security engine, or a real advanced test engine executes and its evidence reaches a final claim. The live audit found that the Sentrdel binary is a bootstrap stub that prints a placeholder and exits 0, that `ascout review` and `ascout test` exit 0 without executing anything, and that no containment exists for untrusted code on any platform. V2 therefore keeps the kernel, stops adding new contract layers, and reorders the program around **vertical execution slices**: a real Sentrdel CLI, real OCR execution, real test execution, one execution broker with honestly qualified containment tiers, one exit-code taxonomy, and then agent surfaces (MCP) and distribution.
 
+## Revision 2 (2026-10-08)
+
+Revision 2 is delivered as bounded stacked PRs on top of #578, each within Diffcipline's default limits. It strengthens Kodac reuse ([16](16_KODAC_CONVERGENCE_ANALYSIS.md)), replaces Sentrdel-only security fan-in after real-scanner experiments ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md)), requires real-engine evidence levels ([13](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md)), resolves 20 contradictions ([18](18_CONTRADICTION_RESOLUTION_LEDGER.md)), and defines the review path ([19](19_PLANNING_GOVERNANCE_AND_REVIEW_PATH.md)). No founder decision is approved.
+
 ## Reading order
 
 | # | Document | Purpose |
@@ -30,6 +34,10 @@ Ascout already owns a strong, honest trust kernel (contracts, claim assessment, 
 | 13 | [Benchmark and acceptance program](13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md) | Acceptance, adversarial, and benchmark suites |
 | 14 | [Critical design challenge](14_CRITICAL_DESIGN_CHALLENGE.md) | Hostile review of this plan |
 | 15 | [Implementation readiness audit](15_IMPLEMENTATION_READINESS_AUDIT.md) | Readiness verdict, blockers, final recommendations |
+| 16 | [Kodac convergence analysis](16_KODAC_CONVERGENCE_ANALYSIS.md) | Revision 2: 18 Kodac capabilities compared; 12 ports, 2 integrations |
+| 17 | [Security evidence interoperability](17_SECURITY_EVIDENCE_INTEROPERABILITY.md) | Revision 2: real-scanner experiments; federated ingestion; degraded modes |
+| 18 | [Contradiction resolution ledger](18_CONTRADICTION_RESOLUTION_LEDGER.md) | Revision 2: C-01…C-20 and where each is resolved |
+| 19 | [Planning governance and review path](19_PLANNING_GOVERNANCE_AND_REVIEW_PATH.md) | Revision 2: Diffcipline handling, review-tool classification, FD guidance |
 | — | [Source provenance register](SOURCE_PROVENANCE_REGISTER.md) | Exact source identities for every selected donor |
 | — | [Traceability matrix](TRACEABILITY_MATRIX.md) | Requirement → source → task → test → evidence → gate |
 | — | [Decision log](DECISION_LOG.md) | Numbered decisions with status |
