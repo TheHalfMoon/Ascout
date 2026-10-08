@@ -35,6 +35,10 @@ Revision 2 replaces the prose test list of revision 1. Revision 1 referenced 65 
 | E2E-12 | Kodac Landlock launcher (T1-FS) | Kodac's own tests (REPORTED) | L2 (Linux) | hostile probes under the broker | Achieved tier `T1-FS` recorded; filesystem escapes denied | kernel without Landlock → `T0` declared, untrusted execution `BLOCKED` |
 | E2E-13 | Composite on the security probe | None | L3 | `ascout assure` (review + test + security) | `REFUTED`, exit 1, with per-capability coverage listed | any required engine missing → its capability `NOT_RUN` listed |
 | E2E-14 | Kodac Done Gate consuming an Ascout receipt | None | L2 | `kodac solve` with Ascout as the verification step | `PROVEN_READY` only when Ascout reports `SUPPORTED` for the same head | Ascout `INCOMPLETE` → `NOT_READY` |
+| E2E-15 | TesterArmy e2e 0.18.0, deterministic web (PROPOSED) | None | L2, then L3 on claimed OSes | Pinned runner, no-model local web fixture | Real assertions reach an Ascout receipt on the exact head | missing engine/Node mismatch → `NOT_RUN`; no telemetry or remote inference |
+| E2E-16 | TesterArmy source/replay/egress binding (PROPOSED) | None | L2 | Broker, no-model cache and benign/hostile navigation fixtures | Replayed actions cannot cross head/target; receipt distinguishes assertions from model claims | malicious redirect, cached injection, stale head → BLOCK/INCOMPLETE |
+| E2E-17 | Web integration parity and cross-platform (PROPOSED) | None | L3 | Side-by-side pinned Playwright and e2e on local fixtures | Executable outcomes and coverage truthful across 3 OSes; no duplicate authority | unavailable browser/unsupported OS → `NOT_RUN` not false success |
+| E2E-18 | Explicit agent/mobile opt-in (PROPOSED) | None | L2 only if proven | Local or user-funded endpoint, optional mobile feasibility | Declared cost/egress and evidence; no auto-enabled hosted provider | no model, mobile device or user approval → `NOT_RUN`; never a release blocker for deterministic web |
 
 ## 3. Adversarial tests (wrong-claim scenarios)
 
