@@ -44,3 +44,32 @@ Founder authorization (from the planning brief) covers owner-controlled rights o
 | Private owner repositories | Not selected; Ascout is public |
 | `anthropics/skills` | No license detected; we write our own skill |
 | CodeQL CLI binaries | Use-restricted terms |
+
+## 4. Interoperability experiment identities (2026-10-08)
+
+Release assets were verified against each project's published checksum file before execution ([17](17_SECURITY_EVIDENCE_INTEROPERABILITY.md) §2). Raw outputs are not committed, because they contain secret-shaped strings.
+
+| Release asset | SHA-256 |
+|---|---|
+| `gitleaks_8.30.1_windows_x64.zip` | `d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e` |
+| `osv-scanner_windows_amd64.exe` | `e0ed7644118b717b028c249ee9d3515024e55e8510747ca08906eb96765354d6` |
+| `syft_1.54.1_windows_amd64.zip` | `8b56e8285e295e0bbed26eeea9b16ed51c493be97ccdf42dae6326c84fe8e19f` |
+| `trivy_0.75.0_windows-64bit.zip` | `4e43bd71a30f51aee39525f60f2b47043af77eb8df8fe082aae4372b69c6660f` |
+
+| Raw output artifact (local, uncommitted) | SHA-256 |
+|---|---|
+| `gitleaks.json` | `1592e8be6d282e70bc90d28b6546f2b88368f9c98be481302259674518dd9960` |
+| `gitleaks.sarif` | `5eb9d7884b8917b89a4f652b4518a742eba99f678bce07455db36a8db77bf81d` |
+| `gitleaks.redacted.json` | `13235888c4f607001c38db7e46bd7945092c1778a23d162bd3f0d326fa5b2247` |
+| `gitleaks.redacted.sarif` | `128dd2aa708a9efcb97ddefb87706ca0335f7815ddc3deefe37017e9530b09a5` |
+| `osv.json.out` | `9fea98467693fc9da75d656f92c0ab6915a3ab79edb2923b5b7e3a9c837d4f5a` |
+| `osv.sarif.out` | `cb5bae77fbcf97755e44a487b6c61fcd08f12d5850949659f49117917a6be5db` |
+| `osv.cyclonedx-1-5.out` | `420ed79a33fc3b50a04a2ad681e34cb4f1b9ecb3f3179ac565c4e4e0d12e2b4e` |
+| `osv.spdx-2-3.out` | `c6d61057c328302c21f63995971e8ce500a4f7500106331ca5f86b4919f6f98d` |
+| `syft.cdx.json` | `edb344ce1aa4f4cce220b2dcb8f24b812cc467d55d0f8d94ad4eef323248add6` |
+| `syft.spdx.json` | `ba1f08f3e205e77777c2b158df5432726f174160586deb0b8fb4329b25385c07` |
+| `syft.native.json` | `d7126b6169d84956b00acc59130f70f66d751258d22c74c7f4949b754206b63e` |
+| `trivy.fs.json.out` | `ebeacff662f2bef4a0ff576992c02a7eac7f6f6b9b86eeec04edc809a6d0b065` |
+| `trivy.fs.sarif.out` | `b4cfb8adc96a697b44918ec3e78c9df95313b16d99c79612a574ade2774aa621` |
+| `trivy.cdx.json` | `c12bc417c53ea95a8e1edcbd83edfc7aa4588a6b8a8c5c6fdc4194de7786dbd5` |
+| `trivy.spdx.json` | `42bf9fa31276a43f135f7d537577e6453fe5fd62843611dae49e6d27f9ac072e` |
