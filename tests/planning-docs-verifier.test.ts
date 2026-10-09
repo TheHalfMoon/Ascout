@@ -50,6 +50,46 @@ describe("verifyPlanningDocs", () => {
     ]);
   });
 
+  it("recognizes explicit prose entries only in the named acceptance section", () => {
+    const root = docs({
+      "acceptance.md": [
+        "## 2. Capability acceptance suites",
+        "**Security (V1):**",
+        "SEC-01 planted changed secret detected and redacted ·",
+        "SEC-02 workflow review records provenance.",
+        "**Protocol (V1):** PROTO-01 schema validation · PROTO-02 oversized response rejected.",
+        "**Docs:** DOC-01 README/CLI parity · DOC-02 doctor table matches the manifest.",
+        "V6 extends SEC-09…SEC-16 (individual tests not yet defined).",
+        "## 3. Benchmarks",
+        "REV-01 this is outside acceptance; do not call it defined.",
+        "References SEC-02, PROTO-01 and DOC-01; also REV-01.",
+      ].join("\n"),
+    });
+    const result = verifyPlanningDocs([root], { checkIds: true });
+    expect(result.errors.filter(x => x.includes("referenced but never defined")))
+      .toHaveLength(9); // SEC-09..SEC-16 + REV-01 are intentionally undefined.
+    expect(result.errors.some(x => x.includes("identifier REV-01"))).toBe(true);
+    expect(result.errors.some(x => x.includes("identifier SEC-16"))).toBe(true);
+    expect(result.errors.some(x => x.includes("identifier SEC-02"))).toBe(false);
+    expect(result.errors.some(x => x.includes("identifier PROTO-02"))).toBe(false);
+    expect(result.errors.some(x => x.includes("identifier DOC-02"))).toBe(false);
+  });
+
+  it("will not launder missing IDs using similarly worded prose outside the named section", () => {
+    const root = docs({ "a.md": [
+      "## 1. Background",
+      "SEC-01 described in roadmap but not defined as acceptance.",
+      "References SEC-01.",
+      "## 2. Capability acceptance suites",
+      "Still talking about SEC-01 without an explicit ID-led acceptance item.",
+      "## 3. Other",
+      "SEC-02 explanation outside the accepted section.",
+    ].join("\n") });
+    const result = verifyPlanningDocs([root], { checkIds: true });
+    expect(result.errors.map(x => x.match(/identifier ([A-Z]+-\d+)/u)?.[1]).filter(Boolean))
+      .toEqual(["SEC-01", "SEC-02"]);
+  });
+
   it("does not read compound benchmark identifiers as acceptance identifiers", () => {
     const root = docs({ "a.md": "| ADV-01 | x |\n\nB-SEC-1 and B-REV-2 measure ADV-01.\n" });
     expect(verifyPlanningDocs([root], { checkIds: true }).errors).toEqual([]);

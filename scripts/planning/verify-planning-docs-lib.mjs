@@ -1,7 +1,7 @@
 // Verifies planning documents before review:
 // - every relative Markdown link resolves to an existing file;
 // - with checkIds, every referenced planning identifier is defined in the same root
-//   (as the first cell of a table row or as a heading), and at least one
+//   (as an ID-led table row, heading, or explicitly scoped acceptance entry), and at least one
 //   identifier is referenced, so the check cannot pass by finding nothing;
 // - no line presents a founder decision (FD-n) as ratified or approved.
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -14,6 +14,26 @@ const ID_RE = new RegExp(String.raw`(?<![A-Za-z0-9-])${PREFIX_GROUP}-(\d{1,3})\b
 const RANGE_RE = new RegExp(String.raw`(?<![A-Za-z0-9-])${PREFIX_GROUP}-(\d{1,3})\s*(?:…|\.\.\.|–)\s*(?:\1-)?(\d{1,3})\b`, "g");
 const TABLE_DEFINITION_RE = /^\|\s*\**([A-Z0-9]+-\d{1,3})\**\s*\|/;
 const HEADING_DEFINITION_RE = /^#{2,4}\s+([A-Z0-9]+-\d{1,3})\b/;
+// The V2 acceptance program enumerates specifications as ID-led prose, sometimes
+// with multiple independent entries separated by a middle dot. Only its named
+// acceptance section admits this source form; an arbitrary mention elsewhere
+// must never satisfy an identifier definition.
+const ACCEPTANCE_SECTION_RE = /^##\s+2\.\s+Capability acceptance suites\b/u;
+const SECTION_RE = /^##\s+/u;
+const ACCEPTANCE_GROUP_RE = /^\*\*[^*\n]{1,96}:\*\*\s*/u;
+const ACCEPTANCE_ITEM_RE = /^([A-Z]+-\d{1,3})\s+(\S.*)$/u;
+function explicitAcceptanceDefinitions(line) {
+  const body = line.replace(ACCEPTANCE_GROUP_RE, "");
+  const ids = [];
+  for (const item of body.split(/\s*·\s*/u)) {
+    const match = item.trim().match(ACCEPTANCE_ITEM_RE);
+    // An ID reference, unexpanded range, or empty label is not a definition.
+    if (match && match[2].trim().split(/\s+/u).length >= 2) {
+      ids.push(match[1]);
+    }
+  }
+  return ids;
+}
 const LINK_RE = /\]\(([^)#\s]+)(#[^)]*)?\)/g;
 // Check approval predicates per *specific decision* and per status token.
 // A pending or negated FD-2 must never sanitize "FD-1 APPROVED" on the same line.
@@ -62,7 +82,10 @@ function verifyRoot(root, checkIds, errors) {
   let links = 0;
   for (const file of files) {
     const lines = readFileSync(file, "utf8").split(/\r?\n/);
+    let inAcceptanceSection = false;
     lines.forEach((line, index) => {
+      if (ACCEPTANCE_SECTION_RE.test(line)) inAcceptanceSection = true;
+      else if (SECTION_RE.test(line)) inAcceptanceSection = false;
       const where = `${file}:${index + 1}`;
       for (const match of line.matchAll(LINK_RE)) {
         const target = match[1];
@@ -77,6 +100,9 @@ function verifyRoot(root, checkIds, errors) {
       if (tableDefinition) defined.add(tableDefinition[1]);
       const headingDefinition = line.match(HEADING_DEFINITION_RE);
       if (headingDefinition) defined.add(headingDefinition[1]);
+      if (inAcceptanceSection) {
+        for (const id of explicitAcceptanceDefinitions(line)) defined.add(id);
+      }
       for (const match of line.matchAll(RANGE_RE)) {
         const [, prefix, from, to] = match;
         for (let n = Number(from); n <= Number(to); n += 1) {
