@@ -11,22 +11,28 @@ and its exact manifest; source-file contents are never edited.
 ## Projected candidate only
 
 The all-five-group SCC in #600 makes simple group reordering impossible.
-A conditional path-stub strategy would create all 21 final paths with highly
-visible non-effective content before inserting the original source bytes.
+A conditional path-stub strategy would create only **20 new V2 paths** with
+visible non-effective content. The pre-existing canonical
+`docs/strategy/README.md` must **never** be overwritten by a stub. The one
+modified pre-existing index stays unchanged until its exact-source group lands
+last. This corrects the initial seven-grain projection, which wrongly included
+that existing path in its first stub batch.
 
 | Candidate grain | Changed files | Projected added lines |
 | --- | ---: | ---: |
 | S0a: first path stubs | 11 | 11 |
-| S0b: remaining path stubs | 10 | 10 |
-| R1: exact #578 source | 4 | 326 |
+| S0b: remaining new-path stubs | 9 | 9 |
 | R2: exact #578 source | 3 | 351 |
 | R3: exact #578 source | 4 | 367 |
 | R4: exact #578 source | 3 | 396 |
 | R5: exact #578 source | 7 | 381 |
+| R1: exact #578 source, including the existing index, **last** | 4 | 326 |
 
 These are **arithmetic projections, not real Git patch measurements**.
 They neither establish document soundness in intermediate states nor
-satisfy Diffcipline verification-command policy. Placeholder merges
+satisfy Diffcipline verification-command policy. The pinned Git diff reports
+**1 modified-existing path and 20 added paths**, not 21 new files.
+Even this revised sequence has not proven intermediate Markdown/ID correctness. Placeholder merges
 remain **not authorized**; the founder gate is PENDING.
 
 ## Run against trusted, pinned source

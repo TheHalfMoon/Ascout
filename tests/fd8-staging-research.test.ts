@@ -35,6 +35,7 @@ function input(counts = [4, 3, 4, 3, 7], adds = [326, 351, 367, 396, 381]) {
         files: g.files.length,
         added: adds[i],
       })),
+      existingSourcePaths: [groups[0].files[0]],
       counts: {
         source_files: sourceFiles,
         mapped_files: sourceFiles,
@@ -50,10 +51,15 @@ describe("FD8 research-only staging feasibility", () => {
     expect(result.status).toBe("SIMULATED_ONLY_BLOCKED_GOVERNANCE");
     expect(result.original_files).toBe(21);
     expect(result.original_added_lines).toBe(1821);
+    expect(result.new_paths_needing_stubs).toBe(20);
+    expect(result.source_paths_preexisting_at_base).toHaveLength(1);
     expect(result.projected_steps.map(s => s.changed_files))
-      .toEqual([11, 10, 4, 3, 4, 3, 7]);
+      .toEqual([11, 9, 3, 4, 3, 7, 4]);
     expect(result.projected_steps.map(s => s.projected_added_lines))
-      .toEqual([11, 10, 326, 351, 367, 396, 381]);
+      .toEqual([11, 9, 351, 367, 396, 381, 326]);
+    expect(result.projected_steps.slice(0, 2).flatMap(s => s.paths))
+      .not.toContain(result.source_paths_preexisting_at_base[0]);
+    expect(result.projected_steps.at(-1)?.group).toBe("FD8-B-R1");
     expect(result.projected_steps.at(-1)?.materialized_source_files).toBe(21);
     expect(result.projected_steps.every(s => s.non_effective && !s.merge_authorized)).toBe(true);
     expect(result.merge_authorized).toBe(false);
@@ -66,6 +72,9 @@ describe("FD8 research-only staging feasibility", () => {
     expect(() => simulateFd8Staging(m, { ...a, state: "LINK_ORDER_READY_ONLY" })).toThrow();
     expect(() => simulateFd8Staging(m, { ...a, missingLinks: [{}] })).toThrow();
     expect(() => simulateFd8Staging(m, { ...a, dependencyGraph: { has_cycle: false } })).toThrow();
+    expect(() => simulateFd8Staging(m, { ...a, existingSourcePaths: undefined })).toThrow();
+    expect(() => simulateFd8Staging(m, { ...a, existingSourcePaths: ["unknown.md"] })).toThrow();
+    expect(() => simulateFd8Staging(m, { ...a, existingSourcePaths: [a.existingSourcePaths[0], a.existingSourcePaths[0]] })).toThrow();
   });
   it("refuses oversized or miscounted projected stages", () => {
     const [m, a] = input();

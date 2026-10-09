@@ -67,9 +67,18 @@ export function simulateFd8Staging(manifest, audit) {
     fail("manifest and actual pinned-source diff disagree");
   }
 
+  const existingSourcePaths = audit.existingSourcePaths;
+  if (!Array.isArray(existingSourcePaths) ||
+      new Set(existingSourcePaths).size !== existingSourcePaths.length ||
+      existingSourcePaths.some(p => typeof p !== "string" || !seen.has(p))) {
+    fail("base-present source paths are missing or invalid");
+  }
+  // Never replace an existing canonical document with an incomplete stub.
+  const alreadyExists = new Set(existingSourcePaths);
+  const stubPaths = paths.filter(p => !alreadyExists.has(p));
   const steps = [];
-  for (let start = 0; start < paths.length; start += STUB_BATCH) {
-    const batch = paths.slice(start, start + STUB_BATCH);
+  for (let start = 0; start < stubPaths.length; start += STUB_BATCH) {
+    const batch = stubPaths.slice(start, start + STUB_BATCH);
     steps.push({
       kind: "PROPOSED_STUB_PATHS_ONLY",
       paths: batch,
@@ -82,7 +91,13 @@ export function simulateFd8Staging(manifest, audit) {
   }
 
   let materialized = 0;
-  for (let i = 0; i < manifest.groups.length; i++) {
+  // Defer changes to pre-existing canonical files until after all new paths
+  // have received their exact source bytes, even when groups are cyclic.
+  const order = manifest.groups.map((_, i) => i).sort((a, b) => {
+    const hasExisting = i => manifest.groups[i].files.some(p => alreadyExists.has(p));
+    return Number(hasExisting(a)) - Number(hasExisting(b)) || a - b;
+  });
+  for (const i of order) {
     const group = manifest.groups[i];
     const added = audit.groups[i].added;
     materialized += group.files.length;
@@ -105,6 +120,8 @@ export function simulateFd8Staging(manifest, audit) {
     base_head: manifest.base_head,
     source_head: manifest.source_head,
     original_files: paths.length,
+    source_paths_preexisting_at_base: [...existingSourcePaths],
+    new_paths_needing_stubs: stubPaths.length,
     original_added_lines: totalAdded,
     source_group_cycle: audit.dependencyGraph.cyclic_components,
     projected_steps: steps,

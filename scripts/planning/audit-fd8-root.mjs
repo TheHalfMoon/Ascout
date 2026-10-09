@@ -111,6 +111,7 @@ export function auditFd8Split({ manifest, changed, contents, basePaths }) {
     counts: { source_files: entries.size, mapped_files: owners.size,
       source_added: [...entries.values()].reduce((n, x) => n + x.added, 0) },
     errors, missingLinks, forwardLinks, crossGroupCycles: cycles,
+    existingSourcePaths: [...owners.keys()].filter(path => basePaths.has(path)).sort(),
     dependencyGraph,
   };
 }
