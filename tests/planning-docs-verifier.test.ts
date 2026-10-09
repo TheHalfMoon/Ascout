@@ -77,6 +77,30 @@ describe("verifyPlanningDocs", () => {
     expect(result.errors[1]).toMatch(/:2: a founder decision/);
   });
 
+  it("cannot launder an explicit approval with a separate pending/negative decision", () => {
+    const root = docs({
+      "a.md": [
+        "FD-1 is APPROVED; FD-2 is not approved.",
+        "FD-3 is PROPOSED; FD-4 has been RATIFIED.",
+        "| FD-5 | APPROVED | NEEDS-FOUNDER |",
+        "FD-6 is not ratified but is approved.",
+        "FD-7 is not ratified or approved.",
+        "FD-8 is not yet ratified; FD-9 remains not approved.",
+      ].join("\n"),
+    });
+    const result = verifyPlanningDocs([root]);
+    expect(result.errors).toHaveLength(4);
+    expect(result.errors.map(e => e.match(/:(\d+): a founder decision/)?.[1]))
+      .toEqual(["1", "2", "3", "4"]);
+  });
+
+  it("rejects direct approval even with unrelated safe adjectives", () => {
+    const root = docs({
+      "a.md": "FD-1 APPROVED; implementation is PROPOSED and FD-2 NEEDS-FOUNDER.\n",
+    });
+    expect(verifyPlanningDocs([root]).errors).toHaveLength(1);
+  });
+
   it("reports missing and empty roots", () => {
     const empty = docs({});
     const missing = join(empty, "absent");
