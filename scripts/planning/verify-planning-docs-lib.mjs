@@ -15,9 +15,30 @@ const RANGE_RE = new RegExp(String.raw`(?<![A-Za-z0-9-])${PREFIX_GROUP}-(\d{1,3}
 const TABLE_DEFINITION_RE = /^\|\s*\**([A-Z0-9]+-\d{1,3})\**\s*\|/;
 const HEADING_DEFINITION_RE = /^#{2,4}\s+([A-Z0-9]+-\d{1,3})\b/;
 const LINK_RE = /\]\(([^)#\s]+)(#[^)]*)?\)/g;
-const FD_APPROVAL_RE = /\bFD-\d+\b.*\b(RATIFIED|APPROVED)\b/i;
-// Negated or pending statements ("not approved", "No FD is approved", "None … ratified") are allowed.
-const FD_SAFE_RE = /\b(not|no|none)\b[^|]*\b(ratified|approved)\b|NEEDS-FOUNDER|PROPOSED|recommend|must not|never mark/i;
+// Check approval predicates per *specific decision* and per status token.
+// A pending or negated FD-2 must never sanitize "FD-1 APPROVED" on the same line.
+const FD_ID_RE = /\bFD-\d+\b/giu;
+const FD_APPROVAL_WORD_RE = /\b(?:RATIFIED|APPROVED)\b/giu;
+const NEGATED_APPROVAL_PREFIX_RE = /\b(?:not|no|none|never)\b(?:\s+[a-z-]+){0,4}\s*$/iu;
+function unqualifiedFdApproval(line) {
+  const ids = [...line.matchAll(FD_ID_RE)];
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const following = line.slice(id.index + id[0].length, ids[i + 1]?.index ?? line.length);
+    let lastApprovalEnd = 0;
+    let priorNegated = false;
+    for (const word of following.matchAll(FD_APPROVAL_WORD_RE)) {
+      const before = following.slice(lastApprovalEnd, word.index);
+      const localClause = before.split(/[.;|,:!?]/u).at(-1) ?? before;
+      const negated = NEGATED_APPROVAL_PREFIX_RE.test(localClause) ||
+        (priorNegated && /^\s*(?:or|nor)\s*$/iu.test(before));
+      if (!negated) return true;
+      priorNegated = negated;
+      lastApprovalEnd = word.index + word[0].length;
+    }
+  }
+  return false;
+}
 
 function markdownFiles(dir) {
   const out = [];
@@ -49,7 +70,7 @@ function verifyRoot(root, checkIds, errors) {
         links += 1;
         if (!existsSync(resolve(dirname(file), target))) errors.push(`${where}: broken link ${target}`);
       }
-      if (FD_APPROVAL_RE.test(line) && !FD_SAFE_RE.test(line)) {
+      if (unqualifiedFdApproval(line)) {
         errors.push(`${where}: a founder decision appears to be marked ratified or approved`);
       }
       const tableDefinition = line.match(TABLE_DEFINITION_RE);
