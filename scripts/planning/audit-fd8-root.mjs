@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { dirname, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { analyzeFd8GroupGraph } from "./fd8-link-graph.mjs";
 
 const SHA = /^[a-f0-9]{40}$/u;
 const MAX_FILES = 12;
@@ -91,6 +92,7 @@ export function auditFd8Split({ manifest, changed, contents, basePaths }) {
       }
     }
   }
+  const dependencyGraph = analyzeFd8GroupGraph(manifest.groups.length, crossings);
   const cycles = [...crossings].filter(edge => {
     const [from, to] = edge.split(">");
     return crossings.has(to + ">" + from) && Number(from) < Number(to);
@@ -109,6 +111,7 @@ export function auditFd8Split({ manifest, changed, contents, basePaths }) {
     counts: { source_files: entries.size, mapped_files: owners.size,
       source_added: [...entries.values()].reduce((n, x) => n + x.added, 0) },
     errors, missingLinks, forwardLinks, crossGroupCycles: cycles,
+    dependencyGraph,
   };
 }
 
