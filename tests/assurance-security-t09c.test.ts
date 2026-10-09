@@ -5,6 +5,7 @@ import {
 } from "../src/assurance/security/sentrdel-t09-inventory.js";
 import { SENTRDEL_ENGINE_ID, SENTRDEL_ENGINE_VERSION } from "../src/assurance/security/sentrdel-engine-boundary.js";
 import { SENTRDEL_PINNED_REVISION, SENTRDEL_PINNED_TREE } from "../src/assurance/security/sentrdel-source-pin.js";
+import { snapshotSentrdelObservationDataV1 } from "../src/assurance/security/sentrdel-observation-snapshot.js";
 
 const SHARED = {
   schema_version: 1,
@@ -40,6 +41,24 @@ function configuration(extra: Record<string, unknown> = {}) {
     evidence_digest: "c".repeat(64), ...extra,
   };
 }
+
+describe("bounded untrusted JSON snapshot", () => {
+  it("rejects non-JSON numeric tokens at every nesting depth", () => {
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      expect(() => snapshotSentrdelObservationDataV1(bad)).toThrow(/finite/);
+      expect(() => snapshotSentrdelObservationDataV1({ record: bad })).toThrow(/finite/);
+      expect(() => snapshotSentrdelObservationDataV1({ records: [1, bad] })).toThrow(/finite/);
+      expect(() => buildSentrdelT09InventoryV1({ workflows: [], configurations: [bad] }))
+        .toThrow(TypeError);
+    }
+  });
+  it("preserves ordinary finite numeric JSON data without granting claims", () => {
+    const data = snapshotSentrdelObservationDataV1({ count: 0, values: [1.25, -0] });
+    expect(data).toEqual({ count: 0, values: [1.25, -0] });
+    expect(Object.isFrozen(data)).toBe(true);
+    expect(JSON.stringify(data)).not.toContain("NaN");
+  });
+});
 
 describe("UA-P06-T09C source/attempt-bound static inventory", () => {
   it("combines only same-source/same-attempt observations with no assurance promotion", () => {
