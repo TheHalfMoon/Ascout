@@ -50,7 +50,10 @@ is replaced by **all** of:
 
 1. A founder GitHub review with state `APPROVED`, submitted from an account
    that did not author the PR, bound to the PR's exact head at merge time.
-   Any later head change voids it.
+   Any later head change voids it. The review must be submitted by the
+   founder personally. Automated agents have working credentials for more
+   than one founder account, so no agent may submit, approve, or dismiss a
+   review, and an approval whose origin is an agent session does not count.
 2. The AI maintainer exact-head review remains recorded and labeled as not
    independent. It does not count toward item 1.
 3. OCR status is recorded as `NOT_RUN` or `NOT_QUALIFIED` with links.
