@@ -17,7 +17,7 @@ const originalEnv = new Map([
   ["ASCOUT_PR41_SECRET", process.env.ASCOUT_PR41_SECRET],
   ["GITHUB_TOKEN", process.env.GITHUB_TOKEN],
 ] as const);
-const NULL_GIT_CONFIG = process.platform === "win32" ? "NUL" : "/dev/null";
+const NULL_GIT_CONFIG = "/dev/null"; // Git for Windows accepts /dev/null; newer releases reject NUL.
 const GIT_ENV = {
   ...process.env,
   GIT_CONFIG_GLOBAL: NULL_GIT_CONFIG,

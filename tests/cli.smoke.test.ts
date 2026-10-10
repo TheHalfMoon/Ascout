@@ -18,7 +18,7 @@ const ENV_KEYS = [
 const originalCwd = process.cwd();
 const originalEnv = new Map(ENV_KEYS.map((key) => [key, process.env[key]]));
 const temporaryDirectories: string[] = [];
-const NULL_GIT_CONFIG = process.platform === "win32" ? "NUL" : "/dev/null";
+const NULL_GIT_CONFIG = "/dev/null"; // Git for Windows accepts /dev/null; newer releases reject NUL.
 const GIT_ENV = {
   ...process.env,
   GIT_CONFIG_GLOBAL: NULL_GIT_CONFIG,
