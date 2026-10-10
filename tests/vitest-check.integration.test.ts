@@ -33,7 +33,7 @@ function initializeFixture(): string {
       name: "t051-vitest-check-fixture",
       private: true,
       type: "module",
-      devDependencies: { vitest: "4.1.10", "@vitest/coverage-v8": "4.1.10" },
+      devDependencies: { vitest: "4.1.11", "@vitest/coverage-v8": "4.1.11" },
     }),
   );
   writeFileSync(join(root, "vitest.config.mjs"), "export default { test: { globals: true } };\n");
@@ -155,7 +155,7 @@ describe("T051 runCheck Vitest integration", () => {
       expect(task).toMatchObject({
         status: "PASS",
         tool_name: "vitest",
-        tool_version: "4.1.10",
+        tool_version: "4.1.11",
         execution_admission: "normal",
       });
       expect(task?.argv).toContain("related");
