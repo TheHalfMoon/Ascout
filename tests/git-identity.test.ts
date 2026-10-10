@@ -16,6 +16,10 @@ const SSH_HASH = "396165d0807ee9ac398f21e22a1adfd912664fe71924c4551b9ef2919ebeac
 const IPV6_SSH_HASH = "6f0c0d33f2a51bb994542be183462dbea3e60527cd2644fb3cde387a4772f823";
 const SHA256_HEAD = "0123456789abcdef".repeat(4);
 const temporaryDirectories: string[] = [];
+// readGitHeadState first tries one batched query and falls back to the
+// sequential queries whenever the batch is not a clean, exactly shaped answer.
+const BATCHED_HEAD_QUERY = "rev-parse --is-inside-work-tree --is-shallow-repository --verify HEAD^{commit}";
+const BATCH_UNAVAILABLE = { status: 128, stdout: "", stderr: "fatal" } as const;
 
 function makeTemporaryDirectory(): string {
   const directory = mkdtempSync(join(tmpdir(), "ascout-t018-"));
@@ -216,11 +220,55 @@ describe("T018 HEAD identity implementation", () => {
     });
   });
 
+  it("answers HEAD identity from one batched query plus the detached-state query", () => {
+    const calls: string[] = [];
+    const runner: GitCommandRunner = (_repositoryRoot, argv) => {
+      const command = argv.join(" ");
+      calls.push(command);
+      if (command === BATCHED_HEAD_QUERY) {
+        return { status: 0, stdout: `true\nfalse\n${SHA256_HEAD}\n`, stderr: "" };
+      }
+      if (command === "symbolic-ref -q HEAD") return { status: 0, stdout: "refs/heads/main\n", stderr: "" };
+      throw new Error(`unexpected Git argv: ${command}`);
+    };
+    expect(readGitHeadState("/fixture/repo", runner)).toEqual({
+      head_sha: SHA256_HEAD,
+      detached: false,
+      shallow: false,
+    });
+    expect(calls).toEqual([BATCHED_HEAD_QUERY, "symbolic-ref -q HEAD"]);
+  });
+
+  it("falls back to the sequential classification for any malformed batched answer", () => {
+    for (const stdout of [
+      `true\nfalse\n${"A".repeat(40)}\n`,
+      `true\nmaybe\n${"a".repeat(40)}\n`,
+      `false\nfalse\n${"a".repeat(40)}\n`,
+      `true\nfalse\n${"a".repeat(40)}`,
+      `true\nfalse\n${"a".repeat(40)}\nextra\n`,
+    ]) {
+      const calls: string[] = [];
+      const runner: GitCommandRunner = (_repositoryRoot, argv) => {
+        const command = argv.join(" ");
+        calls.push(command);
+        if (command === BATCHED_HEAD_QUERY) return { status: 0, stdout, stderr: "" };
+        if (command === "rev-parse --is-inside-work-tree") return { status: 0, stdout: "true\n", stderr: "" };
+        if (command === "rev-parse --verify HEAD^{commit}") {
+          return { status: 0, stdout: `${"A".repeat(40)}\n`, stderr: "" };
+        }
+        throw new Error(`unexpected Git argv: ${command}`);
+      };
+      expectGitIdentityErrorCode(() => readGitHeadState("/fixture/repo", runner), "invalid_head_identity");
+      expect(calls.slice(0, 2)).toEqual([BATCHED_HEAD_QUERY, "rev-parse --is-inside-work-tree"]);
+    }
+  });
+
   it("accepts a full lowercase 64-hex HEAD and reports shallow state without abbreviating it", () => {
     const calls: string[] = [];
     const runner: GitCommandRunner = (_repositoryRoot, argv) => {
       const command = argv.join(" ");
       calls.push(command);
+      if (command === BATCHED_HEAD_QUERY) return BATCH_UNAVAILABLE;
       if (command === "rev-parse --is-inside-work-tree") {
         return { status: 0, stdout: "true\n", stderr: "" };
       }
@@ -242,6 +290,7 @@ describe("T018 HEAD identity implementation", () => {
       shallow: true,
     });
     expect(calls).toEqual([
+      BATCHED_HEAD_QUERY,
       "rev-parse --is-inside-work-tree",
       "rev-parse --verify HEAD^{commit}",
       "symbolic-ref -q HEAD",
@@ -258,6 +307,7 @@ describe("T018 HEAD identity implementation", () => {
     ]) {
       const runner: GitCommandRunner = (_repositoryRoot, argv) => {
         const command = argv.join(" ");
+      if (command === BATCHED_HEAD_QUERY) return BATCH_UNAVAILABLE;
         if (command === "rev-parse --is-inside-work-tree") {
           return { status: 0, stdout: "true\n", stderr: "" };
         }
@@ -274,6 +324,7 @@ describe("T018 HEAD identity implementation", () => {
   it("does not misclassify runner failure or an existing-but-unresolvable HEAD ref as unborn", () => {
     const runnerFailure: GitCommandRunner = (_repositoryRoot, argv) => {
       const command = argv.join(" ");
+      if (command === BATCHED_HEAD_QUERY) return BATCH_UNAVAILABLE;
       if (command === "rev-parse --is-inside-work-tree") {
         return { status: 0, stdout: "true\n", stderr: "" };
       }
@@ -289,6 +340,7 @@ describe("T018 HEAD identity implementation", () => {
 
     const existingBrokenRef: GitCommandRunner = (_repositoryRoot, argv) => {
       const command = argv.join(" ");
+      if (command === BATCHED_HEAD_QUERY) return BATCH_UNAVAILABLE;
       if (command === "rev-parse --is-inside-work-tree") {
         return { status: 0, stdout: "true\n", stderr: "" };
       }
@@ -315,6 +367,7 @@ describe("T018 HEAD identity implementation", () => {
 
     const badDetached: GitCommandRunner = (_repositoryRoot, argv) => {
       const command = argv.join(" ");
+      if (command === BATCHED_HEAD_QUERY) return BATCH_UNAVAILABLE;
       if (command === "rev-parse --is-inside-work-tree") {
         return { status: 0, stdout: "true\n", stderr: "" };
       }
@@ -330,6 +383,7 @@ describe("T018 HEAD identity implementation", () => {
 
     const badShallow: GitCommandRunner = (_repositoryRoot, argv) => {
       const command = argv.join(" ");
+      if (command === BATCHED_HEAD_QUERY) return BATCH_UNAVAILABLE;
       if (command === "rev-parse --is-inside-work-tree") {
         return { status: 0, stdout: "true\n", stderr: "" };
       }

@@ -343,10 +343,40 @@ function proveUnbornHead(repositoryRoot: string, runGit: GitCommandRunner): bool
   throw new GitIdentityError("git_metadata_error", "unable to verify symbolic HEAD ref");
 }
 
+function readDetachedHead(repositoryRoot: string, runGit: GitCommandRunner): boolean {
+  const symbolicHead = runGit(repositoryRoot, ["symbolic-ref", "-q", "HEAD"]);
+  if (symbolicHead.error !== undefined) {
+    throw new GitIdentityError("git_metadata_error", "unable to determine detached HEAD state");
+  }
+  if (symbolicHead.status === 0) return false;
+  if (symbolicHead.status === 1) return true;
+  throw new GitIdentityError("git_metadata_error", "unable to determine detached HEAD state");
+}
+
 export function readGitHeadState(
   repositoryRoot: string,
   runGit: GitCommandRunner = defaultGitCommandRunner,
 ): GitHeadState {
+  // Fast path: three of the four queries in one process. Anything other than
+  // a clean, exactly shaped answer falls through to the sequential path below,
+  // which alone classifies errors (non-repository, unborn HEAD, bad identity).
+  const batched = runGit(repositoryRoot, [
+    "rev-parse", "--is-inside-work-tree", "--is-shallow-repository", "--verify", "HEAD^{commit}",
+  ]);
+  if (batched.error === undefined && batched.status === 0) {
+    const lines = batched.stdout.split("\n");
+    const [inside, shallow, headSha, terminator] = lines;
+    if (lines.length === 4 && terminator === "" && inside === "true" &&
+        (shallow === "true" || shallow === "false") &&
+        headSha !== undefined && FULL_GIT_OBJECT_ID.test(headSha)) {
+      return {
+        head_sha: headSha,
+        detached: readDetachedHead(repositoryRoot, runGit),
+        shallow: shallow === "true",
+      };
+    }
+  }
+
   const insideResult = runGit(repositoryRoot, ["rev-parse", "--is-inside-work-tree"]);
   const inside = requireSuccessfulGit(
     insideResult,
@@ -376,14 +406,7 @@ export function readGitHeadState(
     );
   }
 
-  const symbolicHead = runGit(repositoryRoot, ["symbolic-ref", "-q", "HEAD"]);
-  let detached: boolean;
-  if (symbolicHead.error !== undefined) {
-    throw new GitIdentityError("git_metadata_error", "unable to determine detached HEAD state");
-  }
-  if (symbolicHead.status === 0) detached = false;
-  else if (symbolicHead.status === 1) detached = true;
-  else throw new GitIdentityError("git_metadata_error", "unable to determine detached HEAD state");
+  const detached = readDetachedHead(repositoryRoot, runGit);
 
   const shallowStdout = requireSuccessfulGit(
     runGit(repositoryRoot, ["rev-parse", "--is-shallow-repository"]),
