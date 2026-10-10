@@ -316,6 +316,36 @@ describe("T019 live Git tree-digest collection", () => {
     expect(readTreeDigestV1(repositoryRoot)).toEqual(clean);
   });
 
+  it("applies path-aware eol conversion when hashing modified files in one batch", () => {
+    const repositoryRoot = makeRepository();
+    writeFileSync(join(repositoryRoot, ".gitattributes"), "*.txt text eol=lf\n");
+    writeFileSync(join(repositoryRoot, "normalized.txt"), "a\nb\n");
+    writeFileSync(join(repositoryRoot, "changed.txt"), "base\n");
+    commitAll(repositoryRoot, "base");
+    const clean = readTreeDigestV1(repositoryRoot);
+
+    // CRLF content normalizes to the committed LF blob, so only path-aware
+    // hashing reports it unchanged.
+    writeFileSync(join(repositoryRoot, "normalized.txt"), "a\r\nb\r\n");
+    const future = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    utimesSync(join(repositoryRoot, "normalized.txt"), future, future);
+    expect(readTreeDigestV1(repositoryRoot)).toEqual(clean);
+
+    writeFileSync(join(repositoryRoot, "changed.txt"), "modified\n");
+    expect(readTreeDigestV1(repositoryRoot).unstaged_changed_count).toBe(1);
+  }, 15_000);
+
+  it("hashes paths the stdin-paths protocol cannot carry through the single-file path", () => {
+    // Windows forbids quotes and newlines in file names.
+    if (process.platform === "win32") return;
+    const repositoryRoot = makeRepository();
+    const names = ["\"quoted.txt", "line\nbreak.txt", "plain.txt"];
+    for (const name of names) writeFileSync(join(repositoryRoot, name), "base\n");
+    commitAll(repositoryRoot, "base");
+    for (const name of names) writeFileSync(join(repositoryRoot, name), "modified\n");
+    expect(readTreeDigestV1(repositoryRoot).unstaged_changed_count).toBe(3);
+  }, 15_000);
+
   it("refuses path-aware Git hashing when a repository filter attribute is set", () => {
     const repositoryRoot = makeRepository();
     writeFileSync(join(repositoryRoot, "tracked.txt"), "base\n");
