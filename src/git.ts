@@ -105,6 +105,7 @@ export class GitIdentityError extends Error {
 const GIT_METADATA_TIMEOUT_MS = 10_000;
 const GIT_METADATA_MAX_BUFFER_BYTES = 1024 * 1024;
 const GIT_TREE_METADATA_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
+const GIT_CHECK_ATTR_ARGV_BUDGET = 8 * 1024;
 const FILE_HASH_BUFFER_BYTES = 64 * 1024;
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const SYMBOLIC_HEAD_REF = /^refs\/.+$/;
@@ -736,27 +737,44 @@ function digestWorktreeEntry(
  * Query the effective attribute without launching the filter, then refuse it.
  * This guard does not turn a concurrently mutable repository into a sandbox.
  */
-function assertNoExecutableGitFilter(repositoryRoot: string, path: string): void {
-  const records = splitNullTerminated(
-    requireSuccessfulGitBuffer(
-      runGitTreeMetadata(repositoryRoot, ["check-attr", "-z", "filter", "--", path]),
-      "unable to inspect Git filter attribute before tree-digest hashing",
-    ),
-    "git check-attr filter output",
-  );
-  if (
-    records.length !== 3 ||
-    decodeUtf8(records[0]!, "git attribute path") !== path ||
-    decodeUtf8(records[1]!, "git attribute name") !== "filter"
-  ) {
-    throw new GitIdentityError("git_metadata_error", "invalid Git filter attribute response");
-  }
-  if (decodeUtf8(records[2]!, "git attribute value") !== "unspecified") {
-    throw new GitIdentityError(
-      "git_metadata_error",
-      `tree digest refuses Git filter attribute on ${path}`,
+function assertNoExecutableGitFilters(repositoryRoot: string, paths: readonly string[]): ReadonlySet<string> {
+  // One check-attr process per chunk instead of one per path; chunks stay far
+  // below the Windows command-line limit.
+  const checked = new Set<string>();
+  for (let start = 0; start < paths.length;) {
+    const chunk: string[] = [];
+    let length = 0;
+    while (start < paths.length && (chunk.length === 0 || length + paths[start]!.length < GIT_CHECK_ATTR_ARGV_BUDGET)) {
+      length += paths[start]!.length + 1;
+      chunk.push(paths[start++]!);
+    }
+    const records = splitNullTerminated(
+      requireSuccessfulGitBuffer(
+        runGitTreeMetadata(repositoryRoot, ["check-attr", "-z", "filter", "--", ...chunk]),
+        "unable to inspect Git filter attribute before tree-digest hashing",
+      ),
+      "git check-attr filter output",
     );
+    if (records.length !== chunk.length * 3) {
+      throw new GitIdentityError("git_metadata_error", "invalid Git filter attribute response");
+    }
+    chunk.forEach((path, index) => {
+      if (
+        decodeUtf8(records[index * 3]!, "git attribute path") !== path ||
+        decodeUtf8(records[index * 3 + 1]!, "git attribute name") !== "filter"
+      ) {
+        throw new GitIdentityError("git_metadata_error", "invalid Git filter attribute response");
+      }
+      if (decodeUtf8(records[index * 3 + 2]!, "git attribute value") !== "unspecified") {
+        throw new GitIdentityError(
+          "git_metadata_error",
+          `tree digest refuses Git filter attribute on ${path}`,
+        );
+      }
+      checked.add(path);
+    });
   }
+  return checked;
 }
 
 function worktreeGitObjectId(
@@ -764,12 +782,16 @@ function worktreeGitObjectId(
   path: string,
   type: WorktreeEntryType,
   expectedOid: string,
+  filterChecked: ReadonlySet<string>,
 ): string {
   if (type === "symlink") {
     return gitBlobOidForBytes(readSymlinkTarget(repositoryRoot, path), expectedOid);
   }
 
-  assertNoExecutableGitFilter(repositoryRoot, path);
+  // Path-aware hashing may only run on paths cleared by the batched filter check.
+  if (!filterChecked.has(path)) {
+    throw new GitIdentityError("git_metadata_error", `tree digest hashed ${path} without a filter check`);
+  }
 
   const output = requireSuccessfulGitBuffer(
     runGitTreeMetadata(repositoryRoot, [
@@ -793,7 +815,7 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
     throw new GitIdentityError("git_metadata_error", "Git returned an incomplete unstaged diff record");
   }
 
-  const entries: TreeDigestUnstagedEntry[] = [];
+  const parsed: { path: string; status: string; oldMode: string; newMode: string; oldOid: string }[] = [];
   for (let index = 0; index < records.length; index += 2) {
     const metadataRecord = records[index];
     const pathRecord = records[index + 1];
@@ -815,7 +837,20 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
     if (oldMode === undefined || newMode === undefined || oldOid === undefined || status === undefined) {
       throw new GitIdentityError("git_metadata_error", "Git returned incomplete unstaged metadata");
     }
+    parsed.push({ path, status, oldMode, newMode, oldOid });
+  }
 
+  // Validate every record first, then clear all hash candidates in one batch.
+  const filterChecked = assertNoExecutableGitFilters(
+    repositoryRoot,
+    parsed
+      .filter((entry) => entry.status === "M" && entry.oldMode === entry.newMode &&
+        worktreeTypeFromMode(entry.newMode, entry.path) !== "symlink")
+      .map((entry) => entry.path),
+  );
+
+  const entries: TreeDigestUnstagedEntry[] = [];
+  for (const { path, status, oldMode, newMode, oldOid } of parsed) {
     if (status === "U") {
       throw new GitIdentityError(
         "git_metadata_error",
@@ -835,7 +870,7 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
 
     const type = worktreeTypeFromMode(newMode, path);
     if (status === "M" && oldMode === newMode) {
-      const currentOid = worktreeGitObjectId(repositoryRoot, path, type, oldOid);
+      const currentOid = worktreeGitObjectId(repositoryRoot, path, type, oldOid, filterChecked);
       if (currentOid === oldOid) continue;
     }
 
