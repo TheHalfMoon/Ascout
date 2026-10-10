@@ -135,6 +135,25 @@ describe("UA-P06-T09C source/attempt-bound static inventory", () => {
     })).toThrow(/repeated evidence/);
   });
 
+  it("refuses one evidence reference bound to conflicting digests", () => {
+    const second = { rule_id: "gha.mutable-action-ref", line: 30 };
+    expect(() => buildSentrdelT09InventoryV1({
+      workflows: [workflow(), workflow({ ...second, evidence_digest: "d".repeat(64) })],
+      configurations: [],
+    })).toThrow(/conflicting digests/);
+    expect(() => buildSentrdelT09InventoryV1({
+      workflows: [workflow()],
+      configurations: [configuration({ evidence_ref: "evidence:ci" })],
+    })).toThrow(/conflicting digests/);
+    // Sharing one artifact with the same digest is legitimate.
+    const shared = buildSentrdelT09InventoryV1({
+      workflows: [workflow(), workflow(second)],
+      configurations: [configuration({ evidence_ref: "evidence:ci", evidence_digest: "b".repeat(64) })],
+    });
+    expect(shared.workflow_observations).toHaveLength(2);
+    expect(shared.config_presence_observations).toHaveLength(1);
+  });
+
   it("refuses unverifiable, malformed, empty, and excessive raw inputs", () => {
     const invalid: unknown[] = [
       null, "PASS", [], {}, { workflows: [], configurations: [] },

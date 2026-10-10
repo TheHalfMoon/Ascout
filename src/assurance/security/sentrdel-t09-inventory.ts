@@ -86,6 +86,15 @@ export function buildSentrdelT09InventoryV1(value: unknown): SentrdelT09Inventor
       throw new TypeError("T09 inventory refuses cross-source, cross-attempt, or cross-pin observations");
     }
   }
+  // Records may share one evidence artifact, but never with different digests.
+  const digestByEvidenceRef = new Map<string, string>();
+  for (const { provenance } of all) {
+    const known = digestByEvidenceRef.get(provenance.evidence_ref);
+    if (known !== undefined && known !== provenance.evidence_digest) {
+      throw new TypeError("T09 inventory refuses one evidence reference with conflicting digests");
+    }
+    digestByEvidenceRef.set(provenance.evidence_ref, provenance.evidence_digest);
+  }
   // UTF-16 code-unit ordering is deterministic across host locales/ICU versions.
   // Never use localeCompare for identity-bearing or receipt-bearing canonical order.
   const compareIdentity = (left: string, right: string): number =>
