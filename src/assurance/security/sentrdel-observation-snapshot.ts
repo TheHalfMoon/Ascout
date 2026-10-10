@@ -18,7 +18,11 @@ export function snapshotSentrdelObservationDataV1(value: unknown, depth = 0): un
   const descriptors = Object.getOwnPropertyDescriptors(value);
   const keys = Reflect.ownKeys(descriptors);
   if (keys.length > 65) throw new TypeError("observation property limit exceeded");
-  if (isArray && (value.length > 64 || keys.length !== value.length + 1)) {
+  // Use the captured `length` descriptor only. A fresh `value.length` read can
+  // reach a Proxy `get` trap and differ between checks, admitting a sparse array.
+  const length: unknown = isArray ? descriptors["length" as keyof typeof descriptors]?.value : 0;
+  if (isArray && (typeof length !== "number" || !Number.isSafeInteger(length) ||
+      length > 64 || keys.length !== length + 1)) {
     throw new TypeError("observation arrays must be dense and bounded");
   }
   const result: Record<string, unknown> | unknown[] = isArray ? [] : Object.create(null);
@@ -31,7 +35,7 @@ export function snapshotSentrdelObservationDataV1(value: unknown, depth = 0): un
       throw new TypeError("observation requires enumerable own data properties");
     }
     if (isArray && (!/^(0|[1-9][0-9]*)$/u.test(key) ||
-        Number(key) >= value.length)) {
+        Number(key) >= (length as number))) {
       throw new TypeError("observation array keys must be indices");
     }
     Object.defineProperty(result, key, {
