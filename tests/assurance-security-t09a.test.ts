@@ -147,6 +147,56 @@ describe("UA-P06-T09A bounded CI observation normalization", () => {
     }
   });
 
+  it("refuses accessor-driven identity changes at direct entry points", () => {
+    let getterCalls = 0;
+    const accessor = { ...input() };
+    Object.defineProperty(accessor, "source_head", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return getterCalls < 2 ? "a".repeat(40) : "b".repeat(40);
+      },
+    });
+    expect(validateSentrdelWorkflowInputV1(accessor).valid).toBe(false);
+    expect(() => normalizeSentrdelWorkflowObservationV1(accessor)).toThrow(TypeError);
+    expect(getterCalls).toBe(0);
+
+    const hidden = { ...input() };
+    Object.defineProperty(hidden, "assurance_override", { value: "PASS", enumerable: false });
+    const symbolic = { ...input(), [Symbol("authority")]: "SUPPORTED" };
+    const sparse = Array(1);
+    const nested = ["TIMEOUT"];
+    Object.defineProperty(nested, "0", { enumerable: true, get: () => "TIMEOUT" });
+    for (const candidate of [hidden, symbolic, input({ unknown_tokens: sparse }),
+      input({ unknown_tokens: nested })]) {
+      expect(validateSentrdelWorkflowInputV1(candidate).valid).toBe(false);
+      expect(() => normalizeSentrdelWorkflowObservationV1(candidate)).toThrow(TypeError);
+    }
+    expect(normalizeSentrdelWorkflowObservationV1(input()).authority)
+      .toBe("CONFIG_OBSERVATION_ONLY");
+  });
+
+  it("uses the captured array length, so a Proxy cannot smuggle a hole past validation", () => {
+    // Keys 0 and 2 only. The `get` trap answers `length` with 2 on the read that
+    // compares the key count and 3 afterwards; any fresh read admits the hole.
+    const lyingTokens = () => {
+      const target: string[] = ["PARSER_UNSUPPORTED", "x", "TIMEOUT"];
+      delete (target as unknown as Record<string, unknown>)[1];
+      let reads = 0;
+      return new Proxy(target, {
+        get(t, key, receiver) {
+          if (key === "length") return ++reads === 2 ? 2 : 3;
+          return Reflect.get(t, key, receiver);
+        },
+      });
+    };
+    const candidate = input({ coverage_state: "PARTIAL", unknown_tokens: lyingTokens() });
+    expect(validateSentrdelWorkflowInputV1(candidate).valid).toBe(false);
+    expect(() => normalizeSentrdelWorkflowObservationV1(
+      input({ coverage_state: "PARTIAL", unknown_tokens: lyingTokens() }),
+    )).toThrow(TypeError);
+  });
+
   it("refuses malformed nonrecord input and unknown arrays", () => {
     for (const value of [null, undefined, [], 1, "ready"]) {
       expect(validateSentrdelWorkflowInputV1(value).valid).toBe(false);
