@@ -1,9 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, promises as fsPromises, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, promises as fsPromises, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 
 import {
   SelfVerificationIntegrityError,
@@ -49,8 +49,7 @@ function git(root: string, args: readonly string[]): string {
   }).trim();
 }
 
-function initializeRepository(): string {
-  const root = temporaryDirectory("ascout-t107-repo-");
+function initializeRepository(root = temporaryDirectory("ascout-t107-repo-")): string {
   git(root, ["init", "-q"]);
   git(root, ["config", "user.name", "Ascout T107"]);
   git(root, ["config", "user.email", "t107@example.invalid"]);
@@ -71,13 +70,25 @@ interface SimpleRepository {
   readonly headTree: string;
 }
 
-function createSimpleRepository(): SimpleRepository {
-  const root = initializeRepository();
+function buildSimpleRepository(root?: string): SimpleRepository {
+  root = initializeRepository(root);
   writeFileSync(join(root, "tracked.txt"), "base\n", "utf8");
   const base = commitAll(root, "base");
   writeFileSync(join(root, "tracked.txt"), "head\n", "utf8");
   const head = commitAll(root, "head");
   return { root, base, head, headTree: git(root, ["rev-parse", `${head}^{tree}`]) };
+}
+
+// Build the two-commit fixture once per file and give every caller a private
+// copy. Each build costs about 12 Git processes, which dominated these tests on
+// hosted Windows (#601). Copies keep per-test isolation and identical history.
+let simpleTemplate: SimpleRepository | undefined;
+
+function createSimpleRepository(): SimpleRepository {
+  simpleTemplate ??= buildSimpleRepository(mkdtempSync(join(tmpdir(), "ascout-t107-template-")));
+  const root = temporaryDirectory("ascout-t107-repo-");
+  cpSync(simpleTemplate.root, root, { recursive: true });
+  return { ...simpleTemplate, root };
 }
 
 function writeRuntimeFile(root: string, relativePath: string, content: string): void {
@@ -334,6 +345,10 @@ function expectIntegrityCode(error: unknown, code: string): boolean {
 function expectNoEvidence(outputDir: string): void {
   for (const file of EVIDENCE_FILES) expect(existsSync(join(outputDir, file))).toBe(false);
 }
+
+afterAll(() => {
+  if (simpleTemplate) rmSync(simpleTemplate.root, { recursive: true, force: true });
+});
 
 afterEach(() => {
   while (temporaryPaths.length > 0) {
