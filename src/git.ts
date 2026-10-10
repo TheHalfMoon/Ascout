@@ -343,10 +343,40 @@ function proveUnbornHead(repositoryRoot: string, runGit: GitCommandRunner): bool
   throw new GitIdentityError("git_metadata_error", "unable to verify symbolic HEAD ref");
 }
 
+function readDetachedHead(repositoryRoot: string, runGit: GitCommandRunner): boolean {
+  const symbolicHead = runGit(repositoryRoot, ["symbolic-ref", "-q", "HEAD"]);
+  if (symbolicHead.error !== undefined) {
+    throw new GitIdentityError("git_metadata_error", "unable to determine detached HEAD state");
+  }
+  if (symbolicHead.status === 0) return false;
+  if (symbolicHead.status === 1) return true;
+  throw new GitIdentityError("git_metadata_error", "unable to determine detached HEAD state");
+}
+
 export function readGitHeadState(
   repositoryRoot: string,
   runGit: GitCommandRunner = defaultGitCommandRunner,
 ): GitHeadState {
+  // Fast path: three of the four queries in one process. Anything other than
+  // a clean, exactly shaped answer falls through to the sequential path below,
+  // which alone classifies errors (non-repository, unborn HEAD, bad identity).
+  const batched = runGit(repositoryRoot, [
+    "rev-parse", "--is-inside-work-tree", "--is-shallow-repository", "--verify", "HEAD^{commit}",
+  ]);
+  if (batched.error === undefined && batched.status === 0) {
+    const lines = batched.stdout.split("\n");
+    const [inside, shallow, headSha, terminator] = lines;
+    if (lines.length === 4 && terminator === "" && inside === "true" &&
+        (shallow === "true" || shallow === "false") &&
+        headSha !== undefined && FULL_GIT_OBJECT_ID.test(headSha)) {
+      return {
+        head_sha: headSha,
+        detached: readDetachedHead(repositoryRoot, runGit),
+        shallow: shallow === "true",
+      };
+    }
+  }
+
   const insideResult = runGit(repositoryRoot, ["rev-parse", "--is-inside-work-tree"]);
   const inside = requireSuccessfulGit(
     insideResult,
@@ -376,14 +406,7 @@ export function readGitHeadState(
     );
   }
 
-  const symbolicHead = runGit(repositoryRoot, ["symbolic-ref", "-q", "HEAD"]);
-  let detached: boolean;
-  if (symbolicHead.error !== undefined) {
-    throw new GitIdentityError("git_metadata_error", "unable to determine detached HEAD state");
-  }
-  if (symbolicHead.status === 0) detached = false;
-  else if (symbolicHead.status === 1) detached = true;
-  else throw new GitIdentityError("git_metadata_error", "unable to determine detached HEAD state");
+  const detached = readDetachedHead(repositoryRoot, runGit);
 
   const shallowStdout = requireSuccessfulGit(
     runGit(repositoryRoot, ["rev-parse", "--is-shallow-repository"]),
@@ -497,10 +520,15 @@ interface GitBufferCommandResult {
   readonly error?: Error;
 }
 
-function runGitTreeMetadata(repositoryRoot: string, argv: readonly string[]): GitBufferCommandResult {
+function runGitTreeMetadata(
+  repositoryRoot: string,
+  argv: readonly string[],
+  input?: Buffer,
+): GitBufferCommandResult {
   const result = spawnSync("git", hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: null,
+    ...(input === undefined ? {} : { input }),
     shell: false,
     timeout: GIT_METADATA_TIMEOUT_MS,
     maxBuffer: GIT_TREE_METADATA_MAX_BUFFER_BYTES,
@@ -777,6 +805,49 @@ function assertNoExecutableGitFilters(repositoryRoot: string, paths: readonly st
   return checked;
 }
 
+/**
+ * Hash many filter-checked regular files in one `hash-object --stdin-paths`
+ * process. Each repository-relative path is both the file read and the
+ * attribute path, matching the single-file `--path=<path>` form. Every path
+ * still passes the containment check first. Paths that the line protocol
+ * cannot carry verbatim (CR/LF, or a leading quote that Git would C-unquote)
+ * are left to the single-file path.
+ */
+function batchWorktreeGitObjectIds(
+  repositoryRoot: string,
+  candidates: readonly { path: string; oldOid: string }[],
+  filterChecked: ReadonlySet<string>,
+): ReadonlyMap<string, string> {
+  const batch = candidates.filter(({ path }) => !/[\r\n]/u.test(path) && !path.startsWith("\""));
+  const oids = new Map<string, string>();
+  if (batch.length === 0) return oids;
+  for (const { path } of batch) {
+    if (!filterChecked.has(path)) {
+      throw new GitIdentityError("git_metadata_error", `tree digest hashed ${path} without a filter check`);
+    }
+    containedRegularFilePath(repositoryRoot, path);
+  }
+  const output = decodeUtf8(requireSuccessfulGitBuffer(
+    runGitTreeMetadata(
+      repositoryRoot,
+      ["hash-object", "--stdin-paths"],
+      Buffer.from(batch.map(({ path }) => `${path}\n`).join(""), "utf8"),
+    ),
+    "unable to compute Git worktree object IDs",
+  ), "git hash-object output").split("\n");
+  if (output.length !== batch.length + 1 || output[batch.length] !== "") {
+    throw new GitIdentityError("git_metadata_error", "Git returned an unexpected number of worktree object IDs");
+  }
+  batch.forEach(({ path, oldOid }, index) => {
+    const oid = output[index]!;
+    if (!FULL_GIT_OBJECT_ID.test(oid) || oid.length !== oldOid.length) {
+      throw new GitIdentityError("git_metadata_error", `Git returned an invalid worktree object ID for ${path}`);
+    }
+    oids.set(path, oid);
+  });
+  return oids;
+}
+
 function worktreeGitObjectId(
   repositoryRoot: string,
   path: string,
@@ -840,14 +911,11 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
     parsed.push({ path, status, oldMode, newMode, oldOid });
   }
 
-  // Validate every record first, then clear all hash candidates in one batch.
-  const filterChecked = assertNoExecutableGitFilters(
-    repositoryRoot,
-    parsed
-      .filter((entry) => entry.status === "M" && entry.oldMode === entry.newMode &&
-        worktreeTypeFromMode(entry.newMode, entry.path) !== "symlink")
-      .map((entry) => entry.path),
-  );
+  // Validate every record first, then clear and hash all candidates in batches.
+  const candidates = parsed.filter((entry) => entry.status === "M" && entry.oldMode === entry.newMode &&
+    worktreeTypeFromMode(entry.newMode, entry.path) !== "symlink");
+  const filterChecked = assertNoExecutableGitFilters(repositoryRoot, candidates.map((entry) => entry.path));
+  const batchedOids = batchWorktreeGitObjectIds(repositoryRoot, candidates, filterChecked);
 
   const entries: TreeDigestUnstagedEntry[] = [];
   for (const { path, status, oldMode, newMode, oldOid } of parsed) {
@@ -870,7 +938,8 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
 
     const type = worktreeTypeFromMode(newMode, path);
     if (status === "M" && oldMode === newMode) {
-      const currentOid = worktreeGitObjectId(repositoryRoot, path, type, oldOid, filterChecked);
+      const currentOid = batchedOids.get(path) ??
+        worktreeGitObjectId(repositoryRoot, path, type, oldOid, filterChecked);
       if (currentOid === oldOid) continue;
     }
 
