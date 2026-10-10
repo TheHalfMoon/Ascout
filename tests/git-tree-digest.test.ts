@@ -28,7 +28,7 @@ const BASE_INDEX = [
   { path: "tests/__snapshots__/ui.snap", mode: "100644", oid: "2".repeat(40), stage: 0 },
 ] as const;
 const temporaryDirectories: string[] = [];
-const NULL_GIT_CONFIG = process.platform === "win32" ? "NUL" : "/dev/null";
+const NULL_GIT_CONFIG = "/dev/null"; // Portable with Git for Windows and POSIX Git.
 const GIT_TEST_ENV = {
   ...process.env,
   GIT_CONFIG_GLOBAL: NULL_GIT_CONFIG,
@@ -315,6 +315,38 @@ describe("T019 live Git tree-digest collection", () => {
 
     expect(readTreeDigestV1(repositoryRoot)).toEqual(clean);
   });
+
+  it("refuses path-aware Git hashing when a repository filter attribute is set", () => {
+    const repositoryRoot = makeRepository();
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "base\n");
+    commitAll(repositoryRoot, "base");
+    writeFileSync(join(repositoryRoot, ".gitattributes"), "*.txt filter=external-driver\n");
+    writeFileSync(join(repositoryRoot, "tracked.txt"), "modified\n");
+
+    expect(() => readTreeDigestV1(repositoryRoot)).toThrowError(
+      /tree digest refuses Git filter attribute/,
+    );
+  }, 15_000);
+
+  it("checks filter attributes for many paths in chunks before hashing any of them", () => {
+    // 50 modified files with ~170-character names exceed one 8 KiB check-attr chunk.
+    const repositoryRoot = makeRepository();
+    const names = Array.from({ length: 50 }, (_, index) =>
+      `f${String(index).padStart(2, "0")}-${"x".repeat(165)}.txt`);
+    for (const name of names) writeFileSync(join(repositoryRoot, name), "base\n");
+    commitAll(repositoryRoot, "base");
+    for (const name of names) writeFileSync(join(repositoryRoot, name), "modified\n");
+
+    const digest = readTreeDigestV1(repositoryRoot);
+    expect(digest.unstaged_changed_count).toBe(names.length);
+
+    // A filter on one path in the second chunk still refuses the whole digest.
+    const filtered = names[45]!;
+    writeFileSync(join(repositoryRoot, ".gitattributes"), `${filtered} filter=external-driver\n`);
+    expect(() => readTreeDigestV1(repositoryRoot)).toThrowError(
+      new RegExp(`tree digest refuses Git filter attribute on ${filtered}`),
+    );
+  }, 60_000);
 
   it("fails closed when index visibility flags can hide tracked worktree state", () => {
     const repositoryRoot = makeRepository();
