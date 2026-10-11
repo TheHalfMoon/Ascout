@@ -8,6 +8,7 @@ import {
 } from "../src/assurance/security/sentrdel-workflow-normalization.js";
 import { SENTRDEL_ENGINE_ID, SENTRDEL_ENGINE_VERSION } from "../src/assurance/security/sentrdel-engine-boundary.js";
 import { SENTRDEL_PINNED_REVISION, SENTRDEL_PINNED_TREE } from "../src/assurance/security/sentrdel-source-pin.js";
+import { snapshotSentrdelObservationDataV1 } from "../src/assurance/security/sentrdel-observation-snapshot.js";
 
 const HEAD = "a".repeat(40);
 const DIGEST = "b".repeat(64);
@@ -195,6 +196,26 @@ describe("UA-P06-T09A bounded CI observation normalization", () => {
     expect(() => normalizeSentrdelWorkflowObservationV1(
       input({ coverage_state: "PARTIAL", unknown_tokens: lyingTokens() }),
     )).toThrow(TypeError);
+  });
+
+  it("rejects shared or cyclic object references so small inputs cannot expand", () => {
+    const shared = { a: 1 };
+    expect(() => snapshotSentrdelObservationDataV1({ x: shared, y: shared })).toThrow(/share or repeat/);
+    const cyclic: Record<string, unknown> = {};
+    cyclic["self"] = cyclic;
+    expect(() => snapshotSentrdelObservationDataV1(cyclic)).toThrow(TypeError);
+    // Four objects, each with 65 properties pointing at the next: a tree copy
+    // would perform about 65^4 property definitions.
+    let node: unknown = 1;
+    for (let level = 0; level < 4; level += 1) {
+      const next: Record<string, unknown> = {};
+      for (let key = 0; key < 65; key += 1) next[`k${key}`] = node;
+      node = next;
+    }
+    expect(() => snapshotSentrdelObservationDataV1(node)).toThrow(/share or repeat/);
+    // Distinct objects with equal content and repeated primitives remain valid.
+    expect(snapshotSentrdelObservationDataV1({ x: { a: 1 }, y: { a: 1 }, z: [1, 1, "s", "s"] }))
+      .toEqual({ x: { a: 1 }, y: { a: 1 }, z: [1, 1, "s", "s"] });
   });
 
   it("refuses malformed nonrecord input and unknown arrays", () => {

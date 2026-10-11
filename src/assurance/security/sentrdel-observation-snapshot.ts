@@ -1,15 +1,22 @@
 /**
  * Defensive JSON-data snapshot for untrusted in-process observation inputs.
  *
- * Rejects own accessors, hidden/symbol keys, non-plain objects and sparse arrays
- * before validation. This is NOT a process sandbox: Proxy traps and other code
+ * Rejects own accessors, hidden/symbol keys, non-plain objects, sparse arrays,
+ * and objects reached more than once (JSON data is a tree; shared references
+ * would let a small input expand exponentially) before validation. This is NOT a process sandbox: Proxy traps and other code
  * already running in this JavaScript process are outside this boundary.
  */
 export function snapshotSentrdelObservationDataV1(value: unknown, depth = 0): unknown {
+  return snapshotTree(value, depth, new WeakSet<object>());
+}
+
+function snapshotTree(value: unknown, depth: number, seen: WeakSet<object>): unknown {
   if (depth > 4) throw new TypeError("observation nesting limit exceeded");
   if (value === null || typeof value === "string" ||
       typeof value === "boolean" || typeof value === "number") return value;
   if (typeof value !== "object") throw new TypeError("observation must be JSON data");
+  if (seen.has(value)) throw new TypeError("observation must not share or repeat object references");
+  seen.add(value);
 
   const isArray = Array.isArray(value);
   if (!isArray && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) {
@@ -39,7 +46,7 @@ export function snapshotSentrdelObservationDataV1(value: unknown, depth = 0): un
       throw new TypeError("observation array keys must be indices");
     }
     Object.defineProperty(result, key, {
-      value: snapshotSentrdelObservationDataV1(descriptor.value, depth + 1),
+      value: snapshotTree(descriptor.value, depth + 1, seen),
       enumerable: true, configurable: false, writable: false,
     });
   }
