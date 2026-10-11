@@ -132,6 +132,10 @@ function readSide(raw: unknown, role: Side["role"]): Side {
     const e = entry as Record<string, unknown>;
     if (!exactKeys(e, EVALUATION_KEYS)) fail(`${role} evaluation keys`);
     if (typeof e["invariant_id"] !== "string" || !ID.test(e["invariant_id"])) fail(`${role} invariant_id`);
+    // Invariant IDs are copied into the output, so they get the same secret scan as top-level strings.
+    if (containsSecretMaterialV1(e["invariant_id"]) || containsExternalAttestationV1(e["invariant_id"])) {
+      fail(`${role} invariant_id may not contain secrets or self-attestation`);
+    }
     if (seen.has(e["invariant_id"])) fail(`${role} repeats invariant ${e["invariant_id"]}`);
     seen.add(e["invariant_id"]);
     if (typeof e["definition_digest"] !== "string" || !SHA256.test(e["definition_digest"])) fail(`${role} definition_digest`);
@@ -161,6 +165,16 @@ function classify(base: Evaluation | undefined, candidate: Evaluation | undefine
     ["UNKNOWN", "SEMANTIC_CONTINUITY_UNPROVEN"];
 }
 
+function compareCodeUnits(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+function presence(base: Evaluation | undefined, candidate: Evaluation | undefined): SentrdelRegressionRecordV1["pair_presence"] {
+  if (base === undefined) return "CANDIDATE_ONLY";
+  return candidate === undefined ? "BASE_ONLY" : "MATCHED";
+}
+
 export function compareSentrdelInvariantRegressionV1(trustedBase: unknown, candidate: unknown) {
   const base = readSide(trustedBase, "TRUSTED_BASE");
   const cand = readSide(candidate, "CANDIDATE");
@@ -174,7 +188,7 @@ export function compareSentrdelInvariantRegressionV1(trustedBase: unknown, candi
   const baseById = new Map(base.evaluations.map(e => [e.invariant_id, e]));
   const candById = new Map(cand.evaluations.map(e => [e.invariant_id, e]));
   // UTF-16 code-unit order: deterministic across host locales and ICU versions.
-  const ids = [...new Set([...baseById.keys(), ...candById.keys()])].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const ids = [...new Set([...baseById.keys(), ...candById.keys()])].sort(compareCodeUnits);
   if (ids.length === 0) fail("a comparison needs at least one invariant evaluation");
   const records: SentrdelRegressionRecordV1[] = ids.map(id => {
     const b = baseById.get(id);
@@ -182,7 +196,7 @@ export function compareSentrdelInvariantRegressionV1(trustedBase: unknown, candi
     const [disposition, reason_code] = classify(b, c);
     return Object.freeze({
       invariant_id: id,
-      pair_presence: b === undefined ? "CANDIDATE_ONLY" : c === undefined ? "BASE_ONLY" : "MATCHED",
+      pair_presence: presence(b, c),
       continuity_basis: b !== undefined && c !== undefined ? "EXACT_STABLE_ID" : "UNMATCHED",
       base_state: b?.state ?? "ABSENT", candidate_state: c?.state ?? "ABSENT",
       base_coverage: b?.coverage_state ?? "ABSENT", candidate_coverage: c?.coverage_state ?? "ABSENT",

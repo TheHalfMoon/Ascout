@@ -134,6 +134,7 @@ describe("UA-P06-T10 trusted-base invariant regression", () => {
       ["invented state", evaluation("inv:a", "PASS")], ["invented coverage", evaluation("inv:a", "SATISFIED", "TOTAL")],
       ["bad definition", evaluation("inv:a", "SATISFIED", "COVERED", { definition_digest: "x" })],
       ["extra key", evaluation("inv:a", "SATISFIED", "COVERED", { severity: "critical" })],
+      ["secret-shaped invariant id", evaluation("AKIA" + "Q".repeat(16), "SATISFIED")],
       ["non-string invariant id", evaluation("inv:a", "SATISFIED", "COVERED", { invariant_id: 7 })],
     ];
     for (const [name, bad] of evaluationChanges) refuse(side("TRUSTED_BASE", ok), side("CANDIDATE", [bad]), name);
