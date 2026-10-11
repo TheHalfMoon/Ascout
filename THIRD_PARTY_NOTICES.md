@@ -144,3 +144,15 @@ This file does not replace any third-party license text or attribution that a fu
 - Donor telemetry: off by default; no telemetry destination admitted
 - Runtime authority: none granted by source presence or by release admission
 - Provenance record: `docs/mobile/artemis-a0-provenance.json`
+## Donor characterization — TheHalfMoon/Sentrdel (UA-P06)
+
+- Upstream: `https://github.com/TheHalfMoon/Sentrdel` (same GitHub owner account as Ascout; this entry makes no statement about legal copyright ownership)
+- Pinned commit: `f5747319a50831ef7cee983d253c0ca5503c9a64` ("Merge PR #333: make Sentrdel developer-first and adoption-ready", 2026-09-16)
+- Pinned tree: `0d70de477fa403a416a8cff5576498e4c59a1689`
+- License: Apache-2.0 (root `LICENSE`, blob `45d3d38717ab6e5fd41a53a9b14184d0e93f1007`); no nested license file in the selected paths
+- Notice material: none at the pin (no `NOTICE` file; selected source files carry no copyright headers), so no notice text is carried
+- Use type: reference-only characterization (`SENTRDEL_INTEGRATION_MODES = ["REFERENCE_ONLY"]`). Ascout re-expresses observed rule identifiers, capability semantics, and path classifications in its own TypeScript; no Sentrdel source files are copied or vendored
+- Ascout paths: `src/assurance/security/sentrdel-*.ts` and their tests
+- Repository visibility: recorded as public at pin time; private as of 2026-10-10, so third parties may be unable to inspect the pinned source
+- Runtime authority: none; Sentrdel output enters only through the external-engine adapter boundary as observations, never as Ascout assurance
+- Provenance record: `src/assurance/security/sentrdel-source-pin.ts` (`provenance:sentrdel-pin-f5747319a50831ef7cee983d253c0ca5503c9a64`)
