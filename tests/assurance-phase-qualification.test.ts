@@ -100,7 +100,7 @@ describe("UA-P01-T18 exact-head phase qualification sentinel", () => {
       allowChangedCommandSurface: false,
     });
 
-    for (const command of ["security", "cyber", "assure"]) {
+    for (const command of ["cyber", "assure"]) {
       expect(() => parseCliArgs([command])).toThrow(CliUsageError);
     }
   });

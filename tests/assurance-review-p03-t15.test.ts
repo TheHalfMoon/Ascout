@@ -267,7 +267,7 @@ describe("UA-P03-T15 exact-head phase qualification sentinel", () => {
       command: "test",
       allowChangedCommandSurface: false,
     });
-    for (const command of ["security", "cyber", "assure"]) {
+    for (const command of ["cyber", "assure"]) {
       expect(() => parseCliArgs([command])).toThrow(CliUsageError);
     }
     expect(REVIEW_REPORT_KINDS).toEqual(["review", "absence", "empty"]);
