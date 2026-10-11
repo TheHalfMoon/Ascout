@@ -90,7 +90,7 @@ describe("UA-P06-T11B SARIF export boundary", () => {
       refuse([{ ...obs, [key]: value }], `promoted ${key}`);
     }
     refuse([{ ...obs, coverage: { ...obs.coverage, is_total: true } }], "total coverage");
-    for (const path of ["/etc/passwd", "../x", "src//x", "src\\x", "src/x?y", "src/%2e%2e/x"]) {
+    for (const path of ["/etc/passwd", "../x", "src//x", "src\\x", "src/x?y", "src/%2e%2e/x", "C:x.ts", "a:b/c"]) {
       refuse([{ ...obs, location: { ...obs.location, path } }], `path ${path}`);
     }
     refuse([{ ...obs, location: { ...obs.location, start_line: 0 } }], "zero line");

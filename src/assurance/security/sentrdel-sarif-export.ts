@@ -94,7 +94,7 @@ function checkObservation(raw: unknown): Obs {
   const path = own(location, "path");
   if (path !== null && (typeof path !== "string" || path === "" || path.startsWith("/") ||
       path.split("/").some(part => part === "" || part === "..") ||
-      /[\\?#%\u0000-\u001f\u007f-\u009f]/u.test(path))) fail("observation location path must be repository-relative");
+      /[\\?#%:\u0000-\u001f\u007f-\u009f]/u.test(path))) fail("observation location path must be repository-relative");
   const locationState = own(location, "state");
   if (typeof locationState !== "string" || !ID.test(locationState)) fail("observation location state");
   const digest = own(own(raw, "raw_evidence"), "digest");
@@ -165,7 +165,7 @@ export function exportSentrdelSarifV1(observations: unknown) {
     $schema: "https://json.schemastore.org/sarif-2.1.0.json",
     version: "2.1.0",
     runs: [{
-      tool: { driver: { name: "Ascout", informationUri: "https://github.com/TheHalfMoon/Ascout", rules: [] } },
+      tool: { driver: { name: "Ascout", rules: [] } },
       results: ordered.map(result),
       properties: {
         ascout_phase_authority: SENTRDEL_SARIF_EXPORT_AUTHORITY, ascout_source_head: first.source_head,
