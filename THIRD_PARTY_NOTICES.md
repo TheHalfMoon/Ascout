@@ -1,11 +1,18 @@
 # Third-Party Notices
 
-**Status:** T086 exact-version dependency license/provenance review  
+**Status:** Current direct-dependency reconciliation (2026-10-08), preserving historical T086 evidence  
 **Scope:** direct dependencies intentionally selected for Ascout M1, bound to the current committed manifest and lockfile.
 
 This file records the exact direct third-party packages selected by Ascout and the evidence used to bind those selections to the committed lockfile. Exact transitive versions, registry locations, integrity digests, and license metadata are recorded in `package-lock.json` where npm provides those fields.
 
-## Current candidate binding
+## Current manifest/lockfile reconciliation (2026-10-08)
+
+- Runtime direct dependencies: **2** — `cross-spawn@7.0.6` (MIT) and `playwright@1.63.0` (Apache-2.0).
+- Direct development dependencies: **6** — `@types/node`, `@vitest/coverage-v8`, `jest`, `typescript`, `vite`, `vitest` at the versions listed below.
+- The current eight direct dependencies are represented in the notice ledger below. `playwright-core@1.63.0` is a transitive package, not a third direct runtime dependency.
+- The exact current npm graph and integrity records are committed in `package-lock.json`. This reconciliation does not imply a new npm release, a security audit, or any change to historical T086 evidence.
+
+## Historical T086 candidate binding (2026-08; preserved)
 
 T086 revalidated this ledger against canonical `main` at `a9bae09a71b4ff92097182a8d97f5ff6a0511603`.
 
@@ -50,7 +57,7 @@ Security/audit results are evidence for the specific resolved graph at the cited
 
 ## T086 license/provenance reconciliation
 
-All seven direct packages declared by the current candidate are represented below at their exact locked versions. The current direct set contains Apache-2.0 and MIT licenses only. No direct copyleft, source-available, non-commercial, field-of-use, database, or data-license restriction was identified in the manifest/lockfile evidence reviewed for T086.
+The historical T086 candidate contained seven direct packages at its then-locked versions. The current manifest contains eight direct packages, all listed below including Playwright 1.63.0. The current direct set contains Apache-2.0 and MIT licenses only. No direct copyleft, source-available, non-commercial, field-of-use, database, or data-license restriction was identified in the manifest/lockfile evidence reviewed for T086.
 
 This conclusion is scoped to the exact direct package versions below. Transitive packages remain separately represented by the committed lockfile and may use other permissive SPDX licenses. A future dependency/version change requires a fresh provenance/license reconciliation before release claims are updated.
 
@@ -64,6 +71,16 @@ This conclusion is scoped to the exact direct package versions below. Transitive
 - Registry tarball: `https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz`
 - SRI: `sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==`
 
+### `playwright` 1.63.0
+
+- Role: product runtime dependency for qualified browser-testing capabilities.
+- License: Apache-2.0
+- Upstream: `microsoft/playwright`, tag `v1.63.0`
+- Registry tarball: `https://registry.npmjs.org/playwright/-/playwright-1.63.0.tgz`
+- SRI: `sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg==`
+- Transitive package: `playwright-core@1.63.0` (Apache-2.0), registry tarball `https://registry.npmjs.org/playwright-core/-/playwright-core-1.63.0.tgz`, SRI `sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==`
+- This notice records package rights and lockfile binding; it does not assert that browser binaries are included in Ascout's distributable package.
+
 ### `@types/node` 22.20.1
 
 - Role: development-only Node.js type declarations aligned to the Node 22 support floor
@@ -72,13 +89,13 @@ This conclusion is scoped to the exact direct package versions below. Transitive
 - Registry tarball: `https://registry.npmjs.org/@types/node/-/node-22.20.1.tgz`
 - SRI: `sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==`
 
-### `@vitest/coverage-v8` 4.1.10
+### `@vitest/coverage-v8` 4.1.11
 
 - Role: development-only V8 coverage provider used by the Vitest integration and changed-code exercise tests
 - License: MIT
-- Upstream: `vitest-dev/vitest`, tag `v4.1.10`, package path `packages/coverage-v8`
-- Registry tarball: `https://registry.npmjs.org/@vitest/coverage-v8/-/coverage-v8-4.1.10.tgz`
-- SRI: `sha512-IM49HmthevbgAO4anp1hwtoT9wYe59w0LR00gr+eagHE+ZJ5lK4sLPeO0ubgoJcwLk6dehU3R24N+FbEEKDc8g==`
+- Upstream: `vitest-dev/vitest`, tag `v4.1.11`, package path `packages/coverage-v8`
+- Registry tarball: `https://registry.npmjs.org/@vitest/coverage-v8/-/coverage-v8-4.1.11.tgz`
+- SRI: `sha512-8MVGEFnJIcdGjcbfKmeq8z0pZHH0JlVtoVZH9Q/qwUp6wyFnEJUBMrw9DCaj+ra3vShGmhavjalMIhPNxZAUcw==`
 
 ### `jest` 30.4.2
 
@@ -104,13 +121,13 @@ This conclusion is scoped to the exact direct package versions below. Transitive
 - Registry tarball: `https://registry.npmjs.org/vite/-/vite-6.4.3.tgz`
 - SRI: `sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A==`
 
-### `vitest` 4.1.10
+### `vitest` 4.1.11
 
 - Role: development-only test runner
 - License: MIT
-- Upstream: `vitest-dev/vitest`, tag `v4.1.10`, package path `packages/vitest`
-- Registry tarball: `https://registry.npmjs.org/vitest/-/vitest-4.1.10.tgz`
-- SRI: `sha512-R9jUTe5S4Qb0HCd4TNqpC7oGcrMssMRGXLW80ubjWsW9VH5GF8y1Y0SFLY9AbqSk6nt0PnOx4H4WNJYZ13GUPw==`
+- Upstream: `vitest-dev/vitest`, tag `v4.1.11`, package path `packages/vitest`
+- Registry tarball: `https://registry.npmjs.org/vitest/-/vitest-4.1.11.tgz`
+- SRI: `sha512-fhACrNXUidIbGSBr5FlbuBkO7VWC1ZyLl0DO4CU2DrQoAPxX84Ysxs+HeGQpii5lZWV1Q4gBZTTu49mF+A6Edw==`
 
 ## Transitive dependencies
 
@@ -144,3 +161,15 @@ This file does not replace any third-party license text or attribution that a fu
 - Donor telemetry: off by default; no telemetry destination admitted
 - Runtime authority: none granted by source presence or by release admission
 - Provenance record: `docs/mobile/artemis-a0-provenance.json`
+## Donor characterization — TheHalfMoon/Sentrdel (UA-P06)
+
+- Upstream: `https://github.com/TheHalfMoon/Sentrdel` (same GitHub owner account as Ascout; this entry makes no statement about legal copyright ownership)
+- Pinned commit: `f5747319a50831ef7cee983d253c0ca5503c9a64` ("Merge PR #333: make Sentrdel developer-first and adoption-ready", 2026-09-16)
+- Pinned tree: `0d70de477fa403a416a8cff5576498e4c59a1689`
+- License: Apache-2.0 (root `LICENSE`, blob `45d3d38717ab6e5fd41a53a9b14184d0e93f1007`); no nested license file in the selected paths
+- Notice material: none at the pin (no `NOTICE` file; selected source files carry no copyright headers), so no notice text is carried
+- Use type: reference-only characterization (`SENTRDEL_INTEGRATION_MODES = ["REFERENCE_ONLY"]`). Ascout re-expresses observed rule identifiers, capability semantics, and path classifications in its own TypeScript; no Sentrdel source files are copied or vendored
+- Ascout paths: `src/assurance/security/sentrdel-*.ts` and their tests
+- Repository visibility: recorded as public at pin time; private as of 2026-10-10, so third parties may be unable to inspect the pinned source
+- Runtime authority: none; Sentrdel output enters only through the external-engine adapter boundary as observations, never as Ascout assurance
+- Provenance record: `src/assurance/security/sentrdel-source-pin.ts` (`provenance:sentrdel-pin-f5747319a50831ef7cee983d253c0ca5503c9a64`)
