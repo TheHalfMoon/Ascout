@@ -83,9 +83,10 @@ The same record satisfies the "fresh maintainer exact-head review" condition.
 ## 4. Accepted risk
 
 Under this model, Claude-authored UA-P06 code is reviewed only by Claude.
-The founder accepts that this is **not independent review** and that model
-blind spots shared between author and reviewer are not mitigated by this
-condition. Jev, exact-head CI on all six lanes, focused tests, security
+This is **not independent review**: model blind spots shared between author
+and reviewer are not mitigated by this condition. The founder's decision
+requires this to be labeled truthfully; approving this document's exact head
+(section 8) also records the founder's acceptance of this residual risk. Jev, exact-head CI on all six lanes, focused tests, security
 checks, and E2E checks remain mandatory and are the independent mechanical
 controls.
 
@@ -95,8 +96,9 @@ controls.
   #595, #606), which must be **revalidated at their exact current heads**
   after effectiveness. Records made before effectiveness are not reused as
   gate evidence.
-- Applies to PRs that make UA-P06 governance documents effective, in place
-  of the OCR and maintainer-review items of section 19.
+- Applies to UA-P06 governance amendments, including this one (section 8),
+  in place of their OCR and maintainer-review items. It does not reopen the
+  already-effective UA-P06 authorization under section 19.
 
 ## 6. Superseded proposals
 
