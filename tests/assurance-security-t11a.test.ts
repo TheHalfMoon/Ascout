@@ -90,6 +90,7 @@ describe("UA-P06-T11A SARIF import boundary", () => {
     const cases: Array<[string, unknown]> = [
       ["no ruleId", log([result({ ruleId: " " })])], ["padded ruleId", log([result({ ruleId: " r" })])],
       ["no message", log([result({ message: {} })])], ["control message", log([result({ message: { text: "a\u0007b" } })])],
+      ["C1 control message", log([result({ message: { text: "a\u009b31mb" } })])],
       ["unknown level", log([result({ level: "critical" })])], ["no driver", { version: "2.1.0", runs: [{ results: [] }] }],
       ["bad tool name", log([], { name: "" })], ["non-array results", { version: "2.1.0", runs: [{ tool: { driver: { name: "t" } }, results: {} }] }],
       ["secret message", log([result({ message: { text: "token AKIA" + "Q".repeat(16) } })])],
