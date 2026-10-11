@@ -72,13 +72,13 @@ This conclusion is scoped to the exact direct package versions below. Transitive
 - Registry tarball: `https://registry.npmjs.org/@types/node/-/node-22.20.1.tgz`
 - SRI: `sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==`
 
-### `@vitest/coverage-v8` 4.1.10
+### `@vitest/coverage-v8` 4.1.11
 
 - Role: development-only V8 coverage provider used by the Vitest integration and changed-code exercise tests
 - License: MIT
-- Upstream: `vitest-dev/vitest`, tag `v4.1.10`, package path `packages/coverage-v8`
-- Registry tarball: `https://registry.npmjs.org/@vitest/coverage-v8/-/coverage-v8-4.1.10.tgz`
-- SRI: `sha512-IM49HmthevbgAO4anp1hwtoT9wYe59w0LR00gr+eagHE+ZJ5lK4sLPeO0ubgoJcwLk6dehU3R24N+FbEEKDc8g==`
+- Upstream: `vitest-dev/vitest`, tag `v4.1.11`, package path `packages/coverage-v8`
+- Registry tarball: `https://registry.npmjs.org/@vitest/coverage-v8/-/coverage-v8-4.1.11.tgz`
+- SRI: `sha512-8MVGEFnJIcdGjcbfKmeq8z0pZHH0JlVtoVZH9Q/qwUp6wyFnEJUBMrw9DCaj+ra3vShGmhavjalMIhPNxZAUcw==`
 
 ### `jest` 30.4.2
 
@@ -104,13 +104,13 @@ This conclusion is scoped to the exact direct package versions below. Transitive
 - Registry tarball: `https://registry.npmjs.org/vite/-/vite-6.4.3.tgz`
 - SRI: `sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A==`
 
-### `vitest` 4.1.10
+### `vitest` 4.1.11
 
 - Role: development-only test runner
 - License: MIT
-- Upstream: `vitest-dev/vitest`, tag `v4.1.10`, package path `packages/vitest`
-- Registry tarball: `https://registry.npmjs.org/vitest/-/vitest-4.1.10.tgz`
-- SRI: `sha512-R9jUTe5S4Qb0HCd4TNqpC7oGcrMssMRGXLW80ubjWsW9VH5GF8y1Y0SFLY9AbqSk6nt0PnOx4H4WNJYZ13GUPw==`
+- Upstream: `vitest-dev/vitest`, tag `v4.1.11`, package path `packages/vitest`
+- Registry tarball: `https://registry.npmjs.org/vitest/-/vitest-4.1.11.tgz`
+- SRI: `sha512-fhACrNXUidIbGSBr5FlbuBkO7VWC1ZyLl0DO4CU2DrQoAPxX84Ysxs+HeGQpii5lZWV1Q4gBZTTu49mF+A6Edw==`
 
 ## Transitive dependencies
 
