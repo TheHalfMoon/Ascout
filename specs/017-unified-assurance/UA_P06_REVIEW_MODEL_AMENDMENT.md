@@ -96,9 +96,14 @@ controls.
   #595, #606), which must be **revalidated at their exact current heads**
   after effectiveness. Records made before effectiveness are not reused as
   gate evidence.
-- Applies to UA-P06 governance amendments, including this one (section 8),
-  in place of their OCR and maintainer-review items. It does not reopen the
-  already-effective UA-P06 authorization under section 19.
+- May be used as the **review** of UA-P06 governance amendments, including
+  this one (section 8), in place of their OCR and maintainer-review items.
+  A review is not an authorization: every governance amendment still
+  requires its own explicit founder authorization and founder approval of
+  its exact head. Claude never self-authorizes, approves, or makes effective
+  any governance change.
+- It does not reopen the already-effective UA-P06 authorization under
+  section 19.
 
 ## 6. Superseded proposals
 
