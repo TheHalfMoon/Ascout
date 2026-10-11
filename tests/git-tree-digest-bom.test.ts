@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { readTreeDigestV1 } from "../src/git.js";
 
 const temporaryDirectories: string[] = [];
-const NULL_GIT_CONFIG = process.platform === "win32" ? "NUL" : "/dev/null";
+const NULL_GIT_CONFIG = "/dev/null"; // Git for Windows accepts /dev/null; newer releases reject NUL.
 const GIT_ENV = {
   ...process.env,
   GIT_CONFIG_GLOBAL: NULL_GIT_CONFIG,
