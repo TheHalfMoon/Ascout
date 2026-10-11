@@ -8,6 +8,7 @@ import {
 } from "../src/assurance/security/sentrdel-workflow-normalization.js";
 import { SENTRDEL_ENGINE_ID, SENTRDEL_ENGINE_VERSION } from "../src/assurance/security/sentrdel-engine-boundary.js";
 import { SENTRDEL_PINNED_REVISION, SENTRDEL_PINNED_TREE } from "../src/assurance/security/sentrdel-source-pin.js";
+import { snapshotSentrdelObservationDataV1 } from "../src/assurance/security/sentrdel-observation-snapshot.js";
 
 const HEAD = "a".repeat(40);
 const DIGEST = "b".repeat(64);
@@ -145,6 +146,76 @@ describe("UA-P06-T09A bounded CI observation normalization", () => {
       expect(outcome.reasons.length, name).toBeGreaterThan(0);
       expect(() => normalizeSentrdelWorkflowObservationV1(input(change)), name).toThrow(TypeError);
     }
+  });
+
+  it("refuses accessor-driven identity changes at direct entry points", () => {
+    let getterCalls = 0;
+    const accessor = { ...input() };
+    Object.defineProperty(accessor, "source_head", {
+      enumerable: true,
+      get() {
+        getterCalls += 1;
+        return getterCalls < 2 ? "a".repeat(40) : "b".repeat(40);
+      },
+    });
+    expect(validateSentrdelWorkflowInputV1(accessor).valid).toBe(false);
+    expect(() => normalizeSentrdelWorkflowObservationV1(accessor)).toThrow(TypeError);
+    expect(getterCalls).toBe(0);
+
+    const hidden = { ...input() };
+    Object.defineProperty(hidden, "assurance_override", { value: "PASS", enumerable: false });
+    const symbolic = { ...input(), [Symbol("authority")]: "SUPPORTED" };
+    const sparse = Array(1);
+    const nested = ["TIMEOUT"];
+    Object.defineProperty(nested, "0", { enumerable: true, get: () => "TIMEOUT" });
+    for (const candidate of [hidden, symbolic, input({ unknown_tokens: sparse }),
+      input({ unknown_tokens: nested })]) {
+      expect(validateSentrdelWorkflowInputV1(candidate).valid).toBe(false);
+      expect(() => normalizeSentrdelWorkflowObservationV1(candidate)).toThrow(TypeError);
+    }
+    expect(normalizeSentrdelWorkflowObservationV1(input()).authority)
+      .toBe("CONFIG_OBSERVATION_ONLY");
+  });
+
+  it("uses the captured array length, so a Proxy cannot smuggle a hole past validation", () => {
+    // Keys 0 and 2 only. The `get` trap answers `length` with 2 on the read that
+    // compares the key count and 3 afterwards; any fresh read admits the hole.
+    const lyingTokens = () => {
+      const target: string[] = ["PARSER_UNSUPPORTED", "x", "TIMEOUT"];
+      delete (target as unknown as Record<string, unknown>)[1];
+      let reads = 0;
+      return new Proxy(target, {
+        get(t, key, receiver) {
+          if (key === "length") return ++reads === 2 ? 2 : 3;
+          return Reflect.get(t, key, receiver);
+        },
+      });
+    };
+    const candidate = input({ coverage_state: "PARTIAL", unknown_tokens: lyingTokens() });
+    expect(validateSentrdelWorkflowInputV1(candidate).valid).toBe(false);
+    expect(() => normalizeSentrdelWorkflowObservationV1(
+      input({ coverage_state: "PARTIAL", unknown_tokens: lyingTokens() }),
+    )).toThrow(TypeError);
+  });
+
+  it("rejects shared or cyclic object references so small inputs cannot expand", () => {
+    const shared = { a: 1 };
+    expect(() => snapshotSentrdelObservationDataV1({ x: shared, y: shared })).toThrow(/share or repeat/);
+    const cyclic: Record<string, unknown> = {};
+    cyclic["self"] = cyclic;
+    expect(() => snapshotSentrdelObservationDataV1(cyclic)).toThrow(TypeError);
+    // Four objects, each with 65 properties pointing at the next: a tree copy
+    // would perform about 65^4 property definitions.
+    let node: unknown = 1;
+    for (let level = 0; level < 4; level += 1) {
+      const next: Record<string, unknown> = {};
+      for (let key = 0; key < 65; key += 1) next[`k${key}`] = node;
+      node = next;
+    }
+    expect(() => snapshotSentrdelObservationDataV1(node)).toThrow(/share or repeat/);
+    // Distinct objects with equal content and repeated primitives remain valid.
+    expect(snapshotSentrdelObservationDataV1({ x: { a: 1 }, y: { a: 1 }, z: [1, 1, "s", "s"] }))
+      .toEqual({ x: { a: 1 }, y: { a: 1 }, z: [1, 1, "s", "s"] });
   });
 
   it("refuses malformed nonrecord input and unknown arrays", () => {
