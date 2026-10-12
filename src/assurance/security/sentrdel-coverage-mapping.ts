@@ -58,6 +58,7 @@ import {
   SENTRDEL_PINNED_TREE,
   SENTRDEL_PIN_REF,
 } from "./sentrdel-source-pin.js";
+import { compareCodeUnitsV1 as compareText } from "./sentrdel-code-unit-order.js";
 
 export const SENTRDEL_COVERAGE_SCHEMA_VERSION = 1 as const;
 
@@ -558,10 +559,6 @@ function canonicalCapabilities(
   values: readonly SentrdelCapabilityIdV1[],
 ): readonly SentrdelCapabilityIdV1[] {
   return Object.freeze([...values].sort(compareText));
-}
-
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 /**
