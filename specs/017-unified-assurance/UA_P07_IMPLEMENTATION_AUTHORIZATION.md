@@ -100,9 +100,27 @@ One task, one branch, one PR. No UA-P08 or later implementation is authorized by
 src/assurance/audit/**
 tests/assurance-audit-*.test.ts
 THIRD_PARTY_NOTICES.md (UA-P07-T01 only: donor attribution)
-src/cli.ts and the CLI sentinel tests (UA-P07-T09 only, and only if D2-A is chosen, with exact edits listed in that task's PR)
 vendor/cloudflare-security-audit-skill/** (UA-P07-T01 only, and only if D3-B is chosen)
 ```
+
+If D2-A is chosen, UA-P07-T09 may additionally edit exactly these paths, and in them only the
+`ascout security` usage line (`[--format json|terminal]` → `[--deep] [--format json|terminal]`),
+`--deep` parsing and dispatch, and the corresponding positive/negative tests:
+
+```text
+src/cli.ts
+README.md
+tests/assurance-check-compatibility.test.ts
+tests/assurance-phase-qualification.test.ts
+tests/assurance-phase-recovery-qualification.test.ts
+tests/assurance-review-p03-t15.test.ts
+tests/assurance-security-t14.test.ts
+tests/assurance-security-t16.test.ts
+```
+
+These are every file on main `ea93553` that pins the `ascout security` usage line (verified by
+search). The task PR may not add paths to this list; any further need stops the task and
+returns to an amendment.
 
 `src/assurance/security/**` and every earlier-phase surface are read-only; P07 consumes UA-P06 observations only through their exported contracts.
 
