@@ -49,7 +49,6 @@ describe("UA-P05-T09 additive test command", () => {
       ["doctor", "--profile", "quick"],
       ["init", "--format", "json"],
       ["check", "--format", "terminal"],
-      ["security"],
       ["cyber"],
       ["assure"],
     ]) {

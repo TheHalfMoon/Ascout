@@ -40,6 +40,7 @@ const EXPECTED_USAGE = [
   "  ascout check [--allow-changed-command-surface] [--format json|agent]",
   "  ascout review [--format json|terminal]",
   "  ascout test [--profile quick|standard|deep|release] [--format json|terminal]",
+  "  ascout security [--format json|terminal]",
 ].join("\n");
 
 describe("UA-P01-T18-R2 recovery phase closeout sentinel", () => {
@@ -94,7 +95,7 @@ describe("UA-P01-T18-R2 recovery phase closeout sentinel", () => {
       allowChangedCommandSurface: false,
     });
 
-    for (const command of ["security", "cyber", "assure"]) {
+    for (const command of ["cyber", "assure"]) {
       expect(() => parseCliArgs([command])).toThrow(CliUsageError);
     }
   });

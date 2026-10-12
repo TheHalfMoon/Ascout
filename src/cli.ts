@@ -23,15 +23,21 @@ import {
   renderTestPlanTerminalV1,
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
+import {
+  buildSecurityCommandReportV1,
+  renderSecurityJsonV1,
+  renderSecurityTerminalV1,
+} from "./assurance/security/security-command.js";
 import type { TestProfile } from "./assurance/test/profile-policy.js";
 
-const COMMANDS = ["init", "doctor", "check", "review", "test"] as const;
+const COMMANDS = ["init", "doctor", "check", "review", "test", "security"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
 const CHECK_FORMATS = ["json", "agent"] as const;
 const REVIEW_FORMATS = ["json", "terminal"] as const;
 const TEST_FORMATS = ["json", "terminal"] as const;
+const SECURITY_FORMATS = ["json", "terminal"] as const;
 const TEST_PROFILE_TOKENS = ["quick", "standard", "deep", "release"] as const;
 const REVIEW_WRITE_FLAGS = ["--publish", "--write", "--output", "--push"] as const;
 
@@ -39,6 +45,7 @@ export type CliCommand = (typeof COMMANDS)[number];
 export type CheckFormat = (typeof CHECK_FORMATS)[number];
 export type ReviewFormat = (typeof REVIEW_FORMATS)[number];
 export type TestFormat = (typeof TEST_FORMATS)[number];
+export type SecurityFormat = (typeof SECURITY_FORMATS)[number];
 export type TestProfileToken = (typeof TEST_PROFILE_TOKENS)[number];
 
 type EntryDisposition = "direct" | "not_direct" | "resolution_error";
@@ -46,7 +53,7 @@ type EntryDisposition = "direct" | "not_direct" | "resolution_error";
 export interface CliInvocation {
   command: CliCommand;
   allowChangedCommandSurface: boolean;
-  format?: CheckFormat | ReviewFormat | TestFormat;
+  format?: CheckFormat | ReviewFormat | TestFormat | SecurityFormat;
   profile?: TestProfile;
 }
 
@@ -73,6 +80,10 @@ function isReviewFormat(value: string): value is ReviewFormat {
 
 function isTestFormat(value: string): value is TestFormat {
   return TEST_FORMATS.includes(value as TestFormat);
+}
+
+function isSecurityFormat(value: string): value is SecurityFormat {
+  return SECURITY_FORMATS.includes(value as SecurityFormat);
 }
 
 function isTestProfileToken(value: string): value is TestProfileToken {
@@ -104,7 +115,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   }
 
   let allowChangedCommandSurface = false;
-  let format: CheckFormat | ReviewFormat | TestFormat | undefined;
+  let format: CheckFormat | ReviewFormat | TestFormat | SecurityFormat | undefined;
   let profile: TestProfile | undefined;
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -132,8 +143,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     }
 
     if (token === FORMAT_FLAG) {
-      if (commandToken !== "check" && commandToken !== "review" && commandToken !== "test") {
-        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check, review, or test command.`);
+      if (commandToken !== "check" && commandToken !== "review" && commandToken !== "test" && commandToken !== "security") {
+        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check, review, test, or security command.`);
       }
       if (format !== undefined) {
         throw new CliUsageError(`${FORMAT_FLAG} may be supplied only once.`);
@@ -154,6 +165,16 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       }
       if (value === undefined) {
         throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${REVIEW_FORMATS.join("|")}.`);
+      }
+      if (commandToken === "security") {
+        if (!isSecurityFormat(value)) {
+          throw new CliUsageError(
+            `Unsupported security format: ${value}. Expected one of: ${SECURITY_FORMATS.join("|")}.`,
+          );
+        }
+        format = value;
+        index += 1;
+        continue;
       }
       if (commandToken === "test") {
         if (!isTestFormat(value)) {
@@ -215,6 +236,7 @@ export function usageText(): string {
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
+    `  ascout security [${FORMAT_FLAG} json|terminal]`,
   ].join("\n");
 }
 
@@ -361,6 +383,16 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // so this narrowing reflects parser-guaranteed input.
       const testFormat = invocation.format as TestFormat | undefined;
       return runTestPlan(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, testFormat);
+    }
+    if (invocation.command === "security") {
+      // Local and read-only: no repository read, process, network, or file write.
+      const report = buildSecurityCommandReportV1();
+      if (invocation.format === "json") {
+        process.stdout.write(renderSecurityJsonV1(report));
+      } else {
+        console.error(renderSecurityTerminalV1(report));
+      }
+      return report.exit_code;
     }
     console.error(`ascout ${invocation.command}: not implemented.`);
     return 2;
