@@ -11,8 +11,7 @@
  */
 import { createHash } from "node:crypto";
 import { snapshotSentrdelObservationDataV1 } from "./sentrdel-observation-snapshot.js";
-import { containsSecretMaterialV1, containsExternalAttestationV1 } from "./sentrdel-evidence-normalization.js";
-import { SENTRDEL_PINNED_REVISION, SENTRDEL_PINNED_TREE } from "./sentrdel-source-pin.js";
+import { assertNonPromotedObservationV1, readOwnDataV1, readSafeIdV1 } from "./sentrdel-observation-read.js";
 
 export const SENTRDEL_REPRODUCTION_AUTHORITY = "UA-P06-T12" as const;
 /** No VERIFIED, REPRODUCED, or PROVEN member: linking cannot express an executed proof. */
@@ -21,13 +20,7 @@ export type SentrdelReproductionLinkStateV1 = (typeof SENTRDEL_REPRODUCTION_LINK
 
 const SHA1 = /^[0-9a-f]{40}$/u;
 const SHA256 = /^[0-9a-f]{64}$/u;
-const ID = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/u;
 const REPRODUCTION_KEYS = ["schema_version", "reproduction_ref", "source_head", "method", "input_digest"];
-const NON_PROMOTED: Readonly<Record<string, unknown>> = Object.freeze({
-  schema_version: 1, phase_authority: "UA-P06-T04", authority: "OBSERVATION_ONLY",
-  engine_pin: SENTRDEL_PINNED_REVISION, engine_tree: SENTRDEL_PINNED_TREE, assurance_effect: "NONE",
-  finding_emitted: false, claim_assessment_emitted: false, global_clean_claimed: false, remediation_verified: false,
-});
 
 function fail(reason: string): never {
   throw new TypeError(`invalid reproduction link: ${reason}`);
@@ -35,24 +28,15 @@ function fail(reason: string): never {
 
 /** Own data property only; accessors are refused without being invoked. */
 function own(record: unknown, key: string): unknown {
-  if (typeof record !== "object" || record === null) fail(`${key} needs a record`);
-  const descriptor = Object.getOwnPropertyDescriptor(record, key);
-  if (descriptor === undefined || !Object.hasOwn(descriptor, "value")) fail(`${key} must be an own data property`);
-  return descriptor.value;
+  return readOwnDataV1(record, key, fail);
 }
 
 function id(value: unknown, what: string): string {
-  if (typeof value !== "string" || !ID.test(value)) fail(`${what} is invalid`);
-  if (containsSecretMaterialV1(value) || containsExternalAttestationV1(value)) {
-    fail(`${what} may not contain secrets or self-attestation`);
-  }
-  return value;
+  return readSafeIdV1(value, what, fail);
 }
 
 function readObservation(raw: unknown) {
-  for (const [key, expected] of Object.entries(NON_PROMOTED)) {
-    if (own(raw, key) !== expected) fail(`observation ${key} claims more than a pinned T04 observation`);
-  }
+  assertNonPromotedObservationV1(raw, fail);
   const sourceHead = own(raw, "source_head");
   if (typeof sourceHead !== "string" || !SHA1.test(sourceHead)) fail("observation source_head is invalid");
   const declared = own(raw, "reproduction_ref");
