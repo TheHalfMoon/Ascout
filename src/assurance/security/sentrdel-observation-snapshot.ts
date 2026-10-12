@@ -12,8 +12,13 @@ export function snapshotSentrdelObservationDataV1(value: unknown, depth = 0): un
 
 function snapshotTree(value: unknown, depth: number, seen: WeakSet<object>): unknown {
   if (depth > 4) throw new TypeError("observation nesting limit exceeded");
-  if (value === null || typeof value === "string" ||
-      typeof value === "boolean" || typeof value === "number") return value;
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  // JSON has no NaN or infinity. Silently accepting them would convert values
+  // to null during JSON.stringify and corrupt downstream evidence identity.
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new TypeError("observation number must be finite");
+    return value;
+  }
   if (typeof value !== "object") throw new TypeError("observation must be JSON data");
   if (seen.has(value)) throw new TypeError("observation must not share or repeat object references");
   seen.add(value);
