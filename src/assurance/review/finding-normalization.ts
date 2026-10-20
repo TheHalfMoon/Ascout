@@ -1,4 +1,10 @@
 import {
+  accountReviewDiagnosticsV1,
+  type DiagnosticAccountingV1,
+  type DiagnosticBatchInputV1,
+} from "./diagnostic-accounting.js";
+import type { ReviewCoverageV1 } from "./coverage-accounting.js";
+import {
   LOCATION_STATES,
   type LocationStateV1,
   type LocationValidationV1,
@@ -108,4 +114,18 @@ export function normalizeReviewBatchV1(
       normalizeReviewFindingV1(entry.observation, entry.validation),
     ),
   );
+}
+
+/** Additive loss accounting; the existing batch-return contract is unchanged. */
+export function normalizeReviewBatchWithAccountingV1(input: DiagnosticBatchInputV1): {
+  readonly records: readonly NormalizedReviewRecordV1[];
+  readonly coverage: ReviewCoverageV1;
+  readonly accounting: DiagnosticAccountingV1;
+} {
+  const prepared = accountReviewDiagnosticsV1(input);
+  return Object.freeze({
+    records: normalizeReviewBatchV1(prepared.entries),
+    coverage: prepared.coverage,
+    accounting: prepared.accounting,
+  });
 }
