@@ -43,26 +43,30 @@ function native(root: string, label: string, args: readonly string[]) {
   return { exit: result.status, report: JSON.parse(text) as { numTotalTests: number; numFailedTests: number; testResults: { name: string }[] } };
 }
 
+function initialize(files: Readonly<Record<string, string>>): string {
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-e02-native-")));
+  for (const [path, text] of Object.entries(files)) {
+    mkdirSync(dirname(join(root, path)), { recursive: true });
+    writeFileSync(join(root, path), text);
+  }
+  // Only identity metadata is copied; the owned shim reuses the installed CLI.
+  for (const name of ["vitest", "@vitest/coverage-v8"]) {
+    const target = join(root, "node_modules", name, "package.json");
+    mkdirSync(dirname(target), { recursive: true });
+    cpSync(require.resolve(`${name}/package.json`), target);
+  }
+  writeNodeCommandShim(join(root, "node_modules", ".bin"), "vitest", `import(${JSON.stringify(pathToFileURL(vitestCli).href)});\n`);
+  for (const args of [["init", "-q"], ["config", "user.name", "Ascout E02 Fixture"], ["config", "user.email", "e02@example.invalid"], ["add", "."], ["commit", "-qm", "baseline"]]) {
+    const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+  }
+  return root;
+}
+
 describe("REA-E02 native runtime-data fallback", () => {
   it("catches a seeded data failure with full native execution and an observed full runCheck pass", async () => {
-    const root = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-e02-native-")));
+    const root = initialize(fixtureFiles);
     try {
-      for (const [path, text] of Object.entries(fixtureFiles)) {
-        mkdirSync(dirname(join(root, path)), { recursive: true });
-        writeFileSync(join(root, path), text);
-      }
-      // Reuse the installed native CLI, copying only its identity metadata.
-      // This owns no shared node_modules files and copies no dependency tree.
-      for (const name of ["vitest", "@vitest/coverage-v8"]) {
-        const target = join(root, "node_modules", name, "package.json");
-        mkdirSync(dirname(target), { recursive: true });
-        cpSync(require.resolve(`${name}/package.json`), target);
-      }
-      writeNodeCommandShim(join(root, "node_modules", ".bin"), "vitest", `import(${JSON.stringify(pathToFileURL(vitestCli).href)});\n`);
-      for (const args of [["init", "-q"], ["config", "user.name", "Ascout E02 Fixture"], ["config", "user.email", "e02@example.invalid"], ["add", "."], ["commit", "-qm", "baseline"]]) {
-        const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
-        expect(result.status, result.stderr || result.stdout).toBe(0);
-      }
       const working = native(root, "working-full", []);
       expect(working.exit).toBe(0);
       expect(working.report).toMatchObject({ numTotalTests: 2, numFailedTests: 0 });
@@ -93,6 +97,44 @@ describe("REA-E02 native runtime-data fallback", () => {
       expect(receipt.selection.passes).toHaveLength(1);
       expect(receipt.tasks.find(({ task_id }) => task_id === "test")).toMatchObject({ status: "FAIL", exit_code: 1, execution_admission: "normal" });
       expect(receipt.summary.exit_code).not.toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, process.platform === "win32" ? 120_000 : 60_000);
+
+  it("catches a changed root source failure when package data also requires widening", async () => {
+    const files: Record<string, string> = {
+      ...fixtureFiles,
+      "package.json": JSON.stringify({ private: true, type: "module", workspaces: ["packages/*"], devDependencies: { vitest: "4.1.11", "@vitest/coverage-v8": "4.1.11" } }),
+      "packages/a/package.json": JSON.stringify({ private: true, type: "module", devDependencies: { vitest: "4.1.11" } }),
+      "packages/a/data/input.json": '{"allowed":true}\n',
+      "packages/a/tests/data.test.js": `import { test, expect } from ${JSON.stringify(pathToFileURL(resolve(dirname(vitestCli), "dist/index.js")).href)};\nimport { readFileSync } from "node:fs";\ntest("package data", () => expect(JSON.parse(readFileSync(new URL("../data/input.json", import.meta.url), "utf8")).allowed).toBe(true));\n`,
+    };
+    delete files["data/input.json"];
+    delete files["tests/data.test.js"];
+    const root = initialize(files);
+    try {
+      const working = native(root, "cross-working-full", []);
+      expect(working.exit).toBe(0);
+      expect(working.report).toMatchObject({ numTotalTests: 2, numFailedTests: 0 });
+      const mutations = { "src/stable.js": "export function stable() { return 2; }\n", "packages/a/data/input.json": '{"allowed":true,"changed":1}\n' };
+      for (const [path, text] of Object.entries(mutations)) writeFileSync(join(root, path), text);
+      retain("cross-fixture.json", JSON.stringify({ files, mutations, sha256: Object.fromEntries(Object.entries({ ...files, ...mutations }).map(([path, text]) => [path, createHash("sha256").update(text).digest("hex")])) }, null, 2));
+      const packageOnly = native(join(root, "packages/a"), "cross-mutated-package-only", []);
+      expect(packageOnly.exit).toBe(0);
+      expect(packageOnly.report).toMatchObject({ numTotalTests: 1, numFailedTests: 0 });
+      const full = native(root, "cross-mutated-full", []);
+      expect(full.exit).toBe(1);
+      expect(full.report).toMatchObject({ numTotalTests: 2, numFailedTests: 1 });
+      const receipt = (await runCheck(root)).receipt;
+      retain("cross-receipt.json", JSON.stringify(receipt, null, 2));
+      const output = process.env["ASCOUT_E02_EVIDENCE"];
+      if (output !== undefined) cpSync(join(root, ".ascout", "runs", receipt.run.run_id), join(output, "cross-runCheck"), { recursive: true });
+      expect(validateReceiptSemantics(receipt)).toEqual({ valid: true, issues: [] });
+      expect(receipt.source.start).toEqual(receipt.source.end);
+      expect(receipt.selection).toMatchObject({ mode: "full", initial_scope: { kind: "repository", path: null }, selected_test_count: 2, deselected_test_count: 0, total_test_count: 2, widened: true, widen_triggers: ["non_source_relation_risk"] });
+      expect(receipt.selection.passes).toHaveLength(1);
+      expect(receipt.tasks.find(({ task_id }) => task_id === "test")).toMatchObject({ status: "FAIL", exit_code: 1, execution_admission: "normal" });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

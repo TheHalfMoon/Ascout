@@ -161,7 +161,7 @@ describe("T053 pre-run conservative widening", () => {
         const discovery = discoverProjectFromFiles(files);
         const changedFiles = [
           changed("packages/a/package-lock.json"),
-          changed("src/unrelated.ts"),
+          changed("packages/a/src/used.ts"),
         ];
         const widening = decidePreRunWidening(discovery, changedFiles);
         const planningFiles = preRunPlanningChangedFiles(changedFiles, widening);
@@ -171,7 +171,7 @@ describe("T053 pre-run conservative widening", () => {
           triggers: ["package_manager_surface_changed"],
           riskPaths: ["packages/a/package-lock.json"],
         });
-        expect(planningFiles.map(({ path }) => path)).toEqual(["packages/a/package-lock.json"]);
+        expect(planningFiles.map(({ path }) => path)).toEqual(["packages/a/package-lock.json", "packages/a/src/used.ts"]);
 
         const plan = runner === "vitest"
           ? planVitestTask({

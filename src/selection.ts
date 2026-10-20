@@ -116,9 +116,8 @@ function addRisk(
  * Decides only pre-run uncertainty. Path grammar for manifests, supported
  * package-manager files, and JS test/compiler configs is exact by basename or
  * discovery identity so deletion cannot erase a formerly relation-bearing
- * surface from the decision. Risk-bearing paths are retained so full-scope
- * planning is not distorted by unrelated changed files. Post-run coverage gaps
- * remain T054 work.
+ * surface from the decision. Full-scope planning retains these risks alongside
+ * changed JS/TS paths. Post-run coverage gaps remain T054 work.
  */
 export function decidePreRunWidening(
   discovery: ProjectDiscovery,
@@ -207,9 +206,10 @@ export function decidePreRunWidening(
 }
 
 /**
- * Produces planner-only changed-file carriers for the paths that actually
- * caused pre-run widening. Receipt comparison facts and admission decisions
- * continue to use the complete changed-file set.
+ * Full-run scope must contain both widening risks and the JS/TS paths that
+ * would otherwise receive native related selection. Dropping those sources
+ * could shrink a widened pass to a package and omit another changed scope.
+ * Receipt comparison facts and admission still use the complete change set.
  */
 export function preRunPlanningChangedFiles(
   changedFiles: readonly GitChangedFile[],
@@ -223,7 +223,12 @@ export function preRunPlanningChangedFiles(
     if (file.previous_path !== undefined) owners.set(file.previous_path, file);
   }
 
-  return widening.riskPaths.map((path) => {
+  const planningPaths = new Set(widening.riskPaths);
+  for (const path of owners.keys()) {
+    if (JS_TS_SOURCE.test(path)) planningPaths.add(path);
+  }
+
+  return [...planningPaths].sort(compareStrings).map((path) => {
     const source = owners.get(path);
     if (source === undefined) {
       throw new Error(`pre-run widening risk path has no changed-file owner: ${path}`);

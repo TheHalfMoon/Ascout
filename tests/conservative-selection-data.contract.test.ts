@@ -111,7 +111,7 @@ describe("REA-E02 unknown non-source relations", () => {
       const changedFiles = [changed("src/a.ts"), changed("data/prices.json")];
       const widening = decidePreRunWidening(discovery, changedFiles);
       const planningFiles = preRunPlanningChangedFiles(changedFiles, widening);
-      expect(planningFiles.map(({ path }) => path)).toEqual(["data/prices.json"]);
+      expect(planningFiles.map(({ path }) => path)).toEqual(["data/prices.json", "src/a.ts"]);
       const input = { repositoryRoot: root, runId: "e02", config: { version: 1 as const }, discovery, files, changedFiles: planningFiles, selectionMode: widening.widened ? "full" as const : "native_related" as const };
       const plan = runner === "vitest" ? planVitestTask(input) : planJestTask(input);
       expect(plan.state).toBe("planned");
@@ -127,6 +127,45 @@ describe("REA-E02 unknown non-source relations", () => {
       });
       expect(initialSelection(plan, widening, false)).toMatchObject({ widened: false, widen_triggers: [], passes: [] });
       expect(planPytestBasicTask({ config: { version: 1 }, discovery, files })).toMatchObject({ state: "planned", argv: ["pytest"] });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    ["vitest", "src/used.ts", true],
+    ["jest", "src/used.ts", true],
+    ["vitest", "packages/b/src/used.ts", true],
+    ["jest", "packages/b/src/used.ts", true],
+    ["vitest", "src/used.ts", false],
+    ["jest", "src/used.ts", false],
+  ] as const)("preserves cross-scope %s source %s when root runner declaration is %s", (runner, source, rootRunner) => {
+    const root = mkdtempSync(join(tmpdir(), "ascout-e02-cross-scope-"));
+    try {
+      for (const name of runner === "vitest" ? ["vitest", "@vitest/coverage-v8"] : ["jest"]) {
+        const path = join(root, "node_modules", name, "package.json");
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, JSON.stringify({ name, version: "4.1.11" }));
+      }
+      const files = {
+        ...filesFor(runner),
+        "package.json": JSON.stringify({ private: true, workspaces: ["packages/*"], ...(rootRunner ? { devDependencies: { [runner]: "4.1.11" } } : {}) }),
+        "packages/a/package.json": JSON.stringify({ private: true, devDependencies: { [runner]: "4.1.11" } }),
+      };
+      const discovery = discoverProjectFromFiles(files);
+      const changedFiles = [changed("packages/a/data/input.json"), changed(source)];
+      const widening = decidePreRunWidening(discovery, changedFiles);
+      expect(widening.riskPaths).toEqual(["packages/a/data/input.json"]);
+      const planningFiles = preRunPlanningChangedFiles(changedFiles, widening);
+      expect(planningFiles.map(({ path }) => path)).toEqual(["packages/a/data/input.json", source].sort());
+      const input = { repositoryRoot: root, runId: "e02-cross-scope", config: { version: 1 as const }, discovery, files, changedFiles: planningFiles, selectionMode: "full" as const };
+      const plan = runner === "vitest" ? planVitestTask(input) : planJestTask(input);
+      if (rootRunner) {
+        expect(plan).toMatchObject({ state: "planned", selectionMode: "full", workingDirectory: null, configPath: `${runner}.config.mjs` });
+      } else {
+        expect(plan).toMatchObject({ state: "not_run", reasonCode: "test_scope_ambiguous" });
+        expect(initialSelection(plan, widening)).toMatchObject({ passes: [], selected_test_count: null });
+      }
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
