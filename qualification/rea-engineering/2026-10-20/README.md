@@ -2,7 +2,7 @@
 
 Status: IN_PROGRESS. Research remains separate in PR636. Canonical main ea93553a; proposed maintenance plan PR637.
 
-The historical300/900-second outputs remain failures and lack sufficient per-run source/error binding to identify a universal production defect. A new untouched-main control completed235files, with234passed and one packaging error caused by direct Vitest invocation missing npm_execpath;2230tests passed, onefailed,34existingplatformskips. Canonical npm test control is running. Individual test/process/CI deadlines remain unchanged.
+The historical 300/900-second outputs remain failures and lack sufficient per-run source/error binding to identify a universal production defect. A new untouched-main direct-Vitest control completed 235 files, with 234 passed and one packaging error caused by missing npm_execpath; 2,230 tests passed, one failed, and 34 existing platform skips. The corrected canonical npm test control completed on unchanged main ea93553a: 235 files passed; 2,231 tests passed and 34 existing platform skips; native exit 0; wall 582.29 seconds. Individual test/process/CI deadlines remained unchanged. This fixes the external invocation harness, with no demonstrated production defect to patch.
 
 A source-drifted diagnostic run was interrupted and retained, never qualified. A fail-closed cleanup helper did not terminate any process.
 
