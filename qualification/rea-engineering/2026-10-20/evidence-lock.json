@@ -1,0 +1,10 @@
+{
+  "created_at_utc": "2026-10-20T19:22:48Z",
+  "evidence_zip_sha256": "0d7a57d047fc4bbaacf5120d81d033f0a212802e1f6a49df51303eb3cbbb3d4e",
+  "archive_members": 89,
+  "finished_capture_records": 3,
+  "pending_live_runs_excluded": [
+    "canonical-main-full-suite-226ae1c8-af86-4f76-b0b6-34c790d24f55"
+  ],
+  "scope": "bounded integrity/privacy scan; not security/release certification"
+}
