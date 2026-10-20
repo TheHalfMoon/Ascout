@@ -1,5 +1,7 @@
 # Ascout REA: competitive verification engines (evidence-first)
 
+> Continuation: [mission expansion and qualification](expanded-mission/README.md) preserves this pilot and adds the corrected donor priorities, official REA MCP evidence, frozen executable comparisons, source audit, decisions and roadmap. The execution frontier below describes the original pilot, not the expanded investigation. Use the new pinned replay for current reproduction.
+
 > Status: **RESEARCH / NOT_IMPLEMENTED / NOT_AUTHORIZATION**.
 > Date: 2026-10-20. Ascout canonical baseline inspected: `ea93553a5423fd47f12a6bf282820dd199b994d4`.
 > All conclusions marked EXECUTED refer only to synthetic Windows black-box checks against reviewdog, not to Ascout execution.
