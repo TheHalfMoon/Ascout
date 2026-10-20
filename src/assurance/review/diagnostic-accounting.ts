@@ -96,13 +96,20 @@ export function accountReviewDiagnosticsV1(input: DiagnosticBatchInputV1): {
       fail("original execution binding mismatch: " + id);
     }
     originals.set(id, observation);
-    const check = assertRawReviewObservationV1(observation);
-    const reasons = [...check.reasons];
-    // The legacy raw-path regex coerces runtime values; do not repair their type.
-    if (observation.location_hint !== null &&
-      typeof observation.location_hint.path !== "string" &&
-      !reasons.includes("location path invalid")) {
+    const reasons: string[] = [];
+    // Guard bound malformed inputs before the legacy checker dereferences locations
+    // or coerces regex arguments. Unbindable IDs/executions still fail the batch.
+    const location = observation.location_hint;
+    if (location !== null && (typeof location !== "object" || Array.isArray(location))) {
+      reasons.push("location hint invalid");
+    } else if (location !== null && typeof location.path !== "string") {
       reasons.push("location path invalid");
+    }
+    if (typeof observation.category_hint !== "string") {
+      reasons.push("category hint invalid");
+    }
+    if (reasons.length === 0) {
+      reasons.push(...assertRawReviewObservationV1(observation).reasons);
     }
     if (reasons.length > 0) {
       rejected.set(id, reasons);

@@ -168,6 +168,45 @@ describe("REA-E01 original diagnostic loss accounting", () => {
     expect(result.accounting.entries[0]?.state).toBe("REJECTED_INPUT");
   });
 
+  it.each(["missing", undefined, 42, "src/a.ts", []])(
+    "accounts malformed location hint %j without losing a valid sibling",
+    (location) => {
+      const malformed = { ...observation("diag:malformed-location") };
+      if (location === "missing") {
+        delete (malformed as { location_hint?: unknown }).location_hint;
+      } else {
+        malformed.location_hint = location as never;
+      }
+      const source = malformed as RawReviewObservationV1;
+      const result = normalizeReviewBatchWithAccountingV1({
+        ...fixture(), observations: [source, originals[0]!],
+        entries: [entry(originals[0]!)], exclusions: [],
+      });
+      expect(result.records.map((record) => record.record_id)).toEqual(["diag:retained"]);
+      expect(result.accounting.entries[0]).toEqual({
+        observation_id: "diag:malformed-location", state: "REJECTED_INPUT",
+        reasons: ["location hint invalid"],
+      });
+      expect(result.accounting.entries[1]?.state).toBe("RETAINED");
+    },
+  );
+
+  it.each([null, 42, ["correctness"], undefined])(
+    "rejects non-string category hint %j without promoting it",
+    (category) => {
+      const source = observation("diag:malformed-category", { category_hint: category as never });
+      const result = normalizeReviewBatchWithAccountingV1({
+        ...fixture(), observations: [source, originals[0]!],
+        entries: [entry(source), entry(originals[0]!)], exclusions: [],
+      });
+      expect(result.records.map((record) => record.record_id)).toEqual(["diag:retained"]);
+      expect(result.accounting.entries[0]).toEqual({
+        observation_id: "diag:malformed-category", state: "REJECTED_INPUT",
+        reasons: ["category hint invalid"],
+      });
+    },
+  );
+
   it.each(["observations", "entries", "exclusions"] as const)("fails closed on duplicate %s", (key) => {
     const input = fixture();
     expect(() => normalizeReviewBatchWithAccountingV1({ ...input, [key]: [...input[key], input[key][0]!] })).toThrow(/duplicate/u);
