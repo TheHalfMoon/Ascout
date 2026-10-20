@@ -184,6 +184,16 @@ export function decidePreRunWidening(
         "non_source_relation_risk",
         candidates.filter((path) => !SNAPSHOT_SURFACE.test(path)),
       );
+    } else {
+      // Native JS/TS related selection cannot prove relations to arbitrary
+      // text/data inputs. Paths already handled above keep their specific
+      // triggers; every other non-source path carries its own full-run risk.
+      addRisk(
+        triggers,
+        riskPaths,
+        "non_source_relation_risk",
+        candidates.filter((path) => !JS_TS_SOURCE.test(path) && !riskPaths.has(path)),
+      );
     }
   }
 

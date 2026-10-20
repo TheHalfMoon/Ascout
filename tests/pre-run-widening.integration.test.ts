@@ -161,7 +161,7 @@ describe("T053 pre-run conservative widening", () => {
         const discovery = discoverProjectFromFiles(files);
         const changedFiles = [
           changed("packages/a/package-lock.json"),
-          changed("README.md"),
+          changed("src/unrelated.ts"),
         ];
         const widening = decidePreRunWidening(discovery, changedFiles);
         const planningFiles = preRunPlanningChangedFiles(changedFiles, widening);

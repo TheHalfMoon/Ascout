@@ -1,0 +1,18 @@
+# REA-E02 conservative native selection
+
+This bounded candidate is based on `ea93553a5423fd47f12a6bf282820dd199b994d4` and the audited proposed maintenance packet `442b999e28bfd94080ba752795cb4eb2af2a6b3c` (metadata delta `edc0c08`). Canonical admission, fresh review panels, full branch controls and required hosted CI remain separate pending gates. No merge or release claim is made.
+
+`decidePreRunWidening` now marks unknown non-JS/TS text/data paths with the existing `non_source_relation_risk` trigger. Both sides of renames and deleted inputs retain risk paths. The existing risk-path carriers, native full planners, admission and selection accounting handle execution without changes to `check.ts`. Recognized source, test/config and binary decisions retain their existing behavior. The prior package-carrier test now uses recognized JS/TS source as its unrelated control; a new README regression explicitly requires widening because arbitrary text may be consumed at runtime.
+
+No graph, completeness inference, dependency, cache, CLI/schema or admission change is introduced. Full pytest planning is unchanged. Existing package/workspace scope uncertainty can still produce a visible NOT_RUN rather than silently inventing a wider executable scope.
+
+## Verification
+
+- RED: new contracts on unchanged source produced 16 failed and 17 passed tests, exit 1.
+- GREEN: new contracts plus pre-run widening, post-run widening, selection accounting and full pytest contracts produced 81 passed tests across five files, exit 0.
+- Strict typecheck and build each exited 0.
+- The native regression uses two real Vitest tests, an owned shim to the installed pinned CLI, and only copied tool-identity metadata. It does not recursively copy dependencies. The working full control executes two passing tests. Changing only `data/input.json` makes a test using `readFileSync` fail. Native related selection observes zero tests and exits 0; that empty selection is retained as the falsifiable miss. Native full execution observes two tests and one failure, exit 1. `runCheck` plans and executes one full pass, records `non_source_relation_risk`, selected 2 / deselected 0 / total 2, normal admission and FAIL/exit 1; receipt semantic validation passes. No empty/deselected test is counted as passed.
+
+Raw red/green, native stdout/stderr, exit codes, fixture bytes/hashes, command vectors, receipts, exact source identity and final check results are retained outside the repository at `work/engineering/phase-e02`. The final source manifest binds the committed source before the final checks; qualification must be read with that manifest rather than inferred from a dirty worktree. The native regression's optional `ASCOUT_E02_EVIDENCE` test-only variable retains its observations when run under that capture harness.
+
+The branch reuses the existing `node_modules` junction to the Ascout checkout with an identical lockfile. This is installed-runtime reuse, not clean-machine qualification. The bounded native probe ran while the canonical main serial control was active, with root approval; there is no performance claim. D1 was available and returned advisory low risk; its answer satisfies no correctness/security/release gate. Fresh-context local review has the same provider lineage and does not satisfy historical independent-provider/Claude requirements. Full-suite and external gate limitations remain visible in the root qualification record.
