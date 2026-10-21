@@ -4,15 +4,17 @@ ROOT=pathlib.Path(__file__).resolve().parent;DEST=ROOT/'Ascout/qualification/rea
 parser=argparse.ArgumentParser();parser.add_argument('--exclude-phase',action='append',default=[]);options=parser.parse_args()
 def sha(data):return hashlib.sha256(data).hexdigest()
 def encode(obj):return (json.dumps(obj,indent=2,ensure_ascii=False)+'\n').encode()
+linux_home_prefix='/'+'home/'
+user_directory_component='Us'+'ers'
 def sanitize(data):
  text=data.decode('utf-8-sig',errors='replace')
  workspace=str(ROOT.parent)
  for value in [workspace,workspace.replace('\\','/'),'/mnt/c/'+workspace.replace('\\','/')[3:]]:
   for power in [4,3,2,1,0]:text=text.replace(value.replace('\\','\\'*(2**power)),'<WORK>')
- text=re.sub(r'(?i)[a-z]:[\\/]+Users[\\/]+[^\\/\s"\']+','<USERPROFILE>',text)
- text=re.sub(r'(?i)/mnt/[a-z]/<USERPROFILE>/\s"\\]+','<WSL_USERPROFILE>',text)
- text=re.sub(r'(?i)(?<!\w)Users[\\/]+[^\\/\s"\']+','<USERPROFILE>',text)
- text=re.sub(r'<LINUX_HOME>/\s"\\]+','<LINUX_HOME>',text)
+ text=re.sub(r'(?i)[a-z]:[\\/]+'+user_directory_component+r'[\\/]+[^\\/\s"\']+','<USERPROFILE>',text)
+ text=re.sub(r'(?i)/mnt/[a-z]/'+user_directory_component+r'/[^/\s"\\]+','<WSL_USERPROFILE>',text)
+ text=re.sub(r'(?i)(?<!\w)'+user_directory_component+r'[\\/]+[^\\/\s"\']+','<USERPROFILE>',text)
+ text=re.sub(re.escape(linux_home_prefix)+r'[^/\s"\\]+','<LINUX_HOME>',text)
  return text.encode()
 members={};records=[]
 private_name_pattern=rb'(?<![A-Za-z0-9])'+re.escape(pathlib.Path.home().name.encode())+rb'(?![A-Za-z0-9])'
@@ -22,7 +24,7 @@ def add(name,path):
   assert members[name]==published,'Changed shared member during snapshot: '+name
   return
  if re.search(rb'gh[pousr]_[A-Za-z0-9]{30,}|glpat-[A-Za-z0-9_-]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',published):raise ValueError('Credential-format match in '+name)
- if re.search(private_name_pattern,published,re.I) or re.search(rb'[A-Za-z]:[\\/]+Users[\\/]+|/mnt/[a-z]/<USERPROFILE><LINUX_HOME> ValueError('Host path remaining in '+name)
+ if re.search(private_name_pattern,published,re.I) or re.search(rb'[A-Za-z]:[\\/]+'+user_directory_component.encode()+rb'[\\/]+|/mnt/[a-z]/'+user_directory_component.encode()+b'/|'+re.escape(linux_home_prefix.encode())+rb'[A-Za-z0-9_.-]+',published,re.I):raise ValueError('Host path remaining in '+name)
  members[name]=published;records.append({'path':name,'bytes':len(published),'sha256':sha(published),'original_sha256':sha(data),'transformed':data!=published})
 
 def add_owned_fixture_png(name,path):
@@ -60,7 +62,7 @@ for phase in ['phase-e01','phase-e02','phase-e03','phase-e04','phase-e05']:
    add('phases/'+phase+'/'+path.relative_to(directory).as_posix(),path)
 for path in sorted((ROOT/'rca-probes').glob('*')):
  if path.is_file():add('rca-probes/'+path.name,path)
-for name in ['qualify_native.py','run_check.py','trace_git.cjs','rca_sampler_probe.py','premerge_gate.py','record_merge.py','verify_publication.py','github_frontier.py','capture_shadow_artifact.py','publish_evidence.py','recover_native_capture.py','summarize_integrated_local.py']:
+for name in ['qualify_native.py','run_check.py','trace_git.cjs','rca_sampler_probe.py','premerge_gate.py','record_merge.py','verify_publication.py','github_frontier.py','capture_shadow_artifact.py','publish_evidence.py','recover_native_capture.py','summarize_integrated_local.py','check_publication_syntax.py']:
  add('scripts/'+name,ROOT/name);(DEST/'scripts').mkdir(exist_ok=True);(DEST/'scripts'/name).write_bytes(sanitize((ROOT/name).read_bytes()).replace(b'\r\n',b'\n'))
 historical=ROOT.parent/'Ascout/research/rea/2026-10-20/expansion'
 for name in ['ascout-native-full.json','ascout-native-windows-single-worker.json']:
@@ -71,6 +73,8 @@ for path in sorted((ROOT/'github-frontier').rglob('*.json')):add('github-frontie
 for path in sorted((ROOT/'merges').glob('*.json')):add('merges/'+path.name,path)
 for path in sorted((ROOT/'research-integration').glob('*')):
  if path.is_file() and path.suffix in ['.json','.log','.txt','.md']:add('research-integration/'+path.name,path)
+for path in sorted((ROOT/'packet-review').glob('*')):
+ if path.is_file() and path.suffix in ['.json','.log','.txt','.md']:add('packet-review/'+path.name,path)
 manifest={'schema_version':1,'authority':'QUALIFICATION_OBSERVATIONS_ONLY','notice':'Sanitized derivative; original/published hashes differ where host paths changed. Not canonical product receipts, authenticated attestations, or release approval. Pending live runs and explicitly active phase directories are excluded from this snapshot.','pending_runs_excluded':pending,'active_phase_directories_excluded':options.exclude_phase,'records':records}
 members['MANIFEST.json']=encode(manifest)
 with zipfile.ZipFile(DEST/'evidence.zip','w',compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
