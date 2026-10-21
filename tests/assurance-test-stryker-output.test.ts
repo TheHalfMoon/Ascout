@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import {
   STRYKER_OUTPUT_LIMITS,
@@ -95,6 +96,33 @@ describe("bounded Stryker output translation", () => {
     expect(() => translate({ ...report(), files: tooManyFiles })).toThrow();
     expect(() => translate(report(Array(STRYKER_OUTPUT_LIMITS.mutants + 1).fill("Killed")))).toThrow();
     expect(() => translate({ ...report(), files: { "x.js": { mutants: [{ id: "a".repeat(129), status: "Killed" }] } } })).toThrow();
+  });
+
+  it("rejects maximum-size unterminated escaped strings within a bounded child process", () => {
+    // Use the current source rather than depending on an earlier dist build.
+    const translator = new URL("../src/assurance/test/stryker-output.ts", import.meta.url).href;
+    const adapter = new URL("../src/assurance/test/mutation-adapter.ts", import.meta.url).href;
+    const child = spawnSync(process.execPath, ["--input-type=module", "--eval", `
+      import { readFileSync } from "node:fs";
+      import { stripTypeScriptTypes } from "node:module";
+      import { createHash } from "node:crypto";
+      const moduleUrl = (source) => "data:text/javascript;base64," + Buffer.from(source).toString("base64");
+      const adapterUrl = moduleUrl(stripTypeScriptTypes(readFileSync(new URL(${JSON.stringify(adapter)}), "utf8")));
+      const source = stripTypeScriptTypes(readFileSync(new URL(${JSON.stringify(translator)}), "utf8"));
+      const { STRYKER_OUTPUT_LIMITS, translateStrykerOutputV1 } = await import(moduleUrl(source.replace('"./mutation-adapter.js"', JSON.stringify(adapterUrl))));
+      const bytes = Buffer.from(String.fromCharCode(34) + String.fromCharCode(92, 34).repeat((STRYKER_OUTPUT_LIMITS.bytes - 2) / 2) + String.fromCharCode(92));
+      const identity = { source_identity: "tree:e03", head_sha: "a".repeat(40), attempt_id: "attempt:1" };
+      let errorName = null;
+      try {
+        translateStrykerOutputV1({ bytes, expected: { ...identity, report_sha256: createHash("sha256").update(bytes).digest("hex") },
+          observed: identity, complete: true, process_exit_code: 0 });
+      } catch (error) { errorName = error.name; }
+      if (bytes.length !== STRYKER_OUTPUT_LIMITS.bytes || errorName !== "SyntaxError") process.exitCode = 1;
+      console.log(JSON.stringify({ bytes: bytes.length, errorName }));
+    `], { encoding: "utf8", timeout: 2000, maxBuffer: 4096, windowsHide: true });
+    expect(child.error).toBeUndefined();
+    expect(child.status, child.stderr).toBe(0);
+    expect(JSON.parse(child.stdout)).toEqual({ bytes: STRYKER_OUTPUT_LIMITS.bytes, errorName: "SyntaxError" });
   });
 
   it("rejects duplicate JSON keys, escaped duplicate keys, deep input and cross-file duplicate IDs", () => {

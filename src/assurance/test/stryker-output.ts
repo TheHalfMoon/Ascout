@@ -45,9 +45,11 @@ function identifier(value: unknown, field: string, max: number): asserts value i
   }
 }
 
-// JSON.parse silently overwrites duplicate keys. Scan structural tokens first so
-// duplicate file entries cannot discard mutants. JSON.parse still owns grammar.
+// Validate grammar before token discovery: malformed unterminated strings can
+// otherwise make an unanchored token regex repeatedly scan the same suffixes.
+// Retain duplicate-key checks because JSON.parse silently overwrites those keys.
 function parseReport(text: string): unknown {
+  const parsed: unknown = JSON.parse(text);
   const stack: ({ keys: Set<string>; needsKey: boolean } | null)[] = [];
   for (const token of text.matchAll(/"(?:\\[\s\S]|[^"\\])*"|[{}\[\]:,]/gu)) {
     const value = token[0];
@@ -68,7 +70,7 @@ function parseReport(text: string): unknown {
       }
     }
   }
-  return JSON.parse(text) as unknown;
+  return parsed;
 }
 
 function requirePath(path: string): void {
@@ -129,7 +131,11 @@ export function translateStrykerOutputV1(input: StrykerOutputInputV1): StrykerOu
         producer_id: mutant.id, status, status_reason: reason === undefined ? null : reason as string }));
     }
   }
-  mutants.sort((a, b) => a.mutant_id < b.mutant_id ? -1 : a.mutant_id > b.mutant_id ? 1 : 0);
+  mutants.sort((a, b) => {
+    if (a.mutant_id < b.mutant_id) return -1;
+    if (a.mutant_id > b.mutant_id) return 1;
+    return 0;
+  });
   const limitations = ["stryker:untrusted-report"];
   if (!input.complete) limitations.push("stryker:incomplete-report");
   for (const status of STRYKER_MUTANT_STATUSES) {
@@ -137,7 +143,10 @@ export function translateStrykerOutputV1(input: StrykerOutputInputV1): StrykerOu
   }
   const hasError = input.process_exit_code !== 0 || counts.CompileError > 0 || counts.RuntimeError > 0;
   const incomplete = !input.complete || mutants.length === 0 || counts.Ignored > 0 || counts.Pending > 0 || counts.Timeout > 0 || counts.NoCoverage > 0;
-  const status = hasError ? "ERROR" : counts.Survived > 0 ? "FAIL" : incomplete ? "NOT_RUN" : "PASS";
+  let status: "ERROR" | "FAIL" | "NOT_RUN" | "PASS" = "PASS";
+  if (hasError) status = "ERROR";
+  else if (counts.Survived > 0) status = "FAIL";
+  else if (incomplete) status = "NOT_RUN";
   const observation = normalizeExternalMutationOutputV1({ schema_version: 1, adapter_id: "stryker-json-10.0.0",
     kind: "mutation", source_identity: input.expected.source_identity, head_sha: input.expected.head_sha,
     status, mutation_ref: "stryker:" + input.expected.attempt_id, attempted_count: mutants.length - counts.Ignored - counts.Pending,

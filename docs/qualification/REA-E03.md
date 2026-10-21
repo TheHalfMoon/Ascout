@@ -38,8 +38,10 @@ unique within the report. Raw path spellings are checked before any normalizatio
 absolute, drive, backslash, traversal, empty/dot segments, controls, percent/query/
 fragment characters, Windows special/device names and trailing-dot segments are
 refused. No path repair occurs.
-Duplicate JSON keys (including escaped equivalent keys) are rejected before
-`JSON.parse` can silently overwrite file entries.
+JSON grammar is validated first and the parsed value is retained internally.
+Duplicate JSON keys (including escaped equivalent keys) and excessive depth are
+then rejected before any parsed value can reach translation. Running the token
+scan only on valid JSON prevents repeated regex retries on malformed strings.
 
 ## Accounting and trust
 
@@ -86,9 +88,26 @@ External evidence is retained in sibling `../phase-e03/` outside the checkout:
 `red.{log,json}` (22 tests: 20 failed against the throwing stub, two rejection
 cases passed), `green-expanded.{log,json}`, exact-head check manifests/logs,
 `qualify-reports.mjs`, `frozen-reports.json`, environment and evidence manifests.
-Commands use RTK and the existing Vitest/TypeScript tools. A node_modules junction
-reuses sibling `engineering/Ascout/node_modules` with byte-identical lockfile;
-this is explicitly not a clean dependency installation.
+Commands use RTK and the existing Vitest/TypeScript tools. Initial checks used a
+node_modules junction to sibling `engineering/Ascout/node_modules` with a
+byte-identical lockfile; those were not clean dependency installation checks.
+Subsequent repair checks use the isolated installation prepared by the parent:
+`../runs/e03-isolated-npm-ci-b9283e92-bebd-4fd8-80be-af29bbcb4d11.json` records
+successful `npm ci --ignore-scripts --no-audit --no-fund` at the original candidate.
+The builder did not alter that installation.
+
+Fresh local review of the initial candidate found P2 `E03-SEC-001` / `REA-E03-C01`:
+an unterminated string containing repeated escaped quotes caused quadratic regex
+retries before grammar validation. Original review and timing evidence remain in
+`review-security.json`, `review-correctness.json` and `security-regex-probe.*`.
+The repair validates JSON first and retains its parsed result, preserving all
+duplicate/depth/status checks. The new focused regression runs exact-limit 2 MiB
+malformed input in a child with a fixed two-second timeout; `repair-red.*` records
+the original `ETIMEDOUT`, and `repair-green.*` records successful rejection after
+the repair. Existing test deadlines are unchanged. Repair exact-head checks and a
+separate bounded child timing probe have distinct `repair-*` evidence names.
+The initial finding is not considered independently resolved until fresh review
+of the repaired head; local timings establish observations on this host only.
 
 The four original frozen reports were read from completed research at
 `work/Ascout/research/rea/2026-10-20/expansion/`. REA was not rerun or edited.
