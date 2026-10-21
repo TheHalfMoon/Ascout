@@ -18,8 +18,8 @@
  * - element targeting flows only through an injected resolver callback;
  *   the P016-06 locator policy provides the real one, tests inject fixture
  *   resolvers, and the adapter never invents selectors;
- * - assertion evaluation beyond the console/page-error subset returns
- *   `unavailable` with an explicit code instead of silently passing;
+ * - free-text assertions beyond the console/page-error subset return
+ *   `unavailable`; the additive typed path compares literal target text;
  * - versions (Playwright package, browser build, executable path) are
  *   captured on every session for evidence binding.
  */
@@ -33,6 +33,7 @@ import type { Browser, BrowserContext, Page } from "playwright";
 import {
   createActionResponse,
   createAssertionResponse,
+  createTextAssertionRequest,
 } from "./executor.js";
 import type {
   BrowserActionRequest,
@@ -40,6 +41,7 @@ import type {
   BrowserAssertionRequest,
   BrowserAssertionResponse,
   BrowserSessionIdentity,
+  BrowserTextAssertionRequest,
 } from "./executor.js";
 
 export const PINNED_PLAYWRIGHT_VERSION = "1.63.0";
@@ -61,6 +63,10 @@ export interface PlaywrightRuntime {
   ): Promise<BrowserActionResponse>;
   executeAssertion(
     request: BrowserAssertionRequest,
+  ): Promise<BrowserAssertionResponse>;
+  executeTextAssertion(
+    request: BrowserTextAssertionRequest,
+    resolveTarget: TargetResolver,
   ): Promise<BrowserAssertionResponse>;
   readTargetText(
     request: Pick<
@@ -415,6 +421,64 @@ export async function launchPlaywrightSession(
         status: "passed",
       });
     },
+    executeTextAssertion: async (
+      raw: BrowserTextAssertionRequest,
+      resolveTarget: TargetResolver,
+    ): Promise<BrowserAssertionResponse> => {
+      const started = performance.now();
+      requireActive();
+      const request = createTextAssertionRequest(raw);
+      if (
+        request.session_id !== session.session_id ||
+        request.source_identity !== session.source_identity
+      ) {
+        throw new TypeError("text assertion request is not bound to this session and source");
+      }
+      const deadline = started + request.timeout_ms;
+      const remaining = (): number => {
+        const budget = deadline - performance.now();
+        if (budget <= 0) {
+          const error = new Error("text assertion deadline exceeded");
+          error.name = "TimeoutError";
+          throw error;
+        }
+        return budget;
+      };
+      const respond = (
+        status: BrowserAssertionResponse["status"],
+        error: BrowserAssertionResponse["error"],
+      ): BrowserAssertionResponse => createAssertionResponse({
+        duration_ms: performance.now() - started,
+        error,
+        evidence_refs: [],
+        oracle_ref: null,
+        request_id: request.request_id,
+        session_id: session.session_id,
+        source_identity: session.source_identity,
+        status,
+      });
+      try {
+        const text = await runtime.readTargetText({
+          request_id: request.request_id,
+          session_id: request.session_id,
+          target: request.target,
+          timeout_ms: remaining(),
+        }, resolveTarget);
+        requireActive();
+        remaining();
+        const matches = text === request.expected_text;
+        remaining();
+        return matches
+          ? respond("passed", null)
+          : respond("failed", {
+              code: "E_TEXT_MISMATCH",
+              message: "target text does not equal the expected literal text",
+            });
+      } catch (error) {
+        const mapped = mapPlaywrightError(error);
+        return respond(mapped.status, { code: mapped.code, message: mapped.message });
+      }
+    },
     identity: session,
     currentUrl: (): string => {
       requireActive();
@@ -448,9 +512,17 @@ export async function launchPlaywrightSession(
       if (request.session_id !== session.session_id) {
         throw new TypeError("read request is not bound to this session");
       }
+      const deadline = performance.now() + request.timeout_ms;
+      const selector = resolveTarget(request.target);
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
+        const error = new Error("text read deadline exceeded during target resolution");
+        error.name = "TimeoutError";
+        throw error;
+      }
       const text = await page
-        .locator(resolveTarget(request.target))
-        .textContent({ timeout: request.timeout_ms });
+        .locator(selector)
+        .textContent({ timeout: remaining });
       if (text === null) {
         throw new Error("read target produced no text");
       }

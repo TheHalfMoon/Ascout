@@ -95,6 +95,17 @@ export interface BrowserAssertionRequest {
   readonly timeout_ms: number;
 }
 
+/** Literal DOM data only: this is not a natural-language predicate. */
+export interface BrowserTextAssertionRequest {
+  readonly request_id: string;
+  readonly session_id: string;
+  readonly source_identity: string;
+  readonly kind: "exact_text";
+  readonly target: string;
+  readonly expected_text: string;
+  readonly timeout_ms: number;
+}
+
 export interface BrowserAssertionResponse {
   readonly request_id: string;
   readonly session_id: string;
@@ -414,6 +425,38 @@ export function createAssertionRequest(input: {
     request_id: input.request_id,
     session_id: input.session_id,
     statement: input.statement,
+    timeout_ms: input.timeout_ms,
+  };
+}
+
+/** Bounded additive intent; validate again at the runtime entry point. */
+export function createTextAssertionRequest(
+  input: BrowserTextAssertionRequest,
+): BrowserTextAssertionRequest {
+  for (const field of ["request_id", "session_id", "source_identity"] as const) {
+    if (typeof input[field] !== "string") {
+      throw new TypeError(`${field} must be a string`);
+    }
+    requireId(input[field], field);
+  }
+  if (input.kind !== "exact_text") {
+    throw new TypeError("unsupported literal text assertion kind");
+  }
+  if (typeof input.target !== "string" || input.target.length > 4096) {
+    throw new TypeError("target must be a string of at most 4096 characters");
+  }
+  requireSingleLine(input.target, "assertion target");
+  if (typeof input.expected_text !== "string" || input.expected_text.length > 65536) {
+    throw new TypeError("expected_text must be a literal string of at most 65536 characters");
+  }
+  requireTimeoutMs(input.timeout_ms);
+  return {
+    expected_text: input.expected_text,
+    kind: "exact_text",
+    request_id: input.request_id,
+    session_id: input.session_id,
+    source_identity: input.source_identity,
+    target: input.target,
     timeout_ms: input.timeout_ms,
   };
 }
