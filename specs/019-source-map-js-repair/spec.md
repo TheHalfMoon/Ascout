@@ -1,6 +1,6 @@
 # REA-E05: date-eligible source-map-js repair
 
-Status: proposed separate maintenance candidate; implementation requires a fresh exact-head audit. This packet extends only REA-E05, leaving active REA-E01 through E04 scopes unchanged.
+Status: DEFERRED_OUTSIDE_CURRENT_SPEC_018_DIRECTIVE (2026-10-21); no implementation. The original proposal and local audit are retained as historical preparation, not an active completion task. This packet extends only REA-E05, leaving active REA-E01 through E04 scopes unchanged.
 
 ## Source binding and authority
 
