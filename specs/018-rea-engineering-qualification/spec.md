@@ -1,12 +1,12 @@
 # REA engineering maintenance and qualification
 
-Status: proposed bounded maintenance; source candidates require this plan's fresh exact-head audit. Canonical admission and release qualification remain separate gates.
+Status: active bounded maintenance; initial exact-head plan audit passed. Task admission and final release qualification remain separate checks.
 
 ## Scope and authority
 
 Base: `ea93553a5423fd47f12a6bf282820dd199b994d4`, verified live on 2026-10-20. UA-P06 is closed; UA-P07 is not effective. This work does not reopen either phase or claim their historical authorization as a grant for frozen surfaces.
 
-The founder's current instruction explicitly authorizes engineering implementation, qualification and focused PRs, while preserving effective governance. The follow-up says "you use it locally no need for claude". This supplies session authority for local preparation, implementation and review of the bounded maintenance candidates below; it does not fabricate an exact-head canonical governance approval, waive CI, authorize a merge, or silently ratify a review-policy amendment. Record the departure from the historical OCR/Claude requirement and preserve canonical admission as pending where applicable. D1 is advisory and cannot replace a required independent gate. Same-model fresh-context review must not be called provider-independent review.
+The founder explicitly authorizes bounded implementation, qualification and focused PRs, with local review ("you use it locally no need for claude"). The later 2026-10-21 instruction additionally authorizes eligible Spec018 merges after effective gates. IMPLEMENTATION_SCOPE.md and retained live governance audits distinguish this authority from UA-P06-only review conditions in #618. No extra Spec018 Claude/Jev/provider/attempt-1/exact-founder gate was established. Applicable separate plan audit, exact-head consistency, native qualification, finding reconciliation, CI and post-merge checks remain required. D1 is advisory; fresh-context same-provider reviews do not claim provider independence. No UA-P07, deployment or release authorization is inferred.
 
 ## Requirements
 
@@ -19,7 +19,7 @@ The founder's current instruction explicitly authorizes engineering implementati
 
 ## Non-goals
 
-No new core dependencies, paid service, cloud infrastructure, donor engine default, new truth kernel, CLI expansion, implicit package installation, changed-command admission, UA-P07, production deployment, merge, release tag or claim of complete project/release readiness.
+No new core dependencies, paid service, cloud infrastructure, donor engine default, new truth kernel, CLI expansion, implicit package installation, changed-command admission, UA-P07, production deployment, release tag or unsupported project/release-readiness claim. Eligible maintenance merges follow the later conditioned user direction.
 
 ## Acceptance
 

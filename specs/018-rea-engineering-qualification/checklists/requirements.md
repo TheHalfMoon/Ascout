@@ -9,4 +9,5 @@
 - [x] New founder local-review direction and historical-policy discrepancy explicit.
 - [x] Fresh-context exact-head local plan audit reconciled; provider independence and canonical-gate limits explicit.
 - [ ] All implementation and qualification evidence complete.
-- [ ] Canonical adoption/merge/release authorization satisfied.
+- [x] Conditioned Spec018 maintenance merge direction and effective governance applicability recorded; no UA-P07 authority inferred.
+- [ ] Final integrated main qualification and task closure complete; no release tag/deployment authorized or performed.

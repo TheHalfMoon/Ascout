@@ -2,9 +2,9 @@
 
 On 2026-10-20 the founder explicitly requested autonomous engineering implementation and qualification, including full-suite failure investigation and four bounded improvements, separate focused PRs and truthful evidence. The follow-up directs local use without Claude Code. The task surfaces and acceptance criteria in this packet bound that direction; implementation begins only after a fresh exact-head plan consistency/purity audit has reconciled material findings.
 
-This is a session authority record for preparing and implementing maintenance candidates. It is not an EFFECTIVE UA-P06/UA-P07 artifact, not a self-issued founder exact-head approval, and not a merge or release authorization. Historical OCR/Claude requirements and founder-reserved exact-head scope admission are preserved in the gate matrix. The local review record states the author/reviewer model lineage and cannot claim independent-provider verification.
+The initial 2026-10-20 record covered preparation/implementation only. The later direction below supersedes its former no-merge restriction. This is not an EFFECTIVE UA-P06/UA-P07 artifact or self-issued founder approval. Local review records disclose author/reviewer lineage and cannot claim provider independence. Historical phase-specific conditions remain preserved as historical evidence, with applicability corrected below.
 
-Do not change `.specify/memory/constitution.md`, effective phase authorizations, package/lock/workflow files, executable admission flags, unrelated source or another active branch. If the minimal implementation needs a wider path or capability, amend this proposed packet and repeat the exact-head audit before mutation. No merge or deployment is performed by this mission.
+Do not change `.specify/memory/constitution.md`, effective phase authorizations, package/lock/workflow files, executable admission flags, unrelated source or another active branch. If implementation needs a wider path or capability, amend the packet and repeat the exact-head audit before mutation. Eligible task merges follow the later direction; deployment remains outside this mission.
 
 ## Later founder direction and applicability correction (2026-10-21)
 

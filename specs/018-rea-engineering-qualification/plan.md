@@ -2,7 +2,7 @@
 
 ## Baseline and coordination
 
-Canonical base remains `ea93553a`. Preserve the dirty original checkout. Do not integrate unlanded #589 Git execution hardening, #614 Git hashing performance or #633 security dedup code as canonical facts. Source changes to their claimed surfaces require a separately coordinated decision; read-only comparative diagnosis is allowed.
+Original control base is `ea93553a`. Each close verifies live main and forward-merges it before final qualification. Preserve the dirty original checkout. Do not integrate unlanded #589 Git execution hardening, #614 Git hashing performance or #633 security dedup code as canonical facts. Source changes to their claimed surfaces require a separately coordinated decision; read-only comparative diagnosis is allowed.
 
 The implementation tasks are independent compatibility repairs against already merged native/review/test/browser spines. They do not depend on each other's unmerged code. Execute builders sequentially after the baseline control, with a fresh context per task, and review source-bound deltas. One task/branch/PR; no broad production branch.
 
@@ -38,4 +38,4 @@ Allowed paths: `src/browser/executor.ts`, `src/browser/playwright-adapter.ts`, f
 
 Tests first, then minimal implementation, strict typecheck/build and focused tests. Full suite runs after each phase as required, with a final integrated candidate control after forward merges into the run branch if integration is legitimate. Existing failures remain independently tracked. Official OCR delegation preview/rules, local D1 advisory triage, Graft navigation and applicable E2E execution are recorded truthfully. PStack review uses fresh-context local judges per founder direction, with security review for external JSON/paths and browser trust boundaries. Preserve provider-independence limitations. No mandatory gate is silently satisfied by advisory tools.
 
-Before any merge-ready claim require effective scope/authorization decision, fresh exact-head reviews, applicable six-lane CI and all unresolved material findings reconciled. Current hosted-CI account blocker is not permission to bypass CI or incur charges.
+Before any merge-ready claim require effective scope/authorization, fresh exact-head reviews, applicable six-lane CI and material findings reconciled. Public hosted CI now executes; retain the original pre-execution billing failures. Queued/running jobs remain pending. No account limitation permits bypassing CI or incurring charges. Self Verification follows its canonical Spec006 capture contract; green capture is not a clean inner receipt.
