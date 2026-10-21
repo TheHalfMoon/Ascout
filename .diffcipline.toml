@@ -1,0 +1,19 @@
+# Diffcipline policy for Ascout (proposed).
+# Limits are Diffcipline's defaults; they are not relaxed for any path.
+# Planning work is split into bounded PRs instead.
+version = 1
+
+[policy]
+max_changed_files = 12
+max_added_lines = 400
+dependency_manifest_changes = "review"
+lockfile_changes = "review"
+untracked_files = "review"
+forbidden_surfaces = [".env", "*.pem", "*.key"]
+
+[verification]
+commands = ["node scripts/planning/verify-planning-docs.mjs docs/strategy", "npm run typecheck"]
+r0_commands = ["node scripts/planning/verify-planning-docs.mjs docs/strategy"]
+r1_commands = ["node scripts/planning/verify-planning-docs.mjs docs/strategy", "npm run typecheck"]
+r2_commands = ["node scripts/planning/verify-planning-docs.mjs docs/strategy", "npm run typecheck", "npm test"]
+r3_commands = ["node scripts/planning/verify-planning-docs.mjs docs/strategy", "npm run typecheck", "npm test", "npm run build"]
