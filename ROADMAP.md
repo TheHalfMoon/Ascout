@@ -6,9 +6,9 @@ This run is scoped by [the proposed maintenance packet](specs/018-rea-engineerin
 | --- | --- | --- |
 | REA-E00 native timeout diagnosis | local control complete; historical attribution limited | [plan](specs/018-rea-engineering-qualification/plan.md) |
 | REA-E01 diagnostic accounting | merged (#638), verified main 48902389 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
-| REA-E02 conservative selection | current integrated typecheck/build/full PASS; source review clear; hosted gates pending (#639) | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
+| REA-E02 conservative selection | exact589 integrated typecheck/build/full PASS; final review CLEAR; seven actual hosted checks PASS; eligible close pending (#639) | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
 | REA-E03 Stryker producer translation | merged (#640), verified main 36d1e504 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
-| REA-E04 deterministic browser assertions | main synchronized; source review/typecheck/build clear; local full FAIL3deadline cases; current hosted qualification pending (#641) | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
+| REA-E04 deterministic browser assertions | exact4a source/typecheck/build clear; local full FAIL3deadline cases retained; seven hosted checks PASS; later integration qualification pending (#641) | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
 | REA-E05 date-eligible development dependency repair | deferred outside current Spec 018 directive; no implementation | [repair packet](specs/019-source-map-js-repair/spec.md) |
 
 Existing applicable canonical, CI, review and exact-head qualification gates remain visible. The 2026-10-21 founder directive authorizes completing Spec 018 and eligible merges when its actual gates pass. UA-P06-specific review/authorization conditions are not automatically applied to independent maintenance. No release readiness claim is made.
