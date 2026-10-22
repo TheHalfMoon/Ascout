@@ -1,6 +1,14 @@
 # Engineering qualification — current findings
 
-Status: IN_PROGRESS. Research is separate in PR636; coordination/evidence in PR637. Verified main36d1e504 contains merged diagnostic accounting PR638 and Stryker PR640. E02/E04, research/coordination closure and final integrated main remain open.
+Status: IN_PROGRESS, refreshed 2026-10-22. Research is separate in PR636; coordination/evidence in PR637. Verified main23fe4037 contains E01 PR638, E03 PR640 and E02 PR639. E02's exact589 final review is CLEAR; local typecheck/build/full and all seven actual hosted checks pass. Merge parents, source-tree equality and GitHub-reported valid signature were read back. Its earlier failures and interrupted capture remain preserved.
+
+E04's final743787b4 incorporates that main. Exact-head typecheck/build pass; complete local suite is running, final review and hosted qualification remain pending. All six browser feature files are unchanged. Old4a local full FAIL remains a distinct failed control, even though all seven hosted checks at that old head completed successfully. Research1aa has seven actual successful checks and an unchanged research subtree; final-main synchronization remains outstanding. No release-readiness claim.
+
+The remotely downloaded snapshot2e7ef4b ZIP matches SHA-2563d91ff79b20cf2279ae1a6f88c1881f6fbb08c903c2a9dd5d1c27a382683860a. It retains final E02 hosted logs/review/current shadow artifacts, all previous failures, fresh static replay-helper security review and publisher repair evidence. The helper review found no concrete issue within trusted developer scratch scope; same-provider and static-review limitations apply. Historical snapshots with corrupted publisher source remain immutable; the forward repair and generated-source AST checks are explicit.
+
+## Historical observations recorded 2026-10-21
+
+The narrative below preserves the earlier source-bound state. Its pending CI and open-task statements describe that historical capture; the refreshed status above and subsequent exact-head records supersede them.
 
 The complete untouched-main canonical control at ea93553a passed 235 files/2,231 tests with 34 existing platform skips, unchanged source, native exit 0 and 582.29 seconds wall time. Historical 300/900-second failures lack sufficient source/error binding for a single retrospective defect attribution. Failed direct-Vitest, interrupted source-drifted and failed shared-install E01 controls remain preserved. See E00-DIAGNOSIS.md for causes and uncertainty; no deadline or platform condition was weakened.
 

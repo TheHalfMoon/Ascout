@@ -4,8 +4,8 @@
 | --- | --- | --- | --- | --- |
 | REA-E00 | exact current main | existing tests, external diagnostic harness/evidence | complete suite summary; causes separated from hypotheses; preserved failures | RUNNING |
 | REA-E01 | merged review spine + exact plan audit | review normalization/coverage | eight inputs accounted once; suppression/exclusion/locationless/invalid/missing explicit; wrong-source/duplicates fail closed | MERGED_VERIFIED: #638 / 48902389 |
-| REA-E02 | merged selection spine + exact plan audit | selection | source controls unchanged; data/dependency uncertainty widens; full controls catch seeded failure; no deselected-as-passed | EXACT589_LOCAL_AND_HOSTED_PASS; final review CLEAR; eligible close pending |
+| REA-E02 | merged selection spine + exact plan audit | selection | source controls unchanged; data/dependency uncertainty widens; full controls catch seeded failure; no deselected-as-passed | MERGED_VERIFIED: #639 / 23fe4037 |
 | REA-E03 | merged mutation spine + exact plan audit | optional JSON translator | strong 5 killed/weak 4 survivors preserved; error/no-coverage/timeout/pending/invalid reports explicit; no process-zero promotion | MERGED_VERIFIED: #640 / 36d1e504 |
-| REA-E04 | merged P016 runtime + exact plan audit | browser executor/adapter | real working/broken/timeout/session/disposal cases; literal bounded intent; unsupported still unavailable | EXACT4A_HOSTED_PASS; local full FAIL3deadline cases retained; later integration qualification pending |
+| REA-E04 | merged P016 runtime + exact plan audit | browser executor/adapter | real working/broken/timeout/session/disposal cases; literal bounded intent; unsupported still unavailable | FINAL743_TYPECHECK_BUILD_PASS; full running; review/CI pending; prior failures retained |
 
 All tasks require one focused branch/PR, tests first, relevant mechanical checks, fresh exact-head local review and explicit canonical/external gate status. No feature task depends on another unmerged feature task. Canonical dependency claims refer only to the verified merged spines, not to an unratified new phase.

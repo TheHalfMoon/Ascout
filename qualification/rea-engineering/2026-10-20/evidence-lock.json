@@ -1,9 +1,11 @@
 {
-  "created_at_utc": "2026-10-22T01:38:55Z",
-  "evidence_zip_sha256": "3d91ff79b20cf2279ae1a6f88c1881f6fbb08c903c2a9dd5d1c27a382683860a",
-  "archive_members": 1011,
-  "finished_capture_records": 28,
-  "pending_live_runs_excluded": [],
+  "created_at_utc": "2026-10-22T01:45:04Z",
+  "evidence_zip_sha256": "dac9e9ba9f47cb8debc19b08eb641a2802b37e1f69dd6bcc12d8febec6e7d59b",
+  "archive_members": 1044,
+  "finished_capture_records": 30,
+  "pending_live_runs_excluded": [
+    "e04-final-full-suite-db98dd05-ed7b-4dda-af02-975223ca81f6"
+  ],
   "active_phase_directories_excluded": [],
   "scope": "bounded integrity/privacy scan; not security/release certification"
 }

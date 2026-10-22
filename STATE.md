@@ -2,11 +2,11 @@ Last updated: 2026-10-22 · Branch: ps/rea-engineering-qualification
 
 ## Current state
 
-Spec018 active; original dirty checkout untouched. Main36d1e504 contains E01 PR638 and E03 PR640, merge parents/tree/signatures and six post-merge CI lanes verified. Research PR636 at1aa2d4ae preserves the entire completed research subtree unchanged; seven actual checks PASS. E02 PR639 at589fef09 has exact-head typecheck/build/full PASS (239files/2,340tests/34existing skips/source unchanged), final fresh review CLEAR and seven actual hosted checks PASS. Its original parent capture interruption, guarded Windows process-handle recovery and earlier failed controls remain separate. E04 PR641 at4a8ad4c6 has source/typecheck/build clear and seven hosted checks PASS, while its local full FAIL retains three unchanged-source deadline cases. Later main synchronization and browser integration qualification remain required. Actual positive/negative zero-model TesterArmy controls and historical six-lane results remain retained. No local suite currently running.
+Spec018 active; original dirty checkout untouched. Main23fe4037 contains merged E01 PR638, E03 PR640 and E02 PR639. E02 final589 typecheck/build/full PASS (239files/2,340tests/34existing skips), fresh final review CLEAR and seven hosted checks PASS preceded merge; parents/tree/signature read back. Earlier failed/interrupted/recovered captures remain separate. Browser PR641 now forward-merges main23fe as743787b4; source review/typecheck/build clear, full running, current hosted checks partly complete. Its old4a local three-deadline FAIL and later seven hosted passes remain separate. Research1aa has unchanged research bytes and seven hosted passes; final-main synchronization remains outstanding. One local full suite is running with unchanged deadlines and source.
 
 ## Next steps
 
-Publish/hash-verify final E02 qualification and replay-helper reviews; refresh live main/head/gates and merge eligible E02. Forward-merge new main into E04; run exact-head typecheck/build/full with one local suite at a time, fresh integration review and CI. Complete research/coordination close, final integrated-main controls and registry reconciliation. Dispose only owned fixtures after remote evidence verification. Do not repeat REA or invent source fixes from unreproduced timing hypotheses.
+Finish exact743 browser full-suite capture, hosted jobs and final close review. Publish and remotely verify merge/integration evidence, then merge only if eligible. Complete research/coordination close, final integrated-main controls and registry reconciliation. Dispose only owned fixtures after remote evidence verification. Do not repeat REA or invent source fixes from unreproduced timing hypotheses.
 
 ## Limitations
 
