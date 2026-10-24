@@ -1,0 +1,16 @@
+# Technical plan and second reduction
+
+Base92433f7, one task/branch/PR:Task021-T01 under REA-E00. Read live main and ownership before changes. Preserve the original dirty checkout and existing draft589/614 branches.
+
+1. Freeze clean-main build, unchanged50-case native control and original streams. Use existing installed exact-lock dependencies after proving package-lock byte identity and installed versions; no implicit installation. Capture one aggregate host context without a process sampler.
+2. Measure actual readGitHeadState process count/latency through its existing runner seam on a controlled native Git fixture. Keep diagnostic instrumentation distinct from native qualification. Preserve actual source/build hashes and outputs.
+3. Complete fresh independent final plan/gate audit and fresh exact-head consistency/purity check. Current user repair direction supplies implementation scope only after these gates; planning artifacts do not grant authority.
+4. Add failing fast-path budget and fallback contract tests, retaining all original expected results. Run on committed old source as RED. Adapt only the39-line HEAD-query subset from existing commitbb7ff354; no cherry-pick of its security/hashing ancestors. Record internal source provenance.
+5. Implement strict batch parsing and shared unchanged detached-state helper. Keep sequential fallback/error mapping otherwise unchanged. No timeout, skip, source freshness, default runner or tree-digest algorithm change.
+6. Qualify current exact source with native identity/digest/drift/CLI/T107 tests, strict typecheck/build, original-file byte comparison, actual native comparison and complete canonical serial suite. No live sampler overhead in native controls. If incomplete, retain failure and fix only a demonstrated in-scope defect.
+7. Run actual available D1 advisory triage, local Alibaba OCR selection/rules, static Graft and applicable native E2E; disclose scope/provider limits. Fresh combined correctness/product/parsimony and separate security reviews; forward-fix findings and qualify resulting exact head.
+8. Publish focused PR/evidence, inspect all actual seven CI jobs/raw source-bound logs and Self artifact; inner failures remain visible under the unchanged non-gating capture contract. Refresh effective gates/live main/threads; eligible ordinary guarded merge only, then ordered parents/tree/signature and actual six postmerge native controls. Evidence-only closing branch avoids an endless main-evidence CI loop.
+
+Second reduction: no shared Git optimizer, source cache, own process runner, provider runtime, novel benchmark framework or dependency movement. Existing contracts/tests plus one small native diagnostic suffice.
+
+Allowed production/test paths:src/git.ts only readGitHeadState/shared detached helper; tests/git-identity.test.ts only new fast-path/fallback tests and explicit batch-unavailable setup preserving existing assertions. Native tests/git-tree-digest.test.ts, drift.contract.test.ts, cli.smoke.test.ts and t107-self-verification-harness.contract.test.ts are frozen. Task docs/specs/021, focused qualification packet, one ADR and current ROADMAP/STATE may change. All other production, test, package/lock/config/workflow/governance paths remain frozen.
