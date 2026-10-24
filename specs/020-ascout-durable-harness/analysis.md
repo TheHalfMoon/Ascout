@@ -1,0 +1,3 @@
+# Cross-artifact analysis
+
+Requirements1/6 map to fs snapshot/lock/bounds tests;2 maps to existing workflow freshness plus exact extra source/config binding;3/4 map to strict digest-only intent/outcome schemas and append-only tests;5 maps to existing idempotency and conservative recovery dispositions;7 maps to real child-process restart and final qualification. No executor or backend abstraction is required. Ascout ConstitutionA04 permits bounded local evidence; configuration remains an override surface and publication remains separate. No security phase is reopened. Existing local timing/advisory blockers are retained as independently owned debt, not waived. Plan-only changes precede audit; audit findings will be reconciled forward.
