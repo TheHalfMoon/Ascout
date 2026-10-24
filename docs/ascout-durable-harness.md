@@ -32,6 +32,8 @@ An actual failed operation must record `FAILED` with its retained evidence diges
 
 Every recovered call has `execute:false`. A stale binding exposes no current evidence digest and cannot mutate the old journal. A missing, corrupt, conflicting, oversized or locked journal throws; it never becomes an empty successful run. An explicitly created empty journal reports no calls and proves no execution. Terminal failure/success records cannot be overwritten. Reusing a memo identity with a different name, input, attempt or policy is rejected.
 
+Source revalidation and effect reconciliation can both be required. An unfinished `never` call retains RECONCILIATION_REQUIRED even after source drift; `workflow.revalidation_required` separately stays true. Revalidating the source alone never settles that uncertain effect.
+
 ## Local storage and retention
 
 Storage is fixed beneath `<repository>/.ascout/durable-harness/`; arbitrary output filenames are not accepted. A local `.gitignore` containing `*` keeps all managed state ignored even without a root rule. Conflicting ignore content, symlink managed directories/files and nonregular snapshots are rejected. The repository identity itself is the existing hashed `remote:` or `local:` form with matching kind/portability; raw origins and absolute paths are not persisted.

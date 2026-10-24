@@ -140,8 +140,9 @@ export function durableHarnessRecoveryV1(payload: DurableHarnessPayloadV1, expec
       const idem = buildIdempotencyRecordV1(call.call_identity, call.attempt_identity, call.state === "IN_PROGRESS" ? "UNKNOWN" : call.state);
       if (!idem) throw new TypeError("invalid durable idempotency projection");
       const retry = requestRetryV1(idem, call.attempt_identity);
-      const disposition = !current ? "REVALIDATION_REQUIRED" : retry.duplicate ? "RECORDED_SUCCESS" :
-        call.state === "FAILED" ? "RECORDED_FAILURE" : call.replay === "never" ? "RECONCILIATION_REQUIRED" : "REVALIDATION_REQUIRED";
+      const uncertainEffect = call.state === "IN_PROGRESS" && call.replay === "never";
+      const disposition = uncertainEffect ? "RECONCILIATION_REQUIRED" : !current ? "REVALIDATION_REQUIRED" :
+        retry.duplicate ? "RECORDED_SUCCESS" : call.state === "FAILED" ? "RECORDED_FAILURE" : "REVALIDATION_REQUIRED";
       return Object.freeze({ call_identity: call.call_identity, attempt_identity: call.attempt_identity,
         disposition, evidence_sha256: current ? call.evidence_sha256 : null, execute: false as const });
     })),
