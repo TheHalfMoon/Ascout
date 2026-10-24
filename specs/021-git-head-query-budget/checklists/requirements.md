@@ -6,6 +6,6 @@
 - [x] Existing draft ownership, exact internal reuse source and excluded security/hash scope explicit.
 - [x] Allowed paths, frozen native cases and RED/comparative/full-suite controls defined.
 - [x] Canonical planning order, actual review/CI/merge/postmerge conditions retained.
-- [ ] Independent final plan and gate-applicability audit clear.
+- [x] Independent final plan and gate-applicability audit PLAN_CLEAR at0d87b85; exact report/hash in FINAL_PLAN_AUDIT.md. No source implementation or merge approval.
 - [ ] Fresh exact-head consistency/purity clear before code.
 - [ ] Actual candidate tests/reviews/CI and canonical close established.
