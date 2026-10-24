@@ -20,6 +20,11 @@ members={};records=[]
 private_name_pattern=rb'(?<![A-Za-z0-9])'+re.escape(pathlib.Path.home().name.encode())+rb'(?![A-Za-z0-9])'
 def add(name,path):
  data=path.read_bytes();published=sanitize(data)
+ if name.startswith('rca-probes/host-memory-') and name.endswith('.json'):
+  observation=json.loads(data)
+  observation.pop('largest_private_processes',None)
+  observation['privacy_notice']='Public derivative retains aggregate memory context only. Process inventory remains private; no task ownership or causal inference follows from memory usage.'
+  published=sanitize(encode(observation))
  if name in members:
   assert members[name]==published,'Changed shared member during snapshot: '+name
   return

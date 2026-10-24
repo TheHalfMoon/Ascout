@@ -1,8 +1,8 @@
-Last updated: 2026-10-22 · Branch: ps/rea-engineering-qualification
+Last updated: 2026-10-24 · Branch: ps/rea-engineering-qualification
 
 ## Current state
 
-Spec018 active; original dirty checkout untouched. Main23fe4037 contains merged E01 PR638, E03 PR640 and E02 PR639. E02 final589 typecheck/build/full PASS (239files/2,340tests/34existing skips), fresh final review CLEAR and seven hosted checks PASS preceded merge; parents/tree/signature read back. Earlier failed/interrupted/recovered captures remain separate. Browser PR641 now forward-merges main23fe as743787b4; source review/typecheck/build clear, full running, current hosted checks partly complete. Its old4a local three-deadline FAIL and later seven hosted passes remain separate. Research1aa has unchanged research bytes and seven hosted passes; final-main synchronization remains outstanding. One local full suite is running with unchanged deadlines and source.
+Spec018 active; original dirty checkout untouched. Main23fe4037 contains merged E01 PR638, E03 PR640 and E02 PR639, with verified qualification and merge parents/tree/signatures. Browser PR641 remains exact743787b4: typecheck/build and all seven hosted checks PASS; fresh source integration review clear. Its October22 local capture lost its wrapper, retains deadline/git-init failures and Worker exited unexpectedly, and has unknown native exit with no full summary. Original RUNNING bytes and partial streams are preserved; no completed result is inferred. One fresh unchanged-head local full control is running with original deadlines. Research1aa has unchanged research bytes and seven hosted passes; final-main synchronization remains outstanding.
 
 ## Next steps
 

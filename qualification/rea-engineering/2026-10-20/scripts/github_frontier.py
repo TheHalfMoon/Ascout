@@ -29,7 +29,12 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
 summary={'at_utc':stamp,'directory':str(out),'visibility':records['repository']['data'],'main':records['main']['data'],'errors':[{k:r[k] for k in ['argv','exit','stderr']} for r in records.values() if r['exit']!=0],'runs':[]}
 for key,record in records.items():
  if key.startswith('run-'):
-  d=record['data'];jobs=records['jobs-'+key[4:]]['data'].get('jobs',[])
+  d=record['data'];job_record=records['jobs-'+key[4:]];job_data=job_record['data']
+  if record['exit']!=0 or not isinstance(d,dict) or not all(field in d for field in ['id','head_sha','run_attempt','status','conclusion']):
+   summary['runs'].append({'request':key,'capture_state':'RUN_METADATA_UNAVAILABLE','native_exit':record['exit']});continue
+  if job_record['exit']!=0 or not isinstance(job_data,dict) or not isinstance(job_data.get('jobs'),list):
+   summary['runs'].append({'id':d['id'],'head_sha':d['head_sha'],'capture_state':'JOB_METADATA_UNAVAILABLE','native_exit':job_record['exit']});continue
+  jobs=job_data['jobs']
   summary['runs'].append({'id':d['id'],'head_sha':d['head_sha'],'attempt':d['run_attempt'],'status':d['status'],'conclusion':d['conclusion'],'jobs':[{'id':j['id'],'name':j['name'],'status':j['status'],'conclusion':j['conclusion'],'steps':len(j['steps']),'completed_steps':len([s for s in j['steps'] if s['status']=='completed'])} for j in jobs]})
 (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n',encoding='utf-8')
 print(json.dumps(summary))
