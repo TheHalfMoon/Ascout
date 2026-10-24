@@ -9,4 +9,4 @@
 - [x] Upstream pin, license, attribution and scope named.
 - [x] Independent final plan auditabf8a72 and fresh exact-head consistency/purity41ef2e5 before source edits.
 - [x] Actual tests, separate security/correctness review and exact-code-head CI evidence atf8; all failures retained and whole-product readiness remains blocked.
-- [ ] Final documentation/evidence-head gates and canonical post-merge closeout, recorded separately after actual execution.
+- [x] Final7f1c8dd exact-head gates, guarded PR642 merge92433f7, ordered parents/tree/signature and six actual postmerge native lanes verified. Task-only closure; local failures and whole-product BLOCKED retained. Closing records are on a separate evidence-only branch.

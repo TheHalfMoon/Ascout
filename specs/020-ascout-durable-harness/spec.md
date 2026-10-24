@@ -1,6 +1,6 @@
 # Ascout Durable Harness
 
-Status: implemented/reviewed atf8c0825; final-head qualification/canonical close tracked separately. Plan auditabf8a72 and fresh consistency41ef2e5 passed before source edits. Base89e5f01d7b77a92099961dff21e28052e5fa8dcc. User request2026-10-24: continue and add Vercel's making-every-harness-durable, with permission to copy and rename. This authorizes the described integration work, not UA-P07, deployment, paid services or a new security phase.
+Status: CLOSED_CANONICAL Task020-T01 at main92433f7039393d6a08b8f993bc50da8470de2b5c; reviewed head7f1c8dd88c2df4c815a7d8983d91eedc59df4576, seven exact-head checks and six actual postmerge native controls pass. Whole-product release and Spec018 remain BLOCKED. Closing evidence: qualification/durable-harness/2026-10-24-closeout. User request and authority boundaries below remain unchanged.
 
 ## Constitution compliance and intent
 

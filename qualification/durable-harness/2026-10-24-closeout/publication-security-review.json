@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "review_kind": "PStack final actual closeout publication privacy/integrity/honesty review",
+  "verdict": "PASS_SCOPED_CLOSEOUT_PUBLICATION_SECURITY",
+  "must_fix": [],
+  "worth_considering": [],
+  "skip_it": [],
+  "source_bindings": {
+    "observed_repository_head": "92433f7039393d6a08b8f993bc50da8470de2b5c",
+    "reviewed_feature_head": "7f1c8dd88c2df4c815a7d8983d91eedc59df4576",
+    "canonical_base": "89e5f01d7b77a92099961dff21e28052e5fa8dcc",
+    "merge_and_feature_tree": "283abcd49501d9e76e33cf853b6d9459ec96ee9b",
+    "ordered_parents_verified_against_local_git": true,
+    "merge_and_feature_tree_equality_verified_against_local_git": true,
+    "source_test_package_lock_workflow_diff_from_f8c0825": "EMPTY",
+    "reviewed_worktree_changes": "Five task documentation/status files and the new closeout qualification directory; no production/test/package/workflow mutation."
+  },
+  "reviewed_sha256": {
+    "scripts/publish.py": "5ad4323c214b88d9316f68dbdd22336edd1c91e63781b62e96138c6bed590500",
+    "scripts/finalize_closeout.py": "a43888de8982f4622870e4c7f8e067ba7da4025915b1cd6956899555882848ba",
+    "context/qualification-closeout.json": "2005a73884d1210e302251f43f35f35d92c3aea29ba7d4bee75bb906b300247c",
+    "ROADMAP.md": "c94e8ec4ccc4bef85c63fa241ff1ed5353c9fe040c6eae06d3c57dac80a285ed",
+    "STATE.md": "f8512dd0dc0014d5cb5514d3265d9ba5e717ae3a07701152842eec9b3709f6d3",
+    "specs/020-ascout-durable-harness/checklists/requirements.md": "f77a7f7d30e5208f06a0530b32da46e94b8045f95c3ad480e1f5e0fb8f34a7c1",
+    "specs/020-ascout-durable-harness/spec.md": "a0a050d5e9ce315f5ceb255e6f155acbbaa177ee28d39d70ce2460510e8b7dab",
+    "specs/020-ascout-durable-harness/tasks.md": "9a4fb8a1a55a97c3a4c6b1d629d188a62e19b022767cf0e43b59c0105ffed8a7",
+    "qualification/durable-harness/2026-10-24-closeout/README.md": "c7c72047bf232f85c98ed0588061901e41e43f207bb2cdce28281de811e51a59",
+    "qualification/durable-harness/2026-10-24-closeout/evidence-lock.json": "1eccc03209d61f20ce3eff9d5f1f4640b390dfd1b0a0ecda0b24894ac0f943f1",
+    "qualification/durable-harness/2026-10-24-closeout/evidence.zip": "46a9b2dc0bb0d5c2803da64a8eeb9f4b04895294ac7f0671eb03f5f2d9ee9420"
+  },
+  "path_label_convention": "Repository-relative document/archive paths and portable member labels for scripts/context within the reviewed ZIP. No personal absolute filesystem paths are included in this report.",
+  "archive_integrity": {
+    "zip_bytes": 649450,
+    "members": 150,
+    "manifest_records": 149,
+    "uncompressed_bytes": 3645855,
+    "largest_member_bytes": 370342,
+    "lock_digest_source_and_member_count_match": true,
+    "crc_valid": true,
+    "unique_safe_member_names": true,
+    "no_absolute_drive_backslash_empty_dot_or_dotdot_paths": true,
+    "no_symlink_entries": true,
+    "manifest_exact_bijection_except_itself": true,
+    "all_published_hashes_and_lengths_recomputed_match": true,
+    "all_original_hashes_recomputed_against_retained_originals_match": true,
+    "all_json_and_python_members_parse": true,
+    "original_97_member_packet_unchanged_sha256": "c1a74f4d70f99b5ef5ff65e24411037fe92273f02d534ef7068c2e109dcc923e",
+    "bounds_scope": "Measured actual archive sizes; not a guarantee about arbitrary future publisher inputs."
+  },
+  "privacy": {
+    "eleven_github_metadata_derivatives_checked": true,
+    "author_committer_and_raw_verification_payload_signature_fields_absent": true,
+    "privacy_notices_present": true,
+    "original_hashes_and_original_records_preserved": true,
+    "home_identity_and_absolute_home_path_pattern_matches": 0,
+    "scanned_github_openai_private_key_aws_credential_format_matches": 0,
+    "opaque_original_hosted_archives_excluded_from_public_zip": true,
+    "scope": "Bounded actual-byte privacy and credential-pattern verification, not universal secret detection. Personal raw metadata is not reproduced in this report."
+  },
+  "actual_evidence_verification": {
+    "merge_readback": "Retained proof records merged/closed PR642, expected ordered parents/tree equality and GitHub-reported verified/valid signature status. Local Git independently matches parents and tree; this review does not claim a new remote fetch or independent cryptographic signature verification.",
+    "premerge": "Retained capture is bound to exact 7f/base89e5, seven completed successful checks and zero review threads with no next page.",
+    "postmerge_run": 40086263202,
+    "postmerge_run_source_status": "Retained API metadata records exact merge head, push event, completed/success; six jobs completed successfully.",
+    "six_postmerge_raw_logs": "Recomputed all raw log hashes and byte counts against summary. Every log contains exact expected-head guard, actual typecheck/build/vitest commands, successful required steps, complete 2411-case suite summary and 24+3 new durability case markers.",
+    "seven_final_head_raw_logs": "Recomputed all seven raw log hashes, checked final head presence and required-step success against the retained final verification record.",
+    "final_self_original_artifact": "Found retained original ZIP matching verification and advertised SHA256. CRC and all three JSON members validate; envelope head/tree/base and receipt digest match. Original opaque ZIP remains excluded from publication.",
+    "closeout_review_hashes": "All three review hashes referenced by qualification-closeout.json match retained original review files.",
+    "failure_accounting": "Local native1/six deadline failures/34 skips, development dependency debt and actual inner Self packaging FAIL 3/3/material incompleteness/selector UNAVAILABLE remain explicit. Hosted passes do not erase local failures or establish their cause."
+  },
+  "helper_delta": {
+    "finalizer_ast_valid_and_source_reviewed": true,
+    "publisher_single_allowlist_addition_verified": true,
+    "reconstructed_previous_publisher_sha256": "ee6137ad5db8c8e5751fc88c26f8a8d321daa16a352499f1bc4e36c0cf90cbdb",
+    "assessment": "Finalizer uses retained exact merge/premerge/final-head/postmerge/review evidence, preserves the local failure and release blockers, and writes only task closeout data/status documents. The publisher adds this script only to the explicit closeout list; prior privacy and integrity logic is unchanged. No concrete security defect found within the trusted task-helper scope."
+  },
+  "status_honesty": {
+    "bounded_task_state": "CLOSED_CANONICAL_BOUNDED_IMPLEMENTATION",
+    "task_closure_supported_by_retained_merge_and_postmerge_controls": true,
+    "spec018_and_whole_product_release_readiness": "BLOCKED",
+    "no_provider_independence_or_release_approval_claim": true,
+    "sanitized_derivatives_distinguished_from_canonical_authenticated_receipts": true,
+    "closing_remote_publication_and_readback_remain_pending": true
+  },
+  "coverage_limits": [
+    "Read-only review with local hashing, parsing, archive and retained-log verification; no archive regeneration, source/Git mutation, network fetch, test/build/install, merge or release action by this reviewer.",
+    "Verdict is bound to the exact hashes above. This report is outside the reviewed 150-member ZIP and can be copied beside it unchanged; it is not claimed to be embedded in that ZIP.",
+    "Later settings snapshot, future remote closeout publication/readback and planned cleanup actions are outside this review. No future bytes or cleanup operation are approved by this report.",
+    "Previously reviewed source and helper reports retain their own source bindings; this review is a narrow actual closeout publication delta, not a full repository security scan or release certification."
+  ],
+  "lineage": {
+    "separate_pstack_reviewer_context": true,
+    "same_session_model_provider_lineage": true,
+    "independent_provider_claim": false,
+    "d1_approval_used": false,
+    "manifest": "panel: narrow actual closeout privacy/integrity/honesty security review in separate session-model context; no release certification"
+  }
+}
