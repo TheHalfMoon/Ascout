@@ -4,7 +4,7 @@ This run is scoped by [the proposed maintenance packet](specs/018-rea-engineerin
 
 | Task | State | Spec |
 | --- | --- | --- |
-| REA-E00 native timeout diagnosis | baseline/evidence recorded; operator-PC timing qualification BLOCKED; historical attribution limited | [plan](specs/018-rea-engineering-qualification/plan.md) |
+| REA-E00 / Task021-T01 native timing repair | prospective bounded HEAD-query plan; clean main92433f7 reproduces2deadline failures in50-case control; no implementation before fresh gates | [plan](specs/021-git-head-query-budget/plan.md) |
 | REA-E01 diagnostic accounting | merged (#638), verified main 48902389 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
 | REA-E02 conservative selection | merged (#639), verified main 23fe4037 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
 | REA-E03 Stryker producer translation | merged (#640), verified main 36d1e504 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
