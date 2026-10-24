@@ -1,0 +1,41 @@
+{
+  "donor": "reviewdog/reviewdog",
+  "version": "0.21.2",
+  "source_head": "73c79487a087e1696b3e70a0ae5d2a7233343567",
+  "head": "fa3f7f9dfb17012066bff4074309133f4a14df6c",
+  "git_diff": "diff --git a/a.js b/a.js\nindex 4294f15..678d561 100644\n--- a/a.js\n+++ b/a.js\n@@ -1,4 +1,4 @@\n const first = 1;\n-const changed = 2;\n+const changed = 20;\n const untouched = 3;\n export { first, changed, untouched };",
+  "experiments": [
+    {
+      "mode": "added",
+      "exit": 0,
+      "rules": [
+        "R-CHANGED"
+      ],
+      "stdout": "{\n  \"diagnostics\": [\n    {\n      \"message\": \"R-CHANGED\",\n      \"location\": {\n        \"path\": \"a.js\",\n        \"range\": {\n          \"start\": {\n            \"line\": 2\n          }\n        }\n      },\n      \"severity\": \"ERROR\",\n      \"source\": {\n        \"name\": \"synthetic-review\"\n      },\n      \"code\": {\n        \"value\": \"R-CHANGED\"\n      }\n    }\n  ],\n  \"source\": {\n    \"name\": \"sarif\"\n  }\n}\n",
+      "stderr": ""
+    },
+    {
+      "mode": "file",
+      "exit": 0,
+      "rules": [
+        "R-CHANGED",
+        "R-UNCHANGED"
+      ],
+      "stdout": "{\n  \"diagnostics\": [\n    {\n      \"message\": \"R-CHANGED\",\n      \"location\": {\n        \"path\": \"a.js\",\n        \"range\": {\n          \"start\": {\n            \"line\": 2\n          }\n        }\n      },\n      \"severity\": \"ERROR\",\n      \"source\": {\n        \"name\": \"synthetic-review\"\n      },\n      \"code\": {\n        \"value\": \"R-CHANGED\"\n      }\n    },\n    {\n      \"message\": \"R-UNCHANGED\",\n      \"location\": {\n        \"path\": \"a.js\",\n        \"range\": {\n          \"start\": {\n            \"line\": 3\n          }\n        }\n      },\n      \"severity\": \"ERROR\",\n      \"source\": {\n        \"name\": \"synthetic-review\"\n      },\n      \"code\": {\n        \"value\": \"R-UNCHANGED\"\n      }\n    }\n  ],\n  \"source\": {\n    \"name\": \"sarif\"\n  }\n}\n",
+      "stderr": ""
+    },
+    {
+      "mode": "nofilter",
+      "exit": 0,
+      "rules": [
+        "R-CHANGED",
+        "R-UNCHANGED",
+        "R-OTHER"
+      ],
+      "stdout": "{\n  \"diagnostics\": [\n    {\n      \"message\": \"R-CHANGED\",\n      \"location\": {\n        \"path\": \"a.js\",\n        \"range\": {\n          \"start\": {\n            \"line\": 2\n          }\n        }\n      },\n      \"severity\": \"ERROR\",\n      \"source\": {\n        \"name\": \"synthetic-review\"\n      },\n      \"code\": {\n        \"value\": \"R-CHANGED\"\n      }\n    },\n    {\n      \"message\": \"R-UNCHANGED\",\n      \"location\": {\n        \"path\": \"a.js\",\n        \"range\": {\n          \"start\": {\n            \"line\": 3\n          }\n        }\n      },\n      \"severity\": \"ERROR\",\n      \"source\": {\n        \"name\": \"synthetic-review\"\n      },\n      \"code\": {\n        \"value\": \"R-UNCHANGED\"\n      }\n    },\n    {\n      \"message\": \"R-OTHER\",\n      \"location\": {\n        \"path\": \"b.js\",\n        \"range\": {\n          \"start\": {\n            \"line\": 1\n          }\n        }\n      },\n      \"severity\": \"ERROR\",\n      \"source\": {\n        \"name\": \"synthetic-review\"\n      },\n      \"code\": {\n        \"value\": \"R-OTHER\"\n      }\n    }\n  ],\n  \"source\": {\n    \"name\": \"sarif\"\n  }\n}\n",
+      "stderr": ""
+    }
+  ]
+}
+
+[executed on device: Abdulaziz (c493272c-7604-437e-a1a2-d6c4ee1f21c9)]
