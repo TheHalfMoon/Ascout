@@ -1,0 +1,33 @@
+# Reproducing qualification
+
+Use the developer's own trusted Ascout checkout, exact recorded commit, Git and Node 22/24. Explicitly install the existing lock with `npm ci --ignore-scripts --no-audit --no-fund`. The pinned Chromium runtime is required for real browser tests. No model/provider key, cloud service or new product dependency is needed.
+
+The canonical complete Windows command is `npm test -- --maxWorkers=1`. Typecheck is `npm run typecheck`; build is `npm run build`. Keep individual test/process deadlines and platform conditionals unchanged. A direct Vitest invocation is insufficient for the packaging test because it omits `npm_execpath`; its observed failure is preserved in the evidence rather than waived.
+
+`scripts/qualify_native.py` is an optional Python capture helper. Give an explicit trusted checkout with `--cwd`, an outer capture budget, then `--` and the complete command. It records source head/tree/status/diff before and after, raw streams, hashes, outcome and unchanged-source state. Its live resource sampler is disabled. Timeout cleanup uses the investigation's existing psutil environment; Python/psutil are not Ascout runtime requirements. Missing/failing/interrupted capture is not qualification success.
+
+Keep capture helpers and their generated outputs outside the checkout under test. For the publisher/checker, restore the recorded scratch layout: helper files in engineering/, the trusted evidence checkout in engineering/Ascout/, and retained phase/run directories beside it. Sanitized local path placeholders must be adapted explicitly before replay; they are not installed product paths.
+
+Example after selecting the exact recorded source and existing npm CLI:
+
+```text
+python scripts/qualify_native.py native-full --cwd <trusted-checkout> --timeout 3600 -- node <npm-cli.js> test -- --maxWorkers=1 --reporter=verbose
+```
+
+The full suite must finish with its actual summary; wrapper exit 0 only means capture completed. Inspect the native `exit`, state, source identity and every applicable result. Prior runs at 300/900 seconds, the interrupted source-drifted run and the completed direct-Vitest failure retain their original meanings.
+
+For the four-way Git timing diagnostic, `trace_git.cjs` records only Git command categories/duration/status, and `rca_sampler_probe.py` compares no sampling, 20ms, 100ms and no sampling on one existing test. Instrumentation is diagnostic, not a product or release gate. Its semantic filter selects one test intentionally and is not a complete-suite claim. Adapt the local scratch path explicitly; do not confuse its source-relative workspace with an installed product feature.
+
+`evidence.zip/MANIFEST.json` gives original and sanitized member hashes. `evidence-lock.json` identifies the published ZIP. Absolute host paths are replaced in derivatives; raw originals remain local. Changed derived bytes are not authentic originals and cannot be used as canonical receipts or signed attestations. Pending live runs are excluded from a snapshot and listed explicitly in the lock. Later snapshots retain earlier failure records and add completed evidence.
+
+Phase manifests identify exact implementation commits, source/fixture hashes, RED and GREEN checks. Review records identify the actual local method and provider lineage. Public registry/advisory/signature requests are recorded separately from offline functionality. Hosted CI, canonical admission and independent-provider gates remain explicit whenever unavailable.
+
+The E04 phase directory contains the actual independent TesterArmy control driver, owned HTML/tests/config, positive and negative runner reports, failure screenshot and the existing scratch toolchain package/lock bytes. Restore its recorded scratch layout explicitly before replaying; the driver expects an Ascout browser checkout and a sibling npm-tools directory. Use the exact lock with scripts disabled, not fresh floating-version resolution. These are research tool dependencies, not additions to Ascout. The driver deliberately resolves Playwright1.63.0 from Ascout and checks that pin; scratch Playwright is a different research installation. Its fresh owned profile and HTTP/CDP endpoints bind loopback and close at completion. The broken case must exit1 with ASSERTION_FAILED while the working case exits0; zero model usage is recorded. TesterArmy normalizes text and checks visibility, whereas the Ascout method checks exact raw text. Neither proves the other's semantics.
+
+The E02 RCA directory retains a safe external child-timing preload and its sequential two-case captures at91ef95dd and untouchedea93553a. These intentionally select two tests and leave32unexecuted. The preload emits operation labels/timings only, adds nonzero observation overhead and does not establish the earlier uninstrumented failure stage. Original full/recheck failures remain independent evidence.
+
+For hosted shadow artifacts, capture_shadow_artifact.py reads existing GitHub run/artifact bytes, checks the advertised ZIP digest, allowlisted JSON names, envelope source/tree and receipt-byte hash. It does not execute the producer or certify a clean verdict. Self Verification's canonical Spec006 contract accepts source-bound receipt exits0/1/3/4; current retained exit1 receipts remain materially incomplete with packaging-test FAIL. Original archive hashes and sanitized extracted JSON hashes are distinct; only original bytes can satisfy the original digest.
+
+An E02 integrated capture parent unexpectedly exited while its native npm test process remained alive. The original record retains CAPTURE_PARENT_INTERRUPTED and unknown native status at interruption. recover_native_capture.py attaches only after PID/create-time/command and unchanged-source checks, waits on the original Windows process using psutil's OS-handle exit status, then records final streams/source binding in a separate EXECUTED_RECOVERED record. It neither reruns the suite nor infers exit status from log text. An incomplete recovery is not qualification success; the original wrapper failure is never overwritten as a successful capture.
+
+Packet review found that privacy redaction damaged the published publisher helper's own regex source in snapshots64888e4/d2b6302. Those historical artifacts remain preserved. The forward fix constructs path-pattern components at runtime so the publisher source survives its own redaction byte-identically apart from line endings. check_publication_syntax.py parses every published Python member without executing it, validates JSON/CRC/manifest bytes and checks that publisher roundtrip identity. Archive data/native-result hashes were valid before this helper repair; no old helper failure is promoted to PASS.
