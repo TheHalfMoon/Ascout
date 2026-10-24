@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "kind": "PSTACK_FRESH_CONTEXT_FOCUSED_CLOSE_EVIDENCE_REVIEW",
+  "reviewer": "timing_close_verifier",
+  "reviewed_head": "16343a45a1fe4de19ee238d526e5ae6c97d2d267",
+  "reviewed_tree": "73a85683909166ee97e5bb22a933f888024c3259",
+  "base": "af5de7d1c56030d8842fc85c334cb8933d63fc08",
+  "verdict": "CLOSE_EVIDENCE_CLEAR",
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": []
+  },
+  "bars": {
+    "correctness": "Clear. Ten-path delta contains only documentation and the closing packet; source/test/package/workflow bytes are unchanged. All 116 original-file hashes and published-member hashes/lengths match the manifest. All 117 archive members are unique and accounted for, CRC passes, 58 JSON members parse and ten Python members parse. Deterministic in-memory archive reconstruction matches the locked SHA256.",
+    "parsimony": "Clear. Closing records extend evidence without changing the frozen initial packet or introducing product behavior.",
+    "product": "Clear. The bounded Task021 repair is closed canonically while E00, the full local browser-disposal failure, Self inner packaging failure, dependency debt and overall release readiness remain explicitly open. Current diagnostics are distinguished from historical cause claims.",
+    "security": "No new product trigger surface in this documentation/evidence delta. Public packet uses explicit original/public derivative hashes; opaque Self ZIP is excluded. A separate publication/security review remains applicable; this report does not replace it."
+  },
+  "checks": {
+    "worktree_clean_at_read": true,
+    "exact_head_tree_verified_with_git": true,
+    "delta_path_count": 10,
+    "frozen_initial_packet": {
+      "compared_to_commit": "200979fc281f17f764446b8f559ca4f4923bcd78",
+      "zip_sha256": "7745b78c564ac305dd392166ef75199ccafaef691ca08ae631a56eaeb804521a",
+      "members": 61,
+      "bytes_identical": true
+    },
+    "closing_packet": {
+      "path": "qualification/git-head-query/2026-10-24-closeout/evidence.zip",
+      "sha256": "63e491fc1ff184ea3bbbf92acbd2694194ab2e97c2b26c2a66960d56cbd6ac0d",
+      "members": 117,
+      "manifest_records": 116,
+      "manifest_sha256": "8322990598cdfd7801c29b6405109ebef76b869b9322a43e15b2e8bb1e723b70",
+      "all_original_sources_present_and_hash_verified": true,
+      "all_published_bytes_hash_and_length_verified": true,
+      "crc_verified": true,
+      "deterministic_reconstruction_verified": true
+    },
+    "postmerge": {
+      "run": 40111193020,
+      "source": "af5de7d1c56030d8842fc85c334cb8933d63fc08",
+      "tree": "e06e13872798d0bd11165f4062307e05f99b4d0a",
+      "lanes": 6,
+      "complete_native_test_cases_per_lane": 2425,
+      "actual_raw_logs_and_job_steps_verified": true,
+      "exact_source_guard_verified": true,
+      "exact_lock_install_pinned_chromium_typecheck_test_build_verified": true,
+      "native_results": {
+        "ubuntu-24.04/node-22": {
+          "passed": 2420,
+          "skipped": 5
+        },
+        "ubuntu-24.04/node-24": {
+          "passed": 2420,
+          "skipped": 5
+        },
+        "macos-14/node-22": {
+          "passed": 2398,
+          "skipped": 27
+        },
+        "macos-14/node-24": {
+          "passed": 2398,
+          "skipped": 27
+        },
+        "windows-2025/node-22": {
+          "passed": 2391,
+          "skipped": 34
+        },
+        "windows-2025/node-24": {
+          "passed": 2391,
+          "skipped": 34
+        }
+      },
+      "raw_summary_sha256": "037628c4f00909e210c6e16b0e88102ec902656d428483a576b2063ca9b3f8d9"
+    },
+    "merge": {
+      "pr": 643,
+      "ordered_parents": [
+        "92433f7039393d6a08b8f993bc50da8470de2b5c",
+        "200979fc281f17f764446b8f559ca4f4923bcd78"
+      ],
+      "git_objects_match_recorded_order_and_tree": true,
+      "reviewed_head_and_merge_tree_equal": true,
+      "github_reported_signature": "verified/valid",
+      "signature_limit": "Checked captured GitHub verification response; no new cryptographic attestation or network read.",
+      "proof_sha256": "22d5d83d73d820ffc5adf0194edd1809e9cc7a8e3129f0ad99292c866c5e0d0d"
+    },
+    "premerge": {
+      "head": "200979fc281f17f764446b8f559ca4f4923bcd78",
+      "actual_successful_jobs": 7,
+      "project_run": 40091538552,
+      "self_run": 40091538327,
+      "actual_six_native_logs_verified": true,
+      "captured_live_no_changes_requested_and_zero_unresolved_threads": true,
+      "raw_summary_sha256": "094c7b90f1df92050e8bb2a1cbf89ec8f495f3fea3e9a3b0d3c71ace38beaa9a",
+      "last_moment_guard_sha256": "26f31f5d6640d42d690ddbfc5af5261010b0e8e6e84f4976215897f845c8dd30"
+    },
+    "self": {
+      "original_zip_sha256": "b7429d67105f44b438403524071109fc1f7ce2d9eca1e815e7440daab68b8994",
+      "original_zip_crc_and_three_member_hashes_verified": true,
+      "envelope_head_tree_base_receipt_hash_bindings_verified": true,
+      "inner_packaging": "FAIL 3/3, native exit 1, materially_incomplete",
+      "selector": "UNAVAILABLE_FULL_SUITE_CONTRACT",
+      "historical_raw_exception_unavailable": true,
+      "no_historical_cause_inferred_from_current_direct_vitest_error": true
+    },
+    "retained_local_full_control": {
+      "source": "e855b16b668d490cf6e3b5bfbe11b0e36724ae0d",
+      "clean_same_source_start_end": true,
+      "native_exit": 1,
+      "passed": 2390,
+      "failed": 1,
+      "existing_platform_skips": 34,
+      "total": 2425,
+      "wall_seconds": 701.2033896999201,
+      "limitation": "The unchanged 5000ms browser-disposal deadline failure remains open; later focused PASS and hosted PASS do not erase it."
+    },
+    "report_sha256": "d1ed4c0a68852e5dad74411c1645a560ddea731acdd8626e8802aa40e3c321b4"
+  },
+  "publication": {
+    "reviewed_closing_branch_publication": "PENDING",
+    "reviewed_closing_branch_remote_readback": "PENDING",
+    "no_remote_verification_claimed": true,
+    "next_required_action": "Publish the reviewed evidence and final publication review, then perform actual exact-head remote download/hash/member readback before disposable cleanup or the next canonical task."
+  },
+  "methodology": "Read-only local Git object/diff/status inspection, original capture/CI/merge records, raw logs, ZIP/member/hash/CRC/JSON/Python syntax inspection and in-memory deterministic reconstruction. No tests, installs, source changes, Git mutations, network calls or GitHub mutations.",
+  "review_limits": "Fresh context shares OpenAI provider lineage with implementation; context separation is not provider independence. Captured remote observations were inspected without refetching. This is a focused evidence review, not a release approval, broad security scan, governance waiver or UA-P07 authorization.",
+  "panel": "light combined correctness/parsimony/product in fresh context; security product trigger not added by this evidence-only delta; separate publication review retained"
+}

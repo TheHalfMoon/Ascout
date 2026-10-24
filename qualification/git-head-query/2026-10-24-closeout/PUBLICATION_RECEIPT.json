@@ -1,0 +1,28 @@
+{
+  "observed_at_utc": "2026-10-24T16:37:00.552262+00:00",
+  "head": "16343a45a1fe4de19ee238d526e5ae6c97d2d267",
+  "branch": "evidence/git-head-query-postmerge-20261024",
+  "path": "qualification/git-head-query/2026-10-24-closeout",
+  "remote_ref_verified": true,
+  "remote_bytes_equal_local": true,
+  "all_member_hashes_crc_json_python_verified": true,
+  "members": 117,
+  "files": {
+    "evidence-lock.json": {
+      "sha256": "982e8453d0c3551f8c8a52dce2afa7751334e89096bea56853b0559fa3c8e05f",
+      "bytes": 362,
+      "git_blob": "e4dce6490c636578603dbd659e3b008bba0ceadc"
+    },
+    "evidence.zip": {
+      "sha256": "63e491fc1ff184ea3bbbf92acbd2694194ab2e97c2b26c2a66960d56cbd6ac0d",
+      "bytes": 488336,
+      "git_blob": "506f93c9ef181e2359c100ba078b5ddec7c4c646"
+    },
+    "REPORT.md": {
+      "sha256": "d1ed4c0a68852e5dad74411c1645a560ddea731acdd8626e8802aa40e3c321b4",
+      "bytes": 5676,
+      "git_blob": "b9923247ae389c1270c609e6096697a0d1b6fca7"
+    }
+  },
+  "notice": "Remote evidence durability only; no authentication of sanitized originals or release approval."
+}
