@@ -2,6 +2,7 @@
   "upstream": "https://github.com/vercel-labs/durable-harness",
   "commit": "ea8aa4060cf4fb8cd39737ce8ab21c4e0f40c741",
   "license": "Apache-2.0",
+  "integration_name": "Ascout Durable Harness",
   "files": {
     "LICENSE.md": "2bb477965038ed36b0bcb8316ff12428cdd5b4ee7d513147bb6f37bdef0b372c",
     "packages/harness-world/src/types.ts": "775a12d0c7737dad58ac8b5e8a9695c559762a8196b7cd78b48fa284803a9a3f",
