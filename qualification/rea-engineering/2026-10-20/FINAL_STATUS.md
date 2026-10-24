@@ -12,7 +12,7 @@ Updated 2026-10-24. **BLOCKED; not a production-release or whole-Spec completion
 | Deterministic literal browser assertion | [641](https://github.com/TheHalfMoon/Ascout/pull/641) | 4688ecc5188cc5c4ccf811ce10be04b9156c5e8b |
 | Preserved completed REA | [636](https://github.com/TheHalfMoon/Ascout/pull/636) | 576cfaa748d9f88ac752c20b385c69a2e7dd1f58 |
 
-Ordered parents, reviewed-head tree equality, merged/closed state and GitHub-reported valid signatures were read back. Research retained the exact original34c81e18 subtree3e941eff; its PR added25research paths and no production delta. No REA restart occurred. Coordination/evidence remains separately tracked in [PR637](https://github.com/TheHalfMoon/Ascout/pull/637).
+Ordered parents, reviewed-head tree equality, merged/closed state and GitHub-reported valid signatures were read back. Research retained the exact original34c81e18 subtree3e941eff; its PR added25research paths and no production delta. No REA restart occurred. Coordination [PR637](https://github.com/TheHalfMoon/Ascout/pull/637) is now merged as main89e5f01. All six actual final-main native CI lanes passed in run40057848215; see POSTMERGE_VERIFICATION.md for completed source-bound evidence and its separate publication branch. The remaining blockers below are unchanged.
 
 ## Final code-main controls
 

@@ -1,6 +1,8 @@
-Last updated: 2026-10-24 · Branch: ps/rea-engineering-qualification
+Last updated: 2026-10-24 · Branch: evidence/spec018-postmerge-20261024
 
 ## Current state
+
+Final coordination PR637 is merged as canonical main89e5f01d7b77a92099961dff21e28052e5fa8dcc, tree6645f3f10a0cfab761ca232d9f97c1a684283f49. Ordered parents, reviewed-head tree equality and GitHub-reported valid signature are verified. All seven final PR checks passed; all six actual final-main native/typecheck/build lanes passed in run40057848215. Root retained completed raw-log evidence after the delegated collector hit a usage limit. POSTMERGE_VERIFICATION.md records these final controls on this evidence-only branch, preserving tested main. Spec018 remains BLOCKED as described below; no release is declared. The user's subsequent durable-harness integration request is separate prospective work and does not change these Spec018 outcomes.
 
 Spec018 remains BLOCKED at E00 operator-PC timing qualification and development dependency findings. All four focused features and preserved research are merged; verified main576cfaa retains code-main4688 production/test/package/workflow roots unchanged. Merge parents/tree/signatures and six actual post-merge code-main native CI passes are recorded. Final local typecheck/build pass; complete suite remains native1 with2,346passed/4Git-drift deadline failures/34existing skips,755.89seconds, unchanged source. All T107 and10browser cases pass. Final zero-model TesterArmy working/broken controls match expected actual exits0/1. Production audit has zero advisories; refreshed development audit has five package entries/two high/three moderate/eight advisories. Historical results remain separate. Research bytes are unchanged from34c; no REA restart. No local failure becomes PASS or whole-Spec COMPLETE. Exact coordination close and resulting documentation-main checks are tracked in PR637 and subsequent evidence snapshots.
 
