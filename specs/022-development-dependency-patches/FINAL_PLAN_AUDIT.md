@@ -1,0 +1,9 @@
+# Fresh final plan audit observations
+
+Initial exact headeda02402dcf7e7e9e56b832e4e296de8aa11ca62 received RECONCILIATION_REQUIRED for P022-PLAN-LITERAL-COUNT only. Reportdependency-plan-audit-eda0240.json, SHA25655823380790b50fe8f394fa868cc2a4ddf81bacbf4e4feea9fc8e3db102f083f is preserved. No package/lock/notice/test/source edit occurred during that audit.
+
+Prospective doc-only correction fcb9b82be890e892258a98da8d25ddea7203c02d received PLAN_CLEAR after exact-delta reconciliation. Reportdependency-plan-audit-fcb9b82.json, SHA25685eafd9b9141238b0fa386c075df9c42af437b5b8dd4c01734525c92d2d3a6b9. All three existing version literals across two test lines are specified; all other assertions remain frozen. The reviewer independently checked governing inputs, actual predecessor closure and52external inputs including22exact registry responses and old installed graph/physical ownership.
+
+The live applicability audit found no universal14-day rule for this maintenance task:PR616's own release minimum/AIissue617 are historical;source-map's old follow-up is now age-eligible. #618's effective mandatory model/reviewer requirements are scoped to UA-P06. Broad historical wording and later direct user local-review direction remain documented, with no provider-independence claim or gate waiver. Exact target dates, owner/burst heuristics and structural/cryptographic provenance limits stay visible and require actual candidate review/qualification.
+
+These are factual audit observations, not implementation/merge/release approval. User repair direction supplies bounded scope only after effective gates. This added observation and checklist update do not change the audited design. A different fresh context must verify the resulting exact head's cross-artifact consistency/purity before package/test/notice edits or installation. D1 is not a gate; shared OpenAI provider/model lineage is disclosed.
