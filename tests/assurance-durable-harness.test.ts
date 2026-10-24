@@ -84,6 +84,18 @@ describe("Ascout Durable Harness: bounded local recovery observations", () => {
     expect((await store.recover()).calls[0]).toMatchObject({ disposition: "RECONCILIATION_REQUIRED", evidence_sha256: null, execute: false });
   });
 
+  it("retains uncertain never-effect reconciliation when source revalidation is also required", async () => {
+    const root = await fixture();
+    const store = await AscoutDurableHarness.create(root, binding);
+    await store.begin({ ...call, replay: "never" });
+    const stale = await AscoutDurableHarness.open(root, { ...binding, subject_head: "b".repeat(40) });
+    expect(await stale.recover()).toMatchObject({
+      binding_current: false,
+      workflow: { revalidation_required: true },
+      calls: [{ disposition: "RECONCILIATION_REQUIRED", evidence_sha256: null, execute: false }],
+    });
+  });
+
   it.each(["subject_head", "source_tree_sha256", "configuration_sha256", "policy_identity", "repository_identity"] as const)("requires revalidation for changed %s with no evidence promoted", async (field) => {
     const root = await fixture();
     const store = await AscoutDurableHarness.create(root, binding);
