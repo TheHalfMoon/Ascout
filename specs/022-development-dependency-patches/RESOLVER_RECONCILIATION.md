@@ -1,0 +1,7 @@
+# Native resolver scope reconciliation
+
+After both prospective gates cleared, scripts-disabled native npm resolution produced the requested11 entries plus34 unrelated eager updates, including Rollup/platform packages and utility versions. A native `--prefer-dedupe` retry from the byte-identical canonical lock produced the same intermediate SHA2565ee90fe321c80669cec8eadb2eeddf828655e9c2abdb27c82bf473d72b2a3952. Both actual command captures and that intermediate are retained; no installation preceded reconciliation.
+
+The installed npm semver implementation verified all85 root/target dependency, optional and peer edges against the minimal graph. A separate reviewer independently confirmed no new full-graph failures over the unchanged baseline optional/peer limitations. These34 changes are unnecessary resolver movement, not newly required target dependencies. Rejecting them implements the plan's existing scope bound; no target or dependency identity is added.
+
+The selected lock copies the native-generated root and11 target entries verbatim, retaining every other canonical entry and top-level field unchanged. No version, integrity, URL or metadata is synthesized. Parsed comparison confirms417 entries, no additions/removals, no unexpected changes; selected SHA256684abc899b555f6e8e929f68a7721c0823281ef7e43e83f1504177573d61c7aa. Reproducible scripts and dual source hashes will be published with qualification. Actual exact-lock npm ci/ls, audits/signatures and complete controls remain required; range feasibility alone is not qualification.

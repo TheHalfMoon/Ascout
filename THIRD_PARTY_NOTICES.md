@@ -1,16 +1,17 @@
 # Third-Party Notices
 
-**Status:** Current direct-dependency reconciliation (2026-10-08), preserving historical T086 evidence  
+**Status:** Current direct-dependency reconciliation (2026-10-24), preserving historical T086 evidence
 **Scope:** direct dependencies intentionally selected for Ascout M1, bound to the current committed manifest and lockfile.
 
 This file records the exact direct third-party packages selected by Ascout and the evidence used to bind those selections to the committed lockfile. Exact transitive versions, registry locations, integrity digests, and license metadata are recorded in `package-lock.json` where npm provides those fields.
 
-## Current manifest/lockfile reconciliation (2026-10-08)
+## Current manifest/lockfile reconciliation (2026-10-24)
 
 - Runtime direct dependencies: **2** — `cross-spawn@7.0.6` (MIT) and `playwright@1.63.0` (Apache-2.0).
 - Direct development dependencies: **6** — `@types/node`, `@vitest/coverage-v8`, `jest`, `typescript`, `vite`, `vitest` at the versions listed below.
 - The current eight direct dependencies are represented in the notice ledger below. `playwright-core@1.63.0` is a transitive package, not a third direct runtime dependency.
 - The exact current npm graph and integrity records are committed in `package-lock.json`. This reconciliation does not imply a new npm release, a security audit, or any change to historical T086 evidence.
+- Task022 updates existing development pins to `vite@6.4.5`, `vitest@4.1.12` and `@vitest/coverage-v8@4.1.12`, their existing Vitest closure, and transitive `source-map-js@1.2.2` (BSD-3-Clause). The graph retains417 entries; all unrelated resolutions and runtime pins remain unchanged. Exact registry metadata binds the changed tarballs and integrity values below. Current qualification and provenance limitations are recorded separately; historical generation-time results remain scoped to their original graph.
 
 ## Historical T086 candidate binding (2026-08; preserved)
 
@@ -89,13 +90,13 @@ This conclusion is scoped to the exact direct package versions below. Transitive
 - Registry tarball: `https://registry.npmjs.org/@types/node/-/node-22.20.1.tgz`
 - SRI: `sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q==`
 
-### `@vitest/coverage-v8` 4.1.11
+### `@vitest/coverage-v8` 4.1.12
 
 - Role: development-only V8 coverage provider used by the Vitest integration and changed-code exercise tests
 - License: MIT
-- Upstream: `vitest-dev/vitest`, tag `v4.1.11`, package path `packages/coverage-v8`
-- Registry tarball: `https://registry.npmjs.org/@vitest/coverage-v8/-/coverage-v8-4.1.11.tgz`
-- SRI: `sha512-8MVGEFnJIcdGjcbfKmeq8z0pZHH0JlVtoVZH9Q/qwUp6wyFnEJUBMrw9DCaj+ra3vShGmhavjalMIhPNxZAUcw==`
+- Upstream: `vitest-dev/vitest`, tag `v4.1.12`, package path `packages/coverage-v8`
+- Registry tarball: `https://registry.npmjs.org/@vitest/coverage-v8/-/coverage-v8-4.1.12.tgz`
+- SRI: `sha512-6S7/iVknKglLAxMFxQGNppBI0iqJS2NgM6FBxavitj7KaDq/vywOWGf6dGu7F2L1Qy0G6S3uTp7aGshHrzK8JA==`
 
 ### `jest` 30.4.2
 
@@ -113,21 +114,21 @@ This conclusion is scoped to the exact direct package versions below. Transitive
 - Registry tarball: `https://registry.npmjs.org/typescript/-/typescript-6.0.3.tgz`
 - SRI: `sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==`
 
-### `vite` 6.4.3
+### `vite` 6.4.5
 
 - Role: development-only peer/runtime substrate selected for Vitest while preserving the Ascout Node `>=22` floor
 - License: MIT
-- Upstream: `vitejs/vite`, tag `v6.4.3`, package path `packages/vite`
-- Registry tarball: `https://registry.npmjs.org/vite/-/vite-6.4.3.tgz`
-- SRI: `sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A==`
+- Upstream: `vitejs/vite`, tag `v6.4.5`, package path `packages/vite`
+- Registry tarball: `https://registry.npmjs.org/vite/-/vite-6.4.5.tgz`
+- SRI: `sha512-4enwjFfi4IwtEh0w+jPzpLVOFQiPHmmzPxcHXQOyEur47o6u0jE573DmGpjA+7irXoMLYRZD5ZaFUEneS3abPg==`
 
-### `vitest` 4.1.11
+### `vitest` 4.1.12
 
 - Role: development-only test runner
 - License: MIT
-- Upstream: `vitest-dev/vitest`, tag `v4.1.11`, package path `packages/vitest`
-- Registry tarball: `https://registry.npmjs.org/vitest/-/vitest-4.1.11.tgz`
-- SRI: `sha512-fhACrNXUidIbGSBr5FlbuBkO7VWC1ZyLl0DO4CU2DrQoAPxX84Ysxs+HeGQpii5lZWV1Q4gBZTTu49mF+A6Edw==`
+- Upstream: `vitest-dev/vitest`, tag `v4.1.12`, package path `packages/vitest`
+- Registry tarball: `https://registry.npmjs.org/vitest/-/vitest-4.1.12.tgz`
+- SRI: `sha512-5eWdz2yb3ajxWF3C8C4TjkXl7FGm3n2E/VlazALrQHzK7nYMSGFnCZto0bbPNl77AwkOZVLk0YnBAejUu0NiWA==`
 
 ## Transitive dependencies
 
