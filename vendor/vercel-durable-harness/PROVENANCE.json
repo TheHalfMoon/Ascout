@@ -1,0 +1,14 @@
+{
+  "upstream": "https://github.com/vercel-labs/durable-harness",
+  "commit": "ea8aa4060cf4fb8cd39737ce8ab21c4e0f40c741",
+  "license": "Apache-2.0",
+  "integration_name": "Ascout Durable Harness",
+  "files": {
+    "LICENSE.md": "2bb477965038ed36b0bcb8316ff12428cdd5b4ee7d513147bb6f37bdef0b372c",
+    "packages/harness-world/src/types.ts": "775a12d0c7737dad58ac8b5e8a9695c559762a8196b7cd78b48fa284803a9a3f",
+    "packages/harness-world/src/driver.ts": "24fad6f4b3e64c4fd5dbe4b224b861d2e27a21935b499a95d25cc22993bdae8d",
+    "packages/harness-process/src/tools.ts": "e8f811beffb7eab60fc245f28cd6082228bbe11d1d0260d3f1946c67c1fbfe14"
+  },
+  "article_url": "https://vercel.com/blog/making-every-harness-durable",
+  "article_sha256": "ebab34d71221246f410942e1c9c15ab188bbb8f10509d3efee16e837a14aed7a"
+}

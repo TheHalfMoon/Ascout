@@ -1,0 +1,3 @@
+# Material clarification
+
+The requested rename is the integration name Ascout Durable Harness; upstream durable-harness retains its identity, authorship and notices. Local/offline constraints persist. Upstream SDK0.0.1 currently brings Workflow backends and optional provider/sandbox peers; wholesale installation is unnecessary for this local seam. Scope is durable call metadata and recovery decisions using Ascout contracts. It does not claim turnkey Codex/Claude/Pi sessions, restore transcripts, automatically resume processes, or duplicate cloud queues. No open decision is needed to test this bounded integration. Production effects and publication authority remain outside it.
