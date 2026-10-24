@@ -82,6 +82,40 @@ Fourth Spec 016 implementation slice under P016-01 authorization
 - No shell is ever constructed: provisioning uses `execFileSync` with
   literal argv; targets/values flow as literal text into Playwright APIs.
 
+## REA-E04 additive literal assertion
+
+`createTextAssertionRequest` and `runtime.executeTextAssertion(request,
+resolveTarget)` add one explicitly typed `kind: "exact_text"` operation.
+The request supplies `request_id`, `session_id`, `source_identity`, `target`,
+`expected_text`, and `timeout_ms`. The runtime revalidates the request and
+requires both session and source identity to match its session before
+resolving a target. Existing free-text `executeAssertion` behavior remains
+unchanged; DOM statements still return `unavailable`.
+
+The operation compares raw `textContent` by exact string equality. Empty
+text, whitespace, case, line endings and code-looking text are literal
+data; there is no trimming, regular expression, natural-language parsing,
+visibility predicate, or retry-until-match. A uniquely resolved DOM target
+with the wrong text returns `failed` / `E_TEXT_MISMATCH`. Missing targets
+time out; ambiguous or invalid selectors and resolver failures fail.
+Targets remain under the injected locator resolver's existing policy.
+
+The target is nonempty single-line text limited to 4096 UTF-16 code units;
+expected text is a string of at most 65536 code units, including empty or
+multiline text. Existing timeout bounds (1..120000 ms) apply. One monotonic
+deadline covers validation, target resolution, text reading and comparison.
+`readTargetText` deducts synchronous resolver time before passing the
+remaining timeout to Playwright. Synchronous JavaScript callbacks cannot be
+preempted; an overrun returns `timeout` when the callback returns and cannot
+pass. Disposal during the operation cannot produce success. Use after
+disposal and malformed/foreign requests reject as existing runtime contract
+errors.
+
+Responses reuse `BrowserAssertionResponse` with the current session/source,
+duration, empty evidence references and null oracle reference. These are
+local executor observations, without a new oracle or global verification
+claim. See [REA-E04 qualification](qualification/REA-E04.md).
+
 ## Compiler accommodation (explicit, minimal)
 
 Adopting the first third-party runtime dependency required one `tsconfig.json`
