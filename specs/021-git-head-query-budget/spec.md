@@ -1,6 +1,6 @@
 # Task021-T01: reduce redundant Git HEAD metadata processes
 
-Status: PROSPECTIVE_PLAN_ONLY. Base main92433f7039393d6a08b8f993bc50da8470de2b5c. The current user instruction, "fix that, and keep working", directs repair of the remaining timing and dependency blockers, subject to effective repository gates. This task addresses REA-E00 only; dependency remediation remains a separate task.
+Status: IMPLEMENTED; focused qualification PASS at e855b16; complete local control FAIL with one browser-disposal deadline; hosted/final-head/canonical qualification pending. Base main92433f7039393d6a08b8f993bc50da8470de2b5c. The current user instruction, "fix that, and keep working", directs repair of the remaining timing and dependency blockers, subject to effective repository gates. This task addresses the bounded HEAD-query repair under REA-E00; E00 remains BLOCKED and dependency remediation remains a separate task.
 
 ## Constitution compliance and intent
 
