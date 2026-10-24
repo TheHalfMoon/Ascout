@@ -4,7 +4,7 @@ Dependency:Task021 canonical PR643/af5de7d and remotely verified closing evidenc
 
 1. Record baseline audit RED/current exact source, target registry/advisory/provenance/date and ownership warnings.
 2. Fresh final plan/gate audit, then separate exact-head consistency/purity; no code/dependency edits before both clear.
-3. Minimal scripts-disabled existing dev pin/lock patch, notices and two bound fixture-version literals; preserve exact graph/native intermediate evidence.
+3. Minimal scripts-disabled existing dev pin/lock patch, notices and two version-bearing test lines (three fixture/expected-version literals); preserve exact graph/native intermediate evidence.
 4. Explicit owned exact-lock install; actual tree/audits/signatures, parsed/NPMScan resolved diff, strict typecheck/build and focused/complete native tests.
 5. Fresh exact-head source/dependency/security reviews and actual applicable tools; preserve every failure, unavailable provider/admission and existing platform skip.
 6. Focused PR, actual exact-head native/Self CI/log/artifact audit, live gates, eligible guarded merge and canonical readback/postmerge native controls.
