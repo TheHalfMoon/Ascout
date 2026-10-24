@@ -8,4 +8,4 @@ Depends on canonically merged A04 workflow/idempotency/freshness models and main
 4. Run focused/relevant tests, strict typecheck/build and a complete native suite; retain actual results and unresolved prior debt.
 5. Fresh correctness/product/parsimony plus separate security review; forward-fix required findings, qualify exact final head, publish focused PR and durable evidence.
 
-Status: PLANNED; production implementation not started.
+Status: PLANNED; production implementation not started. Initial audit6f012fb identified missing repository identity and ignored-location/retention requirements. These are reconciled by the forward plan delta, with cross-repository and Git-ignore tests added before fresh final-head audit.
