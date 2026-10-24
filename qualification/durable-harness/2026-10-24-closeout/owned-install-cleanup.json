@@ -1,0 +1,28 @@
+{
+  "cleanup": {
+    "installed_metadata_sha256": "7ceb1653314d389a3c8babf3164dc681d7f58911c4384eadbc15e376cac9af0b",
+    "processes_terminated": false,
+    "at_utc": "2026-10-24T10:46:58.1134592Z",
+    "result": "REMOVED",
+    "original_install_capture_sha256": "8b15f97cf3d9f0b748d1beb5badccd93d256ccd51d57042066e00411f2dea2e0",
+    "target": "work/engineering/durability/node_modules",
+    "logical_bytes": 98053263,
+    "limits": "Owned completed-task capture inventory checked; no global process ownership, resource diagnosis or release readiness claim. Dependencies remain reproducible from unchanged lockfile.",
+    "verified_closing_head": "6de09075d65daa46c5690788c27eec3a59e39741",
+    "archive_sha256": "46a9b2dc0bb0d5c2803da64a8eeb9f4b04895294ac7f0671eb03f5f2d9ee9420",
+    "owned_capture_running": false,
+    "package_lock_sha256": "36843f0ccb2a85fe71a27371055b539be825df59b653f1e0e02aadadb8ec6eb2",
+    "files": 6267,
+    "active_worktrees_removed": false,
+    "root_and_descendant_reparse_points": false,
+    "original_install_capture": "durable-harness-install-99736da9-65c7-4080-80d7-c7976070f50d.json",
+    "action": "REMOVE_ONLY_FINISHED_TASK020_DISPOSABLE_DEPENDENCY_INSTALL",
+    "source_and_raw_evidence_retained": true
+  },
+  "original_record_sha256": "d2b26b97467632ed43946b454ac55321cd2e5c639cbc0e859ec1d3f260e735ce",
+  "helper_original_sha256": "482f461635bd418f7984cf5ed4103f2aaf5ee59e3eeaed98ca2c8711e2cec890",
+  "published_helper_sha256": "482f461635bd418f7984cf5ed4103f2aaf5ee59e3eeaed98ca2c8711e2cec890",
+  "helper_transform": "CRLF to LF only if present",
+  "validation": "PowerShell parser accepted actual helper through direct subprocess argv. An earlier double-shell validation command expanded variables and failed before parsing the helper; it did not execute cleanup.",
+  "notice": "Post-publication maintenance observation; not part of the frozen reviewed ZIP, resource causation, test PASS or release approval."
+}

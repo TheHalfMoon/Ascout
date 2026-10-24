@@ -1,0 +1,23 @@
+{
+  "observed_at_utc": "2026-10-24T10:46:24.399120+00:00",
+  "head": "6de09075d65daa46c5690788c27eec3a59e39741",
+  "branch": "evidence/durable-harness-postmerge-20261024",
+  "path": "qualification/durable-harness/2026-10-24-closeout",
+  "remote_ref_verified": true,
+  "remote_bytes_equal_local": true,
+  "all_member_hashes_crc_json_python_verified": true,
+  "members": 150,
+  "files": {
+    "evidence-lock.json": {
+      "sha256": "1eccc03209d61f20ce3eff9d5f1f4640b390dfd1b0a0ecda0b24894ac0f943f1",
+      "bytes": 354,
+      "git_blob": "b4e6f1fdd9d06300688d9c52ea92dfa26056b567"
+    },
+    "evidence.zip": {
+      "sha256": "46a9b2dc0bb0d5c2803da64a8eeb9f4b04895294ac7f0671eb03f5f2d9ee9420",
+      "bytes": 649450,
+      "git_blob": "38117c826d4849191eee6b56859d3a4392621f8e"
+    }
+  },
+  "notice": "Remote evidence durability only; not release approval or authentication of sanitized originals."
+}

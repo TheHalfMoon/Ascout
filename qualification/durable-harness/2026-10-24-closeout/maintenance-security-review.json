@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "review_kind": "PStack narrow post-publication maintenance privacy/evidence/helper-safety delta",
+  "verdict": "PASS_SCOPED_MAINTENANCE_DELTA",
+  "must_fix": [],
+  "worth_considering": [],
+  "skip_it": [],
+  "observed_head": "6de09075d65daa46c5690788c27eec3a59e39741",
+  "reviewed_sha256": {
+    "qualification/durable-harness/2026-10-24-closeout/publication-readback.json": "f1ae429c1e5a69edccad959770e89cf39b504da2d728edba786a99b1ab71dd76",
+    "qualification/durable-harness/2026-10-24-closeout/owned-install-cleanup.json": "0e186eff623b713cef0cb6fb2554aa641f0b12535a26a9d311aedb95b75bd996",
+    "qualification/durable-harness/2026-10-24-closeout/cleanup-owned-install.ps1": "482f461635bd418f7984cf5ed4103f2aaf5ee59e3eeaed98ca2c8711e2cec890",
+    "qualification/durable-harness/2026-10-24-closeout/README.md": "e8b4e62e562d4d19c57cf0bc4f33bf47cc091fbfcaea0ff27a622b791fdeeaab",
+    "STATE.md": "7b2d4c70c0fd60a253ec58cfcbbb7e5dda1847029c601ff2c08dc712b2213d0d"
+  },
+  "unchanged_bindings": {
+    "qualification/durable-harness/2026-10-24-closeout/evidence.zip": "46a9b2dc0bb0d5c2803da64a8eeb9f4b04895294ac7f0671eb03f5f2d9ee9420",
+    "qualification/durable-harness/2026-10-24-closeout/evidence-lock.json": "1eccc03209d61f20ce3eff9d5f1f4640b390dfd1b0a0ecda0b24894ac0f943f1",
+    "review-closeout-publication-security.json": "9ae1ae75d3add99be423d957fbe4269c7261de2e45ea8c9ec0a0530485a2f132",
+    "source_test_package_lock_workflow_diff_from_f8c0825": "EMPTY"
+  },
+  "publication_readback": {
+    "recorded_head": "6de09075d65daa46c5690788c27eec3a59e39741",
+    "recorded_branch": "evidence/durable-harness-postmerge-20261024",
+    "recorded_members": 150,
+    "zip_and_lock_local_hashes_and_lengths_match_receipt": true,
+    "receipt_records_remote_ref_bytes_and_member_verification": true,
+    "interpretation": "Read the retained actual readback observation and checked it against current frozen bytes. This reviewer did not refetch GitHub; remote durability remains the recorded observation, not authentication of sanitized originals or release approval."
+  },
+  "cleanup_record_integrity": {
+    "retained_original_record_sha256": "d2b26b97467632ed43946b454ac55321cd2e5c639cbc0e859ec1d3f260e735ce",
+    "raw_record_hash_recomputed_matches_wrapper": true,
+    "wrapper_cleanup_payload_equals_raw_record": true,
+    "original_and_published_helper_hashes_recomputed_match": true,
+    "helper_only_line_ending_normalization_verified": true,
+    "original_install_capture_matches_record_and_frozen_manifest_original_hash": true,
+    "current_package_lock_hash_matches_record": true,
+    "cleanup_closing_head_matches_readback": true,
+    "cleanup_timestamp_follows_readback": true,
+    "node_modules_currently_absent": true,
+    "recorded_files": 6267,
+    "recorded_logical_bytes": 98053263,
+    "recorded_result": "REMOVED",
+    "recorded_processes_terminated": false,
+    "recorded_active_worktrees_removed": false,
+    "count_scope": "Counts are retained observations from the executed cleanup record; this reviewer did not re-execute cleanup or reconstruct deleted file bytes."
+  },
+  "cleanup_helper_safety_review": {
+    "powershell_parser_errors": 0,
+    "helper_executed_by_reviewer": false,
+    "assessment": "Original task-relative helper resolves the expected repository and exact node_modules target, checks equality and containment before deletion, rejects root/descendant reparse points, rejects RUNNING owned task captures, requires exact closing-head remote readback and frozen archive hash, and verifies the successful original install capture hash against that archive manifest. It uses native Remove-Item with LiteralPath for only that target, records success or partial failure, and contains no process termination, worktree removal, source removal or raw-evidence deletion. No concrete cleanup-safety defect found within the stated trusted local cooperative task boundary.",
+    "limits": "Finished owned capture inventory is narrower than global process ownership; the helper and docs disclose that limit. The portable published copy preserves the reviewed helper source and does not grant authority to rerun it in arbitrary locations."
+  },
+  "privacy_and_honesty": {
+    "new_plaintext_files_parse_or_powershell_parse": true,
+    "private_home_identity_absolute_home_path_and_scanned_credential_patterns": "NO_MATCHES",
+    "only_portable_relative_path_labels_in_report": true,
+    "new_records_explicitly_outside_frozen_archive": true,
+    "readme_and_state_match_retained_readback_cleanup_facts": true,
+    "no_resource_causation_test_pass_or_release_readiness_inferred": true,
+    "task_closure_and_prior_local_self_dependency_failures_preserved": true,
+    "spec018_and_whole_product_release_readiness": "BLOCKED"
+  },
+  "coverage_limits": [
+    "Read-only local review, hashing, JSON comparison, source inspection and non-executing PowerShell parser validation only. No tests, network calls, source/Git mutations, archive regeneration or cleanup execution by this reviewer.",
+    "The exact frozen archive hash and original closeout review hash are unchanged; their prior full member/privacy/log review retains its stated scope. This delta reviews the new adjacent records/helper and two factual documentation updates.",
+    "No independent provider, remote authentication, global process ownership, release certification or future repeated cleanup approval is claimed.",
+    "This report is outside the frozen ZIP and may be copied adjacent unchanged. Subsequent publication of these new metadata files requires its own recorded remote readback after execution."
+  ],
+  "lineage": {
+    "separate_pstack_reviewer_context": true,
+    "same_session_model_provider_lineage": true,
+    "independent_provider_claim": false,
+    "d1_approval_used": false,
+    "manifest": "panel: narrow post-publication maintenance security delta in separate session-model reviewer context; no release certification"
+  }
+}

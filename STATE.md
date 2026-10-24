@@ -8,7 +8,7 @@ Spec018 features/research/coordination are merged, with closing evidence at6b305
 
 ## Next steps
 
-Finish closing evidence publication/readback; preserve this evidence-only branch separately from implementation main. Remaining authorized qualification is E00 controlled timing qualification or separately coordinated Git/runtime repair, respecting PR589/614 ownership. Development dependency repair E05 needs prospective bounded audit/qualification and remains deferred. Do not repeat suites blindly, weaken deadlines, restart REA or infer UA-P07/security-phase/release authority.
+Closing evidence was published at6de09075d65daa46c5690788c27eec3a59e39741 and downloaded/verified from GitHub: 150 members, ZIP SHA25646a9b2dc0bb0d5c2803da64a8eeb9f4b04895294ac7f0671eb03f5f2d9ee9420. After that proof, only this completed task's disposable node_modules was removed:6,267files/98,053,263logical bytes. Source worktrees and raw evidence remain retained; no process was terminated. Portable readback/cleanup records accompany the frozen ZIP on this separate evidence-only branch. Remaining qualification is E00 controlled timing qualification or separately coordinated Git/runtime repair, respecting PR589/614 ownership. Development dependency repair E05 needs prospective bounded audit/qualification and remains deferred. Do not repeat suites blindly, weaken deadlines, restart REA or infer UA-P07/security-phase/release authority.
 
 ## Limits
 
