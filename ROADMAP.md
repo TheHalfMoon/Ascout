@@ -4,7 +4,7 @@ This run is scoped by [the proposed maintenance packet](specs/018-rea-engineerin
 
 | Task | State | Spec |
 | --- | --- | --- |
-| REA-E00 / Task021-T01 native timing repair | bounded repair implemented/reviewed ate855b16;67focused pass; native20→10Git launches; complete localFAIL2390pass/1browser-disposal deadline/34existing skips; hosted/canonical pending; E00BLOCKED | [results](specs/021-git-head-query-budget/RESULTS.md) |
+| REA-E00 / Task021-T01 native timing repair | focused task CLOSED_CANONICAL PR643/mainaf5de7d; six exact-head and six postmerge native suites PASS; localFAIL2390pass/1browser deadline/34existing skips retained; E00BLOCKED | [closeout](qualification/git-head-query/2026-10-24-closeout/REPORT.md) |
 | REA-E01 diagnostic accounting | merged (#638), verified main 48902389 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
 | REA-E02 conservative selection | merged (#639), verified main 23fe4037 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
 | REA-E03 Stryker producer translation | merged (#640), verified main 36d1e504 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |

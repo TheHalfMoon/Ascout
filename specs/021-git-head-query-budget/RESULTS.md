@@ -1,6 +1,6 @@
 # Task021 source qualification
 
-Base `92433f7039393d6a08b8f993bc50da8470de2b5c`; candidate `e855b16b668d490cf6e3b5bfbe11b0e36724ae0d`, tree `bfb9cbdbf0d54d6bd49afec7e6cec52331bc5e5c`. Hosted/final-head/canonical qualification is pending. E00 and release readiness remain BLOCKED.
+Base `92433f7039393d6a08b8f993bc50da8470de2b5c`; source candidate `e855b16b668d490cf6e3b5bfbe11b0e36724ae0d`, tree `bfb9cbdbf0d54d6bd49afec7e6cec52331bc5e5c`. The initial packet below recorded hosted/final-head/canonical qualification as pending at publication. Current focused task is CLOSED_CANONICAL via PR643/mainaf5de7d1c56030d8842fc85c334cb8933d63fc08; see [closing observations](../../../qualification/git-head-query/2026-10-24-closeout/REPORT.md). E00 and release readiness remain BLOCKED.
 
 ## Actual sequence and bounded change
 
