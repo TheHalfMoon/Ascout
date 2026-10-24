@@ -1,6 +1,6 @@
 # Ascout Durable Harness
 
-Status: prospective bounded task; implementation waits for the independent final plan audit and fresh exact-head consistency review. Base89e5f01d7b77a92099961dff21e28052e5fa8dcc. User request2026-10-24: continue and add Vercel's making-every-harness-durable, with permission to copy and rename. This authorizes the described integration work, not UA-P07, deployment, paid services or a new security phase.
+Status: implemented/reviewed atf8c0825; final-head qualification/canonical close tracked separately. Plan auditabf8a72 and fresh consistency41ef2e5 passed before source edits. Base89e5f01d7b77a92099961dff21e28052e5fa8dcc. User request2026-10-24: continue and add Vercel's making-every-harness-durable, with permission to copy and rename. This authorizes the described integration work, not UA-P07, deployment, paid services or a new security phase.
 
 ## Constitution compliance and intent
 

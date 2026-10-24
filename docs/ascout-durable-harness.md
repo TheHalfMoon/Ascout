@@ -6,6 +6,8 @@ Ascout Durable Harness is a local call-metadata journal for an existing caller-o
 
 Import `AscoutDurableHarness` from `src/assurance/workflow/durable-harness-store.ts` (or its compiled `dist/` path). This is an additive internal API, not a new CLI command. Supply the trusted repository's absolute root and a binding containing its already captured privacy-safe repository identity, run identity, subject head, source tree digest, configuration digest and policy identity. All identities and evidence references are digests, except the bounded tool label and replay enum. Never put credentials or secrets in a tool label; opaque labels are caller-owned and not universally redacted.
 
+`binding_current` compares the stored header with the expected binding supplied by the caller. This API does not inspect Git or capture live source state. The caller must use its existing fresh source/configuration capture and reopen with the new expected binding after any change; an old handle or header is not evidence that the live repository stayed unchanged. Actual verification evidence still needs its normal start/end drift checks and artifact resolution.
+
 ```ts
 const journal = await AscoutDurableHarness.create(repositoryRoot, binding);
 // For an existing run, explicitly open(repositoryRoot, expectedBinding).
@@ -36,7 +38,7 @@ Source revalidation and effect reconciliation can both be required. An unfinishe
 
 ## Local storage and retention
 
-Storage is fixed beneath `<repository>/.ascout/durable-harness/`; arbitrary output filenames are not accepted. A local `.gitignore` containing `*` keeps all managed state ignored even without a root rule. Conflicting ignore content, symlink managed directories/files and nonregular snapshots are rejected. The repository identity itself is the existing hashed `remote:` or `local:` form with matching kind/portability; raw origins and absolute paths are not persisted.
+Storage is fixed beneath `<repository>/.ascout/durable-harness/`; arbitrary output filenames are not accepted. A local `.gitignore` containing `*` keeps all managed state ignored even without a root rule. Creation/opening reject conflicting ignore content and symlink managed directories; snapshot reads reject symlink/nonregular files. The repository identity itself is the existing hashed `remote:` or `local:` form with matching kind/portability; raw origins and absolute paths are not persisted.
 
 Each run has at most256 calls and a1MiB snapshot. Reaching a bound fails explicitly and preserves the old snapshot; do not silently evict history. State is retained until the operator explicitly removes the completed run. There is no automatic expiry or pruning; operators own retention and free-space management across runs. Keep evidence artifacts while any recovered digest relies on them.
 

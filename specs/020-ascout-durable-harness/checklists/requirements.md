@@ -7,5 +7,6 @@
 - [x] Unknown effect outcome does not authorize retry.
 - [x] Corruption, bounds, concurrency and crash limitations are testable.
 - [x] Upstream pin, license, attribution and scope named.
-- [ ] Independent final plan audit and fresh exact-head consistency/purity.
-- [ ] Actual tests, security/correctness review and exact-head CI evidence.
+- [x] Independent final plan auditabf8a72 and fresh exact-head consistency/purity41ef2e5 before source edits.
+- [x] Actual tests, separate security/correctness review and exact-code-head CI evidence atf8; all failures retained and whole-product readiness remains blocked.
+- [ ] Final documentation/evidence-head gates and canonical post-merge closeout, recorded separately after actual execution.
