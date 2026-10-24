@@ -1,0 +1,38 @@
+{
+  "created_at_utc": "2026-10-20T14:39:51Z",
+  "scope": "Research package integrity and bounded replay checks; not security/release approval",
+  "results": {
+    "archive_sha256_matches_lock": true,
+    "archive_crc_member_hashes_lengths_and_exact_inventory": true,
+    "archive_members": 708,
+    "archive_manifest_records": 707,
+    "duplicate_or_traversal_members": 0,
+    "scripts_parse": 10,
+    "candidate_count": 15,
+    "all_source_commits_exact_40_hex": true,
+    "bounded_privacy_and_common_secret_pattern_scan_matches": 0,
+    "text_members_or_files_scanned": 725,
+    "stale_report_and_missing_binary_replay_regressions": "PASS; scripts/validate_replay_fixes.py",
+    "nx_native_replay_controls": "baseline exit 0; mutation exit 1; repeated affected sets retained",
+    "osv_corrected_malformed_input": "two exits 127 with package-lock JSON parse error",
+    "archive_and_provenance_orchestration_smoke": "executed locally; not fresh-machine setup"
+  },
+  "native_qualification": {
+    "typecheck": "PASS",
+    "build": "PASS",
+    "focused_tests": 332,
+    "focused_files": 22,
+    "full_300_seconds": "TIMEOUT with failures",
+    "single_worker_900_seconds": "TIMEOUT with failures",
+    "overall_full_suite": "NOT_QUALIFIED"
+  },
+  "unqualified": [
+    "Fresh-machine setup",
+    "Sentrdel donor runtime",
+    "macOS",
+    "Populated OSV offline database",
+    "General TesterArmy Windows reliability",
+    "Broad security recall/false-positive rates",
+    "Project-scale speed or resource ranking"
+  ]
+}

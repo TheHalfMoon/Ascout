@@ -1,0 +1,472 @@
+{
+  "status": "RESEARCH_RECOMMENDATIONS_NOT_IMPLEMENTATION_AUTHORITY",
+  "candidates": [
+    {
+      "candidate": "Sentrdel",
+      "key": "sentrdel",
+      "tier": "A",
+      "decision": "ADAPT",
+      "equivalent": "Ascout already has source pin, engine descriptor, request/response authority checks, evidence/coverage normalization, SAST/secrets/dependency/IaC/CI normalization, SARIF interchange, reproduction and remediation contracts.",
+      "gap": "Runtime admission and a released executable are not qualified; the CLI still reports NOT_RUN. Live repository visibility is PRIVATE while the frozen characterization says public. Source pin and tree are unchanged.",
+      "behavior": "Inspected Rust EvidenceAuthority::seal, Evidence::verify_identity, CoverageRecord, TrustedExecutable::resolve, run_engine_process, structural matching, secret rules, lockfile delta and OSV lookup/cache. No Sentrdel binary or Cargo command executed. The 332 focused Ascout tests qualify contracts, not donor detection.",
+      "integration": "Reuse current Ascout/Sentrdel boundary and observation types. Reconcile live availability metadata separately from immutable source identity. Qualify an explicit executable identity and effect admission before any runtime bridge; no UA-P07 authorization follows.",
+      "improvement": "Target zero duplicated evidence authorities and zero unavailable-to-PASS promotions. This is a proposed acceptance target, not a measured detection improvement.",
+      "cost": "Low for metadata reconciliation; substantial qualification for a real process bridge. Keep Rust optional and outside the Node core.",
+      "unknowns": "No runtime accuracy, false-positive, latency or process-containment benchmark for Sentrdel. Private source availability requires authorized access.",
+      "anchors": [
+        "crates/sentrdel-schema/src/evidence.rs",
+        "crates/sentrdel-schema/src/coverage.rs",
+        "crates/sentrdel-engine/src/runner.rs",
+        "crates/sentrdel-review/src/structural.rs",
+        "crates/sentrdel-review/src/secrets.rs",
+        "crates/sentrdel-review/src/osv.rs"
+      ],
+      "source_repository": "TheHalfMoon/Sentrdel",
+      "source_commit": "f5747319a50831ef7cee983d253c0ca5503c9a64",
+      "source_ref": "f5747319a50831ef7cee983d253c0ca5503c9a64",
+      "source_tree": "0d70de477fa403a416a8cff5576498e4c59a1689",
+      "license": "Apache-2.0",
+      "redistribution_obligations": "Retain license/copyright, mark modifications, preserve applicable NOTICE attribution and patent terms.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/TheHalfMoon/Sentrdel/blob/f5747319a50831ef7cee983d253c0ca5503c9a64/crates/sentrdel-schema/src/evidence.rs",
+        "https://github.com/TheHalfMoon/Sentrdel/blob/f5747319a50831ef7cee983d253c0ca5503c9a64/crates/sentrdel-schema/src/coverage.rs",
+        "https://github.com/TheHalfMoon/Sentrdel/blob/f5747319a50831ef7cee983d253c0ca5503c9a64/crates/sentrdel-engine/src/runner.rs",
+        "https://github.com/TheHalfMoon/Sentrdel/blob/f5747319a50831ef7cee983d253c0ca5503c9a64/crates/sentrdel-review/src/structural.rs",
+        "https://github.com/TheHalfMoon/Sentrdel/blob/f5747319a50831ef7cee983d253c0ca5503c9a64/crates/sentrdel-review/src/secrets.rs",
+        "https://github.com/TheHalfMoon/Sentrdel/blob/f5747319a50831ef7cee983d253c0ca5503c9a64/crates/sentrdel-review/src/osv.rs"
+      ]
+    },
+    {
+      "candidate": "pytest-testmon",
+      "key": "testmon",
+      "tier": "A",
+      "decision": "BENCHMARK FURTHER",
+      "equivalent": "src/tools/pytest.ts currently plans native pytest; src/selection.ts already implements conservative widening for JS/TS. Python affected selection is not implemented there.",
+      "gap": "A potential Python selection optimization exists, but non-Python data dependencies are not made complete by coverage history.",
+      "behavior": "Two independent four-test fixtures per case. Changed Python function and conftest fixture each select the one relevant failing test; changed text input selects none and exits 0, while native full pytest fails. No measurable speed advantage on this tiny corpus.",
+      "integration": "Optional project-installed --testmon only after a complete initial native run, source/environment/cache identity checks, selection accounting, and full-suite widening for untracked dependency classes. Never copy the SQLite cache into core truth.",
+      "improvement": "Observed selection reduction from four to one for source/fixture cases; observed data-input recall 0/1. Proposed target is zero missed relevant tests after widening on a representative Python corpus.",
+      "cost": "Initial full run, coverage tracing and local SQLite cache; optional Python dependency. Tiny-fixture selected runs were often slower than full runs.",
+      "unknowns": "Large Python projects, subprocess/HTTP/native-extension imports, environment changes, branch-history cache reuse and interactions with coverage plugins remain unqualified.",
+      "anchors": [
+        "testmon/pytest_testmon.py",
+        "testmon/testmon_core.py",
+        "testmon/process_code.py",
+        "testmon/db.py"
+      ],
+      "source_repository": "tarpas/pytest-testmon",
+      "source_commit": "dccc58d2ed8edec98096ff1974acb7c07d3e3482",
+      "source_ref": "v2.2.0",
+      "source_tree": "f8860457e0b4aec4b4bb11d9dd57ab96467c9cf1",
+      "license": "MIT",
+      "redistribution_obligations": "Retain upstream copyright and permission notice in copies/substantial portions.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/tarpas/pytest-testmon/blob/dccc58d2ed8edec98096ff1974acb7c07d3e3482/testmon/pytest_testmon.py",
+        "https://github.com/tarpas/pytest-testmon/blob/dccc58d2ed8edec98096ff1974acb7c07d3e3482/testmon/testmon_core.py",
+        "https://github.com/tarpas/pytest-testmon/blob/dccc58d2ed8edec98096ff1974acb7c07d3e3482/testmon/process_code.py",
+        "https://github.com/tarpas/pytest-testmon/blob/dccc58d2ed8edec98096ff1974acb7c07d3e3482/testmon/db.py"
+      ]
+    },
+    {
+      "candidate": "Nx",
+      "key": "nx",
+      "tier": "A",
+      "decision": "ADAPT",
+      "equivalent": "src/selection.ts widening, native Jest/Vitest related execution, selection accounting and native benchmark corpus already exist.",
+      "gap": "Workspace-dependent project ownership can supplement runner selection; an incomplete project graph is not a completeness oracle.",
+      "behavior": "Three-project fixture: explicit lib-to-app relation selects lib+app, and affected tasks and full native tests observe both regressions. Without the declared edge, in-process graph generation selects only lib despite the app importing it. nx.json change selects all three. Isolated plugin workers also failed on Windows in pilot runs; those errors are not selection misses.",
+      "integration": "Consume the project-local Nx affected graph only in projects already using Nx. Preserve raw graph identity and project/config inputs, and widen on missing ownership or dependency closure. Do not add mandatory Nx or Nx Cloud.",
+      "improvement": "Observed 2/3 projects selected with explicit graph; incomplete graph misses one of two relevant projects. Proposed target: zero silent dependent omissions, not an assumed speedup.",
+      "cost": "In-process selection about 2–3 seconds on the small fixture; isolated worker startup much larger. Scratch npm audit reported transitive vulnerabilities; this is not a shipping-qualified dependency set.",
+      "unknowns": "Real monorepo plugin inference, generated files, package-manager changes, cycles, task cache truth and non-Windows native qualification.",
+      "anchors": [
+        "packages/nx/src/project-graph/affected/affected-project-graph.ts",
+        "packages/nx/src/project-graph/affected/affected-projects.ts"
+      ],
+      "source_repository": "nrwl/nx",
+      "source_commit": "2b305ee85b8db033e4ab998f31282cbff66ac2a8",
+      "source_ref": "23.3.0",
+      "source_tree": "30f320765c48965e4fb85281e1ee4673fa3bb4a0",
+      "license": "MIT",
+      "redistribution_obligations": "Retain upstream copyright and permission notice in copies/substantial portions.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/nrwl/nx/blob/2b305ee85b8db033e4ab998f31282cbff66ac2a8/packages/nx/src/project-graph/affected/affected-project-graph.ts",
+        "https://github.com/nrwl/nx/blob/2b305ee85b8db033e4ab998f31282cbff66ac2a8/packages/nx/src/project-graph/affected/affected-projects.ts"
+      ]
+    },
+    {
+      "candidate": "reviewdog",
+      "key": "reviewdog",
+      "tier": "A",
+      "decision": "ADAPT",
+      "equivalent": "Ascout review raw observation binding, strict location validator, finding normalization and coverage accounting already exist.",
+      "gap": "Producer suppression, locationless input and diff-filter exclusions need explicit accounting before presentation.",
+      "behavior": "Eight input results yield 2 added / 3 file / 3 diff_context / 6 nofilter diagnostics, repeated. Accepted suppression and locationless input disappear; under-review suppression remains. Dot, parent-normalized and percent-encoded paths can map to a.js; case and absolute spellings did not surface in the added-mode fixture. Malformed SARIF exits 1; error diagnostics otherwise exit 0.",
+      "integration": "Adapt mode/location behavior into existing review contracts while retaining raw input cardinality, unresolved locations and suppression uncertainty. Validate original path spelling before donor normalization. Keep publication as a separate effect.",
+      "improvement": "Proposed target: account for all eight fixture inputs, including the two donor omissions; zero silently repaired path identities. No claim that donor output alone is a complete scan.",
+      "cost": "Small mapping/accounting layer; optional Go CLI only for comparison. Runtime output is fast after startup but no cross-tool performance ranking is inferred.",
+      "unknowns": "Renames, deleted-side diagnostics, full URI-base combinations, Unicode/case collisions, CRLF and multi-location cardinality still require a larger qualification matrix.",
+      "anchors": [
+        "parser/sarif.go",
+        "filter/filter.go",
+        "filter/diff_filter.go"
+      ],
+      "source_repository": "reviewdog/reviewdog",
+      "source_commit": "a431794dd959800d59924993457dc58b32f03cad",
+      "source_ref": "v0.21.2",
+      "source_tree": "87352ae3da26d6f95a63c8916330a7fe540e20b5",
+      "license": "MIT",
+      "redistribution_obligations": "Retain upstream copyright and permission notice in copies/substantial portions.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/reviewdog/reviewdog/blob/a431794dd959800d59924993457dc58b32f03cad/parser/sarif.go",
+        "https://github.com/reviewdog/reviewdog/blob/a431794dd959800d59924993457dc58b32f03cad/filter/filter.go",
+        "https://github.com/reviewdog/reviewdog/blob/a431794dd959800d59924993457dc58b32f03cad/filter/diff_filter.go"
+      ]
+    },
+    {
+      "candidate": "in-toto",
+      "key": "in-toto",
+      "tier": "A",
+      "decision": "BENCHMARK FURTHER",
+      "equivalent": "Ascout has canonical evidence digests, source start/end identity, engine identity and durable workflow provenance; it does not need another truth kernel.",
+      "gap": "Optional cryptographic export or cross-party handoff of existing receipts needs an explicit trust-root and policy model.",
+      "behavior": "Repeated ephemeral Ed25519 probes: strict REQUIRE/MATCH/DISALLOW policy accepts original bytes and rejects changed/missing product, wrong/missing trust root, altered layout signature and expiry. A permissive MATCH-only fixture accepted tampering; this is a fixture-policy counterexample. A re-signed expected-command mismatch remains warning-only by design. Failed process return 7 can be recorded in a signed link.",
+      "integration": "Optional export/verification around existing canonical receipts. Require artifact presence/closure rules, exact command policy outside warning-only alignment, explicit key ownership and source binding; signatures cannot manufacture verification success.",
+      "improvement": "Observed strict-policy tamper rejection; proposed target zero promotions from signed-but-failed, incomplete or wrong-source evidence.",
+      "cost": "Python/crypto dependencies, key distribution and revocation, layout policy and extra artifact hashing. No mandatory signing service or Python runtime for core.",
+      "unknowns": "Key lifecycle, multi-party threshold policy, DSSE interop, complete source inventory and hostile build execution are not qualified.",
+      "anchors": [
+        "in_toto/runlib.py",
+        "in_toto/verifylib.py",
+        "in_toto/models/layout.py",
+        "in_toto/models/link.py"
+      ],
+      "source_repository": "in-toto/in-toto",
+      "source_commit": "c82fe5d21aaa61c7f1a213db20a46f10bb3f411a",
+      "source_ref": "v3.1.0",
+      "source_tree": "6223b3b2d28778cd951a4d1386bb9a26c42ac94e",
+      "license": "Apache-2.0",
+      "redistribution_obligations": "Retain license/copyright, mark modifications, preserve applicable NOTICE attribution and patent terms.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/in-toto/in-toto/blob/c82fe5d21aaa61c7f1a213db20a46f10bb3f411a/in_toto/runlib.py",
+        "https://github.com/in-toto/in-toto/blob/c82fe5d21aaa61c7f1a213db20a46f10bb3f411a/in_toto/verifylib.py",
+        "https://github.com/in-toto/in-toto/blob/c82fe5d21aaa61c7f1a213db20a46f10bb3f411a/in_toto/models/layout.py",
+        "https://github.com/in-toto/in-toto/blob/c82fe5d21aaa61c7f1a213db20a46f10bb3f411a/in_toto/models/link.py"
+      ]
+    },
+    {
+      "candidate": "StrykerJS",
+      "key": "stryker",
+      "tier": "B",
+      "decision": "ADAPT",
+      "equivalent": "src/assurance/test/mutation-adapter.ts already normalizes attempted/killed/survived counts, source identity, digest and limitations.",
+      "gap": "A real producer adapter can populate existing observation contracts; test planning alone does not execute mutation testing.",
+      "behavior": "Both native suites pass. Boundary-sensitive suite kills 5/5 mutants twice; weak type-only suite kills 1/5 and leaves 4 survivors twice. Default mutation process still exits 0 for the weak suite. Used command runner with coverageAnalysis=off, not Vitest/per-test coverage selection.",
+      "integration": "Thin Stryker JSON translator into the existing mutation adapter, opt-in and budgeted. Preserve each survivor and unresolved timeout/no-coverage/error state; do not map process exit 0 to quality PASS.",
+      "improvement": "Observed four weak-test survivors hidden by ordinary passing tests. Proposed target lossless survivor accounting on source-bound native projects.",
+      "cost": "Repeated scratch runs show mutation costs well above the subsecond native test. See BENCHMARK_RESULTS for every wall/RSS sample; host contention prevents a stable production latency estimate.",
+      "unknowns": "Vitest integration, per-test selection, equivalent mutants, timeout/no-coverage classification and large project costs remain unqualified.",
+      "anchors": [
+        "packages/core/src/mutants/mutant-test-planner.ts",
+        "packages/core/src/mutants/test-coverage.ts",
+        "packages/core/src/mutants/incremental-differ.ts"
+      ],
+      "source_repository": "stryker-mutator/stryker-js",
+      "source_commit": "cb3bd8fe25d5215422c9b632357062d3a43fcf92",
+      "source_ref": "v10.0.0",
+      "source_tree": "f8652c684c2a5b0493b02acf2b6e2b22dc6014bd",
+      "license": "Apache-2.0",
+      "redistribution_obligations": "Retain license/copyright, mark modifications, preserve applicable NOTICE attribution and patent terms.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/stryker-mutator/stryker-js/blob/cb3bd8fe25d5215422c9b632357062d3a43fcf92/packages/core/src/mutants/mutant-test-planner.ts",
+        "https://github.com/stryker-mutator/stryker-js/blob/cb3bd8fe25d5215422c9b632357062d3a43fcf92/packages/core/src/mutants/test-coverage.ts",
+        "https://github.com/stryker-mutator/stryker-js/blob/cb3bd8fe25d5215422c9b632357062d3a43fcf92/packages/core/src/mutants/incremental-differ.ts"
+      ]
+    },
+    {
+      "candidate": "OpenGrep",
+      "key": "opengrep",
+      "tier": "B",
+      "decision": "BENCHMARK FURTHER",
+      "equivalent": "Sentrdel already embeds ast-grep for bounded native structural rules; Ascout already normalizes SAST observations.",
+      "gap": "Potential broader rule/language/dataflow coverage has not been established by the single structural rule. Local diagnostic metadata is richer than the compared Semgrep JSON output.",
+      "behavior": "Released Windows executable with a local eval($X) rule repeatedly returns danger.js and shadow.js and no safe.js match, exit 0. It retains source lines, fingerprints and metavariables. The shadowed eval parameter is a false positive for a built-in-eval security claim, not a proven vulnerability. Missing local rule exits 7. Pilot --metrics flag was unsupported and was corrected.",
+      "integration": "Optional installed producer behind existing SAST/engine boundary with pinned, separately licensed rules, supported-language/parse-error coverage, bounded output and no automatic rule downloads.",
+      "improvement": "Observed metadata preservation advantage on this output format; no demonstrated security-accuracy advantage over Sentrdel or Semgrep. Require a differential rule corpus before adoption.",
+      "cost": "Large native executable and rule-pack maintenance; about 4–6 seconds on this tiny corpus. LGPL component and nested-license review required before redistribution.",
+      "unknowns": "Taint/interfile accuracy, rule-pack licensing, malformed syntax coverage, suppression completeness and full source-to-binary build attestation.",
+      "anchors": [
+        "src/osemgrep/cli_scan/Scan_subcommand.ml",
+        "src/osemgrep/reporting/Sarif_output.ml"
+      ],
+      "source_repository": "opengrep/opengrep",
+      "source_commit": "87668f6dbd28a9b97bcaf294a564fe79e0a7b56e",
+      "source_ref": "v1.31.0",
+      "source_tree": "8a655df72d76f08e10bebe39c1ddda6d845c1a8a",
+      "license": "LGPL-2.1",
+      "redistribution_obligations": "Review exact component and linking-exception text; preserve notices and applicable source/relinking obligations for redistribution. A separate process does not remove license obligations.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/opengrep/opengrep/blob/87668f6dbd28a9b97bcaf294a564fe79e0a7b56e/src/osemgrep/cli_scan/Scan_subcommand.ml",
+        "https://github.com/opengrep/opengrep/blob/87668f6dbd28a9b97bcaf294a564fe79e0a7b56e/src/osemgrep/reporting/Sarif_output.ml"
+      ]
+    },
+    {
+      "candidate": "ast-grep",
+      "key": "ast-grep",
+      "tier": "B",
+      "decision": "ADAPT",
+      "equivalent": "Sentrdel Cargo.toml already pins ast-grep-core=0.45.2 and structural.rs uses AstGrep/Pattern with fixed JS/TS rules.",
+      "gap": "No demonstrated need for a second structural engine. External CLI 0.51.0 is a comparator for rule/location behavior, not evidence that embedded 0.45.2 should be upgraded.",
+      "behavior": "Official released archive inventoried with REA; executable repeatedly finds the two structural eval calls, excludes the string and JSON.parse sentinel, and rejects an unsupported language with exit 2.",
+      "integration": "Reuse and qualify the embedded Sentrdel matcher/rule boundary. Borrow tested pattern/location cases; avoid mandatory external CLI and repository-supplied dynamic grammars.",
+      "improvement": "Target zero redundant structural engines and explicit parser/language omissions. The fixture does not demonstrate better vulnerability detection than current Sentrdel.",
+      "cost": "Small incremental rule qualification within existing Rust engine; broader grammars and rules would increase parser, license and performance surface.",
+      "unknowns": "Embedded-vs-CLI version differential, byte-to-line mapping, malformed syntax and broader language support were not compared at runtime.",
+      "anchors": [
+        "crates/core/src/matcher.rs",
+        "crates/cli/src/run.rs",
+        "crates/cli/src/scan.rs"
+      ],
+      "source_repository": "ast-grep/ast-grep",
+      "source_commit": "48b54b3120b70fa9e8cbb40a03bf3bfebe6bf50a",
+      "source_ref": "0.51.0",
+      "source_tree": "03fa5a9f15302505a744e0592d689466574512f9",
+      "license": "MIT",
+      "redistribution_obligations": "Retain upstream copyright and permission notice in copies/substantial portions.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/ast-grep/ast-grep/blob/48b54b3120b70fa9e8cbb40a03bf3bfebe6bf50a/crates/core/src/matcher.rs",
+        "https://github.com/ast-grep/ast-grep/blob/48b54b3120b70fa9e8cbb40a03bf3bfebe6bf50a/crates/cli/src/run.rs",
+        "https://github.com/ast-grep/ast-grep/blob/48b54b3120b70fa9e8cbb40a03bf3bfebe6bf50a/crates/cli/src/scan.rs"
+      ]
+    },
+    {
+      "candidate": "OSV-Scanner",
+      "key": "osv",
+      "tier": "B",
+      "decision": "BENCHMARK FURTHER",
+      "equivalent": "Sentrdel has bounded Cargo/npm lockfile deltas, offline advisory fixtures and OSV-compatible lookup/cache; Ascout preserves advisory freshness and reachability unknowns.",
+      "gap": "Potential additional ecosystem extraction and maintained vulnerability data, not replacement of existing evidence semantics.",
+      "behavior": "Released Windows binary repeatedly reports five advisory IDs for synthetic lodash 4.17.20, including independently sourced GHSA-35jh-r3h4-6jhm. Offline inventory-only mode can exit 0 without vulnerability matching; --offline-vulnerabilities with no DB exits 127 and reports the missing database. A corrected malformed package-lock probe reaches the supported JavaScript/package-lock extractor and repeatedly rejects invalid JSON with exit 127. The earlier npm: selector probe was an invalid-extractor harness argument error, not a malformed-JSON test. SLSA provenance of this exact binary verifies.",
+      "integration": "Prefer existing Sentrdel OSV boundary. If a scanner adds a measured ecosystem/parser gap, admit it as an optional producer and preserve inventory, database identity/freshness, errors and reachability NOT_COMPUTED. Never enable call-analysis build scripts implicitly.",
+      "improvement": "Observed advisory matching and honest missing-DB failure; broader ecosystem benefit remains a source-backed hypothesis.",
+      "cost": "Approximately 1–2 seconds for a public one-coordinate lookup; network/cache and offline database storage/licensing costs. Offline provisioning was not completed.",
+      "unknowns": "A populated offline DB, reachability, new ecosystems, partial extraction and database redistribution terms require further qualification.",
+      "anchors": [
+        "pkg/osvscanner/osvscanner.go",
+        "pkg/osvscanner/scan.go",
+        "pkg/osvscanner/internal/scanners/lockfile.go"
+      ],
+      "source_repository": "google/osv-scanner",
+      "source_commit": "bfe2f84abd2f09fe0b83ba7f6dad40d296762f40",
+      "source_ref": "v2.7.0",
+      "source_tree": "f7b1a4f49c0af2773f14e6de1f34acdd5e9bb8a8",
+      "license": "Apache-2.0",
+      "redistribution_obligations": "Retain license/copyright, mark modifications, preserve applicable NOTICE attribution and patent terms.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/google/osv-scanner/blob/bfe2f84abd2f09fe0b83ba7f6dad40d296762f40/pkg/osvscanner/osvscanner.go",
+        "https://github.com/google/osv-scanner/blob/bfe2f84abd2f09fe0b83ba7f6dad40d296762f40/pkg/osvscanner/scan.go",
+        "https://github.com/google/osv-scanner/blob/bfe2f84abd2f09fe0b83ba7f6dad40d296762f40/pkg/osvscanner/internal/scanners/lockfile.go"
+      ]
+    },
+    {
+      "candidate": "Gitleaks",
+      "key": "gitleaks",
+      "tier": "B",
+      "decision": "BENCHMARK FURTHER",
+      "equivalent": "Sentrdel secrets.rs already has GitHub classic PAT and AWS access-key-ID rules and redaction-before-evidence construction.",
+      "gap": "The tested GitLab PAT type is outside that enumerated Sentrdel rule set. This is a source-contract comparison, not a runtime Sentrdel recall measurement.",
+      "behavior": "Two deterministic synthetic tokens produce GitHub and GitLab PAT findings in repeated released-binary runs; the public-ID sentinel does not. --redact=100 removes plaintext from Match/Secret fields before shared persistence. Findings and invalid configuration both exit 1 and must be distinguished by output.",
+      "integration": "Optional broader secret producer into existing secret normalization. Preserve rule/location metadata and inventory/skipped states, strip secret material before canonical evidence, and qualify a larger negative corpus.",
+      "improvement": "Demonstrated additional GitLab token-type observation relative to Sentrdel's enumerated source rules. No universal secret-detection claim.",
+      "cost": "Additional binary/rule lifecycle and entropy/allowlist tuning; measured tiny-fixture timings vary with host load and do not predict production cost.",
+      "unknowns": "History/encoded/archive scanning, large files, allowlists, false-positive rate and redaction completeness on all output surfaces.",
+      "anchors": [
+        "detect/detect.go",
+        "cmd/directory.go",
+        "cmd/git.go"
+      ],
+      "source_repository": "gitleaks/gitleaks",
+      "source_commit": "83d9cd684c87d95d656c1458ef04895a7f1cbd8e",
+      "source_ref": "v8.30.1",
+      "source_tree": "18ffe9bab74b97087f58f56c9cfe0fe28ddc97a6",
+      "license": "MIT",
+      "redistribution_obligations": "Retain upstream copyright and permission notice in copies/substantial portions.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/gitleaks/gitleaks/blob/83d9cd684c87d95d656c1458ef04895a7f1cbd8e/detect/detect.go",
+        "https://github.com/gitleaks/gitleaks/blob/83d9cd684c87d95d656c1458ef04895a7f1cbd8e/cmd/directory.go",
+        "https://github.com/gitleaks/gitleaks/blob/83d9cd684c87d95d656c1458ef04895a7f1cbd8e/cmd/git.go"
+      ]
+    },
+    {
+      "candidate": "TesterArmy E2E",
+      "key": "testerarmy",
+      "tier": "B",
+      "decision": "ADAPT",
+      "equivalent": "Ascout already has a qualified Playwright executor, locator policy, source-bound browser evidence, journeys and oracle contracts. PR #597 proposes optional TesterArmy adoption only.",
+      "gap": "Narrow real browser role-action/text-assertion capability can improve the existing adapter; another complete browser framework is not demonstrated as necessary.",
+      "behavior": "Earlier repeated local CDP journeys passed without model calls; broken click behavior failed and empty selection exited 2. A later bounded positive attempt failed, while its next positive attempt passed. All observations are retained: this is not stable cross-platform qualification. Chromium 153 attaches over loopback CDP. Initial invalid config/locator calls were harness errors, corrected before those observations. Shipped JavaScript slices were analyzed with REA.",
+      "integration": "Adapt assertion and run-accounting ideas into existing Playwright adapter; keep existing locator/executor/evidence authority. Treat optional external provider execution as code-trust and separately admitted effects.",
+      "improvement": "Observed real UI state assertion discriminates working and broken behavior with zero model tokens. Proposed target: explicit unavailable assertions become qualified outcomes, without replacing core contracts.",
+      "cost": "Browser/runner startup and cleanup costs varied substantially with host contention. Later bounded positive failure remains material. Telemetry was disabled; no model or remote browser service was used.",
+      "unknowns": "Upstream documents Windows via WSL; native Windows CDP observations do not establish general Windows support. Mobile, model steps, cache replay, egress policy and broad journeys remain unqualified.",
+      "anchors": [
+        "packages/web/src/engine.ts",
+        "packages/web/src/browser-connection.ts",
+        "packages/web/src/surface.ts"
+      ],
+      "source_repository": "tester-army/e2e",
+      "source_commit": "393005aa6952eaef62886cd03c8d8060f8f05a4f",
+      "source_ref": "@e2e-dev/testmu@0.0.1",
+      "source_tree": "2b22df6134269a831f0f09fe5e7afaf9ea6fb0b5",
+      "license": "Apache-2.0",
+      "redistribution_obligations": "Retain license/copyright, mark modifications, preserve applicable NOTICE attribution and patent terms.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/tester-army/e2e/blob/393005aa6952eaef62886cd03c8d8060f8f05a4f/packages/web/src/engine.ts",
+        "https://github.com/tester-army/e2e/blob/393005aa6952eaef62886cd03c8d8060f8f05a4f/packages/web/src/browser-connection.ts",
+        "https://github.com/tester-army/e2e/blob/393005aa6952eaef62886cd03c8d8060f8f05a4f/packages/web/src/surface.ts"
+      ]
+    },
+    {
+      "candidate": "Semgrep OSS",
+      "key": "semgrep",
+      "tier": "C",
+      "decision": "REJECT",
+      "equivalent": "Existing Sentrdel structural/SAST contracts and the optional OpenGrep challenger cover the evaluated producer role.",
+      "gap": "No unique detection benefit demonstrated in the compared rule. Rejection is for adding a redundant default dependency, not a claim that Semgrep is generally inferior.",
+      "behavior": "Released 1.181.0 Windows wheel and CLI repeatedly report the same two eval matches with exit 0 and missing-rule exit 7. JSON lines/fingerprint fields say 'requires login' where the OpenGrep comparator supplied local values. Deprecated python -m invocation was a harness error, then corrected to the installed CLI.",
+      "integration": "Retain as a comparator for rule/format contracts; do not add a second default producer. If another task proves unique benefit, requalify exact OSS/paid boundaries and rule licenses.",
+      "improvement": "Avoid duplicate engine and dependency cost; no measured recall improvement is asserted for either challenger.",
+      "cost": "Python plus native engine and LGPL/nested-license obligations. Scratch transitive installation is not a product dependency approval.",
+      "unknowns": "Other output formats may expose different metadata; no claim that all offline OSS metadata is unavailable. Rule and taint corpora were not broadly evaluated.",
+      "anchors": [
+        "cli/src/semgrep/formatter/sarif.py",
+        "cli/src/semgrep/commands/scan.py"
+      ],
+      "source_repository": "semgrep/semgrep",
+      "source_commit": "72d3525fe7e02f486428386078f192f8c4756804",
+      "source_ref": "v1.181.0",
+      "source_tree": "2349a2dea620b47fccd248bd84e9ff90a660d3ce",
+      "license": "LGPL-2.1",
+      "redistribution_obligations": "Review exact component and linking-exception text; preserve notices and applicable source/relinking obligations for redistribution. A separate process does not remove license obligations.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/semgrep/semgrep/blob/72d3525fe7e02f486428386078f192f8c4756804/cli/src/semgrep/formatter/sarif.py",
+        "https://github.com/semgrep/semgrep/blob/72d3525fe7e02f486428386078f192f8c4756804/cli/src/semgrep/commands/scan.py"
+      ]
+    },
+    {
+      "candidate": "Trivy",
+      "key": "trivy",
+      "tier": "C",
+      "decision": "BENCHMARK FURTHER",
+      "equivalent": "Ascout already normalizes IaC/CI observations; Sentrdel has bounded configuration and workflow detection, not a qualified general Terraform execution path here.",
+      "gap": "Offline embedded Terraform checks may cover a concrete configuration class, but a second broad vulnerability engine is not justified by this fixture.",
+      "behavior": "Linux release runs in WSL. A linked S3 bucket/public-access-block fixture produces seven configuration findings including four deliberately false block controls. Setting those four controls true removes those four while other policy suggestions remain. An unlinked pilot resource produced no findings. Empty vulnerability DB with updates disabled fails explicitly.",
+      "integration": "Optional IaC producer only after differential fixture qualification. Preserve the exact check bundle, static configuration uncertainty, files skipped and vulnerability-DB state.",
+      "improvement": "Observed sensitivity to four linked Terraform controls; no runtime cloud-posture, exploitability or broad false-positive conclusion.",
+      "cost": "Large binary, check bundle and vulnerability DB for SCA. WSL target RSS/CPU were not measured; recorded Windows wrapper samples are not Linux resource measurements.",
+      "unknowns": "Terraform modules/variables, provider versions, policy applicability, secret/SCA modes and native Windows/macOS behavior.",
+      "anchors": [
+        "pkg/db/db.go",
+        "pkg/flag/db_flags.go"
+      ],
+      "source_repository": "aquasecurity/trivy",
+      "source_commit": "531360e5d2a88e732373f1614ba99a38738538b8",
+      "source_ref": "v0.76.0",
+      "source_tree": "9165d17f5dace6c0300c05dfa08bee9b18c09d4a",
+      "license": "Apache-2.0",
+      "redistribution_obligations": "Retain license/copyright, mark modifications, preserve applicable NOTICE attribution and patent terms.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/aquasecurity/trivy/blob/531360e5d2a88e732373f1614ba99a38738538b8/pkg/db/db.go",
+        "https://github.com/aquasecurity/trivy/blob/531360e5d2a88e732373f1614ba99a38738538b8/pkg/flag/db_flags.go"
+      ]
+    },
+    {
+      "candidate": "pytest-impact",
+      "key": "pytest-impact",
+      "tier": "C",
+      "decision": "REJECT",
+      "equivalent": "Native full pytest is the current conservative control; testmon provides a separately tested coverage-history candidate.",
+      "gap": "The inspected selector focuses on tests, fixtures and conftest surfaces; it does not establish arbitrary production import or text-data dependency closure.",
+      "behavior": "Pinned v0.1.0 source plugin executes against two collected tests. A changed imported production function and a changed text input each deselect both tests, exit 5, while corresponding full native runs fail; repeated. This is scoped behavior of the fixture-aware selector, not a donor vulnerability allegation.",
+      "integration": "Reject as a general affected-test oracle for Ascout. Fixture/conftest widening ideas may inform an independently qualified conservative policy.",
+      "improvement": "Avoid the demonstrated missed relevant test when selecting production/data changes. Do not use zero-selection exit as success.",
+      "cost": "Small optional Python plugin but static inference and fallback configuration have maintenance costs.",
+      "unknowns": "Fixture-specific benefits, user-configured fallback patterns and broader native donor tests were not qualified. Executed source plugin, not a wheel artifact.",
+      "anchors": [
+        "src/pytest_impact/plugin.py",
+        "src/pytest_impact/selection.py",
+        "src/pytest_impact/gitio.py",
+        "src/pytest_impact/astdiff.py"
+      ],
+      "source_repository": "az-pz/pytest-impact",
+      "source_commit": "4498038f89004c45788df974a2111af746983ea0",
+      "source_ref": "v0.1.0",
+      "source_tree": "7810568d846f1766c46811063a50d30996539ceb",
+      "license": "MIT",
+      "redistribution_obligations": "Retain upstream copyright and permission notice in copies/substantial portions.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/az-pz/pytest-impact/blob/4498038f89004c45788df974a2111af746983ea0/src/pytest_impact/plugin.py",
+        "https://github.com/az-pz/pytest-impact/blob/4498038f89004c45788df974a2111af746983ea0/src/pytest_impact/selection.py",
+        "https://github.com/az-pz/pytest-impact/blob/4498038f89004c45788df974a2111af746983ea0/src/pytest_impact/gitio.py",
+        "https://github.com/az-pz/pytest-impact/blob/4498038f89004c45788df974a2111af746983ea0/src/pytest_impact/astdiff.py"
+      ]
+    },
+    {
+      "candidate": "SLSA Verifier",
+      "key": "slsa",
+      "tier": "C",
+      "decision": "ADOPT",
+      "equivalent": "Ascout source/digest binding exists, but ordinary downloaded-artifact checksum comparison does not authenticate the build/source claim.",
+      "gap": "Research artifact acquisition benefits from verifier-backed builder/source binding.",
+      "behavior": "Official v2.7.1 Linux binary verifies OSV-Scanner v2.7.0 Windows executable against published provenance twice, matching builder and source commit bfe2f84abd2f09fe0b83ba7f6dad40d296762f40. Wrong source, changed artifact and omitted provenance are rejected.",
+      "integration": "ADOPT for the research acquisition procedure where supported provenance exists. This does not add production runtime behavior, install a required service or authorize scanner execution.",
+      "improvement": "Observed rejection of checksum/source substitution cases that a locally computed digest alone cannot authenticate.",
+      "cost": "Optional verifier executable and Sigstore trust bootstrap/cache; no paid service. WSL wrapper timing includes verification/network work and is not a microbenchmark.",
+      "unknowns": "Air-gapped trust-root bootstrap, other builders and producer-specific provenance formats remain unqualified; provenance does not prove tool correctness or license compliance.",
+      "anchors": [
+        "cli/slsa-verifier/verify/verify_artifact.go",
+        "cli/slsa-verifier/verify/options.go"
+      ],
+      "source_repository": "slsa-framework/slsa-verifier",
+      "source_commit": "ea584f4502babc6f60d9bc799dbbb13c1caa9ee6",
+      "source_ref": "v2.7.1",
+      "source_tree": "706ff67e3935ca19d215fc9605062d1894a27bc4",
+      "license": "Apache-2.0",
+      "redistribution_obligations": "Retain license/copyright, mark modifications, preserve applicable NOTICE attribution and patent terms.",
+      "architectural_compatibility": "Optional adapter-first; preserve current authority, source binding, no-green-by-omission, command admission and zero mandatory cloud/model/runtime dependencies.",
+      "decision_scope": "Research recommendation only; no production implementation, policy amendment, merge or release authorization.",
+      "source_links": [
+        "https://github.com/slsa-framework/slsa-verifier/blob/ea584f4502babc6f60d9bc799dbbb13c1caa9ee6/cli/slsa-verifier/verify/verify_artifact.go",
+        "https://github.com/slsa-framework/slsa-verifier/blob/ea584f4502babc6f60d9bc799dbbb13c1caa9ee6/cli/slsa-verifier/verify/options.go"
+      ]
+    }
+  ]
+}

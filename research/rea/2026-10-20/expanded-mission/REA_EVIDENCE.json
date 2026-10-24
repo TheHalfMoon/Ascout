@@ -1,0 +1,343 @@
+{
+  "official_mcp_package": "rea-agents@6.3.0",
+  "official_package_source_commit": "74cf9e1401fcd89482fe39c27cc898f5858e9b72",
+  "raw_bundle_sha256": "836108113d26e38717883b8793d52a15421676b7aa902e019a1ee8a2fdde2d42",
+  "raw_bundle_bytes": 12826084,
+  "sanitized_bundle_sha256": "0e8c5ce5a417592b5362f52613b6a39d1f1ed8678495f3a9ffc7da146b07ccf8",
+  "records": [
+    {
+      "evidence_id": "ev_02040ea250d998b86239a1cdcfc589e1c0074b8844f9e26771a97bb840f94987",
+      "operation": "inspect_artifact",
+      "subject_digest": {
+        "sha256": "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "observed",
+      "artifact_coverage": {
+        "hypotheses_omitted": 0,
+        "hypotheses_retained": 0,
+        "next_probes_omitted": 0,
+        "next_probes_retained": 0,
+        "observations_omitted": 0,
+        "observations_retained": 9,
+        "relationships_omitted": 0,
+        "relationships_retained": 3,
+        "status": "complete-within-substeps",
+        "substeps_completed": 1,
+        "unexplored_branches_omitted": 0,
+        "unexplored_branches_retained": 0
+      },
+      "application_coverage": null,
+      "semantic_coverage_status": null,
+      "nodes": 0,
+      "edges": 0,
+      "semantic_unknown_count": 0,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": [
+        "Inspection derives bounded static hypotheses and next probes; it does not execute the artifact or claim format-specific semantics."
+      ]
+    },
+    {
+      "evidence_id": "ev_09d4f6723052769986ba5617141dd6cc6848df57bd9da06d43cf9315e6e8a12c",
+      "operation": "inventory_artifact",
+      "subject_digest": {
+        "sha256": "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "observed",
+      "artifact_coverage": null,
+      "application_coverage": null,
+      "semantic_coverage_status": null,
+      "nodes": 0,
+      "edges": 0,
+      "semantic_unknown_count": 0,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": []
+    },
+    {
+      "evidence_id": "ev_16847d388b67385bc7ab8e7f734c8b9462e6a0993f471f07d5ab032269e12c49",
+      "operation": "inventory_artifact",
+      "subject_digest": {
+        "sha256": "1a5b7824c5925ac34257f806488e54860817cefd855fd308d13df7550d068908"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "observed",
+      "artifact_coverage": null,
+      "application_coverage": null,
+      "semantic_coverage_status": null,
+      "nodes": 0,
+      "edges": 0,
+      "semantic_unknown_count": 0,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": []
+    },
+    {
+      "evidence_id": "ev_684ebb2d11d44ab63484918273ba2f5d0eca27a47173355cce1512d9840b843e",
+      "operation": "analyze_javascript_application",
+      "subject_digest": {
+        "sha256": "6bbe74b48d468b4a4344fcd8ff97dccac8f888e69ffc38d8d64eb1755bc1fed3"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "derived",
+      "artifact_coverage": null,
+      "application_coverage": {
+        "limits": [],
+        "omitted_count": 0,
+        "status": "complete",
+        "truncated": false
+      },
+      "semantic_coverage_status": "unknown",
+      "nodes": 23,
+      "edges": 24,
+      "semantic_unknown_count": 250,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": [
+        "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+        "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+        "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+        "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+        "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+      ]
+    },
+    {
+      "evidence_id": "ev_79144a17bdc543c5dd62d437303022169b10dac7ec39d21c16a5d5dd12104be8",
+      "operation": "inventory_artifact",
+      "subject_digest": {
+        "sha256": "fe8c69a8dae32690d116bb8112e7d6da53bbad3b9a4057ff8d43f1a5a90ee2d4"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "observed",
+      "artifact_coverage": null,
+      "application_coverage": null,
+      "semantic_coverage_status": null,
+      "nodes": 0,
+      "edges": 0,
+      "semantic_unknown_count": 0,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": []
+    },
+    {
+      "evidence_id": "ev_7c5ebcbc8ae3410b1fd9723d2100b50b6cda3bd81fd61a3287ae2ae6aa501b08",
+      "operation": "inspect_artifact",
+      "subject_digest": {
+        "sha256": "fe8c69a8dae32690d116bb8112e7d6da53bbad3b9a4057ff8d43f1a5a90ee2d4"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "observed",
+      "artifact_coverage": {
+        "hypotheses_omitted": 0,
+        "hypotheses_retained": 0,
+        "next_probes_omitted": 0,
+        "next_probes_retained": 0,
+        "observations_omitted": 0,
+        "observations_retained": 59,
+        "relationships_omitted": 0,
+        "relationships_retained": 28,
+        "status": "complete-within-substeps",
+        "substeps_completed": 1,
+        "unexplored_branches_omitted": 0,
+        "unexplored_branches_retained": 0
+      },
+      "application_coverage": null,
+      "semantic_coverage_status": null,
+      "nodes": 0,
+      "edges": 0,
+      "semantic_unknown_count": 0,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": [
+        "Inspection derives bounded static hypotheses and next probes; it does not execute the artifact or claim format-specific semantics."
+      ]
+    },
+    {
+      "evidence_id": "ev_82d89ac423eed4fe2b1a547acb7db50babd6f611d672205e5bcfdc82ad5cc285",
+      "operation": "inspect_artifact",
+      "subject_digest": {
+        "sha256": "2604ca44a54d61a2e830d9ce828b41a837075e4ebc1f81b148add8e90d34815b"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "observed",
+      "artifact_coverage": {
+        "hypotheses_omitted": 0,
+        "hypotheses_retained": 0,
+        "next_probes_omitted": 0,
+        "next_probes_retained": 0,
+        "observations_omitted": 0,
+        "observations_retained": 29,
+        "relationships_omitted": 0,
+        "relationships_retained": 13,
+        "status": "complete-within-substeps",
+        "substeps_completed": 1,
+        "unexplored_branches_omitted": 0,
+        "unexplored_branches_retained": 0
+      },
+      "application_coverage": null,
+      "semantic_coverage_status": null,
+      "nodes": 0,
+      "edges": 0,
+      "semantic_unknown_count": 0,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": [
+        "Inspection derives bounded static hypotheses and next probes; it does not execute the artifact or claim format-specific semantics."
+      ]
+    },
+    {
+      "evidence_id": "ev_a43f9d9fd4bf0593f4fd23d2f4106c17e533c7152ce9610674940027556c9251",
+      "operation": "trace_javascript_semantics",
+      "subject_digest": null,
+      "authority": "analyst-inference",
+      "confidence": "inferred",
+      "artifact_coverage": {
+        "status": "partial"
+      },
+      "application_coverage": null,
+      "semantic_coverage_status": null,
+      "nodes": 0,
+      "edges": 0,
+      "semantic_unknown_count": 0,
+      "trace_status": "ambiguous",
+      "trace_summary": {
+        "relevant_unknowns": 2,
+        "total_seed_matches": 1,
+        "traversed_functions": 1,
+        "traversed_modules": 1,
+        "traversed_nodes": 1,
+        "traversed_relations": 0
+      },
+      "limitations": [
+        "Artifact identity is unavailable for this observation.",
+        "Boundary extraction covers unshadowed JSON/global coercions plus parse and validation method candidates.",
+        "Candidate relations remain ambiguous and do not establish a resolved semantic path.",
+        "Child-process extraction covers asynchronous node:child_process creation, literal argv/env/stdio options, exit/error listeners, and kill signals.",
+        "Configuration extraction covers process.env, process.argv, node:fs reads, and direct logical defaults.",
+        "Event extraction covers EventEmitter-style literal registrations, removals, and dispatch candidates; dynamic names remain unknown.",
+        "Function fingerprints are static candidates; equal digests can remain ambiguous and do not prove behavioral equivalence.",
+        "Local data flow does not claim control-flow-sensitive reaching definitions or arbitrary dynamic property resolution.",
+        "Promise ownership covers explicit unshadowed Promise construction, static factories, aggregation, chaining, and await syntax only.",
+        "Relevant dynamic, unsupported, incomplete, or ambiguous semantics remain unknown.",
+        "Request extraction covers fetch, WebSocket, node:http/node:https construction, direct option fields, and exact local response consumers.",
+        "Resource extraction covers built-in filesystem/network acquisition and exact local close/destroy/end handles.",
+        "Semantic graph reachability is a static inference and does not prove runtime execution.",
+        "The semantic graph contains static syntax observations and conservative relationship candidates; it does not claim runtime execution.",
+        "Timer extraction covers global or node:timers scheduling and exact local-handle cancellation."
+      ]
+    },
+    {
+      "evidence_id": "ev_aa687635a2f6b93e6cc1941daf7de1e14508bf00f26ba00e2d64e0b98e8747e5",
+      "operation": "inventory_artifact",
+      "subject_digest": {
+        "sha256": "2604ca44a54d61a2e830d9ce828b41a837075e4ebc1f81b148add8e90d34815b"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "observed",
+      "artifact_coverage": null,
+      "application_coverage": null,
+      "semantic_coverage_status": null,
+      "nodes": 0,
+      "edges": 0,
+      "semantic_unknown_count": 0,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": []
+    },
+    {
+      "evidence_id": "ev_d9b3d566a4e7097c746ad972e1e215b23fe7db5f69852809757156fec2b2b9fe",
+      "operation": "analyze_javascript_application",
+      "subject_digest": {
+        "sha256": "f4d5b5c7c1d3ac3bbd0d7b254e5e4df11ec38e593c6c4b27a9538ea853eef9d5"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "derived",
+      "artifact_coverage": null,
+      "application_coverage": {
+        "limits": [],
+        "omitted_count": 0,
+        "status": "complete",
+        "truncated": false
+      },
+      "semantic_coverage_status": "unknown",
+      "nodes": 136,
+      "edges": 151,
+      "semantic_unknown_count": 1407,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": [
+        "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+        "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+        "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+        "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+        "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+      ]
+    },
+    {
+      "evidence_id": "ev_e9b1d29663073f16115316eb475861005146399fd5157256717f8ddad58e1408",
+      "operation": "analyze_javascript_application",
+      "subject_digest": {
+        "sha256": "e2b1d2fb9f56d30919c452848b9284e68419e19230004ea7d83a3b30026e75e6"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "derived",
+      "artifact_coverage": null,
+      "application_coverage": {
+        "limits": [],
+        "omitted_count": 0,
+        "status": "complete",
+        "truncated": false
+      },
+      "semantic_coverage_status": "unknown",
+      "nodes": 32,
+      "edges": 41,
+      "semantic_unknown_count": 419,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": [
+        "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+        "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+        "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+        "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+        "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+      ]
+    },
+    {
+      "evidence_id": "ev_eb4d2299321a835a5b75974dc7414f2a2857d0f0e330531fd32457dfad2a5470",
+      "operation": "inspect_artifact",
+      "subject_digest": {
+        "sha256": "1a5b7824c5925ac34257f806488e54860817cefd855fd308d13df7550d068908"
+      },
+      "authority": "shipped-artifact",
+      "confidence": "observed",
+      "artifact_coverage": {
+        "hypotheses_omitted": 0,
+        "hypotheses_retained": 0,
+        "next_probes_omitted": 0,
+        "next_probes_retained": 0,
+        "observations_omitted": 0,
+        "observations_retained": 7,
+        "relationships_omitted": 0,
+        "relationships_retained": 2,
+        "status": "complete-within-substeps",
+        "substeps_completed": 1,
+        "unexplored_branches_omitted": 0,
+        "unexplored_branches_retained": 0
+      },
+      "application_coverage": null,
+      "semantic_coverage_status": null,
+      "nodes": 0,
+      "edges": 0,
+      "semantic_unknown_count": 0,
+      "trace_status": null,
+      "trace_summary": null,
+      "limitations": [
+        "Inspection derives bounded static hypotheses and next probes; it does not execute the artifact or claim format-specific semantics."
+      ]
+    }
+  ],
+  "sanitization_notice": "Published bundle is a sanitized derivative for inspection, not an authenticated original accepted for re-import. Original IDs and hashes remain references; absolute host paths changed. Artifact byte digests are preserved. Originals remain local; reproduce/export fresh original Evidence to validate REA claims.",
+  "coverage_notice": "Inventory completeness is bounded to the supplied archive/slice. Static semantic coverage is unknown/partial and never proves runtime behavior. No native decompilation was performed."
+}
