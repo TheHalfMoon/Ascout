@@ -10,4 +10,4 @@
 - [x] Separate fresh consistency/purity clear at570d59d before package/test/notice edits; bounded implementation authority recorded afterward.
 - [x] Actual exact candidate install/tree/audits/signatures/typecheck/build/20focused tests and both complete native controls captured; source reviews complete. Both full controls remain FAIL; source binding and every deadline/skip retained.
 - [x] Final integrated/publication review, all actual final-head hosted CI/Self, ordinary eligible merge and six actual canonical postmerge suites established; inner Self exit4 and both localFAILs retained.
-- [ ] Closing evidence publication and actual remote byte/hash readback established before a later task; no E00/release inference.
+- [x] Closing221-member packet/report/lock and three review sidecars actually downloaded atd946cd5 and byte/hash verified; REMOTE_READBACK.json retains proof before a later task; no E00/release inference.

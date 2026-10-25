@@ -1,6 +1,6 @@
 # Task022-T01: repair current development dependency advisories
 
-Status: focused source merged through PR644/main62e588a with six actual postmerge native passes; closing publication/readback pending; both localFAILs retained; E00/releaseBLOCKED. Base canonical mainaf5de7d1c56030d8842fc85c334cb8933d63fc08. Focused predecessor Task021 is closed through PR643, with six actual postmerge native passes and remotely verified closing evidence at1f24cc68d837145224510d184dbbe10e0c326232. E00/browser reliability, packaging compatibility and release readiness remain BLOCKED; completed REA/features are preserved.
+Status: focused source merged through PR644/main62e588a with six actual postmerge native passes; closing packet/reviews remotely verified atd946cd5, focused CLOSED_CANONICAL; both localFAILs retained; E00/releaseBLOCKED. Base canonical mainaf5de7d1c56030d8842fc85c334cb8933d63fc08. Focused predecessor Task021 is closed through PR643, with six actual postmerge native passes and remotely verified closing evidence at1f24cc68d837145224510d184dbbe10e0c326232. E00/browser reliability, packaging compatibility and release readiness remain BLOCKED; completed REA/features are preserved.
 
 ## Constitution compliance and observed need
 

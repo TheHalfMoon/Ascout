@@ -1,0 +1,56 @@
+{
+  "observed_at_utc": "2026-10-25T07:02:06.745122+00:00",
+  "head": "d946cd5b3ecc8710716f353c98810dcdefdf7d53",
+  "branch": "evidence/dependency-patches-postmerge-20261025",
+  "path": "qualification/development-dependencies/2026-10-25-closeout",
+  "core_receipt": {
+    "observed_at_utc": "2026-10-25T07:01:29.725919+00:00",
+    "head": "d946cd5b3ecc8710716f353c98810dcdefdf7d53",
+    "branch": "evidence/dependency-patches-postmerge-20261025",
+    "path": "qualification/development-dependencies/2026-10-25-closeout",
+    "remote_ref_verified": true,
+    "remote_bytes_equal_local": true,
+    "all_member_hashes_crc_json_python_verified": true,
+    "members": 221,
+    "files": {
+      "evidence-lock.json": {
+        "sha256": "3bab72fb5d962400ce459866b078f27511a6b4831ad954c6cc52131fb8777d50",
+        "bytes": 632,
+        "git_blob": "4a61aaee42fe30128dd88cb9383fcf4336e06b86"
+      },
+      "evidence.zip": {
+        "sha256": "c7b05d96907021d80f8a122b7770639b3db6adb3294f57615d00d7500b7bd5b9",
+        "bytes": 991348,
+        "git_blob": "067ce2bc10ab323d75b94898d0d8e2ab510dfafd"
+      },
+      "REPORT.md": {
+        "sha256": "66abb49c68563949642f5d787fb8f3bda10e2a70cb8e6cdf16845487013cf61b",
+        "bytes": 4762,
+        "git_blob": "fac3ab9d85752152451e4e87423c123ce1b03aa2"
+      }
+    },
+    "notice": "Remote evidence durability only; no authentication of sanitized originals or release approval."
+  },
+  "actual_remote_review_sidecar_bytes_equal": true,
+  "records": [
+    {
+      "path": "closing-review-manifest.json",
+      "sha256": "73f119c760de5addef36257690fd6eebca8eb42cec4a9306d025c0f1b6aa3bdf",
+      "bytes": 1095,
+      "git_blob": "029afa2c1b19eb2d7a8f33169e8881815209be33"
+    },
+    {
+      "path": "dependency-closing-review-correctness-2e3f90b.json",
+      "sha256": "cf793aac8eed1ed9075f4c1fc06ca4cea7e73fa8baceef5221b6d496f30eeb52",
+      "bytes": 42549,
+      "git_blob": "1ac241f630a6a4952cde736750c3b50eb04c6921"
+    },
+    {
+      "path": "dependency-closing-review-privacy-2e3f90b.json",
+      "sha256": "303e0390b6a939b64f5cf1acc0fa0038130d2c19ac28785d79ff3889b603d74d",
+      "bytes": 96909,
+      "git_blob": "21fb94423fcce2b444128d164f0eeaa7465cc9a3"
+    }
+  ],
+  "notice": "Actual remote core/archive/lock/report/review readback; no release approval. Remote receipt will be preserved separately without recursive self-hashing."
+}
