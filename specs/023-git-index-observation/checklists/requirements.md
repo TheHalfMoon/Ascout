@@ -1,0 +1,11 @@
+# Requirements quality checklist
+
+- [x] User-derived bounded timeout repair intent, exact main and predecessor canonical/remote evidence identified.
+- [x] Actual serial deadline failure and native count diagnostic retained with causal limits.
+- [x] Native combined ordinary records demonstrated; hostile/hidden/unsupported qualification still required.
+- [x] Process-count RED/GREEN, malformed/visibility/path/double-observation boundaries and exact unchanged full-suite controls specified.
+- [x] Small allowed paths; no dependencies, production API, authority/filter/hash/deadline/config/workflow/browser/packaging expansion.
+- [x] Fresh plan/consistency/source/security/CI/canonical/publication/remote gates specified; no provider/UA-P07 waiver.
+- [ ] Fresh final plan/gate audit clear at exact prospective head.
+- [ ] Different fresh resulting-head consistency and branch purity clear before source/test edits.
+- [ ] Actual implementation/native qualification/reviews/hosted/canonical/publication controls executed and preserved.
