@@ -1,0 +1,11 @@
+# Cross-artifact analysis
+
+The observed concurrent dispose returns before physical cleanup finishes. A separate synthetic-handle public startup diagnostic observes no browser-close attempt on context/page creation errors. Both bind the unchanged canonical adapter and compiled module. Neither explains historical shutdown latency or T103 full-suite failure. The scope repairs the same adapter's owned-resource lifetime, not browser features or packaging.
+
+Constitution principles I/II/III/IV/V/VII and existing P016/A05 browser authority remain intact: direct evidence, explicit failures, source binding, local scope, native APIs and owned cleanup. Native AggregateError preserves two failures without a new receipt schema or dependency. Command/provisioning authority, selectors, pins, admission, artifact paths and all existing timeouts remain frozen. No new UA-P07 or security profile.
+
+Spec requirements map to executable tasks: concurrent and startup ownership/error contracts→new RED/GREEN; bounded production repair→one adapter; native behavior→existing browser integration plus supported diagnostic and available frozen TesterArmy controls; qualification→strict type/build/focused/full; governance→fresh audit/consistency/authority/source/resource review/final CI/canonical/remote gates. Local D1/OCR/Graft cannot replace independent required judgment. Same-provider lineage and unsupported evidence remain explicit.
+
+No open material product choice remains: one owned attempt shared by all disposal callers; immediate inactivity; both cleanup attempts and ordered native errors; awaited startup cleanup without retry. The plan excludes later direct-Vitest packaging work, existing test changes, arbitrary process intervention and unsupported process capture. First/second reductions remove frameworks, knobs, services and architecture expansion.
+
+The predecessor's complete local FAIL and actual inner Self FAIL remain release/E00 blockers, not silently reclassified. Focused task qualification requires genuine execution, truthful failure retention and repair/blocking on an in-scope regression; all actual final-head and canonical controls remain required. Prospective planning does not authorize source/tests. A material review finding requires reconciliation and a new exact-head review before proceeding.

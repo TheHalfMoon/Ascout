@@ -1,0 +1,9 @@
+# Independent final plan and gate audit
+
+Fresh judge returned PLAN_CLEAR at immutable `7422086abbc393b10c1bcb89f6af2f824cdc896e`, tree `2cfc4a69aa496751d13e5c2f931741a0714a2519`, base canonical `96c18b3a300c844e9766d272e8eb4f5c3a790e63`. Final report `cleanup-plan-audit-7422086.json` original SHA256 **1522a24f50691eb4967685fdb589bb26cd23f8d34a837cde475cd41610119cba**. The report was finalized before its hash was read. No material findings or plan changes.
+
+The judge verified clean exact head, seven planning-only paths, all sixteen frozen source/test/manifest/authority bindings and compiled adapter, live effective governance and PR645 canonical merge/parents/tree/valid signature. It independently downloaded the predecessor's three closing core files and five sidecar/receipt files at1d65483, verified byte/hash/blob bindings and143-member ZIP CRC. Both local full FAIL and inner Self FAIL remain E00/release blockers; no historical causal conclusion is drawn.
+
+The startup cleanup policy is adequate within this bounded scope: the current plain context has no trace/video/artifact recording, and a failed startup has not published a runtime. Browser.close owns those pages/contexts. The installed API's graceful-context-close recommendation does not require a separate startup cleanup phase here. Normal disposal still awaits context then browser, preserving both errors. No extra lifecycle framework or scope was introduced.
+
+This is a fresh context with shared OpenAI model/provider lineage, not provider-independent certification. No project tests, source edits, inference, installs or repository mutation were performed by the judge. PLAN_CLEAR does not authorize implementation, merge or release. A different fresh exact-head consistency/purity review and bounded user-derived authority must still precede project tests/source, followed by every planned qualification/review/canonical/remote gate. No UA-P07 or admission waiver.

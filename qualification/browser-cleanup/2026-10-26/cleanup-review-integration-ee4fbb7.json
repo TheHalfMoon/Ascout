@@ -1,0 +1,107 @@
+{
+  "kind": "TASK024_FRESH_INTEGRATED_CORRECTNESS_PRODUCT_PARSIMONY_REVIEW",
+  "reviewer": "/root/cleanup_final_integration",
+  "reviewed_head": "ee4fbb7143295028b2657fe9d396971917ee824d",
+  "reviewed_tree": "14acb338c61c981af98f3bb4117824a40a5c9449",
+  "source_head": "88675d2fa6425ac4938a2da2e931aed57559bb65",
+  "source_tree": "bb1aa3b9c73300c87390146e7300c68d4e1f5617",
+  "canonical_base": "96c18b3a300c844e9766d272e8eb4f5c3a790e63",
+  "verdict": "NO_MATERIAL_INTEGRATION_FINDINGS_FULL_SUITE_FAIL_AND_PENDING_GATES_RETAINED",
+  "must_fix": [],
+  "worth_considering": [],
+  "skip_it": [],
+  "panel": "light combined fresh context, session model; inline correctness/product/parsimony bars; separate finalized source resource/security report retained",
+  "provider_limit": "Fresh context shares OpenAI model/provider lineage with the author and source reviewers. No provider-independent certification. No project CLAUDE Capabilities or PRODUCT.md exists; user-level CLAUDE d1 instructions were read. D1 remains advisory. Local Alibaba preview/rules and Graft are observations, not external-provider reviews or release approval.",
+  "scope_verification": {
+    "clean_start_and_end": true,
+    "changed_paths_against_base": 15,
+    "all_paths_in_task024_allowlist": true,
+    "after_source_review": "Exactly nine documentation/evidence paths changed after 88675d2; no executable, test, package, lock, configuration, workflow, constitution or authority changes.",
+    "adapter_blob_source_and_integrated": "0c89b234f7e4cb97d8922943a1dba94a25ba1e5c",
+    "new_test_blob_source_and_integrated": "1c22016c7e38a14d1611e8d131aaafd8b26066e8",
+    "adapter_sha256": "c7bb79562391447c024dec6a5bf9c894a4a2b49f7a1b03946790e4e53e3a2eb6",
+    "new_test_sha256": "0edf2fc00ed4d35f2be9dfe8ce07018c8a2ae70abee779648d6e889ae1f097e9",
+    "frozen_bindings": "All fifteen non-adapter entries of the sixteen-entry prospective baseline hash inventory match current bytes. Whole diff also confirms existing tests, source outside the adapter, manifests, configuration, workflows and authority remain unchanged."
+  },
+  "prospective_sequence": {
+    "verified_commit_order": [
+      "7422086abbc393b10c1bcb89f6af2f824cdc896e",
+      "249864ec90f4084323309495597f79ded9e3ea82",
+      "15e018fe31131f0f1aa35e525841cccac867bd82",
+      "0422e895daa432c05a6ef88d5aa5dd5fa9818ea1",
+      "88675d2fa6425ac4938a2da2e931aed57559bb65",
+      "ee4fbb7143295028b2657fe9d396971917ee824d"
+    ],
+    "plan_report_sha256": "1522a24f50691eb4967685fdb589bb26cd23f8d34a837cde475cd41610119cba",
+    "consistency_report_sha256": "595812de73e3d7a84d47486429d5d68ee18eddf9d2abff14295e4465a4c57952",
+    "assessment": "Prospective planning-only audit preceded different exact-head consistency, then bounded user-derived implementation authority, new-test RED on unchanged production source, then adapter repair. Final documentation reconciles executed work and leaves aggregate closeout unchecked. No review report itself supplies authority."
+  },
+  "source_reviews": {
+    "correctness_product_parsimony_sha256": "dfa9e67669e20c40cec4433a4e8ffed1418f3fffcb02a57f6b3131f3710f0f58",
+    "resource_security_sha256": "5295baad4d462c5a12044ffa66a4c1413206c3f5971d4f38eb4cec331e56db67",
+    "assessment": "Finalized originals match the expected hashes; no source delta invalidates their two-file scope. Their full-suite FAIL and integration limitations remain accurately represented."
+  },
+  "correctness": {
+    "result": "NO_MATERIAL_INTEGRATION_FINDING",
+    "observations": [
+      "The cached disposal completion is installed before close callbacks, and runtime inactivity is synchronous. Context then browser closure execute once, including after context failure; one original error or both ordered AggregateError values persist for later callers.",
+      "Owned metadata/context/page/listener startup failures await Browser.close before rejection. No new lifecycle framework, production seam, retry, timer, process killer, dependency or authority surface enters the delta.",
+      "New public-API deferred-handle tests and existing qualification remain source-bound to their actual captures. Tests at 88675d2 are not relabeled as tests executed at ee4fbb7; integrated source/test blob identity is separately established.",
+      "Report, lock, MANIFEST and integrated coordination agree on full native exit1, T107 15000ms provisioning deadline, counts, physical shutdown observation and remaining gates. No timeout exoneration or candidate-causality inference is supported or claimed."
+    ]
+  },
+  "product": {
+    "result": "BOUNDED_IMPLEMENTATION_AND_TRUTHFUL_PARTIAL_QUALIFICATION_MATCH_SPEC",
+    "observations": [
+      "Requirements 1-5 have the bounded adapter and twelve contract cases. Actual RED is 11fail/1pass, GREEN12pass, strict source typecheck/build and supplemental new-test typing exit0; focused98pass/9existing skips. These are read evidence, not executions by this judge.",
+      "Supported real-browser disposal evidence shows the second disposal returning after first settlement and browser disconnection. Browser.close still took about24024ms; this proves observed ownership behavior, not speedup or historical cause. The intentionally absent-target assertion_status=failed remains visible.",
+      "Synthetic startup observations remain separate from native-browser evidence. Frozen TesterArmy positivechild0/negativechild1, both zero-model controls, are normalized-text/visibility fixture checks and do not certify the adapter's raw-text or lifetime API.",
+      "Requirements 8-9 remain staged: this report supplies the integrated local review observation only. Publication/privacy review, exact-final-head six-lane native CI and Self source/artifact/inner inspection, live policy/reviews/threads/eligibility, canonical/postmerge and closing remote gates remain required.",
+      "Task023 closure is separately linked to verified canonical main96c18b3 and its retained remote closing evidence. Task024 is implemented, not CLOSED_CANONICAL. E00/release remain BLOCKED; the checklist's aggregate completion criterion remains unchecked."
+    ]
+  },
+  "parsimony": {
+    "result": "CLEAR",
+    "observations": [
+      "One adapter, one isolated test file and bounded task documentation/evidence cover the specified repair. Native Promise/AggregateError avoid a lifecycle framework or configurable cleanup policy.",
+      "The nine-path final commit records evidence and corrects coordination without introducing another product subsystem, architecture decision, dependency, service or provider. Separate future packaging/timing debt is left explicitly owned."
+    ]
+  },
+  "evidence_integrity": {
+    "zip_sha256": "d7cb362871001df69e39be0e4212327a162aaae48c64910a3315a632e4fd02f8",
+    "members": 104,
+    "manifest_records": 103,
+    "zip_crc_errors": 0,
+    "published_member_hash_or_size_mismatches": 0,
+    "all_json_members_parse": true,
+    "capture_count": 11,
+    "capture_binding": "All eleven captures have matching start/end source and source_unchanged=true. Candidate controls bind88675d2, RED0422e89, initial synthetic startup96c18b3. Published derivative stream hashes are distinct from retained original hashes and are resolved through MANIFEST, not silently substituted.",
+    "full_suite": {
+      "exit": 1,
+      "wall_seconds": 703.7912461999804,
+      "passed": 2427,
+      "failed": 1,
+      "existing_skipped": 34,
+      "cases": 2462,
+      "files": 245,
+      "failure": "T107 private exact-H clean-lockfile provisioning test at line438 exceeded unchanged15000ms deadline; reported15038ms.",
+      "assessment": "FAIL retained. All executed browser cases passed. Cause and candidate contribution unproved. No full-suite PASS, release PASS or timeout exoneration."
+    },
+    "execution_context_limit": "Recorded serial policy and prospective run context forbid reviewers/inference/install/audit/sampler overlap; this judge ran after completion. Bounded retained evidence does not establish a complete OS process census or resource attribution. No tests, installs, inference, source edits or remote writes were performed by this judge."
+  },
+  "live_readonly_governance": {
+    "main": "96c18b3a300c844e9766d272e8eb4f5c3a790e63",
+    "main_tree": "725de8c34aa34f01a5e121641c6960f7406fb481",
+    "rulesets": [],
+    "protection": "HTTP404 Branch not protected; absence supplies no governance waiver.",
+    "issue618": "Closed; live body and both comment digests match retained frontier. Its UA-P06-specific model amendment remains effective for its scope. Current Spec018 expressly records later scoped local-review/user authority; no universal Claude/Jev gate is invented and no UA-P07/provider-policy waiver is inferred."
+  },
+  "eligibility": {
+    "scoped_local_integration_review": "CLEAR_WITH_EXPLICIT_LIMITS",
+    "merge_authority": "NOT_GRANTED_BY_THIS_REVIEW",
+    "task_closeout": "PENDING",
+    "E00": "BLOCKED",
+    "release": "BLOCKED",
+    "conditions": "Proceed only through applicable publication/privacy, exact-final-head CI/Self and live effective eligibility checks. A demonstrated in-scope regression must be repaired or block. Preserve local T107 and predecessor T103/inner Self failures regardless of hosted passes. Canonical parents/tree/signature, six actual postmerge native suites, fresh closing reviews and remote byte/member/sidecar readback remain outstanding."
+  }
+}

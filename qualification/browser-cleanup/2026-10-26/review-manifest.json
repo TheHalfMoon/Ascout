@@ -1,0 +1,34 @@
+{
+  "reviewed_head": "ee4fbb7143295028b2657fe9d396971917ee824d",
+  "records": [
+    {
+      "path": "cleanup-review-integration-ee4fbb7.json",
+      "original_sha256": "23f03169df948c7a0445c251f06f7b8dec612db9df3f503ce0f9f152094b8268",
+      "published_sha256": "db700430260e291b48d63111e5cd4bda469d4b8014077080d807357b29d29042",
+      "bytes": 9400,
+      "transformed": true
+    },
+    {
+      "path": "cleanup-publication-review-ee4fbb7.json",
+      "original_sha256": "0e0215f76e8f5fb2b6aac6086165d8535e176fa12facd63df9880d097e4205b1",
+      "published_sha256": "0e0215f76e8f5fb2b6aac6086165d8535e176fa12facd63df9880d097e4205b1",
+      "bytes": 7579,
+      "transformed": false
+    },
+    {
+      "path": "preparation-source.mjs",
+      "original_sha256": "bfd38ca3ce933c5a72fdc0dfc7d7aedde8b3ab71f637701c80fe7563d6373100",
+      "published_sha256": "bfd38ca3ce933c5a72fdc0dfc7d7aedde8b3ab71f637701c80fe7563d6373100",
+      "bytes": 6284,
+      "transformed": false
+    },
+    {
+      "path": "review-sidecars.py",
+      "original_sha256": "ac7da88f860b608d31a3ad68a9e66caab692f7654b93528e8310fb1e3c905174",
+      "published_sha256": "ac7da88f860b608d31a3ad68a9e66caab692f7654b93528e8310fb1e3c905174",
+      "bytes": 2348,
+      "transformed": false
+    }
+  ],
+  "notice": "Finalized fresh review observations, shared OpenAI lineage. One worth-considering missing preparation-source item is addressed by publishing the exact frozen upstream driver separately, for historical derivation replay after restoring recorded paths. It is not the driver used in current native execution: use scripts/cleanup_testerarmy_control.mjs from the frozen ZIP for that. Original104-member ZIP unchanged; no merge approval, release readiness, independent-provider certification or gate waiver."
+}

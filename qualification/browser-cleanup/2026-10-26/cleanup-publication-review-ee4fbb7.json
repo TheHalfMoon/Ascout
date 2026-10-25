@@ -1,0 +1,69 @@
+{
+  "kind": "TASK024_FRESH_EVIDENCE_PRIVACY_PUBLICATION_REVIEW",
+  "reviewer": "/root/cleanup_publication",
+  "subject": {
+    "repository": "TheHalfMoon/Ascout",
+    "head": "ee4fbb7143295028b2657fe9d396971917ee824d",
+    "base": "96c18b3a300c844e9766d272e8eb4f5c3a790e63",
+    "source_head": "88675d2fa6425ac4938a2da2e931aed57559bb65",
+    "path": "qualification/browser-cleanup/2026-10-26",
+    "zip_sha256": "d7cb362871001df69e39be0e4212327a162aaae48c64910a3315a632e4fd02f8",
+    "zip_bytes": 221088,
+    "members": 104
+  },
+  "verdict": "NO_BLOCKING_PUBLICATION_FINDINGS_BOUNDED_REPRODUCTION_LIMIT_RECORDED",
+  "must_fix": [],
+  "worth_considering": [
+    {
+      "title": "Preparation derivation requires a frozen upstream driver outside the packet",
+      "file": "scripts/prepare_cleanup_probes.py",
+      "observation": "Both initial and corrected preparation helpers read work/engineering/phase-e04/testerarmy-control.mjs and require SHA256 bfd38ca3ce933c5a72fdc0dfc7d7aedde8b3ab71f637701c80fe7563d6373100. That upstream driver is absent from this ZIP, so complete preparation/derivation replay requires retrieving that exact original.",
+      "impact": "The complete byte-preserved derived cleanup_testerarmy_control.mjs is included and directly reproduces the actual working/broken fixture controls after restoring the documented repo/tools/output paths. This is not a blocker to that bounded direct-control reproduction claim. The preparation helpers are contextual history and are not self-contained extraction-and-run tools.",
+      "recommendation": "For complete derivation replay, include the exact frozen upstream driver in a subsequent explicitly reviewed packet, or explicitly label the preparation helpers as historical/contextual with an external original prerequisite."
+    }
+  ],
+  "skip_it": [],
+  "checks": {
+    "zip": "Exact requested SHA256/221088 bytes/104 unique safe member names; ZIP CRCs, complete manifest membership, all 103 record lengths/published hashes, deterministic timestamps/compression/regular-file attributes verified.",
+    "original_mapping": "All 103 records mapped to scoped local originals and original hashes checked. Every derivative independently rederived using only minimize/sanitize AST functions from the exact frozen publish_dependencies.py SHA256 87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1. Thirty records transformed; 21 scripts are byte-preserved.",
+    "syntax": "44 record JSON files plus MANIFEST parsed; all 17 Python scripts parsed; four MJS helpers independently passed Node --check from stdin. No helper, native project test or timing control executed.",
+    "privacy": "Recursively inspected parsed JSON and JSON embedded inside strings for author/committer/_npmUser/email and verification payload/signature fields; none remained. All non-PNG members decoded as UTF-8 and checked for local home/account-name patterns and bounded token/private-key patterns. Exact minimized bytes matched all originals. This is bounded minimization verification, not universal secret detection.",
+    "binary_allowlist": "Only binary member is the exact permitted synthetic PNG; no opaque archives, profile contents, graph database/cache, installed node_modules contents or private REA/account data included. Textual node_modules references are retained provenance.",
+    "png": {
+      "sha256": "316031e41745c3f39e2b78ca8aef0a8b1f789e95e1cb6f73c3709ee630ef6843",
+      "bytes": 8277,
+      "path": "testerarmy/testerarmy/broken/runner-artifacts/results/literal-fixture-broken-d718c8633fbc7bbd/attempt-1/screenshots/001-failure.png",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "chunks": [
+        "IHDR",
+        "IDAT",
+        "IDAT",
+        "IDAT",
+        "IEND"
+      ],
+      "validation": "Exact original/published bytes and all chunk CRCs verified; independently viewed image shows Broken UI state, two Ready lines, literal ${process.exit(1)} and Expire target button, with no personal page."
+    },
+    "toolchain": "Published package-lock JSON equals scoped original semantically; contains 395 package entries, 394 resolved registry URLs and 394 integrity entries. Exact e2e0.21.2/@e2e-dev/web0.15.2 remain. Auxiliary Playwright1.64.1/Vitest5.0.5 are distinguished from actual subject Playwright1.63.0/Vitest4.1.12. Recursive minimization retains package versions/resolved/integrity and verification status/reason/reference evidence; no transformation was applied to toolchain files. No attestation authenticity or registry reputation claim is made.",
+    "native_bindings": "All 11 native captures EXECUTED with unchanged clean source start/end; all 22 original stdout/stderr hashes checked independently and original-to-published mappings verified. Candidate captures bind88675d2; RED binds0422e89 and synthetic startup baseline binds96c18b3.",
+    "claim_fidelity": "REPORT.md, lock, qualification documentation and retained records agree: RED11failed/1passed, GREEN12passed, focused98passed/9existing skips, source types/build and supplemental typing exit0. Full native suite remains exit1/703.7912461999804s/2427passed/1failed/34existing skips/2462cases/245files. Full stdout/stderr retain T107 case:438, unchanged15000ms deadline, reported15038ms.",
+    "diagnostic_scope": "Native disposal retains intentional absent-target assertion_status=failed and about24024ms physical browser.close; no speedup, historical cause or attribution claim. Synthetic startup and actual browser scopes remain distinct. TesterArmy workingchild0/brokenchild1/controller0, modelTokens0/maxModelCalls0 fixture controls remain distinct from Ascout semantics. Initial failed preparation and MODULE_NOT_FOUND are retained.",
+    "advisory_scope": "Local D1 remains advisory with known false-low warning; Alibaba OCR preview/rules and Graft static navigation remain actual bounded outputs, not approval. Fresh source reports disclose shared OpenAI lineage and do not claim independent-provider certification.",
+    "publication_state": "E00/release BLOCKED; integrated/CI/live-governance/canonical/closing/readback gates remain pending in reviewed documentation. No actual remote durability claim, remote write or approval was made."
+  },
+  "limits": [
+    "Fresh manual review shares OpenAI model/provider lineage with the builder; no provider-independent certification.",
+    "Only authorized publication/evidence paths and scoped original mappings read; private untracked REA expansion and unrelated projects were not read.",
+    "No project tests, installs, inference, browser launches, source edits, remote writes or security plugin scan performed.",
+    "Published scripts preserve exact syntax and operational controls; they still require their documented original workspace layout, exact source/tool/browser dependencies and contextual historical prerequisites. Syntax checks do not establish runtime success.",
+    "Sanitized derivatives and matching hashes do not authenticate original source identity or establish universal secret absence, security certification, admission, merge or release approval."
+  ],
+  "observed_at_utc": "2026-10-25T22:37:30.060199+00:00",
+  "reviewed_file_sha256": {
+    "qualification/browser-cleanup/2026-10-26/REPORT.md": "75dc457e22d436e5c44062a534a33eef4a668d798894259be2ab927cdc1ec4cf",
+    "qualification/browser-cleanup/2026-10-26/evidence-lock.json": "e92cc7c5acc3e727359dab0841abf2c716087c2e4da91b891003a01c65d8baf5",
+    "docs/qualification/REA-E00-browser-cleanup.md": "43c09e2f1f587ed02fd5e248811cec9fdd293442ae13899cac390db1f01d37b3"
+  }
+}
