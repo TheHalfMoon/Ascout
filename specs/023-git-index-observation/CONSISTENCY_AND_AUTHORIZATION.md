@@ -1,0 +1,7 @@
+# Exact-head consistency and bounded implementation authority
+
+A different fresh context reports CONSISTENCY_CLEAR at `571522ad8ecd9d032e07fabf40957a3aa36af928`, base `62e588adda04dda1a517742fe10af352e5dfa83f`, no findings. External report index-consistency-571522a.json SHA256 `899f4d32dc41df269cdc1abdd8fd53a433d3b3521e815890052f81bfa4e60919` verifies eight planning paths, no production/test/manifest changes, audit fidelity, actual current main/PR644 canonical proof and seven remote closing blobs. Shared OpenAI lineage remains explicit.
+
+Both prospective gates are now clear. The user's continuing engineering directive, including "fix that, and keep working" and repeated "continue", supplies bounded authority to execute Task023-T01 as audited: write the new focused tests and observe RED on unchanged source, then the minimal native combined query/parser, qualification, reviews and eligible canonical/publication controls. Routine workflow pauses do not require another request to continue. This record neither grants new authority nor waives a real gate.
+
+Scope remains exactly the feature spec/plan allowed paths. Do not change an existing test/deadline, hash/filter/path/runner/source contract, command authority, dependency/config/workflow, browser/packaging behavior or UA-P07. Both local complete FAILs and Self exit4 remain facts; E00/release remain blocked. A material scope change or in-scope regression requires prospective reconciliation or repair; implementation authority is not merge/release approval.
