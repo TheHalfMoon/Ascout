@@ -1,6 +1,6 @@
 # Task023-T01: combine native index and visibility observations
 
-Status: PROPOSED; no production/test implementation authority before fresh plan and consistency reviews. Base canonical main62e588adda04dda1a517742fe10af352e5dfa83f. Dependency Task022/PR644 is focused CLOSED_CANONICAL; actual six postmerge native passes and221-member closing packet/reviews/readback are remotely verified at5da4c2362ce4acd130b629b4901def2c59745e98. Both local fullFAILs and E00/releaseBLOCKED remain.
+Status: IMPLEMENTED; focused qualification and fresh source/security reviews recorded at a6baed464db522962e8d4e2e08ae6cb0fd24cd1b. Final-head integrated/publication review, CI/Self, merge and closeout remain pending. The full local control FAIL remains explicit; E00/release BLOCKED. Base canonical main62e588adda04dda1a517742fe10af352e5dfa83f. Dependency Task022/PR644 is focused CLOSED_CANONICAL; actual six postmerge native passes and221-member closing packet/reviews/readback are remotely verified at5da4c2362ce4acd130b629b4901def2c59745e98. Fresh prospective audits and bounded authority preceded source/test edits; see CONSISTENCY_AND_AUTHORIZATION.md.
 
 ## Constitution compliance and intent
 
