@@ -1,6 +1,6 @@
 {
-  "zip_sha256": "01c42606ea7aa2d77b957e85c2cfe834a37947537532de632cd46c0c6f7e1509",
-  "members": 163,
-  "source_head": "43848672b2c68380d8b01797004ee57a02cbf984",
+  "zip_sha256": "57a2be36e2df3441d3170e5419270ff8f49e01bb2ce0de9f6f9c13b5fc255885",
+  "members": 172,
+  "source_head": "28dd81a3156a0fb4613144ce125e01aff467ff16",
   "notice": "Explicit plaintext public derivatives: local homes/emails and personal author/committer/raw signature profiles minimized. Original and published hashes retained. Registry usernames, target versions, license identifiers and package/attestation integrity evidence preserved. No original opaque archives, registry cache, private REA expansion or installed dependencies included. No security certification, release approval or historical failure erasure."
 }

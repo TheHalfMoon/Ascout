@@ -1,0 +1,150 @@
+{
+  "archive_sha256": "57a2be36e2df3441d3170e5419270ff8f49e01bb2ce0de9f6f9c13b5fc255885",
+  "checks": [
+    {
+      "member": "context/registry-source-map-js-1.2.1.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-source-map-js-1.2.2.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-targets.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-vite-6.4.3.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-vite-6.4.4.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-vite-6.4.5.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-vitest-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-vitest-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-vitest-coverage-v8-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-vitest-coverage-v8-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-vitest-mocker-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "context/registry-vitest-mocker-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/source-map-js-1.2.1.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/source-map-js-1.2.2.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vite-6.4.3.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vite-6.4.5.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-coverage-v8-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-coverage-v8-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-expect-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-expect-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-mocker-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-mocker-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-pretty-format-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-pretty-format-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-runner-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-runner-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-snapshot-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-snapshot-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-spy-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-spy-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-utils-4.1.11.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-utils-4.1.12.json",
+      "identity_dist_attestation_fields_preserved": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-install-fb7ee97d-0925-4dc6-becf-a278be0016f5.stderr.txt",
+      "deprecation_labels_preserved": [
+        "inflight@1.0.6",
+        "glob@7.2.3",
+        "glob@10.5.0"
+      ]
+    }
+  ],
+  "notice": "Actual published metadata identities, exact tarball/integrity and complete attestation URLs compared against originals; deprecation warning labels retained. Separate privacy review still required. No source test/security/release approval."
+}

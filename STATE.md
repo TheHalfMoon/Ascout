@@ -10,7 +10,9 @@ Exact-lock scripts-disabled install, npm ls, full/production audits, native sign
 
 Fresh combined correctness/product/parsimony and separate supply-chain/security reviews found no actionable source defect. A resolver-report snapshot race was preserved and corrected forward, independently verified. All target/owner/provenance/age/deprecation limits remain explicit. The focused native-gate interpretation permits proceeding to CI under the audited task contract while E00/release remain blocked; it is not merge approval. Fresh contexts share OpenAI lineage; D1 is advisory, OCR execution is local preview/rules only.
 
-The candidate packet atqualification/development-dependencies/2026-10-24 contains163public plaintext derivative members with dual hashes; archive SHA25601c42606ea7aa2d77b957e85c2cfe834a37947537532de632cd46c0c6f7e1509. Native evidence is dated October24; resumed October25main/governance/openPRs are unchanged, with only our backed-up branch added. Actual final-head hosted qualification and remote publication proof are pending.
+Publication review at28dd81a required a forward correction: broad email minimization also masked package@version identities and attestation URL suffixes. Original reports/packet are retained; the publisher now preserves these fields, and35actual derivative checks pass. Fresh corrected-head review remains pending.
+
+The candidate packet atqualification/development-dependencies/2026-10-24 contains172public plaintext derivative members with dual hashes; archive SHA25657a2be36e2df3441d3170e5419270ff8f49e01bb2ce0de9f6f9c13b5fc255885. Native evidence is dated October24; resumed October25main/governance/openPRs are unchanged, with only our backed-up branch added. Actual final-head hosted qualification and remote publication proof are pending.
 
 ## Next steps
 
