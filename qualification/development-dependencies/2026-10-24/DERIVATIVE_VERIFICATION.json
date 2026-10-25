@@ -1,5 +1,5 @@
 {
-  "archive_sha256": "57a2be36e2df3441d3170e5419270ff8f49e01bb2ce0de9f6f9c13b5fc255885",
+  "archive_sha256": "29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8",
   "checks": [
     {
       "member": "context/registry-source-map-js-1.2.1.json",

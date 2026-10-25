@@ -12,7 +12,7 @@ Fresh combined correctness/product/parsimony and separate supply-chain/security 
 
 Publication review at28dd81a required a forward correction: broad email minimization also masked package@version identities and attestation URL suffixes. Original reports/packet are retained; the publisher now preserves these fields, and35actual derivative checks pass. Fresh corrected-head review remains pending.
 
-The candidate packet atqualification/development-dependencies/2026-10-24 contains172public plaintext derivative members with dual hashes; archive SHA25657a2be36e2df3441d3170e5419270ff8f49e01bb2ce0de9f6f9c13b5fc255885. Native evidence is dated October24; resumed October25main/governance/openPRs are unchanged, with only our backed-up branch added. Actual final-head hosted qualification and remote publication proof are pending.
+The candidate packet atqualification/development-dependencies/2026-10-24 contains172public plaintext derivative members with dual hashes; archive SHA25629ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8. Native evidence is dated October24; resumed October25main/governance/openPRs are unchanged, with only our backed-up branch added. Actual final-head hosted qualification and remote publication proof are pending.
 
 ## Next steps
 

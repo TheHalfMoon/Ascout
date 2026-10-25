@@ -62,7 +62,7 @@ The fresh native-gate interpretation (`ec671b58f2da9f2d54246cb98dde904c9fa4c5b28
 
 ## Reproducible evidence
 
-[Evidence archive](../../qualification/development-dependencies/2026-10-24/evidence.zip) and [lock](../../qualification/development-dependencies/2026-10-24/evidence-lock.json): 172 members, SHA256 `57a2be36e2df3441d3170e5419270ff8f49e01bb2ce0de9f6f9c13b5fc255885`. The manifest binds original and public-derivative hashes. It includes exact registry/advisory responses, both native resolver attempts and selection proof, all native command streams, review corrections, source bindings, local tool execution and reproduction scripts. Local home paths, public emails and author/committer/raw signature profiles are minimized; public source references remain verifiable. No registry cache, installed dependencies, opaque Self archive or private REA expansion is published.
+[Evidence archive](../../qualification/development-dependencies/2026-10-24/evidence.zip) and [lock](../../qualification/development-dependencies/2026-10-24/evidence-lock.json): 172 members, SHA256 `29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8`. The manifest binds original and public-derivative hashes. It includes exact registry/advisory responses, both native resolver attempts and selection proof, all native command streams, review corrections, source bindings, local tool execution and reproduction scripts. Local home paths, public emails and author/committer/raw signature profiles are minimized; public source references remain verifiable. No registry cache, installed dependencies, opaque Self archive or private REA expansion is published.
 
 ## Forward publication precision correction
 
