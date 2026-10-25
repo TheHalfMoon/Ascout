@@ -10,4 +10,6 @@
 - [x] Different fresh consistency/purity CONSISTENCY_CLEAR at571522a before source/test edits; report/hash and user-derived bounded authority recorded in CONSISTENCY_AND_AUTHORIZATION.md.
 - [x] Minimal implementation; actual RED/GREEN, strict typecheck/build, focused/native comparisons, full-suite FAIL and tool limitations preserved.
 - [x] Fresh source correctness/product/parsimony and separate security reviews at a6baed4, no actionable in-scope findings; shared provider lineage explicit.
-- [ ] Final exact-head integration/publication review, hosted CI/Self, canonical/postmerge/publication/readback controls executed and preserved.
+- [x] Final exact-head integration/publication/CI review, six hosted native suites, actual inner Self FAIL, live gates and ordinary canonical merge/parents/tree/signature verified.
+- [x] Six actual canonical postmerge native suites downloaded and verified; local full FAIL and inner Self FAIL remain explicit.
+- [ ] Fresh closing review, durable closing publication and actual final remote byte/member/sidecar readback before CLOSED_CANONICAL.
