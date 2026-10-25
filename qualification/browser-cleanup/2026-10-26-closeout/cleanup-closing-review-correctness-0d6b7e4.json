@@ -1,0 +1,127 @@
+{
+  "kind": "TASK024_FRESH_CLOSING_CORRECTNESS_STATUS_REVIEW",
+  "reviewer": "/root/cleanup_closing_correctness",
+  "head": "0d6b7e43277a8770606efa235c4bfbd140c2db06",
+  "tree": "a32ba879387c204c7669da3c29e38d69c65ab943",
+  "parent": "fe3064afabb18cffbc1d5a8e7f0b5396be7b28c2",
+  "verdict": "NO_ACTIONABLE_CLOSING_CORRECTNESS_OR_STATUS_FINDINGS",
+  "must_fix": [],
+  "worth_considering": [],
+  "skip_it": [],
+  "scope": "Read-only review of the eight closing documentation/evidence paths relative to the canonical merge, retained evidence bindings, status accuracy and frozen controls. No new implementation, security scan, qualification execution, inference, installation or remote operation.",
+  "authority_limit": "Fresh context shares OpenAI lineage with author and prior judges. This bounded review grants no implementation, merge, closure, cleanup, release or provider-independent certification authority. D1 was not invoked; its earlier output remains advisory. Alibaba preview/rules and Graft execution are not external-model approvals. Qodo billing-blocked availability is not a completed review.",
+  "exact_subject_and_purity": {
+    "clean_worktree_start_and_end": true,
+    "exact_head_tree_and_parent_verified": true,
+    "closing_changed_paths": 8,
+    "assessment": "Only ROADMAP.md, STATE.md, Task024 spec/tasks, browser-cleanup qualification documentation and the new closing report/lock/ZIP changed. All are in the allowed coordination/documentation/evidence scope. No source/test/package/lock/workflow/configuration/authority delta exists from the qualified source88675d2 through this closing head.",
+    "frozen_baseline": "Recomputed all16 baseline source/control hashes against canonical96c18b3. The15 non-adapter controls remain byte-identical at closing HEAD. The adapter/new test repair is inherited unchanged from source88675d2; this closing review does not relabel source qualification as execution at0d6b7e4.",
+    "initial_packet": "All eight initial publication paths, comprising the104-member ZIP, lock, report and five review/provenance sidecars, are byte-identical between14d8d22 and this closing HEAD. Historical packets were not rewritten."
+  },
+  "canonical_merge": {
+    "pull_request": 646,
+    "merged_at": "2026-10-25T22:55:14Z",
+    "merge": "fe3064afabb18cffbc1d5a8e7f0b5396be7b28c2",
+    "ordered_parents": [
+      "96c18b3a300c844e9766d272e8eb4f5c3a790e63",
+      "14d8d2281bf94df042bc1811d4d58a35ca7ac4f9"
+    ],
+    "tree": "c8a1a1d1efb07f4608157fe4578a112f12f845a7",
+    "assessment": "Local canonical commit parents/tree match the retained original work/engineering/merges/646.json and archived public derivative. Reviewed final-head tree equals merge tree. Retained GitHub readback reports closed/merged PR, canonical main and signature verified=true/reason=valid. Signature status is GitHub-reported evidence, not a new cryptographic verification by this judge. Last-moment premerge snapshot retains seven successful checks, exact head/base, MERGEABLE/CLEAN, no submitted changes-requested reviews or unresolved threads. No stronger authority is inferred."
+  },
+  "actual_hosted_native_execution": {
+    "final_head_run": 40241358746,
+    "postmerge_run": 40242397081,
+    "assessment": "Independently read retained run/job metadata and all12 native job logs from the closing ZIP. Both runs are attempt1, completed/success at the correct respective heads, with six unique successful native jobs. Every required exact-source/install/Chromium/typecheck/native-test/build step succeeded. Every log contains actual source typecheck/build and Vitest commands, the expected source guard, successful execution rows for all16 required regression filenames and the12-case cleanup ownership file. Parsed actual native summary rows establish2462cases/245files in every lane.",
+    "platform_results_in_each_run": [
+      {
+        "platform": "windows-2025",
+        "nodes": [
+          22,
+          24
+        ],
+        "passed": 2428,
+        "skipped": 34,
+        "cases": 2462,
+        "files_passed": 245,
+        "files_skipped": 0,
+        "files": 245
+      },
+      {
+        "platform": "macos-14",
+        "nodes": [
+          22,
+          24
+        ],
+        "passed": 2435,
+        "skipped": 27,
+        "cases": 2462,
+        "files_passed": 244,
+        "files_skipped": 1,
+        "files": 245
+      },
+      {
+        "platform": "ubuntu-24.04",
+        "nodes": [
+          22,
+          24
+        ],
+        "passed": 2457,
+        "skipped": 5,
+        "cases": 2462,
+        "files_passed": 244,
+        "files_skipped": 1,
+        "files": 245
+      }
+    ],
+    "log_bindings": "Every job summary original log SHA matches the closing manifest original_sha256. All published log bytes independently match manifest published_sha256 and length. Sanitized derivatives do not authenticate the original captures.",
+    "limits": "Hosted success neither erases the local native failure nor proves historical cause or lack of candidate contribution. No suite was rerun."
+  },
+  "self_truth": {
+    "run": 40241358765,
+    "artifact": 12617145888,
+    "original_zip_sha256": "c88ec6cbc92d289826c3b00251d28ad0a93d072091321a0b24dc91d683ce7ccb",
+    "classification": "SHADOW_NON_GATING",
+    "inner_status": "FAIL_EXIT1_MATERIALLY_INCOMPLETE",
+    "packaging_runs": 3,
+    "packaging_failures": 3,
+    "adapter_exercised_lines": 26,
+    "adapter_not_exercised_lines": 1,
+    "historical_preparation_source_unresolved_lines": 63,
+    "selector": "UNAVAILABLE_FULL_SUITE_CONTRACT",
+    "assessment": "Read the retained envelope, receipt, selector and inner observations. Directly counted receipt records26EXERCISED/1NOT_EXERCISED adapter and63UNRESOLVED preparation-source.mjs lines, consistent with closing text. Literal packaging finding remains3/3, introduced_by_change unknown, raw exception cause unproved. Envelope/selector bind reviewed target head/tree/base and original receipt digest. Earlier finalized CI/Self judge and capture metadata preserve original artifact digest/CRC/three-JSON/source verification; this closing judge reviewed published derivatives and their manifest bindings, not the excluded original opaque Self ZIP. Green workflow means capture integrity only under canonical Spec006."
+  },
+  "local_failure_preservation": {
+    "exit": 1,
+    "wall_seconds": 703.7912461999804,
+    "vitest_seconds": 695.7,
+    "passed": 2427,
+    "failed": 1,
+    "skipped": 34,
+    "cases": 2462,
+    "files": 245,
+    "assessment": "Read actual retained capture/stdout/stderr: T107 private exact-H provisioning test at unchanged line438 exceeded15000ms, reported15038ms. Source start/end are clean and identical88675d2. Closing text retains FAIL, distinct outer/native durations, unresolved cause/candidate contribution, no repeat-to-green, no deadline/skip change and no exoneration. Predecessor T103 and earlier Self/local failures remain historical E00/release debt."
+  },
+  "closing_archive": {
+    "sha256": "8efeacc837d774fdcb709a0e0caef8007f04a92172acdc322ba19dbd51a4bc2c",
+    "members": 166,
+    "manifest_records": 165,
+    "crc_verified": true,
+    "all_members_manifested_without_duplicates": true,
+    "all_published_hashes_and_lengths_verified": true,
+    "assessment": "Lock/report/archive agree. Every non-MANIFEST member is uniquely listed, with recomputed published hash and length. Existing initial readback and sidecar-readback records remain historical proof at14d8d22; they are not claimed as actual closing remote readback."
+  },
+  "status_and_product_review": {
+    "focused_task024": "MERGED_POSTMERGE_VERIFIED",
+    "E00": "BLOCKED",
+    "release": "BLOCKED",
+    "assessment": "Current coordination and forward records accurately distinguish completed ordinary merge/postmerge execution from pending closing gates. Original preparation status paragraphs remain explicitly historical. No false all-pass, clean Self, focused CLOSED_CANONICAL, provider independence, historical cause or release claim identified. The eight-path closing delta adds only authorized evidence/status communication. No unnecessary abstraction, dependency or new executable product surface is introduced.",
+    "remaining": [
+      "Complete and preserve fresh closing privacy/publication review and both finalized review sidecars",
+      "Publish the closing evidence and perform actual remote byte/member/sidecar readback",
+      "Record truthful focused canonical closeout only after those gates, before the next task mutation or disposable cleanup"
+    ]
+  },
+  "panel_manifest": "Fresh session-model closing correctness/status/product/parsimony review; no CLAUDE.md specialist capability manifest present; bounded inline bars used. Separate closing privacy judge is outside this artifact. No new security scan triggered or run for this docs/evidence delta.",
+  "execution_discipline": "All post-instruction shell commands used RTK. Read-only Git/diff/text/JSON/ZIP/hash/CRC inspection followed only by this requested artifact. A broad instruction-file listing was interrupted; shell quoting/console encoding inspection errors were corrected without changing project artifacts or rerunning qualification. No tests, inference, install, source changes, remote writes or cleanup."
+}
