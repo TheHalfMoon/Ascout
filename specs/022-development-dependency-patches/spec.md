@@ -1,6 +1,6 @@
 # Task022-T01: repair current development dependency advisories
 
-Status: PROSPECTIVE_PLAN_ONLY. Base canonical mainaf5de7d1c56030d8842fc85c334cb8933d63fc08. Focused predecessor Task021 is closed through PR643, with six actual postmerge native passes and remotely verified closing evidence at1f24cc68d837145224510d184dbbe10e0c326232. E00/browser reliability, packaging compatibility and release readiness remain BLOCKED; completed REA/features are preserved.
+Status: IMPLEMENTED; actual native failures retained; final review, hosted CI and canonical close pending. Base canonical mainaf5de7d1c56030d8842fc85c334cb8933d63fc08. Focused predecessor Task021 is closed through PR643, with six actual postmerge native passes and remotely verified closing evidence at1f24cc68d837145224510d184dbbe10e0c326232. E00/browser reliability, packaging compatibility and release readiness remain BLOCKED; completed REA/features are preserved.
 
 ## Constitution compliance and observed need
 
@@ -30,3 +30,7 @@ Ownership/provenance checks retain their real warnings:Vitest maintainer additio
 ## First reduction and hard stops
 
 Existing patch families only. No npm audit fix, override, new dependency, package manager migration, vendoring, production source change, test skipping/weakening, deadline increase, workflow/policy change, broad security phase, paid service or release. Historical Spec019 and PR589/614/security drafts remain untouched. Fix only a demonstrated in-scope defect; prospectively reconcile new facts rather than expanding this task silently.
+
+## Actual candidate observations
+
+Implementation4384867 follows the recorded prospective gates and bounded user authority. Exact install/tree/audits/signatures/typecheck/build and20focused tests exit0. Complete controls exit1:2387passed/4deadline failures/34existing skips, then serial2390passed/1drift deadline failure/34existing skips. Both remain FAIL; dependency contribution is unknown. See [qualification](../../docs/qualification/REA-E05.md) and source-bound packet. The focused contract permits proceeding to CI without converting these failures to PASS; final eligibility, E00 and release requirements remain effective. No CI/merge/canonical close or release claim is made.

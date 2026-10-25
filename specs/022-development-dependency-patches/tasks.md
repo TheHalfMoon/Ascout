@@ -10,4 +10,4 @@ Dependency:Task021 canonical PR643/af5de7d and remotely verified closing evidenc
 6. Focused PR, actual exact-head native/Self CI/log/artifact audit, live gates, eligible guarded merge and canonical readback/postmerge native controls.
 7. Publish truthful focused status/evidence and actual remote verification before separate browser/packaging work. E00/release remain separately qualified.
 
-Status:PLAN_ONLY. Current native audit remains FAIL5development entries/8underlying advisories; no manifest, lock, installed dependency, test or notice mutation has occurred in this task.
+Status:IMPLEMENTED at4384867. Steps1–4 executed and source reviews complete; actual native audits/signatures/tree/install/typecheck/build/20focused tests pass. Both full controls remain FAIL, including the serial drift deadline. Final integrated/publication review, hosted/Self CI, live eligible merge and canonical/remote close remain pending. E00/releaseBLOCKED; no failure erasure or causal attribution.
