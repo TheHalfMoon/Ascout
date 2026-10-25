@@ -1,4 +1,4 @@
-Last updated: 2026-10-25 · Branch: ps/rea-browser-cleanup-ownership
+Last updated: 2026-10-26 Asia/Riyadh · Branch: ps/rea-browser-cleanup-ownership
 
 ## Current state
 
@@ -8,12 +8,16 @@ Task023's complete local native1 result remains FAIL: 2,415 passed, one T103 inv
 
 ## In flight
 
-Task024-T01 is prospective planning only from exact canonical96c18b3. Current adapter source/module match the earlier supported-API probe: a second dispose returned while first cleanup remained unsettled and the browser connected. A new synthetic-handle public startup diagnostic observes zero browser-close attempts after newContext/newPage errors. These show ownership defects, not historical timeout causality or native browser qualification. Proposed scope: await one owned disposal attempt for all callers, immediate inactivity, retain single/dual cleanup failures, and await browser cleanup on owned startup failure.
+Task024 browser cleanup ownership implemented at88675d2fa6425ac4938a2da2e931aed57559bb65, treebb1aa3b9c73300c87390146e7300c68d4e1f5617. PLAN_CLEAR7422086, different CONSISTENCY_CLEAR249864e and bounded user-derived authority15e018f preceded new-test RED0422e89 and source repair. Concurrent/reentrant/later disposal callers await one attempt; immediate inactivity, single/ordered dual errors and owned startup browser cleanup are preserved.
 
-No project tests or production source are authorized before fresh independent final plan/gate audit, different exact-head consistency/purity review and bounded user-derived authority. Existing tests/deadlines, manifests/config/workflows, pins/provisioning, command admission, assertion/locator/evidence behavior and all unrelated code remain frozen. Read-only preparation used supported APIs; no new dependency, model, browser launch or process capture in the startup probe.
+Actual native results: RED11fail/1pass, GREEN12pass, source typecheck/build and supplemental new-test typing exit0; focused98pass/9existing skips. Real-browser supported-API probe observes second disposal waiting until first settled and actual browser disconnected, while shutdown takes about24s: ownership evidence, no speedup or historical timeout cause claim. Synthetic startup probes remain separate. Frozen TesterArmy workingchild0/pass1 and brokenchild1/ASSERTION_FAILED1 both report modelTokens0/maxModelCalls0; controller0. Fixture assertion control is not direct adapter lifetime certification.
+
+One complete serial suite exited1 after703.791s:2,427passed/1T107 provisioning15000ms deadline failure/34existing skips/2,462cases/245files. All executed browser cases passed. Source start/end clean and identical; no reviewer/inference/install/audit/sampler alongside; no rerun or old budget/skip change. T107 cause and candidate contribution remain unproved. D1 advisory, local Alibaba preview/rules and Graft actually executed; fresh source correctness/product/parsimony and separate resource/security reviews found no actionable issue. Shared OpenAI lineage, no external-provider certification.
+
+Only the allowed adapter and new test file changed executable code. Existing tests/deadlines, manifests/config/workflows, pins/provisioning, command admission, assertion/locator/evidence behavior and all unrelated code remain frozen. No new dependency, model or process capture.
 
 ## Next steps
 
-Complete prospective Task024 gates, then executable RED before minimal adapter repair. Run strict typing/build, focused existing browser/T107 controls, real owned-browser disposal diagnostic and applicable frozen TesterArmy positive/negative controls. Run one full canonical native suite serially without reviewers/inference/install/audits/samplers; preserve true exits/skips/deadlines/source bindings and failures, no repeat-until-green. Fresh source/resource/security and integrated/publication reviews, actual final-head CI/Self, live eligible ordinary merge, canonical/postmerge proof and durable remote closing readback remain required.
+Review integrated documentation/evidence on an immutable head, then focused PR and actual final-head six-lane native CI plus Self source/artifact/inner truth. Re-read live governance/main/head/reviews/threads; ordinary head-matched merge only if effective gates permit, then canonical parents/tree/signature, six actual postmerge suites, fresh closing reviews and remote byte/member/sidecar readback. No task closure/merge/PASS inferred from pending checks. [Qualification](docs/qualification/REA-E00-browser-cleanup.md).
 
-The direct-Vitest npm_execpath compatibility gap remains a separate later task. T103 cause remains unresolved. E00/release need actual final complete passing local and integrated qualification. Original dirty checkout, private REA expansion and unrelated branches/projects remain untouched. No UA-P07, admission injection, paid service, required cloud runtime, release/deployment or disposable cleanup.
+The direct-Vitest npm_execpath compatibility gap remains a separate later task. T103/T107 timing causes remain unresolved. E00/release need actual final complete passing local and integrated qualification. Original dirty checkout, private REA expansion and unrelated branches/projects remain untouched. No UA-P07, admission injection, paid service, required cloud runtime, release/deployment or disposable cleanup.
