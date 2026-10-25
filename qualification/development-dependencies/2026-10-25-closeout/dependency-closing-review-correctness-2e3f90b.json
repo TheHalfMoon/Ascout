@@ -1,0 +1,994 @@
+{
+  "kind": "TASK022_FRESH_CLOSING_CORRECTNESS_PRODUCT_PARSIMONY_REVIEW",
+  "observed_at_utc": "2026-10-25T06:59:46.499460+00:00",
+  "head": "2e3f90bd912279dbddfd6badf761d5e33c47e379",
+  "base": "62e588adda04dda1a517742fe10af352e5dfa83f",
+  "actual_head": "2e3f90bd912279dbddfd6badf761d5e33c47e379",
+  "branch": "evidence/dependency-patches-postmerge-20261025",
+  "findings": [],
+  "verdict": "NO_ACTIONABLE_CLOSING_DOCS_EVIDENCE_FINDINGS_PUBLICATION_READBACK_PENDING",
+  "current_merge_approval": false,
+  "release_approval": false,
+  "reviewer": {
+    "fresh_context": true,
+    "lineage": "OpenAI session model; shared OpenAI provider/model lineage with author and earlier reviews; no external-provider independence",
+    "bars": [
+      "correctness",
+      "product",
+      "parsimony"
+    ],
+    "security": "separate privacy/security reviewer; no runtime trigger in this nine-path documentation/archive delta"
+  },
+  "checks": {
+    "working_tree_clean": true,
+    "head_matches": true,
+    "changed_paths": [
+      "ROADMAP.md",
+      "STATE.md",
+      "docs/qualification/REA-E05.md",
+      "qualification/development-dependencies/2026-10-25-closeout/REPORT.md",
+      "qualification/development-dependencies/2026-10-25-closeout/evidence-lock.json",
+      "qualification/development-dependencies/2026-10-25-closeout/evidence.zip",
+      "specs/022-development-dependency-patches/checklists/requirements.md",
+      "specs/022-development-dependency-patches/spec.md",
+      "specs/022-development-dependency-patches/tasks.md"
+    ],
+    "exactly_nine_docs_evidence_paths": true,
+    "zip": {
+      "sha256": "c7b05d96907021d80f8a122b7770639b3db6adb3294f57615d00d7500b7bd5b9",
+      "members": 221,
+      "crc_bad_member": null,
+      "duplicate_members": false,
+      "manifest_records": 220,
+      "member_hash_or_size_failures": [],
+      "manifest_matches_exact_member_set": true,
+      "parsed_json_members": 142,
+      "no_nested_opaque_zip": true
+    },
+    "historical_172_archive_sha256": "29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8",
+    "merge_proof": {
+      "observed_at_utc": "2026-10-25T06:43:36.558465+00:00",
+      "pr": "https://github.com/TheHalfMoon/Ascout/pull/644",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-10-25T06:43:29Z",
+      "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+      "base": "af5de7d1c56030d8842fc85c334cb8933d63fc08",
+      "merge": "62e588adda04dda1a517742fe10af352e5dfa83f",
+      "main": "62e588adda04dda1a517742fe10af352e5dfa83f",
+      "ordered_parents": [
+        "af5de7d1c56030d8842fc85c334cb8933d63fc08",
+        "c429ab07170db92192e574e0add9d1af330f3ef2"
+      ],
+      "merge_tree": "c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065",
+      "head_tree": "c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065",
+      "tree_equal": true,
+      "github_signature_verification": {
+        "verified": true,
+        "reason": "valid",
+        "verified_at": "2026-10-25T06:43:30Z"
+      },
+      "notice": "Read-back and GitHub-reported signature status; final integrated-main test result remains separately required."
+    },
+    "merge_commit_object_parents_tree": [
+      "tree c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065",
+      "parent af5de7d1c56030d8842fc85c334cb8933d63fc08",
+      "parent c429ab07170db92192e574e0add9d1af330f3ef2"
+    ],
+    "reviewed_head_object_tree": [
+      "tree c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065"
+    ],
+    "premerge_head_base": {
+      "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+      "base": "af5de7d1c56030d8842fc85c334cb8933d63fc08",
+      "mergeable": "MERGEABLE",
+      "state": "CLEAN",
+      "reviews": [],
+      "threads": {
+        "nodes": [],
+        "pageInfo": {
+          "hasNextPage": false
+        }
+      },
+      "actual_seven_rollup_success": true
+    },
+    "actual_CI": [
+      {
+        "folder": "dependency-ci-c429ab0",
+        "run": 40168994795,
+        "event": "pull_request",
+        "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+        "completed_success": true,
+        "head_matches": true,
+        "jobs": [
+          {
+            "id": 121095818536,
+            "name": "project / macos-14 / node-22",
+            "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "16311a70acddf80facc051266b65a465fadbdf1d3f372117e18785f130c586d0",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:26:19.2750790Z  Test Files  242 passed | 1 skipped (243)",
+              "2026-10-25T06:26:19.2756700Z       Tests  2398 passed | 27 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121095818713,
+            "name": "project / windows-2025 / node-22",
+            "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "e112ed39f6095a61938209dadc73cd592f057a37e9e5cb72f4ec46bb99b615e8",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:31:59.0175951Z  Test Files  243 passed (243)",
+              "2026-10-25T06:31:59.0186846Z       Tests  2391 passed | 34 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121095818739,
+            "name": "project / ubuntu-24.04 / node-22",
+            "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "97d0af90dce4eb18ac5805c1f1097ab676050351d60dbb6548e3d2ba03059596",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:26:15.7412060Z  Test Files  242 passed | 1 skipped (243)",
+              "2026-10-25T06:26:15.7428925Z       Tests  2420 passed | 5 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121095818754,
+            "name": "project / windows-2025 / node-24",
+            "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "c147d30dc24a7b151cc9dd586f8aa38db6a28b6a7aa5a8a06b5c13c9efc21734",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:29:15.9768376Z  Test Files  243 passed (243)",
+              "2026-10-25T06:29:15.9778149Z       Tests  2391 passed | 34 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121095818756,
+            "name": "project / ubuntu-24.04 / node-24",
+            "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "c7c39f74cf757f04ec724d99abafa11d408281390106acad855bfda2ba3f49d3",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:26:17.9714964Z  Test Files  242 passed | 1 skipped (243)",
+              "2026-10-25T06:26:17.9727072Z       Tests  2420 passed | 5 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121095818839,
+            "name": "project / macos-14 / node-24",
+            "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "7290982cb699c23d6654e97e1bab7459ef2348fcd7970ef09fb9aebace01a994",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:26:14.4629380Z  Test Files  242 passed | 1 skipped (243)",
+              "2026-10-25T06:26:14.4634580Z       Tests  2398 passed | 27 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          }
+        ],
+        "fixed_commit_sha": "c429ab07170db92192e574e0add9d1af330f3ef2",
+        "fixed_tree": "c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065"
+      },
+      {
+        "folder": "dependency-ci-c429ab0",
+        "run": 40168994818,
+        "event": "pull_request",
+        "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+        "completed_success": true,
+        "head_matches": true,
+        "jobs": [
+          {
+            "id": 121095818726,
+            "name": "self-verify",
+            "head": "c429ab07170db92192e574e0add9d1af330f3ef2",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "90571394985554177e64ddeff4d1e21ddc8c2f2e0ce48b25f598fa2927d493ad",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [],
+            "native_expected_total": null,
+            "required_native_commands_in_log": null,
+            "native_failed_summary_absent": true
+          }
+        ],
+        "fixed_commit_sha": "c429ab07170db92192e574e0add9d1af330f3ef2",
+        "fixed_tree": "c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065"
+      },
+      {
+        "folder": "dependency-ci-postmerge-62e588a",
+        "run": 40170113995,
+        "event": "push",
+        "head": "62e588adda04dda1a517742fe10af352e5dfa83f",
+        "completed_success": true,
+        "head_matches": true,
+        "jobs": [
+          {
+            "id": 121099062444,
+            "name": "project / ubuntu-24.04 / node-24",
+            "head": "62e588adda04dda1a517742fe10af352e5dfa83f",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "f47fc6c4f56969a98beddcea942f7c7321c6e4ae65931348a3766d91a2c73c5a",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:45:37.5274657Z  Test Files  242 passed | 1 skipped (243)",
+              "2026-10-25T06:45:37.5288699Z       Tests  2420 passed | 5 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121099062615,
+            "name": "project / ubuntu-24.04 / node-22",
+            "head": "62e588adda04dda1a517742fe10af352e5dfa83f",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "00b01734e86d0a276ee2d3535a78d08bac7c7e9c0e9d28a8953e2e1c3df87845",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:46:41.5389848Z  Test Files  242 passed | 1 skipped (243)",
+              "2026-10-25T06:46:41.5401084Z       Tests  2420 passed | 5 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121099062619,
+            "name": "project / windows-2025 / node-22",
+            "head": "62e588adda04dda1a517742fe10af352e5dfa83f",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "c9111b206e50af516708bbb86b1b45620cce96c48d7eb836e3189b3a12763363",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:51:18.1459515Z  Test Files  243 passed (243)",
+              "2026-10-25T06:51:18.1470287Z       Tests  2391 passed | 34 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121099062630,
+            "name": "project / macos-14 / node-24",
+            "head": "62e588adda04dda1a517742fe10af352e5dfa83f",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "bb54079574843e03316d91a58cc96ae1e8e7e72bcb5c76c1f3abd0560b58fc64",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:45:18.1423910Z  Test Files  242 passed | 1 skipped (243)",
+              "2026-10-25T06:45:18.1445690Z       Tests  2398 passed | 27 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121099062670,
+            "name": "project / macos-14 / node-22",
+            "head": "62e588adda04dda1a517742fe10af352e5dfa83f",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "0ac1762f9232ae242d81f125184640499418790fa162376e0ea3788fbe07b660",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:53:43.9560390Z  Test Files  242 passed | 1 skipped (243)",
+              "2026-10-25T06:53:43.9566220Z       Tests  2398 passed | 27 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          },
+          {
+            "id": 121099062682,
+            "name": "project / windows-2025 / node-24",
+            "head": "62e588adda04dda1a517742fe10af352e5dfa83f",
+            "success": true,
+            "head_matches": true,
+            "required_API_steps_success": true,
+            "log_sha256": "9fdc75aa1ce4709982faa166dcde9658210c0d1576f9d271eaad55eb227b9b5f",
+            "log_hash_matches_summary": true,
+            "log_size_matches_summary": true,
+            "exact_guard_expected_sha_in_log": true,
+            "native_summary_lines": [
+              "2026-10-25T06:53:02.4392890Z  Test Files  243 passed (243)",
+              "2026-10-25T06:53:02.4411918Z       Tests  2391 passed | 34 skipped (2425)"
+            ],
+            "native_expected_total": true,
+            "required_native_commands_in_log": true,
+            "native_failed_summary_absent": true
+          }
+        ],
+        "fixed_commit_sha": "62e588adda04dda1a517742fe10af352e5dfa83f",
+        "fixed_tree": "c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065"
+      }
+    ],
+    "self": {
+      "summary": {
+        "task_status_counts": {
+          "PASS": 0,
+          "FAIL": 0,
+          "FLAKY": 0,
+          "BLOCKED": 0,
+          "ERROR": 0,
+          "NOT_APPLICABLE": 2,
+          "NOT_RUN": 2
+        },
+        "finding_count": 0,
+        "completeness": "materially_incomplete",
+        "exit_code": 4
+      },
+      "task_dispositions": [
+        {
+          "task_id": "typecheck",
+          "status": "NOT_RUN",
+          "reason_code": "command_surface_changed",
+          "execution_admission": "refused_changed_surface",
+          "changed_authority_paths": [
+            "package.json"
+          ]
+        },
+        {
+          "task_id": "lint",
+          "status": "NOT_APPLICABLE",
+          "reason_code": null,
+          "execution_admission": "normal",
+          "changed_authority_paths": []
+        },
+        {
+          "task_id": "test",
+          "status": "NOT_RUN",
+          "reason_code": "command_surface_changed",
+          "execution_admission": "refused_changed_surface",
+          "changed_authority_paths": [
+            "package.json"
+          ]
+        },
+        {
+          "task_id": "pytestBasic",
+          "status": "NOT_APPLICABLE",
+          "reason_code": null,
+          "execution_admission": "normal",
+          "changed_authority_paths": []
+        }
+      ],
+      "envelope": {
+        "schema_version": 1,
+        "classification": "SHADOW_NON_GATING",
+        "verifier_head_sha": "c429ab07170db92192e574e0add9d1af330f3ef2",
+        "verifier_head_tree_sha": "c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065",
+        "event_base_tip_sha": "af5de7d1c56030d8842fc85c334cb8933d63fc08",
+        "subject_merge_base_sha": "af5de7d1c56030d8842fc85c334cb8933d63fc08",
+        "subject_target_head_sha": "c429ab07170db92192e574e0add9d1af330f3ef2",
+        "subject_target_tree_sha": "c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065",
+        "receipt_exit_code": 4,
+        "receipt_sha256": "8cd0213e0b20cadafd33395588754fa1da173a1064e6c4d3f6bb3bdce01743b4",
+        "receipt_file": "self-verification-receipt.json"
+      },
+      "selector": {
+        "schema_version": 1,
+        "classification": "SELECTOR_SHADOW_NON_GATING",
+        "source": {
+          "event_base_tip_sha": "af5de7d1c56030d8842fc85c334cb8933d63fc08",
+          "subject_merge_base_sha": "af5de7d1c56030d8842fc85c334cb8933d63fc08",
+          "subject_target_head_sha": "c429ab07170db92192e574e0add9d1af330f3ef2",
+          "subject_target_tree_sha": "c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065",
+          "receipt_sha256": "8cd0213e0b20cadafd33395588754fa1da173a1064e6c4d3f6bb3bdce01743b4"
+        },
+        "ascout_test_task": {
+          "task_id": "test",
+          "status": null,
+          "duration_ms": null,
+          "selection_mode": "full",
+          "selected_test_count": null,
+          "deselected_test_count": null,
+          "total_test_count": null,
+          "widened": false,
+          "widen_triggers": []
+        },
+        "full_suite": {
+          "runner": "vitest",
+          "runner_version": null,
+          "duration_ms": null,
+          "failed_test_count": null
+        },
+        "comparison": {
+          "available": false,
+          "disposition": "UNAVAILABLE",
+          "reason_code": "UNAVAILABLE_ASCOUT_ADMISSION",
+          "reason_text": "The bound Ascout test task did not run under normal unchanged command authority.",
+          "full_suite_failed": [],
+          "ascout_failed": [],
+          "matched": [],
+          "selector_misses": []
+        }
+      },
+      "artifact_integrity": {
+        "id": 12589692092,
+        "api_digest_matches": true,
+        "api_size_matches": true,
+        "crc_bad_member": null,
+        "exact_three_members": true,
+        "downloaded_jsons_match_all_zip_member_bytes": true,
+        "envelope_receipt_hash_matches": true,
+        "head_tree_base_binding": true
+      }
+    },
+    "local_complete_controls": [
+      {
+        "member": "runs/dep-repair-candidate-full-suite-4933e71b-9cf9-46ca-939e-56a8152afe64.json",
+        "exit": 1,
+        "wall_seconds": 984.9693171000108,
+        "source_start": {
+          "head": "43848672b2c68380d8b01797004ee57a02cbf984",
+          "head_tree": "cac725ffcbf21b382b7c9469f4b0ca353933c148",
+          "status": "",
+          "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "source_end": {
+          "head": "43848672b2c68380d8b01797004ee57a02cbf984",
+          "head_tree": "cac725ffcbf21b382b7c9469f4b0ca353933c148",
+          "status": "",
+          "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "source_unchanged": true,
+        "individual_deadlines_changed": false,
+        "summary_lines": [
+          "Test Files  2 failed | 241 passed (243)",
+          "Tests  4 failed | 2387 passed | 34 skipped (2425)",
+          "Duration  982.21s (transform 12.88s, setup 0ms, import 38.57s, tests 823.81s, environment 60ms)"
+        ],
+        "stderr_contains_5000ms": true
+      },
+      {
+        "member": "runs/dep-repair-candidate-full-suite-isolated-0f52291f-2ddc-49b3-8421-67542f2a913d.json",
+        "exit": 1,
+        "wall_seconds": 755.1360790000763,
+        "source_start": {
+          "head": "43848672b2c68380d8b01797004ee57a02cbf984",
+          "head_tree": "cac725ffcbf21b382b7c9469f4b0ca353933c148",
+          "status": "",
+          "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "source_end": {
+          "head": "43848672b2c68380d8b01797004ee57a02cbf984",
+          "head_tree": "cac725ffcbf21b382b7c9469f4b0ca353933c148",
+          "status": "",
+          "diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "source_unchanged": true,
+        "individual_deadlines_changed": false,
+        "summary_lines": [
+          "\u00d7 changes tree_digest_v1 when tracked worktree content mutates after the start snapshot 5485ms",
+          "Test Files  1 failed | 242 passed (243)",
+          "Tests  1 failed | 2390 passed | 34 skipped (2425)",
+          "Duration  753.51s (transform 10.74s, setup 0ms, import 37.60s, tests 591.63s, environment 66ms)"
+        ],
+        "stderr_contains_5000ms": true
+      }
+    ],
+    "source_review_context": {
+      "dependency-ci-review-c429ab0.json": {
+        "verdict": "EXACT_HEAD_HOSTED_EXECUTION_VERIFIED_FOCUSED_ELIGIBILITY_CONDITIONAL_E00_RELEASE_BLOCKED",
+        "findings": []
+      },
+      "dependency-final-integration-c429ab0.json": {
+        "verdict": "INTEGRATION_CLEAR_FINAL_HOSTED_QUALIFICATION_AND_CANONICAL_CLOSE_PENDING",
+        "findings": []
+      },
+      "dependency-publication-review-c429ab0.json": {
+        "verdict": "NO_ACTIONABLE_FINDINGS_IN_CORRECTED_PUBLICATION_DELTA",
+        "findings": []
+      },
+      "dependency-review-correctness-4384867.json": {
+        "verdict": "SOURCE_SCOPE_CLEAR_QUALIFICATION_PENDING",
+        "findings": []
+      },
+      "dependency-review-security-4384867.json": {
+        "verdict": "NO_ACTIONABLE_FINDINGS_IN_BOUNDED_CANDIDATE",
+        "findings": []
+      },
+      "dependency-frontier-premerge.json": {
+        "verdict": null,
+        "findings": null
+      },
+      "dependency-frontier-merge-comparison.json": {
+        "verdict": null,
+        "findings": null
+      },
+      "dependency-publication-receipt-c429ab0.json": {
+        "verdict": null,
+        "findings": null
+      }
+    },
+    "documentation_limits": {
+      "closing_publication_remote_readback_explicitly_pending": true,
+      "E00_release_BLOCKED_preserved": true,
+      "no_readiness_or_merge_approval_inferred": true,
+      "future_repairs_separately_planned": true
+    },
+    "lock_matches_actual_archive": true,
+    "all_CI_manifest_original_hash_bindings": [
+      {
+        "member": "ci/dependency-ci-c429ab0/fixed-head-commit.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/job-121095818536.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/job-121095818713.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/job-121095818726.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/job-121095818739.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/job-121095818754.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/job-121095818756.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/job-121095818839.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/jobs-40168994795.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/jobs-40168994818.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/main-snapshot.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/pr-snapshot.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/run-40168994795.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/run-40168994818.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/selector-shadow-observation.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/self-artifacts.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/self-verification-envelope.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/self-verification-receipt.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-c429ab0/summary.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/fixed-head-commit.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/job-121099062444.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/job-121099062615.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/job-121099062619.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/job-121099062630.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/job-121099062670.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/job-121099062682.log",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/jobs-40170113995.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/main-snapshot.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/pr-snapshot.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/run-40170113995.json",
+        "original_hash_matches_local_capture": true
+      },
+      {
+        "member": "ci/dependency-ci-postmerge-62e588a/summary.json",
+        "original_hash_matches_local_capture": true
+      }
+    ]
+  },
+  "bar_results": {
+    "correctness": "No contradiction found between source-bound API/log/merge/manifest inputs and scoped closing statements. Local FAIL and Self incompleteness remain explicit.",
+    "product": "Nine-path closeout is within Task022 evidence/status scope; closing publication and actual remote byte/hash readback remain open before later canonical work.",
+    "parsimony": "No additional mechanism, dependency or speculative implementation introduced; report/lock/archive preserve relevant evidence."
+  },
+  "limits": [
+    "Read-only captured API/log/immutable Git evidence review; no live network refresh.",
+    "No tests, installation or model inference rerun; existing failing complete controls are not approved or converted to PASS.",
+    "Review checks ZIP CRC/member hashes and relevant source inputs; separate privacy review owns sanitization assurance.",
+    "No approval of merge, canonical publication completion, future repair implementation, E00 resolution or release."
+  ],
+  "inputs": {
+    "git-diff:62e588adda04dda1a517742fe10af352e5dfa83f..2e3f90bd912279dbddfd6badf761d5e33c47e379": {
+      "sha256": "bc58abefd4ca5f0f9a6bc67139d65c87e755d33873da1f2919e26f27a59f785c",
+      "bytes": 1262939
+    },
+    "git-object:2e3f90bd912279dbddfd6badf761d5e33c47e379:ROADMAP.md": {
+      "sha256": "7960f11594cd5d6da671e4738e30876329e1e4f62b29a86c2d26fcac28123ef7",
+      "bytes": 2143,
+      "git_object": "954ae7c1bce26da69eba5cf376bf07801bc51ab0",
+      "type": "blob"
+    },
+    "git-object:2e3f90bd912279dbddfd6badf761d5e33c47e379:STATE.md": {
+      "sha256": "a9d3f988245e41c7b18bf5b820c6f1c7f4c149055532655d2237efc8686591ef",
+      "bytes": 3146,
+      "git_object": "bcfade03c87a3d20cf7c2b486b3dd87010991568",
+      "type": "blob"
+    },
+    "git-object:2e3f90bd912279dbddfd6badf761d5e33c47e379:docs/qualification/REA-E05.md": {
+      "sha256": "a8a26254cf68d74869bb0c64e900eb16e10e345f285c58ce93e4073c2a470285",
+      "bytes": 14016,
+      "git_object": "ccead1ca2e084ee945c867c1a8ea4895d60ee261",
+      "type": "blob"
+    },
+    "git-object:2e3f90bd912279dbddfd6badf761d5e33c47e379:qualification/development-dependencies/2026-10-25-closeout/REPORT.md": {
+      "sha256": "66abb49c68563949642f5d787fb8f3bda10e2a70cb8e6cdf16845487013cf61b",
+      "bytes": 4762,
+      "git_object": "fac3ab9d85752152451e4e87423c123ce1b03aa2",
+      "type": "blob"
+    },
+    "git-object:2e3f90bd912279dbddfd6badf761d5e33c47e379:qualification/development-dependencies/2026-10-25-closeout/evidence-lock.json": {
+      "sha256": "3bab72fb5d962400ce459866b078f27511a6b4831ad954c6cc52131fb8777d50",
+      "bytes": 632,
+      "git_object": "4a61aaee42fe30128dd88cb9383fcf4336e06b86",
+      "type": "blob"
+    },
+    "git-object:2e3f90bd912279dbddfd6badf761d5e33c47e379:qualification/development-dependencies/2026-10-25-closeout/evidence.zip": {
+      "sha256": "c7b05d96907021d80f8a122b7770639b3db6adb3294f57615d00d7500b7bd5b9",
+      "bytes": 991348,
+      "git_object": "067ce2bc10ab323d75b94898d0d8e2ab510dfafd",
+      "type": "blob"
+    },
+    "git-object:2e3f90bd912279dbddfd6badf761d5e33c47e379:specs/022-development-dependency-patches/checklists/requirements.md": {
+      "sha256": "1ddf05b8dbb5abf7725ad7229ac83c23f2928806ccaa42aadc77702927dfcfb4",
+      "bytes": 1744,
+      "git_object": "cd92ccfcd69459a386e0f7ad07ddd4b5daa3401c",
+      "type": "blob"
+    },
+    "git-object:2e3f90bd912279dbddfd6badf761d5e33c47e379:specs/022-development-dependency-patches/spec.md": {
+      "sha256": "75d62efcaec2f562de91136324c8c5d3c4026524bd0df245bec4dc78d2b9ac7d",
+      "bytes": 8152,
+      "git_object": "107f45292fb985dd166a363f79d19f5c556d0db0",
+      "type": "blob"
+    },
+    "git-object:2e3f90bd912279dbddfd6badf761d5e33c47e379:specs/022-development-dependency-patches/tasks.md": {
+      "sha256": "3173d7c692ee460333f267b2e2d986adc84908eb06ec5961cabf26f2b9278b44",
+      "bytes": 1623,
+      "git_object": "c7a1771ddbda5002039dd424d7d0dc8521a3c2be",
+      "type": "blob"
+    },
+    "git-object:62e588adda04dda1a517742fe10af352e5dfa83f:qualification/development-dependencies/2026-10-24/evidence.zip": {
+      "sha256": "29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8",
+      "bytes": 675034,
+      "git_object": "0b75a482115dbb0bb1325dcc93cc94e789eb3367",
+      "type": "blob"
+    },
+    "git-object:62e588adda04dda1a517742fe10af352e5dfa83f": {
+      "sha256": "8cec9c1e8d3cca5477ebe266fce03afabb7684df41c4d21b1016bdd6d03a5297",
+      "bytes": 1221,
+      "git_object": "62e588adda04dda1a517742fe10af352e5dfa83f",
+      "type": "commit"
+    },
+    "git-object:c429ab07170db92192e574e0add9d1af330f3ef2": {
+      "sha256": "02de2c502d8bde756d7aa00f3459adc59473cf2e5ebc1d5653d484e63ddb4152",
+      "bytes": 602,
+      "git_object": "c429ab07170db92192e574e0add9d1af330f3ef2",
+      "type": "commit"
+    },
+    "git-object:62e588adda04dda1a517742fe10af352e5dfa83f:.github/workflows/ci.yml": {
+      "sha256": "be65bffd83dee5179949cb3efbf20b391884100020b53bc88c5537a06e3d6834",
+      "bytes": 2258,
+      "git_object": "8227c65d9b89234795b382cd3b220310a0beeedd",
+      "type": "blob"
+    },
+    "git-object:62e588adda04dda1a517742fe10af352e5dfa83f:.github/workflows/self-verify.yml": {
+      "sha256": "0ad849d2a6c94588d6762fa6925916a1fd521a25602b123e74baeb9c03e5817a",
+      "bytes": 2733,
+      "git_object": "fffb70fa00b8152063e7ad9b3062988d6b0c04c2",
+      "type": "blob"
+    },
+    "work/rc-repair/dependency-ci-c429ab0/summary.json": {
+      "sha256": "aa65adb47c29fb9a02faf24b495e02d24e9c3e2364f374737d06b91069fb84c5",
+      "bytes": 13247
+    },
+    "work/rc-repair/dependency-ci-c429ab0/fixed-head-commit.json": {
+      "sha256": "71c72448daa58ebc0bedfcbbe696fa0467059850754d2d1971e4088e7a12eb29",
+      "bytes": 1772
+    },
+    "work/rc-repair/dependency-ci-c429ab0/run-40168994795.json": {
+      "sha256": "839ecd4656f32cc79cd4b127c9e4761d2b574c0a6f1132d3700315b84340dfee",
+      "bytes": 12542
+    },
+    "work/rc-repair/dependency-ci-c429ab0/jobs-40168994795.json": {
+      "sha256": "b3e97788f649b3032e3c46b187dda500d5d3d290bb819843179cc042d82cd8a6",
+      "bytes": 18088
+    },
+    "work/rc-repair/dependency-ci-c429ab0/job-121095818536.log": {
+      "sha256": "16311a70acddf80facc051266b65a465fadbdf1d3f372117e18785f130c586d0",
+      "bytes": 73101
+    },
+    "work/rc-repair/dependency-ci-c429ab0/job-121095818713.log": {
+      "sha256": "e112ed39f6095a61938209dadc73cd592f057a37e9e5cb72f4ec46bb99b615e8",
+      "bytes": 83225
+    },
+    "work/rc-repair/dependency-ci-c429ab0/job-121095818739.log": {
+      "sha256": "97d0af90dce4eb18ac5805c1f1097ab676050351d60dbb6548e3d2ba03059596",
+      "bytes": 88196
+    },
+    "work/rc-repair/dependency-ci-c429ab0/job-121095818754.log": {
+      "sha256": "c147d30dc24a7b151cc9dd586f8aa38db6a28b6a7aa5a8a06b5c13c9efc21734",
+      "bytes": 81540
+    },
+    "work/rc-repair/dependency-ci-c429ab0/job-121095818756.log": {
+      "sha256": "c7c39f74cf757f04ec724d99abafa11d408281390106acad855bfda2ba3f49d3",
+      "bytes": 87605
+    },
+    "work/rc-repair/dependency-ci-c429ab0/job-121095818839.log": {
+      "sha256": "7290982cb699c23d6654e97e1bab7459ef2348fcd7970ef09fb9aebace01a994",
+      "bytes": 75092
+    },
+    "work/rc-repair/dependency-ci-c429ab0/run-40168994818.json": {
+      "sha256": "7d02693d54dfd55b08373dfe6907621db382d7c541b4f49a40d1c6f6adffb226",
+      "bytes": 12557
+    },
+    "work/rc-repair/dependency-ci-c429ab0/jobs-40168994818.json": {
+      "sha256": "30d8fff633c073968fc22d66169c78fe03495744abfdd3993d6ea624c937ae9f",
+      "bytes": 2909
+    },
+    "work/rc-repair/dependency-ci-c429ab0/job-121095818726.log": {
+      "sha256": "90571394985554177e64ddeff4d1e21ddc8c2f2e0ce48b25f598fa2927d493ad",
+      "bytes": 107965
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/summary.json": {
+      "sha256": "f6f1e8031a849818f2a167b448e46e0dcc6a864d992e5621a51a159b5572633f",
+      "bytes": 10197
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/fixed-head-commit.json": {
+      "sha256": "a2a873edfafaa73355a1b0f2ba34c0c8b91ab4a03c91f96ed2c901ef1fac997a",
+      "bytes": 2707
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/run-40170113995.json": {
+      "sha256": "701d53a78cd291a57e1dee146bcd2ce3ac510eaccd8c646aa4df408a0e094f86",
+      "bytes": 12124
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/jobs-40170113995.json": {
+      "sha256": "de731425ce42413880b91a3110ab249f97a177a83a7317b92e9abedae09caed8",
+      "bytes": 17938
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/job-121099062444.log": {
+      "sha256": "f47fc6c4f56969a98beddcea942f7c7321c6e4ae65931348a3766d91a2c73c5a",
+      "bytes": 88513
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/job-121099062615.log": {
+      "sha256": "00b01734e86d0a276ee2d3535a78d08bac7c7e9c0e9d28a8953e2e1c3df87845",
+      "bytes": 88235
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/job-121099062619.log": {
+      "sha256": "c9111b206e50af516708bbb86b1b45620cce96c48d7eb836e3189b3a12763363",
+      "bytes": 82279
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/job-121099062630.log": {
+      "sha256": "bb54079574843e03316d91a58cc96ae1e8e7e72bcb5c76c1f3abd0560b58fc64",
+      "bytes": 76905
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/job-121099062670.log": {
+      "sha256": "0ac1762f9232ae242d81f125184640499418790fa162376e0ea3788fbe07b660",
+      "bytes": 77310
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/job-121099062682.log": {
+      "sha256": "9fdc75aa1ce4709982faa166dcde9658210c0d1576f9d271eaad55eb227b9b5f",
+      "bytes": 82569
+    },
+    "work/engineering/merges/644.json": {
+      "sha256": "3e390b6d66564d63f49c798dd2296ba8099dc461ac657308fdafc1a8ab6dfa79",
+      "bytes": 956
+    },
+    "work/engineering/merges/644-premerge.json": {
+      "sha256": "492876fafedace2f04e2fcc21d35c51a2a7df483538a02cc0b7b704ed32192e6",
+      "bytes": 3709
+    },
+    "work/rc-repair/dependency-ci-c429ab0/self-verification-receipt.json": {
+      "sha256": "8cd0213e0b20cadafd33395588754fa1da173a1064e6c4d3f6bb3bdce01743b4",
+      "bytes": 16280
+    },
+    "work/rc-repair/dependency-ci-c429ab0/self-verification-envelope.json": {
+      "sha256": "a1681a1ecfae294c06a92b7921be1d4574f648125fb8e1a9a5254ae900fc728d",
+      "bytes": 658
+    },
+    "work/rc-repair/dependency-ci-c429ab0/selector-shadow-observation.json": {
+      "sha256": "e6d61bc74164e496971b2d3f944a8423b6e125e95278c173e53f8f45db0ca817",
+      "bytes": 1214
+    },
+    "work/rc-repair/dependency-ci-c429ab0/self-artifacts.json": {
+      "sha256": "862c140653a53787b29eb67a8ca5bcf158ad5ca7833a8aecf4b1478602c16735",
+      "bytes": 777
+    },
+    "work/rc-repair/dependency-ci-c429ab0/self-artifact-12589692092.zip": {
+      "sha256": "827adf8a4546259240f140ec6725910b2ea419448d09486069e541d0bfe7a03c",
+      "bytes": 3867
+    },
+    "work/rc-repair/dependency-ci-review-c429ab0.json": {
+      "sha256": "7958941869aba9b19e305f3eddcf3f99cabccb77ead5671d618f02015c337aac",
+      "bytes": 21631
+    },
+    "work/rc-repair/dependency-final-integration-c429ab0.json": {
+      "sha256": "baa689ebf9777e51abdcb78e0ccefded72ab0ab5de9d1e7a34389d33d073b507",
+      "bytes": 73586
+    },
+    "work/rc-repair/dependency-publication-review-c429ab0.json": {
+      "sha256": "91ddb7aabca4626318f550faadc738a06350e23b922ad5008b2576ac2c610fe0",
+      "bytes": 5489
+    },
+    "work/rc-repair/dependency-review-correctness-4384867.json": {
+      "sha256": "3186e95af49a277200affeff49d9bf585dab38c23e3817ac5d205c0e8290935b",
+      "bytes": 9941
+    },
+    "work/rc-repair/dependency-review-security-4384867.json": {
+      "sha256": "86c733ebd635eda07e4ba53b00234a9aac7a0a662d2f44e117bc490bf7648719",
+      "bytes": 29497
+    },
+    "work/rc-repair/dependency-frontier-premerge.json": {
+      "sha256": "d14f91e494428fd41ef5ae12b25f63de92030154cd5c7dc6d0b194c643b9556e",
+      "bytes": 73372
+    },
+    "work/rc-repair/dependency-frontier-merge-comparison.json": {
+      "sha256": "134600113e18cd584ebda99e8bc5b539d98411379f80c586d8d33d0a55c532c6",
+      "bytes": 865
+    },
+    "work/rc-repair/dependency-publication-receipt-c429ab0.json": {
+      "sha256": "2c76b74a4f53dbba53af7275da689a21a9111cdb8cef73d3ca200e1e1d49102f",
+      "bytes": 1077
+    },
+    "work/engineering/main-control/specs/022-development-dependency-patches/spec.md": {
+      "sha256": "75d62efcaec2f562de91136324c8c5d3c4026524bd0df245bec4dc78d2b9ac7d",
+      "bytes": 8152
+    },
+    "work/engineering/main-control/specs/022-development-dependency-patches/plan.md": {
+      "sha256": "80e31e2a382dc3eaf5c1c85304c1cc5edadbee4e8dea772bc987fdf8d2a16109",
+      "bytes": 4504
+    },
+    "work/engineering/main-control/specs/022-development-dependency-patches/tasks.md": {
+      "sha256": "3173d7c692ee460333f267b2e2d986adc84908eb06ec5961cabf26f2b9278b44",
+      "bytes": 1623
+    },
+    "work/engineering/main-control/specs/022-development-dependency-patches/checklists/requirements.md": {
+      "sha256": "1ddf05b8dbb5abf7725ad7229ac83c23f2928806ccaa42aadc77702927dfcfb4",
+      "bytes": 1744
+    },
+    "work/rc-repair/dependency-ci-c429ab0/main-snapshot.json": {
+      "sha256": "1cf520886a33c8ed58df715f956b6f46610482615135cb31811f029cc5dd1534",
+      "bytes": 5279
+    },
+    "work/rc-repair/dependency-ci-c429ab0/pr-snapshot.json": {
+      "sha256": "ffb9324f5849410ccc1f5a2fcc9949494ea6652f231c393e6b67591c9b9f03f4",
+      "bytes": 19264
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/main-snapshot.json": {
+      "sha256": "61cfcf317ae91d6838ab275fe04dd942d72495801bd24be9fda73d97cbff5360",
+      "bytes": 5259
+    },
+    "work/rc-repair/dependency-ci-postmerge-62e588a/pr-snapshot.json": {
+      "sha256": "99fa8350fb52a68eeff9d812f18696c6fa0ea0527aeefee2ec7b7d73721ccf1c",
+      "bytes": 20750
+    }
+  }
+}

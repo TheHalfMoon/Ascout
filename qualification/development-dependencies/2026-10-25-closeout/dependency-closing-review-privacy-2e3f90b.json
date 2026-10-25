@@ -1,0 +1,2196 @@
+{
+  "zip_sha256": "c7b05d96907021d80f8a122b7770639b3db6adb3294f57615d00d7500b7bd5b9",
+  "members": 221,
+  "crc_bad_member": null,
+  "duplicate_members": 0,
+  "manifest_records": 220,
+  "errors": [],
+  "nested_json_strings": 22,
+  "json_members": 143,
+  "python_members": 24,
+  "profile_hits": [],
+  "sensitive_pattern_hits": [],
+  "target_token_changes": [],
+  "attestation_changes": [],
+  "sri_changes": [],
+  "deprecated_labels": [
+    {
+      "member": "runs/dep-repair-candidate-install-fb7ee97d-0925-4dc6-becf-a278be0016f5.stderr.txt",
+      "package_version": "inflight@1.0.6",
+      "warning_meaning_preserved_excluding_email": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-install-fb7ee97d-0925-4dc6-becf-a278be0016f5.stderr.txt",
+      "package_version": "glob@7.2.3",
+      "warning_meaning_preserved_excluding_email": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-install-fb7ee97d-0925-4dc6-becf-a278be0016f5.stderr.txt",
+      "package_version": "glob@10.5.0",
+      "warning_meaning_preserved_excluding_email": true
+    }
+  ],
+  "record_checks": [
+    {
+      "member": "runs/dep-repair-baseline-audit-60666222-9f4f-4d18-9374-2f02c698f3f8.json",
+      "original_sha256": "117885bb234eda2282868f704b4558e703ec929ed37be5d2a8eca21d75541095",
+      "published_sha256": "b552d34752aca6820bc3f31713158c124ac526d68ef43ec191c85f7e1ae33e43",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-baseline-audit-60666222-9f4f-4d18-9374-2f02c698f3f8.stdout.txt",
+      "original_sha256": "650e77ceac8a440429d5ad7bf262f2729abf0880509be55a7ca6f903e2c4023d",
+      "published_sha256": "650e77ceac8a440429d5ad7bf262f2729abf0880509be55a7ca6f903e2c4023d",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-baseline-audit-60666222-9f4f-4d18-9374-2f02c698f3f8.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-baseline-production-audit-2a0dd1c2-020c-43da-82e7-c2e693270a7c.json",
+      "original_sha256": "21a30139b8ad577750be20a018debeec984fb36422c2ca79fb94602dcd1a95b4",
+      "published_sha256": "d33048fb485453b60f020840c415447bd7caf030e2ea648b53d1b4c885275e27",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-baseline-production-audit-2a0dd1c2-020c-43da-82e7-c2e693270a7c.stdout.txt",
+      "original_sha256": "7a90c6203c390751c00004fa5526ae643b03fe2096494392e298d895cecafa5f",
+      "published_sha256": "7a90c6203c390751c00004fa5526ae643b03fe2096494392e298d895cecafa5f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-baseline-production-audit-2a0dd1c2-020c-43da-82e7-c2e693270a7c.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-audit-5ccf0893-b846-4813-8768-70ee5005c68d.json",
+      "original_sha256": "f0a4fdce419fe80a64faede92a5878b0f74e62198cee930450032e0a157cc48b",
+      "published_sha256": "036ccd5b169547bd6d20db9899c85f86b2caa25ea454502dc8923be49150604c",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-audit-5ccf0893-b846-4813-8768-70ee5005c68d.stdout.txt",
+      "original_sha256": "7a90c6203c390751c00004fa5526ae643b03fe2096494392e298d895cecafa5f",
+      "published_sha256": "7a90c6203c390751c00004fa5526ae643b03fe2096494392e298d895cecafa5f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-audit-5ccf0893-b846-4813-8768-70ee5005c68d.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-build-ccd67f0f-2742-43e7-9bda-e944f5d5f318.json",
+      "original_sha256": "a28579e8a5c4ee4b0e75fa592b42fe1c8a5ba475db4424efb231a1130be184ea",
+      "published_sha256": "b126c895bc0ab2a0c99e8ee394705cd4f1e9d6687ab2d544ac7cf88ee203b513",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-build-ccd67f0f-2742-43e7-9bda-e944f5d5f318.stdout.txt",
+      "original_sha256": "449fb9a34310780487ba39ffc2c5d404c7c548d852c5bcd9bfaf8d058c377a8f",
+      "published_sha256": "449fb9a34310780487ba39ffc2c5d404c7c548d852c5bcd9bfaf8d058c377a8f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-build-ccd67f0f-2742-43e7-9bda-e944f5d5f318.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-focused-da09a6a2-34c5-449c-ad82-e396a9d3ba5c.json",
+      "original_sha256": "d53f923c1a19b9a7e6c9d29ad5b26be5dd91245fc914a3880fe6e1199a778168",
+      "published_sha256": "8a4a6c5bbc066bc8cad7c720a6ca7d9ef9d9415beedd554a33e03bf3f12b0df2",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-focused-da09a6a2-34c5-449c-ad82-e396a9d3ba5c.stdout.txt",
+      "original_sha256": "0af05185f2e01a9854e84bd7370c31f728134e8616212d5e9903e4d4d6c8559c",
+      "published_sha256": "9eccd02d02ecff5a4f8ff94f56df9052657cd153d9dca5692afa5a62f369bd37",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-focused-da09a6a2-34c5-449c-ad82-e396a9d3ba5c.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-full-suite-4933e71b-9cf9-46ca-939e-56a8152afe64.json",
+      "original_sha256": "90cbdca98a494c3cc1550918c26911590cda8d499a2d148ee4e8d8408e63b9d9",
+      "published_sha256": "bc2ef7e983007727a1fcfdb8b416a204a8303332fb5545a6cf8e388a08bd5070",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-full-suite-4933e71b-9cf9-46ca-939e-56a8152afe64.stdout.txt",
+      "original_sha256": "990bd248676b409299ef11b7a4d2f79ae106d0dfb0e0b4c315685cc9bedec8a0",
+      "published_sha256": "acb5d0e0c17452b5ed06e3d40658c5315594489de0f3d878fb050aced5293490",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-full-suite-4933e71b-9cf9-46ca-939e-56a8152afe64.stderr.txt",
+      "original_sha256": "efc6a661784d80f2e24bbc03d825354e58e80635aa6fe8d9b5dfd860c3bf7f56",
+      "published_sha256": "efc6a661784d80f2e24bbc03d825354e58e80635aa6fe8d9b5dfd860c3bf7f56",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-full-suite-isolated-0f52291f-2ddc-49b3-8421-67542f2a913d.json",
+      "original_sha256": "e9512f6656e7a9b1064763014fccfcba7b15aa0eec934f5c1f121e416eeee666",
+      "published_sha256": "7721484dfdd1481826032c1697c54631306b6fb42a68a2a6ade8d7bb776c89d7",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-full-suite-isolated-0f52291f-2ddc-49b3-8421-67542f2a913d.stdout.txt",
+      "original_sha256": "00a69a3d8b7d8e2763e0ae19aae08c1612a7f723bc46669db3a17e137646557b",
+      "published_sha256": "1b9b26782334076db7f024d68c7b878120e6a38b0d2b316810f2bff87d944d63",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-full-suite-isolated-0f52291f-2ddc-49b3-8421-67542f2a913d.stderr.txt",
+      "original_sha256": "be1f467d1e38a57b6e81bca94f9d3fe467182d1a443ca1d5085a188733abf9b8",
+      "published_sha256": "be1f467d1e38a57b6e81bca94f9d3fe467182d1a443ca1d5085a188733abf9b8",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-install-fb7ee97d-0925-4dc6-becf-a278be0016f5.json",
+      "original_sha256": "4e76b4dd193b7f4de5a5631e6d159fd9df9136f37b038737263064620ce4ca19",
+      "published_sha256": "5a5901199c3ec09bc150ca76c9221950d958c3769e3f492dc15de67c0bbc05b2",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-install-fb7ee97d-0925-4dc6-becf-a278be0016f5.stdout.txt",
+      "original_sha256": "573af85dddc61a84c255c745b8cf56d9f7a1d68e3803a51f968cea5cd030de81",
+      "published_sha256": "573af85dddc61a84c255c745b8cf56d9f7a1d68e3803a51f968cea5cd030de81",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-install-fb7ee97d-0925-4dc6-becf-a278be0016f5.stderr.txt",
+      "original_sha256": "c8b9ad6332ce8064ffcc54ea2718054a1190cf4540359441e6d3443bc5a618dd",
+      "published_sha256": "b72598ce0450d065b65a88eab6eee4100e65966a4b5bbb46b44e5a936d4a5ab8",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-production-audit-b765b6dc-93df-4d12-9698-08daea250ed2.json",
+      "original_sha256": "0203322062c81a11679a0a8d160fe05ae05e18c053cc8e3a6f2fcc50460c5ec4",
+      "published_sha256": "ebe809efe5963cf1769a1020febecda3bf9696589e633259b59334441bec15fc",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-production-audit-b765b6dc-93df-4d12-9698-08daea250ed2.stdout.txt",
+      "original_sha256": "7a90c6203c390751c00004fa5526ae643b03fe2096494392e298d895cecafa5f",
+      "published_sha256": "7a90c6203c390751c00004fa5526ae643b03fe2096494392e298d895cecafa5f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-production-audit-b765b6dc-93df-4d12-9698-08daea250ed2.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-signatures-b2fe73ac-fdc1-4933-898b-3a0c9c77eb4a.json",
+      "original_sha256": "03c35f17c05e31f3a88b25dafd229c1f934a168f4225ecd8da46fc26586091c4",
+      "published_sha256": "fbc76be9dd3ac31a741028090676cd1ff833f27c10a02d97ae8b9caca0e5d2ec",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-signatures-b2fe73ac-fdc1-4933-898b-3a0c9c77eb4a.stdout.txt",
+      "original_sha256": "539ea4684b22e24869bace50b48bda695776477f892861b08d51d219f0d08faf",
+      "published_sha256": "539ea4684b22e24869bace50b48bda695776477f892861b08d51d219f0d08faf",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-signatures-b2fe73ac-fdc1-4933-898b-3a0c9c77eb4a.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-tree-14c892e9-0b40-4991-b9f2-26057112401e.json",
+      "original_sha256": "8f872a4281cb84092b52c9184238e526cc7d2bee7eb1f465995cdafa5eaa3b0f",
+      "published_sha256": "162d4b240954825b540d0cd7aa62543fb4d20d26f3d42b108cb6f68b3a675528",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-tree-14c892e9-0b40-4991-b9f2-26057112401e.stdout.txt",
+      "original_sha256": "3bff0341ca0857f907b0aa6b490075196a16fc0a83b015a7d84e97cff0eea201",
+      "published_sha256": "3bff0341ca0857f907b0aa6b490075196a16fc0a83b015a7d84e97cff0eea201",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-tree-14c892e9-0b40-4991-b9f2-26057112401e.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-typecheck-96769702-a4f9-4923-9ef9-879aec5e91fa.json",
+      "original_sha256": "219bf6218f8a61d1c6a58738bff6dc0216ce52362aaf2e9657f85eeb23be4ef3",
+      "published_sha256": "060cec365e5d25171a84ffb6968fedd60c8fecb631127182290007f56abfad1a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-typecheck-96769702-a4f9-4923-9ef9-879aec5e91fa.stdout.txt",
+      "original_sha256": "61df2b720795e280790bf89ef66f57e13076e224e4ad1137d72c3c8e8a6a8810",
+      "published_sha256": "61df2b720795e280790bf89ef66f57e13076e224e4ad1137d72c3c8e8a6a8810",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-typecheck-96769702-a4f9-4923-9ef9-879aec5e91fa.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-drift-native-probe-9fa853b8-e54b-42b6-87a6-d80f5f28eb24.json",
+      "original_sha256": "679d27a68609822b7206ba8df7cfdfc6923a1a7bb50539c148e0a0d81c9d4cc4",
+      "published_sha256": "9c3366269b84e34ef7898c7e043a8e3e1820b8d4a5dbe845f10705ab9e95ac16",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-drift-native-probe-9fa853b8-e54b-42b6-87a6-d80f5f28eb24.stdout.txt",
+      "original_sha256": "dc9df04a5780e4d5e4941b35e76b3c858e145d1d9ecc8909ab87b565313b6666",
+      "published_sha256": "dc9df04a5780e4d5e4941b35e76b3c858e145d1d9ecc8909ab87b565313b6666",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-drift-native-probe-9fa853b8-e54b-42b6-87a6-d80f5f28eb24.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-native-lock-pins-b404b597-25ee-4e3d-b936-6a141c55e4a9.json",
+      "original_sha256": "2b01ae7b48abf5828a869c196792bbb6a3dde6a77948e4a04841a2fdb5f5fc97",
+      "published_sha256": "e2906cc5a9dee238ccf73642afae3702c6a3c3d61a7901db2b480c5e01bdd29c",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-native-lock-pins-b404b597-25ee-4e3d-b936-6a141c55e4a9.stdout.txt",
+      "original_sha256": "cd19ee5a6a513a50e5f2b75359d134ac2afba478106acd213d184d40d7a1a25c",
+      "published_sha256": "cd19ee5a6a513a50e5f2b75359d134ac2afba478106acd213d184d40d7a1a25c",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-native-lock-pins-b404b597-25ee-4e3d-b936-6a141c55e4a9.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-native-lock-prefer-existing-ae222d89-4aff-49f9-a0e6-0d160cdd712b.json",
+      "original_sha256": "a1cf487e21b991b1bec2b7db891179e710458be2878a0f0980b1906db5e9ff03",
+      "published_sha256": "c612374d6513f5a0cff8429b81acd2f87ec3d389f09fb46a18f7fee7fb660c05",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-native-lock-prefer-existing-ae222d89-4aff-49f9-a0e6-0d160cdd712b.stdout.txt",
+      "original_sha256": "2f77b4cbd160e38acbc2f21497607268ba330431c02a499038b6a3c5a8733a72",
+      "published_sha256": "2f77b4cbd160e38acbc2f21497607268ba330431c02a499038b6a3c5a8733a72",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-native-lock-prefer-existing-ae222d89-4aff-49f9-a0e6-0d160cdd712b.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-resume-audit-3e78b8bb-3551-4ab1-ab1b-a3492612021c.json",
+      "original_sha256": "e6d738073cd788b5d3c667a2f3774ccaba9c5fd8d517f1177eccb49d2c6bb7c8",
+      "published_sha256": "6bbccd541b5d6afd1ce6232b3af7fc543bee1b26aaf04a3303b8848826df80ca",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-resume-audit-3e78b8bb-3551-4ab1-ab1b-a3492612021c.stdout.txt",
+      "original_sha256": "7a90c6203c390751c00004fa5526ae643b03fe2096494392e298d895cecafa5f",
+      "published_sha256": "7a90c6203c390751c00004fa5526ae643b03fe2096494392e298d895cecafa5f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-resume-audit-3e78b8bb-3551-4ab1-ab1b-a3492612021c.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-resume-signatures-83f779da-e12b-4058-89c9-836e043af345.json",
+      "original_sha256": "a08de239cee4d92aebade4a7483dc008c037463de06f87df885be283aedcd0cb",
+      "published_sha256": "696e3d484886b6936eb3059b438a1f13a4ef8790c26de1e8972e90a3c707a991",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-resume-signatures-83f779da-e12b-4058-89c9-836e043af345.stdout.txt",
+      "original_sha256": "539ea4684b22e24869bace50b48bda695776477f892861b08d51d219f0d08faf",
+      "published_sha256": "539ea4684b22e24869bace50b48bda695776477f892861b08d51d219f0d08faf",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "runs/dep-repair-resume-signatures-83f779da-e12b-4058-89c9-836e043af345.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-after-lock.json",
+      "original_sha256": "684abc899b555f6e8e929f68a7721c0823281ef7e43e83f1504177573d61c7aa",
+      "published_sha256": "ab6df47d0b5202f50a9b72f1d7c986a27fe99654f654d1bb2713b09796c484de",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-baseline-binding.json",
+      "original_sha256": "50fd2333e84658f61dc1ee35d600758bcb82afd0564993efe692cdafaab5165d",
+      "published_sha256": "50fd2333e84658f61dc1ee35d600758bcb82afd0564993efe692cdafaab5165d",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-before-lock.json",
+      "original_sha256": "36843f0ccb2a85fe71a27371055b539be825df59b653f1e0e02aadadb8ec6eb2",
+      "published_sha256": "017dc2a304ca472c5c2a2c117dd941c31c477e1ab5900dbfaa776380647e4c76",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-candidate-binding.json",
+      "original_sha256": "c3d4c0b31af4c5615287ddfbef0f08e2b487ff64adb7f2dcccc100553f310451",
+      "published_sha256": "7bab683fb683a1ef47446b368127f4b0c9ca66b03759fe54466576bce7aa555a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-ci-review-c429ab0.json",
+      "original_sha256": "7958941869aba9b19e305f3eddcf3f99cabccb77ead5671d618f02015c337aac",
+      "published_sha256": "645e54d878cf410132fa2721fedc7185b8301aa140b1ca9d804c8c6fc5eabbf8",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-closure-manifest.json",
+      "original_sha256": "3b3bf60b93df190dbdc2406d3ef30341c02aa348c34a016756b858cb69790746",
+      "published_sha256": "3b3bf60b93df190dbdc2406d3ef30341c02aa348c34a016756b858cb69790746",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-consistency-570d59d.json",
+      "original_sha256": "006abf5440cdeb8baee16e4eb5f8653c634384756aa968507ad99f429b4c09da",
+      "published_sha256": "550340b9593ed2123eea5bc3cd526dc140f9efdb41c4a84a0fd39e5e89cb22d3",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-consistency-inputs-570d59d.json",
+      "original_sha256": "78e8c34fdedd261009d55aa80c08334567fbac2f33fd17f04e741f4ce77eeffa",
+      "published_sha256": "a8c8d2a54fdcae61efcb264340766623280ca2cc4acaddc27343553eed91cc88",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-consistency-live-570d59d.json",
+      "original_sha256": "5ad7989bbc01f6a94777bf61742ae6ef4b3a97d1a65e9cf8cbddf0280f03aced",
+      "published_sha256": "018744af256e4e96813eb3f0a9b81341497f8a8b581f7d1d33abe0f1f6574895",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-d1-advisory.json",
+      "original_sha256": "ee95aef5992fed5ecd8aa0ad235499cea4e7bb438ebc203823c3d6ad5fa23292",
+      "published_sha256": "7da009c1aab3205cd03e30686ed7764005c04be7182931da419161268227e867",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-drift-native-diagnostic.json",
+      "original_sha256": "2acee029f8bfab3536065a7728d944a389f021ab891f8fc5eaa886ecd5455708",
+      "published_sha256": "b2e3c50c13c02dc64de10b940160b229bc6a14af17e8af9c389371f5ec8635f9",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-final-integration-28dd81a.json",
+      "original_sha256": "f9c9ef7696d64fb17ca5b5ecc7b476a4d89a8c17395d6084cd1f9c63baf59018",
+      "published_sha256": "03bc3377f6d2bd4b282347497404153a159bde896dead10318c2f414213929cb",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-final-integration-c429ab0.json",
+      "original_sha256": "baa689ebf9777e51abdcb78e0ccefded72ab0ab5de9d1e7a34389d33d073b507",
+      "published_sha256": "815b1ecae6269d6204104a526260a5861ac063a1ea81ca66e44775b6bd744ee0",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-first-native-after-lock.json",
+      "original_sha256": "5ee90fe321c80669cec8eadb2eeddf828655e9c2abdb27c82bf473d72b2a3952",
+      "published_sha256": "f270f49ef7de49183b5ef0c2ee0e17fe7e24dcfa03e37e7c52d88a3cd5e6d39a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-first-native-native-graph.json",
+      "original_sha256": "e7cc178460b86986cb2b53fe5982b859c687733781a7af4f6cb4379d8685d3ae",
+      "published_sha256": "f5bf11875d812552eb9b2f67496b5367ae5f51de85832a209a373e7e52874d44",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-frontier-merge-comparison.json",
+      "original_sha256": "134600113e18cd584ebda99e8bc5b539d98411379f80c586d8d33d0a55c532c6",
+      "published_sha256": "91a08e44211c9c5fc751af22dbd67d1ff7c286abe8c82933bbc43e816cf305a1",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-frontier-premerge.json",
+      "original_sha256": "d14f91e494428fd41ef5ae12b25f63de92030154cd5c7dc6d0b194c643b9556e",
+      "published_sha256": "e281c94371bef824cc895c1e915b6e8db0ef1b29204c6ffebf01da0f687b4a3f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-frontier-refresh.json",
+      "original_sha256": "bf23b1dfee3a191e643919647d656a963f7eba4a3ae627121ac4933411c0d11f",
+      "published_sha256": "978e2ebc0801b2c1a869bc9d07e8c4bd006552e6a72b02aa8c357d9f5278a362",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-frontier-resume-20261025.json",
+      "original_sha256": "81e1da87d3ad86bea4e06513fbc6e199da0450c54e7d2791354c7adf6dd17a4b",
+      "published_sha256": "f6c7d3b18cacedf4f40b28f7dcd99b5a0619dae644df1091f4c53dc90526ab55",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-full-review-overlap.json",
+      "original_sha256": "fd50a6a2a01877ea07b9152de60f52353d3953079976af6d313ee28d77150806",
+      "published_sha256": "fd50a6a2a01877ea07b9152de60f52353d3953079976af6d313ee28d77150806",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-minimal-selection.json",
+      "original_sha256": "4f6e4a8fa5afb85152b6e89fcf86a82e676141efd161ff162267b5c7440f6c2f",
+      "published_sha256": "39a14c9705915ff006b66806c78d7707c18927882f435a946778da6b4befec5c",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-native-gate-interpretation-4384867.json",
+      "original_sha256": "ec671b58f2da9f2d54246cb98dde904c9fa4c5b28a55ceae8197dc73ee79ed8a",
+      "published_sha256": "fbbfe5bbfd4450fea73a23b9ab2196969ea92ae44bb842de910ba802fdcfd25f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-native-graph.json",
+      "original_sha256": "38a77edac07d28679cfbd82037d03f5483dafd14defe5da0aa11fa425d4845fa",
+      "published_sha256": "e3582f229a06d619df84e168f036e81f2b77e94db46d56b4bd70158b9699f391",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-npmscan-resolved-diff.json",
+      "original_sha256": "eba97b8a3061ee35c697ae24746651f175b9a2815a6e0b00eeb811cadc60b938",
+      "published_sha256": "f1b1c217256e9a9abb258be84f2e0e855442d6b256029833d1e213dce2ecd689",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-plan-audit-eda0240.json",
+      "original_sha256": "55823380790b50fe8f394fa868cc2a4ddf81bacbf4e4feea9fc8e3db102f083f",
+      "published_sha256": "b778454f6359219e94cf7d9d23e5c4a6ffcc6c3cd1a12ceb86244946c8eaa629",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-plan-audit-fcb9b82.json",
+      "original_sha256": "85eafd9b9141238b0fa386c075df9c42af437b5b8dd4c01734525c92d2d3a6b9",
+      "published_sha256": "82d435c9c35ec79bffbe712ba8ead848a252f266aa8d28559d475467d0576a6f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-plan-live-governance.json",
+      "original_sha256": "6d257ec06da114319999a1b530b9fa761ee19145cee7258fc45a31151a7ff34f",
+      "published_sha256": "25323db9505d0d8ff72c977b2fb85595c4620e22b1a49454c159b18a07f5389f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-pr-number.json",
+      "original_sha256": "828f4517891211a189a9336f03487cb433b2d4c8f75b2b7e179bf8badd2a1728",
+      "published_sha256": "63e59943a9b8ae2bf7135771edc67892d63782484bbd5cea9aa832b3ff9b08a9",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-qualification-summary.json",
+      "original_sha256": "e9c1d62c07defdd8236109362ada595fd90d8f93bf9bcb39b0d804fca9dceb5b",
+      "published_sha256": "d2b1efe58ed6cd965e2e043e8948ef43784080feda6284136b5801ec3554315e",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-resolver-range-checks.json",
+      "original_sha256": "1ef93ae52e68353c7b5f1eac3f813b3f1df783aece43b0da54bbb9943e0e5b51",
+      "published_sha256": "1ef93ae52e68353c7b5f1eac3f813b3f1df783aece43b0da54bbb9943e0e5b51",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-resolver-reconciliation-original.json",
+      "original_sha256": "c50fa6d16b743119299e74660027acfb9d1a1199fe8a1fcc397387935c8c5663",
+      "published_sha256": "41dff855bcf4b633036c73beaf45120da8d6e58e957343653ef737229aff58a4",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-resolver-reconciliation.json",
+      "original_sha256": "2d3c2691b85b8cd9f8193d9a2d154b48aa387e8d65e8f1ec8686de07de9c4b10",
+      "published_sha256": "190dcda19b3a944982fff03ac88ec67d38a394a260935a255cf9a29580293136",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-resume-comparison-20261025.json",
+      "original_sha256": "b8ca29b0dd99aaf112e331d0c7f54f58640df630ec80d622ba764db4a9fbd8d2",
+      "published_sha256": "d2e34884e62c2374e32dd99643239f4f5d23b9ec9f14be77c7b1fdbc5ae58e00",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-review-correctness-4384867.json",
+      "original_sha256": "3186e95af49a277200affeff49d9bf585dab38c23e3817ac5d205c0e8290935b",
+      "published_sha256": "f617d7d70298877d2efc58f2fbfccec825164814f6b8982d2932d81712907cf8",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-review-publication-initial-28dd81a.json",
+      "original_sha256": "8123ae76e703ad43c269e614e684504d2ef3153dd4ff86ee4bf3506adf547581",
+      "published_sha256": "5acc6c2cd9ff0908473cd670c7c7c2a3c7d210722593c9269bc23a8851d72550",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-review-security-4384867.json",
+      "original_sha256": "86c733ebd635eda07e4ba53b00234a9aac7a0a662d2f44e117bc490bf7648719",
+      "published_sha256": "b65680307e383aaf3d4b2932267a12c7c7d3a92c5f0adc5a97d440f8b6a56288",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-selected-lock-resolver-reconciliation.json",
+      "original_sha256": "684abc899b555f6e8e929f68a7721c0823281ef7e43e83f1504177573d61c7aa",
+      "published_sha256": "ab6df47d0b5202f50a9b72f1d7c986a27fe99654f654d1bb2713b09796c484de",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-target-range-check.json",
+      "original_sha256": "e8731be830ed8a00ddc5b601f935a7a3bc90a4007f03bb36ac90534199a8f603",
+      "published_sha256": "e8731be830ed8a00ddc5b601f935a7a3bc90a4007f03bb36ac90534199a8f603",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-timing-context.json",
+      "original_sha256": "2edbdb5c56c0a9847c5ea78475f434a8c1c11f9752cf17117d81c9b9b3e6429a",
+      "published_sha256": "80a2bf2d2531a5bb6a0c27272043b89f5fe67aa25104c631cc253bb143c34f6d",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-tool-execution.json",
+      "original_sha256": "6f3407c622cb108ad0c4da4652b57b987a3045a0d9cd98cb4df847bba7c4e47d",
+      "published_sha256": "8b76f3c7c1051cd160bd77c05ba456434ddf149116e89d278653a2def81c2ca1",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-audit-enrichment.json",
+      "original_sha256": "26ccf43426cf5c9e2b9c4bedc1b97ade04e416dba0d0bf5108712af736472401",
+      "published_sha256": "2b0204a73bb6f3cf6bf0a78651c96bc198776f76391601039a5a6b9f2d0d808a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-maintainer-ariperkkio-blast.json",
+      "original_sha256": "eb78d7aeaa6c494b3d69cb103649207c62b3d161318df499d3e57469531cf1d4",
+      "published_sha256": "7829df83c2437d14dd1c8ae8cb15b1329bda6ef3a58cc451862e3b150ba7617e",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-maintainer-hiogawa-blast.json",
+      "original_sha256": "b691257d87195c9649230f4662079ad26ab47732bb35980b580b09257dcf7859",
+      "published_sha256": "3c979dba892f1eb522906d6396e291fe48535933bab514fd5d6ffed0306f2153",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-maintainers-source-map-js.json",
+      "original_sha256": "40a80d46e7e21b4d50e066730b251267681440bcb3cc4b423814d4ca50f550e2",
+      "published_sha256": "05998a11765ddbb140c4dff0df0d6291d10a3d54e34337dc51edab210eb1d114",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-maintainers-vite.json",
+      "original_sha256": "b39ff19fc722fbbbd6a728599ab1e609cea17b210c212f7a6e54fdc0fbe25f58",
+      "published_sha256": "1a9670ba319068274d2afdb16c31929b6ec7349afbca8623fa6f62fe41f17f31",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-maintainers-vitest.json",
+      "original_sha256": "142a187bf00f4380348bedf2761a6114f30d01a1a88d3bf91ccfbe0a3c242e9a",
+      "published_sha256": "792dc4d54f739014701d5a7916566d10a421b176985951fdab9a46f5d0b7f22c",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-provenance-source-map-js-1.2.2.json",
+      "original_sha256": "a51e8d32717554c048ccc97dd201f6c562ae5fee8c498ef0b2804444b6b3df60",
+      "published_sha256": "54c3065a314a0615bd1f426be8466592d5cd5f9511bab24a736f17ddd9751cbc",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-provenance-vite-6.4.5.json",
+      "original_sha256": "33470c887c8e2a033c04866e3ff6a93523f8cd42ff487aeeed6c02b559b8449f",
+      "published_sha256": "850e785d66c8aab82d3e9f17b4ec11a8d645bf5ac2b4e1bd581a136ebe0c7e46",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-provenance-vitest-4.1.12.json",
+      "original_sha256": "ddabd327a3685e4e93307d125224054c8d92cae7386bf53b2cd20c0d00e1b72b",
+      "published_sha256": "9550278ded0b94dd032f947d46a972ceff2ed0e4b06eabf190038598a32177a0",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-source-map-js-1.2.1.json",
+      "original_sha256": "b0bd51c5f5b562f38cbe98bd99f99733b2a66b2fed661e4c5cd1a27629f1024a",
+      "published_sha256": "b4a24143012852fd5d47e723bc05f8853b56e5b8a9421928ecb7d4b91c46104a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-source-map-js-1.2.2.json",
+      "original_sha256": "a2df5c914841cfd00ad730e29d355df5dfb807d3251ccc456f66765e84814de5",
+      "published_sha256": "c55dbcee8fe61d4e285ecc6f6a475d6ef552c37c8ac1e2e2b96c41c4af0550ff",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-vite-6.4.3.json",
+      "original_sha256": "421b1d654cd6311202bcbbfbd04d12117bb59a32e452821813f16a2649a0f601",
+      "published_sha256": "1d400317f7010368561fe975dbc14262cc923229761ff9a3157a228f922b44f2",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-vite-6.4.4.json",
+      "original_sha256": "0bef514f50251aff9a2bdadea1782fd0007980eefafa4c2ea5a3bc92cec09460",
+      "published_sha256": "7b42cd03b92eae589dd0950abeab2b6063e980cd33ab646f71c0f78ecc4a3988",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-vite-6.4.5.json",
+      "original_sha256": "c0e9de11768d801330908e7ce016396cbfbcfc1d42db2a5f680d5f7492875756",
+      "published_sha256": "b11b356592475179f5b183a647eb4d8e048d44be7813e88c48245e03df8a37ee",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-vitest-4.1.11.json",
+      "original_sha256": "8e60f3b2d2553868b361753ee2eb1aa67ee00be3f66e5a5bb619b7adfdca4765",
+      "published_sha256": "8c76ea75e37f1922dd92ba7c074e5e294ee6a17a6fe6c7c527659606c83c7db1",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-vitest-4.1.12.json",
+      "original_sha256": "0ec5a013012f78fa67c7ae8d3973f7da59c5001562fbb878ce2e3a1c9b762a9d",
+      "published_sha256": "d50686ac91d0a5758c4ac309723f64bb5e45762e8f0ebe7f9a2f5e6ce6224370",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-vitest-coverage-v8-4.1.11.json",
+      "original_sha256": "a9f4b7d5a17c842d1ed3d3120d7a379572721a767ddd8bb44a35d1333bc425d6",
+      "published_sha256": "459dbcef26d5653990765cabec28dca836a9e375132a4d825e47c5b82f55892e",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-vitest-coverage-v8-4.1.12.json",
+      "original_sha256": "4a92f436a685ee0f42fb163cc3fc5f66de9898154e780b99cc50b5100da956b8",
+      "published_sha256": "6d1146ca23637205603e4a487412544874877af4913e12968f193ee186dc503a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-vitest-mocker-4.1.11.json",
+      "original_sha256": "96b4d8b6d118a7a8e895d0c78af4eb84594bf51ae80ae0416b6cb0d47b503b50",
+      "published_sha256": "49c3d47d7d58636b68e43092d5407a3927ef244bbe9dbfe2ae8bc34de0acf03d",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/npm-vitest-mocker-4.1.12.json",
+      "original_sha256": "c461139e57704d6e692b149ee5147d6bb0b5626918f96315029201589c04f910",
+      "published_sha256": "2d5ce03a2d6f82e0a147e7f89e10cd0160d72a3c0ef2197c95a049450df070d0",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-source-map-js-1.2.1.json",
+      "original_sha256": "80f4ab42b7dff41e58958cfd2b5fcb610b6ddb21268f99ee4d2c417f6d56dfa4",
+      "published_sha256": "480fa75455779ee91ae161e36b82396c34e21b92090be635e772eefa96bc3b14",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-source-map-js-1.2.2.json",
+      "original_sha256": "0357536e1e1026f0c44779ff0910b193994b5d430aa9f2cd27522db9ab8deb72",
+      "published_sha256": "ab06102a66fb46211cbeafe1e605e22c1e0f7a5c7a40440c7f1d0c77e21713c9",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-targets.json",
+      "original_sha256": "3afa168fe13f9ba7f5667095559513068fa4be1af61d5bdb45f2b8b0897f2cce",
+      "published_sha256": "3afa168fe13f9ba7f5667095559513068fa4be1af61d5bdb45f2b8b0897f2cce",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-vite-6.4.3.json",
+      "original_sha256": "06782f0c3d49fcdfd2a97298b912b4a01595367b7fe3c751cf9b53e8b55c97c8",
+      "published_sha256": "fb016b0d43dbee898a2e8469bbdcd662feed155579b47b93b99896d210e4b718",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-vite-6.4.4.json",
+      "original_sha256": "2fbae62f0589912caa2e327709082e6c09f111b8b102f2f6d5501fc1f8cdd2ac",
+      "published_sha256": "776fe7536afbec54a7cae1a2c9e952fde57bc875935e814df3951f81f3010383",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-vite-6.4.5.json",
+      "original_sha256": "a83a850344eff49a5e2b57fbf61cd337f2d46313327d382230f953a19b14eb61",
+      "published_sha256": "6e511268e9ff1b518da57a1861cd5ec42b28d93c3bcc10cdc19f02a63ff40349",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-vitest-4.1.11.json",
+      "original_sha256": "c732fa4a2d7aed8852112da0871fce6b16f6b770c7ad68456fc234cf4515aa01",
+      "published_sha256": "00e89c90e8e95ac58d0a8fd132044342213ff95e3b53df428fcc676d48fc6bdc",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-vitest-4.1.12.json",
+      "original_sha256": "1b7b1ba15fc6233e3125e33d6353bf36f60f9461fe35db8eaed223f0c5f74157",
+      "published_sha256": "9e9dbdf75bab5393ef3f02ecfdbba0163eff8c95f412cdcf8f563368347e45b0",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-vitest-coverage-v8-4.1.11.json",
+      "original_sha256": "4855fb13ff6641eb77457a45deb2bfe6172c200807860dc2d267acf9c7106afc",
+      "published_sha256": "5dde274fdb7e8970bd0b76e0f71f802d15b9191ea0816b0caa8da7ca4d783b6e",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-vitest-coverage-v8-4.1.12.json",
+      "original_sha256": "dfdbe4172cfe094884a35bd7ba9fbbdc6b5a3ed0d5241925aceb38dcd42c1842",
+      "published_sha256": "bf61989206599c01edac77e6530a79603405c8377612df477b614481160507a7",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-vitest-mocker-4.1.11.json",
+      "original_sha256": "62ec9c58c083027a5cee7e2545a2b924c50713bcb3f1dfe3b12ec09677a765ec",
+      "published_sha256": "93a359b0ea36d3509b58a0bcfa0e2ef8e7affaa12df1a5fe48659d3bfcb5856e",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/registry-vitest-mocker-4.1.12.json",
+      "original_sha256": "4bb9ddb7247ad8cf7bc8c0939c72cd616705a00fef41a9ff52da7e4c5f8097b1",
+      "published_sha256": "ac103fe0e3003c7cfe35c755a0b04a35f60c70606b72047fbe8196772fe68b5a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/advisory-sources/GHSA-587h-7wmj-h5pm.json",
+      "original_sha256": "54f6bdbd066fecc0b7e8726beaa2cd8ff1b3b9c70658171f8dbec40c28ade6d3",
+      "published_sha256": "422320695e89433cbdad0711c03d44b0bf578c8eec3b26d89d028f2e8eb7d7b7",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/advisory-sources/GHSA-68fv-2mgg-jv7q.json",
+      "original_sha256": "65adb5c38cc20f2723370067654b43cefb020a45d9f714c464ccb0164b5aa0dc",
+      "published_sha256": "45a30f934949f907ecd37193723e5f30cd6e32fe51e3b6c95c03b8dc02692207",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/advisory-sources/GHSA-698v-4r3x-3vcv.json",
+      "original_sha256": "9e529869d7e361435c9c46b644fadeb339bd18bbc9e1a408ea43a30ba3248a94",
+      "published_sha256": "c3a80a9630cd53b0bef87e7c2e1bd6a4d641db0f03533040c0b5cdb91296fc5f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/advisory-sources/GHSA-9jrq-w75r-8gcw.json",
+      "original_sha256": "0de454368c5e02f63f9ac600aebdffa9a8b296c44157af8a3d60693c43f87f4a",
+      "published_sha256": "2b5d39436169335a88832995f22164481ec6337df706062de63fe7253595d585",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/advisory-sources/GHSA-qxg6-89mg-rqv8.json",
+      "original_sha256": "3f633e201b9d216238b809f8d85526fb1cfaf70c748864e5bd528a7b45ebf288",
+      "published_sha256": "41b9481265a2f64f7c96297aecd3694941055a4b86556802593110cdcada1a80",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/advisory-sources/GHSA-r825-w8mm-5pxw.json",
+      "original_sha256": "df294bc34bd8b99425c755f9fd2b590db5b9cd51caa7f9e40e294950b72ba6b1",
+      "published_sha256": "0aaaca8e321c7d05ef191d7106c950d5339e626afa6f5c356f734d9f4225810b",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/advisory-sources/GHSA-rq7h-c2jc-7f22.json",
+      "original_sha256": "cbfd6f817bf80b6c6cb5dfbbd9d8e8606de59dba788c4c94ad3139b8fa4185d2",
+      "published_sha256": "ec3859ea11f0b1bb0c24b4adb7a0aa7ffe02be7cdf8ef373d68a855c62d0b916",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/advisory-sources/GHSA-xp26-3454-mjgp.json",
+      "original_sha256": "b3c8285d4c1ed216105e590952c3387c493914e72f479f069a3d838a4b9b87c4",
+      "published_sha256": "0a2bc35938ccabaa5dcc97e7fdfab18f97907dcc3915c0111d4ecca8c2e0b1f6",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/source-map-js-1.2.1.json",
+      "original_sha256": "1c1b52a45c32bbef699e289853684c5c34ce24715c26552e03519009bc4a454c",
+      "published_sha256": "7afbfbeff5b7783ad9da549d1ef4c47a75528412c5385287133c3eed9423d24f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/source-map-js-1.2.2.json",
+      "original_sha256": "2a7a225c550e3a0e75f9af72a635e33d7b2e4a0fca4f596679a2775971f53ed6",
+      "published_sha256": "a0aba3fc24875d3aa55689b9372048b578f98328d58adb5ce9edc3032caf803a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vite-6.4.3.json",
+      "original_sha256": "419907eba71cf9341b8148fd3fd25ba4301a4dd230f956fa240bf6190366a0fd",
+      "published_sha256": "101feb886b5cd5a99712f52fa2590ec4a350a51deda91d5b5684bf0e7b249ff7",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vite-6.4.5.json",
+      "original_sha256": "ad81a4128bb0eba3000ec82c1387165f13b0894ba69806c911532ff99e940592",
+      "published_sha256": "be8d229281dc32166f7377592d26bc2a5e067802998f4da5b40dcc759554c7c1",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-4.1.11.json",
+      "original_sha256": "48432f161ab45f60344d096cb21f7022450d2707159234ce51e420ffdabe8068",
+      "published_sha256": "5decde5de43bd7784796c0c1f8f7654e09a5d15f226bfa0ceb1de648ab5eecd5",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-4.1.12.json",
+      "original_sha256": "6f6dd06b4b6f0611d655c76981a318a5f2ddf6e5ec032056876751c754fdbcc0",
+      "published_sha256": "523811b2a315cb4ad15efc06bfd42d75e739b8f029fd60a6d541ac4294329379",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-coverage-v8-4.1.11.json",
+      "original_sha256": "44f26269978e7cac2562e52e2750b193334d7dad20a21b0fe53d02e1d05b4ac2",
+      "published_sha256": "314b406248ddc6dce824d47adc5cf724560ab3d92f5d377956f9423618aa0664",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-coverage-v8-4.1.12.json",
+      "original_sha256": "f7129b587f158342fe3ddc18e3989d55ab937e7c1c533eef9afd0710026dde88",
+      "published_sha256": "75ce3d9de5a2fbd4212bd33ec4841379255fbca7ff55941d0b3d37d475dbabe2",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-expect-4.1.11.json",
+      "original_sha256": "e70ba05ac9cf6d57e4b6bafc57d46d11cc19ab8096db69d71cf6f5947baf5c71",
+      "published_sha256": "370bcdf7a93901c9d062a139f3332410622ddff6421942f2c963c6223dd2d0d4",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-expect-4.1.12.json",
+      "original_sha256": "0528bfe881bab6121b389e1ab88a26bf43208027e80016c43a5971b391f4f199",
+      "published_sha256": "4e5402cfde60915939cda7d5792fd2b792ef7282578835955211d81a58001ea1",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-mocker-4.1.11.json",
+      "original_sha256": "264f5c8dcfaebfc09b88258db193d98b6b3d64ede5fcd7e3dbe3cccb644e08a6",
+      "published_sha256": "9dc193eee99b54053f8f75a154ee2286dc7986f1e6940858c8dba6a7c6849a1b",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-mocker-4.1.12.json",
+      "original_sha256": "8db5c03250edf5280c4ba695058beaa9daa2b6ebd2e115de5c4c615889effb58",
+      "published_sha256": "94517c8d21ac2c4a2c2ccd49279ce6b3508adf7685ec05725ee939002915665e",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-pretty-format-4.1.11.json",
+      "original_sha256": "227337663226d6be9b79dc3b6779b8e26f845e7c05f4914c64992a03c4781075",
+      "published_sha256": "44d223d184000e97523443d7200bd4d08c6f685acb182860240e8a510e961a16",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-pretty-format-4.1.12.json",
+      "original_sha256": "351069ed91e3ef52bc958fa7da8da7326b09865cda981aa37ee8c29c8b6f14f4",
+      "published_sha256": "5afdd5ee9e2b058b599e038bac094d0e72a416a194bb8a52730069ba36a0b5f6",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-runner-4.1.11.json",
+      "original_sha256": "4fe1a28a120a59789a2d8f59ebc142214ae78d55c7723593f596280025a68790",
+      "published_sha256": "b9e99be91b5e84cdc97e04282186f1390fe9dad3cdb3b352c5c05ba3da0d488a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-runner-4.1.12.json",
+      "original_sha256": "ce975479304c71711463b4a47545256fb37eec3f466f8191aa8a5983726c4385",
+      "published_sha256": "8799b492cfc4008edac605cebbf107c286338227fe377d2d1482155f782e3e9d",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-snapshot-4.1.11.json",
+      "original_sha256": "704c3da9a253117f975522f085f9d53a8712819ffcf7b89c4c0e61a38fd0c9fc",
+      "published_sha256": "18275762404448a3c7e204bb88c64c30c851ed3f5141b08db4dec01576e9de93",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-snapshot-4.1.12.json",
+      "original_sha256": "e1224551dfdd89b4dee9ff0a57117bb29a75b9f6e64e3a94be06feb4aaca44c6",
+      "published_sha256": "f51298cd2abff2e7af78906db6a587d0f299b30282f5c2fe4e9e239d8a7b04a6",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-spy-4.1.11.json",
+      "original_sha256": "be90422e19265db6d45395d5b390fca0cfea25aae6d0ecf3a1ab43b72fa65c76",
+      "published_sha256": "9bd2236bbbd982d1c0915d41107f758758495ecbab54421595d1fc3fb29ba5ee",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-spy-4.1.12.json",
+      "original_sha256": "f05eb9a7f06b3c45f150c2735e48feaa79a65a217f247f29fa9e2373c1f2ebe9",
+      "published_sha256": "9535fc87c7e612535b5e69bb276d73aa702e7c7a141d61cac0435be09bd9dd4f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-utils-4.1.11.json",
+      "original_sha256": "14ff4f9adfaa945b72ec83cca4ee41b25eacd3ab368a7a496c1ce796b4c794b7",
+      "published_sha256": "0dad8385ef8d94b07ea65f81934c51ede9a6be58b84fc3e18d4079f0b8ad8046",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/dependency-closure-metadata/vitest-utils-4.1.12.json",
+      "original_sha256": "5ff2d396f4bd7c27566d00dfdaae96f8d29a6a410d09443db3263c7e0002afb8",
+      "published_sha256": "672cad9dbe79bf59918e8044c91a924751619d748af35960b0a9c619b6dcd998",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/advisory-source-manifest.json",
+      "original_sha256": "9919176d49f2193e9d39c2016be8d669315f1228d5bc99bfc12e2a4419c904ad",
+      "published_sha256": "9919176d49f2193e9d39c2016be8d669315f1228d5bc99bfc12e2a4419c904ad",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "sources/vite-6.4.5-changelog.md",
+      "original_sha256": "e4cc685fc68eb485e8858dbb6d4ab22ae70d62f2c0132b203676d3dea189e70b",
+      "published_sha256": "e4cc685fc68eb485e8858dbb6d4ab22ae70d62f2c0132b203676d3dea189e70b",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "tools/dependency-tool-ocr-preview.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "tools/dependency-tool-ocr-preview.stdout.txt",
+      "original_sha256": "eeaa4267f55357ae132e87b84218d12271fe213e9305691895f420070564fd78",
+      "published_sha256": "eeaa4267f55357ae132e87b84218d12271fe213e9305691895f420070564fd78",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "tools/dependency-tool-ocr-rules.stderr.txt",
+      "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "tools/dependency-tool-ocr-rules.stdout.txt",
+      "original_sha256": "4d88781fb85d4c17d08551a3d7e604ee4413da7cd7eaf78989e4d269f36765e5",
+      "published_sha256": "4d88781fb85d4c17d08551a3d7e604ee4413da7cd7eaf78989e4d269f36765e5",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/fixed-head-commit.json",
+      "original_sha256": "71c72448daa58ebc0bedfcbbe696fa0467059850754d2d1971e4088e7a12eb29",
+      "published_sha256": "94f1fbcd43ce86380ae7ff634ea2fb0f8fe03ac69d5b234f205d41c0a8162fbf",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/job-121095818536.log",
+      "original_sha256": "16311a70acddf80facc051266b65a465fadbdf1d3f372117e18785f130c586d0",
+      "published_sha256": "94fdc7de702980a26cdf1d8a22c25abed013b0144f8d7a69355bb81bab354fc3",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/job-121095818713.log",
+      "original_sha256": "e112ed39f6095a61938209dadc73cd592f057a37e9e5cb72f4ec46bb99b615e8",
+      "published_sha256": "eee14f50c178e41a9b41dc8cc968f2392d7b6f62f786f03bb7a564255386b3b6",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/job-121095818726.log",
+      "original_sha256": "90571394985554177e64ddeff4d1e21ddc8c2f2e0ce48b25f598fa2927d493ad",
+      "published_sha256": "f18223d326060d2728f8195ecffc022c822f6d34b74aa8b1085ba5ee83ff9bc5",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/job-121095818739.log",
+      "original_sha256": "97d0af90dce4eb18ac5805c1f1097ab676050351d60dbb6548e3d2ba03059596",
+      "published_sha256": "a3e7e9229aa53ff5a63122a20fa36002c389ea3f63c71bb3d5430468029899a8",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/job-121095818754.log",
+      "original_sha256": "c147d30dc24a7b151cc9dd586f8aa38db6a28b6a7aa5a8a06b5c13c9efc21734",
+      "published_sha256": "6cddb17b7742853dd1301db4cb3885132b1bbb8320684451447865b1e9695aa4",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/job-121095818756.log",
+      "original_sha256": "c7c39f74cf757f04ec724d99abafa11d408281390106acad855bfda2ba3f49d3",
+      "published_sha256": "b471693c9d51993141373169c2735479c8ee18671bc85b04333870d8bea5667c",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/job-121095818839.log",
+      "original_sha256": "7290982cb699c23d6654e97e1bab7459ef2348fcd7970ef09fb9aebace01a994",
+      "published_sha256": "7b2d63fdd4da211d148c20aaa93d4bda563852b846ae1f513ee4275761192461",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/jobs-40168994795.json",
+      "original_sha256": "b3e97788f649b3032e3c46b187dda500d5d3d290bb819843179cc042d82cd8a6",
+      "published_sha256": "391fd55f7771d8a86a5e5b2092cc85f6f566b215fe27eec565098ddb8548b928",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/jobs-40168994818.json",
+      "original_sha256": "30d8fff633c073968fc22d66169c78fe03495744abfdd3993d6ea624c937ae9f",
+      "published_sha256": "9bb5ef8dd797582da218d805afc3b9fc15ddd9160a62ce2b70bd6b7e34f5ffc2",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/main-snapshot.json",
+      "original_sha256": "1cf520886a33c8ed58df715f956b6f46610482615135cb31811f029cc5dd1534",
+      "published_sha256": "0771fe8abe6747db6db529089e5cf222a61157f745dedfa43b6e5c6716210766",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/pr-snapshot.json",
+      "original_sha256": "ffb9324f5849410ccc1f5a2fcc9949494ea6652f231c393e6b67591c9b9f03f4",
+      "published_sha256": "67791ac143fb06df51ab46e8d7c7f2d84f851ea03a367fb316d406a611c31081",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/run-40168994795.json",
+      "original_sha256": "839ecd4656f32cc79cd4b127c9e4761d2b574c0a6f1132d3700315b84340dfee",
+      "published_sha256": "2a4fd1b4538041291a235d80169b6b616b05bb17150dfa3035760c0a041eac37",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/run-40168994818.json",
+      "original_sha256": "7d02693d54dfd55b08373dfe6907621db382d7c541b4f49a40d1c6f6adffb226",
+      "published_sha256": "86467b506f2ab49a451ee11a27093e1e1b2262da95cbd54e79c4a4e1d2351c9f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/selector-shadow-observation.json",
+      "original_sha256": "e6d61bc74164e496971b2d3f944a8423b6e125e95278c173e53f8f45db0ca817",
+      "published_sha256": "e6d61bc74164e496971b2d3f944a8423b6e125e95278c173e53f8f45db0ca817",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/self-artifacts.json",
+      "original_sha256": "862c140653a53787b29eb67a8ca5bcf158ad5ca7833a8aecf4b1478602c16735",
+      "published_sha256": "b3be6273a8df52cc033dd54f54dda3eae8a2aeb1cf82f91115979a8f138284ad",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/self-verification-envelope.json",
+      "original_sha256": "a1681a1ecfae294c06a92b7921be1d4574f648125fb8e1a9a5254ae900fc728d",
+      "published_sha256": "a1681a1ecfae294c06a92b7921be1d4574f648125fb8e1a9a5254ae900fc728d",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/self-verification-receipt.json",
+      "original_sha256": "8cd0213e0b20cadafd33395588754fa1da173a1064e6c4d3f6bb3bdce01743b4",
+      "published_sha256": "8cd0213e0b20cadafd33395588754fa1da173a1064e6c4d3f6bb3bdce01743b4",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/summary.json",
+      "original_sha256": "aa65adb47c29fb9a02faf24b495e02d24e9c3e2364f374737d06b91069fb84c5",
+      "published_sha256": "aa65adb47c29fb9a02faf24b495e02d24e9c3e2364f374737d06b91069fb84c5",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/fixed-head-commit.json",
+      "original_sha256": "a2a873edfafaa73355a1b0f2ba34c0c8b91ab4a03c91f96ed2c901ef1fac997a",
+      "published_sha256": "235f16f2494d328ade59a1e2ea17601507f25ba618542eaecf75b0606841e39b",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/job-121099062444.log",
+      "original_sha256": "f47fc6c4f56969a98beddcea942f7c7321c6e4ae65931348a3766d91a2c73c5a",
+      "published_sha256": "9299f87fe8bc22c163167cf833c8fadf1a96441f5510fa8a97f1b84b48830347",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/job-121099062615.log",
+      "original_sha256": "00b01734e86d0a276ee2d3535a78d08bac7c7e9c0e9d28a8953e2e1c3df87845",
+      "published_sha256": "2c2b50d65d43e1d187e1a164f3eebd40b716dda87e01c6ec170d1c664ab152c2",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/job-121099062619.log",
+      "original_sha256": "c9111b206e50af516708bbb86b1b45620cce96c48d7eb836e3189b3a12763363",
+      "published_sha256": "b45fcb5a3894b99609ee7e7eb83a2017c3c1d7a52e2c5fc1c5d97de00bce9132",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/job-121099062630.log",
+      "original_sha256": "bb54079574843e03316d91a58cc96ae1e8e7e72bcb5c76c1f3abd0560b58fc64",
+      "published_sha256": "f3d5051232841cb402c8cf080596d4c3c0c787fc99c9c773fbdd01dc0c035db5",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/job-121099062670.log",
+      "original_sha256": "0ac1762f9232ae242d81f125184640499418790fa162376e0ea3788fbe07b660",
+      "published_sha256": "3d039e0bb74a0223a634e0b66530f578c63f8ec135d1f5a182b2e25f5216ed0a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/job-121099062682.log",
+      "original_sha256": "9fdc75aa1ce4709982faa166dcde9658210c0d1576f9d271eaad55eb227b9b5f",
+      "published_sha256": "c361302e42c1af319446ac5a51c7e4de6bedb454349f0e4a9143b2f97c2b5dbd",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/jobs-40170113995.json",
+      "original_sha256": "de731425ce42413880b91a3110ab249f97a177a83a7317b92e9abedae09caed8",
+      "published_sha256": "cdf4f6e4e984a322b400c7dd18f046d4ebd2363d104ca01885497381fca7e0ac",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/main-snapshot.json",
+      "original_sha256": "61cfcf317ae91d6838ab275fe04dd942d72495801bd24be9fda73d97cbff5360",
+      "published_sha256": "8c7425eac70073a3d4497b1c28ebba47e4dd37b6eee550a71d84d7673bc9a5f2",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/pr-snapshot.json",
+      "original_sha256": "99fa8350fb52a68eeff9d812f18696c6fa0ea0527aeefee2ec7b7d73721ccf1c",
+      "published_sha256": "d2440cac7a5597e722a3e1e67dd7670ccf26cb286fd7ed268db673511cf0f092",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/run-40170113995.json",
+      "original_sha256": "701d53a78cd291a57e1dee146bcd2ce3ac510eaccd8c646aa4df408a0e094f86",
+      "published_sha256": "e958c096abcc2bae901578c3a97318f8e2575c61ec2b306aaa3a5cddfcaadc33",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/summary.json",
+      "original_sha256": "f6f1e8031a849818f2a167b448e46e0dcc6a864d992e5621a51a159b5572633f",
+      "published_sha256": "f6f1e8031a849818f2a167b448e46e0dcc6a864d992e5621a51a159b5572633f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/dependency_graph.py",
+      "original_sha256": "23b3f2651e5b479fd84fadff8bd7e6c247092809dbc1c51371f9430c6fd88827",
+      "published_sha256": "23b3f2651e5b479fd84fadff8bd7e6c247092809dbc1c51371f9430c6fd88827",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/dependency_retry_minimal.py",
+      "original_sha256": "0a0375824a63a6c3de822e8506084e226f76f3b24e802ee1b388bebce29c8210",
+      "published_sha256": "0a0375824a63a6c3de822e8506084e226f76f3b24e802ee1b388bebce29c8210",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/dependency_range_check.mjs",
+      "original_sha256": "91ad2a926f1b5f36ebc2be3bae26ef114a7d9103c92f0e9963bda6b163464010",
+      "published_sha256": "91ad2a926f1b5f36ebc2be3bae26ef114a7d9103c92f0e9963bda6b163464010",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/dependency_select_minimal.py",
+      "original_sha256": "837c7c7dee5e7d7cc45dc8164701977c5ba4c3d7971ef5a6998b56fdc50b18ca",
+      "published_sha256": "837c7c7dee5e7d7cc45dc8164701977c5ba4c3d7971ef5a6998b56fdc50b18ca",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/dependency_candidate_binding.py",
+      "original_sha256": "531d8cbcd1292038c09610315ea1849d25363761a206146661fcf6e402e3ace2",
+      "published_sha256": "531d8cbcd1292038c09610315ea1849d25363761a206146661fcf6e402e3ace2",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/qualify_dependencies.py",
+      "original_sha256": "89d716f576abaf9bcad84072a62477d63ebccac5e2c3b85a46a2fcada15ed4ea",
+      "published_sha256": "89d716f576abaf9bcad84072a62477d63ebccac5e2c3b85a46a2fcada15ed4ea",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/publish_dependencies.py",
+      "original_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+      "published_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/capture_dependency_ci.py",
+      "original_sha256": "dd69443257d175dc4c53930beec74b869777ef8aa67569a068a0de065d9cf4f0",
+      "published_sha256": "dd69443257d175dc4c53930beec74b869777ef8aa67569a068a0de065d9cf4f0",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/capture_timing_ci.py",
+      "original_sha256": "cc8a199c6e3f5d35c3a02047bdd0229d9ff22466c8e871daacdfb706eccc4fe4",
+      "published_sha256": "cc8a199c6e3f5d35c3a02047bdd0229d9ff22466c8e871daacdfb706eccc4fe4",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/premerge_dependency.py",
+      "original_sha256": "eb809748182c490b932d726bf90bf198059fc0ddee0d6357ddccd81043066e30",
+      "published_sha256": "eb809748182c490b932d726bf90bf198059fc0ddee0d6357ddccd81043066e30",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/premerge_timing.py",
+      "original_sha256": "7ca5721149a4fb9e9fa85ffe98a4294f155b6bfa34c46ad4061901b70d60cdca",
+      "published_sha256": "7ca5721149a4fb9e9fa85ffe98a4294f155b6bfa34c46ad4061901b70d60cdca",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/capture_dependency_tools.py",
+      "original_sha256": "ca07f5bfdf4a59753ed809f2d660dd90ca80d1ab0c4ceb9db60aa3eb6c827fbb",
+      "published_sha256": "ca07f5bfdf4a59753ed809f2d660dd90ca80d1ab0c4ceb9db60aa3eb6c827fbb",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/summarize_dependencies.py",
+      "original_sha256": "fb8f92ba0dddba814efe45f4b0acfd28de4c90afa4dab9ee76be861be4fe379f",
+      "published_sha256": "fb8f92ba0dddba814efe45f4b0acfd28de4c90afa4dab9ee76be861be4fe379f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/dependency_timing_context.py",
+      "original_sha256": "4db4e559834a9e71644a19bdd5026e9b1c565220cd98bc1cb5b59a2d00aa0f70",
+      "published_sha256": "4db4e559834a9e71644a19bdd5026e9b1c565220cd98bc1cb5b59a2d00aa0f70",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/capture_dependency_frontier.py",
+      "original_sha256": "3cacfc2a3c43fa84a5c8c96efe1aadd290e4d883e5f10a7748a69b4a9943494f",
+      "published_sha256": "3cacfc2a3c43fa84a5c8c96efe1aadd290e4d883e5f10a7748a69b4a9943494f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/capture_timing_frontier.py",
+      "original_sha256": "7012d2e5905a7e37a44a532374c2a1b7ed5f9ee2bcd93293afd8c51d1659b402",
+      "published_sha256": "7012d2e5905a7e37a44a532374c2a1b7ed5f9ee2bcd93293afd8c51d1659b402",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/verify_dependency_publication.py",
+      "original_sha256": "dfd129f86e553b328d2ef7b6746df56c6b0f019f80f0fdba181c5f5e75cbe731",
+      "published_sha256": "dfd129f86e553b328d2ef7b6746df56c6b0f019f80f0fdba181c5f5e75cbe731",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/verify_timing_publication.py",
+      "original_sha256": "053d4c1b075957e93e500072c684a1a5e0ff09b1024e18aff3c614afc143292e",
+      "published_sha256": "053d4c1b075957e93e500072c684a1a5e0ff09b1024e18aff3c614afc143292e",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/dependency_resume_frontier.py",
+      "original_sha256": "aad830ef5fccbbf214314ea24cca32b1aae40cb926b816ad28863589b0fa0bcd",
+      "published_sha256": "aad830ef5fccbbf214314ea24cca32b1aae40cb926b816ad28863589b0fa0bcd",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/verify_dependency_derivatives.py",
+      "original_sha256": "d24f5840a7d3953dc4458534bb0e2d492eb349b7a0d4d2b705d2c3124ae3f031",
+      "published_sha256": "d24f5840a7d3953dc4458534bb0e2d492eb349b7a0d4d2b705d2c3124ae3f031",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/qualify_native.py",
+      "original_sha256": "326d0fa4e1f850173cbb20bcfc92f621352f092166773533e7adac2108a2465a",
+      "published_sha256": "326d0fa4e1f850173cbb20bcfc92f621352f092166773533e7adac2108a2465a",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "merges/644.json",
+      "original_sha256": "3e390b6d66564d63f49c798dd2296ba8099dc461ac657308fdafc1a8ab6dfa79",
+      "published_sha256": "6893b1caa9322d9ecd4271135f941a1678fb697a8ffc85dbf7d637e3a0e8f336",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "merges/644-premerge.json",
+      "original_sha256": "492876fafedace2f04e2fcc21d35c51a2a7df483538a02cc0b7b704ed32192e6",
+      "published_sha256": "492876fafedace2f04e2fcc21d35c51a2a7df483538a02cc0b7b704ed32192e6",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/record_merge.py",
+      "original_sha256": "439a8b9590addffffb81d8d784d069c0ed08fa02c511925cffa7e0f94936303f",
+      "published_sha256": "439a8b9590addffffb81d8d784d069c0ed08fa02c511925cffa7e0f94936303f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/publish_dependency_closeout.py",
+      "original_sha256": "db511f5493439b74ad098cf5eea6ea20990b537816441e44e486ccbfa4a4c22f",
+      "published_sha256": "db511f5493439b74ad098cf5eea6ea20990b537816441e44e486ccbfa4a4c22f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/verify_dependency_closeout.py",
+      "original_sha256": "b6ed101aabc9a23fed5a01a8e2c2b6b7898962893d97f6aa8aa60c6bcadcce7c",
+      "published_sha256": "b6ed101aabc9a23fed5a01a8e2c2b6b7898962893d97f6aa8aa60c6bcadcce7c",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/compare_dependency_premerge_frontier.py",
+      "original_sha256": "e29ad825c881e3b0093a1ce73c75bef63576f956f158af9f24b268ac54c3c22c",
+      "published_sha256": "e29ad825c881e3b0093a1ce73c75bef63576f956f158af9f24b268ac54c3c22c",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "scripts/drift_native_probe.mjs",
+      "original_sha256": "d85f81345db995d0b4478081332ac1f557e2bc38f22f49790107768a6f721a52",
+      "published_sha256": "d85f81345db995d0b4478081332ac1f557e2bc38f22f49790107768a6f721a52",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-publication-review-c429ab0.json",
+      "original_sha256": "91ddb7aabca4626318f550faadc738a06350e23b922ad5008b2576ac2c610fe0",
+      "published_sha256": "488ca5e2a5c04cd1618b5f89bce66e03e947aa6638410a589ab8a1cea88865e1",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "member": "context/dependency-publication-receipt-c429ab0.json",
+      "original_sha256": "2c76b74a4f53dbba53af7275da689a21a9111cdb8cef73d3ca200e1e1d49102f",
+      "published_sha256": "2c76b74a4f53dbba53af7275da689a21a9111cdb8cef73d3ca200e1e1d49102f",
+      "original_matches": true,
+      "published_matches": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    }
+  ],
+  "manifest_exact_members": true,
+  "prior_packet": {
+    "sha256": "29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8",
+    "members": 172,
+    "frozen_producer_original_hash_matches": true,
+    "frozen_published_producer_unchanged": true
+  },
+  "preliminary_check_notes": [
+    "Initial complete-warning byte comparison flags expected email removal in glob warnings. Correct criterion below preserves package@version and warning meaning after explicit email minimization. Initial raw diagnostic labels were removed from this review artifact to avoid retaining unnecessary email content."
+  ],
+  "nonvacuous_identity_preservation": {
+    "original_unique_values_summed_across_members": {
+      "package_version": 167,
+      "attestation_url": 51,
+      "sri": 1779
+    },
+    "mismatches": []
+  },
+  "self_truth": {
+    "envelope_exit": 4,
+    "not_run_records": [
+      {
+        "path": "/tasks/0",
+        "id": "typecheck",
+        "status": "NOT_RUN",
+        "reason": "command_surface_changed"
+      },
+      {
+        "path": "/tasks/2",
+        "id": "test",
+        "status": "NOT_RUN",
+        "reason": "command_surface_changed"
+      }
+    ],
+    "selector_comparison": {
+      "available": false,
+      "disposition": "UNAVAILABLE",
+      "reason_code": "UNAVAILABLE_ASCOUT_ADMISSION",
+      "reason_text": "The bound Ascout test task did not run under normal unchanged command authority.",
+      "full_suite_failed": [],
+      "ascout_failed": [],
+      "matched": [],
+      "selector_misses": []
+    },
+    "receipt_summary": {
+      "task_status_counts": {
+        "PASS": 0,
+        "FAIL": 0,
+        "FLAKY": 0,
+        "BLOCKED": 0,
+        "ERROR": 0,
+        "NOT_APPLICABLE": 2,
+        "NOT_RUN": 2
+      },
+      "finding_count": 0,
+      "completeness": "materially_incomplete",
+      "exit_code": 4
+    }
+  },
+  "local_full_truth": [
+    {
+      "member": "runs/dep-repair-candidate-full-suite-4933e71b-9cf9-46ca-939e-56a8152afe64.json",
+      "exit": 1,
+      "wall_seconds": 984.9693171000108,
+      "native_summary": [
+        " Test Files  2 failed | 241 passed (243)",
+        "      Tests  4 failed | 2387 passed | 34 skipped (2425)"
+      ],
+      "failure_truth_present": true
+    },
+    {
+      "member": "runs/dep-repair-candidate-full-suite-isolated-0f52291f-2ddc-49b3-8421-67542f2a913d.json",
+      "exit": 1,
+      "wall_seconds": 755.1360790000763,
+      "native_summary": [
+        " Test Files  1 failed | 242 passed (243)",
+        "      Tests  1 failed | 2390 passed | 34 skipped (2425)"
+      ],
+      "failure_truth_present": true
+    }
+  ],
+  "git_bindings": [
+    {
+      "ref": "2e3f90bd912279dbddfd6badf761d5e33c47e379:qualification/development-dependencies/2026-10-25-closeout/REPORT.md",
+      "sha256": "66abb49c68563949642f5d787fb8f3bda10e2a70cb8e6cdf16845487013cf61b",
+      "git_blob": "fac3ab9d85752152451e4e87423c123ce1b03aa2",
+      "bytes": 4762
+    },
+    {
+      "ref": "2e3f90bd912279dbddfd6badf761d5e33c47e379:qualification/development-dependencies/2026-10-25-closeout/evidence-lock.json",
+      "sha256": "3bab72fb5d962400ce459866b078f27511a6b4831ad954c6cc52131fb8777d50",
+      "git_blob": "4a61aaee42fe30128dd88cb9383fcf4336e06b86",
+      "bytes": 632
+    },
+    {
+      "ref": "62e588adda04dda1a517742fe10af352e5dfa83f:qualification/development-dependencies/2026-10-24/REPORT.md",
+      "sha256": "170c3ce942f04bc5610213fbc5f62d9d85f68d37492ec349767e6f365fbecda7",
+      "git_blob": "21685c03a769a09690b1f9c00ac3be7ce2288ba1",
+      "bytes": 2723
+    },
+    {
+      "ref": "2e3f90bd912279dbddfd6badf761d5e33c47e379:qualification/development-dependencies/2026-10-24/REPORT.md",
+      "sha256": "170c3ce942f04bc5610213fbc5f62d9d85f68d37492ec349767e6f365fbecda7",
+      "git_blob": "21685c03a769a09690b1f9c00ac3be7ce2288ba1",
+      "bytes": 2723
+    },
+    {
+      "ref": "2e3f90bd912279dbddfd6badf761d5e33c47e379:qualification/development-dependencies/2026-10-25-closeout/evidence.zip",
+      "sha256": "c7b05d96907021d80f8a122b7770639b3db6adb3294f57615d00d7500b7bd5b9",
+      "git_blob": "067ce2bc10ab323d75b94898d0d8e2ab510dfafd",
+      "bytes": 991348
+    },
+    {
+      "ref": "62e588adda04dda1a517742fe10af352e5dfa83f:qualification/development-dependencies/2026-10-24/evidence.zip",
+      "sha256": "29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8",
+      "git_blob": "0b75a482115dbb0bb1325dcc93cc94e789eb3367",
+      "bytes": 675034
+    },
+    {
+      "ref": "2e3f90bd912279dbddfd6badf761d5e33c47e379:qualification/development-dependencies/2026-10-24/evidence.zip",
+      "sha256": "29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8",
+      "git_blob": "0b75a482115dbb0bb1325dcc93cc94e789eb3367",
+      "bytes": 675034
+    }
+  ],
+  "prior_report_unchanged_base_to_closing": true,
+  "report_lock_working_files_match_reviewed_commit": true,
+  "declaration": {
+    "reviewer": "fresh-context OpenAI GPT-6 Codex subagent",
+    "lineage": "Shared OpenAI provider/model lineage with orchestrator and other OpenAI reviews; fresh context does not establish provider independence.",
+    "reviewed_head": "2e3f90bd912279dbddfd6badf761d5e33c47e379",
+    "base": "62e588adda04dda1a517742fe10af352e5dfa83f",
+    "scope": "Read-only bounded closing evidence privacy and integrity review; only external JSON review output written.",
+    "findings": [],
+    "verdict": "NO_ACTIONABLE_FINDING_IN_BOUNDED_REVIEW",
+    "limitations": [
+      "No network publication or remote readback performed; closing publication receipt remains pending.",
+      "No tests/install/model execution or release/security approval performed.",
+      "Regex and recursive structural minimization checks are bounded and are not universal secret detection or authenticated-original certification.",
+      "Original files were read only through the220manifest source mappings in work/rc-repair and work/engineering, excluding any private REA expansion or original dirty checkout.",
+      "No private REA evidence expansion was read or included; public qualification references remain intentionally available.",
+      "d1 not invoked: advisory local classification cannot establish this independent privacy/integrity gate."
+    ],
+    "review_status": "COMPLETE"
+  },
+  "additional_sensitive_pattern_hits": [
+    {
+      "member": "ci/dependency-ci-c429ab0/job-121095818536.log",
+      "pattern": "mac_home",
+      "count": 21
+    },
+    {
+      "member": "ci/dependency-ci-c429ab0/job-121095818839.log",
+      "pattern": "mac_home",
+      "count": 21
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/job-121099062630.log",
+      "pattern": "mac_home",
+      "count": 21
+    },
+    {
+      "member": "ci/dependency-ci-postmerge-62e588a/job-121099062670.log",
+      "pattern": "mac_home",
+      "count": 22
+    }
+  ],
+  "closing_zip_working_file_matches_reviewed_commit": true,
+  "prior_packet_unchanged_base_to_closing": true,
+  "report_assertions_reviewed": [
+    "Both local full failures retained with counts/deadlines and unknown dependency contribution.",
+    "Self capture integrity separated from inner exit4, two NOT_RUN command-surface refusals and unavailable selector.",
+    "Hosted/postmerge native successes not presented as release approval; E00 BLOCKED and UA-P07 unauthorized.",
+    "Explicit source/package identity and attestation/SRI preservation; bounded privacy checks and shared OpenAI lineage disclosed.",
+    "Closing remote readback expressly pending as separate receipt; no disposable artifact deletion claimed."
+  ],
+  "source_hash_limitation": "Matching220external original file hashes establishes byte correspondence to the current bounded capture files; it does not authenticate their external origin or certify the execution claims.",
+  "additional_sensitive_pattern_triage": {
+    "mac_home": "All85matches are generic hosted GitHub macOS /Users/runner paths in four CI logs. No personal/home identity disclosed; no actionable privacy finding.",
+    "other_patterns": "No private home component, AWS key, github_pat_, broad OpenAI key or private-key-block matches."
+  }
+}
