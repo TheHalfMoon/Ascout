@@ -12,4 +12,4 @@
 - [x] Fresh source correctness/product/parsimony and separate security reviews at a6baed4, no actionable in-scope findings; shared provider lineage explicit.
 - [x] Final exact-head integration/publication/CI review, six hosted native suites, actual inner Self FAIL, live gates and ordinary canonical merge/parents/tree/signature verified.
 - [x] Six actual canonical postmerge native suites downloaded and verified; local full FAIL and inner Self FAIL remain explicit.
-- [ ] Fresh closing review, durable closing publication and actual final remote byte/member/sidecar readback before CLOSED_CANONICAL.
+- [x] Fresh closing correctness/privacy reviews clear; closing143-member ZIP/lock/report and four sidecars actually downloaded and byte/member verified atc663347, with forward receipt/status readback required before the next task. Focused CLOSED_CANONICAL; E00/release BLOCKED.

@@ -1,0 +1,68 @@
+{
+  "kind": "TASK023_ACTUAL_REMOTE_CLOSING_READBACK",
+  "verified_head": "c6633472abf1f6f421c4f3ba6a434e2ae144fa9e",
+  "branch": "evidence/git-index-postmerge-20261025",
+  "core": {
+    "observed_at_utc": "2026-10-25T12:03:09.192181+00:00",
+    "head": "c6633472abf1f6f421c4f3ba6a434e2ae144fa9e",
+    "branch": "evidence/git-index-postmerge-20261025",
+    "path": "qualification/git-index-observation/2026-10-25-closeout",
+    "remote_ref_verified": true,
+    "remote_bytes_equal_local": true,
+    "all_member_hashes_crc_json_python_verified": true,
+    "members": 143,
+    "files": {
+      "evidence-lock.json": {
+        "sha256": "8fe2b18ca9620b60ac97571ccceca56ebf59749a54bea5030425dcec3018a99e",
+        "bytes": 708,
+        "git_blob": "35f573835ff31aca6a30be1b322df04ea781b11e"
+      },
+      "evidence.zip": {
+        "sha256": "9c3b34654688fe75153862e43de47cdd2699904f8a7cfe40178337e7c8c80885",
+        "bytes": 530563,
+        "git_blob": "ed19bfb18035b5cdcb8811b61c6dfbf38501e4f4"
+      },
+      "REPORT.md": {
+        "sha256": "f437254dcbf33877c9cde8699f58fb8fa2a0c7596147c50cc1bddd911a85166b",
+        "bytes": 7702,
+        "git_blob": "6ca88134e9a0afedc8238e6fddeda70b244eae86"
+      }
+    },
+    "notice": "Remote evidence durability only; no authentication of sanitized originals or release approval."
+  },
+  "sidecars": {
+    "observed_at_utc": "2026-10-25T12:03:09.436433+00:00",
+    "head": "c6633472abf1f6f421c4f3ba6a434e2ae144fa9e",
+    "branch": "evidence/git-index-postmerge-20261025",
+    "prefix": "qualification/git-index-observation/2026-10-25-closeout",
+    "remote_ref_and_all_sidecar_bytes_verified": true,
+    "records": [
+      {
+        "path": "closing-review-manifest.json",
+        "git_blob": "af95ac096d2b82f871d9545e9e37d94239cb279a",
+        "sha256": "94e291c9c3062fd1fab911f29aabe56eae620a9f6eb8d742bbb1198ef35d43d0",
+        "bytes": 1422
+      },
+      {
+        "path": "index-closing-review-correctness-1a50491.json",
+        "git_blob": "0a76eee23ec9dd02f828eb48d705ab66b1e65849",
+        "sha256": "0766d40f3407ed937fd0e9e2f5be7f037c40bb71d3bcda528e417a57fd1fe244",
+        "bytes": 9233
+      },
+      {
+        "path": "index-closing-review-privacy-1a50491.json",
+        "git_blob": "a685932c5493d530a121947a0ced281d72b52e40",
+        "sha256": "bf0eb340f3f6b64bfcf506d3ef2947e237758b248511021a12bfe84bb409ec7e",
+        "bytes": 6573
+      },
+      {
+        "path": "closing-review-sidecars.py",
+        "git_blob": "6babc7214101c83e70858a2afecc00df73841ff2",
+        "sha256": "328ba1e84ce684b3a8c871e601ed2f1ac35a9cb1035832546c79b4339cca0c1e",
+        "bytes": 1880
+      }
+    ],
+    "notice": "Actual remote evidence durability only; no authentication of minimized originals, release readiness or gate waiver."
+  },
+  "notice": "Actual downloaded core and four closing sidecar files byte/hash verified before the forward status/readback receipt commit. Final forward commit will be read back separately; no self-authentication, release approval or historical failure erasure."
+}
