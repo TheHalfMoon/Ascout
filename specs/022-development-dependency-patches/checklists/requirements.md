@@ -9,4 +9,5 @@
 - [x] Independent fresh final plan/gate audit PLAN_CLEAR atfcb9b82 after preimplementation literal-count correction; originalRECONCILIATION_REQUIRED and corrected reports/hashes retained in FINAL_PLAN_AUDIT.md.
 - [x] Separate fresh consistency/purity clear at570d59d before package/test/notice edits; bounded implementation authority recorded afterward.
 - [x] Actual exact candidate install/tree/audits/signatures/typecheck/build/20focused tests and both complete native controls captured; source reviews complete. Both full controls remain FAIL; source binding and every deadline/skip retained.
-- [ ] Final integrated/publication review, actual hosted CI/Self and eligible canonical/remote close established; no E00/release inference.
+- [x] Final integrated/publication review, all actual final-head hosted CI/Self, ordinary eligible merge and six actual canonical postmerge suites established; inner Self exit4 and both localFAILs retained.
+- [ ] Closing evidence publication and actual remote byte/hash readback established before a later task; no E00/release inference.

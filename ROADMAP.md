@@ -9,7 +9,7 @@ This run is scoped by [the proposed maintenance packet](specs/018-rea-engineerin
 | REA-E02 conservative selection | merged (#639), verified main 23fe4037 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
 | REA-E03 Stryker producer translation | merged (#640), verified main 36d1e504 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
 | REA-E04 deterministic browser assertions | merged (#641), verified main4688ecc5 and six post-merge native CI passes; local timing failures retained under E00 | [tasks](specs/018-rea-engineering-qualification/tasks.md) |
-| REA-E05 / Task022-T01 development dependency repair | implemented4384867; audits/signatures/build/20focused tests pass; both full native controls FAIL retained; final review/CI/canonical close pending; E00/releaseBLOCKED | [qualification](docs/qualification/REA-E05.md) |
+| REA-E05 / Task022-T01 development dependency repair | focused PR644 merged/main62e588a; six actual postmerge native suites PASS; closing publication/readback pending; both localFAILs retained; E00/releaseBLOCKED | [qualification](docs/qualification/REA-E05.md) |
 | Task020-T01 Ascout Durable Harness | CLOSED_CANONICAL PR642/main92433f7; six actual postmerge native suites PASS; closing evidence remotely verified ate4a12b3; historical localFAIL retained | [spec](specs/020-ascout-durable-harness/spec.md) |
 
 Existing applicable canonical, CI, review and exact-head qualification gates remain visible. The 2026-10-21 founder directive authorizes completing Spec 018 and eligible merges when its actual gates pass. UA-P06-specific review/authorization conditions are not automatically applied to independent maintenance. No release readiness claim is made.

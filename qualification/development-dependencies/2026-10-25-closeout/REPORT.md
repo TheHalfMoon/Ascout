@@ -1,0 +1,23 @@
+# Task022 focused canonical qualification
+
+[PR644](https://github.com/TheHalfMoon/Ascout/pull/644) patches existing development dependencies to Vite6.4.5, Vitest/coverage-v8 4.1.12 and their bounded existing closure, including source-map-js1.2.2. The actual native audit changes from five aggregate entries covering eight advisories to zero. Runtime dependencies, production source, scripts, engines, configuration, workflows and deadlines remain unchanged. Exact install, graph, signatures, strict typecheck/build and20focused tests passed.
+
+Reviewed head `c429ab07170db92192e574e0add9d1af330f3ef2` merged ordinarily at canonical main `62e588adda04dda1a517742fe10af352e5dfa83f`, after live governance, exact checks, submitted reviews and unresolved-thread inspection. Ordered parents are `af5de7d1c56030d8842fc85c334cb8933d63fc08` and the reviewed head. Merge and reviewed trees both equal `c79d0ffc2ee77a0bb1916e9f24fdf803fb92b065`; GitHub reports valid signature verification. No administrative bypass or history rewrite was used.
+
+| Actual hosted execution | Verified result |
+| --- | --- |
+| Final-head Project run [40168994795](https://github.com/TheHalfMoon/Ascout/actions/runs/40168994795) | Six complete native suites passed,2,425cases each,243files; existing platform skips retained |
+| Final-head Self run [40168994818](https://github.com/TheHalfMoon/Ascout/actions/runs/40168994818) | Capture/artifact integrity passed; inner exit4/materially_incomplete, two NOT_RUN command-authority refusals; selector UNAVAILABLE_ASCOUT_ADMISSION |
+| Postmerge Project run [40170113995](https://github.com/TheHalfMoon/Ascout/actions/runs/40170113995) | Six complete native suites passed at62e588a; actual guards, install, pinned Chromium, typecheck, test and build steps verified from APIs/logs |
+
+Hosted success does not erase either local full-suite failure. The first control remains exit1,2,387passed/4deadline failures/34existing skips,984.97s. It overlapped a reviewer helper's834Git processes, an orchestration error retained in evidence. The serialized second control still fails drift at5,485ms against5,000ms:exit1,2,390passed/1failure/34existing skips,755.14s. Dependency contribution remains unknown. Historical matching failures do not prove causal independence.
+
+The read-only native drift diagnostic records7setup+26reader Git processes and3.2–3.7s measured case-shaped samples. It is neither a native-suite PASS nor historical-cause proof. Concurrent browser disposal can return before cleanup settles, and direct Vitest exposes a packaging npm_execpath mismatch; those are separate repair candidates. **E00 and release readiness remain BLOCKED.** No changed-command-surface admission was inferred or injected, and UA-P07 remains unauthorized.
+
+Fresh source correctness/product/parsimony, supply-chain/security, final integration, publication and CI reviews found no remaining actionable finding. They share OpenAI provider/model lineage; fresh context is not provider independence. Actual local D1 is advisory and Alibaba OCR execution is preview/rules only. Target ages, maintainer burst/ownership warnings, absent source-map-js provenance and unchanged inflight/glob deprecations remain explicit. Cryptographic npm verification is recorded without claiming universal package trust.
+
+Resolver eager churn, its snapshot-report race, and the publication email-pattern precision finding were preserved and corrected forward. The original172-member packet remains unchanged atSHA256 `29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8`; its actual remote readback is retained here. No paid service, required cloud runtime or unrelated project change was introduced.
+
+[Closing evidence](evidence.zip),SHA256 `c7b05d96907021d80f8a122b7770639b3db6adb3294f57615d00d7500b7bd5b9`, contains221members, with original/public derivative hashes inMANIFEST.json. It includes actual command streams, all official advisories, registry/provenance/graph checks, original and corrected reviews, final/postmerge CI logs, Self plaintext derivatives, live merge proof and reproducible helpers. No opaque Self ZIP, registry cache, installed dependencies or private REA expansion is included. Local homes/emails and personal author/committer/raw signature profiles are minimized; source package identities and attestation URLs remain verifiable. This is bounded public evidence minimization, not universal secret detection or authenticated-original certification.
+
+Closing correctness/privacy reviews and remote byte/hash readback are separate records. This document alone does not establish publication durability. Verify the published receipt before disposable cleanup or another canonical task. No disposable artifact has been deleted by this closeout.

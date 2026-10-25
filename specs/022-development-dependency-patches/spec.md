@@ -1,6 +1,6 @@
 # Task022-T01: repair current development dependency advisories
 
-Status: IMPLEMENTED; actual native failures retained; final review, hosted CI and canonical close pending. Base canonical mainaf5de7d1c56030d8842fc85c334cb8933d63fc08. Focused predecessor Task021 is closed through PR643, with six actual postmerge native passes and remotely verified closing evidence at1f24cc68d837145224510d184dbbe10e0c326232. E00/browser reliability, packaging compatibility and release readiness remain BLOCKED; completed REA/features are preserved.
+Status: focused source merged through PR644/main62e588a with six actual postmerge native passes; closing publication/readback pending; both localFAILs retained; E00/releaseBLOCKED. Base canonical mainaf5de7d1c56030d8842fc85c334cb8933d63fc08. Focused predecessor Task021 is closed through PR643, with six actual postmerge native passes and remotely verified closing evidence at1f24cc68d837145224510d184dbbe10e0c326232. E00/browser reliability, packaging compatibility and release readiness remain BLOCKED; completed REA/features are preserved.
 
 ## Constitution compliance and observed need
 
@@ -33,4 +33,8 @@ Existing patch families only. No npm audit fix, override, new dependency, packag
 
 ## Actual candidate observations
 
-Implementation4384867 follows the recorded prospective gates and bounded user authority. Exact install/tree/audits/signatures/typecheck/build and20focused tests exit0. Complete controls exit1:2387passed/4deadline failures/34existing skips, then serial2390passed/1drift deadline failure/34existing skips. Both remain FAIL; dependency contribution is unknown. See [qualification](../../docs/qualification/REA-E05.md) and source-bound packet. The focused contract permits proceeding to CI without converting these failures to PASS; final eligibility, E00 and release requirements remain effective. No CI/merge/canonical close or release claim is made.
+Implementation4384867 follows the recorded prospective gates and bounded user authority. Exact install/tree/audits/signatures/typecheck/build and20focused tests exit0. Complete controls exit1:2387passed/4deadline failures/34existing skips, then serial2390passed/1drift deadline failure/34existing skips. Both remain FAIL; dependency contribution is unknown. See [qualification](../../docs/qualification/REA-E05.md) and source-bound packet. The focused contract permits proceeding to CI without converting these failures to PASS; final eligibility, E00 and release requirements remain effective. Final-head and postmerge hosted native qualification, ordinary guarded merge and canonical tree/parent/signature proof are established below. Closing publication/readback remains required before a later task; no E00/release claim is made.
+
+## Canonical qualification update — October25
+
+Reviewed headc429ab0 passed all seven actual final-head jobs, including six full2,425-case native suites. Self is a valid capture with inner exit4/materially_incomplete and two command-authority NOT_RUN refusals; selector comparison is unavailable. Actual merge62e588a preserves reviewed treec79d0ff and ordered parents[af5de7d,c429ab0], GitHub verified. Postmerge Project run40170113995 executed all six native suites successfully with existing platform skips. Source/CI/publication reviews have no remaining actionable findings; forward resolver/publication corrections and both nativeFAILs remain preserved. Detailed closing publication and remote readback are separate from these source/CI facts.
