@@ -278,19 +278,32 @@ export async function launchPlaywrightSession(
   const browser: Browser = await chromium.launch({
     headless: options?.headless ?? true,
   });
-  const browser_version = browser.version();
-  const context: BrowserContext = await browser.newContext();
-  const page: Page = await context.newPage();
+  let browser_version: string;
+  let context: BrowserContext;
+  let page: Page;
   const consoleErrors: string[] = [];
-  page.on("console", (message) => {
-    if (message.type() === "error") {
-      consoleErrors.push(message.text());
+  try {
+    browser_version = browser.version();
+    context = await browser.newContext();
+    page = await context.newPage();
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        consoleErrors.push(message.text());
+      }
+    });
+    page.on("pageerror", (error) => {
+      consoleErrors.push(error instanceof Error ? error.message : String(error));
+    });
+  } catch (error) {
+    try {
+      await browser.close();
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], "browser startup and cleanup failed");
     }
-  });
-  page.on("pageerror", (error) => {
-    consoleErrors.push(error instanceof Error ? error.message : String(error));
-  });
+    throw error;
+  }
   let disposed = false;
+  let disposal: Promise<void> | null = null;
   const requireActive = (): void => {
     if (disposed || !browser.isConnected()) {
       throw new Error("browser session is disposed");
@@ -300,16 +313,27 @@ export async function launchPlaywrightSession(
 
   const runtime: PlaywrightRuntime = {
     browser_version,
-    dispose: async (): Promise<void> => {
-      if (disposed) {
-        return;
+    dispose: (): Promise<void> => {
+      if (disposal !== null) {
+        return disposal;
       }
       disposed = true;
-      try {
-        await context.close();
-      } finally {
-        await browser.close();
-      }
+      disposal = Promise.resolve().then(async () => {
+        const errors: unknown[] = [];
+        try {
+          await context.close();
+        } catch (error) {
+          errors.push(error);
+        }
+        try {
+          await browser.close();
+        } catch (error) {
+          errors.push(error);
+        }
+        if (errors.length === 1) throw errors[0];
+        if (errors.length > 1) throw new AggregateError(errors, "browser cleanup failed");
+      });
+      return disposal;
     },
     executable_path,
     executeAction: async (
