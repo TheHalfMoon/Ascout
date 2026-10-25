@@ -1,0 +1,162 @@
+{
+  "kind": "TASK023_FRESH_PUBLICATION_PRIVACY_EVIDENCE_REVIEW",
+  "observed_at_utc": "2026-10-25T11:28:14.393275+00:00",
+  "reviewed_head": "97dc5ee069091f855682d71ad7fcb968cdf7aaaf",
+  "canonical_base": "62e588adda04dda1a517742fe10af352e5dfa83f",
+  "source_candidate": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+  "verdict": "NO_ACTIONABLE_PUBLICATION_FINDINGS",
+  "findings": [],
+  "scope": [
+    "qualification/git-index-observation/2026-10-25/evidence.zip",
+    "qualification/git-index-observation/2026-10-25/evidence-lock.json",
+    "qualification/git-index-observation/2026-10-25/REPORT.md",
+    "docs/qualification/REA-E00-index.md",
+    "Original local capture/context/helper bytes corresponding to the 80 manifest records"
+  ],
+  "archive": {
+    "sha256": "c08d0bbcfd9c984faf126d60c1ffa189b977ee9f581f21c5c3d1ea5dba3b4147",
+    "bytes": 155438,
+    "members": 81,
+    "record_bindings": 80,
+    "unique_safe_member_names": true,
+    "crc_verified": true,
+    "deterministic_timestamps": "2000-01-01T00:00:00",
+    "lock_source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+    "lock_source_head_is_capture_candidate_not_final_docs_head": true
+  },
+  "checks": [
+    "All 80 original hashes, published hashes, byte lengths and transformed flags verified against original files and archived bytes.",
+    "Independently AST-loaded only minimize/sanitize/add from the SHA-pinned frozen publisher and reproduced every derivative; only the two explicitly identified fixture exceptions differ from ordinary sanitizer output.",
+    "30 JSON payloads, including recursively embedded JSON strings, parse and contain no author/committer/_npmUser/email profile keys or verification payload/signature fields. The manifest also parses.",
+    "17 published Python files parsed with ast.parse; all 3 published MJS files passed Node --check --input-type=module without execution.",
+    "All members scanned for common GitHub/OpenAI token/private-key markers, user-home/personal-component patterns and nonreserved email strings; none found. Remaining email matches are the reserved fixture address in exactly two scripts and the explanatory manifest notice.",
+    "No installed packages, opaque nested archives, graph database/cache, private REA expansion or raw account/usage payloads occur in the enumerated member set.",
+    "Both diagnostic fixture scripts have exactly one reserved identity, independently confirmed present in canonical test source. The ordinary sanitizer difference is exactly replacement of its leading apostrophe and address. The publisher restores only those exact bytes after equality assertions, yielding original SHA and exact original executable bytes. This is not an arbitrary email allowlist.",
+    "All 12 capture exits, outer deadlines, unchanged individual-deadline flags, source start/end, sampling limitation, wall times and original stream hashes are unchanged; all original streams independently hash correctly.",
+    "Intended RED native1 (23 fail/2 pass), TS5112 invocation native1, missing-schema diagnostic native1 and complete-suite native1 are retained; corrected executions do not replace earlier failures.",
+    "Full control retains 2415 passed/1 failed/34 skips across 2450 cases/244 files, observed 772.9023 seconds; stderr identifies unchanged 15000ms T103 invalid_taken deadline at line268 and stdout observed 22242ms. No normalizer assertion result is inferred.",
+    "Twenty comparative samples contain real recorded Git launch invocations: 130 baseline versus 110 candidate, clean12 to10/modified14 to12; identical outputs for each state. Timing caveats match docs and source.",
+    "Paired public runCheck samples count exactly 38 baseline and34 candidate commands; full receipts/task summaries retain invalid-evidence ERROR, reason vitest_evidence_invalid, exit2 and unknown_due_to_error. Baseline subject and unchanged check module are distinguished from capture context.",
+    "Both publication-preparation assertion errors are described in context. Publisher assertions execute before opening the output archive; local metadata states no failed attempt wrote/replaced an archive. No raw transcript proving historical nonexistence is present; this is a bounded mechanism/context observation, not an authenticated historical claim.",
+    "REPORT and qualification documentation preserve pending final-head integrated/publication review, hosted CI/Self, live policy/reviews, ordinary merge/postmerge and remote readback. They keep E00/release BLOCKED and do not claim clean RC, independent provider certification or authority waiver.",
+    "Production delta and new-test counts verified as15 added/31 deleted in src/git.ts and174 new test lines; no existing tests, deadlines, manifests, workflows or authority files changed."
+  ],
+  "native_captures": [
+    {
+      "capture": "index-repair-baseline-build-6776887e-56d0-430b-897c-6ea251ebc18a.json",
+      "native_exit": 0,
+      "wall_seconds": 4.287271199980751,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "capture": "index-repair-build-32e7bf00-b90d-4e64-9a75-3942301bbb2a.json",
+      "native_exit": 0,
+      "wall_seconds": 9.905478999949992,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "449fb9a34310780487ba39ffc2c5d404c7c548d852c5bcd9bfaf8d058c377a8f",
+      "original_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "capture": "index-repair-comparison-c63f43a8-70cd-45fb-ac43-06f41752862b.json",
+      "native_exit": 0,
+      "wall_seconds": 26.789687199983746,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "cb191355aa935630c1dfb8cc0feb6e7120468b102cd116000b6a7c600fb5385c",
+      "original_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "capture": "index-repair-focused-d7a19724-3578-49f9-9da5-2bf1c0f1bbb4.json",
+      "native_exit": 0,
+      "wall_seconds": 161.95662459998857,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "b28afb3fe2b98c8afb796f3111a0817d57d6078da2fd94dcbeacdbd5d1628eb2",
+      "original_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "capture": "index-repair-full-suite-5426e0dd-4ff2-4d09-8665-2c617ef18843.json",
+      "native_exit": 1,
+      "wall_seconds": 772.9023288999451,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "e904d86c3e4ad2df496dd3c21f92a5030a479ad336fe5f99be15d648ee007773",
+      "original_stderr_sha256": "2b5fc51548d38c12c957f8cce448ff38d7f19f071491bb04c459fdbbc172831c"
+    },
+    {
+      "capture": "index-repair-green-92c83cb0-fb24-4b7f-91b0-bbc8fb574bce.json",
+      "native_exit": 0,
+      "wall_seconds": 6.593135199975222,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "44bdccdf62793cb87cd17d39724abe7fcb65caa7965d135d43883cacc2414876",
+      "original_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "capture": "index-repair-red-cca9c98f-7858-4745-8272-e42683a8adcf.json",
+      "native_exit": 1,
+      "wall_seconds": 35.94743539998308,
+      "source_head": "e427f30990bb5d62c7bd1c6ee48db0bcc985284f",
+      "source_unchanged": true,
+      "original_stdout_sha256": "af457985b992a0fc763588df8cf71102701622888f0afb8446f8e4691ec59a19",
+      "original_stderr_sha256": "33dff95ceecd387dd7be1aa96cd09d4e0ab37869bc5e94490dbcddb899b3a0ac"
+    },
+    {
+      "capture": "index-repair-t103-diagnostic-96b63450-c242-4c47-bcf9-61a37511810d.json",
+      "native_exit": 1,
+      "wall_seconds": 5.542335900012404,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_stderr_sha256": "a57589b905e5634f1b6b1b749a77f64d4574cf2df28fa631ef6d98c258ea8158"
+    },
+    {
+      "capture": "index-repair-t103-diagnostic-assets-complete-92930ed8-eaec-4763-93f4-0952f29f48bd.json",
+      "native_exit": 0,
+      "wall_seconds": 7.680612999945879,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "b7a271f08340322ab171317870b0a49d75c82ca5ddd5a5f069f81b1c457260e8",
+      "original_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "capture": "index-repair-test-types-404f4cc1-1fd3-4162-96a5-da54a6b13a34.json",
+      "native_exit": 1,
+      "wall_seconds": 0.13592230004724115,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "2aca6e97df20568a3ecdd4c85c18ef3022dd6ad833c64efce5d723ea24846276",
+      "original_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "capture": "index-repair-test-types-corrected-be2e62bc-3a2a-423b-b4d5-0c9f2ca3cff8.json",
+      "native_exit": 0,
+      "wall_seconds": 1.7468605999602005,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "capture": "index-repair-typecheck-25318c2d-2b05-4b89-b19a-3c83b6cb1182.json",
+      "native_exit": 0,
+      "wall_seconds": 7.6467758000362664,
+      "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+      "source_unchanged": true,
+      "original_stdout_sha256": "61df2b720795e280790bf89ef66f57e13076e224e4ad1137d72c3c8e8a6a8810",
+      "original_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "Fresh-context PStack publication/privacy judge on shared OpenAI lineage; no provider-independent certification, standalone security scan, merge approval or release gate waiver.",
+    "Bounded pattern/profile minimization and byte/hash fidelity do not establish universal secret detection or authenticate original external observations.",
+    "No native tests, installs, inference, product execution, network publication or repository mutation performed by this judge. JavaScript syntax-only subprocesses executed.",
+    "Serial timing/no-concurrency claims are consistent with retained capture metadata and context, but this report does not reconstruct an independent OS process trace.",
+    "Current full native suite remains FAIL; comparative diagnostics do not establish historical causation or erase that failure."
+  ],
+  "panel": "publication/privacy/evidence fidelity: fresh context, shared session provider; no actionable findings; required CI/live governance/canonical closeout still pending"
+}

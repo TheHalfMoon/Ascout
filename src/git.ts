@@ -572,9 +572,13 @@ function splitNullTerminated(buffer: Buffer, context: string): Buffer[] {
 }
 
 function parseIndexEntries(buffer: Buffer): TreeDigestIndexEntry[] {
-  const records = splitNullTerminated(buffer, "git ls-files --stage output");
+  const records = splitNullTerminated(buffer, "git ls-files --stage -v output");
   return records.map((record) => {
-    const text = decodeUtf8(record, "git index record");
+    if (record.length < 3 || record[1] !== 0x20) {
+      throw new GitIdentityError("git_metadata_error", "Git returned a malformed index visibility record");
+    }
+    const tag = String.fromCharCode(record[0]!);
+    const text = decodeUtf8(record.subarray(2), "git index record");
     const match = INDEX_RECORD.exec(text);
     if (match === null) {
       throw new GitIdentityError("git_metadata_error", "Git returned a malformed index entry");
@@ -591,43 +595,24 @@ function parseIndexEntries(buffer: Buffer): TreeDigestIndexEntry[] {
       throw new GitIdentityError("git_metadata_error", "Git returned an invalid index entry");
     }
 
-    return { path: requireCanonicalRepositoryPath(path), mode, oid, stage: Number(stageText) };
-  });
-}
-
-function assertTreeDigestIndexVisibility(repositoryRoot: string): void {
-  const records = splitNullTerminated(
-    requireSuccessfulGitBuffer(
-      runGitTreeMetadata(repositoryRoot, ["ls-files", "-v", "-z"]),
-      "unable to inspect Git index visibility flags for tree digest",
-    ),
-    "git ls-files -v output",
-  );
-
-  for (const record of records) {
-    if (record.length < 3 || record[1] !== 0x20) {
-      throw new GitIdentityError("git_metadata_error", "Git returned a malformed index visibility record");
-    }
-    const tagByte = record[0];
-    if (tagByte === undefined) {
-      throw new GitIdentityError("git_metadata_error", "Git returned an incomplete index visibility record");
-    }
-    const tag = String.fromCharCode(tagByte);
-    const path = requireCanonicalRepositoryPath(decodeUtf8(record.subarray(2), "git index visibility path"));
-
+    const canonicalPath = requireCanonicalRepositoryPath(path);
     if (tag === "S" || tag === "s") {
       throw new GitIdentityError(
         "git_metadata_error",
-        `tree digest cannot safely inspect skip-worktree index entry: ${path}`,
+        `tree digest cannot safely inspect skip-worktree index entry: ${canonicalPath}`,
       );
     }
     if (tag >= "a" && tag <= "z") {
       throw new GitIdentityError(
         "git_metadata_error",
-        `tree digest cannot safely inspect assume-unchanged index entry: ${path}`,
+        `tree digest cannot safely inspect assume-unchanged index entry: ${canonicalPath}`,
       );
     }
-  }
+    if (tag !== "H" && tag !== "M") {
+      throw new GitIdentityError("git_metadata_error", "Git returned an unsupported index visibility tag");
+    }
+    return { path: canonicalPath, mode, oid, stage: Number(stageText) };
+  });
 }
 
 function worktreeTypeFromMode(mode: string, path: string): WorktreeEntryType {
@@ -886,10 +871,9 @@ function parseUntrackedEntries(repositoryRoot: string, buffer: Buffer): TreeDige
 function collectTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
   const head = readGitHeadState(repositoryRoot).head_sha;
   const index = parseIndexEntries(requireSuccessfulGitBuffer(
-    runGitTreeMetadata(repositoryRoot, ["ls-files", "--stage", "-z"]),
+    runGitTreeMetadata(repositoryRoot, ["ls-files", "--stage", "-v", "-z"]),
     "unable to read Git index for tree digest",
   ));
-  assertTreeDigestIndexVisibility(repositoryRoot);
   const unstaged = parseUnstagedEntries(repositoryRoot, requireSuccessfulGitBuffer(
     runGitTreeMetadata(repositoryRoot, [
       "diff-files",
