@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "task": "Task023-T01",
+  "review_kind": "fresh PStack integrated correctness, product, parsimony and governance consistency judge",
+  "head": "97dc5ee069091f855682d71ad7fcb968cdf7aaaf",
+  "tree": "848f099525adb6a2a5887400427ab1d748ed6d24",
+  "base": "62e588adda04dda1a517742fe10af352e5dfa83f",
+  "source_head": "a6baed464db522962e8d4e2e08ae6cb0fd24cd1b",
+  "source_tree": "463e61bfbf34b0090ecd3638cc242df300eea022",
+  "verdict": "INTEGRATION_CLEAR_WITH_REQUIRED_QUALIFICATION_GATES_PENDING",
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": []
+  },
+  "bars": {
+    "correctness": {
+      "result": "NO_ACTIONABLE_IN_SCOPE_FINDING",
+      "observations": [
+        "Reviewed the complete production/new-test delta and relevant frozen plan, prior finalized source/security reports and qualification evidence. One fixed ls-files --stage -v -z query replaces the separate stage and visibility queries in each complete observation.",
+        "The combined record parser validates visibility prefix and ASCII space before existing strict NUL, UTF8, mode, lowercase 40/64 OID, stage and canonical path checks. S/s and lowercase flags refuse; only H/M accepted. Unsupported tags and command failures remain errors.",
+        "Complete double observations and equality/count checks, HEAD queries, native runner, path containment and per-path Git attribute/filter hashing are unchanged. No fallback success, cache, dependency, public export or command-admission expansion was introduced.",
+        "New public-collector tests isolate the child_process mock, preserve actual spawnSync for native fixtures, exclude setup from count budgets and retain pre-existing test files/deadlines. Native RED proves 12>10 and14>12 before implementation; GREEN reports25passed. No tests were executed by this judge."
+      ]
+    },
+    "product": {
+      "result": "IMPLEMENTATION_AND_CURRENT_STATUS_CONSISTENT_GATES_PENDING",
+      "observations": [
+        "All15changed paths are within the prospective allowlist. src/git.ts is the only changed production file; tests/git-index-observation.test.ts is the only changed test. Source/new-test content is byte-identical between a6baed4 and97dc5ee. Existing tests, package/lock, config/workflows and governing authority files remain unchanged.",
+        "Commit order records plan audit, different fresh consistency review, correction of an intermediate report hash and bounded authorization before test/source commits. The final report correction precedes all source/test edits; the unretained intermediate JSON is not fabricated as durable evidence.",
+        "Specification, tasks, checklist, ROADMAP, STATE and qualification documents distinguish implemented focused work from pending final review/CI/Self/live eligibility/canonical close. They do not claim CLOSED_CANONICAL, merge approval or release readiness.",
+        "The full local result remains native exit1,772.9023288999451s,2415passed/1failed/34existing skips,2450cases/244files. T103 invalid_taken exceeded its unchanged15000ms deadline and reported22242ms. This is not evidence of the normalizer assertion result or historical causality.",
+        "All12native captures remain EXECUTED/source_unchanged, including intended RED, TS5112 invocation error, missing diagnostic baseline schema error and full-suite failure. Corrected invocations do not erase their predecessors.",
+        "Twenty paired collector reads record130versus110Gitlaunch API calls and equaloutputs; paired public runCheck records38versus34 with both ERROR/vitest_evidence_invalid/exit2. Cache/order/OS and unmeasured cleanup limits remain explicit. Neither diagnostic exonerates the candidate or resolves the historical full-suite failure."
+      ]
+    },
+    "parsimony": {
+      "result": "CLEAR",
+      "observations": [
+        "Production delta is15added/31deleted lines, reusing existing native Git and validation capabilities and removing the redundant helper.",
+        "No generic batching framework, executor rewrite, production test seam, dependency, service, daemon, architecture expansion or unrelated repair was added.",
+        "The new174-line test file covers refusal boundaries and real process budgets without changing existing cases. Evidence/reproduction helpers are qualification material rather than product runtime."
+      ]
+    },
+    "security": {
+      "result": "SEPARATE_FINALIZED_SOURCE_JUDGE_RECONCILED",
+      "observations": [
+        "Finalized separate source security report at a6baed4 reports no confirmed in-scope findings. Its original SHA25673c909056e54596ffbad6a9beb656869fb555956ced320244b632d155b59380d was independently recomputed; source/new-test remain unchanged.",
+        "This integration pass did not start a Codex Security scan, new UA phase or whole-repository certification. A separate publication privacy judge remains required for the packet."
+      ]
+    }
+  },
+  "evidence_checks": {
+    "clean_worktree_and_requested_head_tree": true,
+    "source_sha256": "c8c6079b40d153f8f9223611abaf31f4e23268db59214ac848d1a958d08040ba",
+    "new_test_sha256": "cbaad0975dd9892628496c8297548967b69ee3022438bb446a59c0fcea0dac64",
+    "correctness_report_original_sha256": "920193d183c5a26140494e66503d152c72af26f544568679e932a39e35c37444",
+    "security_report_original_sha256": "73c909056e54596ffbad6a9beb656869fb555956ced320244b632d155b59380d",
+    "packet_sha256": "c08d0bbcfd9c984faf126d60c1ffa189b977ee9f581f21c5c3d1ea5dba3b4147",
+    "packet_member_count": 81,
+    "packet_crc_error": null,
+    "manifest_inventory_unique_complete": true,
+    "manifest_80_member_published_hashes_and_lengths_verified": true,
+    "native_capture_count": 12,
+    "publication_originals_distinguished_from_sanitized_derivatives": true,
+    "native_suite_pass_claim": false,
+    "source_binding_replay_to_docs_head_claim": false
+  },
+  "governance": {
+    "read": [
+      "CONTRIBUTING.md",
+      ".specify/memory/constitution.md",
+      "Task023 spec/plan/tasks/ANALYSIS/audit/consistency/checklist",
+      "current qualification and coordination documents",
+      "live GitHub Issue618 body and both comments"
+    ],
+    "issue618_applicability": "Live body/comments remain explicitly UA-P06 review-model governance; Task023 is independent bounded Git maintenance with no Security profile/adapter or UA authorization changes. No universal Claude/OCR-managed/Jev provider gate is inferred or waived. The live effectiveness record remains effective for its own scope.",
+    "focused_task_eligibility": "The audited task requires executing and preserving the complete local control, repairing or blocking on a demonstrated in-scope regression, and separately retaining unresolved E00 debt. No demonstrated in-scope regression was identified in this review. This is not causal exoneration and does not itself establish merge eligibility. Focused completion remains conditional on all actual final-head and canonical gates below.",
+    "pending_before_focused_canonical_close": [
+      "Reconcile this integration result and separate final publication/privacy result on the actual new exact head.",
+      "Inspect actual final-head six-lane native CI and Self source/artifact/inner truth; workflow success alone is insufficient.",
+      "Recheck live main/head, effective policy, submitted reviews and unresolved threads immediately before any ordinary head-matched eligible merge.",
+      "Verify actual canonical merge state, ordered parents, tree identity and GitHub verification/signature state.",
+      "Inspect all six actual postmerge native suites and publish sanitized closing evidence/reviews with actual remote byte/member readback before next-task mutation or disposable cleanup."
+    ],
+    "e00_release_state": "BLOCKED",
+    "e00_release_requirement": "An actual passing final complete local suite and all applicable integrated qualification remain necessary. Hosted passes, diagnostic outputs and review conclusions cannot erase the retained local failure.",
+    "merge_approval": false,
+    "release_approval": false,
+    "gate_waivers": [],
+    "ua_p07_authority": false,
+    "changed_command_surface_admission_authority": false
+  },
+  "limitations": [
+    "Fresh context shares OpenAI model/provider lineage with the implementation and other review contexts. No provider-independent certification is claimed.",
+    "Read-only judgment over the requested immutable diff and selected evidence, not test execution, an external OCR model verdict, D1 approval, an exhaustive repository/security scan or a release decision.",
+    "D1, local Alibaba preview/rules and Graft are recorded as actual tools with explicit limitations; D1 cannot replace independent security/required review gates. No TesterArmy invocation is invented for this Git-only delta.",
+    "Archive member hashes/CRC were independently checked locally; original capture authentication, broad universal secret detection and remote publication verification are not established by this pass.",
+    "Native timing assertions about absence of concurrent work are supplied run-context evidence, not independent OS process capture. No unsupported capture or resource sampler was added.",
+    "The candidate contribution to historical T103 timing remains unknown. The browser concurrent-disposal and direct-Vitest npm_execpath issues remain separate future task ownership; no production edits for either entered this branch.",
+    "Remote main/PR/CI/threads must be rechecked by the executor at actual final merge consideration; this report is not a live premerge gate record."
+  ],
+  "reviewer_actions": {
+    "production_or_repo_mutation": false,
+    "test_execution": false,
+    "inference_or_install": false,
+    "live_network_actions": "Read-only gh API queries for Issue618 body/comments",
+    "report_output_only": "work/rc-repair/index-final-integration-97dc5ee.json"
+  },
+  "panel_manifest": "fresh combined correctness/product/parsimony integration context; separate finalized source security judge reconciled; publication privacy separate and pending; shared OpenAI lineage explicit"
+}

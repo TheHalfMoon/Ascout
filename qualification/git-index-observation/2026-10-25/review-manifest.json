@@ -1,0 +1,20 @@
+{
+  "reviewed_head": "97dc5ee069091f855682d71ad7fcb968cdf7aaaf",
+  "records": [
+    {
+      "path": "index-final-integration-97dc5ee.json",
+      "original_sha256": "ebc3656849c078f1541c4eec091d1962be3b976520401fe32c8808a5d98a3c88",
+      "published_sha256": "64749c3c275a997ec4278e2760d76cd70bde399330894b5311c1e94007e3fc98",
+      "bytes": 10117,
+      "transformed": true
+    },
+    {
+      "path": "index-publication-review-97dc5ee.json",
+      "original_sha256": "b719b53c079a4d5ac80bc7834e989288bc69e20d97f3f4e18528a5e28a945ebc",
+      "published_sha256": "b719b53c079a4d5ac80bc7834e989288bc69e20d97f3f4e18528a5e28a945ebc",
+      "bytes": 11387,
+      "transformed": false
+    }
+  ],
+  "notice": "Finalized fresh context review observations; shared OpenAI lineage. No merge approval, release readiness or gate waiver. Frozen81-member ZIP unchanged."
+}
