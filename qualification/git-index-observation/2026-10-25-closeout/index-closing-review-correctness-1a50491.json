@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "task": "Task023-T01",
+  "review_kind": "fresh closing correctness, evidence, governance and status consistency judge",
+  "subject_head": "1a504912f00c376ed3d1fe1ce19d9e63aabe883c",
+  "subject_tree": "c52314461f76d6fced5e7c9ae3da5443cd60f9fa",
+  "canonical_merge": "96c18b3a300c844e9766d272e8eb4f5c3a790e63",
+  "canonical_tree": "725de8c34aa34f01a5e121641c6960f7406fb481",
+  "reviewed_pr_head": "5e8ad936fad4d1c8db0068cada9d64d6ba480d98",
+  "verdict": "NO_ACTIONABLE_CLOSING_FINDINGS_REMOTE_CLOSING_READBACK_AND_SIDECARS_STILL_REQUIRED",
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": []
+  },
+  "checks": [
+    {
+      "check": "immutable_subject_and_branch_purity",
+      "result": "Exact requested head/tree and clean worktree verified twice. Nine files differ from canonical merge: STATE/ROADMAP, Task023 qualification note, Task023 spec/tasks/checklist and closing REPORT/lock/ZIP only. Production source, all tests, package/lock/config/workflow, CONTRIBUTING, constitution/provenance and UA authority paths are byte-identical to native-qualified a6baed4. Relative to canonical base62, product/test delta remains src/git.ts15added/31deleted and new174-line tests/git-index-observation.test.ts; no existing test changes."
+    },
+    {
+      "check": "live_canonical_merge",
+      "result": "Direct read-only GitHub queries independently confirm current main96c18b3, PR645 closed/merged at2026-10-25T11:45:48Z, base62e588adda04dda1a517742fe10af352e5dfa83f and reviewed head5e8ad93. Ordered canonical parents are base62 then reviewed5e; reviewed/canonical tree725de8c matches. GitHub signature status verified=true/reason=valid. Stored merge proof matches these observations."
+    },
+    {
+      "check": "premerge_and_effective_policy",
+      "result": "Original645-premerge record at11:45:47Z binds exacthead/base, nondraft MERGEABLE/CLEAN state, seven completed successful checks, no submitted reviews and no unresolved threads/no pagination. Direct current reviews query is empty. Frontier comparison retains unchanged effective governing facts and only own task advance/newPR645; governing file hashes still match local canonical files. Direct live issue618/body/comments inspection confirms unchanged closed2026-10-11 record and effective UA-P06-specific amendment, not a universal maintenance Claude gate. Live rulesets list is empty; absence of protection is not authority or gate waiver. Current user direction authorizes eligible ordinary task work, not UA-P07 or automatic command-surface admission."
+    },
+    {
+      "check": "closing_archive_and_original_bindings",
+      "result": "Closing ZIP independently hashes9c3b34654688fe75153862e43de47cdd2699904f8a7cfe40178337e7c8c80885,143 unique members, valid CRC, lock source96c18b3. Manifest142 records exactly account for every nonmanifest member. Independently checked every published member digest/byte count and every original digest against its actual retained local original; JSON members parse. Original/published distinction remains explicit. This integrity check does not authenticate origins or claim universal privacy detection; separate publication judge owns that review."
+    },
+    {
+      "check": "native_capture_integrity_and_failure_preservation",
+      "result": "All twelve original index-repair native captures are EXECUTED with unchanged clean source start/end and matching stdout/stderr original hashes. Actual intended RED, TS5112 invocation failure, initial diagnostic missing-schema failure and full-suite failure remain separate native1 results; corrected controls do not replace them. Local full native1/772.9023289s stdout/stderr confirm2415passed/1failed/34existing skips/2450cases/244files. Sole stderr failure is T103 invalid_taken15000ms timeout at unchanged testline268; observed22242ms does not establish assertion outcome. No new test runs were performed by this judge."
+    },
+    {
+      "check": "actual_final_head_and_postmerge_native_CI",
+      "result": "Direct GitHub run queries confirm completed successful Project40189086978 at5e8ad93, Self40189086992 at5e8ad93, and postmerge Project40190225207 at96c18b3. Independently read already downloaded original logs for every final and postmerge job, verifying original log hashes/bytes, exact EXPECTED_SHA guards, successful required steps, exact lock install, Chromium provisioning, actual tsc/noEmit/build/Vitest execution, new test filename and2450case/244file native summaries. Each Project run has all six native OS/Node lanes. Final Windows22/24 actual durations355.78/330.61s and postmerge248.73/339.87s; final/post skips remain34Windows/27macOS/5Linux. Hosted passes do not erase localFAIL. This judge did not download all logs again."
+    },
+    {
+      "check": "actual_Self_artifact_and_inner_truth",
+      "result": "Independently inspected retained actual artifact12597607878: originalZIP SHA71041fbd21d4a798863d2e6bf515e7f1105976aa9d218bd863266619fe8e160e matches advertised artifact digest and upload-log digest, validCRC and exactthree-member inventory. Extracted original bytes match retained envelope/receipt/selector. Envelope binds verifier/target5e8ad93, tree725de8c and base62; receipt digest and stable source start/end verified. Inner result remains FAIL/exit1/completeness complete, typecheckPASS/testFAIL/twoNOT_APPLICABLE; packagingT082/T087 fails3of3. Selector remains UNAVAILABLE_FULL_SUITE_CONTRACT. Raw exception bodies are absent; exact historical cause is unknown. Stable sourceHEAD62 reflects working-state-against-base harness contract, not a baseline-only product run. Green workflow is capture integrity only. No postmerge Self run is claimed."
+    },
+    {
+      "check": "final_review_reconciliation",
+      "result": "Read finalized source/security/integrated/publication/final-CI reports and exact5e reconciliation, with original hashes covered by closing manifest. Final CI review75be57dd15998a2ca11ca1e9be4b5ced1150c29777bef354cf0d054401c873b3 preserves both failures and remaining gates; final5e integrationd322e8981e0ccf29cbb548f72e76163121403fef8fd0adbb9c8937ecebc2bb93 reconciles review-sidecar-only delta. None claims provider independence, merge approval or release certification. No demonstrated in-scope regression identified; unknown candidate contribution to deadline failure remains unknown."
+    },
+    {
+      "check": "truthful_task_and_release_status",
+      "result": "ClosingREPORT, STATE, ROADMAP, qualification note, Task023spec/tasks/checklist consistently state MERGED_CANONICAL_POSTMERGE_VERIFIED with closing fresh review/actual remote packet-sidecar readback pending. They do not prematurely claim CLOSED_CANONICAL. Audited focused contract requires running/preserving full control and repairing/blocking on demonstrated in-scope regression; actual hosted/source/native findings support bounded task completion subject to durability, not E00 completion. E00/release remain BLOCKED until actual passing final complete local and integrated controls. Browser concurrent-disposal and direct-Vitest packaging work remain separately owned future tasks. Prior evidence is retained, no subsequent-task mutation or disposal is claimed."
+    }
+  ],
+  "required_next_steps": [
+    "Complete separate fresh closing publication/privacy judgment and reconcile any actual findings.",
+    "Actually verify remote closing ZIP/lock/REPORT bytes,143members/CRC and final closing review sidecars/receipt at their exact published commit; only then record focused CLOSED_CANONICAL before subsequent canonical task/source mutation or disposable cleanup.",
+    "Preserve full nativeFAIL, Self innerFAIL and unavailable selector. E00/release stay BLOCKED pending their own actual passing final complete local and integrated qualification."
+  ],
+  "merge_approval": false,
+  "release_approval": false,
+  "e00_release_state": "BLOCKED",
+  "gate_waivers": [],
+  "limitations": [
+    "Fresh scoped context shares OpenAI provider/model lineage; this is not provider independence, a new security scan, D1 certification, merge approval or release certification.",
+    "Read-only Git/GitHub/file/hash/CRC/JSON inspection only. No tests, installs, inference, source edits, remote writes, UA-P07 authority, admission override or cleanup. Only this report and an external inspection helper were written outside the repository.",
+    "Used original locally retained CI logs/SelfZIP and direct live run metadata. Did not independently redownload all logs or closing packet, and did not claim pending final sidecars/readback complete.",
+    "Inspection helper initially looked for originalrecord_merge.py under rc-repair rather than engineering and stopped with FileNotFoundError. Corrected only original-file mapping, then every verification completed. No product execution/result or prior evidence changed.",
+    "First RTK read attempt used PowerShell builtin Get-Content as an executable and failed before reading; corrected to Python file read. No repository mutation or qualification result followed that failed read."
+  ],
+  "inspection_helper": "work/rc-repair/check_index_closing_correctness.py",
+  "report_output": "work/rc-repair/index-closing-review-correctness-1a50491.json"
+}
