@@ -1,0 +1,6 @@
+{
+  "zip_sha256": "29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8",
+  "members": 172,
+  "source_head": "d10281f5dd7261339cd9a99f2e02fe0808028218",
+  "notice": "Explicit plaintext public derivatives: local homes/emails and personal author/committer/raw signature profiles minimized. Original and published hashes retained. Registry usernames, target versions, license identifiers and package/attestation integrity evidence preserved. No original opaque archives, registry cache, private REA expansion or installed dependencies included. No security certification, release approval or historical failure erasure."
+}

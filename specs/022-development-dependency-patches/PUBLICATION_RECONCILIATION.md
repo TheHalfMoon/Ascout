@@ -1,0 +1,11 @@
+# Forward public-derivative precision correction
+
+At exact head28dd81a3156a0fb4613144ce125e01aff467ff16, fresh integrated and publication reviewers independently found P022-PUB-EMAIL-PACKAGE-VERSION. The broad email pattern treated package@numeric-version text as email, masking registry identities, exact attestation URL suffixes and deprecation package labels. Other source fields and original hashes survived; no privacy leak or native-failure erasure was found. It was a required precision correction before publication.
+
+Original publication report SHA2568123ae76e703ad43c269e614e684504d2ef3153dd4ff86ee4bf3506adf547581 and integrated report SHA256f9c9ef7696d64fb17ca5b5ecc7b476a4d89a8c17395d6084cd1f9c63baf59018 are preserved in the corrected packet. The original packet01c42606ea7aa2d77b957e85c2cfe834a37947537532de632cd46c0c6f7e1509 remains in the earlier Git commit; history is not rewritten.
+
+The forward publisher requires an alphabetic email domain suffix while retaining explicit metadata/profile/email/local-home minimization, including embedded JSON. All target package/version, tarball/SRI and full attestation URL fields are compared against originals, as are native deprecation labels:35actual source-field checks pass. Corrected archive 29ead476a64393f75f5d069072ef9f16a2e49d4fb7818cecdc3ca35fe3d02ae8,172members, also includes the actual October25 source-bound full audit and signature captures, both native exit0 with unchanged output hashes. The verification sidecar sits outside the archive to avoid recursive self-hashes.
+
+Only documentation/evidence changes follow the implemented source4384867. Both complete native controls remain FAIL and every original deadline/skip remains. Fresh corrected-head integrated/publication delta review, actual exact-head hosted/Self checks, live effective gates and canonical/remote close remain required. No approval, waiver, causal exoneration, UA-P07 or release authority is granted.
+
+A further forward-only evidence update writes the generated lock as explicit UTF-8/LF bytes, avoiding Windows text newline churn flagged by Git's whitespace check. It does not alter the archive payload semantics, selected dependencies, test results or effective authority. The final ZIP above includes that exact publisher version; all35source-field checks remain successful.
