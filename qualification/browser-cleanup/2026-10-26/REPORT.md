@@ -1,6 +1,6 @@
 # Task024 browser cleanup evidence
 
-Source88675d2fa6425ac4938a2da2e931aed57559bb65, treebb1aa3b9c73300c87390146e7300c68d4e1f5617, canonical base96c18b3a300c844e9766d272e8eb4f5c3a790e63. [Actual qualification and limitations](../../../docs/qualification/REA-E00-browser-cleanup.md). Current state: implemented and source-reviewed; integrated/publication/CI/canonical/closing gates pending. E00/release BLOCKED.
+Source88675d2fa6425ac4938a2da2e931aed57559bb65, treebb1aa3b9c73300c87390146e7300c68d4e1f5617, canonical base96c18b3a300c844e9766d272e8eb4f5c3a790e63. [Actual qualification and limitations](../../../docs/qualification/REA-E00-browser-cleanup.md). Current state: implemented and source-reviewed; integrated/publication reviews recorded, final-delta/CI/canonical/closing gates pending. E00/release BLOCKED.
 
 `evidence.zip` SHA256 **d7cb362871001df69e39be0e4212327a162aaae48c64910a3315a632e4fd02f8**,104members including MANIFEST.json; deterministic ZIP timestamps and CRC/member/published hashes verified. `evidence-lock.json` identifies actual source head. Records bind original and minimized public bytes separately. Sanitized derivatives are not authentication of originals.
 
