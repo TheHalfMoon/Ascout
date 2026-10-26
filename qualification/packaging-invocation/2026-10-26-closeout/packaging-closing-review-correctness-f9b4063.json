@@ -1,0 +1,305 @@
+{
+  "kind": "TASK025_FRESH_CLOSING_CORRECTNESS_PRODUCT_EVIDENCE_REVIEW",
+  "status": "FINAL",
+  "head": "f9b40637b861a6e8d8343636d3b1fe0e6fa75128",
+  "tree": "aba44ec0a8a873e4b2ad7bf2183ca0ce65929c68",
+  "canonical_base": "23abb92c3a37bd936c2d7386aa23ddc9d35a9579",
+  "verdict": "CLOSING_CORRECTNESS_CLEAR_WITH_EXPLICIT_REMAINING_GATES",
+  "findings": {
+    "must-fix": [],
+    "worth-considering": [],
+    "skip-it": []
+  },
+  "bar_verdicts": {
+    "correctness": {
+      "verdict": "CLEAR_WITH_RETAINED_FAILURES",
+      "basis": [
+        "All twelve actual native logs and original metadata inspected; exact-head and postmerge source/commands/counts/required steps checked independently of collector verdicts.",
+        "Canonical local Git parents/tree and captured GitHub valid signature/merged closed state agree.",
+        "All126 manifest originals and published member hashes/lengths verified; ZIP unique127-member set and CRC verified."
+      ]
+    },
+    "product": {
+      "verdict": "CLEAR_FOR_MERGED_CANONICAL_OBSERVATION",
+      "basis": [
+        "Closing registry truthfully separates focused merged repair from pending closing review/privacy/remote readback and BLOCKED E00/release.",
+        "No missing focused closing qualification identified beyond finalizing the complete closing review set and explicit pending closing remote readback; separate privacy review is now finalized clear.",
+        "One failed complete local run remains literal; hosted success neither diagnoses its cause nor exonerates candidate contribution."
+      ]
+    },
+    "parsimony": {
+      "verdict": "CLEAR",
+      "basis": [
+        "Eight-path forward-only closing commit consists of bounded documentation and one evidence packet; no executable project change or future task mutation."
+      ]
+    },
+    "security": {
+      "verdict": "NO_NEW_RUNTIME_SURFACE_PRIOR_SEPARATE_SOURCE_REVIEW_CONSUMED",
+      "basis": [
+        "Original source899 subprocess/security review and separately finalized closing privacy review hash bound and retained; no provider-independent security certification."
+      ]
+    }
+  },
+  "branch_purity": {
+    "clean_before_after": true,
+    "closing_paths": [
+      "ROADMAP.md",
+      "STATE.md",
+      "docs/qualification/REA-E00-packaging.md",
+      "qualification/packaging-invocation/2026-10-26-closeout/REPORT.md",
+      "qualification/packaging-invocation/2026-10-26-closeout/evidence-lock.json",
+      "qualification/packaging-invocation/2026-10-26-closeout/evidence.zip",
+      "specs/025-packaging-invocation-compatibility/spec.md",
+      "specs/025-packaging-invocation-compatibility/tasks.md"
+    ],
+    "closing_parent_is_exact_canonical": true,
+    "diff_check_exit": 0,
+    "no_future_task_mutation": true,
+    "source_tree": "30bd51a5d566027174b3efdde3f29fc0e5e0d54a",
+    "non_helper_controls_frozen": 15,
+    "test_entries": 257,
+    "other_test_entries_frozen": 256,
+    "helper_equal_source899": true,
+    "helper_sha256": "3f970a42fef3dd46155be172e7bdbc3473903758420c219d30ca4b6e71efdb1e",
+    "assertion_parser_fixture_deadline_tail_equal_baseline": true,
+    "tail_sha256": "d48fe5601a03a344ae368744e87f5764422605530f327307c4d8e49cdec8fc59",
+    "tail_definition": "Bytes after first function parsePackResult marker, excluding marker."
+  },
+  "evidence_packet": {
+    "zip_sha256": "1c5efff2e466932cb21169412555ee0e546632ece64e50e4f44f4c03c8270eda",
+    "members": 127,
+    "records": 126,
+    "source_head": "23abb92c3a37bd936c2d7386aa23ddc9d35a9579",
+    "all126_original_and_published_hashes_verified": true,
+    "original_locations": "Task-scoped rc-repair captures/scripts plus engineering/runs, engineering/merges and two engineering helper scripts.",
+    "derivative_reproduction_privacy": "Separate closing publication/privacy judge; full minimizer reproduction not repeated here."
+  },
+  "ci": {
+    "final_project_run": 40294189039,
+    "self_run": 40294189057,
+    "postmerge_project_run": 40296380843,
+    "project_run_attempts": 1,
+    "final_event": "pull_request",
+    "postmerge_event": "push",
+    "six_actual_suites_each": true,
+    "source_lock_pinned1630_browser_typing_build_required_steps_verified": true,
+    "required_regression_files_per_suite": 16,
+    "files_per_suite": 245,
+    "cases_per_suite": 2462,
+    "platform_results_both_node22_24": {
+      "windows-2025": {
+        "passed": 2428,
+        "skipped": 34
+      },
+      "macos-14": {
+        "passed": 2435,
+        "skipped": 27
+      },
+      "ubuntu-24.04": {
+        "passed": 2457,
+        "skipped": 5
+      }
+    },
+    "raw_log_bindings": [
+      {
+        "run": 40294189039,
+        "id": 121476128678,
+        "name": "project / ubuntu-24.04 / node-22",
+        "sha256": "a4da2c43ab4eb180f41f3d2b4cc1ef400b7040568fbb3be317a514983815df0c",
+        "bytes": 88544
+      },
+      {
+        "run": 40294189039,
+        "id": 121476128868,
+        "name": "project / windows-2025 / node-24",
+        "sha256": "e0630cc1c82c2ddbdb6403a1fcda0f73981126fd0935e178029ea4edd46ac097",
+        "bytes": 83248
+      },
+      {
+        "run": 40294189039,
+        "id": 121476128878,
+        "name": "project / ubuntu-24.04 / node-24",
+        "sha256": "7c3c7872e07308ef72305bc752fc4206e5d32840b034ed78b07ab27849cf0e27",
+        "bytes": 87957
+      },
+      {
+        "run": 40294189039,
+        "id": 121476128895,
+        "name": "project / windows-2025 / node-22",
+        "sha256": "e5997fb788e3f87734a25770260b6c16d6db1a857c06fd263ffc6329ae17d293",
+        "bytes": 84037
+      },
+      {
+        "run": 40294189039,
+        "id": 121476128993,
+        "name": "project / macos-14 / node-24",
+        "sha256": "9bd47012f8c130a30638d2991877506ed8aa2ffdb1c5cb0c4eebc9ac2f0c19bb",
+        "bytes": 68786
+      },
+      {
+        "run": 40294189039,
+        "id": 121476128999,
+        "name": "project / macos-14 / node-22",
+        "sha256": "c839bff5eb687e5a698e598157074a099078c55229343132009208ebd4dfffc9",
+        "bytes": 72863
+      },
+      {
+        "run": 40296380843,
+        "id": 121483333760,
+        "name": "project / ubuntu-24.04 / node-24",
+        "sha256": "727b7116003c3d41cab34ab480d0efe8b9a61566a4f5885eb0650841797f4e25",
+        "bytes": 89362
+      },
+      {
+        "run": 40296380843,
+        "id": 121483333789,
+        "name": "project / macos-14 / node-24",
+        "sha256": "ad2d3a4da35482d6c3eeb7c32f48a5a7aaff32f237496865591f1f72891cae7f",
+        "bytes": 76815
+      },
+      {
+        "run": 40296380843,
+        "id": 121483333812,
+        "name": "project / ubuntu-24.04 / node-22",
+        "sha256": "23fb8b05d0e1e56a16d5a17be84987dba0f493dba3c7bcff1a82991dc03cae49",
+        "bytes": 87582
+      },
+      {
+        "run": 40296380843,
+        "id": 121483333816,
+        "name": "project / windows-2025 / node-24",
+        "sha256": "425e6b72d81d190127cc8495f6c869057629f47356ea039c2004be78965ab19c",
+        "bytes": 83980
+      },
+      {
+        "run": 40296380843,
+        "id": 121483333867,
+        "name": "project / macos-14 / node-22",
+        "sha256": "5ef211f5ef12fdfbf0b36c0eb2444160fb523f0bac93fd6a09ed6dbeb2862797",
+        "bytes": 75123
+      },
+      {
+        "run": 40296380843,
+        "id": 121483333937,
+        "name": "project / windows-2025 / node-22",
+        "sha256": "5d4088e8835c39758cb1747e59ef9614fe36b406e8c8627947a2c3ba63312a8b",
+        "bytes": 84065
+      }
+    ]
+  },
+  "canonical_merge": {
+    "pr": 647,
+    "merged_closed": true,
+    "merged_at": "2026-10-26T09:01:12Z",
+    "merge": "23abb92c3a37bd936c2d7386aa23ddc9d35a9579",
+    "ordered_parents": [
+      "fe3064afabb18cffbc1d5a8e7f0b5396be7b28c2",
+      "31e9c88c55cd3d9043ff37096cfd9926d6691063"
+    ],
+    "reviewed_merge_tree": "f2d57a3c92a68b173e512aeae4c84f43979241ae",
+    "github_verification": {
+      "verified": true,
+      "reason": "valid"
+    },
+    "last_moment_guard": "Captured09:01:00 exact head/base/main, MERGEABLE/CLEAN,7successful checks,0submitted reviews/inline threads; final CI review finalized09:00:26 before merge.",
+    "governance_limitation": "Captured proof assessed; no fresh remote eligibility query or retrospective authority supplied."
+  },
+  "self": {
+    "artifact_id": 12636749312,
+    "raw_zip_sha256": "d37edd8362cfc240b4280cca5a46a807833daa60f2ca3e34ae9e1dc8b20aab5a",
+    "advertised_digest_upload_log_crc_and_exact3JSON_verified": true,
+    "receipt_sha256": "316a573e799dfca980e7142664fc57a4e5e0db453d3716523caa63fc6db32caa",
+    "classification": "SHADOW_NON_GATING",
+    "inner_exit": 0,
+    "completeness": "complete",
+    "task_counts": {
+      "PASS": 2,
+      "NOT_APPLICABLE": 2
+    },
+    "findings": 0,
+    "test_status": "PASS",
+    "test_exit": 0,
+    "test_runs": 1,
+    "test_failures": 0,
+    "selected": 2462,
+    "deselected": 0,
+    "source_start_end_equal": true,
+    "receipt_head": "fe3064afabb18cffbc1d5a8e7f0b5396be7b28c2",
+    "target_head": "31e9c88c55cd3d9043ff37096cfd9926d6691063",
+    "target_tree": "f2d57a3c92a68b173e512aeae4c84f43979241ae",
+    "source_binding": "Unchanged Spec006 exact-H harness soft-resets subject HEAD to unique merge-base while retaining staged H tree; envelope binds verifier/target H and HT. Receipt comparison20changed paths agrees with actual test/docs-only subject.",
+    "admission": "normal",
+    "command_surface_changed": false,
+    "changed_executable_lines": 0,
+    "unresolved_lines": 0,
+    "historical_Task024_63_unresolved_lines": "NOT_RETROACTIVELY_CLOSED",
+    "selector": "UNAVAILABLE_FULL_SUITE_CONTRACT",
+    "raw_inner_limitation": "Bounded3JSON ZIP excludes referenced test JSON and LCOV; their raw payload hashes cannot be recomputed. Receipt semantics, source/envelope/digests checked; separate actual native full-suite logs inspected."
+  },
+  "retained_local_outcomes": {
+    "all12_local_capture_stream_hashes_source_start_end_verified": true,
+    "direct_red": 1,
+    "canonical_before": 0,
+    "direct_green": 0,
+    "canonical_after": 0,
+    "negative_native_exit": 1,
+    "negative_npm_status": 42,
+    "first_negative_collector_predicate": false,
+    "strict_type_build_test_typing": 0,
+    "full_capture": "681272cd-34ec-485e-ad9a-3193e8c86c48",
+    "full_exit": 1,
+    "wall_seconds": 1599.0206485999515,
+    "passed": 2416,
+    "failed_deadlines": 12,
+    "skipped": 34,
+    "cases": 2462,
+    "files": 245,
+    "failed_files": 6,
+    "all12_stderr_diagnostics_literal_existing_deadlines": true,
+    "causes_candidate_contribution": "UNPROVED",
+    "rerun_or_host_exoneration": false
+  },
+  "review_and_sequence": {
+    "original_review_sha256": {
+      "packaging-plan-audit-01443ef.json": "920fad74eac1bf524d40d77d4163c2ba2f9178a3e812a2023eee1b23b481d612",
+      "packaging-consistency-64b38a3.json": "20bb5fdfc419abd8151501edcf3fd10b92ef752846c376e74a4b2bd4bb122fa2",
+      "packaging-correctness-899be81.json": "f75f168d96d38146408a94774b5e5e60935d9530f266e1062cc00438a8776306",
+      "packaging-security-899be81.json": "8a025897c77188c11d9aa37dbf81434351a1e301930ba01355189280478e27e6",
+      "packaging-integration-509d89e.json": "9d7f59494823676cebda86658de4e8c9f585e635a9b4b7d7ca7a9d09c0fb6fdf",
+      "packaging-publication-509d89e.json": "12a31fe616b565a23462e06bd6a4715300cc8744146d54ee706fb1dae0fcbe74",
+      "packaging-final-delta-31e9c88.json": "681f2329e0f53c38a6250709fb880950958b284f1621e57440a0f0ec4547f529",
+      "packaging-final-ci-review-31e9c88.json": "9b24a379842458455477a5623551e0915df2cbb119e10c582c6d6c4eba0087cb"
+    },
+    "integrated_finding_resolved_forward": "Historical baseline wording corrected at31e9c88; current helper hash stated. Prior review finding preserved.",
+    "initial_remote_proof": "Recorded08:43:47/48 on31e9c88 before09:01 merge; exact3core+4sidecar hashes/Git blobs bind local committed artifacts and76member initial ZIP. No fresh remote download in this review.",
+    "prospective_sequence": "Plan01443ef then finalized plan record64b38a3, different consistency then bounded authority96e1af4 before current-source RED/npm control and source899.",
+    "predecessor": "Task024 closing readback1ba2e92 captured before Task025 mutation; no predecessor evidence commits mixed.",
+    "separate_closing_privacy": {
+      "original_sha256": "e75bc42e58a9526ad5698d47a5af99f7e7dd244afc91252f15609e1a11a76060",
+      "status": "FINALIZED",
+      "verdict": "CLEAR_WITH_STATED_LIMITATIONS",
+      "findings": [],
+      "scope": "Separately finalized privacy judgment consumed as a hash-bound report; it does not substitute this correctness review."
+    }
+  },
+  "remaining_gates": [
+    "Finalize and preserve the complete closing review set with exact-head sidecar bindings.",
+    "Actual closing core/member/sidecar remote byte/ref readback before focused CLOSED_CANONICAL, next canonical task mutation or disposal.",
+    "Truthful forward registry update only after actual closing requirements complete."
+  ],
+  "limitations": [
+    "Read-only fresh session-model review; only this external report written. No project tests, inference, installs, capture/publication drivers, remote writes or project edits.",
+    "Locally frozen raw originals and captured remote evidence inspected; no fresh remote fetch or authentication of minimized historical originals.",
+    "Shared OpenAI lineage, not provider-independent certification. CLAUDE.md/PRODUCT.md specialist mappings absent; inline PStack bars used.",
+    "Separate privacy/minimizer reproduction delegated to closing publication judge; no universal secret-detection claim. No private REA, unrelated projects or credentials accessed.",
+    "D1 not invoked; advisory only and never substitutes independent required review or deterministic gates. OCR rules-only/default-excluded and Qodo billing-unavailable limitations remain.",
+    "No local full PASS, historical cause/exoneration, retroactive provenance closure, UA-P07, admission/policy waiver, new security phase, paid service, deployment/release authority or unconditional task closure. E00/release remain BLOCKED."
+  ],
+  "manifest": "Fresh closing correctness/product/evidence and branch-purity inline bars; parsimony checked on bounded closing delta; original separate source subprocess/security and closing privacy reports consumed with hashes. Shared session-model lineage.",
+  "finalized_at_utc": "2026-10-26T12:31:55.703126+00:00",
+  "continuation_recheck": {
+    "head_tree_clean_and_zip_unchanged": true,
+    "review_interruption": "Generic availability interruption occurred before final response. No prior interrupted turn gate credited; same exact subject revalidated before this final report.",
+    "root_live_main_observation": "Canonical23abb92 unchanged, as separately reported by root; no fresh remote query in this review."
+  }
+}

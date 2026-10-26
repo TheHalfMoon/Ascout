@@ -6,7 +6,7 @@ Canonical main23abb92c3a37bd936c2d7386aa23ddc9d35a9579 after ordinary guarded PR
 
 ## In flight
 
-Task025 closing packet/reviews/remote readback pending. Initial76member3core+4sidecar bytes/ref actually verified at31e9c88. No focused CLOSED_CANONICAL or release claim until remaining gates complete. Source and all case/deadline controls remain frozen; original evidence/owned negative fixtures retained.
+Task025 closing packet and both fresh closing reviews clear; actual closing remote readback pending. Initial76member3core+4sidecar bytes/ref actually verified at31e9c88. No focused CLOSED_CANONICAL or release claim until remaining gates complete. Source and all case/deadline controls remain frozen; original evidence/owned negative fixtures retained.
 
 ## Next steps
 

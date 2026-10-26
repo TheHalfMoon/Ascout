@@ -1,0 +1,1308 @@
+{
+  "schema": "pstack_fresh_closing_publication_privacy_review_v1",
+  "status": "FINALIZED",
+  "observed_at_utc": "2026-10-26T09:17:29.971396+00:00",
+  "reviewed_head": "f9b40637b861a6e8d8343636d3b1fe0e6fa75128",
+  "reviewed_tree": "aba44ec0a8a873e4b2ad7bf2183ca0ce65929c68",
+  "canonical_parent": "23abb92c3a37bd936c2d7386aa23ddc9d35a9579",
+  "packet": "qualification/packaging-invocation/2026-10-26-closeout",
+  "zip_sha256": "1c5efff2e466932cb21169412555ee0e546632ece64e50e4f44f4c03c8270eda",
+  "verdict": "CLEAR_WITH_STATED_LIMITATIONS",
+  "findings": [],
+  "checks": {
+    "mechanical_checks_passed": 312,
+    "zip_members": 127,
+    "manifest_records": 126,
+    "original_and_published_hashes_and_lengths_verified": 126,
+    "frozen_minimizer_exact_derivative_reproductions": 126,
+    "json_syntax_including_manifest": 58,
+    "python_AST_syntax": 24,
+    "javascript_node_module_syntax": 3,
+    "crc_unique_safe_paths_and_manifest_coverage": true,
+    "deterministic_zip_byte_reproduction": true,
+    "exact_closing_head_tree_parent_and_lock_source": true,
+    "initial_76_member_archive_unchanged": true,
+    "all_eight_reported_original_review_hashes_checked": true,
+    "frozen_minimizer_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+    "frozen_Task025_producer_sha256": "dab0211993cda93ebe1c09914a2441aea25a73f937305a0344329d6a7b40f450",
+    "wrapper_review": "AST wrapper adds canonical/postmerge proof, final reviews and initial remote receipts; initial frozen archive is retained.",
+    "privacy": "All members UTF-8 text; recursive personal profile and raw verification payload/signature keys absent in JSON including embedded JSON; private homes/emails and supported token/key patterns absent. All original bytes map to explicit owned rc-repair/runs/merges sources.",
+    "generic_runner_paths": "Four macOS job logs retain only generic /Users/runner; reviewed as hosted runner context, no personal home identity.",
+    "excluded_payloads": "No opaque archive members, installed dependencies/cache/browser profiles, private REA expansion, credentials or account quota payloads.",
+    "hosted_evidence": "All 13 raw final-head/postmerge CI log source hashes, source guards and successful required-step records verified; twelve raw native suite totals independently checked after stripping ANSI controls.",
+    "Self_original": "Original bounded Self artifact digest, CRC, exact three JSON members and extracted originals checked. Current inner exit0/complete, full selection2462 and unavailable selector retained.",
+    "canonical_merge": "Original merge proof hash reproduced; local ordered parents and reviewed tree match; published GitHub signature status is verified/valid with raw personal/signature payloads minimized.",
+    "public_report": "Local native FAIL1/1599.0206486s,2416pass/12deadlinefail/34skip/2462cases/245files, first collector limitation and both failed negatives remain literal. Historical causes and candidate contribution remain UNPROVED. Current Self success does not erase prior failures/provenance debt.",
+    "closure_authority": "Closing documents consistently say MERGED_CANONICAL with closing reviews/remote pending; E00/release BLOCKED. No premature focused closure, future task mutation or disposal approval.",
+    "tool_review_limitations": "D1 advisory, Alibaba/OCR local rules0reviewable/10total, no model-provider review, no fresh Graft/TesterArmy, Qodo unavailable/no paid fallback and shared OpenAI reviewer lineage remain explicit."
+  },
+  "bars": {
+    "publication_correctness": "CLEAR: complete inventory/original bindings, exact derivatives, archive reproduction and source-bound evidence.",
+    "privacy": "CLEAR: no material disclosure found in explicitly bounded public payloads; generic hosted runner paths are non-personal.",
+    "parsimony": "CLEAR: forward evidence wrapper reuses frozen minimizer and preserves original packet; no product abstraction or dependency added.",
+    "product": "CLEAR: closing evidence matches Task025 prospective boundaries and keeps remaining closure/release gates visible."
+  },
+  "limitations": [
+    "Minimization and original/published hashes establish reproducibility, not authentication of original observations or universal secret detection.",
+    "Current bounded Self artifact omits referenced raw test JSON/LCOV. Their payload hashes cannot be independently recomputed from that ZIP; report explicitly states this limitation.",
+    "No project tests, inference, installs, remote writes or project edits ran in this review. Only read-only Git, stdlib artifact checks and owned JavaScript syntax checks ran.",
+    "No closing remote durability claim is made by this review; actual closing core/member/sidecar readback remains required.",
+    "Session-model fresh publication/privacy review shares OpenAI lineage; not provider-independent security/release certification.",
+    "No causal exoneration, historical coverage closure, new authority, security policy waiver or release/deployment approval is supplied."
+  ],
+  "panel": "fresh separate closing publication/privacy session-model inline bars; specialized provider mappings unavailable; shared OpenAI lineage disclosed",
+  "mechanical_audit": {
+    "artifact": "packaging-closing-privacy-mechanical-f9b4063.json",
+    "sha256": "4ccf66c1952be9d60c3c0a97631ccce3b77c3d49b4b9eab905a3c1ce21157a08",
+    "checks": [
+      {
+        "check": "exact_head",
+        "pass": true
+      },
+      {
+        "check": "exact_tree",
+        "pass": true
+      },
+      {
+        "check": "canonical_parent",
+        "pass": true
+      },
+      {
+        "check": "zip_sha256",
+        "pass": true
+      },
+      {
+        "check": "lock_source_canonical",
+        "pass": true
+      },
+      {
+        "check": "zip_CRC_all",
+        "pass": true
+      },
+      {
+        "check": "127_unique_safe_members",
+        "pass": true
+      },
+      {
+        "check": "126_manifest_records_cover_all_members",
+        "pass": true
+      },
+      {
+        "check": "frozen_minimizer_hash",
+        "pass": true
+      },
+      {
+        "check": "frozen_Task025_producer_hash",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-audit-all-9adba88c-363d-4e7d-b45f-d003c2a35635.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-audit-all-9adba88c-363d-4e7d-b45f-d003c2a35635.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-audit-all-9adba88c-363d-4e7d-b45f-d003c2a35635.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-audit-all-9adba88c-363d-4e7d-b45f-d003c2a35635.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-audit-all-9adba88c-363d-4e7d-b45f-d003c2a35635.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-audit-all-9adba88c-363d-4e7d-b45f-d003c2a35635.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-audit-production-cca9b04f-d3e7-4a52-8747-5c3bd037cc47.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-audit-production-cca9b04f-d3e7-4a52-8747-5c3bd037cc47.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-audit-production-cca9b04f-d3e7-4a52-8747-5c3bd037cc47.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-audit-production-cca9b04f-d3e7-4a52-8747-5c3bd037cc47.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-audit-production-cca9b04f-d3e7-4a52-8747-5c3bd037cc47.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-audit-production-cca9b04f-d3e7-4a52-8747-5c3bd037cc47.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-build-19b0c611-c5fc-4ea4-a34d-eeb307a1245d.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-build-19b0c611-c5fc-4ea4-a34d-eeb307a1245d.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-build-19b0c611-c5fc-4ea4-a34d-eeb307a1245d.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-build-19b0c611-c5fc-4ea4-a34d-eeb307a1245d.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-build-19b0c611-c5fc-4ea4-a34d-eeb307a1245d.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-build-19b0c611-c5fc-4ea4-a34d-eeb307a1245d.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-direct-green-846eef5e-47ce-45c8-8afc-470c049db1af.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-direct-green-846eef5e-47ce-45c8-8afc-470c049db1af.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-direct-green-846eef5e-47ce-45c8-8afc-470c049db1af.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-direct-green-846eef5e-47ce-45c8-8afc-470c049db1af.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-direct-green-846eef5e-47ce-45c8-8afc-470c049db1af.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-direct-green-846eef5e-47ce-45c8-8afc-470c049db1af.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-direct-red-301d6202-055e-4915-a3de-f193f7d94110.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-direct-red-301d6202-055e-4915-a3de-f193f7d94110.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-direct-red-301d6202-055e-4915-a3de-f193f7d94110.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-direct-red-301d6202-055e-4915-a3de-f193f7d94110.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-direct-red-301d6202-055e-4915-a3de-f193f7d94110.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-direct-red-301d6202-055e-4915-a3de-f193f7d94110.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-full-suite-681272cd-34ec-485e-ad9a-3193e8c86c48.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-full-suite-681272cd-34ec-485e-ad9a-3193e8c86c48.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-full-suite-681272cd-34ec-485e-ad9a-3193e8c86c48.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-full-suite-681272cd-34ec-485e-ad9a-3193e8c86c48.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-full-suite-681272cd-34ec-485e-ad9a-3193e8c86c48.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-full-suite-681272cd-34ec-485e-ad9a-3193e8c86c48.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-negative-3c4bb194-c3c6-4045-bcdd-cc5ca08cae2b.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-negative-3c4bb194-c3c6-4045-bcdd-cc5ca08cae2b.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-negative-3c4bb194-c3c6-4045-bcdd-cc5ca08cae2b.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-negative-3c4bb194-c3c6-4045-bcdd-cc5ca08cae2b.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-negative-3c4bb194-c3c6-4045-bcdd-cc5ca08cae2b.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-negative-3c4bb194-c3c6-4045-bcdd-cc5ca08cae2b.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-negative-structured-f3fb6737-add6-465e-8f54-631e5dadf15d.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-negative-structured-f3fb6737-add6-465e-8f54-631e5dadf15d.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-negative-structured-f3fb6737-add6-465e-8f54-631e5dadf15d.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-negative-structured-f3fb6737-add6-465e-8f54-631e5dadf15d.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-negative-structured-f3fb6737-add6-465e-8f54-631e5dadf15d.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-negative-structured-f3fb6737-add6-465e-8f54-631e5dadf15d.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-npm-after-fef48de0-5a0e-4faf-9f5a-5df9570097f1.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-npm-after-fef48de0-5a0e-4faf-9f5a-5df9570097f1.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-npm-after-fef48de0-5a0e-4faf-9f5a-5df9570097f1.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-npm-after-fef48de0-5a0e-4faf-9f5a-5df9570097f1.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-npm-after-fef48de0-5a0e-4faf-9f5a-5df9570097f1.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-npm-after-fef48de0-5a0e-4faf-9f5a-5df9570097f1.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-npm-before-a0c3ab0f-e78e-4b97-8155-4f9eaa6dbce2.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-npm-before-a0c3ab0f-e78e-4b97-8155-4f9eaa6dbce2.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-npm-before-a0c3ab0f-e78e-4b97-8155-4f9eaa6dbce2.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-npm-before-a0c3ab0f-e78e-4b97-8155-4f9eaa6dbce2.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-npm-before-a0c3ab0f-e78e-4b97-8155-4f9eaa6dbce2.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-npm-before-a0c3ab0f-e78e-4b97-8155-4f9eaa6dbce2.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-test-types-f3f174f3-6089-4cb8-9f50-c65e22959600.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-test-types-f3f174f3-6089-4cb8-9f50-c65e22959600.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-test-types-f3f174f3-6089-4cb8-9f50-c65e22959600.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-test-types-f3f174f3-6089-4cb8-9f50-c65e22959600.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-test-types-f3f174f3-6089-4cb8-9f50-c65e22959600.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-test-types-f3f174f3-6089-4cb8-9f50-c65e22959600.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-typecheck-245ea5e5-0932-4d4b-88fa-bd2ee51f35e2.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-typecheck-245ea5e5-0932-4d4b-88fa-bd2ee51f35e2.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-typecheck-245ea5e5-0932-4d4b-88fa-bd2ee51f35e2.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-typecheck-245ea5e5-0932-4d4b-88fa-bd2ee51f35e2.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:runs/packaging-repair-typecheck-245ea5e5-0932-4d4b-88fa-bd2ee51f35e2.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:runs/packaging-repair-typecheck-245ea5e5-0932-4d4b-88fa-bd2ee51f35e2.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-baseline-bindings.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-baseline-bindings.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-consistency-64b38a3.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-consistency-64b38a3.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-correctness-899be81.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-correctness-899be81.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-d1-observation.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-d1-observation.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-final-ci-review-31e9c88.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-final-ci-review-31e9c88.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-final-delta-31e9c88.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-final-delta-31e9c88.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-final-pr-review-observation.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-final-pr-review-observation.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-frontier-premerge.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-frontier-premerge.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-frontier-refresh.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-frontier-refresh.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-frontier-resume-20261026.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-frontier-resume-20261026.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-integration-509d89e.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-integration-509d89e.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-native-summary.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-native-summary.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-negative-observation-first.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-negative-observation-first.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-negative-observation.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-negative-observation.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-plan-audit-01443ef.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-plan-audit-01443ef.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-pr-number.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-pr-number.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-review-availability.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-review-availability.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-security-899be81.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-security-899be81.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-self-inspection.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-self-inspection.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-tool-execution.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-tool-execution.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/packaging-toolchain-observation.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/packaging-toolchain-observation.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:context/cleanup-disposable-cleanup.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:context/cleanup-disposable-cleanup.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:tools/packaging-tool-alibaba-preview.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:tools/packaging-tool-alibaba-preview.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:tools/packaging-tool-alibaba-preview.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:tools/packaging-tool-alibaba-preview.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:tools/packaging-tool-alibaba-rules.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:tools/packaging-tool-alibaba-rules.stderr.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:tools/packaging-tool-alibaba-rules.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:tools/packaging-tool-alibaba-rules.stdout.txt",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/fixed-head-commit.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/fixed-head-commit.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/job-121476128678.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/job-121476128678.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/job-121476128708.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/job-121476128708.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/job-121476128868.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/job-121476128868.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/job-121476128878.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/job-121476128878.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/job-121476128895.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/job-121476128895.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/job-121476128993.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/job-121476128993.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/job-121476128999.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/job-121476128999.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/jobs-40294189039.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/jobs-40294189039.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/jobs-40294189057.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/jobs-40294189057.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/main-snapshot.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/main-snapshot.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/pr-snapshot.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/pr-snapshot.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/run-40294189039.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/run-40294189039.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/run-40294189057.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/run-40294189057.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/selector-shadow-observation.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/selector-shadow-observation.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/self-artifacts.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/self-artifacts.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/self-verification-envelope.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/self-verification-envelope.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/self-verification-receipt.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/self-verification-receipt.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-31e9c88/summary.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-31e9c88/summary.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/fixed-head-commit.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/fixed-head-commit.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/job-121483333760.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/job-121483333760.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/job-121483333789.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/job-121483333789.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/job-121483333812.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/job-121483333812.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/job-121483333816.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/job-121483333816.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/job-121483333867.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/job-121483333867.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/job-121483333937.log",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/job-121483333937.log",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/jobs-40296380843.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/jobs-40296380843.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/main-snapshot.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/main-snapshot.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/pr-snapshot.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/pr-snapshot.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/run-40296380843.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/run-40296380843.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:ci/packaging-ci-postmerge-23abb92/summary.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:ci/packaging-ci-postmerge-23abb92/summary.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/publish_packaging.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/publish_packaging.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/publish_dependencies.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/publish_dependencies.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/summarize_packaging.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/summarize_packaging.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/freeze_packaging_baseline.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/freeze_packaging_baseline.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/capture_packaging_frontier.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/capture_packaging_frontier.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/capture_packaging_resume.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/capture_packaging_resume.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/capture_timing_frontier.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/capture_timing_frontier.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/capture_packaging_tools.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/capture_packaging_tools.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/capture_packaging_ci.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/capture_packaging_ci.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/capture_timing_ci.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/capture_timing_ci.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/premerge_packaging.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/premerge_packaging.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/premerge_timing.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/premerge_timing.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/verify_packaging_publication.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/verify_packaging_publication.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/verify_timing_publication.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/verify_timing_publication.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/packaging-negative-control-first.mjs",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/packaging-negative-control-first.mjs",
+        "pass": true
+      },
+      {
+        "check": "javascript_syntax:scripts/packaging-negative-control-first.mjs",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/packaging-negative-control.mjs",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/packaging-negative-control.mjs",
+        "pass": true
+      },
+      {
+        "check": "javascript_syntax:scripts/packaging-negative-control.mjs",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/packaging-error-reporter.mjs",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/packaging-error-reporter.mjs",
+        "pass": true
+      },
+      {
+        "check": "javascript_syntax:scripts/packaging-error-reporter.mjs",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/cleanup_disposable.ps1",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/cleanup_disposable.ps1",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/publish_packaging_closeout.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/publish_packaging_closeout.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/prepare_packaging_closeout.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/prepare_packaging_closeout.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/packaging_review_sidecars.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/packaging_review_sidecars.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/verify_packaging_sidecars.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/verify_packaging_sidecars.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/verify_cleanup_sidecars.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/verify_cleanup_sidecars.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/inspect_packaging_self.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/inspect_packaging_self.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/capture_packaging_pr_reviews.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/capture_packaging_pr_reviews.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/reconcile_packaging_docs.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/reconcile_packaging_docs.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/qualify_native.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/qualify_native.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:merges/647.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:merges/647.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:merges/647-premerge.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:merges/647-premerge.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:scripts/record_merge.py",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:scripts/record_merge.py",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:prior-final/packaging-publication-509d89e.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:prior-final/packaging-publication-509d89e.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:prior-final/packaging-publication-receipt-31e9c88.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:prior-final/packaging-publication-receipt-31e9c88.json",
+        "pass": true
+      },
+      {
+        "check": "hash_and_length:prior-final/packaging-sidecars-readback-31e9c88.json",
+        "pass": true
+      },
+      {
+        "check": "frozen_reproduction:prior-final/packaging-sidecars-readback-31e9c88.json",
+        "pass": true
+      },
+      {
+        "check": "all_members_plain_text_explicit_suffix",
+        "pass": true
+      },
+      {
+        "check": "no_sensitive_named_payloads",
+        "pass": true
+      },
+      {
+        "check": "privacy_pattern_and_recursive_scan",
+        "pass": true
+      },
+      {
+        "check": "deterministic_archive_reproduction",
+        "pass": true
+      },
+      {
+        "check": "initial_76_member_archive_unchanged",
+        "pass": true
+      },
+      {
+        "check": "CI_head_and_job_count:packaging-ci-31e9c88",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121476128678",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121476128678",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121476128868",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121476128868",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121476128878",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121476128878",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121476128895",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121476128895",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121476128993",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121476128993",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121476128999",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121476128999",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121476128708",
+        "pass": true
+      },
+      {
+        "check": "six_actual_native_summaries:packaging-ci-31e9c88",
+        "pass": true
+      },
+      {
+        "check": "CI_head_and_job_count:packaging-ci-postmerge-23abb92",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121483333760",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121483333760",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121483333789",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121483333789",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121483333812",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121483333812",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121483333816",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121483333816",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121483333867",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121483333867",
+        "pass": true
+      },
+      {
+        "check": "CI_raw_log_binding:121483333937",
+        "pass": true
+      },
+      {
+        "check": "CI_native_totals:121483333937",
+        "pass": true
+      },
+      {
+        "check": "six_actual_native_summaries:packaging-ci-postmerge-23abb92",
+        "pass": true
+      },
+      {
+        "check": "Self_raw_bounded_zip_digest_CRC_exact3JSON",
+        "pass": true
+      },
+      {
+        "check": "Self_extracted_original:self-verification-receipt.json",
+        "pass": true
+      },
+      {
+        "check": "Self_extracted_original:self-verification-envelope.json",
+        "pass": true
+      },
+      {
+        "check": "Self_extracted_original:selector-shadow-observation.json",
+        "pass": true
+      },
+      {
+        "check": "canonical_local_parents_and_tree_match_merge_proof",
+        "pass": true
+      },
+      {
+        "check": "all_eight_original_review_hashes_in_report",
+        "pass": true
+      },
+      {
+        "check": "report_preserves_material_limitations",
+        "pass": true
+      },
+      {
+        "check": "public_REPORT_privacy:windows_home",
+        "pass": true
+      },
+      {
+        "check": "public_REPORT_privacy:linux_home",
+        "pass": true
+      },
+      {
+        "check": "public_REPORT_privacy:mac_personal_home",
+        "pass": true
+      },
+      {
+        "check": "public_REPORT_privacy:email",
+        "pass": true
+      },
+      {
+        "check": "public_REPORT_privacy:credential",
+        "pass": true
+      },
+      {
+        "check": "public_REPORT_privacy:private_account_quota",
+        "pass": true
+      }
+    ]
+  }
+}

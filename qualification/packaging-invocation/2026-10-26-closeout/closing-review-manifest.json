@@ -1,0 +1,43 @@
+{
+  "reviewed_head": "f9b40637b861a6e8d8343636d3b1fe0e6fa75128",
+  "unchanged_zip_sha256": "1c5efff2e466932cb21169412555ee0e546632ece64e50e4f44f4c03c8270eda",
+  "producer_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+  "records": [
+    {
+      "path": "packaging-closing-review-correctness-f9b4063.json",
+      "original_sha256": "b2456a6914d831ef2a09b74c826b4c4b9e529c1f31584823f798cd4166c2ad80",
+      "published_sha256": "b2456a6914d831ef2a09b74c826b4c4b9e529c1f31584823f798cd4166c2ad80",
+      "bytes": 14716,
+      "transformed": false
+    },
+    {
+      "path": "packaging-closing-review-privacy-f9b4063.json",
+      "original_sha256": "e75bc42e58a9526ad5698d47a5af99f7e7dd244afc91252f15609e1a11a76060",
+      "published_sha256": "7fe55b4e86a8b21b8d8f8cc774c86e32d5e690d67ab114d03c72227a430d8a7b",
+      "bytes": 43470,
+      "transformed": true
+    },
+    {
+      "path": "closing-review-sidecars.py",
+      "original_sha256": "66ac8dc7c01e16d78edfa5aced15c2201795d60cec30de8524766a4bc09d46d9",
+      "published_sha256": "66ac8dc7c01e16d78edfa5aced15c2201795d60cec30de8524766a4bc09d46d9",
+      "bytes": 2203,
+      "transformed": false
+    },
+    {
+      "path": "verify_packaging_closing_sidecars.py",
+      "original_sha256": "7ec52cb622db6290582e5e9fe80a92edeaa898ea44a3a09c8a895400e482367b",
+      "published_sha256": "7ec52cb622db6290582e5e9fe80a92edeaa898ea44a3a09c8a895400e482367b",
+      "bytes": 468,
+      "transformed": false
+    },
+    {
+      "path": "verify_index_closing_sidecars.py",
+      "original_sha256": "73191d1687d5a52f22e18b3f4edefb588f5d9142dfb3853020acb519c3e218cb",
+      "published_sha256": "73191d1687d5a52f22e18b3f4edefb588f5d9142dfb3853020acb519c3e218cb",
+      "bytes": 2022,
+      "transformed": false
+    }
+  ],
+  "notice": "Finalized fresh closing observations with original/derivative hashes; shared OpenAI lineage, no provider-independent certification or release readiness. Frozen packet unchanged. Actual remote readback remains required before focused task closure or owned disposable cleanup."
+}
