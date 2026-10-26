@@ -1,6 +1,6 @@
 # Task027-T01: reduce native clean-state validation round trips
 
-Status: BOUNDED IMPLEMENTATION AUTHORIZED after final plan audit, different exact-head consistency and direct-user-derived authority. Concrete control/fixture review clear; seven new native cases and adapted driver bound, no native test/control yet executed. Benchmark implementation unchanged; actual baseline, repair, qualification and publication gates pending. E00/release BLOCKED.
+Status: bounded repair8b3493b implemented; baseline29Git RED and candidate23Git GREEN, typing/build/focused native controls complete. Full local suite/source/security/final review/CI/Self/governance/canonical/remote gates pending; E00/release BLOCKED.
 
 Depends on focused CLOSED_CANONICAL Task026/PR648/main36768f4ffe1e2c18492cb3a8fdccd9274c2c615a. Its finalized closing reviews and actual final 108-member, three-core-file/seven-sidecar GitHub readback at55976e3efa5346f0da86440a0fe5022832ab4934 were verified before this branch. [Closing evidence](https://github.com/TheHalfMoon/Ascout/blob/55976e3efa5346f0da86440a0fe5022832ab4934/qualification/native-timing-diagnosis/2026-10-26-closeout/REPORT.md).
 
@@ -27,3 +27,5 @@ Allowed project paths: benchmarks/self-verify.mjs; tests/self-verify-clean-state
 ## Honest residual state
 
 The complete local681272cd run remains native1 after1599.0206486s:2416passed/12deadline failures/34existing skips/2462cases/245files. T1073, Jest2, Vitest1, Git tree digest3, Git diff1 and drift2 remain unexplained. Task026's baseline15105.8276ms/observer10264.8785ms are independent positive reproductions, not original Vitest results. Hosted suites and current Self success do not erase that failure, historical Task024 provenance gaps, or selector comparison unavailability. E00/release BLOCKED until supported qualification establishes otherwise.
+
+Current controls: qualification/native-clean-state/2026-10-26/local-controls.json preserves actual native/inner/budget outcomes. Prior prospective and pre-execution statements remain historical. No release or historical-cause claim.

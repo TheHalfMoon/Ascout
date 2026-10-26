@@ -1,6 +1,6 @@
 # Task027-T01
 
-Status: prospective audit/different consistency/user-derived authority complete; concrete driver/fixture review clear before execution. Named new tests/driver bound; native baseline and benchmark implementation still pending. Depends on CLOSED_CANONICAL Task026/PR648/main36768f4 and actual final55976e3 closing readback before this task.
+Status: bounded repair8b3493b implemented; baseline29Git RED and candidate23Git GREEN, typing/build/focused native controls complete. Full local suite/source/security/final review/CI/Self/governance/canonical/remote gates pending; E00/release BLOCKED.
 
 1. Read-only frontier, 434-entry/16-control freeze, prior failure/diagnosis/tool and predecessor bindings.
 2. Final independent plan audit; different exact-head consistency/purity; bounded direct-user-derived authority afterward.
@@ -11,3 +11,5 @@ Status: prospective audit/different consistency/user-derived authority complete;
 7. Focused PR, actual final-head CI/Self, live eligibility/ordinary authorized merge, canonical/postmerge checks, closing reviews and actual remote proof.
 
 No new native fixture/test/control yet executed; benchmark source unchanged. Prior local full FAIL12 remains; E00/release BLOCKED.
+
+Current controls: qualification/native-clean-state/2026-10-26/local-controls.json preserves actual native/inner/budget outcomes. Prior prospective and pre-execution statements remain historical. No release or historical-cause claim.

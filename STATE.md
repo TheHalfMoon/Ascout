@@ -2,16 +2,14 @@ Last updated: 2026-10-26 Asia/Riyadh · Branch: ps/rea-clean-state-observation
 
 ## Current state
 
-Canonical main36768f4 after focused CLOSED_CANONICAL Task026/PR648; finalized closing reviews and actual final108member three-core-file/seven-sidecar remote proof55976e3 verified before this task. All434 existing entries and16controls remain unchanged. Task027 final PLAN_CLEAR89c65d0, different CONSISTENCY_CLEAR64f2e49 and bounded user-derived authoritye05dc58 preceded the new test/driver. Concrete control/fixture review at895f8ea is clear before native execution.
+Canonical main36768f4 after CLOSED_CANONICAL Task026/PR648, final55976e3 remote proof verified before this task. Task027 prospective gates/authority/control review complete. Benchmark implementation8b3493b SHA151eb52a changes only the named private clean-state helper: fresh HEAD/index and every checkpoint retained; complete clean/untracked-only status avoids redundant diffs, ambiguous rows retain original native diff decisions. All433other existing entries/15controls and old tests/deadlines/config/authority frozen.
 
-## In flight
+## Actual local controls
 
-Seven native public-API regression cases and one adapted supported own-process observer are bound. Existing tests/deadlines/config/authority and benchmark implementation remain unchanged. Exactly one observed baseline and one candidate cost control are planned around the genuine source change; target<=23Git and two original npm invocations, not an elapsed-time or original Vitest result. Native submodule/path/index/error equivalence remains an implementation proof obligation.
+Seven new native baseline cases pass. Candidate focused native run exits0:32passed/9existing Windows skips/2files. Strict source typing/build0. Supplemental compiler first invocation failsTS5112 before checking the named file; preserved, corrected explicit --ignoreConfig invocation0 without source/config change.
 
-## Next steps
+Exactly one observed baseline and candidate: qualified29Git budgetRED/native1 with original assertions returned, then23Git budgetGREEN/native0 with original assertions returned. Two npm operations and equal fixture tree retained; direct async children21to15. Case elapsed24070.9895ms/7719.3759ms is descriptive, not a speedup/statistical/causal claim. No original Vitest case result inferred from the cost controls.
 
-Run the new native baseline cases, then the one reviewed observed budget baseline serially without reviewers/inference/install/audit/sampler work. Preserve actual outcomes and qualified budget RED independently of original assertion return. Only then make the bounded benchmark repair, semantic controls and one fixed candidate observation. Strict typing/build, one complete unchanged-budget serial suite, fresh source/security/integrated/publication reviews and actual CI/Self/liveguard/canonical/closing remote gates remain.
+## Next steps and blockers
 
-## Blockers / open issues
-
-Prior complete local FAIL12/1599.021s remains unexplained; Task024 provenance gaps and selector comparison unavailability remain. E00/release BLOCKED. No statistical speedup, observer-overhead or historical causation claim. No paid service, new dependency/cloud runtime, global configuration, unsupported REA/OS capture, UA-P07, changed-surface admission, policy waiver or release authority. Existing raw captures/fixtures retained.
+One complete serial local suite with original case deadlines and adequate outer budget. No reviewers/inference/install/audit/samplers alongside it; preserve all literal outcomes. Then fresh source/security/integrated/publication review, actual exact-head CI/Self/live guard, canonical/postmerge/closing remote gates. Full suite has not run on this candidate yet. Prior FAIL12/1599.021s and Task024 provenance/selector limitations remain; E00/release BLOCKED. No paid service/dependency/cloud/global config/UA-P07/admission/policy waiver/release authority. Raw controls/fixtures retained.
