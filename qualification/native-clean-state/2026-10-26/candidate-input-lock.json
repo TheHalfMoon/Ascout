@@ -1,0 +1,81 @@
+{
+  "recorded_at_utc": "2026-10-26T18:43:56.820208+00:00",
+  "implementation_head": "8b3493b088abf004773ea03b0ed20fe6162b707e",
+  "implementation_tree": "8889ca2a49cb1f1abfbe9467dcb748263438aa97",
+  "benchmark_sha256": "151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad",
+  "driver_sha256": "1ad5e1ffb73963c7f96e00ca4d6e4814a38a4f91256ed22aa1c7eda696e6ca08",
+  "original_fixture_source_sha256": "47ed6ab753d32b21a6aee8859cbb627d57f7ce965775440dab3830bc42dc59e8",
+  "new_test_sha256": "57e36b4743bbfb67304a10898effc8b7513a9266621dd6aad32095ee96942b2e",
+  "other_existing_entries_unchanged": 433,
+  "other_control_hashes_unchanged": 15,
+  "completed_captures": {
+    "clean-state-native-baseline": {
+      "file": "clean-state-native-baseline-ba7dc9a5-dd39-4147-8d0a-5b08a9aaffe8.json",
+      "sha256": "c0c47e4e3a3b023275f66d6ab21474f64dfd380d755ea145bb5389bd18fd7ac1",
+      "exit": 0,
+      "wall_seconds": 43.03473119996488,
+      "source_head": "ccea8489aa18b1a5e22d659172397008159efbda"
+    },
+    "clean-state-cost-baseline": {
+      "file": "clean-state-cost-baseline-b8f6a761-1801-4aa3-b54a-46406a347b77.json",
+      "sha256": "6f3741c759596287bb136307ba5ef1604523b0b8280c31133e6c87096724f947",
+      "exit": 1,
+      "wall_seconds": 24.223911799956113,
+      "source_head": "ccea8489aa18b1a5e22d659172397008159efbda"
+    },
+    "clean-state-typecheck": {
+      "file": "clean-state-typecheck-f31394e6-be45-4a10-8d59-a28961b73c0e.json",
+      "sha256": "cfcbdaead16adf0674ba0f8c92aa3b777dbd437037328b1caad4c942de8e3e83",
+      "exit": 0,
+      "wall_seconds": 7.422197200008668,
+      "source_head": "8b3493b088abf004773ea03b0ed20fe6162b707e"
+    },
+    "clean-state-build": {
+      "file": "clean-state-build-c645ae36-f747-47b7-9ed8-39b76f91dd13.json",
+      "sha256": "9eff45f2de3492a51428f9fcc5180881ef4e108f7daa5bfa81eea9dc4e71377c",
+      "exit": 0,
+      "wall_seconds": 7.504702199948952,
+      "source_head": "8b3493b088abf004773ea03b0ed20fe6162b707e"
+    },
+    "clean-state-test-types": {
+      "file": "clean-state-test-types-f050f717-4e24-48f7-a20a-0bd0d0dd67fc.json",
+      "sha256": "9018bdd8220426b363a5a7a6791a2380f8592aa8f5a6455798d47a0d6bf10f24",
+      "exit": 1,
+      "wall_seconds": 0.21802219992969185,
+      "source_head": "8b3493b088abf004773ea03b0ed20fe6162b707e"
+    },
+    "clean-state-test-types-explicit-config": {
+      "file": "clean-state-test-types-explicit-config-a14f85ef-729b-43a0-81d4-243ef7048abb.json",
+      "sha256": "a8085d0a65f4f896bd631ae04e9bcdbb3264ac805d4c88e276172607abc36ca4",
+      "exit": 0,
+      "wall_seconds": 1.713997000013478,
+      "source_head": "8b3493b088abf004773ea03b0ed20fe6162b707e"
+    },
+    "clean-state-focused-native": {
+      "file": "clean-state-focused-native-48919e68-a814-486c-81d4-48b00d57e30d.json",
+      "sha256": "f5e24ca6f3956c89b073110524d300354ddeef0c588e1b7097907ae38136881a",
+      "exit": 0,
+      "wall_seconds": 188.61950249993242,
+      "source_head": "8b3493b088abf004773ea03b0ed20fe6162b707e"
+    }
+  },
+  "baseline_observation": {
+    "file": "clean-state-baseline-9d36a008-8eb8-4ce7-a99f-61ffc485ca1d.json",
+    "sha256": "e7d94e6508b53fd9b04ec480560c92ab920767aed5b0da143c026c7eb19c20d1",
+    "budget": {
+      "criterion": "At most23 Git invocations and exactly2 original npm invocations in the complete positive case",
+      "maximum_git_invocations": 23,
+      "expected_npm_invocations": 2,
+      "fixture_git_invocations": 10,
+      "async_git_invocations": 19,
+      "total_git_invocations": 29,
+      "npm_invocations": 2,
+      "inputs_and_original_outcomes_qualified": true,
+      "status": "FAIL",
+      "notice": "Structural benchmark criterion only. A qualified baseline budget FAIL is expected RED; assertion return/native child success are separate. Not an original Vitest result, elapsed-time target, historical cause or release certification."
+    },
+    "case_wall_ms": 24070.9895
+  },
+  "candidate_state": "EXACT_INPUTS_BOUND_NOT_EXECUTED",
+  "notice": "All actual outcomes preserved before one candidate observation. Baseline qualified29Git budget FAIL/native1 is structural RED with original assertions returned; not original VitestFAIL. Seven new baseline cases native0 and candidate focused32pass9existing skips native0; strict source typing/build0. First supplemental compiler command native1/TS5112 before file checking retained; separate corrected explicit --ignoreConfig invocation0, no config/source relaxation. Existing source/test/deadline/authority scope remains. Timings are descriptive, not speedup/statistical/historical cause. Candidate, complete local suite and later review/CI/governance/canonical/remote gates pending; E00/release BLOCKED."
+}
