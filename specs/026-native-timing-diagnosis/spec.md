@@ -1,6 +1,6 @@
 # Task026-T01: measure native launch and self-runtime preparation costs
 
-Status: FIXED DIAGNOSTIC CONTROLS EXECUTED at44d47ac; final interpretation/publication/CI/canonical/remote gates pending. Source/tests/benchmarks frozen; E00/release BLOCKED. Canonical base23abb92c3a37bd936c2d7386aa23ddc9d35a9579 after focused CLOSED_CANONICAL Task025/PR647. Its final closing3core+7sidecar/127member bytes/ref were actually verified at805d1623cddf3e9d14d32422e14151be22ff59e0 before this task. [Closing record](https://github.com/TheHalfMoon/Ascout/blob/805d1623cddf3e9d14d32422e14151be22ff59e0/qualification/packaging-invocation/2026-10-26-closeout/REPORT.md). No old closing commits enter this task history.
+Status: MERGED_CANONICAL PR648/36768f4ffe1e2c18492cb3a8fdccd9274c2c615a; final interpretation/publication reviews and applicable CI/Self complete; closing reviews/remote proof pending; E00/release BLOCKED.
 
 ## Problem and constitution
 
@@ -22,3 +22,5 @@ Measure before another repair. Static inspection finds repeated native Git opera
 Allowed project paths: specs/026-native-timing-diagnosis/**; docs/qualification/REA-E00-native-timing.md; qualification/native-timing-diagnosis/**; ROADMAP.md; STATE.md. Diagnostic driver/control artifacts are evidence, not Ascout runtime exports. All src/tests/benchmarks, manifests/locks/config/workflows/authority, old research and unrelated projects/branches frozen. No UA-P07, admission injection, policy/security-phase waiver or release/deployment authority. E00/release BLOCKED.
 
 Current review update: fresh exact43e9ce3 result interpretation and separate publication/privacy finalized without must-fix; four finalized review sidecars, fixed44member packet unchanged. Applicable final-head CI/Self, governance, canonical and closing remote gates remain pending. No production repair or historicalFAIL12 erasure; E00/release BLOCKED.
+
+Canonical update: PR648 MERGED_CANONICAL at36768f4ffe1e2c18492cb3a8fdccd9274c2c615a; final-head/canonical actual CI and Self inspected. Fresh closing reviews and actual remote readback pending; E00/release BLOCKED. See qualification/native-timing-diagnosis/2026-10-26-closeout/REPORT.md.

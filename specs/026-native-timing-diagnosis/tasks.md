@@ -10,6 +10,8 @@ Depends on focused CLOSED_CANONICAL Task025/PR647/main23, final closing bytes/re
 6. Minimized reproducible evidence, fresh final interpretation/publication reviews and focused PR.
 7. Actual applicable final-head CI/Self, live guarded governance/eligible merge, canonical and closing review/remote proof.
 
-Status: prospective gates/authority and concrete driver review complete. Driver bookkeeping finding fixed forward and delta review clear before controls. Fixed four diagnostic controls executed once, native0 each; baseline case15105.8276ms and observer10264.8785ms, equal tracked fixture trees, no original Vitest case/full suite rerun. Source/test/benchmark freeze verified. Steps5–7 final interpretation/publication/CI/canonical/remote outcomes remain pending. Old local fullFAIL12 and current Self0/complete remain distinct; no historical cause or release claim.
+Status: MERGED_CANONICAL PR648/36768f4ffe1e2c18492cb3a8fdccd9274c2c615a; final interpretation/publication reviews and applicable CI/Self complete; closing reviews/remote proof pending; E00/release BLOCKED.
 
 Current review update: fresh exact43e9ce3 result interpretation and separate publication/privacy finalized without must-fix; four finalized review sidecars, fixed44member packet unchanged. Applicable final-head CI/Self, governance, canonical and closing remote gates remain pending. No production repair or historicalFAIL12 erasure; E00/release BLOCKED.
+
+Canonical update: PR648 MERGED_CANONICAL at36768f4ffe1e2c18492cb3a8fdccd9274c2c615a; final-head/canonical actual CI and Self inspected. Fresh closing reviews and actual remote readback pending; E00/release BLOCKED. See qualification/native-timing-diagnosis/2026-10-26-closeout/REPORT.md.
