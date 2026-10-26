@@ -1,0 +1,17 @@
+{
+  "authority_head": "cd35f0b418902b5ac49bf5a7483cb461e9290450",
+  "driver_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
+  "driver_bytes": 14754,
+  "role": "OWNED_DIAGNOSTIC_EVIDENCE_NOT_PRODUCT_RUNTIME",
+  "driver_archive_path": "scripts/native_timing_probe.mjs",
+  "benchmark_sha256": "6efbee04780061f1bb100837369d1e55e5756754007b2b7936f4cc6faa33ea82",
+  "fixture_source_sha256": "47ed6ab753d32b21a6aee8859cbb627d57f7ce965775440dab3830bc42dc59e8",
+  "fixed_modes": [
+    "launch-before",
+    "baseline",
+    "observer",
+    "launch-after"
+  ],
+  "status": "SYNTAX_CHECKED_NOT_EXECUTED_FAITHFULNESS_REVIEW_PENDING",
+  "notice": "No project source/test/benchmark edit. Native controls remain gated by fresh concrete driver review; all missing async stream hashes explicit NOT_OBSERVED."
+}
