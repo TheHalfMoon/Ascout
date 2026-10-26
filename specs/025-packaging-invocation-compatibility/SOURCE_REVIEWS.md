@@ -1,0 +1,7 @@
+# Source reviews and execution reconciliation
+
+At immutable899be8181899ffc618f159e60d2e98413ab6f776, treef8438e68024631753e7d5a5f72f71c39c7c7df1c, fresh combined correctness/product/parsimony review finalized original packaging-correctness-899be81.json SHA256f75f168d96d38146408a94774b5e5e60935d9530f266e1062cc00438a8776306. A separate fresh subprocess/security judge finalized packaging-security-899be81.json SHA2568a025897c77188c11d9aa37dbf81434351a1e301930ba01355189280478e27e6. Root read/hashed reports after final messages. No material authored-code findings; frozen controls and real positive/negative outcomes checked.
+
+CLAUDE.md/PRODUCT.md capability mappings are absent; explicit PStack inline bars ran in fresh contexts, all sharing OpenAI lineage. No external provider/security-phase/merge/release authority is implied. Empty metadata, launch errors and signals were assessed statically; executed negative proves nonzero status/cause retention, not all possible environments.
+
+The complete native suite genuinely FAILED:2416passed/12existing deadline failures/34existing skips/2462cases/245files/1599.021s. The file-local helper has no demonstrated path to the six failed files, but this is not causal exoneration, host diagnosis or PASS. Historical local/Self failures stay literal. Integrated/publication/final-head CI/Self/governance/canonical/remote gates remain pending. E00/release BLOCKED.

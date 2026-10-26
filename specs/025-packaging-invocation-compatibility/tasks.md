@@ -11,4 +11,4 @@ Depends on focused CLOSED_CANONICAL Task024/PR646/mainfe3064a, final closing cor
 7. Integrated/publication/final-delta review, focused PR, actual final-head CI/Self, live eligible ordinary merge and canonical/postmerge proof.
 8. Fresh closing reviews, durable minimized evidence and actual remote byte/member/sidecar verification; truthful task registry.
 
-Status: planning only. Steps2–8 pending; no project tests or helper edits authorized yet. Old controls retain their actual old source. No full-suite PASS, cause, merge or release claim.
+Status: steps1–6 executed after finalized prospective gates and bounded authority. Helper/import-only source899be81; real direct RED1/npm-before0, GREEN0/npm-after0, owned exit42 negative remains native1 with structured cause, typing/build0, one complete native1/2416passed/12deadline failures/34existing skips. D1 advisory and OCR preview/rules actual; fresh combined source and separate subprocess/security reviews clear within scope. Step7 integrated/publication/final-head CI/Self/eligibility and step8 canonical/postmerge/closing remote outcomes remain pending. All failures and unproved causes retained; E00/release BLOCKED.
