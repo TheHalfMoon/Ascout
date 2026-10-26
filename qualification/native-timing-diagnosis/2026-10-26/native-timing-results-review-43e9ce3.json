@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "finalized": true,
+  "review_kind": "PSTACK_FRESH_COMBINED_RESULT_INTERPRETATION_CORRECTNESS_PRODUCT_PARSIMONY",
+  "reviewed_at_utc": "2026-10-26",
+  "reviewer": "Fresh OpenAI review subagent; role separation within shared OpenAI lineage, not an independent model provider",
+  "repository": "<WORKSPACE>/work/engineering/main-control",
+  "head": "43e9ce3f693b28cc1015c6b5615ab6bed22681d2",
+  "tree": "cade3e39ec27596b56b1709c6fcdeec940b75206",
+  "canonical_base": "23abb92c3a37bd936c2d7386aa23ddc9d35a9579",
+  "scope": [
+    "Task026 specifications/plan/review records/locks",
+    "qualification/native-timing-diagnosis/2026-10-26/REPORT.md and evidence.zip",
+    "docs/qualification/REA-E00-native-timing.md, STATE.md, ROADMAP.md",
+    "Actual external diagnostic driver, original/delta reviews, native-timing observations, raw four native captures/streams, retained prior full-suite capture/streams"
+  ],
+  "verdict": "RESULT_INTERPRETATION_CLEAR_WITH_REMAINING_GATES",
+  "summary": "No concrete must-fix found at the reviewed immutable head. The tables and bounded interpretation agree with raw captures. The report distinguishes independent assertion completion from the unexecuted original Vitest case, preserves every historical failure and expressly leaves final CI/Self, governance, canonical and remote publication/readback gates pending.",
+  "bars": {
+    "correctness": {
+      "provider": "Inline fresh combined judge; no configured provider manifest (CLAUDE.md absent)",
+      "result": "CLEAR_WITHIN_SCOPE",
+      "evidence": "Recomputed raw statuses, source/integrity/restoration, stage timing, direct child grouping and interval sums. Published timings/counts agree. NTD-01 nested finally preserves timing on release rejection by static inspection; no live fault injection claimed. NTD-02 is satisfied jointly by actual native0, empty errors, source integrity and observer qualification, with original_vitest_case_result NOT_EXECUTED_BY_THIS_DIAGNOSTIC retained. NTD-03 correctly binds actual local archived source and packet hashes while remote proof remains pending."
+    },
+    "parsimony": {
+      "provider": "Inline fresh combined judge; no configured ponytail provider",
+      "result": "CLEAR",
+      "evidence": "One external diagnostic driver and four predetermined serial modes; no runtime framework, dependency, source export, cache, profiler, moved fixture setup or configurable generalized instrumentation added. Raw adverse review and original driver are retained as evidence, not dead runtime code."
+    },
+    "product": {
+      "provider": "Inline fresh combined judge; PRODUCT.md absent, Task026 exact specification/acceptance used",
+      "result": "CLEAR_FOR_CURRENT_STAGE",
+      "evidence": "The evidence fulfills fixed bounded execution and truthful interpretation requirements. Two independently built original positive fixtures retain the original private runtime preparation, assertions, ignored mutations and release within case clocks. No original Vitest PASS, historical causal finding, repair, speedup or release claim is substituted for missing work. Publication/final-head CI and closeout are truthfully unfinished, not accepted as complete."
+    },
+    "security_boundary": {
+      "provider": "Inline boundary inspection; separate publication/privacy judge is outside this report",
+      "result": "NO_NEW_CONCRETE_BOUNDARY_FINDING",
+      "evidence": "The archived driver delegates Reflect.apply(originalSpawn,this,args), preserves child return identity/options/errors and the existing benchmark listeners, adds only guarded own-child error/close records, consumes no streams and restores CommonJS/ESM bindings. Fixture Git mutation requires fresh owned roots; release uses original API-returned runtime with lexical guards. No OS enumeration/attachment/inherited observer injection/global PATH change or unsupported REA capture was found. This is not an independent security/provider certification."
+    }
+  },
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": [
+      {
+        "location": "Task026 controls and unchanged src/tests/benchmarks",
+        "issue": "Repeating controls or full native suite would exceed the fixed diagnosis and cannot repair historical failures.",
+        "concrete_fix": "Keep the once-only captures and prior FAIL12 intact; use a separately prospectively bounded task for any repair."
+      },
+      {
+        "location": "qualification/native-timing-diagnosis/2026-10-26/REPORT.md:27-31",
+        "issue": "Missing private async stream hashes and nested npm child timings are explicit visibility limits.",
+        "concrete_fix": "Retain NOT_OBSERVED/inclusive labels; do not expand interception or infer CPU/process-tree costs."
+      }
+    ]
+  },
+  "verified_checks": [
+    "Exact current HEAD 43e9ce3, tree cade3e39, clean working tree independently read.",
+    "Exact Git entry map for all 434 src/tests/benchmarks entries matches both canonical base and frozen baseline; 16 bound controls independently hashed from exact-head Git blobs.",
+    "evidence.zip SHA256 76799144cd8076bbcb38f4cdbb13f63ffc0cc859cb2ab8b8367923d9b23d1ffe matches evidence-lock; 44 members, exact 43-record coverage, all published member hashes/sizes and ZIP CRC verified.",
+    "Actual external fixed driver and archived scripts/native_timing_probe.mjs are byte-identical, 14818 bytes, SHA256 67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e.",
+    "Original unexecuted driver SHA4851413a...; original adverse review SHA1c583750... and clear delta review SHA74065063... independently match. Immutable ancestry orders authority, original review lock, repair lock, clear review record then execution head44d47ac; no independently timestamp-authenticated chronology asserted.",
+    "Each of four raw capture and driver-record hashes matches native-timing-observations.json; embedded records equal raw records. Raw native stdout/stderr hashes match actual stream bytes.",
+    "All four captures EXECUTED/native0, unchanged clean start/end at44d47ac, empty driver errors/observer faults, restored original spawn bindings and true driver/benchmark/fixture integrity fields; stdout completion metadata agrees.",
+    "Both positive cases have all five stages RETURNED, 10 successful original synchronous fixture Git operations, and full case clocks greater than stage sums by under5ms. Original T107 source lines438-454 and original fixture content compared statically with driver.",
+    "Baseline15105.8276ms and observed10264.8785ms comparison flags are correct; their tracked head trees equal d37787697024a7e5076d97a456c8894f3d483a78. Original timed Vitest case remains explicitly not executed.",
+    "Observer records 21 completed direct children, all native0/null signal/no error, serial nonoverlapping intervals:18 preparation Git,2 inclusive npm and1 release Git; adding10 synchronous fixture Git gives29 Git plus2 npm.",
+    "Independently summed fixture Git2415.3561ms, prepare Git3620.0404ms, release Git190.4033ms, total Git6225.7998ms; inclusive npm2887.6553+1099.8562=3987.5115ms. These are elapsed command intervals with nested descendants unobserved.",
+    "Both launch controls retain all10 ordered RETURNED samples,5 Node then5 Git, native0. All21 asynchronous stdout/stderr entries explicitly NOT_OBSERVED.",
+    "Retained prior full capture original SHA9b6c5176... and both stream hashes match; raw summary shows6 failed files/12 failures/2416 passed/34 skipped/2462 total/245 files. All12 raw final stderr diagnostics are literal original deadline failures; native1/1599.0206486s remains unresolved.",
+    "Integrated report/docs/STATE/ROADMAP/spec/task statuses consistently keep release/E00 BLOCKED and final interpretation/publication/CI/Self/governance/canonical/remote outcomes pending."
+  ],
+  "limitations": [
+    "No project test, driver mode, fixture/probe, native control, install, inference or remote mutation was executed. Repository and raw inputs remained read-only; only this external report was written.",
+    "Review is static plus read-only mechanical evidence verification. It does not authenticate capture provenance, establish OS exclusivity, prove absence of ambient interference or test release-failure control flow dynamically.",
+    "The two ordered independent observations cannot establish statistical performance, cold-start behavior, speedup, observer overhead by subtraction, historical12failure causes or host/candidate exoneration.",
+    "Own-child elapsed intervals include launch/wait/I/O/scheduling effects; they are not CPU/RSS data. Nested npm/build descendant lifecycles and private asynchronous stream hashes remain unobserved.",
+    "Privacy/publication minimization review, actual remote byte/member/readback durability, final-head applicable CI/Self inner truth, live eligibility/governance, canonical verification and closing review remain separate required gates.",
+    "Shared OpenAI role-separated lineage; no configured independent provider or security certification. D1 advisory and Alibaba local JSON-key rules do not satisfy merge/security/release gates.",
+    "No UA-P07, admission injection, new dependency/service, production/test/benchmark repair, deadline change, security/policy waiver or release/deployment authority."
+  ],
+  "panel_manifest": "panel: light combined (session model, fresh context) — correctness inline CLEAR; parsimony inline CLEAR; product inline CLEAR for current stage; security own-child/owned-path boundary inspected, separate publication/privacy review required; CLAUDE.md and PRODUCT.md absent; shared OpenAI lineage; no provider-independent certification",
+  "authority": {
+    "execution": false,
+    "merge": false,
+    "release": false,
+    "remote_publication_verified": false
+  }
+}

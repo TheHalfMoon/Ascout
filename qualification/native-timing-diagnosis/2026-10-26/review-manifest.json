@@ -1,0 +1,28 @@
+{
+  "reviewed_head": "43e9ce3f693b28cc1015c6b5615ab6bed22681d2",
+  "reviewed_tree": "cade3e39ec27596b56b1709c6fcdeec940b75206",
+  "records": [
+    {
+      "path": "native-timing-results-review-43e9ce3.json",
+      "original_sha256": "a01f2f9a4c36713dd1f999f016020b46253430fc6820715a4badb70a392e9b44",
+      "published_sha256": "532ec75f00fc7a7ef1f38a5d669474f997cc5541859c7b5b88633ddf79c53488",
+      "bytes": 9821,
+      "transformed": true
+    },
+    {
+      "path": "native-timing-publication-review-43e9ce3.json",
+      "original_sha256": "e345fe5d3327607a9971fd41394914d40ad4c9a3e44412cfa679538a9e41b742",
+      "published_sha256": "e345fe5d3327607a9971fd41394914d40ad4c9a3e44412cfa679538a9e41b742",
+      "bytes": 23015,
+      "transformed": false
+    },
+    {
+      "path": "review-sidecars.py",
+      "original_sha256": "dcd68d7688029d6efd9dce623678a44104682fbdcdfb899c5d0ecddebdfbf41f",
+      "published_sha256": "dcd68d7688029d6efd9dce623678a44104682fbdcdfb899c5d0ecddebdfbf41f",
+      "bytes": 1957,
+      "transformed": false
+    }
+  ],
+  "notice": "Finalized fresh result-interpretation/publication observations, shared OpenAI lineage. Frozen44member packet unchanged. Actual final-head CI/Self/eligibility and canonical/postmerge/closing remote gates remain separate. No release approval, provider-independent certification, repair authority or historical failure erasure."
+}
