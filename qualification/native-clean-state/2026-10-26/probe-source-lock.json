@@ -1,0 +1,33 @@
+{
+  "recorded_at_utc": "2026-10-26T18:23:53.394798+00:00",
+  "authority_head": "e05dc58d142e84842372f85dcd49d9b08651d1ec",
+  "parent_reviewed_driver_sha256": "67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e",
+  "driver_sha256": "1ad5e1ffb73963c7f96e00ca4d6e4814a38a4f91256ed22aa1c7eda696e6ca08",
+  "driver_bytes": 16542,
+  "driver_archive_member_intended": "scripts/clean_state_probe.mjs",
+  "archive_state": "NOT_YET_ARCHIVED_OR_PUBLISHED",
+  "baseline_benchmark_sha256": "6efbee04780061f1bb100837369d1e55e5756754007b2b7936f4cc6faa33ea82",
+  "original_fixture_source_sha256": "47ed6ab753d32b21a6aee8859cbb627d57f7ce965775440dab3830bc42dc59e8",
+  "new_native_test": {
+    "path": "tests\\self-verify-clean-state.native.test.ts",
+    "sha256": "57e36b4743bbfb67304a10898effc8b7513a9266621dd6aad32095ee96942b2e",
+    "cases_planned": 7,
+    "execution": "NOT_EXECUTED"
+  },
+  "control_sequence": [
+    {
+      "phase": "baseline",
+      "state": "NOT_EXECUTED",
+      "benchmark_sha256": "6efbee04780061f1bb100837369d1e55e5756754007b2b7936f4cc6faa33ea82"
+    },
+    {
+      "phase": "candidate",
+      "state": "NOT_EXECUTED",
+      "benchmark_sha256": "MUST_BE_BOUND_BEFORE_CANDIDATE_CONTROL"
+    }
+  ],
+  "maximum_git_invocations": 23,
+  "expected_npm_invocations": 2,
+  "review_state": "FRESH_CONCRETE_CONTROL_AND_FIXTURE_REVIEW_PENDING_BEFORE_EXECUTION",
+  "notice": "Actual driver/test source is bound after completed prospective gates and bounded user authority. No original Vitest outcome or source repair claimed. Driver syntax checked only; no fixture/control/new test executed. Budget RED requires qualified original positive outcomes plus actual observed count>23, not just any nonzero exit. Missing observer/source/native integrity is NOT_EVALUATED, never a budget PASS. Archive member is intended packet-relative location, not current tracked source or publication proof. Existing source/tests/deadlines unchanged at this baseline; only the named new native file added. All later native equivalence/source/CI/governance/canonical/remote gates and E00/release blockers remain."
+}
