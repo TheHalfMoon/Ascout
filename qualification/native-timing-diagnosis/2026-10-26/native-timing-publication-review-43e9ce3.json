@@ -1,0 +1,436 @@
+{
+  "review_role": "PStack separate fresh publication/privacy/reproducibility judge",
+  "verdict": "PUBLICATION_PRIVACY_REPRODUCIBILITY_CLEAR_LOCAL_PACKET_ONLY",
+  "reviewed_at_utc": "2026-10-26T13:48:31.807367+00:00",
+  "immutable_head": "43e9ce3f693b28cc1015c6b5615ab6bed22681d2",
+  "immutable_tree": "cade3e39ec27596b56b1709c6fcdeec940b75206",
+  "base": "23abb92c3a37bd936c2d7386aa23ddc9d35a9579",
+  "scope": "Task026 diagnostic evidence and authored diff only; repository and raw evidence read-only. No native controls, project tests, installs, cleanup, remote publication or unrelated private-project scans performed.",
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": [
+      {
+        "location": "context/native-timing-plan-audit-f0a9da6.json; context/native-timing-driver-review-2e2d4f2.json; scripts/publish*.py",
+        "issue": "Bounded private-REA/raw-signature/quota term hits describe exclusions and authority limits, not private payloads or account-use data.",
+        "concrete_fix": "None; retain explicit limitations."
+      },
+      {
+        "location": "context/native-timing-driver-lock.json; context/native-timing-driver-lock-fixed.json",
+        "issue": "Historical review-pending locks are preserved evidence, while the current external source lock and REPORT identify actual archived bytes and local-only state.",
+        "concrete_fix": "None; retain history and assess the current probe-source-lock.json for current publication state."
+      }
+    ]
+  },
+  "verified": {
+    "zip_sha256": "76799144cd8076bbcb38f4cdbb13f63ffc0cc859cb2ab8b8367923d9b23d1ffe",
+    "members": 44,
+    "manifest_records": 43,
+    "crc": "PASS_ALL_MEMBERS",
+    "duplicate_names": 0,
+    "unsafe_paths": 0,
+    "encrypted_members": 0,
+    "symlink_members": 0,
+    "text_only": "All members decode as UTF-8 text; only JSON, Python, MJS and TXT; no nested opaque archive/executable/document magic found.",
+    "member_sections": {
+      "runs": 12,
+      "observations": 4,
+      "context": 11,
+      "tools": 4,
+      "scripts": 12
+    },
+    "original_hashes_reproduced": 43,
+    "published_hashes_and_bytes_reproduced": 43,
+    "transformed_records": 18,
+    "frozen_minimizer_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+    "frozen_minimizer_function_names": [
+      "minimize",
+      "sanitize",
+      "add"
+    ],
+    "reproduction_method": "Independently loaded actual local originals using manifest section-to-source mapping; extracted only the reviewed frozen minimize/sanitize/add AST definitions in memory, applied JSON minimization and sanitization, and compared every resulting byte string, length, transformed flag and SHA256. No producer top-level code executed; evidence ZIP never overwritten.",
+    "syntax_only": {
+      "json_including_manifest": 20,
+      "python_ast": 10,
+      "javascript_node_check_stdin_module": 2,
+      "other_text": 12
+    },
+    "capture_stream_bindings": "All 4 original EXECUTED/native0/source_unchanged capture JSON files and their 8 raw stdout/stderr hashes verified against actual local capture files.",
+    "source_and_control_freeze": {
+      "source_test_benchmark_entries": 434,
+      "base_equals_head_equals_baseline": true,
+      "control_bindings": 16,
+      "actual_control_hashes_match": true,
+      "clean_worktree_start_end": true
+    },
+    "driver_binding": {
+      "actual_sha256": "67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e",
+      "actual_bytes": 14818,
+      "actual_member": "scripts/native_timing_probe.mjs",
+      "actual_byte_identical_to_local_original": true,
+      "prior_unexecuted_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
+      "prior_byte_identical_to_local_original": true,
+      "all_four_observation_records_bind_actual_driver": true,
+      "current_source_lock_zip_hash_matches": true
+    },
+    "official_references": "Two versioned Node v24.19.0 official URLs, retrieval metadata and hashes preserved in baseline. Both hashes/lengths match local raw cache. Neither raw documentation cache nor native-timing-documentation.json is a packet member; no packet member equals either full cached document. Public baseline facts paraphrased.",
+    "privacy_review": "Bounded scan of all packet text and recursive JSON for personal Windows/Linux/macOS home paths, email patterns, common GitHub/OpenAI/private-key forms, author/committer/_npmUser/email/raw signature fields and profile/account/quota terms, followed by inspection of actual matches. No exposed personal home/email/credential/private-REA/profile/raw-signature/account-quota payload found in this scoped review; file-name words and exclusion notices are non-payload references. No generic macOS runner paths were found; such public runner paths would require contextual review rather than automatic classification as personal.",
+    "publication_truth": "REPORT and current source lock expressly preserve local-packet-only status and pending remote publication/readback. This review provides no remote proof.",
+    "evidence_records": [
+      {
+        "path": "runs/native-timing-baseline-6a0ed309-b59d-438f-9b85-e913395901e3.json",
+        "original_sha256": "869fed205fe7b8017566cc8db2a556600e08d8af3901395dc932b6139a3bac8c",
+        "published_sha256": "7c23b3703fda25e188bc2ff821d8fa79dd1e633657d8c3b841dbb32c1fd965c3",
+        "bytes": 1721,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-baseline-6a0ed309-b59d-438f-9b85-e913395901e3.stdout.txt",
+        "original_sha256": "f0dfbc273b39dae5211b34aef826e240dd55415d127cb854ee09d447c7c8e3e4",
+        "published_sha256": "159ccc4789b46eb929d0e2096edbc6c64930129673d27bd9d3f83eae10224eb0",
+        "bytes": 246,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-baseline-6a0ed309-b59d-438f-9b85-e913395901e3.stderr.txt",
+        "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-after-6cd784cd-ff7d-4a43-ae23-6b33ecf96f11.json",
+        "original_sha256": "8657fe5d4e6ce1b92a020202f8ef51c8c4e1bafd92a7f9a990d9a3b44ec214d1",
+        "published_sha256": "1aa9bcb17e628d700ee1c303468a4b8429254d114fe0948f9c7cfdcba4d2282e",
+        "bytes": 1741,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-after-6cd784cd-ff7d-4a43-ae23-6b33ecf96f11.stdout.txt",
+        "original_sha256": "8a3a35018b4dbdb216e71397f455077e616d37711ca4f3af7580e4448279b7f8",
+        "published_sha256": "0a9cc6505c5a90a8ba5a4cd486dad852743838348919a5179779166fcee24040",
+        "bytes": 234,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-after-6cd784cd-ff7d-4a43-ae23-6b33ecf96f11.stderr.txt",
+        "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-before-5ed96baf-71c9-4cdf-8a37-a9f8d6381cf4.json",
+        "original_sha256": "1d68fe8de1af64350ec4185b41acdd3379d78f279d2a72cb7f9c7cd80f7cf9a7",
+        "published_sha256": "94be788624d35155cd79729eda57863fc810564249af21fe08647db346e16280",
+        "bytes": 1746,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-before-5ed96baf-71c9-4cdf-8a37-a9f8d6381cf4.stdout.txt",
+        "original_sha256": "ce25f857839475328a028bcb2ccd4a4737210658c2506bee072d591a8140becc",
+        "published_sha256": "419170dd4d9e7a324017883c07650f17822e3788c2e02407d01026b6962d318c",
+        "bytes": 235,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-before-5ed96baf-71c9-4cdf-8a37-a9f8d6381cf4.stderr.txt",
+        "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-observer-601d66ba-09c6-48ec-a102-3d28a941ce1a.json",
+        "original_sha256": "06ae3766d558ed056ef0d4b6d55dd27848f4ddce3b441d445b9fc95f748a0e42",
+        "published_sha256": "8ff7fff6768f86984db03068b4ab2c5f9f988b1376dc2b1af172386105ab0a9e",
+        "bytes": 1720,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-observer-601d66ba-09c6-48ec-a102-3d28a941ce1a.stdout.txt",
+        "original_sha256": "b55f60c85410031565a2466bd266a47334542463f34c851600da86bfd06738e9",
+        "published_sha256": "dd035faef1b71ac39b8356b2915e3a2109cd4c03543e1b67317bac4dae908584",
+        "bytes": 269,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "runs/native-timing-observer-601d66ba-09c6-48ec-a102-3d28a941ce1a.stderr.txt",
+        "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "observations/baseline-d9b662d7-616e-4bbe-927f-c1a0e8657c9c.json",
+        "original_sha256": "c54778b52af82ed870a55150d441d75d34514f5d4bf6519f46cc0c8668c5dff3",
+        "published_sha256": "cf30127f47592703c33a32e530462111a096242ad84588872c533e7406e388c4",
+        "bytes": 9237,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "observations/launch-after-13973482-a244-4735-b97e-d8f8e4b9cf94.json",
+        "original_sha256": "780a434763e43df0f5c0ffd728624dcc4d856717e3b1a44578c1b8465a0eabbc",
+        "published_sha256": "780a434763e43df0f5c0ffd728624dcc4d856717e3b1a44578c1b8465a0eabbc",
+        "bytes": 7609,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "observations/launch-before-20009a0e-14c2-4261-89a6-3a1d2c2b87e9.json",
+        "original_sha256": "15936357d558e90c3516c63cc6a42ba27775a544b0313ae89c4df4cb6b366fcb",
+        "published_sha256": "15936357d558e90c3516c63cc6a42ba27775a544b0313ae89c4df4cb6b366fcb",
+        "bytes": 7602,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "observations/observer-c4660a41-1d16-47f4-9059-ecfd2d29046d.json",
+        "original_sha256": "353d59b5aa9b7a85d46f09b56ce007ea6d66dfd0d5ab7caae0129778f5fe9e13",
+        "published_sha256": "13ea33fb09e92558f2cff851b5e71168ba417ce3437d94d030fc702037dd0bc9",
+        "bytes": 27616,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-baseline.json",
+        "original_sha256": "f34ea2cab6a26752a03e6f86f682dc53a81f8b44c0281fe7b317721c1fb9bbf0",
+        "published_sha256": "e4e3415c1cb9c691f2c0730218527068c5365cd0b17605c68c65ef08e31b59ea",
+        "bytes": 54648,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-frontier-refresh.json",
+        "original_sha256": "a632f07a36a956cae9fe185eee630a531dff97a59b739cd9738ce86a214e1a9b",
+        "published_sha256": "69f4cb872a0f25b04e501d1ad120515551d765a847ec7dc48b0e16c75d2f6607",
+        "bytes": 73728,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-plan-audit-f0a9da6.json",
+        "original_sha256": "a8b554be521de276b01d6b9aefff368082a6c2d34a56afff796b3eab2a1398cf",
+        "published_sha256": "a8b554be521de276b01d6b9aefff368082a6c2d34a56afff796b3eab2a1398cf",
+        "bytes": 10914,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-consistency-76f17b7.json",
+        "original_sha256": "ff38ae2b63a6b851ecd024e1c35481ac9ac229abb2a5099aa168c3793af786bd",
+        "published_sha256": "9b29763b9df60144e2970b6e889f3ea19420b1972240b5a99e2ccb83c5eac0d5",
+        "bytes": 12656,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-driver-lock.json",
+        "original_sha256": "84ca8625cde0698742218df1dd49bf17158a605e55aedecda78fb349a8f13f1e",
+        "published_sha256": "84ca8625cde0698742218df1dd49bf17158a605e55aedecda78fb349a8f13f1e",
+        "bytes": 821,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-driver-lock-fixed.json",
+        "original_sha256": "de182d86ac8a8bb47fe7524d771a8d3477e3cb356ab5574a3593e30e0a98a4b4",
+        "published_sha256": "de182d86ac8a8bb47fe7524d771a8d3477e3cb356ab5574a3593e30e0a98a4b4",
+        "bytes": 1336,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-driver-review-2e2d4f2.json",
+        "original_sha256": "1c58375098a0d48c9b68d47f093b6169c2cea024466fe1a8935c7a05fa296f55",
+        "published_sha256": "048660c1b4cfc4ff866225740128cfa72809b47c250dc31f57f9f3615c31953b",
+        "bytes": 10984,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-driver-delta-0149520.json",
+        "original_sha256": "740650636ad108eae6d2b9bdb6bdbe98eb40499ea788f4e427b12f34b6ce4771",
+        "published_sha256": "43f3667519aa40b3e7a6b55a904cbd39114bd79f62e6c6c8c2fd163b004244a1",
+        "bytes": 7484,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-observations.json",
+        "original_sha256": "61d5c345ca4b4eb60f0696c33909b89f8870d349b6158d27107dfe7a3942059f",
+        "published_sha256": "b04e780a684a6a7c9fd0d7118a376a31cc60f7e81e29085342864598535496ee",
+        "bytes": 69177,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-d1-observation.json",
+        "original_sha256": "50508c0b45d09f0c9bd2b945c6009cf14ceb358f7885587dcdf0f26005f57e39",
+        "published_sha256": "4e4981063b47485dbd863384abb182dfdd929f413dbbad6c8529f50dd4eed18f",
+        "bytes": 1291,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "context/native-timing-tool-execution.json",
+        "original_sha256": "a6fe1dff156b4a359fba97547f6750c8ffcabd80f334f6ed674d53fd17ac1419",
+        "published_sha256": "a37cee117287e437366a573b793e6ac8cb09cced4465f70c3aa2da0717a495e7",
+        "bytes": 1752,
+        "transformed": true,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "tools/native-timing-tool-alibaba-preview.stderr.txt",
+        "original_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "published_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "bytes": 78,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "tools/native-timing-tool-alibaba-preview.stdout.txt",
+        "original_sha256": "1fe0883e6b55b47d2e2a07ca300cbd8cc4f37d9145c6d224af96da775317ccd5",
+        "published_sha256": "1fe0883e6b55b47d2e2a07ca300cbd8cc4f37d9145c6d224af96da775317ccd5",
+        "bytes": 1278,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "tools/native-timing-tool-alibaba-rules.stderr.txt",
+        "original_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "published_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "bytes": 78,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "tools/native-timing-tool-alibaba-rules.stdout.txt",
+        "original_sha256": "aa1dacd579fb7274012afa80d90ca3617053c7b0f4d735e3d5285d7ba8fe7ab8",
+        "published_sha256": "aa1dacd579fb7274012afa80d90ca3617053c7b0f4d735e3d5285d7ba8fe7ab8",
+        "bytes": 233,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/publish_native_timing.py",
+        "original_sha256": "9e94ad051218f4ef74e5171318ef3f47836b581217637ba671f0b50139ba48d5",
+        "published_sha256": "9e94ad051218f4ef74e5171318ef3f47836b581217637ba671f0b50139ba48d5",
+        "bytes": 4390,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/publish_dependencies.py",
+        "original_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+        "published_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+        "bytes": 7330,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/summarize_native_timing.py",
+        "original_sha256": "432d2b10161837f448625a02f9f2843bda0f5e09af18d0e709d34f5f50d81ac3",
+        "published_sha256": "432d2b10161837f448625a02f9f2843bda0f5e09af18d0e709d34f5f50d81ac3",
+        "bytes": 8193,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/freeze_native_timing_baseline.py",
+        "original_sha256": "c4bac6889b51e717a0cdb22c331b0662fcf922daa15e46f506d7bf4fcf5fcfc8",
+        "published_sha256": "c4bac6889b51e717a0cdb22c331b0662fcf922daa15e46f506d7bf4fcf5fcfc8",
+        "bytes": 5206,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/native_timing_docs.py",
+        "original_sha256": "b5696c8ce24749a8b75070574cfb373ad1f78ff0e06f6ab02956a48b7b986443",
+        "published_sha256": "b5696c8ce24749a8b75070574cfb373ad1f78ff0e06f6ab02956a48b7b986443",
+        "bytes": 2272,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/prepare_native_timing_plan.py",
+        "original_sha256": "1dfe039ef7fa392aa1d7ec67d20c1c16bc9f4834b5eca5fedf1fba62d5c7c53c",
+        "published_sha256": "1dfe039ef7fa392aa1d7ec67d20c1c16bc9f4834b5eca5fedf1fba62d5c7c53c",
+        "bytes": 16968,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/capture_native_timing_frontier.py",
+        "original_sha256": "d2d0ceb83f181c8a3e0fa956dea5a1773ec3b83b98c29c3342a1f3d8b33d3ff4",
+        "published_sha256": "d2d0ceb83f181c8a3e0fa956dea5a1773ec3b83b98c29c3342a1f3d8b33d3ff4",
+        "bytes": 335,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/capture_timing_frontier.py",
+        "original_sha256": "7012d2e5905a7e37a44a532374c2a1b7ed5f9ee2bcd93293afd8c51d1659b402",
+        "published_sha256": "7012d2e5905a7e37a44a532374c2a1b7ed5f9ee2bcd93293afd8c51d1659b402",
+        "bytes": 3463,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/capture_native_timing_tools.py",
+        "original_sha256": "d104e458cb27c89f8c6d31fd9980897d45359c4ca7259908fb849ff16190a539",
+        "published_sha256": "d104e458cb27c89f8c6d31fd9980897d45359c4ca7259908fb849ff16190a539",
+        "bytes": 2099,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/native_timing_probe.mjs",
+        "original_sha256": "67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e",
+        "published_sha256": "67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e",
+        "bytes": 14818,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/native_timing_probe_2e2d4f2.mjs",
+        "original_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
+        "published_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
+        "bytes": 14754,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      },
+      {
+        "path": "scripts/qualify_native.py",
+        "original_sha256": "326d0fa4e1f850173cbb20bcfc92f621352f092166773533e7adac2108a2465a",
+        "published_sha256": "326d0fa4e1f850173cbb20bcfc92f621352f092166773533e7adac2108a2465a",
+        "bytes": 3509,
+        "transformed": false,
+        "reproduced_against_local_original": true
+      }
+    ]
+  },
+  "limitations": [
+    "Reproducibility of bytes and original-to-derivative bindings is not authentication of recorded timestamps, native execution or remote publication.",
+    "No universal secret-detection guarantee, legal-rights certification, provider-independent security certification, merge approval or release approval is supplied.",
+    "Native controls and project tests were not rerun. JavaScript checks parsed source only; Python checks parsed AST only. Only three reviewed minimizer functions ran against text/JSON in memory.",
+    "Historical failure, first adverse review and unexecuted driver remain retained. Native0 diagnostic labels do not establish an original Vitest PASS, historical cause, speedup, observer overhead, cold-start result or host exoneration.",
+    "Source/scripts refer to the existing local environment and retained external originals; the packet is a source-bound diagnostic evidence record, not a claim that every script is a self-contained portable rerun.",
+    "Final CI/Self, governance, canonical and remote-readback gates remain outside this local publication review. D1 was not used to satisfy this gate.",
+    "This is a fresh role-separated reviewer within the same OpenAI lineage, not provider-independent certification."
+  ],
+  "panel": "full separate publication/privacy/reproducibility judge (session model); bounded manual and deterministic byte/syntax review; no independent-provider certification"
+}
