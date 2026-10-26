@@ -240,9 +240,19 @@ async function requireGitObject(repositoryRoot, sha, kind = "commit") {
   if (result.exitCode !== 0) fail("git_identity_unavailable", `required Git ${kind} object is unavailable`);
 }
 
-async function requireNoNonignoredUntracked(repositoryRoot) {
+async function requireNoNonignoredUntracked(repositoryRoot, { verifyTracked = false } = {}) {
   const status = await gitText(repositoryRoot, ["status", "--porcelain=v1", "--untracked-files=all", "--ignored=no"]);
-  const untracked = status.split(/\r?\n/u).filter((line) => line.startsWith("?? "));
+  const statuses = status.split(/\r?\n/u);
+  // Submodule status may include dirtiness that native diff intentionally ignores.
+  // Keep the original diff decisions for any row that is not untracked-only.
+  if (verifyTracked && statuses.some((line) => line.length > 0 && !line.startsWith("?? "))) {
+    const staged = await git(repositoryRoot, ["diff", "--quiet", "--cached", "HEAD", "--"], [0, 1]);
+    if (staged.exitCode !== 0) fail("tracked_contamination", "staged tracked changes exist before reconstruction");
+
+    const unstaged = await git(repositoryRoot, ["diff", "--quiet", "--"], [0, 1]);
+    if (unstaged.exitCode !== 0) fail("tracked_contamination", "unstaged tracked changes exist before reconstruction");
+  }
+  const untracked = statuses.filter((line) => line.startsWith("?? "));
   if (untracked.length > 0) fail("untracked_contamination", "unrelated nonignored untracked material exists in the subject repository");
 }
 
@@ -253,13 +263,7 @@ async function requireCleanHeadState(repositoryRoot, headSha, targetTreeSha) {
   const indexTree = await gitText(repositoryRoot, ["write-tree"]);
   if (indexTree !== targetTreeSha) fail("index_tree_mismatch", "index tree does not equal the declared head tree");
 
-  const staged = await git(repositoryRoot, ["diff", "--quiet", "--cached", "HEAD", "--"], [0, 1]);
-  if (staged.exitCode !== 0) fail("tracked_contamination", "staged tracked changes exist before reconstruction");
-
-  const unstaged = await git(repositoryRoot, ["diff", "--quiet", "--"], [0, 1]);
-  if (unstaged.exitCode !== 0) fail("tracked_contamination", "unstaged tracked changes exist before reconstruction");
-
-  await requireNoNonignoredUntracked(repositoryRoot);
+  await requireNoNonignoredUntracked(repositoryRoot, { verifyTracked: true });
 }
 
 async function requireNoUnstagedTracked(repositoryRoot) {
