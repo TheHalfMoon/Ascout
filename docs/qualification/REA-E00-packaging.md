@@ -4,4 +4,4 @@ Task025 helper/import-only repair merged through guarded PR647 into canonical23a
 
 [Canonical closing record](../../qualification/packaging-invocation/2026-10-26-closeout/REPORT.md) preserves the complete local FAIL1:2416passed/12deadline failures/34existing skips/2462cases/1599.021s, all original/derivative bindings and shared-review/tool limitations. No historical cause, candidate exoneration or retroactive coverage closure is proved. Historical local/Self failures remain intact.
 
-Both fresh closing reviews are clear; actual closing remote byte/member/sidecar proof remains pending. E00/release BLOCKED; no UA-P07, admission injection, paid service or new policy/security/release authority.
+Focused Task025 is CLOSED_CANONICAL after both clear closing reviews and actual3core+6sidecar/127member remote proofad36763. Final forward receipt receives separate actual readback before next canonical mutation or disposal. E00/release BLOCKED; no UA-P07, admission injection, paid service or new policy/security/release authority.

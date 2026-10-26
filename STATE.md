@@ -2,16 +2,16 @@ Last updated: 2026-10-26 Asia/Riyadh · Branch: evidence/packaging-postmerge-202
 
 ## Current state
 
-Canonical main23abb92c3a37bd936c2d7386aa23ddc9d35a9579 after ordinary guarded PR647; expected ordered parents, reviewed treef2d57a3 and valid signature verified. Task025 helper-only packaging compatibility repair, prospective gates, actual direct/npm positive controls, honest exit42 negative, typing/build and fresh source/integration/publication/final-delta/CI reviews complete. Six actual final-head and six postmerge native2462case/245file suites pass. Current Self inner0/complete/fullselection2462; selector comparison remains unavailable.
+Focused Task025 CLOSED_CANONICAL, PR647/main23abb92c3a37bd936c2d7386aa23ddc9d35a9579. Expected parents/reviewed tree/valid signature, direct/npm controls, honest exit42 negative, typing/build, all fresh reviews and six actual final-head plus six postmerge2462case/245file suites verified. Current Self inner0/complete/fullselection2462; selector comparison remains unavailable. Closing127member3core+6sidecar bytes/ref actually verified atad36763195bddc92d9289dce1842b4c73022859d.
 
 ## In flight
 
-Task025 closing packet and both fresh closing reviews clear; actual closing remote readback pending. Initial76member3core+4sidecar bytes/ref actually verified at31e9c88. No focused CLOSED_CANONICAL or release claim until remaining gates complete. Source and all case/deadline controls remain frozen; original evidence/owned negative fixtures retained.
+Forward REMOTE_READBACK records actual prior-head proof, not self-authentication. Verify this final receipt commit's3core+7sidecar/127members remotely before any next canonical task or disposable cleanup. Frozen packets and raw originals/owned negative fixtures retained; no future source/test mutation.
 
 ## Next steps
 
-Fresh closing correctness/privacy, durable closing core/member/sidecar readback, then focused task closure and guarded owned disposable cleanup. Only afterward start the next canonical timing investigation from exact live main; no future source/test mutation yet.
+After final remote proof, resume the remaining timing investigation from exact live main under prospective task gates. Use supported artifact inspection and independently executed owned tests, preserve existing deadlines/skips/failures, measure before assigning causes or repairing code. Do not repeat a full suite merely to obtain green.
 
 ## Blockers / open issues
 
-Complete local native FAIL1/1599.021s:2416passed/12unchanged deadline failures/34existing skips/2462cases in6files. Historical local/Self failures and Task02463unresolved lines retained. Causes/contribution UNPROVED, no full rerun/budget/skip change or host exoneration. E00/release BLOCKED. Qodo billing unavailable; D1 advisory, OCR local rules only, shared reviewer lineage. No paid services, UA-P07, admission injection, policy/security-phase or release/deployment authority. Original dirty/private/unrelated projects untouched.
+Complete local native FAIL1/1599.021s:2416passed/12unchanged deadline failures/34existing skips/2462cases in6files. Historical local/Self failures and Task02463unresolved lines remain. Causes/contribution UNPROVED; E00/release BLOCKED. D1 advisory, OCR local rules only, Qodo billing unavailable, shared reviewer lineage. No paid service, UA-P07, admission injection, policy/security-phase or release/deployment authority. Original dirty/private/unrelated projects untouched.
