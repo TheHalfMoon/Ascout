@@ -1,0 +1,27 @@
+{
+  "reviewed_head": "509d89e56a3636d9da9ae6a276f34f21070d4834",
+  "records": [
+    {
+      "path": "packaging-integration-509d89e.json",
+      "original_sha256": "9d7f59494823676cebda86658de4e8c9f585e635a9b4b7d7ca7a9d09c0fb6fdf",
+      "published_sha256": "ab9d1062bdbd2c54a57d73b54cab88c6895f406e2d34ca4e594fe6897e3444b6",
+      "bytes": 7909,
+      "transformed": true
+    },
+    {
+      "path": "packaging-publication-509d89e.json",
+      "original_sha256": "12a31fe616b565a23462e06bd6a4715300cc8744146d54ee706fb1dae0fcbe74",
+      "published_sha256": "12a31fe616b565a23462e06bd6a4715300cc8744146d54ee706fb1dae0fcbe74",
+      "bytes": 10238,
+      "transformed": false
+    },
+    {
+      "path": "review-sidecars.py",
+      "original_sha256": "22ffe83e8ffb842d0e37f230b28c88f322c4af2cc73febb1da1eb56009ff0afe",
+      "published_sha256": "22ffe83e8ffb842d0e37f230b28c88f322c4af2cc73febb1da1eb56009ff0afe",
+      "bytes": 1864,
+      "transformed": false
+    }
+  ],
+  "notice": "Finalized fresh integration/publication observations, shared OpenAI lineage. Frozen76member ZIP unchanged. Actual final-head CI/Self/eligibility and canonical/postmerge/closing remote gates remain separate. No release approval, provider-independent certification, authority or historical failure erasure."
+}

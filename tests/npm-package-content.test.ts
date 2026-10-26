@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import {
   copyFileSync,
   existsSync,
@@ -26,12 +27,9 @@ const repositoryRoot = resolve(process.cwd());
 
 function runNpm(argv: readonly string[], cwd: string): string {
   const npmCli = process.env.npm_execpath;
-  if (npmCli === undefined || npmCli.length === 0) {
-    throw new Error("T082 requires npm_execpath from the canonical npm test invocation");
-  }
-  return execFileSync(process.execPath, [npmCli, ...argv], {
+  const options = {
     cwd,
-    encoding: "utf8",
+    encoding: "utf8" as const,
     windowsHide: true,
     env: {
       ...process.env,
@@ -39,7 +37,18 @@ function runNpm(argv: readonly string[], cwd: string): string {
       npm_config_fund: "false",
       npm_config_ignore_scripts: "true",
     },
-  });
+  };
+  if (npmCli !== undefined && npmCli.length > 0) {
+    return execFileSync(process.execPath, [npmCli, ...argv], options);
+  }
+  const crossSpawn = createRequire(import.meta.url)("cross-spawn") as {
+    sync: typeof import("node:child_process").spawnSync;
+  };
+  const result = crossSpawn.sync("npm", [...argv], options);
+  if (result.error || result.status !== 0 || result.signal !== null) {
+    throw new Error(`npm invocation failed (status=${result.status}, signal=${result.signal})`, { cause: result });
+  }
+  return result.stdout;
 }
 
 function parsePackResult(output: string): NpmPackResult {

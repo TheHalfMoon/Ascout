@@ -1,0 +1,7 @@
+# Integrated and publication review reconciliation
+
+At immutable509d89e56a3636d9da9ae6a276f34f21070d4834, tree396c996b1a39862b37e68c712046ae9f04ac7624, fresh integrated combined review finalized originalSHA2569d7f59494823676cebda86658de4e8c9f585e635a9b4b7d7ca7a9d09c0fb6fdf. It found one must-fix documentation issue: old helper behavior/whole-file hash was stated as current. This forward commit explicitly labels the prospective pre-repair baseline and separately identifies the implemented whole-file hash. Historical bindings, normative requirements and unchanged assertion/deadline tail remain intact. No source or execution change was needed.
+
+A different fresh publication/privacy review finalized originalSHA25612a31fe616b565a23462e06bd6a4715300cc8744146d54ee706fb1dae0fcbe74, PUBLICATION_CLEAR_WITH_RETAINED_LIMITATIONS, no material findings. It verified76members/75original-and-reproduced-derivative records, CRC/path/hash/privacy checks,28JSON/16Python/3JavaScript syntax checks. Original reports were read/hashed after final reviewer messages. Shared OpenAI lineage is not provider-independent certification or merge authority.
+
+The original76member ZIP remains unchanged; finalized review reports and their producer are separate minimized sidecars. Final exact-head delta review and actual CI/Self/live eligibility/canonical/postmerge/closing remote gates remain pending. Full native FAIL12deadlines and historical failures/incompleteness remain literal; E00/release BLOCKED.
