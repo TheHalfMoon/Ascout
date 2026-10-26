@@ -1,7 +1,7 @@
 {
   "authority_head": "cd35f0b418902b5ac49bf5a7483cb461e9290450",
-  "driver_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
-  "driver_bytes": 14754,
+  "driver_sha256": "67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e",
+  "driver_bytes": 14818,
   "role": "OWNED_DIAGNOSTIC_EVIDENCE_NOT_PRODUCT_RUNTIME",
   "driver_archive_path": "scripts/native_timing_probe.mjs",
   "benchmark_sha256": "6efbee04780061f1bb100837369d1e55e5756754007b2b7936f4cc6faa33ea82",
@@ -12,6 +12,13 @@
     "observer",
     "launch-after"
   ],
-  "status": "SYNTAX_CHECKED_NOT_EXECUTED_FAITHFULNESS_REVIEW_PENDING",
-  "notice": "No project source/test/benchmark edit. Native controls remain gated by fresh concrete driver review; all missing async stream hashes explicit NOT_OBSERVED."
+  "status": "RELEASE_TIMING_FINDING_FIXED_NOT_EXECUTED_REVIEW_PENDING",
+  "notice": "No project source/test/benchmark edit. Native controls remain gated by fresh concrete driver review; all missing async stream hashes explicit NOT_OBSERVED.",
+  "prior_driver_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
+  "prior_driver_review": {
+    "path": "native-timing-driver-review-2e2d4f2.json",
+    "sha256": "1c58375098a0d48c9b68d47f093b6169c2cea024466fe1a8935c7a05fa296f55",
+    "verdict": "CHANGES_REQUIRED_BEFORE_NATIVE_CONTROLS"
+  },
+  "change": "Nested finally seals failed-case elapsed/budget observation even if release or ownership guard rejects; original error propagation preserved. Original unexecuted driver retained."
 }

@@ -1,0 +1,5 @@
+# Concrete driver review and forward repair
+
+At immutable2e2d4f2254fa38bebc23ef9f178fee859bc38dbf, the fresh concrete driver review finalized CHANGES_REQUIRED_BEFORE_NATIVE_CONTROLS, originalSHA2561c58375098a0d48c9b68d47f093b6169c2cea024466fe1a8935c7a05fa296f55. Root read/hashed after the final response. One must-fix: an original release/ownership-guard rejection could skip the final case elapsed/budget fields. Original unexecuted driverSHA4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b is retained separately.
+
+The forward driver change nests timing sealing in finally around release, preserving original rejection and stage error data. Source lock updated to the actual new hash; Node syntax check passes. No driver mode, fixture probe or project test has executed, and all434 source/test/benchmark entries and16controls remain frozen. Fresh delta/faithfulness review is still required before the fixed native sequence. This repairs measurement bookkeeping, not Ascout production or historical deadline causes. E00/release BLOCKED.
