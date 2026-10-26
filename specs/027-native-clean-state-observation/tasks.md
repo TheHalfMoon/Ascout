@@ -1,6 +1,6 @@
 # Task027-T01
 
-Status: bounded repair8b3493b implemented; baseline29Git RED and candidate23Git GREEN, typing/build/focused native controls complete. Full local suite/source/security/final review/CI/Self/governance/canonical/remote gates pending; E00/release BLOCKED.
+Status: complete candidate suite FAIL1/1955.951s:2429passed/6failed/34existing skips/2469cases, plus browser hook failure. Own new fixture failure remains unresolved despite earlier focused/budget passes. Source/review/CI/governance/canonical/remote gates pending; E00/release BLOCKED.
 
 1. Read-only frontier, 434-entry/16-control freeze, prior failure/diagnosis/tool and predecessor bindings.
 2. Final independent plan audit; different exact-head consistency/purity; bounded direct-user-derived authority afterward.
@@ -13,3 +13,5 @@ Status: bounded repair8b3493b implemented; baseline29Git RED and candidate23Git 
 No new native fixture/test/control yet executed; benchmark source unchanged. Prior local full FAIL12 remains; E00/release BLOCKED.
 
 Current controls: qualification/native-clean-state/2026-10-26/local-controls.json preserves actual native/inner/budget outcomes. Prior prospective and pre-execution statements remain historical. No release or historical-cause claim.
+
+Actual complete-suite update: qualification/native-clean-state/2026-10-26/first-full-suite.json preserves all six test failures and additional hook failure; no qualified whole-suite success or historical-cause claim.

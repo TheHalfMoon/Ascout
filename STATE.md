@@ -1,15 +1,17 @@
-Last updated: 2026-10-26 Asia/Riyadh · Branch: ps/rea-clean-state-observation
+Last updated: 2026-10-27 Asia/Riyadh · Branch: ps/rea-clean-state-observation
 
 ## Current state
 
-Canonical main36768f4 after CLOSED_CANONICAL Task026/PR648, final55976e3 remote proof verified before this task. Task027 prospective gates/authority/control review complete. Benchmark implementation8b3493b SHA151eb52a changes only the named private clean-state helper: fresh HEAD/index and every checkpoint retained; complete clean/untracked-only status avoids redundant diffs, ambiguous rows retain original native diff decisions. All433other existing entries/15controls and old tests/deadlines/config/authority frozen.
+Canonical main36768f4 after CLOSED_CANONICAL Task026/PR648 and verified final55976e3 remote proof. Task027 prospective gates/authority/control review complete; bounded benchmark8b3493b SHA151eb52a and new native regression file are implemented. All433other entries/15controls and existing tests/deadlines/config/authority frozen. Source branch was pushed at1a8e2a4 before the complete run.
 
-## Actual local controls
+## Actual qualification
 
-Seven new native baseline cases pass. Candidate focused native run exits0:32passed/9existing Windows skips/2files. Strict source typing/build0. Supplemental compiler first invocation failsTS5112 before checking the named file; preserved, corrected explicit --ignoreConfig invocation0 without source/config change.
+Qualified native invocation-budget baseline29Git RED and candidate23Git GREEN, two original npm operations and positive assertions retained. New native baseline7passed; focused candidate32passed/9existing skips. Canonical typing/build0; supplemental first compiler invocationTS5112 retained and corrected explicit invocation0. No statistical speedup or historical-cause claim.
 
-Exactly one observed baseline and candidate: qualified29Git budgetRED/native1 with original assertions returned, then23Git budgetGREEN/native0 with original assertions returned. Two npm operations and equal fixture tree retained; direct async children21to15. Case elapsed24070.9895ms/7719.3759ms is descriptive, not a speedup/statistical/causal claim. No original Vitest case result inferred from the cost controls.
+Complete serial local suite f006f8f7 at1a8e2a4 genuinely FAILED: native1/1955.9508359s,2429passed/6failed/34existing skips/2469cases/246files,5failed files plus browser afterAll hook failure. Source start/end clean and equal; both stream hashes verified. Failures: Vitest15s, Jest90s/15s, runtime-data Git-index error, NEW submodule-fixture Git repository-recognition error, browser disposal5s and teardown10s. See qualification/native-clean-state/2026-10-26/first-full-suite.json. No source mutation or parallel reviewers/inference/audits/installs/samplers during the run.
 
 ## Next steps and blockers
 
-One complete serial local suite with original case deadlines and adequate outer budget. No reviewers/inference/install/audit/samplers alongside it; preserve all literal outcomes. Then fresh source/security/integrated/publication review, actual exact-head CI/Self/live guard, canonical/postmerge/closing remote gates. Full suite has not run on this candidate yet. Prior FAIL12/1599.021s and Task024 provenance/selector limitations remain; E00/release BLOCKED. No paid service/dependency/cloud/global config/UA-P07/admission/policy waiver/release authority. Raw controls/fixtures retained.
+Own the new fixture failure: it occurred during native fixture config initialization before that case invoked the changed benchmark API. Its root is no longer present at exact-path readback, and no filesystem contents were retained by the original new-test cleanup. Preserve the full FAIL and diagnose without guessing a host cause, skipping/relabeling or retrying to green. Correct any demonstrated fixture/evidence defect, then run only justified affected checks. Fixed cost baseline/candidate are already consumed; do not repeat them merely for green.
+
+Fresh source/native-boundary security, integrated/publication reviews, actual final-head CI/Self/live governance/canonical/postmerge/closing remote gates remain. No PR or merge yet. Earlier FAIL12 and provenance/selector limitations remain; E00/release BLOCKED. No paid service/dependency/cloud/global config/UA-P07/admission/policy waiver or release authority. Raw captures and supported owned artifacts retained; no unlocated cleanup.
