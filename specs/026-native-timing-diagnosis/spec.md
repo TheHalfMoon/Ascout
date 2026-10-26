@@ -1,6 +1,6 @@
 # Task026-T01: measure native launch and self-runtime preparation costs
 
-Status: PROPOSED, planning only. Canonical base23abb92c3a37bd936c2d7386aa23ddc9d35a9579 after focused CLOSED_CANONICAL Task025/PR647. Its final closing3core+7sidecar/127member bytes/ref were actually verified at805d1623cddf3e9d14d32422e14151be22ff59e0 before this task. [Closing record](https://github.com/TheHalfMoon/Ascout/blob/805d1623cddf3e9d14d32422e14151be22ff59e0/qualification/packaging-invocation/2026-10-26-closeout/REPORT.md). No old closing commits enter this task history.
+Status: DIAGNOSTIC DRIVER STATICALLY REVIEWED; fixed native controls not yet executed. Canonical base23abb92c3a37bd936c2d7386aa23ddc9d35a9579 after focused CLOSED_CANONICAL Task025/PR647. Its final closing3core+7sidecar/127member bytes/ref were actually verified at805d1623cddf3e9d14d32422e14151be22ff59e0 before this task. [Closing record](https://github.com/TheHalfMoon/Ascout/blob/805d1623cddf3e9d14d32422e14151be22ff59e0/qualification/packaging-invocation/2026-10-26-closeout/REPORT.md). No old closing commits enter this task history.
 
 ## Problem and constitution
 
