@@ -1,0 +1,115 @@
+{
+  "kind": "TASK025_FRESH_INTEGRATED_PSTACK_REVIEW",
+  "finalized": true,
+  "head": "509d89e56a3636d9da9ae6a276f34f21070d4834",
+  "tree": "396c996b1a39862b37e68c712046ae9f04ac7624",
+  "base": "fe3064afabb18cffbc1d5a8e7f0b5396be7b28c2",
+  "source_head": "899be8181899ffc618f159e60d2e98413ab6f776",
+  "verdict": "DOCUMENTATION_RECONCILIATION_REQUIRED",
+  "phase_status": "OPEN_FINAL_GATES_PENDING_FULL_NATIVE_FAIL_RETAINED",
+  "findings": {
+    "must-fix": [
+      {
+        "location": "specs/025-packaging-invocation-compatibility/spec.md:7",
+        "issue": "The implemented spec still presents the old helper rejection in present tense, calls the current packaging test byte-identical and assigns the old whole-file SHA2568ae5d9d8...; the reviewed current file SHA256 is 3f970a42fef3dd46155be172e7bdbc3473903758420c219d30ca4b6e71efdb1e. This misbinds current behavior/evidence despite correct historical captures and unchanged-tail binding elsewhere.",
+        "fix": "Explicitly label this observed-problem paragraph's old helper behavior and byte-identical file/hash as the prospective pre-repair baseline. Preserve historical bindings and the separate unchanged tail hash; no helper/test change is needed.",
+        "severity": "BOUNDED_DOCUMENTATION_ACCURACY"
+      }
+    ],
+    "worth-considering": [],
+    "skip-it": []
+  },
+  "bar_verdicts": {
+    "correctness": {
+      "verdict": "CLEAR_WITHIN_AUTHORED_SCOPE",
+      "basis": [
+        "The helper preserves the inherited explicit Node/npmCLI route and its options, and uses existing cross-spawn sync only for absent or empty npm metadata.",
+        "Fallback launch error, nonzero or missing status and signal reject; original subprocess result remains the error cause. The actual direct/npm positive and owned nonzero controls support the claimed behavior.",
+        "All production, 256 other tests-path entries, 15 non-helper controls and complete parser/assertion/fixture/60000ms deadline tail remain frozen."
+      ]
+    },
+    "product": {
+      "verdict": "SCOPE_MATCHES_SPEC_ONE_CURRENT_STATE_WORDING_FIX_REQUIRED",
+      "basis": [
+        "All 15 changed paths are within the Task025 allowlist; only imports/runNpm change executable project code.",
+        "The audit01443ef, different consistency64b38a3, bounded authority96e1af4, source899be81 and evidence509d89e sequence is preserved without retrospective implementation authority.",
+        "State, task, roadmap and qualification reconciliation retain actual native failures, unproved causes, model/tool limitations, pending exact-final-head CI/Self/eligibility/canonical/postmerge/closing remote gates and E00/release BLOCKED.",
+        "Prospective ANALYSIS and plan audit records remain historical planning snapshots; current spec/tasks/STATE/REPORT explicitly reconcile implementation and execution."
+      ]
+    },
+    "parsimony": {
+      "verdict": "CLEAR",
+      "basis": [
+        "The implementation reuses an existing dependency and ordinary error/cause without a new abstraction, export, framework, product seam, dependency, retry or timeout.",
+        "The existing real packaging case and external owned negative provide focused evidence without changing assertion coverage."
+      ]
+    },
+    "evidence_scope": {
+      "verdict": "CLEAR_FOR_RECORDED_OBSERVATIONS_NOT_COMPLETION",
+      "basis": [
+        "Archive SHA256 and 76-member set match evidence-lock.json; all 75 manifest records match local original hashes, reproduced frozen-minimizer derivatives, published hashes and byte lengths; CRC verified.",
+        "All 12 native captures have matching start/end source snapshots, unchanged individual deadlines and actual stream hashes. Source review hashes match their recorded finalized originals.",
+        "The first negative collector false predicate remains alongside native failure; structured reporter followup observes status42/null signal/original streams without editing the test or obtaining native success.",
+        "The single complete native run remains exit1/1599.021s with 2416 passed, 12 literal deadline diagnostics, 34 skips, 2462 cases and 245 files. No generic host cause, absence of contribution or green result is inferred.",
+        "D1 remains advisory; Alibaba evidence is local preview/rules only. Existing Task024 Graft/TesterArmy evidence is not relabeled as fresh execution. Audit zero-known-vulnerability observations are not security certification."
+      ]
+    }
+  },
+  "verified_bindings": {
+    "worktree_status": "CLEAN_AT_REVIEW_START",
+    "changed_paths": 15,
+    "only_code_file": "tests/npm-package-content.test.ts",
+    "source_tree": "30bd51a5d566027174b3efdde3f29fc0e5e0d54a",
+    "other_test_entries": 256,
+    "non_helper_control_hashes": 15,
+    "installed_cross_spawn_7_0_6_bindings": 3,
+    "tail_sha256": "d48fe5601a03a344ae368744e87f5764422605530f327307c4d8e49cdec8fc59",
+    "zip_sha256": "1a8ffc02bdf5eaa6b2e09e6fabeca5b7a0f12a2f1cdb2a1c13fa435352ae0a8c",
+    "zip_members": 76,
+    "original_and_reproduced_derivative_records": 75,
+    "frozen_minimizer_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+    "combined_source_review_sha256": "f75f168d96d38146408a94774b5e5e60935d9530f266e1062cc00438a8776306",
+    "separate_source_security_review_sha256": "8a025897c77188c11d9aa37dbf81434351a1e301930ba01355189280478e27e6"
+  },
+  "actual_observations": {
+    "direct_red": 1,
+    "npm_before": 0,
+    "direct_green": 0,
+    "npm_after": 0,
+    "source_typing": 0,
+    "build": 0,
+    "existing_test_typing": 0,
+    "negative_first_native": 1,
+    "negative_first_collector_predicate": false,
+    "negative_structured_native": 1,
+    "negative_structured_npm_status": 42,
+    "negative_structured_signal": null,
+    "complete_native": 1,
+    "full_native_seconds": 1599.0206485999515,
+    "full_passed": 2416,
+    "full_failed": 12,
+    "full_skipped": 34,
+    "full_cases": 2462,
+    "full_files": 245,
+    "full_literal_timeout_diagnostics_verified": 12,
+    "candidate_contribution_and_historical_causes": "UNPROVED",
+    "production_and_all_npm_audit_exits": [
+      0,
+      0
+    ],
+    "production_and_all_known_vulnerabilities_reported": [
+      0,
+      0
+    ]
+  },
+  "limitations": [
+    "Fresh read-only review of immutable source, local original captures and public derivatives. No project tests, inference, installs, remote writes or project edits ran; only this external review artifact was written.",
+    "No provider-independent certification: reviewer and recorded model reviews share OpenAI lineage. CLAUDE.md/PRODUCT.md capability mappings are absent; explicit PStack inline bars apply.",
+    "Separate source subprocess/security review is consumed, not replaced. This is no new Codex Security/UA phase or changed-command-surface admission.",
+    "Launch-error, signal, missing-completion and empty-metadata paths are statically assessed, not separately executed by this reviewer. Trusted local PATH/metadata remains executable authority.",
+    "No causal experiment or full rerun was performed. Full native FAIL and historical local/Self incompleteness remain real; review does not prove candidate exoneration or a host diagnosis.",
+    "Local byte binding and minimized derivative reproducibility do not authenticate historical originals or prove universal secret detection. Publication/privacy review and actual durable remote verification remain separate.",
+    "Actual final-head CI/Self, live eligibility, guarded merge, canonical parents/tree/signature, postmerge suites and closing review/readback remain pending. No merge, closure, E00, release or deployment authority is supplied."
+  ],
+  "manifest": "panel: light integrated combined correctness/product/parsimony/evidence-scope inline bars (fresh session-model context); source subprocess/security separate clear review consumed; no external specialist provider invoked; shared OpenAI lineage"
+}

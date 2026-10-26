@@ -1,0 +1,183 @@
+{
+  "kind": "TASK025_FRESH_PUBLICATION_PRIVACY_AND_EVIDENCE_REVIEW",
+  "status": "FINAL",
+  "verdict": "PUBLICATION_CLEAR_WITH_RETAINED_LIMITATIONS",
+  "finalized_at_utc": "2026-10-26T08:40:48.045507+00:00",
+  "reviewer": {
+    "task": "/root/packaging_publication",
+    "method": "Fresh-context manual PStack publication/privacy/evidence review; read-only except this report and disposable owned JavaScript syntax copies.",
+    "lineage": "Shared OpenAI lineage with orchestrator and prior source reviewers; no provider-independent certification.",
+    "specialist_mapping": "CLAUDE.md and PRODUCT.md absent; explicit inline publication correctness, parsimony, product fidelity and privacy bars applied. No specialist/provider model review claimed."
+  },
+  "source": {
+    "head": "509d89e56a3636d9da9ae6a276f34f21070d4834",
+    "tree": "396c996b1a39862b37e68c712046ae9f04ac7624",
+    "base": "fe3064afabb18cffbc1d5a8e7f0b5396be7b28c2",
+    "source_only_head": "899be8181899ffc618f159e60d2e98413ab6f776",
+    "source_only_tree": "f8438e68024631753e7d5a5f72f71c39c7c7df1c",
+    "worktree_clean_before_and_after_checks": true,
+    "diff_check_exit": 0
+  },
+  "findings": {
+    "must-fix": [],
+    "worth-considering": [],
+    "skip-it": []
+  },
+  "packet_integrity": {
+    "relative_path": "qualification/packaging-invocation/2026-10-26",
+    "archive_sha256": "1a8ffc02bdf5eaa6b2e09e6fabeca5b7a0f12a2f1cdb2a1c13fa435352ae0a8c",
+    "lock_source_head_is_actual_capture_source": true,
+    "lock_source_head": "899be8181899ffc618f159e60d2e98413ab6f776",
+    "members": 76,
+    "manifest_records": 75,
+    "crc_ok": true,
+    "unique_names": true,
+    "safe_relative_posix_paths": true,
+    "manifest_member_set_exact": true,
+    "all_original_sha256_recomputed_and_match": 75,
+    "all_published_sha256_and_lengths_recomputed_and_match": 75,
+    "all_transformed_flags_match_bytes": 75,
+    "all_derivatives_reproduced_exactly_from_actual_originals": 75,
+    "json_members_parsed": 28,
+    "python_members_ast_parsed": 16,
+    "javascript_members_node_check_passed": 3,
+    "archive_not_rewritten": true
+  },
+  "minimization": {
+    "producer": "work/rc-repair/publish_dependencies.py",
+    "producer_original_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+    "extraction": "Only AST-selected minimize/sanitize/add function definitions were compiled; producer and publication driver were not executed.",
+    "recursive_embedded_json_checked": true,
+    "personal_keys_author_committer_npmUser_email_absent_from_public_json": true,
+    "raw_verification_payload_and_signature_absent_from_public_json": true,
+    "standalone_private_home_component_scan_clear": true,
+    "windows_and_posix_home_scan_clear": true,
+    "email_scan_clear": true,
+    "credential_pattern_scan_clear": true,
+    "fixed_fixture": "Nested dictionaries plus JSON-in-string fixtures verified removal of author/committer/email/raw verification payload/signature and Windows/POSIX homes; no broad allowlist used.",
+    "included_content": "Explicit UTF-8 text/JSON/script derivatives only. No nested opaque ZIP, cache/graph database, installed dependency trees, browser profiles, private REA contents or private account/quota values were observed.",
+    "originals": "All 75 exact originals remain locally present and hash verified. Both owned negative roots and shim files remain retained.",
+    "limit": "Pattern scans and bounded minimization are not universal secret detection or authentication of originals. Public source usernames, ref names, public issue/governance text and technical evidence are intentionally retained."
+  },
+  "evidence_fidelity": {
+    "native_capture_json_count": 12,
+    "capture_state_executed_and_source_unchanged": true,
+    "all_24_original_stream_hashes_verified_and_stream_members_present": true,
+    "frozen_native_harness_hash_matches_all_captures": true,
+    "direct_red": {
+      "native_exit": 1,
+      "source": "96e1af41caa26032b8d431eddc26de44a318b48a",
+      "wall_seconds": 15.309699700097553,
+      "diagnostic": "Missing npm_execpath"
+    },
+    "npm_before": {
+      "native_exit": 0,
+      "wall_seconds": 20.699291600030847
+    },
+    "direct_green": {
+      "native_exit": 0,
+      "wall_seconds": 13.621418199967593
+    },
+    "npm_after": {
+      "native_exit": 0,
+      "wall_seconds": 12.735027899965644
+    },
+    "typecheck_build_test_typing_native_exits": [
+      0,
+      0,
+      0
+    ],
+    "negative_controls": {
+      "first_native_exit": 1,
+      "first_expected_failure_observed_predicate": false,
+      "first_limitation_preserved": "Default renderer omitted original cause output fields; false collector result remains visible.",
+      "followup_native_exit": 1,
+      "serialized_test_state": "failed",
+      "npm_status": 42,
+      "signal": null,
+      "stdout_stderr_original_cause_preserved": true,
+      "first_and_followup_driver_hashes_verified": true,
+      "reporter_hash_verified": true,
+      "shim_and_helper_hashes_verified": true,
+      "driver_runtime_not_executed_by_reviewer": true
+    },
+    "full_suite": {
+      "execution_id": "packaging-repair-full-suite-681272cd-34ec-485e-ad9a-3193e8c86c48",
+      "native_exit": 1,
+      "native_wall_seconds": 1599.0206485999515,
+      "vitest_seconds": 1594.58,
+      "passed": 2416,
+      "failed": 12,
+      "skipped": 34,
+      "total_cases": 2462,
+      "files": 245,
+      "failed_files": 6,
+      "failure_diagnostic_blocks": 12,
+      "literal_deadline_messages": 12,
+      "summary_failure_diagnostics_exact_substring_of_original_stderr": true,
+      "both_complete_stream_derivatives_verified": true,
+      "stdout_original_sha256": "4faa5bb069beb45a7b1dc531e9f3c46d97b2e1b0527d6828596dc1802b8b4065",
+      "stderr_original_sha256": "098663293d9a879c70a3039a08c65d3ca94620f41121123e6d97d45755e17728",
+      "failed_file_distribution": {
+        "T107": 3,
+        "Jest integration": 2,
+        "Vitest integration": 1,
+        "Git tree digest": 3,
+        "Git diff": 1,
+        "drift": 2
+      },
+      "candidate_contribution_and_historical_causes": "UNPROVED",
+      "no_pass_or_causal_exoneration_inferred": true
+    }
+  },
+  "reviews_and_tools": {
+    "plan_audit_original_sha256": "920fad74eac1bf524d40d77d4163c2ba2f9178a3e812a2023eee1b23b481d612",
+    "consistency_original_sha256": "20bb5fdfc419abd8151501edcf3fd10b92ef752846c376e74a4b2bd4bb122fa2",
+    "combined_source_original_sha256": "f75f168d96d38146408a94774b5e5e60935d9530f266e1062cc00438a8776306",
+    "security_source_original_sha256": "8a025897c77188c11d9aa37dbf81434351a1e301930ba01355189280478e27e6",
+    "all_four_original_hashes_recomputed_and_public_derivatives_embedded": true,
+    "d1": "Retained actual local D1 advisory only; no D1 inference or approval performed by this reviewer.",
+    "alibaba": "Actual local preview/rules exits0, preview0reviewable/10total with test default exclusion, rule text retained. Original tool stream hashes verified. No model/provider review implied.",
+    "audits": "Two exact-lock native npm audit exits0 and reported0known vulnerabilities retained; no security certification.",
+    "graft_testerarmy": "No fresh execution claim. Unchanged source/browser/auxiliary lock uses source-bound historical Task024 context; not rerun here."
+  },
+  "document_assessment": {
+    "read": "ROADMAP.md, STATE.md, docs/qualification/REA-E00-packaging.md, all eight Task025 Markdown files, REPORT.md, evidence-lock.json, MANIFEST.json and every archived derivative plus retained originals.",
+    "correctness": "Public original/published hashes and outcomes agree with actual originals. Minimized copies preserve native failure status, first collector limitation and complete full-suite diagnostics.",
+    "parsimony": "Bounded deterministic archive reuses three frozen minimizer functions; no project runtime, dependency, workflow, admission or policy expansion is introduced by publication.",
+    "product": "Prospective gates, bounded source change, source qualification and pending integration/publication/final-delta/CI/Self/governance/canonical/remote outcomes remain distinguished. E00/release BLOCKED is explicit.",
+    "privacy": "No material disclosure observed within the reviewed packet; intentional limitations remain visible."
+  },
+  "remaining_required_gates": [
+    "Fresh integrated/final-delta reconciliation and final-head reviews as applicable.",
+    "Actual final-head six native CI suites and Self artifact/source/inner truth.",
+    "Live governance/head/base/reviews/thread eligibility and ordinary guarded merge.",
+    "Canonical parents/tree/signature, actual postmerge suites, fresh closing reviews and actual remote core/member/sidecar readback before closure/disposal."
+  ],
+  "execution_limits": {
+    "project_tests": false,
+    "inference": false,
+    "installs": false,
+    "project_source_edits": false,
+    "remote_reads_or_writes": false,
+    "publication_drivers_executed": false,
+    "native_or_negative_drivers_executed": false,
+    "stdlib_checks_and_node_syntax_only": true,
+    "private_rea_or_unrelated_project_contents_read": false,
+    "resource_sampling_or_os_exclusivity_verified": false,
+    "independent_security_scan": false,
+    "prior_remote_readback_repeated": false,
+    "only_persistent_write": "work/rc-repair/packaging-publication-509d89e.json",
+    "temporary_syntax_copies": "Three owned temporary .mjs copies checked with node --check and removed by TemporaryDirectory."
+  },
+  "authority_granted": {
+    "implementation": false,
+    "merge": false,
+    "release": false,
+    "admission": false,
+    "provider_independent_certification": false
+  },
+  "release": "BLOCKED",
+  "conclusion": "No material publication/privacy/evidence-fidelity findings at the stated immutable head. This bounded local review does not turn the full native FAIL into PASS, authenticate sanitized originals, prove historical causes or candidate exoneration, certify security, or satisfy CI/Self/canonical/remote gates.",
+  "panel_manifest": "panel: full publication/privacy surface - explicit PStack inline bars in fresh session-model context; specialist mappings absent; separate source correctness and security reports remain distinct; shared OpenAI lineage."
+}
