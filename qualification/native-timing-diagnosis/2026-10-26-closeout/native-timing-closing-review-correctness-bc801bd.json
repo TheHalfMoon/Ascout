@@ -1,0 +1,423 @@
+{
+  "schema_version": 1,
+  "finalized": true,
+  "review_kind": "FRESH_CLOSING_CORRECTNESS_PRODUCT_PARSIMONY",
+  "reviewed_at_utc": "2026-10-26T17:52:13.562225+00:00",
+  "reviewed_head": "bc801bd3f72df14fcf46f279e4c04e5bac8bd739",
+  "reviewed_tree": "a1e82f505ff57df20fac93f8214f007b3f8e8b8e",
+  "canonical_base": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+  "verdict": "CLOSING_REVIEW_CLEAR",
+  "reviewer": {
+    "context": "fresh subagent context; combined correctness/product/parsimony closing judge",
+    "lineage": "Same OpenAI orchestrator lineage; independent context and role, not independent provider certification",
+    "d1_jev_external_inference_used": false,
+    "capability_resolution": "No CLAUDE.md or PRODUCT.md in repository; PStack inline correctness/product/parsimony bars applied against Task026 spec/plan/tasks, CONTRIBUTING and constitution"
+  },
+  "scope": {
+    "project_and_raw_inputs_read_only": true,
+    "project_files_modified": false,
+    "tests_native_controls_installs_cleanup_or_remote_calls_run": false,
+    "scope": "Eight closing documentation/evidence paths against canonical36768f4; material report claims independently checked against raw final/canonical job logs, raw Self artifact, merge records, fixed controls and initial publication receipts",
+    "external_report_outputs_only": [
+      "native-timing-closing-correctness-checks-bc801bd.json",
+      "native-timing-closing-review-correctness-bc801bd.json"
+    ]
+  },
+  "findings": {
+    "must-fix": [],
+    "worth-considering": [],
+    "skip-it": [
+      {
+        "location": "REPORT.md actual Self inspection",
+        "issue": "Receipt source HEAD is base23abb92 while target/verifier is71ceeb6",
+        "disposition": "Expected reconstruction contract, not stale source evidence",
+        "concrete_fix": "None. Preserve base HEAD plus exact target/tree/envelope bindings and staged comparison semantics.",
+        "verified": "Frozen self-verify implementation resets soft to unique merge base while retaining H index tree; receipt changed paths equal actual19-path B-to-H diff, includes_staged true and start/end equal."
+      },
+      {
+        "location": "download/native-timing-ci-download-attempts.json",
+        "issue": "Initial log fetch returned HTTP503",
+        "disposition": "Preserved read failure with read-only retry, not CI retry-to-green",
+        "concrete_fix": "None. Retain native1/read retry0 and run_attempt1.",
+        "verified": "Retry stdout/stderr hashes match; final and canonical metadata/logs remain original run IDs, all attempts1."
+      },
+      {
+        "location": "spec.md/tasks.md chronological Current review update paragraphs",
+        "issue": "Older point-in-time paragraphs retain formerly pending final gates",
+        "disposition": "Primary current statuses and appended canonical updates are accurate; historical context is explicitly anchored to exact43e9ce3",
+        "concrete_fix": "None required for this closing delta. Continue using current primary status and canonical report for handoff.",
+        "verified": "STATE, ROADMAP, top spec/tasks, docs and closeout consistently say MERGED_CANONICAL with closing remote proof pending, E00/release BLOCKED."
+      }
+    ]
+  },
+  "bars": {
+    "correctness": {
+      "result": "CLEAR",
+      "basis": "All107 original and published record hashes recomputed; all108 ZIP members/CRC agree and all derivatives reproduced. Independently checked all13 actual raw jobs:12 full native suites, expected platform skips,245files2462cases and16regression files, exact source guard/lock/pinned browser/typecheck/build. Actual Self ZIP CRC/digest/3JSON/receipt/envelope/selector and report JSON agree; ordinary merge parents/tree/GitHub-reported valid verification agree."
+    },
+    "product": {
+      "result": "CLEAR_WITH_CLOSURE_PENDING_AS_DOCUMENTED",
+      "basis": "Closing delta matches diagnosis-only requirements and no-green-by-omission constitution. Prior complete localFAIL12 remains unexplained; current hosted success is separated from historical causes, original Vitest case result, Task02463unresolved lines and release authority. Four once-only native controls and costs remain source-bound. Fresh closing remote readback is still required and is not claimed."
+    },
+    "parsimony": {
+      "result": "CLEAR",
+      "basis": "Closing delta contains only allowed documentation/evidence paths; all434 source/test/benchmark Git entries and16control hashes match frozen baseline. No product abstraction/dependency/service/config/authority expansion. Deterministic forward archive is justified by canonical CI/Self/merge receipts; original44member packet is unchanged."
+    }
+  },
+  "verified_checks": {
+    "scope_and_purity": {
+      "changed_paths": [
+        "ROADMAP.md",
+        "STATE.md",
+        "docs/qualification/REA-E00-native-timing.md",
+        "qualification/native-timing-diagnosis/2026-10-26-closeout/REPORT.md",
+        "qualification/native-timing-diagnosis/2026-10-26-closeout/evidence-lock.json",
+        "qualification/native-timing-diagnosis/2026-10-26-closeout/evidence.zip",
+        "specs/026-native-timing-diagnosis/spec.md",
+        "specs/026-native-timing-diagnosis/tasks.md"
+      ],
+      "frozen_git_entries": 434,
+      "frozen_control_hashes": 16,
+      "clean_exact_head": true
+    },
+    "archive": {
+      "zip_sha256": "3e1d4a93504b290d86544827d254252f71a4f69516141c8e1b1145e61bb81b4a",
+      "members": 108,
+      "records": 107,
+      "crc": true,
+      "all_original_and_derivative_hashes_recomputed": true,
+      "all_derivatives_reproduced_with_frozen_minimizer": true,
+      "json_parsed": 50,
+      "python_parsed": 28
+    },
+    "source_refs": {
+      "merge_tree": "2f5862ba00a9beeabefb988b9b4adf0f0a5525bf",
+      "reviewed_tree": "2f5862ba00a9beeabefb988b9b4adf0f0a5525bf",
+      "merge_parents": [
+        "23abb92c3a37bd936c2d7386aa23ddc9d35a9579",
+        "71ceeb6fbd55c44165e1b3d574881ac885a17d17"
+      ]
+    },
+    "raw_ci": {
+      "jobs": [
+        {
+          "job": 121611610962,
+          "run": 40334295084,
+          "name": "project / macos-14 / node-22",
+          "head": "71ceeb6fbd55c44165e1b3d574881ac885a17d17",
+          "event": "pull_request",
+          "run_attempt": 1,
+          "raw_log_sha256": "4cfbb963c6e8675ec369dff3826be9c0dbaeb63e6fd81aefecc070c6cc1ced88",
+          "required_steps_success": true,
+          "tests_passed": 2435,
+          "tests_skipped": 27,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121611611053,
+          "run": 40334295084,
+          "name": "project / windows-2025 / node-24",
+          "head": "71ceeb6fbd55c44165e1b3d574881ac885a17d17",
+          "event": "pull_request",
+          "run_attempt": 1,
+          "raw_log_sha256": "86b99b5a195c0a59dd9a5769331a3d966210e895ac8f02fb0789e12f0d7c2383",
+          "required_steps_success": true,
+          "tests_passed": 2428,
+          "tests_skipped": 34,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121611611068,
+          "run": 40334295084,
+          "name": "project / macos-14 / node-24",
+          "head": "71ceeb6fbd55c44165e1b3d574881ac885a17d17",
+          "event": "pull_request",
+          "run_attempt": 1,
+          "raw_log_sha256": "021c806a7145badaafe49ba3687d2ec5c5692bc78f0aa5619f99bbd9e55c97b7",
+          "required_steps_success": true,
+          "tests_passed": 2435,
+          "tests_skipped": 27,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121611611070,
+          "run": 40334295084,
+          "name": "project / ubuntu-24.04 / node-22",
+          "head": "71ceeb6fbd55c44165e1b3d574881ac885a17d17",
+          "event": "pull_request",
+          "run_attempt": 1,
+          "raw_log_sha256": "a5a18342a5268072f9340f1c85143863fb98e3436541906672189c8c47f6bda8",
+          "required_steps_success": true,
+          "tests_passed": 2457,
+          "tests_skipped": 5,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121611611097,
+          "run": 40334295084,
+          "name": "project / windows-2025 / node-22",
+          "head": "71ceeb6fbd55c44165e1b3d574881ac885a17d17",
+          "event": "pull_request",
+          "run_attempt": 1,
+          "raw_log_sha256": "0c48b889f944517372f107ad65ee5dd4755db1c9c3ad6d14a01d256eda53102f",
+          "required_steps_success": true,
+          "tests_passed": 2428,
+          "tests_skipped": 34,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121611611127,
+          "run": 40334295084,
+          "name": "project / ubuntu-24.04 / node-24",
+          "head": "71ceeb6fbd55c44165e1b3d574881ac885a17d17",
+          "event": "pull_request",
+          "run_attempt": 1,
+          "raw_log_sha256": "dc52018cd1314473d70174969755536bd0bc9e0cf16caa4745d2a6ae571a526c",
+          "required_steps_success": true,
+          "tests_passed": 2457,
+          "tests_skipped": 5,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121611609495,
+          "run": 40334294960,
+          "name": "self-verify",
+          "head": "71ceeb6fbd55c44165e1b3d574881ac885a17d17",
+          "event": "pull_request",
+          "run_attempt": 1,
+          "raw_log_sha256": "0d5cdb8d5696562176723b44eb316d77bf96544b2a1d4bf3864d1b4df8286001",
+          "required_steps_success": true
+        },
+        {
+          "job": 121736550469,
+          "run": 40369627171,
+          "name": "project / macos-14 / node-22",
+          "head": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+          "event": "push",
+          "run_attempt": 1,
+          "raw_log_sha256": "794212ff30cc81c30641771f1719adddaaeb29ceaf5468e2f7080a3c5c2c8cbe",
+          "required_steps_success": true,
+          "tests_passed": 2435,
+          "tests_skipped": 27,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121736550675,
+          "run": 40369627171,
+          "name": "project / ubuntu-24.04 / node-22",
+          "head": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+          "event": "push",
+          "run_attempt": 1,
+          "raw_log_sha256": "811849446453242636b41d5b1b4dbbb1fdc4bc6eea4d0d2772549ba163e52348",
+          "required_steps_success": true,
+          "tests_passed": 2457,
+          "tests_skipped": 5,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121736550728,
+          "run": 40369627171,
+          "name": "project / ubuntu-24.04 / node-24",
+          "head": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+          "event": "push",
+          "run_attempt": 1,
+          "raw_log_sha256": "9b82cf6cc25525edc5480b57a1b3032a884032ec2c403ff842997aadbf1fdb11",
+          "required_steps_success": true,
+          "tests_passed": 2457,
+          "tests_skipped": 5,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121736550763,
+          "run": 40369627171,
+          "name": "project / windows-2025 / node-24",
+          "head": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+          "event": "push",
+          "run_attempt": 1,
+          "raw_log_sha256": "3ae3db70d9e703ae69d551bb25cfde85ff3250610dcf5fe64d7341e8de26677d",
+          "required_steps_success": true,
+          "tests_passed": 2428,
+          "tests_skipped": 34,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121736550787,
+          "run": 40369627171,
+          "name": "project / windows-2025 / node-22",
+          "head": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+          "event": "push",
+          "run_attempt": 1,
+          "raw_log_sha256": "efccea6ca31645ffaf6e85a74fe9209d1fcf9e86be22d33ebd644099d1db166a",
+          "required_steps_success": true,
+          "tests_passed": 2428,
+          "tests_skipped": 34,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        },
+        {
+          "job": 121736550921,
+          "run": 40369627171,
+          "name": "project / macos-14 / node-24",
+          "head": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+          "event": "push",
+          "run_attempt": 1,
+          "raw_log_sha256": "b60422a56ac1f8418040ee276e125c8ea34995182306e3a020d115f15a34ddf8",
+          "required_steps_success": true,
+          "tests_passed": 2435,
+          "tests_skipped": 27,
+          "tests_total": 2462,
+          "files_total": 245,
+          "required_regression_files": 16,
+          "pinned_chromium": true,
+          "actual_typecheck_build": true
+        }
+      ],
+      "all_success_actual_execution": true,
+      "strict_tsconfig": true,
+      "twelve_native_suites": true
+    },
+    "self": {
+      "artifact_id": 12656436610,
+      "original_zip_sha256": "194c67010dd58be6e78715be7e6c7d3a1ec913de9031959842860294a068fc9c",
+      "crc": true,
+      "members": 3,
+      "actual_receipt_envelope_selector_bytes_match": true,
+      "receipt_sha256": "16f3aa500a4b54e1e620710c832dc8ba71b144c4a2227057e15afbe97595b673",
+      "summary": {
+        "task_status_counts": {
+          "PASS": 2,
+          "FAIL": 0,
+          "FLAKY": 0,
+          "BLOCKED": 0,
+          "ERROR": 0,
+          "NOT_APPLICABLE": 2,
+          "NOT_RUN": 0
+        },
+        "finding_count": 0,
+        "completeness": "complete",
+        "exit_code": 0
+      },
+      "selected": 2462,
+      "deselected": 0,
+      "receipt_changed_paths_equal_actual_final_diff": 19,
+      "reconstructed_base_head_valid_staged_contract": true,
+      "source_start_end_equal": true,
+      "selector_disposition": "UNAVAILABLE",
+      "raw_testjson_lcov_absent": true
+    },
+    "canonical_merge": {
+      "sha": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+      "merged_at": "2026-10-26T17:32:46Z",
+      "ordered_parents": [
+        "23abb92c3a37bd936c2d7386aa23ddc9d35a9579",
+        "71ceeb6fbd55c44165e1b3d574881ac885a17d17"
+      ],
+      "tree": "2f5862ba00a9beeabefb988b9b4adf0f0a5525bf",
+      "github_reported_verification_valid": true,
+      "seven_guarded_premerge_checks": true,
+      "open_review_threads": 0,
+      "ordinary_merge_metadata_agrees": true
+    },
+    "fixed_controls": {
+      "count": 4,
+      "raw_capture_record_stream_bindings_verified": true,
+      "serial": true,
+      "native_exits": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "integrity_and_errors_verified": true,
+      "baseline_ms": 15105.8276,
+      "observed_ms": 10264.8785,
+      "git_invocations": 29,
+      "inclusive_npm_invocations": 2,
+      "direct_async_children": 21,
+      "fixture_sync_git": 10,
+      "git_intervals_sum_ms": 6225.799799999999,
+      "inclusive_npm_sum_ms": 3987.5114999999987,
+      "equal_fixture_trees": true,
+      "prospective_ancestry_and_adverse_fix_delta_retained": true,
+      "original_vitest": "NOT_EXECUTED"
+    },
+    "historical_local_failure": {
+      "native_exit": 1,
+      "seconds": 1599.0206485999515,
+      "cases": 2462,
+      "passed": 2416,
+      "failed": 12,
+      "skipped": 34,
+      "raw_stream_hashes_verified": true,
+      "retained_as_unexplained": true
+    },
+    "initial_remote_receipts": {
+      "core": 3,
+      "sidecars": 4,
+      "all_recorded_sha256_bytes_git_blobs_equal_final_commit": true,
+      "recorded_remote_readbacks_before_merge": true,
+      "fresh_remote_calls_in_review": false
+    },
+    "report_and_download": {
+      "self_block_exactly_equals_actual_inspection": true,
+      "503_initial_read_failure_retained": true,
+      "read_retry_exit": 0,
+      "run_attempts_remain_one": true,
+      "closing_remote_proof_not_claimed": true
+    }
+  },
+  "limits": [
+    "Read-only local closing review. No fresh network retrieval, remote publication/readback, project tests, native control rerun, install, fixture cleanup, or security-provider gate performed.",
+    "GitHub verification is preserved API-reported valid status plus local parent/tree identity; this review did not independently establish signature trust or authenticate minimized originals.",
+    "Initial remote-readback receipts bind three core and four sidecar bytes/ref before merge; their local hashes/blob IDs match final commit. Actual closing remote proof remains pending.",
+    "Self ZIP omits referenced raw testJSON/LCOV; those payload hashes cannot be independently recomputed from it. Selector comparison remains UNAVAILABLE.",
+    "Ordered baseline/observer measurements prove neither historical root cause, speedup, observer overhead, cold start, OS exclusivity, host/candidate exoneration, nor release readiness. Asynchronous private streams and nested descendants remain unobserved.",
+    "Plan/authority/pre-control chronology is supported by preserved exact-head reports and immutable ancestry, not independent timestamp authentication. This review retains rather than repeats prior complete packet reviews.",
+    "Separate fresh privacy/publication closing judge owns sensitive-output assessment; no whole-repository security scan or independent-provider certification is claimed."
+  ],
+  "panel": "panel: light combined closing correctness/product/parsimony (fresh session-model subagent; inline bars) clear; privacy/publication separate fresh judge; specialist mappings unavailable; no D1 release/security substitute",
+  "authority": "Review result only. No merge/release/UA-P07/admission authority and no CLOSED_CANONICAL claim before closing remote proof."
+}

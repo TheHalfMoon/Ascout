@@ -1,0 +1,972 @@
+{
+  "review_role": "PStack separate fresh closing privacy/publication/reproducibility judge",
+  "reviewer_lineage": "Fresh role-separated OpenAI subagent in the same orchestrator lineage; no independent-provider certification",
+  "verdict": "CLOSING_LOCAL_PACKET_PRIVACY_REPRODUCIBILITY_CLEAR_REMOTE_CLOSURE_PENDING",
+  "reviewed_at_utc": "2026-10-26T17:50:06.023371+00:00",
+  "immutable_head": "bc801bd3f72df14fcf46f279e4c04e5bac8bd739",
+  "immutable_tree": "a1e82f505ff57df20fac93f8214f007b3f8e8b8e",
+  "canonical_base": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+  "scope": "Task026 closing packet and authored closing diff. Repository and raw evidence read-only. Only this external report written. No producer top-level execution, native controls, project tests, remote calls, installs, cleanup or unrelated scans.",
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": [
+      {
+        "location": "Four public macOS CI job logs: job-121611610962.log, job-121611611068.log, job-121736550469.log, job-121736550921.log",
+        "issue": "88 home-pattern matches are exactly generic /Users/runner paths in hosted logs. Context identifies a public runner rather than a personal home.",
+        "concrete_fix": "None; preserve public hosted-runner evidence. This contextual disposition is not blanket suppression of macOS homes."
+      },
+      {
+        "location": "final/native-timing-final-pr-review-observation.json",
+        "issue": "Qodo trial-ended billing-blocked comment is an actual public unavailable-provider observation. It contains no private OpenAI account-usage/quota payload and supplies no review approval.",
+        "concrete_fix": "None; retain unavailable classification and public provider context."
+      },
+      {
+        "location": "Hosted CI logs; context and final review JSON; scripts",
+        "issue": "Authorization and token log fields are already masked with ***; REA/profile/signature/quota terms describe public refs, filenames, verification booleans, source literals or explicit exclusions. Recursive published JSON has no personal author/committer/email/_npmUser or raw signature/payload fields.",
+        "concrete_fix": "None; retain evidentiary limitations and masked public log context."
+      },
+      {
+        "location": "specs/026-native-timing-diagnosis/spec.md and tasks.md; historical packet records",
+        "issue": "Top-level current status and appended canonical update identify MERGED_CANONICAL and pending closing proof. Earlier exact43e9ce3 review-stage statements and requirements remain historical records; the original packet is frozen.",
+        "concrete_fix": "None for this closing review; read chronological records with the current canonical status. Do not rewrite immutable historical evidence."
+      }
+    ]
+  },
+  "verified": {
+    "zip_sha256": "3e1d4a93504b290d86544827d254252f71a4f69516141c8e1b1145e61bb81b4a",
+    "zip_bytes": 462542,
+    "members": 108,
+    "manifest_records": 107,
+    "crc": "PASS_ALL_MEMBERS",
+    "duplicate_names": 0,
+    "unsafe_paths": 0,
+    "encrypted_members": 0,
+    "symlink_members": 0,
+    "member_sections": {
+      "MANIFEST.json": 1,
+      "ci": 31,
+      "context": 11,
+      "download": 3,
+      "final": 10,
+      "merges": 2,
+      "observations": 4,
+      "runs": 12,
+      "scripts": 30,
+      "tools": 4
+    },
+    "text_only": "All 108 members decode as UTF-8; extensions JSON/log/TXT/Python/MJS only; no opaque nested ZIP, installed cache, browser profile or native executable member.",
+    "original_hashes_reproduced": 107,
+    "published_hashes_lengths_transformed_flags_and_bytes_reproduced": 107,
+    "transformed_records": 49,
+    "frozen_minimizer_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+    "frozen_minimizer_functions": [
+      "minimize",
+      "sanitize",
+      "add"
+    ],
+    "original_producer_sha256": "9e94ad051218f4ef74e5171318ef3f47836b581217637ba671f0b50139ba48d5",
+    "closing_producer_sha256": "041b2ed369b870ef163e5f374dbded368fa94220b7c2b3898c4bbbc57984efde",
+    "reproduction_method": "Read actual originals using section-to-source mapping, extract only the three reviewed frozen AST functions in memory, apply each to every original and compare the complete resulting manifest record and member bytes. Original and closing producers inspected as AST/source without executing their top-level operations. Closing wrapper hash-asserts original producer and injects explicit additions before manifest declaration.",
+    "deterministic_zip_rebuild": "Recreated 108 archived member bytes in memory using sorted names, fixed 2000-01-01 timestamps, mode100644, DEFLATE level9; rebuilt ZIP is byte-identical with SHA256 3e1d4a93504b290d86544827d254252f71a4f69516141c8e1b1145e61bb81b4a.",
+    "syntax_only": {
+      "json_including_manifest": 51,
+      "python_ast": 28,
+      "javascript_node_check_stdin_module": 2,
+      "other_text": 27
+    },
+    "initial_packet": {
+      "sha256": "76799144cd8076bbcb38f4cdbb13f63ffc0cc859cb2ab8b8367923d9b23d1ffe",
+      "members": 44,
+      "crc": "PASS",
+      "all_43_nonmanifest_members_byte_identical_in_closing_packet": true,
+      "initial_finalized_privacy_report_retained": true
+    },
+    "original_capture_binding": {
+      "executed_native0_source_unchanged_captures": 4,
+      "raw_stdout_stderr_sha256_verified": 8,
+      "new_controls_or_tests_executed": 0
+    },
+    "source_control_freeze": {
+      "source_test_benchmark_git_entries": 434,
+      "baseline_entries_equal_closing_head": true,
+      "canonical_to_closing_source_diff_empty": true,
+      "actual_16_control_sha256_bindings_match": true,
+      "git_worktree_clean": true
+    },
+    "driver_binding": {
+      "actual_sha256": "67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e",
+      "prior_unexecuted_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
+      "both_archived_source_bytes_identical_to_originals": true
+    },
+    "hosted_and_self_publication": "31 CI members include twelve full native suite logs plus one Self workflow log. Actual Self receipt/envelope/selector JSON only: 18765/658/1243 bytes. Original opaque Self artifact ZIP excluded. Receipt hashes referring to omitted testJSON/LCOV cannot independently be recomputed from this bounded publication; REPORT states that limit and keeps selector UNAVAILABLE.",
+    "download_observation": "Retains first read-download exit1 HTTP503 and successful read-only retry exit0 with streams/hashes. Both explicitly record no CI or test rerun; original failed-fetch stream file/hash is not fabricated.",
+    "official_references": "Two Node v24.19.0 versioned URLs with byte lengths/hashes match actual local full-document files. No closing member equals either full document; neither raw full official-doc cache nor native-timing-documentation.json is included. Baseline contains hashes/retrieval metadata and paraphrased facts.",
+    "privacy_review": "Bounded all-text patterns for Windows/Linux/macOS homes, emails, private user token, GitHub/OpenAI/AWS/private-key formats, signed credential query strings, JWT and unmasked authorization; recursive JSON including JSON-in-strings for personal author/committer/email/_npmUser and signature/payload keys; contextual inspection of REA/profile/quota/provider/billing terms. No exposed personal home/email/credential/private-REA/profile/raw-signature/private OpenAI usage payload found. Only generic /Users/runner homes; credential log values masked. This does not claim universal secret detection.",
+    "publication_state": "REPORT/STATE/current spec/tasks/roadmap identify MERGED_CANONICAL PR648/36768f4 and actual completed final/postmerge qualification; fresh closing review and actual closing core/member/sidecar remote proof remain pending. Initial actual remote proof is historical evidence for the initial 44-member packet, not closing remote proof. No CLOSED_CANONICAL/ready claim.",
+    "evidence_records": [
+      {
+        "path": "runs/native-timing-baseline-6a0ed309-b59d-438f-9b85-e913395901e3.json",
+        "original_sha256": "869fed205fe7b8017566cc8db2a556600e08d8af3901395dc932b6139a3bac8c",
+        "published_sha256": "7c23b3703fda25e188bc2ff821d8fa79dd1e633657d8c3b841dbb32c1fd965c3",
+        "bytes": 1721,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-baseline-6a0ed309-b59d-438f-9b85-e913395901e3.stdout.txt",
+        "original_sha256": "f0dfbc273b39dae5211b34aef826e240dd55415d127cb854ee09d447c7c8e3e4",
+        "published_sha256": "159ccc4789b46eb929d0e2096edbc6c64930129673d27bd9d3f83eae10224eb0",
+        "bytes": 246,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-baseline-6a0ed309-b59d-438f-9b85-e913395901e3.stderr.txt",
+        "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-after-6cd784cd-ff7d-4a43-ae23-6b33ecf96f11.json",
+        "original_sha256": "8657fe5d4e6ce1b92a020202f8ef51c8c4e1bafd92a7f9a990d9a3b44ec214d1",
+        "published_sha256": "1aa9bcb17e628d700ee1c303468a4b8429254d114fe0948f9c7cfdcba4d2282e",
+        "bytes": 1741,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-after-6cd784cd-ff7d-4a43-ae23-6b33ecf96f11.stdout.txt",
+        "original_sha256": "8a3a35018b4dbdb216e71397f455077e616d37711ca4f3af7580e4448279b7f8",
+        "published_sha256": "0a9cc6505c5a90a8ba5a4cd486dad852743838348919a5179779166fcee24040",
+        "bytes": 234,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-after-6cd784cd-ff7d-4a43-ae23-6b33ecf96f11.stderr.txt",
+        "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-before-5ed96baf-71c9-4cdf-8a37-a9f8d6381cf4.json",
+        "original_sha256": "1d68fe8de1af64350ec4185b41acdd3379d78f279d2a72cb7f9c7cd80f7cf9a7",
+        "published_sha256": "94be788624d35155cd79729eda57863fc810564249af21fe08647db346e16280",
+        "bytes": 1746,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-before-5ed96baf-71c9-4cdf-8a37-a9f8d6381cf4.stdout.txt",
+        "original_sha256": "ce25f857839475328a028bcb2ccd4a4737210658c2506bee072d591a8140becc",
+        "published_sha256": "419170dd4d9e7a324017883c07650f17822e3788c2e02407d01026b6962d318c",
+        "bytes": 235,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-launch-before-5ed96baf-71c9-4cdf-8a37-a9f8d6381cf4.stderr.txt",
+        "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-observer-601d66ba-09c6-48ec-a102-3d28a941ce1a.json",
+        "original_sha256": "06ae3766d558ed056ef0d4b6d55dd27848f4ddce3b441d445b9fc95f748a0e42",
+        "published_sha256": "8ff7fff6768f86984db03068b4ab2c5f9f988b1376dc2b1af172386105ab0a9e",
+        "bytes": 1720,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-observer-601d66ba-09c6-48ec-a102-3d28a941ce1a.stdout.txt",
+        "original_sha256": "b55f60c85410031565a2466bd266a47334542463f34c851600da86bfd06738e9",
+        "published_sha256": "dd035faef1b71ac39b8356b2915e3a2109cd4c03543e1b67317bac4dae908584",
+        "bytes": 269,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "runs/native-timing-observer-601d66ba-09c6-48ec-a102-3d28a941ce1a.stderr.txt",
+        "original_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "published_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "observations/baseline-d9b662d7-616e-4bbe-927f-c1a0e8657c9c.json",
+        "original_sha256": "c54778b52af82ed870a55150d441d75d34514f5d4bf6519f46cc0c8668c5dff3",
+        "published_sha256": "cf30127f47592703c33a32e530462111a096242ad84588872c533e7406e388c4",
+        "bytes": 9237,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "observations/launch-after-13973482-a244-4735-b97e-d8f8e4b9cf94.json",
+        "original_sha256": "780a434763e43df0f5c0ffd728624dcc4d856717e3b1a44578c1b8465a0eabbc",
+        "published_sha256": "780a434763e43df0f5c0ffd728624dcc4d856717e3b1a44578c1b8465a0eabbc",
+        "bytes": 7609,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "observations/launch-before-20009a0e-14c2-4261-89a6-3a1d2c2b87e9.json",
+        "original_sha256": "15936357d558e90c3516c63cc6a42ba27775a544b0313ae89c4df4cb6b366fcb",
+        "published_sha256": "15936357d558e90c3516c63cc6a42ba27775a544b0313ae89c4df4cb6b366fcb",
+        "bytes": 7602,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "observations/observer-c4660a41-1d16-47f4-9059-ecfd2d29046d.json",
+        "original_sha256": "353d59b5aa9b7a85d46f09b56ce007ea6d66dfd0d5ab7caae0129778f5fe9e13",
+        "published_sha256": "13ea33fb09e92558f2cff851b5e71168ba417ce3437d94d030fc702037dd0bc9",
+        "bytes": 27616,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-baseline.json",
+        "original_sha256": "f34ea2cab6a26752a03e6f86f682dc53a81f8b44c0281fe7b317721c1fb9bbf0",
+        "published_sha256": "e4e3415c1cb9c691f2c0730218527068c5365cd0b17605c68c65ef08e31b59ea",
+        "bytes": 54648,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-frontier-refresh.json",
+        "original_sha256": "a632f07a36a956cae9fe185eee630a531dff97a59b739cd9738ce86a214e1a9b",
+        "published_sha256": "69f4cb872a0f25b04e501d1ad120515551d765a847ec7dc48b0e16c75d2f6607",
+        "bytes": 73728,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-plan-audit-f0a9da6.json",
+        "original_sha256": "a8b554be521de276b01d6b9aefff368082a6c2d34a56afff796b3eab2a1398cf",
+        "published_sha256": "a8b554be521de276b01d6b9aefff368082a6c2d34a56afff796b3eab2a1398cf",
+        "bytes": 10914,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-consistency-76f17b7.json",
+        "original_sha256": "ff38ae2b63a6b851ecd024e1c35481ac9ac229abb2a5099aa168c3793af786bd",
+        "published_sha256": "9b29763b9df60144e2970b6e889f3ea19420b1972240b5a99e2ccb83c5eac0d5",
+        "bytes": 12656,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-driver-lock.json",
+        "original_sha256": "84ca8625cde0698742218df1dd49bf17158a605e55aedecda78fb349a8f13f1e",
+        "published_sha256": "84ca8625cde0698742218df1dd49bf17158a605e55aedecda78fb349a8f13f1e",
+        "bytes": 821,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-driver-lock-fixed.json",
+        "original_sha256": "de182d86ac8a8bb47fe7524d771a8d3477e3cb356ab5574a3593e30e0a98a4b4",
+        "published_sha256": "de182d86ac8a8bb47fe7524d771a8d3477e3cb356ab5574a3593e30e0a98a4b4",
+        "bytes": 1336,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-driver-review-2e2d4f2.json",
+        "original_sha256": "1c58375098a0d48c9b68d47f093b6169c2cea024466fe1a8935c7a05fa296f55",
+        "published_sha256": "048660c1b4cfc4ff866225740128cfa72809b47c250dc31f57f9f3615c31953b",
+        "bytes": 10984,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-driver-delta-0149520.json",
+        "original_sha256": "740650636ad108eae6d2b9bdb6bdbe98eb40499ea788f4e427b12f34b6ce4771",
+        "published_sha256": "43f3667519aa40b3e7a6b55a904cbd39114bd79f62e6c6c8c2fd163b004244a1",
+        "bytes": 7484,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-observations.json",
+        "original_sha256": "61d5c345ca4b4eb60f0696c33909b89f8870d349b6158d27107dfe7a3942059f",
+        "published_sha256": "b04e780a684a6a7c9fd0d7118a376a31cc60f7e81e29085342864598535496ee",
+        "bytes": 69177,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-d1-observation.json",
+        "original_sha256": "50508c0b45d09f0c9bd2b945c6009cf14ceb358f7885587dcdf0f26005f57e39",
+        "published_sha256": "4e4981063b47485dbd863384abb182dfdd929f413dbbad6c8529f50dd4eed18f",
+        "bytes": 1291,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "context/native-timing-tool-execution.json",
+        "original_sha256": "a6fe1dff156b4a359fba97547f6750c8ffcabd80f334f6ed674d53fd17ac1419",
+        "published_sha256": "a37cee117287e437366a573b793e6ac8cb09cced4465f70c3aa2da0717a495e7",
+        "bytes": 1752,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "tools/native-timing-tool-alibaba-preview.stderr.txt",
+        "original_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "published_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "bytes": 78,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "tools/native-timing-tool-alibaba-preview.stdout.txt",
+        "original_sha256": "1fe0883e6b55b47d2e2a07ca300cbd8cc4f37d9145c6d224af96da775317ccd5",
+        "published_sha256": "1fe0883e6b55b47d2e2a07ca300cbd8cc4f37d9145c6d224af96da775317ccd5",
+        "bytes": 1278,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "tools/native-timing-tool-alibaba-rules.stderr.txt",
+        "original_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "published_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "bytes": 78,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "tools/native-timing-tool-alibaba-rules.stdout.txt",
+        "original_sha256": "aa1dacd579fb7274012afa80d90ca3617053c7b0f4d735e3d5285d7ba8fe7ab8",
+        "published_sha256": "aa1dacd579fb7274012afa80d90ca3617053c7b0f4d735e3d5285d7ba8fe7ab8",
+        "bytes": 233,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/publish_native_timing.py",
+        "original_sha256": "9e94ad051218f4ef74e5171318ef3f47836b581217637ba671f0b50139ba48d5",
+        "published_sha256": "9e94ad051218f4ef74e5171318ef3f47836b581217637ba671f0b50139ba48d5",
+        "bytes": 4390,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/publish_dependencies.py",
+        "original_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+        "published_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+        "bytes": 7330,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/summarize_native_timing.py",
+        "original_sha256": "432d2b10161837f448625a02f9f2843bda0f5e09af18d0e709d34f5f50d81ac3",
+        "published_sha256": "432d2b10161837f448625a02f9f2843bda0f5e09af18d0e709d34f5f50d81ac3",
+        "bytes": 8193,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/freeze_native_timing_baseline.py",
+        "original_sha256": "c4bac6889b51e717a0cdb22c331b0662fcf922daa15e46f506d7bf4fcf5fcfc8",
+        "published_sha256": "c4bac6889b51e717a0cdb22c331b0662fcf922daa15e46f506d7bf4fcf5fcfc8",
+        "bytes": 5206,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/native_timing_docs.py",
+        "original_sha256": "b5696c8ce24749a8b75070574cfb373ad1f78ff0e06f6ab02956a48b7b986443",
+        "published_sha256": "b5696c8ce24749a8b75070574cfb373ad1f78ff0e06f6ab02956a48b7b986443",
+        "bytes": 2272,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/prepare_native_timing_plan.py",
+        "original_sha256": "1dfe039ef7fa392aa1d7ec67d20c1c16bc9f4834b5eca5fedf1fba62d5c7c53c",
+        "published_sha256": "1dfe039ef7fa392aa1d7ec67d20c1c16bc9f4834b5eca5fedf1fba62d5c7c53c",
+        "bytes": 16968,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/capture_native_timing_frontier.py",
+        "original_sha256": "d2d0ceb83f181c8a3e0fa956dea5a1773ec3b83b98c29c3342a1f3d8b33d3ff4",
+        "published_sha256": "d2d0ceb83f181c8a3e0fa956dea5a1773ec3b83b98c29c3342a1f3d8b33d3ff4",
+        "bytes": 335,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/capture_timing_frontier.py",
+        "original_sha256": "7012d2e5905a7e37a44a532374c2a1b7ed5f9ee2bcd93293afd8c51d1659b402",
+        "published_sha256": "7012d2e5905a7e37a44a532374c2a1b7ed5f9ee2bcd93293afd8c51d1659b402",
+        "bytes": 3463,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/capture_native_timing_tools.py",
+        "original_sha256": "d104e458cb27c89f8c6d31fd9980897d45359c4ca7259908fb849ff16190a539",
+        "published_sha256": "d104e458cb27c89f8c6d31fd9980897d45359c4ca7259908fb849ff16190a539",
+        "bytes": 2099,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/native_timing_probe.mjs",
+        "original_sha256": "67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e",
+        "published_sha256": "67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e",
+        "bytes": 14818,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/native_timing_probe_2e2d4f2.mjs",
+        "original_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
+        "published_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
+        "bytes": 14754,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/qualify_native.py",
+        "original_sha256": "326d0fa4e1f850173cbb20bcfc92f621352f092166773533e7adac2108a2465a",
+        "published_sha256": "326d0fa4e1f850173cbb20bcfc92f621352f092166773533e7adac2108a2465a",
+        "bytes": 3509,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/fixed-head-commit.json",
+        "original_sha256": "fb782398fa260159b38600fbbd7963a89be078c8e421f6da31d1d45140d615b4",
+        "published_sha256": "c90552733fcf4eacb98b6549996c0749af0d4792b6f1bed5d8e0a344d56728e1",
+        "bytes": 1056,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/job-121611609495.log",
+        "original_sha256": "0d5cdb8d5696562176723b44eb316d77bf96544b2a1d4bf3864d1b4df8286001",
+        "published_sha256": "a8140adf37c7f641230a9cbe09b98529b426eab69d317eaf5aa5809de31a253a",
+        "bytes": 109564,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/job-121611610962.log",
+        "original_sha256": "4cfbb963c6e8675ec369dff3826be9c0dbaeb63e6fd81aefecc070c6cc1ced88",
+        "published_sha256": "a2d94cf3a35754633bcbf19b8194e4311ad341161536ea59f7360a2511d0aab9",
+        "bytes": 71785,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/job-121611611053.log",
+        "original_sha256": "86b99b5a195c0a59dd9a5769331a3d966210e895ac8f02fb0789e12f0d7c2383",
+        "published_sha256": "750e19aaea0efe4d0a98c8723a1d455b083d064bf0630fde226d42d17e26711f",
+        "bytes": 83719,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/job-121611611068.log",
+        "original_sha256": "021c806a7145badaafe49ba3687d2ec5c5692bc78f0aa5619f99bbd9e55c97b7",
+        "published_sha256": "869fa127aa7a3d5516f2912ef2eccd2313aae14382aee12a361196c61569cd3b",
+        "bytes": 70252,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/job-121611611070.log",
+        "original_sha256": "a5a18342a5268072f9340f1c85143863fb98e3436541906672189c8c47f6bda8",
+        "published_sha256": "6b6988d0750de153509b1baf8472b571fcc0e029e64f42c5f0b80c7799f7ed6f",
+        "bytes": 88278,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/job-121611611097.log",
+        "original_sha256": "0c48b889f944517372f107ad65ee5dd4755db1c9c3ad6d14a01d256eda53102f",
+        "published_sha256": "c9b1df8479966251bc63ee254fda48ec09abd8fc9a1dfab149610412d8f70801",
+        "bytes": 84323,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/job-121611611127.log",
+        "original_sha256": "dc52018cd1314473d70174969755536bd0bc9e0cf16caa4745d2a6ae571a526c",
+        "published_sha256": "9c034aad383817589da3f4321e75b7993c86ff5b50045e82ba4661e9ce5d0452",
+        "bytes": 87610,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/jobs-40334294960.json",
+        "original_sha256": "6c1fb69fe9ceb73e76d8438c81397cc6d3cb7b2cd35e820a034ef674611e9d26",
+        "published_sha256": "ede3f5c24a0146c72ebae2cc8c91d57d9a8adc3616b8619e5935d7d63be11d34",
+        "bytes": 4220,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/jobs-40334295084.json",
+        "original_sha256": "2ca7683e9cdebb78564d2d7d09953827319994556b64c23fe1091a1153313a2a",
+        "published_sha256": "09523144b78f7044c3e96168db7852822bdf945d0eb94f0ca91007358505de3d",
+        "bytes": 26429,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/main-snapshot.json",
+        "original_sha256": "a4fe9be725461d1b5b7a01e1252b4ab22ed4c401afff62d8d8d9b16f4bf4bc10",
+        "published_sha256": "a7a8919e4df06b61c0e528779f77c0c3bc678326ba31e7833fb6b200b6946eaf",
+        "bytes": 2242,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/pr-snapshot.json",
+        "original_sha256": "755eb6840ca5e57d6f2ce63a1bcb07127aa44fff6148bfc420c03451acc9bb63",
+        "published_sha256": "5ec4a78fcf94d10af2803ab05a0e6b6b87f1561e81b5e5c597f11536a2740e35",
+        "bytes": 20241,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/run-40334294960.json",
+        "original_sha256": "2673b785cd954bcf178d1cddf2d3a5dcec3ac52cdd3b3045eb4bb0342c917c0e",
+        "published_sha256": "19d1909ba28edebdf4f21f54a62252916c194baa83056104c0d63a73774fb9fe",
+        "bytes": 13924,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/run-40334295084.json",
+        "original_sha256": "99071a82a8d46a641ff300f8b643ee3e3c7e2355f7af63e917afb3f3f5b5ef09",
+        "published_sha256": "27c2cc92d5776a8055b79af90b6d6ce6e934a3e2981d61e59df6f13b683aa19d",
+        "bytes": 13909,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/selector-shadow-observation.json",
+        "original_sha256": "065d57a13c6b328fc00719e72ad4d673421ace18dec25f7dc6dc03a8d47b9ba9",
+        "published_sha256": "065d57a13c6b328fc00719e72ad4d673421ace18dec25f7dc6dc03a8d47b9ba9",
+        "bytes": 1243,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/self-artifacts.json",
+        "original_sha256": "8f5a93ed783103ad3ae5e6512d08856124d6d74348cf040a13073927b6b0ba0d",
+        "published_sha256": "f7e36aebdba14f2051d311f2a16d87ec33f47f0be546da598f14e737936d8f4d",
+        "bytes": 954,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/self-verification-envelope.json",
+        "original_sha256": "2f29af1668cbc0abe6693a4e6cf3fce748ce83cab6ea693e83e6cef8c59ebba9",
+        "published_sha256": "2f29af1668cbc0abe6693a4e6cf3fce748ce83cab6ea693e83e6cef8c59ebba9",
+        "bytes": 658,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/self-verification-receipt.json",
+        "original_sha256": "16f3aa500a4b54e1e620710c832dc8ba71b144c4a2227057e15afbe97595b673",
+        "published_sha256": "16f3aa500a4b54e1e620710c832dc8ba71b144c4a2227057e15afbe97595b673",
+        "bytes": 18765,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-71ceeb6/summary.json",
+        "original_sha256": "f52ba980e8c42ca4d53031b2e9f73913d47da17e67382527ccb3655bafbe0774",
+        "published_sha256": "f52ba980e8c42ca4d53031b2e9f73913d47da17e67382527ccb3655bafbe0774",
+        "bytes": 13223,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/fixed-head-commit.json",
+        "original_sha256": "47a1c46ce46c4e4d9b55ba09b50520c3638d7895cacce572cab310db1e3aa7d2",
+        "published_sha256": "5684c28816c2a683bf39dfe87349578d3858ef880780719b9061d53979d466e4",
+        "bytes": 1412,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/job-121736550469.log",
+        "original_sha256": "794212ff30cc81c30641771f1719adddaaeb29ceaf5468e2f7080a3c5c2c8cbe",
+        "published_sha256": "6fb750d290038207a7ca828145fd19a52943afef03fa66e52a58951d031b53e4",
+        "bytes": 69555,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/job-121736550675.log",
+        "original_sha256": "811849446453242636b41d5b1b4dbbb1fdc4bc6eea4d0d2772549ba163e52348",
+        "published_sha256": "b84105fa18d96b25deaea50df78d5f5b5760af4518a28f5030a27a023a7af716",
+        "bytes": 88114,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/job-121736550728.log",
+        "original_sha256": "9b82cf6cc25525edc5480b57a1b3032a884032ec2c403ff842997aadbf1fdb11",
+        "published_sha256": "5a4dd2d91af531eae1a2ca4b3af06d82e86306bcab97d47112ca7c348770a89d",
+        "bytes": 88526,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/job-121736550763.log",
+        "original_sha256": "3ae3db70d9e703ae69d551bb25cfde85ff3250610dcf5fe64d7341e8de26677d",
+        "published_sha256": "5b23690e06a59f34b06245271206abe0856df5885b5e964c3119f7b6fafae848",
+        "bytes": 83142,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/job-121736550787.log",
+        "original_sha256": "efccea6ca31645ffaf6e85a74fe9209d1fcf9e86be22d33ebd644099d1db166a",
+        "published_sha256": "dbf3ac284d1b8b87b7f5a04c239d886e49f9496cf5068239b7332bbbcf200677",
+        "bytes": 83104,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/job-121736550921.log",
+        "original_sha256": "b60422a56ac1f8418040ee276e125c8ea34995182306e3a020d115f15a34ddf8",
+        "published_sha256": "a82f4f8b4c3d30c03bd7787abe6f2a52d088a14f4917e6be412f8951dbab89de",
+        "bytes": 77552,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/jobs-40369627171.json",
+        "original_sha256": "16009f18d21e002b666fafed6fdc4825abcec2a3888e8c427bf9a6caa92d78e4",
+        "published_sha256": "65a27d888ae481a3a5ff332b87f6b7930171775b2e9af81ec12d01769cd8ac55",
+        "bytes": 26273,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/main-snapshot.json",
+        "original_sha256": "8478ebdafc11e1ce349d06e26e03d3bf1c4b3dc98ed6a5985c408f5cb5389c07",
+        "published_sha256": "dfee69661a6f319213748faeaa79c23ae25ed172fbbc2babc8b286cdf39a79aa",
+        "bytes": 2236,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/pr-snapshot.json",
+        "original_sha256": "3ca65e8af4d3299039d91455b5a1b9fedf98b1011040679b72e2287df26fcb96",
+        "published_sha256": "e7e89417789dc7dc84c4cb7ae276771e952035a600085184e6a8da15b482e7ec",
+        "bytes": 21355,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/run-40369627171.json",
+        "original_sha256": "cf6323690caabeb5589d7d6c284b1097c07cfcb4b0d5c4b234dace3b2d31cb8f",
+        "published_sha256": "dab68a64129b5622c6b3650e6968af5dc8d61434a20a86f69a8891c5c03dfb8b",
+        "bytes": 13273,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "ci/native-timing-ci-postmerge-36768f4/summary.json",
+        "original_sha256": "af3ad5ef36d7210c6ee76219f3a48bb0ab2fb8a9ad8f1097b2a4be5689be6651",
+        "published_sha256": "af3ad5ef36d7210c6ee76219f3a48bb0ab2fb8a9ad8f1097b2a4be5689be6651",
+        "bytes": 10195,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-ci-review-71ceeb6.json",
+        "original_sha256": "7d9f1adf0a8d56e220e2b9e9e554e1447655b19581291661c4dfa3cf7074a10d",
+        "published_sha256": "7d9f1adf0a8d56e220e2b9e9e554e1447655b19581291661c4dfa3cf7074a10d",
+        "bytes": 18837,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-final-pr-review-observation.json",
+        "original_sha256": "1109cf35d48e2bb51bdb8d33bf1554f608ffcbc58e195a23a3befc7bd81d1f7b",
+        "published_sha256": "4df5770b3d5f5f60b10285a4d04cfffb9c3c549d30f57ffcf9f9dac916e8a23e",
+        "bytes": 1062,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-frontier-premerge.json",
+        "original_sha256": "226da631b4ea590064e913b837dfa4a564dc58c946776e1a954f8cb20eb714fd",
+        "published_sha256": "c2a340f7afb937312da2e184f52ff3a4680a21b4e3d445cd70eeed4b6359f386",
+        "bytes": 74134,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-pr-number.json",
+        "original_sha256": "c45af64578ce740b87eb26684518c16802940cc9033fcc757f2f633b3b1dc48d",
+        "published_sha256": "16e71d2a75aab2755bf3890c60b62e374d5cdb86ad2107528aeef8f0caefd4ed",
+        "bytes": 133,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-publication-receipt-71ceeb6.json",
+        "original_sha256": "7632b9418653692c2fce19606684b811535ac878afbaa4feff84dbbbefabc0ef",
+        "published_sha256": "7632b9418653692c2fce19606684b811535ac878afbaa4feff84dbbbefabc0ef",
+        "bytes": 1077,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-publication-review-43e9ce3.json",
+        "original_sha256": "e345fe5d3327607a9971fd41394914d40ad4c9a3e44412cfa679538a9e41b742",
+        "published_sha256": "e345fe5d3327607a9971fd41394914d40ad4c9a3e44412cfa679538a9e41b742",
+        "bytes": 23015,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-results-delta-71ceeb6.json",
+        "original_sha256": "46c6919a9e40b06765b487c1c6eb0090a913a47140e337c7e495161948791a7a",
+        "published_sha256": "46c6919a9e40b06765b487c1c6eb0090a913a47140e337c7e495161948791a7a",
+        "bytes": 6489,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-results-review-43e9ce3.json",
+        "original_sha256": "a01f2f9a4c36713dd1f999f016020b46253430fc6820715a4badb70a392e9b44",
+        "published_sha256": "532ec75f00fc7a7ef1f38a5d669474f997cc5541859c7b5b88633ddf79c53488",
+        "bytes": 9821,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-self-inspection.json",
+        "original_sha256": "7026eba97aa2a6cebc1a9b117265d644bc24a5746870456d8693dc5121671507",
+        "published_sha256": "7026eba97aa2a6cebc1a9b117265d644bc24a5746870456d8693dc5121671507",
+        "bytes": 4299,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "final/native-timing-sidecars-readback-71ceeb6.json",
+        "original_sha256": "c8783184a6160f709e046adbd5e1238acde4ee333c95bf4d9950773fa972c85a",
+        "published_sha256": "c8783184a6160f709e046adbd5e1238acde4ee333c95bf4d9950773fa972c85a",
+        "bytes": 1314,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "merges/648.json",
+        "original_sha256": "b1a5181bb999f5f5a403c2c76838590c427f6647104719eb04f2e842f2e203b7",
+        "published_sha256": "d19967786120d82706e0a074d002228d2dfb0b1473e7f16031d44c6527947def",
+        "bytes": 932,
+        "transformed": true,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "merges/648-premerge.json",
+        "original_sha256": "f14a6928959aeeec965886dc3d4ff6f2aeb34bec3beb845138ca84c1c1131e53",
+        "published_sha256": "f14a6928959aeeec965886dc3d4ff6f2aeb34bec3beb845138ca84c1c1131e53",
+        "bytes": 3709,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "download/native-timing-ci-download-attempts.json",
+        "original_sha256": "c143ace79768509f84285f0c0a13415efb7ce30f524504b6c88b083f4b917a4a",
+        "published_sha256": "c143ace79768509f84285f0c0a13415efb7ce30f524504b6c88b083f4b917a4a",
+        "bytes": 1216,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "download/native-timing-ci-download-retry.stdout.txt",
+        "original_sha256": "e48053a607d9bd5c1089185ce878e8608a481af54c54e0900853789d72adfc68",
+        "published_sha256": "e48053a607d9bd5c1089185ce878e8608a481af54c54e0900853789d72adfc68",
+        "bytes": 200,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "download/native-timing-ci-download-retry.stderr.txt",
+        "original_sha256": "ffe3d2c3e5843b2f942c83e72ec3f0f161c731b50c9cbd3e396a1d8eaccb7da3",
+        "published_sha256": "ffe3d2c3e5843b2f942c83e72ec3f0f161c731b50c9cbd3e396a1d8eaccb7da3",
+        "bytes": 1326,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/capture_native_timing_ci_retry.py",
+        "original_sha256": "b6817c0914fc7b5c08fa16b40f3d40c147b1c345f8d661554672d07c58c4c3c8",
+        "published_sha256": "b6817c0914fc7b5c08fa16b40f3d40c147b1c345f8d661554672d07c58c4c3c8",
+        "bytes": 1852,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/publish_native_timing_closeout.py",
+        "original_sha256": "041b2ed369b870ef163e5f374dbded368fa94220b7c2b3898c4bbbc57984efde",
+        "published_sha256": "041b2ed369b870ef163e5f374dbded368fa94220b7c2b3898c4bbbc57984efde",
+        "bytes": 3253,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/prepare_native_timing_closeout.py",
+        "original_sha256": "cd66c9913d8d12098c01b40d01add8a068ad1160e7e46ddd6460e4379c7d255d",
+        "published_sha256": "cd66c9913d8d12098c01b40d01add8a068ad1160e7e46ddd6460e4379c7d255d",
+        "bytes": 8816,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/reconcile_native_timing_observations.py",
+        "original_sha256": "beeb5ec9920518a0154a3be9a3021785c34fdfe6c6e5900da1797b1db8896227",
+        "published_sha256": "beeb5ec9920518a0154a3be9a3021785c34fdfe6c6e5900da1797b1db8896227",
+        "bytes": 15503,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/reconcile_native_timing_reviews.py",
+        "original_sha256": "6ecc9a5bbc62c574585b8e495736f0375987535cf48a5c3b87ecb228cf152111",
+        "published_sha256": "6ecc9a5bbc62c574585b8e495736f0375987535cf48a5c3b87ecb228cf152111",
+        "bytes": 2476,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/native_timing_review_sidecars.py",
+        "original_sha256": "dcd68d7688029d6efd9dce623678a44104682fbdcdfb899c5d0ecddebdfbf41f",
+        "published_sha256": "dcd68d7688029d6efd9dce623678a44104682fbdcdfb899c5d0ecddebdfbf41f",
+        "bytes": 1957,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/verify_native_timing_sidecars.py",
+        "original_sha256": "33082660c169ea3ff0aafcc042ee46430a2297c719063cb6f6ac186935b63ff6",
+        "published_sha256": "33082660c169ea3ff0aafcc042ee46430a2297c719063cb6f6ac186935b63ff6",
+        "bytes": 507,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/verify_cleanup_sidecars.py",
+        "original_sha256": "00c7dbc1d4c3fd73f260670649392b83582138e5cdf7cb616041c9c41de478f8",
+        "published_sha256": "00c7dbc1d4c3fd73f260670649392b83582138e5cdf7cb616041c9c41de478f8",
+        "bytes": 1931,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/capture_native_timing_ci.py",
+        "original_sha256": "7deac93808c06f36be1226a3ea600e2a5840bcea8ba1f0014719c2285e229e98",
+        "published_sha256": "7deac93808c06f36be1226a3ea600e2a5840bcea8ba1f0014719c2285e229e98",
+        "bytes": 552,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/capture_timing_ci.py",
+        "original_sha256": "cc8a199c6e3f5d35c3a02047bdd0229d9ff22466c8e871daacdfb706eccc4fe4",
+        "published_sha256": "cc8a199c6e3f5d35c3a02047bdd0229d9ff22466c8e871daacdfb706eccc4fe4",
+        "bytes": 8523,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/premerge_native_timing.py",
+        "original_sha256": "ba817c1630da56dcb688f5fe1a67842de51357459f91eb1b4608d328c9aa4f3f",
+        "published_sha256": "ba817c1630da56dcb688f5fe1a67842de51357459f91eb1b4608d328c9aa4f3f",
+        "bytes": 257,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/premerge_timing.py",
+        "original_sha256": "7ca5721149a4fb9e9fa85ffe98a4294f155b6bfa34c46ad4061901b70d60cdca",
+        "published_sha256": "7ca5721149a4fb9e9fa85ffe98a4294f155b6bfa34c46ad4061901b70d60cdca",
+        "bytes": 2784,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/verify_native_timing_publication.py",
+        "original_sha256": "cce0e2832fe6dc6f63be4573574f9e6226eb6a778ee6f40dc4fca90ea3fb8d89",
+        "published_sha256": "cce0e2832fe6dc6f63be4573574f9e6226eb6a778ee6f40dc4fca90ea3fb8d89",
+        "bytes": 411,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/verify_timing_publication.py",
+        "original_sha256": "053d4c1b075957e93e500072c684a1a5e0ff09b1024e18aff3c614afc143292e",
+        "published_sha256": "053d4c1b075957e93e500072c684a1a5e0ff09b1024e18aff3c614afc143292e",
+        "bytes": 2669,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/inspect_native_timing_self.py",
+        "original_sha256": "34f136d65d4df0551c428b7e388d816843785181a07d7cd80498607fa4667d38",
+        "published_sha256": "34f136d65d4df0551c428b7e388d816843785181a07d7cd80498607fa4667d38",
+        "bytes": 2485,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/capture_native_timing_pr_reviews.py",
+        "original_sha256": "448ac0b692c81e65bec1172fcb461b5f8da56735f8d06529a23f40c7a3ad953e",
+        "published_sha256": "448ac0b692c81e65bec1172fcb461b5f8da56735f8d06529a23f40c7a3ad953e",
+        "bytes": 651,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/capture_packaging_pr_reviews.py",
+        "original_sha256": "29b6b62462ae550171d7ee680891e5d977cb9c1349dfddd30f085fa0502a5980",
+        "published_sha256": "29b6b62462ae550171d7ee680891e5d977cb9c1349dfddd30f085fa0502a5980",
+        "bytes": 1952,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      },
+      {
+        "path": "scripts/record_merge.py",
+        "original_sha256": "439a8b9590addffffb81d8d784d069c0ed08fa02c511925cffa7e0f94936303f",
+        "published_sha256": "439a8b9590addffffb81d8d784d069c0ed08fa02c511925cffa7e0f94936303f",
+        "bytes": 1553,
+        "transformed": false,
+        "reproduced_against_actual_original": true
+      }
+    ]
+  },
+  "limitations": [
+    "This review is role separation within the same OpenAI lineage, not independent-provider security or release certification. D1/Alibaba local rule output is not an approval gate.",
+    "Byte reproduction binds this publication to the local originals examined. It does not authenticate the originals or remotely verify the closing branch/ref/bytes; actual closing remote proof remains required.",
+    "No historical cause, speedup, observer-overhead/cold-start, host exoneration, original timed Vitest PASS, unsupported REA/OS process capture, repair authority or release approval established. Original full native FAIL12 remains.",
+    "Source/owned raw captures and fixtures were retained. No project mutation, remote publication, native-control rerun, install, cleanup or private-project expansion performed."
+  ]
+}
