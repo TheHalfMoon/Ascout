@@ -9,4 +9,4 @@
 - [x] Fresh prospective/faithfulness/final review, CI/Self/governance/canonical/remote gates required.
 - [x] Independent finalized PLAN_CLEAR atf0a9da6, originalSHA256a8b554be521de276b01d6b9aefff368082a6c2d34a56afff796b3eab2a1398cf. Four nonblocking implementation constraints recorded in FINAL_PLAN_AUDIT.md; no authority supplied.
 - [x] Different CONSISTENCY_CLEAR at76f17b7, originalSHA256ff38ae2b63a6b851ecd024e1c35481ac9ac229abb2a5099aa168c3793af786bd; bounded direct-user-derived diagnostic authority recorded afterward before driver/probes. Fresh concrete driver faithfulness gate remains before timed work.
-- [ ] Actual controls/reviews/publication/canonical/remote outcomes preserved.
+- [x] Actual controls/reviews/publication/canonical/remote outcomes preserved: PR648/main36768f4; clear closingbc801bd reviews; actual predecessor115a815930306ec30d1a555160aa710c09620e043core+6sidecar/108member readback before focused closure. Final closure-commit readback remains before next task.

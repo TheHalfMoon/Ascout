@@ -1,6 +1,6 @@
 # Task026-T01: measure native launch and self-runtime preparation costs
 
-Status: MERGED_CANONICAL PR648/36768f4ffe1e2c18492cb3a8fdccd9274c2c615a; final interpretation/publication reviews and applicable CI/Self complete; closing reviews/remote proof pending; E00/release BLOCKED.
+Status: focused CLOSED_CANONICAL PR648/main36768f4; clear closing reviewsbc801bd and actual108member3core+6sidecar predecessor115a815930306ec30d1a555160aa710c09620e04 remote proof. Final closure-commit readback remains before next task; E00/release BLOCKED.
 
 ## Problem and constitution
 
@@ -24,3 +24,5 @@ Allowed project paths: specs/026-native-timing-diagnosis/**; docs/qualification/
 Current review update: fresh exact43e9ce3 result interpretation and separate publication/privacy finalized without must-fix; four finalized review sidecars, fixed44member packet unchanged. Applicable final-head CI/Self, governance, canonical and closing remote gates remain pending. No production repair or historicalFAIL12 erasure; E00/release BLOCKED.
 
 Canonical update: PR648 MERGED_CANONICAL at36768f4ffe1e2c18492cb3a8fdccd9274c2c615a; final-head/canonical actual CI and Self inspected. Fresh closing reviews and actual remote readback pending; E00/release BLOCKED. See qualification/native-timing-diagnosis/2026-10-26-closeout/REPORT.md.
+
+Focused closure record: qualification/native-timing-diagnosis/2026-10-26-closeout/REPORT.md and REMOTE_READBACK.json; final closure-commit remote proof required before next task. Historical requirements and immutable earlier records retained.

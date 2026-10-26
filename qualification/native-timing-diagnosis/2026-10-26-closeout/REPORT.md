@@ -1,6 +1,6 @@
 # Task026 canonical timing diagnosis closeout
 
-Status: MERGED_CANONICAL. Fresh closing correctness/privacy and actual closing core/member/sidecar remote readback remain pending. E00/release BLOCKED. No production repair or original Vitest PASS claim.
+Status: focused CLOSED_CANONICAL for Task026/PR648/main36768f4. Fresh closing correctness/privacy clear atbc801bd and actual3core+6sidecar/108member remote bytes/ref verified at115a815930306ec30d1a555160aa710c09620e04 before this closure update. Final closure-commit remote readback remains required before the next task. E00/release BLOCKED. No production repair or original Vitest PASS claim.
 
 [PR648](https://github.com/TheHalfMoon/Ascout/pull/648) merged ordinarily to canonical 36768f4ffe1e2c18492cb3a8fdccd9274c2c615a; ordered parents 23abb92c3a37bd936c2d7386aa23ddc9d35a9579, 71ceeb6fbd55c44165e1b3d574881ac885a17d17, reviewed/merge tree 2f5862ba00a9beeabefb988b9b4adf0f0a5525bf and valid GitHub verification were checked. Actual seven exact-head checks and live head/base/main/reviews/threads/eligibility were guarded without force/admin/admission/UA-P07. Concurrent work was not modified. Initial fixed packet and finalized review sidecars were downloaded and byte/member/ref verified before merge; actual receipts are preserved in this forward packet.
 
@@ -151,3 +151,5 @@ Actual Self inspection:
 ```
 
 Frozen minimizer with original/published hashes preserves final/postmerge raw logs, actual Self JSON, final reviews, ordinary merge and initial remote receipts. Opaque archives/install caches/browser profiles/private REA/account quota/credentials/full official-doc pages excluded. Homes/emails/personal authors/raw signatures minimized; neither authentication nor universal secret detection. Raw inputs/owned fixtures retained. No new paid service, mandatory cloud, dependency, security phase/provider waiver, UA-P07, changed-surface admission, release or deployment authority. Focused canonical closure requires final closing reviews and actual remote proof; any source repair needs its own prospective task after closure.
+
+Final closing correctness/privacy reports and producer/readback helpers are separately hash-bound sidecars; frozen108member ZIP unchanged. Both finalized reviews clear, shared OpenAI lineage. Actual predecessor115a815930306ec30d1a555160aa710c09620e04 proof is in REMOTE_READBACK.json, not a self-proof of this file or future commit. Focused diagnosis closure does not resolve historicalFAIL12/1599.021s, Task024 provenance debt, selector unavailability, historical cause or release qualification. No raw inputs/fixtures deleted.

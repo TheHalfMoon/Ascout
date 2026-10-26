@@ -1,0 +1,78 @@
+{
+  "verified_predecessor_head": "115a815930306ec30d1a555160aa710c09620e04",
+  "core_readback": {
+    "observed_at_utc": "2026-10-26T17:53:30.148904+00:00",
+    "head": "115a815930306ec30d1a555160aa710c09620e04",
+    "branch": "evidence/native-timing-postmerge-20261026",
+    "path": "qualification/native-timing-diagnosis/2026-10-26-closeout",
+    "remote_ref_verified": true,
+    "remote_bytes_equal_local": true,
+    "all_member_hashes_crc_json_python_verified": true,
+    "members": 108,
+    "files": {
+      "evidence-lock.json": {
+        "sha256": "946b31b1f603e64f6df7dca342bd841355b6696f36f09f9a01f045765da90e64",
+        "bytes": 908,
+        "git_blob": "3c92166eea92ee1c19356a2617198778a863a3d3"
+      },
+      "evidence.zip": {
+        "sha256": "3e1d4a93504b290d86544827d254252f71a4f69516141c8e1b1145e61bb81b4a",
+        "bytes": 462542,
+        "git_blob": "ff499a93d765b8fb715c02771ba7e1cf1ce277ad"
+      },
+      "REPORT.md": {
+        "sha256": "3f926760cc066b332733d54a78ee03cd97bd8479288edc300164818191e0cb3f",
+        "bytes": 9109,
+        "git_blob": "b05fc31071e0c8eae8d11df75f4544a3e31bb3d4"
+      }
+    },
+    "notice": "Remote evidence durability only; no authentication of sanitized originals or release approval."
+  },
+  "sidecar_readback": {
+    "observed_at_utc": "2026-10-26T17:53:32.195240+00:00",
+    "head": "115a815930306ec30d1a555160aa710c09620e04",
+    "branch": "evidence/native-timing-postmerge-20261026",
+    "prefix": "qualification/native-timing-diagnosis/2026-10-26-closeout",
+    "remote_ref_and_all_sidecar_bytes_verified": true,
+    "records": [
+      {
+        "path": "closing-review-manifest.json",
+        "git_blob": "82ae52d9b8c20c9f14d5cd58ff0ae4b30fbe8c7d",
+        "sha256": "30bb16d1fff2a122b0d055e86c8a70b9acfb04cf1cb16ebbc8352164ea69643e",
+        "bytes": 2091
+      },
+      {
+        "path": "native-timing-closing-review-correctness-bc801bd.json",
+        "git_blob": "ac8b2e1a1e0b58a00a5d365300cef91f6f94f9bb",
+        "sha256": "3c14f76185056dd36f0124ec8bd44b2c611a8143a0da79e634ed1a606a1d0bbf",
+        "bytes": 18858
+      },
+      {
+        "path": "native-timing-closing-review-privacy-bc801bd.json",
+        "git_blob": "9ac10cfd48d71336f665caa20a05c45fd3eae73e",
+        "sha256": "0c56483aa4292e254be46be28d2e8d415a8595766d1997bf8e5f517f64a726c7",
+        "bytes": 49503
+      },
+      {
+        "path": "closing-review-sidecars.py",
+        "git_blob": "b727cdd5d6d638b027e232044cdac488bf720753",
+        "sha256": "fd52ddba16bd51f3b8901d1d7a9acfc39202f371201c958dc94e06d0fcd28d4c",
+        "bytes": 2200
+      },
+      {
+        "path": "verify_native_timing_closing_sidecars.py",
+        "git_blob": "b6e8ddde50f8a441fdf611f81f5ed8d2ca39bff5",
+        "sha256": "19e1e8d2356d3ea85962a50315086c16e6bde750feae25e0baf96a6a9d264c6f",
+        "bytes": 470
+      },
+      {
+        "path": "verify_index_closing_sidecars.py",
+        "git_blob": "70341ad995f57d58d55e5c635c918ed8a367b8c9",
+        "sha256": "73191d1687d5a52f22e18b3f4edefb588f5d9142dfb3853020acb519c3e218cb",
+        "bytes": 2022
+      }
+    ],
+    "notice": "Actual remote evidence durability only; no authentication of minimized originals, release readiness or gate waiver."
+  },
+  "notice": "Actual preceding immutable-head3core+6sidecar readback, before this focused closure record. This file does not self-authenticate its own or a future commit. Final branch/core/sidecar readback remains required before next-task mutation or disposal. No release readiness, authentication of minimized originals or governance waiver."
+}
