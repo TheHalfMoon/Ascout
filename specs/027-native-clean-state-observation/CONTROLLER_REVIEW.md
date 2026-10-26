@@ -1,0 +1,11 @@
+# Adverse controller review and pre-execution correction
+
+Concrete delta review at31b7b2631f31a8a96e97d32b55cb592a14d563d0 examined the unexecuted controller17a2e8d52ef78f427d7d619c03a6aa90cf5aebcc23763b4653371404f282ce59. Original report SHA25644ff11babf718fcdf2f591b6994d8886b0ea2b76aa8a88fb643e0042ce5336e6 supplied no execution clearance. Exact adverse source is retained externally and will be an explicitly identified packet member; no archive/publication proof is inferred from that intent.
+
+FD01: post-child filesystem reads could throw before original output was saved, and the sentinel leaf needed identity validation before reading. FD02: final benchmark equality was recorded but not required for qualification. Both must be resolved before any diagnostic control.
+
+The forward controller now forwards/persists original child stdout/stderr immediately after spawn returns, before inspection. Post-child filesystem and ending-source observations are guarded and cannot qualify on missing/changed state. Sentinel parent/leaf/opened-handle identity and bounded reads constrain inspection to the owned marker. Qualification requires ending driver/test/benchmark hashes to match their starting bindings. Original native failure and explicit unavailable states remain; no retries or positive-test PASS promotion.
+
+Current external controller SHA25615afba9757757ad66be5a9043f78b7f2ffb489b9dcf4f5f095856ecca1423652; Node syntax only checked. Actual fixture/test sourceSHA2563647548270f21db4dd97eff3c690c23693f21ca6e6302358c4886ffa670c1cb9 passed strict supplemental typing at31b7b26. BenchmarkSHA256151eb52a remains unchanged. A bounded delta review is still required before either planned adversarial control or the seven-case followup.
+
+Static fixture routing/retention designs resolve NB01 and NB02's design gaps within the new test file, but original failure qualification and root cause remain open. The first full suite and both adverse reviews remain intact. The two fixed cost observations are not repeated; no existing test/deadline/config/global state, production source, UA-P07, admission or release authority changes. E00/release BLOCKED.
