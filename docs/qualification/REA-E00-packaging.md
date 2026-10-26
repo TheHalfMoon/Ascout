@@ -1,7 +1,7 @@
 # REA-E00 packaging invocation compatibility
 
-Task025 repairs a test-helper compatibility defect: direct Vitest can now execute the unchanged real npm packaging assertions without inherited npm_execpath. The explicit inherited npmCLI route is preserved; fallback uses existing cross-spawn7.0.6 and retains failed process results. All production/package/config/authority and complete case/deadline tail are unchanged.
+Task025 helper/import-only repair merged through guarded PR647 into canonical23abb92 with expected parents/reviewed tree/valid signature. Actual direct/npm package controls, strict source/test typing/build and six final-head plus six postmerge native suites pass. Owned npm exit42 remains a failed unchanged real case with its original outputs/cause preserved. Current Self inner0/complete/fullselection2462; selector comparison UNAVAILABLE_FULL_SUITE_CONTRACT.
 
-See [actual qualification](../../qualification/packaging-invocation/2026-10-26/REPORT.md) and [prospective gates/source reviews](../../specs/025-packaging-invocation-compatibility/SOURCE_REVIEWS.md). Direct/npm controls and typing/build passed; owned exit42 remains native failure with original outputs. Complete local suite remains FAIL1:2416passed/12deadline failures/34existing skips/2462cases. No cause or candidate exoneration is proved.
+[Canonical closing record](../../qualification/packaging-invocation/2026-10-26-closeout/REPORT.md) preserves the complete local FAIL1:2416passed/12deadline failures/34existing skips/2462cases/1599.021s, all original/derivative bindings and shared-review/tool limitations. No historical cause, candidate exoneration or retroactive coverage closure is proved. Historical local/Self failures remain intact.
 
-Final integration/publication/CI/Self/governance/canonical/remote qualification remains pending. This is not E00 closure or release readiness. Historical failures/incompleteness, no-admission/UA-P07 and effective repository gates remain intact.
+Fresh closing reviews and actual closing remote byte/member/sidecar proof remain pending. E00/release BLOCKED; no UA-P07, admission injection, paid service or new policy/security/release authority.
