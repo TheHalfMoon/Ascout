@@ -9,13 +9,74 @@ import { SelfVerificationIntegrityError, reconstructSelfVerificationSubject } fr
 
 const ownedRoots: Array<{ root: string; canonical: string; dev: number; ino: number }> = [];
 const quotedPath = "two words [x] ü.txt";
+const gitRoutingVariables = [
+  "GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_INDEX_FILE", "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_SHALLOW_FILE",
+] as const;
+
+function requireFixtureEnvironment(): void {
+  const present: string[] = gitRoutingVariables.filter((name) => process.env[name] !== undefined);
+  if (process.env.GIT_CONFIG_COUNT !== undefined && process.env.GIT_CONFIG_COUNT !== "0") {
+    present.push("GIT_CONFIG_COUNT");
+  }
+  if (present.length > 0) throw new Error(`fixture_git_routing_environment: ${present.join(", ")}`);
+}
+
+function fixtureMetadata(owned: typeof ownedRoots[number]): Record<string, unknown> {
+  const inspect = (path: string): Record<string, unknown> => {
+    try {
+      const value = lstatSync(path);
+      return { state: "OBSERVED", directory: value.isDirectory(), file: value.isFile(), symlink: value.isSymbolicLink(), dev: value.dev, ino: value.ino, bytes: value.size };
+    } catch (error) {
+      return { state: "UNAVAILABLE", code: (error as NodeJS.ErrnoException).code ?? null };
+    }
+  };
+  const root = inspect(owned.root);
+  const result: Record<string, unknown> = { initial: owned, root };
+  const sameRoot = root.directory === true && root.symlink === false && root.dev === owned.dev && root.ino === owned.ino;
+  if (!sameRoot || realpathSync(owned.root) !== owned.canonical) return result;
+  const gitDirectory = join(owned.root, ".git");
+  const metadata = inspect(gitDirectory);
+  result.git = metadata;
+  if (metadata.directory !== true || metadata.symlink !== false || realpathSync(gitDirectory) !== join(owned.canonical, ".git")) return result;
+  result.entries = Object.fromEntries(["HEAD", "config", "index", "objects", "refs", "commondir"].map((name) => [name, inspect(join(gitDirectory, name))]));
+  return result;
+}
 
 function git(root: string, args: readonly string[]): string {
-  return execFileSync("git", ["-C", root, ...args], {
-    encoding: "utf8",
-    windowsHide: true,
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  requireFixtureEnvironment();
+  const owned = ownedRoots.find((entry) => entry.root === root);
+  if (!owned) throw new Error("Refusing Git operation outside a registered fixture");
+  const current = lstatSync(root);
+  if (!current.isDirectory() || current.isSymbolicLink() || current.dev !== owned.dev || current.ino !== owned.ino || realpathSync(root) !== owned.canonical) {
+    throw new Error("Refusing Git operation in a replaced fixture root");
+  }
+  if (args[0] !== "init") {
+    const gitDirectory = join(root, ".git");
+    const metadata = lstatSync(gitDirectory);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink() || realpathSync(gitDirectory) !== join(owned.canonical, ".git")) {
+      throw new Error("Refusing Git operation outside the owned fixture metadata directory");
+    }
+  }
+  const argv = ["-C", root, "--git-dir", join(root, ".git"), "--work-tree", root, ...args];
+  try {
+    return execFileSync("git", argv, {
+      encoding: "utf8",
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trim();
+  } catch (error) {
+    try {
+      const native = error as Error & { status?: number; signal?: string; code?: string };
+      console.error("ASCOUT_T027_FIXTURE_GIT_FAILURE", JSON.stringify({
+        argv, native_status: native.status ?? null, native_signal: native.signal ?? null,
+        native_error_code: native.code ?? null, fixture: fixtureMetadata(owned),
+      }));
+    } catch {
+      // Diagnostic failure must not replace the original native error.
+    }
+    throw error;
+  }
 }
 
 interface Fixture {
@@ -31,6 +92,7 @@ function commit(root: string, message: string): string {
 }
 
 function fixture(): Fixture {
+  requireFixtureEnvironment();
   const root = mkdtempSync(join(tmpdir(), "ascout-t027-"));
   const identity = lstatSync(root);
   ownedRoots.push({ root, canonical: realpathSync(root), dev: identity.dev, ino: identity.ino });
@@ -57,6 +119,7 @@ function fixture(): Fixture {
 }
 
 function reconstruct(subject: Fixture) {
+  requireFixtureEnvironment();
   return reconstructSelfVerificationSubject({
     repositoryRoot: subject.root,
     eventBaseSha: subject.base,
@@ -81,8 +144,19 @@ function withSubmodule(): Fixture {
   return { ...subject, head: commit(subject.root, "head with local submodule") };
 }
 
-afterEach(() => {
-  for (const owned of ownedRoots.splice(0).reverse()) {
+afterEach(({ task }) => {
+  const roots = ownedRoots.splice(0).reverse();
+  if (task.result?.state === "fail") {
+    for (const owned of roots) {
+      try {
+        console.error("ASCOUT_T027_RETAINED_FAILED_FIXTURE", JSON.stringify(fixtureMetadata(owned)));
+      } catch {
+        // Retain the root even when its metadata cannot be reported.
+      }
+    }
+    return;
+  }
+  for (const owned of roots) {
     const current = lstatSync(owned.root);
     if (resolve(dirname(owned.root)) !== resolve(tmpdir()) || current.isSymbolicLink()
       || current.dev !== owned.dev || current.ino !== owned.ino || realpathSync(owned.root) !== owned.canonical) {
@@ -128,6 +202,8 @@ describe("native exact-head clean-state observations", () => {
     const subject = withSubmodule();
     writeFileSync(join(subject.root, "nested", "untracked.txt"), "nested untracked\n");
     git(subject.root, ["diff", "--quiet", "--"]);
+    const status = git(subject.root, ["status", "--porcelain=v1", "--untracked-files=all", "--ignored=no"]);
+    expect(status.split(/\r?\n/u).some((line) => !line.startsWith("?? ") && line.endsWith("nested"))).toBe(true);
     const targetTree = git(subject.root, ["write-tree"]);
     await expect(reconstruct(subject)).resolves.toMatchObject({ mergeBaseSha: subject.base, headTreeSha: targetTree });
     expect(git(subject.root, ["rev-parse", "HEAD"])).toBe(subject.base);
