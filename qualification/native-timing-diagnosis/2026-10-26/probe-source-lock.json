@@ -12,7 +12,7 @@
     "observer",
     "launch-after"
   ],
-  "status": "RELEASE_TIMING_FINDING_FIXED_NOT_EXECUTED_REVIEW_PENDING",
+  "status": "ARCHIVED_LOCALLY_FIXED_CONTROLS_EXECUTED_FINAL_REVIEWS_PENDING",
   "notice": "No project source/test/benchmark edit. Native controls remain gated by fresh concrete driver review; all missing async stream hashes explicit NOT_OBSERVED.",
   "prior_driver_sha256": "4851413a369b36c458612f3b1139ae133835a4bbb88d1f7f6fa21c4a99311d4b",
   "prior_driver_review": {
@@ -20,5 +20,10 @@
     "sha256": "1c58375098a0d48c9b68d47f093b6169c2cea024466fe1a8935c7a05fa296f55",
     "verdict": "CHANGES_REQUIRED_BEFORE_NATIVE_CONTROLS"
   },
-  "change": "Nested finally seals failed-case elapsed/budget observation even if release or ownership guard rejects; original error propagation preserved. Original unexecuted driver retained."
+  "change": "Nested finally seals failed-case elapsed/budget observation even if release or ownership guard rejects; original error propagation preserved. Original unexecuted driver retained.",
+  "execution_source_head": "44d47acb48f75322e776f12202cbac4ae1af2097",
+  "evidence_zip_sha256": "76799144cd8076bbcb38f4cdbb13f63ffc0cc859cb2ab8b8367923d9b23d1ffe",
+  "actual_archived_driver_sha256": "67c73278bc649e1e2d4473084739c23707034b71942eb5824811d1155784522e",
+  "driver_faithfulness_review_sha256": "740650636ad108eae6d2b9bdb6bdbe98eb40499ea788f4e427b12f34b6ce4771",
+  "publication_state": "LOCAL_PACKET_ONLY_REMOTE_PUBLICATION_AND_READBACK_PENDING"
 }
