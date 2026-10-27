@@ -1,0 +1,505 @@
+{
+  "schema_version": 1,
+  "task": "Task028-T01",
+  "review_kind": "final_fresh_combined_integrated_product_parsimony_publication_privacy_static_review",
+  "verdict": "INTEGRATED_PUBLICATION_CLEAR_WITH_PENDING_EXECUTION_GATES",
+  "reviewed_at_utc": "2026-10-27T11:06:20.128805+00:00",
+  "reviewer": {
+    "identity": "OpenAI Codex fresh role-separated subagent /root/browser_readiness_publication_review",
+    "independence": "Fresh combined integrated/publication reviewer in the same OpenAI provider lineage; not provider-independent certification. Prior source correctness and separate workflow-boundary/security reports were treated as scoped inputs and their unchanged workflow binding was independently checked.",
+    "authority": "Findings as data only. No implementation, publication action, phase closure, PR/merge, release, deployment, policy, provider, command-admission or UA-P07 approval."
+  },
+  "source": {
+    "repository": "work/engineering/main-control",
+    "head": "eba4030904c5cb7692b0febae0acc94596edc58e",
+    "tree": "922e388f9d127b8ad30ddd12934ac057da49e338",
+    "canonical_base": "7a089771aaad8f599b2ee342cf2c17eac19f547b",
+    "canonical_tree": "30fca6fb00065d5ecd36902c5b68e4b199d8a1e9",
+    "worktree_clean_before_report": true,
+    "implementation_head": "53efe84dbc1550742b09cb3bae58a6a9a1c295a2",
+    "implementation_tree": "a0f2e72e25d762ed55557cf43f6d95ee89522476",
+    "packet_source_head": "53efe84dbc1550742b09cb3bae58a6a9a1c295a2",
+    "workflow_unchanged_from_implementation_reviews": true,
+    "target_before_sha256": "0ad849d2a6c94588d6762fa6925916a1fd521a25602b123e74baeb9c03e5817a",
+    "target_after_sha256": "0f2ae0a554b0f5fa4fb7b80a302a3344dbf3d29624b0b465eefdcbe0348b021f",
+    "source_step_sha256": "9f40ed49d92ac46d4752de72de02c9942a22eb3856d518ad81de80ea2ff3d4db",
+    "source_step_bytes": 655,
+    "changed_paths": [
+      ".github/workflows/self-verify.yml",
+      "ROADMAP.md",
+      "STATE.md",
+      "qualification/self-browser-readiness/2026-10-27/REPORT.md",
+      "qualification/self-browser-readiness/2026-10-27/baseline.json",
+      "qualification/self-browser-readiness/2026-10-27/evidence-lock.json",
+      "qualification/self-browser-readiness/2026-10-27/evidence.zip",
+      "qualification/self-browser-readiness/2026-10-27/implementation.json",
+      "specs/028-self-browser-readiness/CONSISTENCY_AND_AUTHORIZATION.md",
+      "specs/028-self-browser-readiness/PLAN_AUDIT.md",
+      "specs/028-self-browser-readiness/plan.md",
+      "specs/028-self-browser-readiness/spec.md",
+      "specs/028-self-browser-readiness/tasks.md"
+    ]
+  },
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": [
+      {
+        "proposal": "Add a new helper, abstraction, dependency/service, YAML-mirroring test or duplicate complete local-suite retry.",
+        "reason": "Exact reuse of the existing step is sufficient for this bounded workflow prerequisite change; actual final-head hosted setup and existing complete native suites provide useful execution evidence."
+      }
+    ]
+  },
+  "bars": {
+    "integrated_correctness": {
+      "result": "CLEAR_WITHIN_STATIC_PACKET_SCOPE",
+      "evidence": "Only four YAML lines, including separator, add the existing 655-byte Project CI step after exact-lock installation and before build/capture. Independent byte removal recovers the old target exactly. All 435 source/test/benchmark Git entries and 14 nontarget SHA256 controls match baseline. The workflow is unchanged since the separate source/security reviews. The metadata correctly binds the packet to its earlier implementation source head and this review to the later documentation/evidence head. No source behavior, assertion/deadline, capture/selector command or upload policy changed."
+    },
+    "product": {
+      "result": "CLEAR_FOR_BOUNDED_PREPARATION_NOT_ACCEPTANCE_COMPLETE",
+      "evidence": "The spec requests explicit browser readiness using the existing pinned step, and the workflow expresses that ordering. Published spec/report/STATE/ROADMAP distinguish static implementation from pending actual setup, six native hosted suites and inner Self truth. Existing lazy provisioning is acknowledged; lack of upfront setup is an observed gap, not a proven cause. The report preserves local FAIL6 plus hook, Self inner1/FLAKY/materially_incomplete across two runs/one failure, UNKNOWN causes, missing original failure payload, Task024 provenance and unavailable selector comparison."
+    },
+    "parsimony": {
+      "result": "CLEAR",
+      "evidence": "No new runtime helper, generalized provisioning layer, dependency, service, configuration or test. Allowed metadata/evidence is explicitly bounded. The copied fixed command adds no new executable abstraction. Existing frozen scripts are inspection/capture/publication evidence outside product runtime; their presence does not claim execution."
+    },
+    "workflow_security_binding": {
+      "result": "UNCHANGED_SEPARATELY_REVIEWED_BOUNDARY",
+      "original_report_sha256": "c56c143de553b76c710063c25ef13d9020fbc62e51a1daa1da1e85b652c38306",
+      "evidence": "Separate SECURITY_BOUNDARY_CLEAR report is hash-verified, preserved unchanged in the archive and still applies to identical workflow bytes. Exact recovery proves no change to permissions, same-repository/exact-head guards, pinned actions, credential persistence=false, Node24, deadline, fixed capture/selector commands or bounded three-file upload. This combined publication review is not a new independent security certification."
+    },
+    "publication_integrity": {
+      "result": "CLEAR",
+      "evidence": "ZIP SHA256 and 28-member/27-payload inventory agree with lock and manifest. Independently checked CRC, safe relative paths, no exact or case-fold duplicates/symlinks, all original/published hashes and sizes, every transform flag, 11 JSON documents and 13 Python ASTs. All payloads equal an independently reimplemented reduction/redaction algorithm; no evidence script was imported or executed. Loose baseline JSON is semantically equal to the archived original baseline despite formatting bytes differing."
+    },
+    "privacy": {
+      "result": "CLEAR_WITHIN_EXPLICIT_PUBLICATION_SCOPE",
+      "evidence": "Inspected the explicit 10 context JSON, 4 tool-text and 13 source payloads plus manifest and loose phase publication files. No private Windows/runner home, standalone private home username, email address, plausible secret/private key, personal author/committer/email profile field or raw verification payload/signature was found in archive bytes. Published frontier/review/tool derivatives minimize roots while preserving public source refs and qualification outcomes. No private REA expansion, unrelated project data, installed dependencies, cache/browser profile, account/quota or opaque artifact is in the explicit inventory. Public repository refs and local loopback D1 endpoint are intentional noncredential evidence."
+    },
+    "planning_authority_and_truth": {
+      "result": "CLEAR_WITH_LIMITS",
+      "evidence": "Git ancestry orders base ->1757f56 plan/audit subject ->51fb2f4 recorded final audit/different consistency subject ->1a5b444 bounded existing-user authority record ->53efe84 workflow ->eba4030 publication metadata. Original plan, consistency, implementation, correctness and security report hashes match the manifest. ROADMAP editorial pending-implementation note is corrected. Models do not supply human authority; recorded ancestry is not an authenticated timestamp. Security reviewer bootstrap/read-query deviations remain explicitly disclosed without claiming perfect protocol."
+    }
+  },
+  "publication": {
+    "zip_sha256": "9de221cb302c8fb00d313c78d235e8feae54952a3cee9599095b77e10901b0c4",
+    "zip_bytes": 98880,
+    "member_count": 28,
+    "payload_count": 27,
+    "manifest_sha256": "88c2a193196e9c347d847904df4584da13c171052c450b5133415d5563d363dc",
+    "manifest_authority": "TASK028_WORKFLOW_QUALIFICATION_OBSERVATIONS_ONLY",
+    "crc_valid": true,
+    "safe_paths_no_duplicates_no_symlinks": true,
+    "json_documents_parsed": 11,
+    "python_sources_ast_parsed": 13,
+    "all_original_published_hashes_sizes_and_transform_flags_valid": true,
+    "independent_derivation": "Reimplemented recursive JSON reduction/embedded-JSON normalization and UTF-8 root<RUNNER_HOME> redaction inline from the frozen source semantics; did not import, extract-and-exec or invoke producer functions. Compared reconstructed derivative bytes for each of 27 payloads.",
+    "minimizer_source_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+    "producer_source_sha256": "77087c91e14bfb7686bdfb84ec053d52ae32be17070a286be5f6068c7826bc5c",
+    "records": [
+      {
+        "path": "context/browser-readiness-baseline.json",
+        "original_sha256": "1063f52eaf6ff39efeded494a1855bbbe187b376a1555475481a88298960a515",
+        "published_sha256": "1063f52eaf6ff39efeded494a1855bbbe187b376a1555475481a88298960a515",
+        "bytes": 52137,
+        "transformed": false,
+        "original_bytes": 52137,
+        "published_bytes": 52137,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "context/browser-readiness-frontier-refresh.json",
+        "original_sha256": "121b0f9c0308644a5f702b65782a81c37fc5634561910596d335d2e98a5da7e3",
+        "published_sha256": "90d946bdf795e03fe63126ddd95b3bd597044633c81a9b1cd98efc60b66c8288",
+        "bytes": 74119,
+        "transformed": true,
+        "original_bytes": 74149,
+        "published_bytes": 74119,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "context/browser-readiness-plan-audit-1757f56.json",
+        "original_sha256": "1ded9d27c55f860d6a74fdf8f6c5989aa9a9f99ed7aba047bb88d792cd7b1baa",
+        "published_sha256": "1ded9d27c55f860d6a74fdf8f6c5989aa9a9f99ed7aba047bb88d792cd7b1baa",
+        "bytes": 9874,
+        "transformed": false,
+        "original_bytes": 9874,
+        "published_bytes": 9874,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "context/browser-readiness-consistency-51fb2f4.json",
+        "original_sha256": "79b26f701345a96baf2adbc932ddf96f139394c15c523d0b92dfaedfa5fb03e3",
+        "published_sha256": "07f51477b7f37323324194a9c44eae8d351cd5e2e43efaf449b448343aeb9742",
+        "bytes": 17992,
+        "transformed": true,
+        "original_bytes": 18277,
+        "published_bytes": 17992,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "context/browser-readiness-implementation.json",
+        "original_sha256": "dbd10e1c500de969a97d853f21708e8dcfe6e838d2f91b31630f4a0fc7e15f95",
+        "published_sha256": "dbd10e1c500de969a97d853f21708e8dcfe6e838d2f91b31630f4a0fc7e15f95",
+        "bytes": 1331,
+        "transformed": false,
+        "original_bytes": 1331,
+        "published_bytes": 1331,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "context/browser-readiness-correctness-53efe84.json",
+        "original_sha256": "9e489ff448f02d0fc80172b37895f7ad99d471a7753068abc00276b0d15acebe",
+        "published_sha256": "735d4260a7d5e0a02eaa43c99717edfeaa5567d07c61a6a13f7228656e74551c",
+        "bytes": 13916,
+        "transformed": true,
+        "original_bytes": 19951,
+        "published_bytes": 13916,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "context/browser-readiness-security-53efe84.json",
+        "original_sha256": "c56c143de553b76c710063c25ef13d9020fbc62e51a1daa1da1e85b652c38306",
+        "published_sha256": "c56c143de553b76c710063c25ef13d9020fbc62e51a1daa1da1e85b652c38306",
+        "bytes": 8862,
+        "transformed": false,
+        "original_bytes": 8862,
+        "published_bytes": 8862,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "context/browser-readiness-d1-status.json",
+        "original_sha256": "1bcb9c29f58226914472b8febac854ca27cb3fc22efb97aca523e3f09769b270",
+        "published_sha256": "1bcb9c29f58226914472b8febac854ca27cb3fc22efb97aca523e3f09769b270",
+        "bytes": 483,
+        "transformed": false,
+        "original_bytes": 483,
+        "published_bytes": 483,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "context/browser-readiness-d1-review.json",
+        "original_sha256": "fb137f8b3bacbb03edb3afaded8141f4856db55be7d0c9ee0ba498f2a285455a",
+        "published_sha256": "a00242bbed1071ce4d1f451f82c8b53fe18ee78913ee931aa7b1b37b838f0076",
+        "bytes": 2836,
+        "transformed": true,
+        "original_bytes": 2843,
+        "published_bytes": 2836,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "context/browser-readiness-tool-execution.json",
+        "original_sha256": "9d4617b6a3272d2f4ef36df4b45b420a7425512130399f34104db1d01fc4fcfd",
+        "published_sha256": "15a67efb98aeb8b70833f41fa61b322df062deb25e643b7111b878e81354faf6",
+        "bytes": 1849,
+        "transformed": true,
+        "original_bytes": 1855,
+        "published_bytes": 1849,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "tools/browser-readiness-tool-alibaba-preview.stderr.txt",
+        "original_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "published_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "bytes": 78,
+        "transformed": false,
+        "original_bytes": 78,
+        "published_bytes": 78,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "tools/browser-readiness-tool-alibaba-preview.stdout.txt",
+        "original_sha256": "0ab38e51f0799f8d72aefd6043811f4e948a66cf208cc0c9f15f571ed860203b",
+        "published_sha256": "0ab38e51f0799f8d72aefd6043811f4e948a66cf208cc0c9f15f571ed860203b",
+        "bytes": 1095,
+        "transformed": false,
+        "original_bytes": 1095,
+        "published_bytes": 1095,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "tools/browser-readiness-tool-alibaba-rules.stderr.txt",
+        "original_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "published_sha256": "d2993bc68ad9a63f711c8f5473155e2ba00fdcd461220cc3849185f2f9ad93e6",
+        "bytes": 78,
+        "transformed": false,
+        "original_bytes": 78,
+        "published_bytes": 78,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "tools/browser-readiness-tool-alibaba-rules.stdout.txt",
+        "original_sha256": "c8a5c78b5d3747fa6a0c44d3aa0eecee9756b3812d778e9a1f49a1f6d0d404dc",
+        "published_sha256": "c8a5c78b5d3747fa6a0c44d3aa0eecee9756b3812d778e9a1f49a1f6d0d404dc",
+        "bytes": 3258,
+        "transformed": false,
+        "original_bytes": 3258,
+        "published_bytes": 3258,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/publish_browser_readiness.py",
+        "original_sha256": "77087c91e14bfb7686bdfb84ec053d52ae32be17070a286be5f6068c7826bc5c",
+        "published_sha256": "77087c91e14bfb7686bdfb84ec053d52ae32be17070a286be5f6068c7826bc5c",
+        "bytes": 3855,
+        "transformed": false,
+        "original_bytes": 3855,
+        "published_bytes": 3855,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/publish_dependencies.py",
+        "original_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+        "published_sha256": "87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1",
+        "bytes": 7330,
+        "transformed": false,
+        "original_bytes": 7330,
+        "published_bytes": 7330,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/freeze_browser_readiness_baseline.py",
+        "original_sha256": "da1395af887c2349febf11eea86df1d08b69d718fe38eb06afbae644992fb46a",
+        "published_sha256": "da1395af887c2349febf11eea86df1d08b69d718fe38eb06afbae644992fb46a",
+        "bytes": 4255,
+        "transformed": false,
+        "original_bytes": 4255,
+        "published_bytes": 4255,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/capture_browser_readiness_frontier.py",
+        "original_sha256": "c60bc63e5aa7dbcc9d9fe967928c6db1c7e7849d7f317a18e71908d39894b079",
+        "published_sha256": "c60bc63e5aa7dbcc9d9fe967928c6db1c7e7849d7f317a18e71908d39894b079",
+        "bytes": 308,
+        "transformed": false,
+        "original_bytes": 308,
+        "published_bytes": 308,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/capture_timing_frontier.py",
+        "original_sha256": "7012d2e5905a7e37a44a532374c2a1b7ed5f9ee2bcd93293afd8c51d1659b402",
+        "published_sha256": "7012d2e5905a7e37a44a532374c2a1b7ed5f9ee2bcd93293afd8c51d1659b402",
+        "bytes": 3463,
+        "transformed": false,
+        "original_bytes": 3463,
+        "published_bytes": 3463,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/implement_browser_readiness.py",
+        "original_sha256": "5a67e37baf5e11b952e1352da45d22bb9979c624e465b82741234762bdc4ce11",
+        "published_sha256": "5a67e37baf5e11b952e1352da45d22bb9979c624e465b82741234762bdc4ce11",
+        "bytes": 5178,
+        "transformed": false,
+        "original_bytes": 5178,
+        "published_bytes": 5178,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/capture_browser_readiness_tools.py",
+        "original_sha256": "46483a82ef21ef6b9e48c450da5bdc7b701661aee2ad8545be7dbbbe59da6eaa",
+        "published_sha256": "46483a82ef21ef6b9e48c450da5bdc7b701661aee2ad8545be7dbbbe59da6eaa",
+        "bytes": 2222,
+        "transformed": false,
+        "original_bytes": 2222,
+        "published_bytes": 2222,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/capture_browser_readiness_ci.py",
+        "original_sha256": "91a0193f5e634ba8a89073a195e675875422fe65575e38693a213616307dddd6",
+        "published_sha256": "91a0193f5e634ba8a89073a195e675875422fe65575e38693a213616307dddd6",
+        "bytes": 951,
+        "transformed": false,
+        "original_bytes": 951,
+        "published_bytes": 951,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/capture_timing_ci.py",
+        "original_sha256": "cc8a199c6e3f5d35c3a02047bdd0229d9ff22466c8e871daacdfb706eccc4fe4",
+        "published_sha256": "cc8a199c6e3f5d35c3a02047bdd0229d9ff22466c8e871daacdfb706eccc4fe4",
+        "bytes": 8523,
+        "transformed": false,
+        "original_bytes": 8523,
+        "published_bytes": 8523,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/inspect_browser_readiness_self.py",
+        "original_sha256": "c3282e178402f0987ca47199ddbb0f0e35deab60c1149a220f6886cc4a0f0d5c",
+        "published_sha256": "c3282e178402f0987ca47199ddbb0f0e35deab60c1149a220f6886cc4a0f0d5c",
+        "bytes": 512,
+        "transformed": false,
+        "original_bytes": 512,
+        "published_bytes": 512,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/inspect_clean_state_self.py",
+        "original_sha256": "b888f8927c7d9b5b819c967aedcb8ed65f76eaacbeaeb520692a9dd53a24a0f6",
+        "published_sha256": "b888f8927c7d9b5b819c967aedcb8ed65f76eaacbeaeb520692a9dd53a24a0f6",
+        "bytes": 2527,
+        "transformed": false,
+        "original_bytes": 2527,
+        "published_bytes": 2527,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/verify_browser_readiness_publication.py",
+        "original_sha256": "10699a276322978865a16007513035fd68e61b9bb71972fbce07eb6ef806384f",
+        "published_sha256": "10699a276322978865a16007513035fd68e61b9bb71972fbce07eb6ef806384f",
+        "bytes": 411,
+        "transformed": false,
+        "original_bytes": 411,
+        "published_bytes": 411,
+        "independent_derivation_equal": true
+      },
+      {
+        "path": "scripts/verify_timing_publication.py",
+        "original_sha256": "053d4c1b075957e93e500072c684a1a5e0ff09b1024e18aff3c614afc143292e",
+        "published_sha256": "053d4c1b075957e93e500072c684a1a5e0ff09b1024e18aff3c614afc143292e",
+        "bytes": 2669,
+        "transformed": false,
+        "original_bytes": 2669,
+        "published_bytes": 2669,
+        "independent_derivation_equal": true
+      }
+    ]
+  },
+  "tool_truth": {
+    "d1": "Inspected recorded actual local D1 status/review only: medium classification, confidence0.1615 and advisory warning. No new d1/Jev inference ran here; D1 cannot satisfy security, merge or release gates.",
+    "alibaba": "Inspected actual stdout/stderr and source-bound capture record: preview and workflow rule lookup native exit0, 3 reviewable/10 total; Markdown excluded. Guidance/scope only, not a model approval.",
+    "browser_graft_testerarmy": "No fresh product-browser, Graft or TesterArmy execution claimed by this review or packet. Frozen product entries preserve prior source-bound results; new hosted workflow execution remains necessary."
+  },
+  "remaining_gates": [
+    "Actual final-head hosted Chromium setup before capture, six complete native suites with literal test counts/skips and inspected exact inner Self receipt/envelope/selector/artifact truth.",
+    "Focused PR and live ordinary eligibility, applicable substantive reviews and zero unresolved material threads.",
+    "Ordinary authorized eligible merge, canonical postmerge native suites, closing reviews and actual final core/member/sidecar remote readback before focused closure or next-task source mutation."
+  ],
+  "residual_status": {
+    "task028_browser_installer_tests_build_new_full_suite_hosted_jobs": "NOT_EXECUTED at this packet preparation/review",
+    "prior_local": "Native1/2429passed/6failed/34existing_skips/2469cases plus browser hook failure remains adverse; original leaf/tree bindings retained, not reexecuted on this head.",
+    "prior_self": "Inner1/FLAKY/materially_incomplete, two runs/one failure; original raw failure payload unavailable and cause UNKNOWN.",
+    "prior_hosted": "Twelve earlier actual native hosted suites remain predecessor evidence with their original subject binding; they do not qualify the changed Task028 workflow.",
+    "capture_policy": "Effective Spec006 FR-006-006/007/008/009/010 preserves admission refusal, exact receipt/source validation and rejects exit2; valid adverse exits0/1/3/4 can be SHADOW_NON_GATING successful captures without clean qualification.",
+    "e00_release": "BLOCKED",
+    "other_debt": "Task02463 unresolved provenance lines, original fixture UNKNOWN cause and selector UNAVAILABLE limits remain; no later pass erases or explains them."
+  },
+  "reproducibility_limits": [
+    "Static JSON/Python parseability and exact derivation checks do not prove a script or hosted installer succeeds. Evidence source was never imported/executed.",
+    "Public reproduction requires the recorded immutable source revisions, pinned installed dependencies, appropriate local runtimes/authenticated gh access and adaptation of redacted roots. The packet is explicit bounded evidence, not a standalone copy of private originals, installed dependencies or missing raw failure payloads.",
+    "Frozen publish_dependencies.py is a hash-bound definition source for the Task028 producer; its full historical Task022 top-level pipeline is not the Task028 reproduction entry point.",
+    "Original/published hash linkage verifies retained local originals against derivatives, not independently authenticated author identity, time, signatures or model judgments.",
+    "Predecessor embedded receipts equal their named retained local originals and prior Self inspection hash was checked; no new network/remote verification of predecessor or current publication occurred.",
+    "Same OpenAI provider lineage supplies role separation only; no provider-independent certification, causal conclusion, generic host/candidate exoneration, admission/policy/provider/security/UA-P07 waiver, release or deployment authority."
+  ],
+  "input_manifest": [
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "be65bffd83dee5179949cb3efbf20b391884100020b53bc88c5537a06e3d6834",
+      "bytes": 2258
+    },
+    {
+      "path": ".github/workflows/self-verify.yml",
+      "sha256": "0f2ae0a554b0f5fa4fb7b80a302a3344dbf3d29624b0b465eefdcbe0348b021f",
+      "bytes": 3389
+    },
+    {
+      "path": "ROADMAP.md",
+      "sha256": "6a16cdb3768ecd32cd0179b6c8bf8ea0b97ef3c63da9e77a631197270bc260f2",
+      "bytes": 4901
+    },
+    {
+      "path": "STATE.md",
+      "sha256": "0a9086c439ef33b2feb5b570354f53be56eba9779eaf8defc9c3452562f5d456",
+      "bytes": 1757
+    },
+    {
+      "path": "qualification/self-browser-readiness/2026-10-27/REPORT.md",
+      "sha256": "a29c958eaa8aca761a3363c1a7754c15e78c18b231be63574f48bc071313c26d",
+      "bytes": 5597
+    },
+    {
+      "path": "qualification/self-browser-readiness/2026-10-27/baseline.json",
+      "sha256": "557ba516ce1fba41a5bf9698c073c9e690d7550456fa4eb9a3ab1fe0f3713d09",
+      "bytes": 52704
+    },
+    {
+      "path": "qualification/self-browser-readiness/2026-10-27/evidence-lock.json",
+      "sha256": "e9b58122698dd83003a9c3e791ac74f1e6a9e74a9f70658a6edd183bd932f7e9",
+      "bytes": 1307
+    },
+    {
+      "path": "qualification/self-browser-readiness/2026-10-27/evidence.zip",
+      "sha256": "9de221cb302c8fb00d313c78d235e8feae54952a3cee9599095b77e10901b0c4",
+      "bytes": 98880
+    },
+    {
+      "path": "qualification/self-browser-readiness/2026-10-27/implementation.json",
+      "sha256": "dbd10e1c500de969a97d853f21708e8dcfe6e838d2f91b31630f4a0fc7e15f95",
+      "bytes": 1331
+    },
+    {
+      "path": "specs/006-self-verification-shadow-receipt/spec.md",
+      "sha256": "891279353838cda740b98612bd4f0c9eb07768e93d68409b87a846d07629fde8",
+      "bytes": 10612
+    },
+    {
+      "path": "specs/010-selector-shadow-verification/spec.md",
+      "sha256": "dcd1c9e4dcfa0180cd8805f9d21d7f80f4af8f81515f620c95f7a58270a25efc",
+      "bytes": 14621
+    },
+    {
+      "path": "specs/028-self-browser-readiness/CONSISTENCY_AND_AUTHORIZATION.md",
+      "sha256": "3423f6de217e010f6cf2bf1642cfd1473bbbae190d886b9e7c1d84dc74729ebb",
+      "bytes": 2477
+    },
+    {
+      "path": "specs/028-self-browser-readiness/PLAN_AUDIT.md",
+      "sha256": "324549622be70fff8d74f15d4a5476905c9fe8458b7c5588bb0972724f086952",
+      "bytes": 1138
+    },
+    {
+      "path": "specs/028-self-browser-readiness/plan.md",
+      "sha256": "217d41cb378893212190429c65950c3ac696b73e5ef42d013928064add5edf1d",
+      "bytes": 1565
+    },
+    {
+      "path": "specs/028-self-browser-readiness/spec.md",
+      "sha256": "93e15e499a7e7a97a760fb326dad13a5356657c1fe04ce239ebff0cc3db41458",
+      "bytes": 6863
+    },
+    {
+      "path": "specs/028-self-browser-readiness/tasks.md",
+      "sha256": "561807b970516982934cf53114e22fdfaa96116e145e28f588c67d08dc33d5cd",
+      "bytes": 1326
+    }
+  ],
+  "execution_manifest": {
+    "skills_applied": [
+      "PStack ps-review combined inline correctness/product/parsimony/publication bars"
+    ],
+    "provider_resolution": "No CLAUDE.md/PRODUCT.md exists in this repository; used Task028 spec/plan/acceptance and existing Spec006/010 policy. Native combined PStack inline bars applied visibly. Separate source correctness/workflow-boundary security originals are hash-bound inputs.",
+    "actions": [
+      "Every shell command, including initial RTK instruction bootstrap, prefixed with rtk.",
+      "Read bounded phase diff/spec/plan/audit/authority/state/roadmap/publication inputs, designated originals and archive sources only; no whole production rescan.",
+      "Read Git status/head/tree/ancestry/diff and immutable source tree entries, computed stdlib hashes/JSON/AST and exact byte comparisons.",
+      "Performed independent inline derivative implementation over all 27 explicit payloads and privacy/path/CRC checks.",
+      "Write only this designated external JSON report."
+    ],
+    "project_writes": [],
+    "remote_actions": [],
+    "tests_builds_installers_browsers_controllers_application_cli_or_native_capture": [],
+    "inspection_notes": [
+      "A skill read initially hit terminal CP1252 Unicode output encoding; rerun with Python -X utf8 succeeded.",
+      "Initial abbreviated qual path matched no files; corrected to qualification.",
+      "Initial lowercase manifest.json lookup failed; subsequent MANIFEST.json read and complete independent checks succeeded.",
+      "Some broad display output was truncated; focused summaries and complete programmatic binding/derivative checks cover all asserted entries.",
+      "One read-only predecessor-local-receipt lookup used an unresolved relative root and failed; corrected absolute root verified both original receipt equalities and prior Self hash."
+    ],
+    "manifest_line": "panel: combined fresh integrated/product/parsimony/publication/privacy reviewer (session model, PStack inline bars); separate source/security originals bound and workflow unchanged; static only; same OpenAI lineage; no provider-independent certification"
+  }
+}
