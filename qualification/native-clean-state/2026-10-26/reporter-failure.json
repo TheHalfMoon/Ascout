@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "state": "ACTUAL_SECOND_CONTROL_UNQUALIFIED_REPORTER_EVIDENCE_MISSING",
+  "original_controller_sha256": "16bf3f8d3ad334c52877b7fcd3f4f4f463ecaa2d291a4ca131168fad01d7c7e9",
+  "captures": [
+    {
+      "capture_file": "clean-state-routing-negative-bed3513d-89a4-4d5f-9353-652c44fa9c1e.json",
+      "capture_sha256": "6a7a176f50e490216dfca61f342f9cad34031efc62b4c949867eda99c43326f5",
+      "source_head": "c82fc47ab9f2abfee71956c8aae3f71ead6d9b0c",
+      "native_controller_exit": 0,
+      "wall_seconds": 29.2444514001254,
+      "stdout_sha256": "d6e7457b365193c81232936cb4d31aaf95cef453aeb1a01b8288c20ed2d8100c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "capture_file": "clean-state-native-init-negative-3ad92c60-ea72-4edf-99f7-382a40684d17.json",
+      "capture_sha256": "91efffce958f8e64b47b8189c690fdae2786abcf9b44c3f4697de502c521c7ac",
+      "source_head": "c82fc47ab9f2abfee71956c8aae3f71ead6d9b0c",
+      "native_controller_exit": 1,
+      "wall_seconds": 4.998733999906108,
+      "stdout_sha256": "a4bbcd5616155f17a0ffad4db0e7c89bdace8ba512a6ba911a29bf3d1c9ad0e2",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "controls": [
+    {
+      "mode": "routing",
+      "record_file": "routing-c08fd21b-6c25-43bf-bfad-f87b152fea6e.json",
+      "record_sha256": "105d34fcc74999510df1b79ffb2a6650c0fe4edc237d9defc25b3a64ced73ba2",
+      "qualification": "EXPECTED_ROUTING_REJECTION_AND_SENTINEL_INTEGRITY_OBSERVED",
+      "child_exit": 1,
+      "runner_counts": {
+        "total": 7,
+        "passed": 0,
+        "failed": 1,
+        "pending": 6
+      },
+      "sentinel_unchanged": true,
+      "native_failure_diagnostics_count": 0,
+      "retained_manifests_count": 0
+    },
+    {
+      "mode": "native-init-failure",
+      "record_file": "native-init-failure-c596f509-fe6e-4c26-95e4-1852d20ab559.json",
+      "record_sha256": "43015faebcb6bd189b1a0098dceaf8fc4f81e1960396c17d45b85914f645f4a1",
+      "qualification": "UNQUALIFIED",
+      "child_exit": 1,
+      "runner_counts": {
+        "total": 7,
+        "passed": 0,
+        "failed": 1,
+        "pending": 6
+      },
+      "sentinel_unchanged": true,
+      "native_failure_diagnostics_count": 0,
+      "retained_manifests_count": 0
+    }
+  ],
+  "installed_reporter_source_sha256": "cdafaf8e508042dddba72f8c7bbae84e2836ddb6b06c7026520c35d91af4e798",
+  "evidence": "Vitest4.1.12 JSON reporter emits assertion errors and counts but has no console-log reporting callback. The actual child failed on the intended unknown hash algorithm, but its console failure metadata and retention manifest were absent from both captured streams and the JSON assertion report. Read-only exact-root inspection observed the named failed fixture still present; that later observation cannot replace missing failure-time ownership proof.",
+  "next_scope": "Preserve this literal native controller1/child1 UNQUALIFIED result and exact16bf3f8 source. Change only the external driver to add the built-in default reporter alongside JSON. After concrete delta review and a recorded input lock, allow exactly one corrected native-init-failure evidence run, then the originally planned seven-case diagnostic followup if qualified. Do not repeat the already qualified routing control or either fixed cost observation. No test/deadline/config/environment changes.",
+  "limits": "No original error reproduction, root-cause resolution, full-suite success, phase/release or governance approval. All raw captures and owned artifacts retained."
+}
