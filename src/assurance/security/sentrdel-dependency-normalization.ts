@@ -108,6 +108,7 @@ import {
   SENTRDEL_PINNED_TREE,
   SENTRDEL_PIN_REF,
 } from "./sentrdel-source-pin.js";
+import { compareCodeUnitsV1 as compareText } from "./sentrdel-code-unit-order.js";
 
 export const SENTRDEL_SCA_SCHEMA_VERSION = 1 as const;
 
@@ -1065,10 +1066,6 @@ function isBoundedText(value: unknown): value is string {
 
 function isPositiveIntegerOrNull(value: unknown): value is number | null {
   return value === null || (Number.isInteger(value) && (value as number) >= 1);
-}
-
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 /**

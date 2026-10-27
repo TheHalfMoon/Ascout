@@ -16,6 +16,7 @@ import {
   type SentrdelConfigPresenceObservationV1,
 } from "./sentrdel-config-presence.js";
 import { SENTRDEL_PINNED_REVISION, SENTRDEL_PINNED_TREE } from "./sentrdel-source-pin.js";
+import { compareCodeUnitsV1 as compareIdentity } from "./sentrdel-code-unit-order.js";
 
 export const SENTRDEL_T09_INVENTORY_AUTHORITY = "UA-P06-T09" as const;
 export const SENTRDEL_T09_MAX_OBSERVATIONS = 64 as const;
@@ -97,8 +98,6 @@ export function buildSentrdelT09InventoryV1(value: unknown): SentrdelT09Inventor
   }
   // UTF-16 code-unit ordering is deterministic across host locales/ICU versions.
   // Never use localeCompare for identity-bearing or receipt-bearing canonical order.
-  const compareIdentity = (left: string, right: string): number =>
-    left < right ? -1 : left > right ? 1 : 0;
   const sortedWorkflows = Object.freeze([...normalizedWorkflows].sort((a, b) =>
     compareIdentity(a.observation_id, b.observation_id)));
   const sortedConfig = Object.freeze([...normalizedConfig].sort((a, b) =>
