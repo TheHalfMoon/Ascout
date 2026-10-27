@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "state": "PREEXECUTION_REPORTER_CORRECTION_BOUND",
+  "reviewed_head_abbreviation": "eea51d4",
+  "review_sha256": "5b495cff7f48abdf5ff0576f3d11fb10447122486cba4588645647b74378c114",
+  "controller_sha256": "4bb330cdc1fee3290896ae959a1bbb5679cd39e9acccfc790bcc5d0f1d30e9b3",
+  "native_test_sha256": "3647548270f21db4dd97eff3c690c23693f21ca6e6302358c4886ffa670c1cb9",
+  "benchmark_sha256": "151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad",
+  "scope": "One corrected native-init-failure evidence run; seven-case followup only if qualified. No routing/cost repeat. Retain actual first controller1/child1 UNQUALIFIED and all original failures. No release or historical root-cause approval."
+}

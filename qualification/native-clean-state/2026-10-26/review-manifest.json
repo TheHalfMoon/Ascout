@@ -1,0 +1,49 @@
+{
+  "reviewed_head": "a757b2a37ed82d67147e410c159c485d0f1e2219",
+  "reviewed_tree": "8e63eded02bd2f3f7fd0c91b586daea29c551044",
+  "packet_sha256": "64d613267d3acb6b56294a23fcecf06aab5b3dc6d45d2fa31bd0650cccce2723",
+  "records": [
+    {
+      "path": "clean-state-integrated-review-a757b2a.json",
+      "original_sha256": "17d67f376d63eae2366e0e5f563155777ec826e5f77339fd38a3c5daf1aa4853",
+      "published_sha256": "3a448d2dcde28356f15aab8e220e3023df46f8a197d03c2195eb3f6929254aa5",
+      "bytes": 19646,
+      "transformed": true
+    },
+    {
+      "path": "clean-state-publication-review-a757b2a.json",
+      "original_sha256": "f5f4b761c46eaa85100bbfcbde502594d06a5571b76eb56a4d53d1307ace6516",
+      "published_sha256": "f5f4b761c46eaa85100bbfcbde502594d06a5571b76eb56a4d53d1307ace6516",
+      "bytes": 57311,
+      "transformed": false
+    },
+    {
+      "path": "review-sidecars.py",
+      "original_sha256": "4c02bb2ab97347f0fd8844ed3efc0f44f13107920f43cec6354687949ba1f5bd",
+      "published_sha256": "4c02bb2ab97347f0fd8844ed3efc0f44f13107920f43cec6354687949ba1f5bd",
+      "bytes": 1938,
+      "transformed": false
+    },
+    {
+      "path": "clean-state-final-delta-d1de35e.json",
+      "original_sha256": "8e1a100f65eaabe163c5c5e2edfc33d6407abd74c26c65a8e4940117469e3634",
+      "published_sha256": "8e1a100f65eaabe163c5c5e2edfc33d6407abd74c26c65a8e4940117469e3634",
+      "bytes": 11369,
+      "transformed": false
+    },
+    {
+      "path": "final-review-sidecars.py",
+      "original_sha256": "30d7597f0d5c0ffe899e1e985e7f91adb089684ef18d73051736ac4ca9add132",
+      "published_sha256": "30d7597f0d5c0ffe899e1e985e7f91adb089684ef18d73051736ac4ca9add132",
+      "bytes": 1710,
+      "transformed": false
+    }
+  ],
+  "notice": "Finalized fresh integrated and privacy/publication reviews, no scoped must-fix. Shared OpenAI lineage, not provider-independent certification. Frozen118-member packet unchanged; exact-head CI/Self/live eligibility and canonical/postmerge/closing remote gates remain. All local failures and unknown original initialization cause retained; E00/release BLOCKED.",
+  "final_metadata_delta_review": {
+    "head": "d1de35ed2095a15db04aeac5ed3333fd97a6b95e",
+    "original_sha256": "8e1a100f65eaabe163c5c5e2edfc33d6407abd74c26c65a8e4940117469e3634",
+    "verdict": "NO_SCOPED_FINDINGS",
+    "limits": "Finalized report publication is bookkeeping after review; source/test/packet leaves unchanged. Actual last-head CI, Self truth, eligibility, canonical/postmerge/closing remote gates remain separate."
+  }
+}

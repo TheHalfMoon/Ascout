@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-10-27T00:17:43.575379+00:00",
+  "checked_head": "b90d14c3b55ff5a8d6cffcbb1fd571386e6896b2",
+  "checked_tree": "be35adb2534dd4b63769609667b2e70aeb75ae90",
+  "benchmark_sha256": "151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad",
+  "native_test_sha256": "dafd92e594e8a8a0a2ec082e1115073855bdaed81e0d0be7e1b5fd3d0f95c5b8",
+  "frozen_other_git_entries": 433,
+  "frozen_other_control_hashes": 15,
+  "forward_captures": [
+    {
+      "name": "submodule-fixture-types",
+      "file": "clean-state-submodule-fixture-types-9e506667-a630-45e7-9c04-5c6cac86fb4f.json",
+      "sha256": "9c8d3abd2c8c7587fb77cb7632530232b79bad6aa4966bbef4e2b5075ab9a18c",
+      "native_exit": 0,
+      "wall_seconds": 3.952597999945283,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "submodule-fixture-check",
+      "file": "clean-state-submodule-fixture-check-15c74d37-168f-4f19-815b-9517677a1904.json",
+      "sha256": "f4cf7928ed2211807aeb4ed963cbdbd7c6658a4944c96b3e4cdc09ab9173b0c3",
+      "native_exit": 0,
+      "wall_seconds": 58.54406640003435,
+      "stdout_sha256": "61e0ffb00424736af105a93bcfe6d7c6aab92e98da046ca28b93826a43c11822",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "dependency-audit",
+      "file": "clean-state-dependency-audit-83d18530-277e-4774-aed5-7e854afa44fc.json",
+      "sha256": "0134540262892895eabfaa4794f7ca3e33bd70d74c269490f1fa878381284528",
+      "native_exit": 0,
+      "wall_seconds": 4.136103899916634,
+      "stdout_sha256": "7a90c6203c390751c00004fa5526ae643b03fe2096494392e298d895cecafa5f",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "dependency_audit": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "dependencies": {
+      "prod": 9,
+      "dev": 408,
+      "optional": 82,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 416
+    }
+  },
+  "review_bindings": {
+    "source": {
+      "head": "c80bb24308483c0ef1fff07c44e92c2a42968a8a",
+      "sha256": "b128a77c21a0171fa11bd55d66ee1d396395b43c777ed21536ab42eea2825edf"
+    },
+    "boundary_security": {
+      "head": "c80bb24308483c0ef1fff07c44e92c2a42968a8a",
+      "sha256": "8f54e21365b9374ad6ff979d472d11ac93b1d5b3b56fc7aa3398b13c364bb526"
+    }
+  },
+  "interpretation": "The new fixture setup defect is corrected and all seven cases now pass with the status-row/diff0 oracle intact. Routing/real native failure retention controls have separate earlier exact-leaf proof, not execution on this later whole tree. Strict source typing/build and T107 controls bind unchanged source leaves; no redundant repeat claimed. Original full suite remains native1/2429pass6fail34skip plus hook. Earlier new assertion FAIL and reporter UNQUALIFIED remain preserved. Original repository-recognition cause is unknown because the original fixture was discarded; retained new evidence cannot recover it. No candidate exoneration or full-suite green inferred.",
+  "limits": [
+    "No statistical speedup/historical root-cause/host-cause claim",
+    "Index-flag cases preserve flags while another tracked path is dirty; not exhaustive flagged-only equivalence",
+    "Windows numeric inode values may lose integer precision, disclosed by boundary review; no replacement/escape observed",
+    "Shared OpenAI source/boundary review lineage is role separation, not provider-independent certification",
+    "D1 advisory; Alibaba local preview/rules are not model review",
+    "Final integrated/publication/CI/Self/live eligibility/canonical/postmerge/closing remote gates pending; E00/release BLOCKED"
+  ]
+}

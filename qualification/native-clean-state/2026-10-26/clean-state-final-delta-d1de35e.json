@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "review_kind": "TASK027_FINAL_METADATA_AND_REVIEW_SIDECAR_DELTA_REVIEW",
+  "verdict": "DELTA_CLEAR_NO_SCOPED_MUST_FIX; QUALIFICATION_AND_REMOTE_GATES_REMAIN_OPEN",
+  "reviewed_head": "d1de35ed2095a15db04aeac5ed3333fd97a6b95e",
+  "reviewed_tree": "c7e081c295cbb0d5bce03f75a0df4bf3ac49fd9d",
+  "comparison_head": "a757b2a37ed82d67147e410c159c485d0f1e2219",
+  "comparison_tree": "8e63eded02bd2f3f7fd0c91b586daea29c551044",
+  "clean_worktree_verified": true,
+  "canonical_to_comparison_review": "clean-state-integrated-review-a757b2a.json",
+  "delta_binary_sha256": "e68e2345a56dd2edcbbedac54237a23e26831f7f98d50d0b9943affdb025ddc4",
+  "scope": "Mechanical read-only delta review of seven paths between the previously integrated-reviewed a757b2a and d1de35e: three narrative metadata files, two finalized review sidecars, their producer script and manifest. No whole-project rescan or native qualification run.",
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": []
+  },
+  "bars": {
+    "correctness": {
+      "verdict": "CLEAR_FOR_THIS_METADATA_DELTA",
+      "evidence": [
+        "Git diff is limited to STATE.md, docs/qualification/REA-E00-native-timing.md, REPORT.md and the four named review sidecars. No executable benchmark/production/test/config/dependency/workflow changes appear.",
+        "Benchmark SHA256 remains 151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad; new native test remains dafd92e594e8a8a0a2ec082e1115073855bdaed81e0d0be7e1b5fd3d0f95c5b8. Existing assertions, deadlines and frozen source/control bindings are unaffected by this delta.",
+        "REPORT adds the prior IC-S3 limitation accurately: successive commands are not an atomic snapshot, native-fault ordering may change, and no identical corrupt-state precedence or hostile concurrent-writer immunity is claimed.",
+        "The added evidence producer is not project runtime code. Its AST parses; it pins both finalized original report hashes and the previously reviewed minimizer hash before preparing publication bytes, requires new destinations and does not rewrite the frozen evidence ZIP. It was read, not executed by this reviewer."
+      ],
+      "findings": {
+        "must_fix": [],
+        "worth_considering": [],
+        "skip_it": []
+      }
+    },
+    "product": {
+      "verdict": "IP_W1_RESOLVED; CLAIMS_AND_PENDING_GATES_ACCURATE",
+      "evidence": [
+        "The timing overview explicitly labels Task026's pending-gates sentence as historical and links the already verified Task026 closing record at 55976e3efa5346f0da86440a0fe5022832ab4934, with PR648/main36768f4. No new remote verification was performed or claimed.",
+        "STATE and REPORT now accurately describe the finalized integrated/publication reviews at a757b2a as having no scoped must-fix. They keep the metadata delta review, actual final-head hosted suites/inner Self, live eligibility and canonical/postmerge/closing remote gates pending.",
+        "The original full native1/2429pass6fail34skip/2469cases/246files plus browser hook, unknown original fixture initialization cause, diagnostic failure and first native-init UNQUALIFIED result remain preserved. No whole-suite green, candidate exoneration, historical-cause, statistical-speedup, phase completion or release claim was added.",
+        "Historical finalized reviews retain their actual a757b2a identity and original finding. The separate current narrative records IP-W1's correction; the old review was not rewritten to erase its finding."
+      ],
+      "findings": {
+        "must_fix": [],
+        "worth_considering": [],
+        "skip_it": []
+      }
+    },
+    "parsimony": {
+      "verdict": "CLEAR",
+      "evidence": [
+        "The fixed packet is kept immutable; two finalized reviews, their explicit three-record manifest and small external publication source are separate sidecars.",
+        "No new product abstraction, dependency, runtime behavior or qualification resampling is introduced. Narrative changes are confined to the resolved finding, disclosed native limitation and actual review status."
+      ],
+      "findings": {
+        "must_fix": [],
+        "worth_considering": [],
+        "skip_it": []
+      }
+    },
+    "publication_integrity_and_minimization": {
+      "verdict": "CLEAR_FOR_THE_EXACT_NEW_SIDECARS",
+      "evidence": [
+        "All three manifest records match retained original SHA256, published SHA256, published byte length and transformed status. The fourth sidecar is the manifest itself; no recursive self-hash is implied.",
+        "The original integrated review matches 17d67f376d63eae2366e0e5f563155777ec826e5f77339fd38a3c5daf1aa4853 and the public derivative matches 3a448d2dcde28356f15aab8e220e3023df46f8a197d03c2195eb3f6929254aa5.",
+        "Recursive JSON comparison found exactly two integrated-review changes: repository root becomes <WORKSPACE>/work/engineering/main-control and skill path becomes <USERPROFILE>/.agents/skills/ps-review/SKILL.md. Findings, verdict, source/evidence bindings, limitations and all other semantic values are unchanged.",
+        "The publication/privacy review remains byte-identical to finalized original f5f4b761c46eaa85100bbfcbde502594d06a5571b76eb56a4d53d1307ace6516. Its no-scoped-must-fix verdict remains explicitly limited by open remote/release qualification.",
+        "Public review-sidecars.py is byte-identical to external source 4c02bb2ab97347f0fd8844ed3efc0f44f13107920f43cec6354687949ba1f5bd. Its minimizer dependency matches pinned 87d1e9597dc89e9727821808a7790089d50b4574c012aa1f30f6a9f8770b32d1.",
+        "Targeted scans of all four new sidecars found no Windows user-home path, private home username, examined provider-token patterns or private-key header. This is a scoped check, not proof against every unknown secret format.",
+        "Frozen evidence ZIP remains SHA256 64d613267d3acb6b56294a23fcecf06aab5b3dc6d45d2fa31bd0650cccce2723; its previously verified 118-member packet is unchanged. No prior native result is relabeled as execution on d1de35e, and local publication bytes do not supply remote durability proof."
+      ],
+      "findings": {
+        "must_fix": [],
+        "worth_considering": [],
+        "skip_it": []
+      }
+    }
+  },
+  "sidecar_integrity": [
+    {
+      "path": "clean-state-integrated-review-a757b2a.json",
+      "original_sha256": "17d67f376d63eae2366e0e5f563155777ec826e5f77339fd38a3c5daf1aa4853",
+      "published_sha256": "3a448d2dcde28356f15aab8e220e3023df46f8a197d03c2195eb3f6929254aa5",
+      "hashes_match": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "path": "clean-state-publication-review-a757b2a.json",
+      "original_sha256": "f5f4b761c46eaa85100bbfcbde502594d06a5571b76eb56a4d53d1307ace6516",
+      "published_sha256": "f5f4b761c46eaa85100bbfcbde502594d06a5571b76eb56a4d53d1307ace6516",
+      "hashes_match": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    },
+    {
+      "path": "review-sidecars.py",
+      "original_sha256": "4c02bb2ab97347f0fd8844ed3efc0f44f13107920f43cec6354687949ba1f5bd",
+      "published_sha256": "4c02bb2ab97347f0fd8844ed3efc0f44f13107920f43cec6354687949ba1f5bd",
+      "hashes_match": true,
+      "bytes_match": true,
+      "transformed_matches": true
+    }
+  ],
+  "integrated_derivative_semantic_differences": [
+    {
+      "path": "/bindings/repository",
+      "published_value": "<WORKSPACE>/work/engineering/main-control"
+    },
+    {
+      "path": "/review_execution/skill",
+      "published_value": "<USERPROFILE>/.agents/skills/ps-review/SKILL.md"
+    }
+  ],
+  "targeted_minimization_scans": {
+    "clean-state-integrated-review-a757b2a.json": {
+      "windows_userpath": false,
+      "private_home_name": false,
+      "private_key_or_token": false
+    },
+    "clean-state-publication-review-a757b2a.json": {
+      "windows_userpath": false,
+      "private_home_name": false,
+      "private_key_or_token": false
+    },
+    "review-sidecars.py": {
+      "windows_userpath": false,
+      "private_home_name": false,
+      "private_key_or_token": false
+    },
+    "review-manifest.json": {
+      "windows_userpath": false,
+      "private_home_name": false,
+      "private_key_or_token": false
+    }
+  },
+  "changed_file_sha256": {
+    "STATE.md": "ee8c640f7c67d556ac72f112f87f38e61a8cd9abfbd790a049647829c888bf6f",
+    "docs/qualification/REA-E00-native-timing.md": "02b62c53ccce4944c9c2ffd6170f700ed4db5fa452efd024f1da8a481d42a69c",
+    "qualification/native-clean-state/2026-10-26/REPORT.md": "1ba2aec41fdc1d0fe2167f4a4c90f0f246b5e01eb5c5e7a7f600f065750fcf8e",
+    "qualification/native-clean-state/2026-10-26/clean-state-integrated-review-a757b2a.json": "3a448d2dcde28356f15aab8e220e3023df46f8a197d03c2195eb3f6929254aa5",
+    "qualification/native-clean-state/2026-10-26/clean-state-publication-review-a757b2a.json": "f5f4b761c46eaa85100bbfcbde502594d06a5571b76eb56a4d53d1307ace6516",
+    "qualification/native-clean-state/2026-10-26/review-manifest.json": "3e64758f74cbfb4e4048a76affb974fb1d580c17ac954afb560e1228c125f63d",
+    "qualification/native-clean-state/2026-10-26/review-sidecars.py": "4c02bb2ab97347f0fd8844ed3efc0f44f13107920f43cec6354687949ba1f5bd"
+  },
+  "unchanged_bindings": {
+    "benchmark_sha256": "151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad",
+    "native_test_sha256": "dafd92e594e8a8a0a2ec082e1115073855bdaed81e0d0be7e1b5fd3d0f95c5b8",
+    "evidence_zip_sha256": "64d613267d3acb6b56294a23fcecf06aab5b3dc6d45d2fa31bd0650cccce2723",
+    "evidence_members": 118
+  },
+  "execution": {
+    "performed": "Read-only Git identity/status/diff, exact metadata and publication-source reads, SHA256/byte counts, recursive JSON comparison, targeted minimization scans and Python AST parsing. Only this external report authored.",
+    "not_performed": "No producer/controller execution, tests, native fixtures/probes, benchmark runs, project-source imports, build, installs, inference, cleanup, remote actions or project mutation.",
+    "lineage": "Same session-model/OpenAI lineage as the prior integrated reviewer; mechanical delta review, not a new provider-independent certification or a repeat independent whole-source review.",
+    "limits": [
+      "The earlier integrated/source/boundary/publication reports retain their original scope and exact source bindings.",
+      "A subsequent metadata verdict record is outside this reviewed tree. If added with unchanged runtime/test/control/ZIP leaves, it must preserve this exact binding and pending-gate truth; this report does not claim to have reviewed nonexistent future bytes.",
+      "Actual final-head CI/Self must bind the final committed head. Live governance/eligibility, canonical/postmerge and closing remote-byte gates remain separate.",
+      "No whole-phase, PR/merge, security, E00, release or deployment approval is supplied. Full-suite qualification remains blocked by retained failures; E00/release remain BLOCKED."
+    ]
+  },
+  "manifest": "panel: mechanical delta correctness/product/parsimony/publication-integrity via prior session-model integrated reviewer; exact seven-file delta and sidecar hashes checked; original IP-W1 resolved; zero scoped findings; source/tests/deadlines/frozen packet unchanged; no native execution or remote gate credit; same OpenAI lineage; phase/release remain blocked"
+}

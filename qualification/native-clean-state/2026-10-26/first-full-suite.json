@@ -1,0 +1,67 @@
+{
+  "recorded_at_utc": "2026-10-26T23:28:32.024638+00:00",
+  "capture": "clean-state-full-suite-f006f8f7-f9ff-4047-87ef-8f677055f337.json",
+  "capture_sha256": "03e7092341ebdfa2180701e51a62ec4cbf7dbbcc8672cbad4c2a226f33cd73e5",
+  "source_head": "1a8e2a49292f99ab64dd201708787e32886c5efb",
+  "source_tree": "ef7d92740766f48c210dd0be553ac0681191795e",
+  "native_exit": 1,
+  "state": "EXECUTED",
+  "wall_seconds": 1955.950835900032,
+  "source_unchanged": true,
+  "stdout_sha256": "34cdfbc1f125f86162bedc8cbfe4d1c766a64fccdcd7d582575103e172a82509",
+  "stderr_sha256": "50eec14ab3de05e291993c61dda81544326cb57d77557165538ee7c9a0e7796d",
+  "summary": {
+    "passed_tests": 2429,
+    "failed_tests": 6,
+    "existing_skips": 34,
+    "total_tests": 2469,
+    "passed_files": 241,
+    "failed_files": 5,
+    "total_files": 246,
+    "additional_failed_suite_hook": 1
+  },
+  "failures": [
+    {
+      "file": "tests/vitest-check.integration.test.ts",
+      "case": "publishes resolved branch evidence and makes a branch-only miss exit 4",
+      "diagnostic": "Test timed out in 15000ms"
+    },
+    {
+      "file": "tests/jest-check.integration.test.ts",
+      "case": "runs project-local findRelatedTests and binds JSON plus LCOV while remaining fail-closed before widening/exercise",
+      "diagnostic": "Test timed out in 90000ms"
+    },
+    {
+      "file": "tests/jest-check.integration.test.ts",
+      "case": "keeps optional branch fields absent when LCOV has genuine line-only coverage",
+      "diagnostic": "Test timed out in 15000ms"
+    },
+    {
+      "file": "tests/conservative-selection-data.native.test.ts",
+      "case": "catches a seeded data failure with full native execution and an observed full runCheck pass",
+      "diagnostic": "GitIdentityError: unable to read Git index for tree digest"
+    },
+    {
+      "file": "tests/self-verify-clean-state.native.test.ts",
+      "case": "retains native diff treatment of a submodule containing only untracked files",
+      "diagnostic": "Fixture git config --local commit.gpgSign false failed: fatal: --local can only be used inside a git repository"
+    },
+    {
+      "file": "tests/browser-text-assertion.integration.test.ts",
+      "case": "fails an in-flight assertion on disposal and refuses reuse",
+      "diagnostic": "Test timed out in 5000ms"
+    }
+  ],
+  "hook": {
+    "file": "tests/browser-text-assertion.integration.test.ts",
+    "phase": "afterAll runtime disposal",
+    "diagnostic": "Hook timed out in 10000ms"
+  },
+  "new_control_stage": {
+    "failure_site": "fixture() config initialization, before reconstruct(subject) is invoked in that case",
+    "failed_root_exists_at_explicit_readback": false,
+    "failed_git_directory_exists_at_explicit_readback": false,
+    "forensic_contents": "UNAVAILABLE: root no longer present; original new-test afterEach was configured to remove owned fixtures. No deletion actor or environmental cause inferred from absence."
+  },
+  "notice": "Literal complete local FAIL, not a truncated capture or qualified whole-suite success. No failure/skip/deadline change or repeat-to-green. New fixture failure remains owned by Task027 and blocks its qualification; earlier focused passes and structural23Git metric do not erase it. Source flow locates its failure before the changed benchmark function is invoked in that case, without exonerating all candidate contributions or explaining filesystem/native Git behavior. Other failures and browser hook remain unresolved. Historical FAIL12 and provenance/selector debt retained. Raw captures preserved; no new cleanup. E00/release BLOCKED."
+}

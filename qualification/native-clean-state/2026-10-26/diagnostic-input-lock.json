@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "state": "PREEXECUTION_BOUND_DIAGNOSTICS_ONLY",
+  "reviewed_head": "63b6c91389ce5d5575673f62009be579ae0c845c",
+  "reviewed_tree": "164b3ce0acae0171fea13472636dfc841679e5db",
+  "final_review_sha256": "bd17b8c0c3f784b42b0f386c00a1cec58dc5950b5e72700a9debb3c76fed1319",
+  "controller_sha256": "16bf3f8d3ad334c52877b7fcd3f4f4f463ecaa2d291a4ca131168fad01d7c7e9",
+  "native_test_sha256": "3647548270f21db4dd97eff3c690c23693f21ca6e6302358c4886ffa670c1cb9",
+  "benchmark_sha256": "151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad",
+  "capture_harness_sha256": "326d0fa4e1f850173cbb20bcfc92f621352f092166773533e7adac2108a2465a",
+  "sequence": ["routing negative control once", "native-init-failure negative control once", "seven-case diagnostic followup once"],
+  "conditions": "Serial execution with reviewers and inference idle; preserve literal child failures and six filtered cases; no retries, cost resampling, blind full-suite rerun, existing deadline/config changes or cleanup. Original FAIL6 plus hook and unknown fixture failure cause remain open."
+}

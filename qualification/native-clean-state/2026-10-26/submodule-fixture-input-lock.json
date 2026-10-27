@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "state": "PREEXECUTION_FIXTURE_SETUP_CORRECTION_REVIEWED",
+  "reviewed_head": "c80bb24308483c0ef1fff07c44e92c2a42968a8a",
+  "reviewed_tree": "266cabb16b3c73daa4820b814897e21889287e18",
+  "native_test_sha256": "dafd92e594e8a8a0a2ec082e1115073855bdaed81e0d0be7e1b5fd3d0f95c5b8",
+  "benchmark_sha256": "151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad",
+  "source_review_sha256": "b128a77c21a0171fa11bd55d66ee1d396395b43c777ed21536ab42eea2825edf",
+  "boundary_security_review_sha256": "8f54e21365b9374ad6ff979d472d11ac93b1d5b3b56fc7aa3398b13c364bb526",
+  "sequence": ["strict supplemental typing once", "seven-case check once"],
+  "limits": "Both reviews found no scoped must-fix. Existing tests/deadlines/config/benchmark unchanged. Prior new assertion FAIL, reporter UNQUALIFIED and original full FAIL6 plus hook remain preserved. Original unknown initialization cause/whole-suite qualification open. Windows numeric inode precision is a nonblocking review limitation; no replacement or escape demonstrated. No negative or cost resampling, blind full-suite retry, phase/merge/release approval."
+}
