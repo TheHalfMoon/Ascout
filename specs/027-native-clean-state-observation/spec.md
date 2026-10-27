@@ -1,6 +1,6 @@
 # Task027-T01: reduce native clean-state validation round trips
 
-Status: complete candidate suite FAIL1/1955.951s:2429passed/6failed/34existing skips/2469cases, plus browser hook failure. Own new fixture failure remains unresolved despite earlier focused/budget passes. Source/review/CI/governance/canonical/remote gates pending; E00/release BLOCKED.
+Status: corrected fixture7passed and typing0 atb90d14c; source/boundary reviews no scoped must-fix;118-member minimized packet prepared. Original complete local native1/6failed plus hook and unknown initialization cause retained. Integrated/publication/PR/CI/canonical/remote gates pending; E00/release BLOCKED.
 
 Depends on focused CLOSED_CANONICAL Task026/PR648/main36768f4ffe1e2c18492cb3a8fdccd9274c2c615a. Its finalized closing reviews and actual final 108-member, three-core-file/seven-sidecar GitHub readback at55976e3efa5346f0da86440a0fe5022832ab4934 were verified before this branch. [Closing evidence](https://github.com/TheHalfMoon/Ascout/blob/55976e3efa5346f0da86440a0fe5022832ab4934/qualification/native-timing-diagnosis/2026-10-26-closeout/REPORT.md).
 

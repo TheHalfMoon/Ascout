@@ -1,6 +1,6 @@
 # Task027-T01
 
-Status: complete candidate suite FAIL1/1955.951s:2429passed/6failed/34existing skips/2469cases, plus browser hook failure. Own new fixture failure remains unresolved despite earlier focused/budget passes. Source/review/CI/governance/canonical/remote gates pending; E00/release BLOCKED.
+Status: corrected fixture7passed and typing0 atb90d14c; source/boundary reviews no scoped must-fix;118-member minimized packet prepared. Original complete local native1/6failed plus hook and unknown initialization cause retained. Integrated/publication/PR/CI/canonical/remote gates pending; E00/release BLOCKED.
 
 1. Read-only frontier, 434-entry/16-control freeze, prior failure/diagnosis/tool and predecessor bindings.
 2. Final independent plan audit; different exact-head consistency/purity; bounded direct-user-derived authority afterward.
@@ -10,7 +10,7 @@ Status: complete candidate suite FAIL1/1955.951s:2429passed/6failed/34existing s
 6. Fresh source combined/boundary-security reviews; actual advisory/rule limitations, minimized reproducible evidence and final integrated/publication review.
 7. Focused PR, actual final-head CI/Self, live eligibility/ordinary authorized merge, canonical/postmerge checks, closing reviews and actual remote proof.
 
-No new native fixture/test/control yet executed; benchmark source unchanged. Prior local full FAIL12 remains; E00/release BLOCKED.
+Implementation and native controls executed as recorded in qualification/native-clean-state/2026-10-26/REPORT.md. Earlier prospective statements are historical; all literal failures retained.
 
 Current controls: qualification/native-clean-state/2026-10-26/local-controls.json preserves actual native/inner/budget outcomes. Prior prospective and pre-execution statements remain historical. No release or historical-cause claim.
 
