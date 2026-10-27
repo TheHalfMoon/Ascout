@@ -1,6 +1,6 @@
 # Task028-T01
 
-Status: IMPLEMENTED_PENDING_ACTUAL_DIFF_REVIEW. Existing pinned Chromium setup step copied after recorded audit/consistency/user-derived authority;435source entries/14nontarget controls unchanged. No hosted execution yet; original adverse outcomes retained and E00/release BLOCKED.
+Status: IMPLEMENTED53efe84 with no scoped source correctness/security must-fix;435source entries14nontarget controls frozen;28-member evidence packet prepared. Final publication/PR/actual hosted/canonical/closing remote gates pending; prior adverse evidence retained and E00/release BLOCKED.
 
 1. Verify canonical7a08977, final Task027 remote proof9812e4a, live foreign PR/governance frontier and435-entry/15-control read-only baseline.
 2. Final fresh plan audit, different exact-head consistency/purity review, then explicit bounded user-authority recording.

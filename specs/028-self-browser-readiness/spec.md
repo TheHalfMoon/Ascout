@@ -1,6 +1,6 @@
 # Task028-T01: establish Chromium readiness before Self tests
 
-Status: IMPLEMENTED_PENDING_ACTUAL_DIFF_REVIEW. Existing pinned Chromium setup step copied after recorded audit/consistency/user-derived authority;435source entries/14nontarget controls unchanged. No hosted execution yet; original adverse outcomes retained and E00/release BLOCKED.
+Status: IMPLEMENTED53efe84 with no scoped source correctness/security must-fix;435source entries14nontarget controls frozen;28-member evidence packet prepared. Final publication/PR/actual hosted/canonical/closing remote gates pending; prior adverse evidence retained and E00/release BLOCKED.
 
 ## Evidence and bounded objective
 
