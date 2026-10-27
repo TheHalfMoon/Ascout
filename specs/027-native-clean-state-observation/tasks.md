@@ -1,6 +1,6 @@
 # Task027-T01
 
-Status: corrected fixture7passed and typing0 atb90d14c; source/boundary reviews no scoped must-fix;118-member minimized packet prepared. Original complete local native1/6failed plus hook and unknown initialization cause retained. Integrated/publication/PR/CI/canonical/remote gates pending; E00/release BLOCKED.
+Status: MERGED_CANONICAL PR649/7a089771aaad8f599b2ee342cf2c17eac19f547b; twelve actual native suites verified; Self inner1/FLAKY/materially incomplete retained. Closing reviews/remote proof pending; E00/release BLOCKED.
 
 1. Read-only frontier, 434-entry/16-control freeze, prior failure/diagnosis/tool and predecessor bindings.
 2. Final independent plan audit; different exact-head consistency/purity; bounded direct-user-derived authority afterward.
@@ -15,3 +15,5 @@ Implementation and native controls executed as recorded in qualification/native-
 Current controls: qualification/native-clean-state/2026-10-26/local-controls.json preserves actual native/inner/budget outcomes. Prior prospective and pre-execution statements remain historical. No release or historical-cause claim.
 
 Actual complete-suite update: qualification/native-clean-state/2026-10-26/first-full-suite.json preserves all six test failures and additional hook failure; no qualified whole-suite success or historical-cause claim.
+
+Canonical update: PR649 merged ordinarily at7a089771aaad8f599b2ee342cf2c17eac19f547b; actual shadow failure preserved. Closing reviews/remote proof pending; see qualification/native-clean-state/2026-10-27-closeout/REPORT.md.

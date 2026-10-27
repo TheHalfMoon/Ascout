@@ -10,3 +10,6 @@ At that original Task026 checkpoint, final interpretation/publication/CI/Self/go
 ### Task027 native clean-state followup
 
 The bounded candidate removes six Git launches from the fixed representative control (29 to23), retaining two npm operations and all checkpoints/assertions. The complete local suite remains native1 with6failed tests plus a browser hook; original new fixture initialization cause is unknown. Forward failure forensics/routing and submodule fixture corrections passed7 cases after preserved adverse diagnostics. See [qualification report](../../qualification/native-clean-state/2026-10-26/REPORT.md) for literal outcomes, scope and pending review/CI/canonical/remote gates. No statistical speedup, full-suite green or release claim; E00/release BLOCKED.
+
+
+Task027 canonical update: PR649/main7a08977, twelve actual native suites verified. Self inner1/FLAKY/materially incomplete, local fullFAIL6plus hook and unknown causes retained. Closing reviews/remote proof pending; E00/release BLOCKED. See [canonical closeout](../../qualification/native-clean-state/2026-10-27-closeout/REPORT.md).
