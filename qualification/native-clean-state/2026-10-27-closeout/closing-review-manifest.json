@@ -1,0 +1,36 @@
+{
+  "reviewed_head": "4222e6c2b3869506153702ee5458f38469a58021",
+  "reviewed_tree": "7806a45adcad25b36336cc931d61f54e395e655d",
+  "closing_packet_sha256": "15c7d6da54e77bcdbd3f2d07e475c24b80d5bd5ba7b4247abbf37fb16427dfb9",
+  "records": [
+    {
+      "path": "clean-state-closing-review-correctness-4222e6c.json",
+      "original_sha256": "a7c788e1664c5699cfcfacdef97c0758e1a2da5dc1334e6ef7c62d7382f70d0d",
+      "published_sha256": "a7c788e1664c5699cfcfacdef97c0758e1a2da5dc1334e6ef7c62d7382f70d0d",
+      "bytes": 19357,
+      "transformed": false
+    },
+    {
+      "path": "clean-state-closing-review-privacy-4222e6c.json",
+      "original_sha256": "a04d841b777142310e5ad7b18559116cd34448279f9133d25f9f2db16ae97dc3",
+      "published_sha256": "a41dd835faa2831990062b5c53506b9449da9dbbc96e7a914789d6089361a189",
+      "bytes": 97971,
+      "transformed": true
+    },
+    {
+      "path": "closing-sidecars.py",
+      "original_sha256": "b25fc1ec11d84945c04ca3ec66543cfb2acee59d63143ae89fa89dd3103fbceb",
+      "published_sha256": "b25fc1ec11d84945c04ca3ec66543cfb2acee59d63143ae89fa89dd3103fbceb",
+      "bytes": 2877,
+      "transformed": false
+    },
+    {
+      "path": "close-after-readback.py",
+      "original_sha256": "dd857b30336a5f643ddb85b330fa4c14fd0e0ec11be55cf2c39e9c37a6aade5a",
+      "published_sha256": "dd857b30336a5f643ddb85b330fa4c14fd0e0ec11be55cf2c39e9c37a6aade5a",
+      "bytes": 6182,
+      "transformed": false
+    }
+  ],
+  "notice": "Finalized clear fresh closing correctness/privacy reviews; same OpenAI lineage is role separation, not provider-independent certification. Frozen180-member packet unchanged. Actual closing core/member/sidecar remote readback remains required before focused closure; final bookkeeping revision must also be read back before next-task mutation. Self inner1/FLAKY/materially incomplete, UNKNOWN browser/initial fixture causes, localFAIL6plus hook and all historical limitations remain; E00/release BLOCKED. No paidfallback, D1gate, UA-P07, admission or source/deadline change."
+}

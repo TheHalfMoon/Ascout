@@ -1,0 +1,419 @@
+{
+  "schema_version": 1,
+  "review_kind": "TASK027_FRESH_CLOSING_CORRECTNESS_AND_INTERPRETATION_REVIEW",
+  "reviewed_at_utc": "2026-10-27T10:32:25.780242+00:00",
+  "verdict": "NO_SCOPED_MUST_FIX; CLOSING_REMOTE_PROOF_REMAINS_REQUIRED; E00_RELEASE_BLOCKED",
+  "reviewed_head": "4222e6c2b3869506153702ee5458f38469a58021",
+  "reviewed_tree": "7806a45adcad25b36336cc931d61f54e395e655d",
+  "canonical_head": "7a089771aaad8f599b2ee342cf2c17eac19f547b",
+  "reviewed_source_head": "dae521a8b11bef40fe8bfc430d7e098dedfd3f61",
+  "reviewed_source_tree": "30fca6fb00065d5ecd36902c5b68e4b199d8a1e9",
+  "base_head": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+  "pr": 649,
+  "scope": "Fresh read-only correctness and interpretation review of the eight-path canonical closing documentation/evidence delta, with canonical/source freeze bindings and retained hosted execution/Self/merge evidence. No project tests, imports, controller, probes, installs, remote actions or project writes. Sole authored file is this external report. Prior source reviews were consulted as evidence; this is not a restarted full-source audit.",
+  "bindings": {
+    "branch": "evidence/native-clean-state-postmerge-20261027",
+    "clean_worktree_verified_before_and_after_read_only_review": true,
+    "canonical_local_git_tree_and_ordered_parents_verified": true,
+    "ordered_parents": [
+      "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+      "dae521a8b11bef40fe8bfc430d7e098dedfd3f61"
+    ],
+    "canonical_and_reviewed_tree_equal": true,
+    "github_reported_signature": "verified true / valid; retained metadata, not a fresh live signature query",
+    "changed_paths": [
+      "ROADMAP.md",
+      "STATE.md",
+      "docs/qualification/REA-E00-native-timing.md",
+      "qualification/native-clean-state/2026-10-27-closeout/REPORT.md",
+      "qualification/native-clean-state/2026-10-27-closeout/evidence-lock.json",
+      "qualification/native-clean-state/2026-10-27-closeout/evidence.zip",
+      "specs/027-native-clean-state-observation/spec.md",
+      "specs/027-native-clean-state-observation/tasks.md"
+    ],
+    "input_sha256": {
+      "ROADMAP.md": "61b05360233254083de5d8bba876d816b9b5edf901822f4296d2c6ab0cd638c5",
+      "STATE.md": "2c9ef919a011cb0ab41827e8619b7e7eec783c9a850298001987c7ab082f11c2",
+      "docs/qualification/REA-E00-native-timing.md": "70d5ccccf282cfe171f86f1ded999b895671d93951f4261fdaf4cbfa103f201e",
+      "qualification/native-clean-state/2026-10-27-closeout/REPORT.md": "9ec1a688a5e7acf6f1cc8e70f8d4097f4cbb4b0e1e5b7e83bb7363db2418321b",
+      "qualification/native-clean-state/2026-10-27-closeout/evidence-lock.json": "83cd6f37ff8782c385f39bfed7bb7cd1448877992ecbcb6e04613a3e1c24ba28",
+      "qualification/native-clean-state/2026-10-27-closeout/evidence.zip": "15c7d6da54e77bcdbd3f2d07e475c24b80d5bd5ba7b4247abbf37fb16427dfb9",
+      "specs/027-native-clean-state-observation/spec.md": "7fda30e9f74e0c0a4f2cecec33b7057e008db11ba6d4857ddcfbf13065d6c608",
+      "specs/027-native-clean-state-observation/tasks.md": "886116295cc32735bffae67fe2bd81c356d24f39807a685e6e5ee95585f66655"
+    },
+    "source_test_benchmark_entries_equal_canonical": 435,
+    "original_frozen_nontarget_entries_unchanged": 433,
+    "original_nontarget_controls_unchanged": 15,
+    "benchmark_sha256": "151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad",
+    "new_test_sha256": "dafd92e594e8a8a0a2ec082e1115073855bdaed81e0d0be7e1b5fd3d0f95c5b8",
+    "prior_actual_ci_review_original_sha256": "8bddc110efb477ff912cc45d68585b396d06e96ba16b4b22874479ee56375a07"
+  },
+  "packet": {
+    "zip_sha256": "15c7d6da54e77bcdbd3f2d07e475c24b80d5bd5ba7b4247abbf37fb16427dfb9",
+    "members": 180,
+    "payload_records": 179,
+    "crc_bad_member": null,
+    "member_set_equals_manifest_plus_manifest": true,
+    "all_published_payload_hashes_and_sizes_recomputed": true,
+    "manifest_sha256": "6d2ca67abe45b5038a41f6a26c76f448ad6796c308adce96a9b071eac5b89349",
+    "ci_original_file_hashes_recomputed": 31,
+    "hash_limit": "Published hashes authenticate retained derivative bytes against this manifest; original hashes were recomputed for the 31 retained CI files and the original Self ZIP. This is not universal original-source authentication."
+  },
+  "bars": {
+    "correctness": {
+      "status": "CLEAR_FOR_REVIEWED_DELTA",
+      "must_fix": [],
+      "worth_considering": [],
+      "verified": [
+        "Canonical merge/head/tree/parents agree with local Git and retained proof.",
+        "All 435 source/test/benchmark entries match the canonical merge; 433 original nontarget entries and 15 controls remain frozen.",
+        "Twelve actual source-bound native suites are supported by raw logs and completed job metadata, separately from one valid nonclean shadow capture.",
+        "Manifest and exact current closing document bindings are consistent.",
+        "Adverse and unqualified outcomes remain literal, with unknown causes and omitted raw-payload limits explicit."
+      ]
+    },
+    "product": {
+      "status": "CLOSING_SCOPE_AND_REQUIREMENT_8_STATUS_CONSISTENT",
+      "must_fix": [],
+      "worth_considering": [],
+      "verified": [
+        "Task027 remains MERGED_CANONICAL while closing reviews and actual closing remote proof are pending.",
+        "No focused CLOSED_CANONICAL, next-task source mutation, historical cause resolution, gate waiver or release approval is claimed.",
+        "Effective FR-006-010 accepts valid source-bound exits0/1/3/4 as successful SHADOW_NON_GATING captures; green is capture integrity. No universal inner-zero gate was invented or waived."
+      ]
+    },
+    "parsimony": {
+      "status": "CLEAR_FOR_DOCUMENT_EVIDENCE_DELTA",
+      "must_fix": [],
+      "worth_considering": [],
+      "verified": [
+        "Closing delta is confined to the eight documentation/evidence paths; it adds no runtime abstraction, dependency, configuration or command surface."
+      ]
+    },
+    "security": {
+      "status": "NO_NEW_RUNTIME_TRIGGER_IN_CLOSING_DELTA",
+      "limitation": "Dedicated closing privacy/publication review is a separate role. This report does not provide independent security certification."
+    }
+  },
+  "actual_native_suites": [
+    {
+      "run": 40426748609,
+      "job": 121934299631,
+      "name": "project / macos-14 / node-24",
+      "counts": {
+        "passed": 2442,
+        "skipped": 27,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "5cc464fef7eb2426d5be4ba6b78720f50b6d3bf7d91680743002f333624bc748",
+      "published_log_sha256": "8f56ef2bf8a19964b98523d8a61327007c218e3ed49e2772574c1d8ac54a7d3d",
+      "original_bytes": 76531
+    },
+    {
+      "run": 40426748609,
+      "job": 121934299739,
+      "name": "project / windows-2025 / node-24",
+      "counts": {
+        "passed": 2435,
+        "skipped": 34,
+        "passed_files": 246,
+        "skipped_files": 0,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "109fdedd24c00b9cd4116b06b73e124f32acf819b2e89d0c3f993e944efff541",
+      "published_log_sha256": "908873cbdc8e97c519f84be30df3237d83cc27d814094f1170aa22e68f922345",
+      "original_bytes": 85313
+    },
+    {
+      "run": 40426748609,
+      "job": 121934299835,
+      "name": "project / ubuntu-24.04 / node-22",
+      "counts": {
+        "passed": 2464,
+        "skipped": 5,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "aa98495c6bf6c2d86f6b747e731537c91b985e733048b8de0e2b6ffd5e83f06b",
+      "published_log_sha256": "2162023938443fa9b51e62ed2545a4bc29d5b5459f3ef0410e7d272a8fc184fe",
+      "original_bytes": 87736
+    },
+    {
+      "run": 40426748609,
+      "job": 121934299897,
+      "name": "project / macos-14 / node-22",
+      "counts": {
+        "passed": 2442,
+        "skipped": 27,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "0f50f4383b068d80363d10291d972149a282e335482436e3c606722d443b76ad",
+      "published_log_sha256": "47cf28d74e67b46d5fdf6effc9a804b7af7198bacf6f38fba481da6a3ee06b5d",
+      "original_bytes": 77084
+    },
+    {
+      "run": 40426748609,
+      "job": 121934299955,
+      "name": "project / ubuntu-24.04 / node-24",
+      "counts": {
+        "passed": 2464,
+        "skipped": 5,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "b3021aeecd8643f8e089cb8ea5411badbdb11bdc6bb3fe9748db2a54b0dd8f4f",
+      "published_log_sha256": "903b6bfa5baaea4428c48f4bcf102b70cdb336b197d07016c5a96337615816f6",
+      "original_bytes": 87619
+    },
+    {
+      "run": 40426748609,
+      "job": 121934300158,
+      "name": "project / windows-2025 / node-22",
+      "counts": {
+        "passed": 2435,
+        "skipped": 34,
+        "passed_files": 246,
+        "skipped_files": 0,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "0dded3597960f3b28af6bcf718e14a116d0585a99549065e44c296e32adff7a2",
+      "published_log_sha256": "84d6b03ae99fb367f7cef36e86614814b1b776251b11978f332a8fd839a7f62b",
+      "original_bytes": 85110
+    },
+    {
+      "run": 40487308623,
+      "job": 122132208387,
+      "name": "project / macos-14 / node-24",
+      "counts": {
+        "passed": 2442,
+        "skipped": 27,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "622779f718cc05d698fc44e5f5a76eb8988135dad0ea23f0d341f1e461f2f523",
+      "published_log_sha256": "10f9328ba9749bf2995d1510087dd6a17bddc70c07ce97e375be090d883e77c5",
+      "original_bytes": 77992
+    },
+    {
+      "run": 40487308623,
+      "job": 122132208603,
+      "name": "project / windows-2025 / node-24",
+      "counts": {
+        "passed": 2435,
+        "skipped": 34,
+        "passed_files": 246,
+        "skipped_files": 0,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "2ad8c0bdb1c765a4c9e4facfc0a8f5b19e89d230b4c8ae7a4fd4a1fddac1fe19",
+      "published_log_sha256": "8b1c6ebdc345da5e4976de33f09508687af38f049d13f962363c7bd3a925d876",
+      "original_bytes": 85490
+    },
+    {
+      "run": 40487308623,
+      "job": 122132208655,
+      "name": "project / ubuntu-24.04 / node-22",
+      "counts": {
+        "passed": 2464,
+        "skipped": 5,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "78f065e358631dac79db5a71b3f4b79e6142d6c1d36a5def33647ad68f6365c1",
+      "published_log_sha256": "1640125c67d1431e7ca45aa0617a7cb73b99f29e748547c866d52313fb5801b6",
+      "original_bytes": 89012
+    },
+    {
+      "run": 40487308623,
+      "job": 122132208709,
+      "name": "project / ubuntu-24.04 / node-24",
+      "counts": {
+        "passed": 2464,
+        "skipped": 5,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "bc66d430cc6369f9c82ccc6911affd0d57f59e7c51c3f7e082a3dcce447cbc31",
+      "published_log_sha256": "914cbb305ea1260c5cb3b0fb97052904564ac4b1e4d3e7cd27d870e4f5605f0d",
+      "original_bytes": 89330
+    },
+    {
+      "run": 40487308623,
+      "job": 122132208754,
+      "name": "project / windows-2025 / node-22",
+      "counts": {
+        "passed": 2435,
+        "skipped": 34,
+        "passed_files": 246,
+        "skipped_files": 0,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "1fc3ccbdd18e49bd70b69f928b657eeeaedb5de1eebec04fa38f7aef8516ce68",
+      "published_log_sha256": "bc4fa87d28c0fa284b69975fe86f15b7518fb33e1c276ce253b9533dd5b3bb4d",
+      "original_bytes": 85068
+    },
+    {
+      "run": 40487308623,
+      "job": 122132208884,
+      "name": "project / macos-14 / node-22",
+      "counts": {
+        "passed": 2442,
+        "skipped": 27,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "tests": 2469,
+        "files": 246
+      },
+      "exact_head_guard_and_required_successful_steps_verified": true,
+      "native_summary_and_17_file_presence_verified": true,
+      "original_log_sha256": "9099f7abc43f48040127b18bc82651929a6fd663a3e8fa05e6ead78239018972",
+      "published_log_sha256": "2a50fa879aa405b795307fc4d21a06074684b4e0dd8e22fd845c801904763d1c",
+      "original_bytes": 74799
+    }
+  ],
+  "native_inventory_limit": "The inherited 17 key-file presence checks supplement full 246-file/2469-case summaries. They neither select the suite nor constitute its complete inventory.",
+  "self": {
+    "workflow_run": 40426748663,
+    "workflow_conclusion": "success",
+    "artifact_id": 12700921147,
+    "original_zip_sha256": "120bcf3c8fd17d69bf8f88f488e196844495dda5f4ca1aea0948fe291c899fc5",
+    "original_zip_bytes": 5273,
+    "advertised_digest_and_crc_verified": true,
+    "members": [
+      "self-verification-receipt.json",
+      "self-verification-envelope.json",
+      "selector-shadow-observation.json"
+    ],
+    "three_original_members_equal_packet_and_retained_external_bytes": true,
+    "classification": "SHADOW_NON_GATING",
+    "inner_summary": {
+      "task_status_counts": {
+        "PASS": 1,
+        "FAIL": 0,
+        "FLAKY": 1,
+        "BLOCKED": 0,
+        "ERROR": 0,
+        "NOT_APPLICABLE": 2,
+        "NOT_RUN": 0
+      },
+      "finding_count": 1,
+      "completeness": "materially_incomplete",
+      "exit_code": 1
+    },
+    "envelope_head_tree_base_receipt_digest_bindings_verified": true,
+    "source_start_equals_end": true,
+    "reconstructed_subject_head": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+    "reconstruction_limit": "The merge-base HEAD represents the staged-subject contract; envelope verifier/target head and tree bind the exact target. The prior actual exact-head review independently recomputed the target source digest. No project-source import occurred in this closing review.",
+    "finding": {
+      "finding_id": "test.finding.1",
+      "task_id": "test",
+      "producer": "vitest",
+      "rule_or_test_id": "spec016 p016-04 adapter contract (no browser needed) returns the installed chromium executable without provisioning",
+      "message": "Test failed: spec016 p016-04 adapter contract (no browser needed) returns the installed chromium executable without provisioning",
+      "path": "tests/browser-playwright-adapter.contract.test.ts",
+      "severity": "unknown",
+      "in_changed_lines": null,
+      "introduced_by_change": "unknown",
+      "determinism_class": "nondeterministic",
+      "observations": {
+        "runs": 2,
+        "failures": 1
+      },
+      "reproduced": false,
+      "fingerprint_version": null,
+      "fingerprint": null,
+      "evidence_ids": [
+        "test.e3",
+        "test.e11"
+      ]
+    },
+    "selector_comparison": {
+      "available": false,
+      "disposition": "UNAVAILABLE",
+      "reason_code": "UNAVAILABLE_FULL_SUITE_CONTRACT",
+      "reason_text": "The exact local Vitest full-suite command contract is unavailable.",
+      "full_suite_failed": [],
+      "ascout_failed": [],
+      "matched": [],
+      "selector_misses": []
+    },
+    "missing_payload_limit": "Original bounded ZIP contains only three JSON files. Referenced first/rerun Vitest JSON, stdout/stderr and LCOV payload bytes are absent. Their hashes, original assertion/error/stack and raw coverage cannot be independently reconstructed from this artifact. Cause and introduced_by_change remain UNKNOWN; receipt counters are not raw-coverage reevaluation."
+  },
+  "retained_adverse_evidence": {
+    "local_full_suite": {
+      "native_exit": 1,
+      "wall_seconds": 1955.950835900032,
+      "passed": 2429,
+      "failed": 6,
+      "skipped": 34,
+      "tests": 2469,
+      "files": 246,
+      "additional_afterAll_hook_failure": 1
+    },
+    "original_new_fixture_native_cause": "UNKNOWN; original filesystem discarded by its original cleanup. Forward capture does not recover it.",
+    "first_native_init_capture": "controller1/child1 UNQUALIFIED remains; JSON-only reporter omitted ownership diagnostics.",
+    "first_seven_case_diagnostic": "native1; 6pass/1fail retained; later setup correction7pass does not erase it.",
+    "expected_negative_children": "Child1 and filtered cases are intentional adverse controls, not original-case passes.",
+    "structural_budget": "Fixed baseline29Git RED / candidate23Git GREEN, both2npm, assertion return and checkpoint preservation; no statistical speedup or historical root cause.",
+    "other_limits": [
+      "Task024 historical63 unresolved provenance lines remain.",
+      "Selector UNAVAILABLE_FULL_SUITE_CONTRACT remains UNAVAILABLE.",
+      "Local/native/Self candidate contribution is not exonerated.",
+      "E00 and release remain BLOCKED."
+    ]
+  },
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": []
+  },
+  "remaining_required_work": [
+    "Separate finalized closing privacy/publication review.",
+    "Actual final closing remote byte/ref readback before focused closure or next-task source mutation."
+  ],
+  "authority_limit": "Read-only evidence interpretation only. No merge/release/deployment/security-policy/admission/UA-P07 waiver or next-task source authority is granted.",
+  "provider_manifest": "Fresh session-model OpenAI correctness/interpretation reviewer, role-separated from implementer and privacy/publication reviewer; shared OpenAI provider lineage, not provider-independent certification. D1 not used as a gate. Root CLAUDE.md provider mapping unavailable in this checkout; inline PStack bars used visibly.",
+  "panel_manifest": "panel: full closing role separation; correctness/product/parsimony = fresh OpenAI session-model inline bars; privacy/publication = separate review; security = no new runtime trigger; remote proof = pending"
+}
