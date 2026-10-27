@@ -1,0 +1,20 @@
+{
+  "observed_at_utc": "2026-10-27T10:51:21.776482+00:00",
+  "authority_head": "1a5b4448097a0926567f6b4f1223f1326b899a12",
+  "authority_tree": "76e2586bd8845ea6c54daf232b3b7be4f6a69787",
+  "target": ".github/workflows/self-verify.yml",
+  "before_sha256": "0ad849d2a6c94588d6762fa6925916a1fd521a25602b123e74baeb9c03e5817a",
+  "after_sha256": "0f2ae0a554b0f5fa4fb7b80a302a3344dbf3d29624b0b465eefdcbe0348b021f",
+  "source_step_sha256": "9f40ed49d92ac46d4752de72de02c9942a22eb3856d518ad81de80ea2ff3d4db",
+  "source_step_bytes": 655,
+  "frozen_source_entries": 435,
+  "unchanged_nontarget_control_hashes": 14,
+  "mechanical_checks": [
+    "Exact recorded source block copied byte-for-byte",
+    "Removing the one inserted block plus separator recovers original target bytes",
+    "All435 source/test/benchmark entries unchanged",
+    "All14 nontarget control hashes unchanged"
+  ],
+  "execution": "Workflow file written only; no browser installer, test, build, new local full suite or hosted job executed.",
+  "notice": "Bounded prerequisite setup change, not proof of the prior browser failure cause. Original localFAIL6plus hook, Self inner1/FLAKY/materially incomplete, UNKNOWN causes and E00/release blockers retained. Fresh actual-diff reviews and actual final-head/canonical hosted gates remain; no admission or UA-P07 waiver."
+}

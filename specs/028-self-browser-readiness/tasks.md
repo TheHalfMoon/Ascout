@@ -1,6 +1,6 @@
 # Task028-T01
 
-Status: PROSPECTIVE_PLAN_ONLY; no workflow/test/fixture/control change or new native execution. E00/release BLOCKED.
+Status: IMPLEMENTED_PENDING_ACTUAL_DIFF_REVIEW. Existing pinned Chromium setup step copied after recorded audit/consistency/user-derived authority;435source entries/14nontarget controls unchanged. No hosted execution yet; original adverse outcomes retained and E00/release BLOCKED.
 
 1. Verify canonical7a08977, final Task027 remote proof9812e4a, live foreign PR/governance frontier and435-entry/15-control read-only baseline.
 2. Final fresh plan audit, different exact-head consistency/purity review, then explicit bounded user-authority recording.

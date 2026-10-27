@@ -1,6 +1,6 @@
 # Task028-T01: establish Chromium readiness before Self tests
 
-Status: PROSPECTIVE_PLAN_ONLY. Final independent audit, different exact-head consistency review and bounded user-authority recording precede implementation. No workflow or runtime change yet. E00/release remain BLOCKED.
+Status: IMPLEMENTED_PENDING_ACTUAL_DIFF_REVIEW. Existing pinned Chromium setup step copied after recorded audit/consistency/user-derived authority;435source entries/14nontarget controls unchanged. No hosted execution yet; original adverse outcomes retained and E00/release BLOCKED.
 
 ## Evidence and bounded objective
 
