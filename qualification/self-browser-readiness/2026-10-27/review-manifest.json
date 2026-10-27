@@ -1,0 +1,22 @@
+{
+  "reviewed_head": "eba4030904c5cb7692b0febae0acc94596edc58e",
+  "reviewed_tree": "922e388f9d127b8ad30ddd12934ac057da49e338",
+  "packet_sha256": "9de221cb302c8fb00d313c78d235e8feae54952a3cee9599095b77e10901b0c4",
+  "records": [
+    {
+      "path": "browser-readiness-publication-review-eba4030.json",
+      "original_sha256": "a3648312262cd5ae6563088fbb8ec47a1b7a72a587250b613da885e37321e042",
+      "published_sha256": "60c2696ec6376a3805b68c3574eeb254121837e0922cc0c59ddbfa9dfc0d50e7",
+      "bytes": 29199,
+      "transformed": true
+    },
+    {
+      "path": "review-sidecars.py",
+      "original_sha256": "5375dc9a2b844f121024bf84852aa956709115db3a0afd12a0b9184c0ccaa554",
+      "published_sha256": "5375dc9a2b844f121024bf84852aa956709115db3a0afd12a0b9184c0ccaa554",
+      "bytes": 1841,
+      "transformed": false
+    }
+  ],
+  "notice": "Finalized fresh combined integrated/publication/privacy review, no findings; frozen28-member packet unchanged. Same OpenAI lineage is role separation, not provider-independent certification. Actual final-head setup/matrix/inner Self/eligibility and canonical/closing remote gates remain. Original adverse outcomes/UNKNOWN causes/E00/release blockers retained; no source/deadline/admission/UA-P07 or policy waiver."
+}
