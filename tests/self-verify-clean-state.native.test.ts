@@ -140,7 +140,6 @@ function withSubmodule(): Fixture {
   const subject = fixture();
   const nested = fixture();
   git(subject.root, ["-c", "protocol.file.allow=always", "submodule", "add", "-q", nested.root, "nested"]);
-  git(subject.root, ["config", "--local", "diff.ignoreSubmodules", "untracked"]);
   return { ...subject, head: commit(subject.root, "head with local submodule") };
 }
 
@@ -210,8 +209,9 @@ describe("native exact-head clean-state observations", () => {
     expect(git(subject.root, ["write-tree"])).toBe(targetTree);
   }, 30_000);
 
-  it("rejects tracked submodule edits under the same native ignore configuration", async () => {
+  it("rejects tracked submodule edits under explicit untracked-ignore configuration", async () => {
     const subject = withSubmodule();
+    git(subject.root, ["config", "--local", "diff.ignoreSubmodules", "untracked"]);
     writeFileSync(join(subject.root, "nested", "tracked.txt"), "nested tracked drift\n");
     await rejectsWithoutReconstruction(subject, "tracked_contamination");
   }, 30_000);

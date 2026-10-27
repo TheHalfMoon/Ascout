@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-27T00:11:53.318594+00:00",
+  "captures": [
+    {
+      "name": "routing-negative",
+      "file": "clean-state-routing-negative-bed3513d-89a4-4d5f-9353-652c44fa9c1e.json",
+      "sha256": "6a7a176f50e490216dfca61f342f9cad34031efc62b4c949867eda99c43326f5",
+      "exit": 0,
+      "wall_seconds": 29.2444514001254,
+      "source_head": "c82fc47ab9f2abfee71956c8aae3f71ead6d9b0c",
+      "stdout_sha256": "d6e7457b365193c81232936cb4d31aaf95cef453aeb1a01b8288c20ed2d8100c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "native-init-negative",
+      "file": "clean-state-native-init-negative-3ad92c60-ea72-4edf-99f7-382a40684d17.json",
+      "sha256": "91efffce958f8e64b47b8189c690fdae2786abcf9b44c3f4697de502c521c7ac",
+      "exit": 1,
+      "wall_seconds": 4.998733999906108,
+      "source_head": "c82fc47ab9f2abfee71956c8aae3f71ead6d9b0c",
+      "stdout_sha256": "a4bbcd5616155f17a0ffad4db0e7c89bdace8ba512a6ba911a29bf3d1c9ad0e2",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "native-init-reporter-correction",
+      "file": "clean-state-native-init-reporter-correction-ce299410-c4e4-4a8c-906d-773f3bd405c8.json",
+      "sha256": "f8cf9a379875458244f105c48fef85dc10f06e3aefa8cf1d35784fa74172e793",
+      "exit": 0,
+      "wall_seconds": 4.06551540014334,
+      "source_head": "bb653eaeb6ed7f23e95a23a9ab8f3710037616c1",
+      "stdout_sha256": "ebde83fcf1089a87ba1325c031232afab4e6f49046f2ac56871c0e432dfd8991",
+      "stderr_sha256": "302a00c1bb9e28fdd96e4cf6d20ed9b51d05bd91cd4ab4a5e8431e30242cc7c2"
+    },
+    {
+      "name": "seven-case-diagnostic",
+      "file": "clean-state-seven-case-diagnostic-d7def6bd-30dd-411f-b59b-faedef46baa3.json",
+      "sha256": "97b312c452c6fb71ea45f68a1c7fb3f2d2c24db8b0a542265b08925788d0cf31",
+      "exit": 1,
+      "wall_seconds": 46.98736139992252,
+      "source_head": "bb653eaeb6ed7f23e95a23a9ab8f3710037616c1",
+      "stdout_sha256": "5d38640b11bb822266ad85e23b18ea1e4f8fcaef3a79474252e542fb1e759207",
+      "stderr_sha256": "f9e07aa6e4ed1f710abd82976bddc251354ba4d67fa784e37cff861239eddccd"
+    }
+  ],
+  "controls": [
+    {
+      "file": "native-init-failure-a181d3e7-2d3c-4b6f-a025-bbe7611fbf39.json",
+      "sha256": "ad9e99e256907d1fd40eb10d8963704b54daad8d6bf1c6ae2fc977ac04e8ce88",
+      "driver_sha256": "4bb330cdc1fee3290896ae959a1bbb5679cd39e9acccfc790bcc5d0f1d30e9b3",
+      "mode": "native-init-failure",
+      "child_exit": 1,
+      "counts": {
+        "total": 7,
+        "passed": 0,
+        "failed": 1,
+        "pending": 6
+      },
+      "qualification": "NATIVE_INIT_FAILURE_AND_OWNED_RETENTION_OBSERVED",
+      "retained_identity_verified": true
+    },
+    {
+      "file": "native-init-failure-c596f509-fe6e-4c26-95e4-1852d20ab559.json",
+      "sha256": "43015faebcb6bd189b1a0098dceaf8fc4f81e1960396c17d45b85914f645f4a1",
+      "driver_sha256": "16bf3f8d3ad334c52877b7fcd3f4f4f463ecaa2d291a4ca131168fad01d7c7e9",
+      "mode": "native-init-failure",
+      "child_exit": 1,
+      "counts": {
+        "total": 7,
+        "passed": 0,
+        "failed": 1,
+        "pending": 6
+      },
+      "qualification": "UNQUALIFIED",
+      "retained_identity_verified": false
+    },
+    {
+      "file": "routing-c08fd21b-6c25-43bf-bfad-f87b152fea6e.json",
+      "sha256": "105d34fcc74999510df1b79ffb2a6650c0fe4edc237d9defc25b3a64ced73ba2",
+      "driver_sha256": "16bf3f8d3ad334c52877b7fcd3f4f4f463ecaa2d291a4ca131168fad01d7c7e9",
+      "mode": "routing",
+      "child_exit": 1,
+      "counts": {
+        "total": 7,
+        "passed": 0,
+        "failed": 1,
+        "pending": 6
+      },
+      "qualification": "EXPECTED_ROUTING_REJECTION_AND_SENTINEL_INTEGRITY_OBSERVED",
+      "retained_identity_verified": false
+    }
+  ],
+  "positive_followup": {
+    "native_exit": 1,
+    "passed": 6,
+    "failed": 1,
+    "total": 7,
+    "failure": "New explicit status-row assertion false in untracked-only submodule case, before reconstruct is invoked. Both owned roots retained with bounded metadata. No timeout or native Git initialization error repeated in this run.",
+    "diagnosis": "Fixture explicitly sets diff.ignoreSubmodules=untracked; that configuration hides nested untracked status here, so the newly added row assertion did not establish the intended ambiguity. Installed Git manual documents git diff default untracked handling when unset. Correct the new positive fixture to exercise native defaults and keep both native diff0 and a real status row as independent assertions; retain explicit untracked-ignore configuration in the tracked-edit rejection case. This is a fixture setup correction, not removal/weakening of its assertion."
+  },
+  "reference": {
+    "source": "installed Git2.56.0.windows.3 git-config manual",
+    "file": "git-config.html",
+    "sha256": "9cd770651822e127bed52d8c64d6909a65c9a4d2441a483584fcf86a3893874d",
+    "reference_url": "https://git-scm.com/docs/git-config",
+    "retrieval": "Installed local manual read; remote URL not fetched; no raw full manual published."
+  },
+  "limits": "Original full-suite repository-recognition cause remains unknown and its filesystem was discarded by the original fixture. Positive diagnostic FAIL is retained; negative-control qualification does not erase it or original full FAIL6 plus hook. No additional cost control, routing retry, deadline/config/global state/production change, phase/merge/release approval."
+}
