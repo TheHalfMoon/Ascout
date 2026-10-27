@@ -23,7 +23,27 @@
       "published_sha256": "4c02bb2ab97347f0fd8844ed3efc0f44f13107920f43cec6354687949ba1f5bd",
       "bytes": 1938,
       "transformed": false
+    },
+    {
+      "path": "clean-state-final-delta-d1de35e.json",
+      "original_sha256": "8e1a100f65eaabe163c5c5e2edfc33d6407abd74c26c65a8e4940117469e3634",
+      "published_sha256": "8e1a100f65eaabe163c5c5e2edfc33d6407abd74c26c65a8e4940117469e3634",
+      "bytes": 11369,
+      "transformed": false
+    },
+    {
+      "path": "final-review-sidecars.py",
+      "original_sha256": "30d7597f0d5c0ffe899e1e985e7f91adb089684ef18d73051736ac4ca9add132",
+      "published_sha256": "30d7597f0d5c0ffe899e1e985e7f91adb089684ef18d73051736ac4ca9add132",
+      "bytes": 1710,
+      "transformed": false
     }
   ],
-  "notice": "Finalized fresh integrated and privacy/publication reviews, no scoped must-fix. Shared OpenAI lineage, not provider-independent certification. Frozen118-member packet unchanged; exact-head CI/Self/live eligibility and canonical/postmerge/closing remote gates remain. All local failures and unknown original initialization cause retained; E00/release BLOCKED."
+  "notice": "Finalized fresh integrated and privacy/publication reviews, no scoped must-fix. Shared OpenAI lineage, not provider-independent certification. Frozen118-member packet unchanged; exact-head CI/Self/live eligibility and canonical/postmerge/closing remote gates remain. All local failures and unknown original initialization cause retained; E00/release BLOCKED.",
+  "final_metadata_delta_review": {
+    "head": "d1de35ed2095a15db04aeac5ed3333fd97a6b95e",
+    "original_sha256": "8e1a100f65eaabe163c5c5e2edfc33d6407abd74c26c65a8e4940117469e3634",
+    "verdict": "NO_SCOPED_FINDINGS",
+    "limits": "Finalized report publication is bookkeeping after review; source/test/packet leaves unchanged. Actual last-head CI, Self truth, eligibility, canonical/postmerge/closing remote gates remain separate."
+  }
 }
