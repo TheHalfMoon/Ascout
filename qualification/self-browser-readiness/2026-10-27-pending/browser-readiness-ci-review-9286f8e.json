@@ -1,0 +1,436 @@
+{
+  "schema_version": 1,
+  "kind": "TASK028_FRESH_FINAL_HEAD_CI_SELF_SOURCE_EVIDENCE_REVIEW",
+  "observed_at_utc": "2026-10-27T15:26:44.879168+00:00",
+  "verdict": "CI_SELF_SOURCE_EVIDENCE_CLEAR_WITH_REMAINING_LIVE_GATES",
+  "reviewer": {
+    "role": "fresh final-head CI/Self/source-evidence gate reviewer",
+    "provider_lineage": "OpenAI same-provider role separation; not provider-independent certification",
+    "authority": "Read-only evidence judgment only; no merge, release, policy, command-admission or deployment authority"
+  },
+  "bindings": {
+    "head": "9286f8e83af5bae786a69427c629eb31d7626ff2",
+    "tree": "045a902969f9f4dbc5490a2b435b76cc7ce2c6b2",
+    "base": "7a089771aaad8f599b2ee342cf2c17eac19f547b",
+    "pr": 650,
+    "pr_url": "https://github.com/TheHalfMoon/Ascout/pull/650",
+    "project_ci_run": 40493862662,
+    "self_run": 40493862596,
+    "source_packet_head": "53efe84dbc1550742b09cb3bae58a6a9a1c295a2",
+    "source_packet_sha256": "9de221cb302c8fb00d313c78d235e8feae54952a3cee9599095b77e10901b0c4",
+    "source_packet_members": 28,
+    "self_artifact": 12729386940,
+    "self_artifact_sha256": "f9aea295947fdd55c11b03403038907fb295952ec84d26236c80d4cc729365c3"
+  },
+  "findings": {
+    "must_fix": [],
+    "worth_considering": [],
+    "skip_it": [
+      {
+        "proposal": "Retry the local full suite, hosted jobs or browser installer for a prettier result",
+        "reason": "Existing recorded final-head execution satisfies the bounded workflow acceptance checks; retries would add no needed evidence."
+      },
+      {
+        "proposal": "Infer selector MATCHED, reconstruct raw test payload hashes, infer an earlier failure cause or grant release approval",
+        "reason": "The selector contract and raw payloads are unavailable; current success does not supply historical causal or release evidence."
+      }
+    ]
+  },
+  "scope_verification": {
+    "source_test_benchmark_entries": 435,
+    "all_git_entries_equal_frozen_baseline": true,
+    "nontarget_control_sha256_equal": 14,
+    "only_existing_executable_change": "Four added Self YAML lines: exact existing Project CI Chromium setup step plus separator; all other changes confined to allowed planning/evidence/status paths.",
+    "copied_step_bytes": 655,
+    "copied_step_sha256": "9f40ed49d92ac46d4752de72de02c9942a22eb3856d518ad81de80ea2ff3d4db",
+    "self_workflow_sha256": "0f2ae0a554b0f5fa4fb7b80a302a3344dbf3d29624b0b465eefdcbe0348b021f",
+    "removing_inserted_step_and_separator_recovers_base_bytes": true,
+    "static_command_assessment": "Exact Playwright1.63.0 version assertion, installed CLI resolved via package path, fixed argv install/chromium and Linux --with-deps, spawn error thrown and nonzero native status propagated. Existing pins, same-repository guard, contents-read permission, credential persistence=false, exact-head guard, Node24, deadline, capture/selector commands and three-file retention remain unchanged.",
+    "ordinary_admission": "No --allow-changed-command-surface in workflow or raw job execution. Every receipt task records execution_admission=normal and command_surface_changed=false.",
+    "prior_reviews": "Actual implementation53efe84 correctness/product/parsimony and separate security-boundary reviews have no must-fix. The earlier ROADMAP editorial note is addressed in current preparation status. Combined publication revieweba4030 has no must-fix. Final metadata sidecars do not alter the workflow/source."
+  },
+  "evidence_integrity": {
+    "source_packet": "Recomputed ZIP SHA, CRC, unique28-member inventory; all27 manifest payload published hashes and sizes agree. JSON parsed and Python parsed as AST without imports/execution. Original/published transformations remain distinct.",
+    "readback": "Captured actual final-head three core and three sidecar remote readback receipts agree with current bytes, SHA256, lengths and computed Git blob IDs. This review did not perform new network readback or authenticate minimized original evidence.",
+    "raw_logs": "All seven original log byte lengths and SHA256 recomputed against summary. Both run metadata files bind head, pull_request, completed/success and run_attempt1. All job metadata bind head and successful applicable steps. Original log guard source and commands inspected.",
+    "self_zip": "Recomputed original ZIP SHA equals advertised API digest and upload log digest; CRC passes; exactly three unique allowlisted JSON members match separately retained bytes. Envelope binds exact verifier/subject target head and tree, event base and merge base. Receipt SHA equals envelope and selector source SHA.",
+    "receipt_source": "Receipt source.start equals source.end. HEAD at reconstructed staged subject is base7a08977 by the existing harness contract; envelope binds exact target9286f8e/tree045a9029. The base HEAD is not misrepresented as the verifier revision."
+  },
+  "actual_hosted_observations": {
+    "project_ci": "Six actual complete native full-suite jobs, all successful setup/typecheck/test/build at exact head. Every raw log includes actual tsc noEmit/build and vitest run commands, full2469 case/246 file totals, and all17 inherited keyfile inventory names.",
+    "matrix": [
+      {
+        "platform": "windows-2025",
+        "nodes": [
+          22,
+          24
+        ],
+        "passed": 2435,
+        "skipped": 34,
+        "total_tests": 2469,
+        "passed_files": 246,
+        "total_files": 246
+      },
+      {
+        "platform": "macos-14",
+        "nodes": [
+          22,
+          24
+        ],
+        "passed": 2442,
+        "skipped": 27,
+        "total_tests": 2469,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "total_files": 246
+      },
+      {
+        "platform": "ubuntu-24.04",
+        "nodes": [
+          22,
+          24
+        ],
+        "passed": 2464,
+        "skipped": 5,
+        "total_tests": 2469,
+        "passed_files": 245,
+        "skipped_files": 1,
+        "total_files": 246
+      }
+    ],
+    "self_setup_order": {
+      "metadata": "Install completed11:08:35Z; Provision succeeded11:08:35Z-11:09:00Z; Build succeeded11:09:00Z-11:09:04Z; Capture succeeded11:09:04Z-11:10:11Z.",
+      "raw_timestamps_utc": {
+        "install_command": "2026-10-27T11:08:30.7401144Z",
+        "provision_command": "2026-10-27T11:08:35.3004317Z",
+        "chromium_download_complete": "2026-10-27T11:08:56.7439654Z",
+        "headless_shell_download_complete": "2026-10-27T11:09:00.5960382Z",
+        "build_command": "2026-10-27T11:09:00.6217279Z",
+        "capture_command": "2026-10-27T11:09:04.4181598Z"
+      },
+      "ordering_verified": true,
+      "runtime": "Chromium153.0.8010.12/playwright v1243 with headless shell; fixed installed Playwright1.63.0 command executes before build/capture."
+    },
+    "inner_self": {
+      "classification": "SHADOW_NON_GATING",
+      "summary": {
+        "task_status_counts": {
+          "PASS": 2,
+          "FAIL": 0,
+          "FLAKY": 0,
+          "BLOCKED": 0,
+          "ERROR": 0,
+          "NOT_APPLICABLE": 2,
+          "NOT_RUN": 0
+        },
+        "finding_count": 0,
+        "completeness": "complete",
+        "exit_code": 0
+      },
+      "test": {
+        "status": "PASS",
+        "exit_code": 0,
+        "observations": {
+          "runs": 1,
+          "failures": 0
+        },
+        "duration_ms": 50295,
+        "execution_admission": "normal",
+        "command_surface_changed": false
+      },
+      "selection": {
+        "mode": "full",
+        "initial_scope": {
+          "kind": "repository",
+          "path": null
+        },
+        "selected_test_count": 2469,
+        "deselected_test_count": 0,
+        "total_test_count": 2469,
+        "widened": true,
+        "widen_triggers": [
+          "non_source_relation_risk"
+        ],
+        "passes": [
+          {
+            "ordinal": 1,
+            "mode": "full",
+            "scope": {
+              "kind": "repository",
+              "path": null
+            },
+            "trigger": "non_source_relation_risk",
+            "selected_test_count": 2469,
+            "deselected_test_count": 0,
+            "total_test_count": 2469
+          }
+        ],
+        "limitations": []
+      },
+      "findings": []
+    },
+    "selector": {
+      "available": false,
+      "disposition": "UNAVAILABLE",
+      "reason_code": "UNAVAILABLE_FULL_SUITE_CONTRACT",
+      "reason_text": "The exact local Vitest full-suite command contract is unavailable.",
+      "full_suite_failed": [],
+      "ascout_failed": [],
+      "matched": [],
+      "selector_misses": []
+    }
+  },
+  "policy_and_limits": [
+    "FR-006-006 forbids automatic trust admission; FR-006-007/008 preserve and independently bind exact receipt; FR-006-009 forbids exit2 capture; FR-006-010 allows source-bound exits0/1/3/4 as SHADOW_NON_GATING. Outer success therefore proves capture integrity; this separately inspected current inner receipt is actually complete/exit0.",
+    "UNAVAILABLE_FULL_SUITE_CONTRACT remains UNAVAILABLE, never MATCHED. Empty match/miss arrays provide no selector equivalence evidence.",
+    "The uploaded artifact omits referenced raw stdout/stderr, testJSON and LCOV payloads. Receipt hashes and sizes are retained but cannot be independently recomputed from the three uploaded members. Full hosted matrix summaries are directly supported by raw job logs; Self detailed case payload is receipt evidence.",
+    "Task027 inner exit1/FLAKY/materially_incomplete, one installed-Chromium contract failure across two runs and missing original raw payload remain adverse with UNKNOWN cause.",
+    "Prior local full native1/2429passed/6failed/34skips/2469cases plus hook failure, unknown fixture initialization cause and Task024 provenance limits remain. A current pass neither explains nor erases these, exonerates a candidate/host, nor statistically proves reliability.",
+    "D1 is advisory triage; local Alibaba preview/rule lookup is not independent model review. Existing source/separate security and this fresh OpenAI role-separated review do not constitute provider-independent certification.",
+    "The preparation REPORT/spec pending-hosted statements are bound historical packet-preparation status; actual final-head observations above are later external evidence. Preserve the frozen packet and original adverse evidence when publishing later qualification updates."
+  ],
+  "remaining_live_gates": [
+    "Record/publish actual final-head outcome and this finalized review with original/published hashes and bounded remote readback; source changes after this head require appropriate renewed checks.",
+    "Refresh actual live PR/base/head/governance/review/required-check eligibility. Captured PR650 is draft/open/unmerged; captured mergeable=true/clean is only a snapshot and supplies no ready/merge authority.",
+    "Ordinary explicitly authorized eligible merge under effective governance, then canonical postmerge native suites and required Self/canonical observation policy.",
+    "Closing reviews and actual final core/member/sidecar remote proof precede focused closure or subsequent repair source mutation.",
+    "E00/release remain BLOCKED; no UA-P07, provider/security/policy waiver, unsupported Windows REA, deployment or release approval."
+  ],
+  "execution_constraints": {
+    "project_writes": false,
+    "tests_installer_build_controller_probe_executed": false,
+    "executable_evidence_imported_or_run": false,
+    "remote_actions": false,
+    "all_shell_commands_rtk_prefixed": true,
+    "sole_external_write": "work/rc-repair/browser-readiness-ci-review-9286f8e.json",
+    "read_only_deviations": [
+      "An initial nested PowerShell listing lost its filter variable and emitted errors; no project code or writes occurred.",
+      "A read-only Python excerpt query had a quoting SyntaxError.",
+      "Initial mechanical verification extracted654 bytes without the terminal newline; bounded follow-up included the terminal newline and verified the exact655-byte block and recovery.",
+      "Two initial guessed policy paths were absent; read-only bounded directory lookup located spec006."
+    ],
+    "resumption": "Completed after parent-authorized retry on the same configured model. No paid fallback, model override, test/CI rerun or project mutation."
+  },
+  "review_manifest": [
+    {
+      "path": "work/engineering/main-control/.github/workflows/ci.yml",
+      "sha256": "be65bffd83dee5179949cb3efbf20b391884100020b53bc88c5537a06e3d6834",
+      "bytes": 2258
+    },
+    {
+      "path": "work/engineering/main-control/.github/workflows/self-verify.yml",
+      "sha256": "0f2ae0a554b0f5fa4fb7b80a302a3344dbf3d29624b0b465eefdcbe0348b021f",
+      "bytes": 3389
+    },
+    {
+      "path": "work/engineering/main-control/qualification/self-browser-readiness/2026-10-27/baseline.json",
+      "sha256": "557ba516ce1fba41a5bf9698c073c9e690d7550456fa4eb9a3ab1fe0f3713d09",
+      "bytes": 52704
+    },
+    {
+      "path": "work/engineering/main-control/qualification/self-browser-readiness/2026-10-27/browser-readiness-publication-review-eba4030.json",
+      "sha256": "60c2696ec6376a3805b68c3574eeb254121837e0922cc0c59ddbfa9dfc0d50e7",
+      "bytes": 29199
+    },
+    {
+      "path": "work/engineering/main-control/qualification/self-browser-readiness/2026-10-27/evidence-lock.json",
+      "sha256": "e9b58122698dd83003a9c3e791ac74f1e6a9e74a9f70658a6edd183bd932f7e9",
+      "bytes": 1307
+    },
+    {
+      "path": "work/engineering/main-control/qualification/self-browser-readiness/2026-10-27/evidence.zip",
+      "sha256": "9de221cb302c8fb00d313c78d235e8feae54952a3cee9599095b77e10901b0c4",
+      "bytes": 98880
+    },
+    {
+      "path": "work/engineering/main-control/qualification/self-browser-readiness/2026-10-27/implementation.json",
+      "sha256": "dbd10e1c500de969a97d853f21708e8dcfe6e838d2f91b31630f4a0fc7e15f95",
+      "bytes": 1331
+    },
+    {
+      "path": "work/engineering/main-control/qualification/self-browser-readiness/2026-10-27/REPORT.md",
+      "sha256": "f98ef13d57025d4dfaac4548597ec321f2a21fe867b8b0ee545bc98ab4acd549",
+      "bytes": 5747
+    },
+    {
+      "path": "work/engineering/main-control/qualification/self-browser-readiness/2026-10-27/review-manifest.json",
+      "sha256": "194fd73282c404e95eef9539fa5cf23969010fb7f1712e9469136c8260f36caf",
+      "bytes": 1263
+    },
+    {
+      "path": "work/engineering/main-control/qualification/self-browser-readiness/2026-10-27/review-sidecars.py",
+      "sha256": "5375dc9a2b844f121024bf84852aa956709115db3a0afd12a0b9184c0ccaa554",
+      "bytes": 1841
+    },
+    {
+      "path": "work/engineering/main-control/specs/006-self-verification-shadow-receipt/spec.md",
+      "sha256": "891279353838cda740b98612bd4f0c9eb07768e93d68409b87a846d07629fde8",
+      "bytes": 10612
+    },
+    {
+      "path": "work/engineering/main-control/specs/028-self-browser-readiness/CONSISTENCY_AND_AUTHORIZATION.md",
+      "sha256": "3423f6de217e010f6cf2bf1642cfd1473bbbae190d886b9e7c1d84dc74729ebb",
+      "bytes": 2477
+    },
+    {
+      "path": "work/engineering/main-control/specs/028-self-browser-readiness/plan.md",
+      "sha256": "217d41cb378893212190429c65950c3ac696b73e5ef42d013928064add5edf1d",
+      "bytes": 1565
+    },
+    {
+      "path": "work/engineering/main-control/specs/028-self-browser-readiness/PLAN_AUDIT.md",
+      "sha256": "324549622be70fff8d74f15d4a5476905c9fe8458b7c5588bb0972724f086952",
+      "bytes": 1138
+    },
+    {
+      "path": "work/engineering/main-control/specs/028-self-browser-readiness/spec.md",
+      "sha256": "93e15e499a7e7a97a760fb326dad13a5356657c1fe04ce239ebff0cc3db41458",
+      "bytes": 6863
+    },
+    {
+      "path": "work/engineering/main-control/specs/028-self-browser-readiness/tasks.md",
+      "sha256": "561807b970516982934cf53114e22fdfaa96116e145e28f588c67d08dc33d5cd",
+      "bytes": 1326
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/fixed-head-commit.json",
+      "sha256": "0f6632ae75fd1340d9f9a96707998a625cf89b046958c0f54c49e40dc4f400da",
+      "bytes": 1754
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/job-122154236337.log",
+      "sha256": "af49630d09dfdd44afa9b1b5dd4c7c2228b600680480cb2e0ba476c6361e4aa3",
+      "bytes": 137743
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/job-122154236566.log",
+      "sha256": "c9d9279f8ca1863a817d414f2fbde42180a7c23abfe5481ca220656e22c8d75c",
+      "bytes": 85799
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/job-122154237002.log",
+      "sha256": "a665f7648dc380e424f15ab7a2d0dff8be254f7be41dbe5df42a84fbe6b24fe5",
+      "bytes": 75945
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/job-122154237003.log",
+      "sha256": "4b2178249bd38269222782ecc1293705011f93461540dad79eeaaf5e2092d73c",
+      "bytes": 89721
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/job-122154237041.log",
+      "sha256": "753132489be4de066951c29df3068bcadc8a382472759806a8f74bc0d69ec5f7",
+      "bytes": 85061
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/job-122154237057.log",
+      "sha256": "582a978350f50005d7d2640ff050e25917959d16f0f7dbb95511d182e1a198b7",
+      "bytes": 74703
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/job-122154237352.log",
+      "sha256": "00200e877f67a58e73040aeeef694070e5f4c414aceef9fa7f1ec19bcd54fd75",
+      "bytes": 84797
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/jobs-40493862596.json",
+      "sha256": "5e8b904d5382fd22bffafa8045f9e534b32e22d16ef62dc27bebb5846aed8b3e",
+      "bytes": 3083
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/jobs-40493862662.json",
+      "sha256": "ff0eb095f5748497c2a6e084beea804a3dc21c23771a77344079abaf54451190",
+      "bytes": 18088
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/main-snapshot.json",
+      "sha256": "134ad60f10469a276c335834f8430525a98d6720911eb3f08c53477bd5794fac",
+      "bytes": 5257
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/pr-snapshot.json",
+      "sha256": "af11be69674457d9d4ef5550cec8b41de68fdfdbbd3f839443cbcb6abb48a195",
+      "bytes": 17222
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/run-40493862596.json",
+      "sha256": "615fb47e5c8387db2f2e23705a70e6db05904dae387778a3d5ced1709a4cbf2e",
+      "bytes": 12547
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/run-40493862662.json",
+      "sha256": "d455b78db9ab2fb387e1351136591fcca261b64337076c2a42d2325d9f1324f0",
+      "bytes": 12532
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/selector-shadow-observation.json",
+      "sha256": "e4c447ad46993dbac00393c1a52fa1e7beb8ecd739f191ab2ca40dd8db83ef23",
+      "bytes": 1243
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/self-artifact-12729386940.zip",
+      "sha256": "f9aea295947fdd55c11b03403038907fb295952ec84d26236c80d4cc729365c3",
+      "bytes": 4139
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/self-artifacts.json",
+      "sha256": "ae5f66af0959bd3ed4e5c8aebdafa7529cc6c9fb06da3373a73379ecb4bbd2a3",
+      "bytes": 777
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/self-verification-envelope.json",
+      "sha256": "0858e26d306799faf48ecff9c2eeabd1eb835c68fb4be4d2fc44aef6daf30f97",
+      "bytes": 658
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/self-verification-receipt.json",
+      "sha256": "ee8db73c17736c298cef0c5c23202cdfce469748f65877c1d6c95cb813bb10f7",
+      "bytes": 17212
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-ci-9286f8e/summary.json",
+      "sha256": "3b3d1a004999522059a8a323b5dad9890ea10495c5f5537b1c4f7a7755483cb0",
+      "bytes": 13335
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-correctness-53efe84.json",
+      "sha256": "9e489ff448f02d0fc80172b37895f7ad99d471a7753068abc00276b0d15acebe",
+      "bytes": 19951
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-publication-receipt-9286f8e.json",
+      "sha256": "1777f205bb180f0ee0e3f30a685ca2d357f7744cf1d2825791d2131f88d5cfa1",
+      "bytes": 1074
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-publication-review-eba4030.json",
+      "sha256": "a3648312262cd5ae6563088fbb8ec47a1b7a72a587250b613da885e37321e042",
+      "bytes": 29197
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-security-53efe84.json",
+      "sha256": "c56c143de553b76c710063c25ef13d9020fbc62e51a1daa1da1e85b652c38306",
+      "bytes": 8862
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-self-inspection.json",
+      "sha256": "5fb01a6495bfb18e4ade7f83279deda6d002df1bd689c53d006f7fb1be87d503",
+      "bytes": 4459
+    },
+    {
+      "path": "work/rc-repair/browser-readiness-sidecars-readback-9286f8e.json",
+      "sha256": "b282ad2f0d441aa28c230eaf8b2c851fab86faa3645ba4d1d31b62bc59b08e31",
+      "bytes": 1132
+    },
+    {
+      "path": "work/rc-repair/capture_browser_readiness_ci.py",
+      "sha256": "91a0193f5e634ba8a89073a195e675875422fe65575e38693a213616307dddd6",
+      "bytes": 951
+    },
+    {
+      "path": "work/rc-repair/capture_timing_ci.py",
+      "sha256": "cc8a199c6e3f5d35c3a02047bdd0229d9ff22466c8e871daacdfb706eccc4fe4",
+      "bytes": 8523
+    }
+  ]
+}

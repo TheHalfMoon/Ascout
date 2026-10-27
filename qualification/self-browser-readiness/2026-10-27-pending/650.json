@@ -1,0 +1,24 @@
+{
+  "observed_at_utc": "2026-10-27T15:28:46.687352+00:00",
+  "pr": "https://github.com/TheHalfMoon/Ascout/pull/650",
+  "state": "closed",
+  "merged": true,
+  "merged_at": "2026-10-27T15:28:36Z",
+  "head": "9286f8e83af5bae786a69427c629eb31d7626ff2",
+  "base": "7a089771aaad8f599b2ee342cf2c17eac19f547b",
+  "merge": "ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430",
+  "main": "ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430",
+  "ordered_parents": [
+    "7a089771aaad8f599b2ee342cf2c17eac19f547b",
+    "9286f8e83af5bae786a69427c629eb31d7626ff2"
+  ],
+  "merge_tree": "045a902969f9f4dbc5490a2b435b76cc7ce2c6b2",
+  "head_tree": "045a902969f9f4dbc5490a2b435b76cc7ce2c6b2",
+  "tree_equal": true,
+  "github_signature_verification": {
+    "verified": true,
+    "reason": "valid",
+    "verified_at": "2026-10-27T15:28:39Z"
+  },
+  "notice": "Read-back and GitHub-reported signature status; final integrated-main test result remains separately required."
+}

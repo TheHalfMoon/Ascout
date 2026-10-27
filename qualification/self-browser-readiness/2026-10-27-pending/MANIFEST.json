@@ -1,0 +1,34 @@
+{
+  "state": "MERGED_CANONICAL_POSTMERGE_RUNNERS_PENDING",
+  "records": [
+    {
+      "path": "browser-readiness-ci-review-9286f8e.json",
+      "original_sha256": "f96f4a6b59140dd7d500dd7dc6f311369746241b8c3ea47d183a8d1f00805e2c",
+      "published_sha256": "8c9a42a105f0ad9dea8c8d3d03918163f1a1f622aaaca8adcfd56003a6602e90",
+      "bytes": 21379,
+      "transformed": true
+    },
+    {
+      "path": "browser-readiness-canonical-pending.json",
+      "original_sha256": "e06f41c35384965967a9d6ecd22be16cd29354b9f91d766156f356a9dc0d2368",
+      "published_sha256": "e06f41c35384965967a9d6ecd22be16cd29354b9f91d766156f356a9dc0d2368",
+      "bytes": 16849,
+      "transformed": false
+    },
+    {
+      "path": "650.json",
+      "original_sha256": "02cb4189c70bea80891d7ba8360ffad706285035943ad4c51e001f85f1630e17",
+      "published_sha256": "001175d067d884c86fe00d4ce38448de702f1e1987f497beead2d5329eb27ce5",
+      "bytes": 932,
+      "transformed": true
+    },
+    {
+      "path": "650-premerge.json",
+      "original_sha256": "72c3e1a5506817c7fdb75cd5e42e5ea2da141559b66c7c0740312281ed8a0191",
+      "published_sha256": "72c3e1a5506817c7fdb75cd5e42e5ea2da141559b66c7c0740312281ed8a0191",
+      "bytes": 3709,
+      "transformed": false
+    }
+  ],
+  "notice": "Explicit minimized actual CI review/ordinary merge/pending metadata. No new source/test/installer/CI rerun; review finished after initial unavailability without paidfallback/D1substitution. Pending canonical suites, closing reviews and actual final remote proof prevent focused closure. This interim publication is not independently publication-reviewed and grants no release/policy/admission/UA-P07 approval."
+}

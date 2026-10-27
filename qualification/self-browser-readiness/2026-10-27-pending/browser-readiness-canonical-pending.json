@@ -1,0 +1,495 @@
+{
+  "observed_at_utc": "2026-10-27T15:40:51.828263+00:00",
+  "source_head": "9286f8e83af5bae786a69427c629eb31d7626ff2",
+  "canonical_merge": "ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430",
+  "run_id": 40531354831,
+  "run": {
+    "conclusion": "",
+    "event": "push",
+    "headSha": "ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430",
+    "jobs": [
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 122284708667,
+        "name": "project / macos-14 / node-24",
+        "startedAt": "2026-10-27T15:28:40Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831/job/122284708667"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 122284709070,
+        "name": "project / macos-14 / node-22",
+        "startedAt": "2026-10-27T15:28:40Z",
+        "status": "queued",
+        "steps": [],
+        "url": "https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831/job/122284709070"
+      },
+      {
+        "completedAt": "2026-10-27T15:36:01Z",
+        "conclusion": "success",
+        "databaseId": 122284709234,
+        "name": "project / windows-2025 / node-22",
+        "startedAt": "2026-10-27T15:28:42Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-27T15:28:45Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-27T15:28:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:57Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 2,
+            "startedAt": "2026-10-27T15:28:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:00Z",
+            "conclusion": "success",
+            "name": "Guard exact source",
+            "number": 3,
+            "startedAt": "2026-10-27T15:28:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:11Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v4",
+            "number": 4,
+            "startedAt": "2026-10-27T15:29:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:21Z",
+            "conclusion": "success",
+            "name": "Install exact lockfile",
+            "number": 5,
+            "startedAt": "2026-10-27T15:29:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:37Z",
+            "conclusion": "success",
+            "name": "Provision exact Chromium runtime",
+            "number": 6,
+            "startedAt": "2026-10-27T15:29:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:42Z",
+            "conclusion": "success",
+            "name": "Typecheck",
+            "number": 7,
+            "startedAt": "2026-10-27T15:29:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:42Z",
+            "conclusion": "skipped",
+            "name": "Test",
+            "number": 8,
+            "startedAt": "2026-10-27T15:29:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:35:52Z",
+            "conclusion": "success",
+            "name": "Test (Windows bounded workers)",
+            "number": 9,
+            "startedAt": "2026-10-27T15:29:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:35:58Z",
+            "conclusion": "success",
+            "name": "Build",
+            "number": 10,
+            "startedAt": "2026-10-27T15:35:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:35:58Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v4",
+            "number": 19,
+            "startedAt": "2026-10-27T15:35:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:36:00Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 20,
+            "startedAt": "2026-10-27T15:35:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:36:00Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-10-27T15:36:00Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831/job/122284709234"
+      },
+      {
+        "completedAt": "2026-10-27T15:30:10Z",
+        "conclusion": "success",
+        "databaseId": 122284709316,
+        "name": "project / ubuntu-24.04 / node-24",
+        "startedAt": "2026-10-27T15:28:44Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-27T15:28:46Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-27T15:28:45Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:48Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 2,
+            "startedAt": "2026-10-27T15:28:46Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:49Z",
+            "conclusion": "success",
+            "name": "Guard exact source",
+            "number": 3,
+            "startedAt": "2026-10-27T15:28:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:51Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v4",
+            "number": 4,
+            "startedAt": "2026-10-27T15:28:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:54Z",
+            "conclusion": "success",
+            "name": "Install exact lockfile",
+            "number": 5,
+            "startedAt": "2026-10-27T15:28:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:14Z",
+            "conclusion": "success",
+            "name": "Provision exact Chromium runtime",
+            "number": 6,
+            "startedAt": "2026-10-27T15:28:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:17Z",
+            "conclusion": "success",
+            "name": "Typecheck",
+            "number": 7,
+            "startedAt": "2026-10-27T15:29:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:03Z",
+            "conclusion": "success",
+            "name": "Test",
+            "number": 8,
+            "startedAt": "2026-10-27T15:29:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:03Z",
+            "conclusion": "skipped",
+            "name": "Test (Windows bounded workers)",
+            "number": 9,
+            "startedAt": "2026-10-27T15:30:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:07Z",
+            "conclusion": "success",
+            "name": "Build",
+            "number": 10,
+            "startedAt": "2026-10-27T15:30:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:07Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v4",
+            "number": 19,
+            "startedAt": "2026-10-27T15:30:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:07Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 20,
+            "startedAt": "2026-10-27T15:30:07Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:07Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-10-27T15:30:07Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831/job/122284709316"
+      },
+      {
+        "completedAt": "2026-10-27T15:30:25Z",
+        "conclusion": "success",
+        "databaseId": 122284709511,
+        "name": "project / ubuntu-24.04 / node-22",
+        "startedAt": "2026-10-27T15:28:42Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-27T15:28:44Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-27T15:28:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:47Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 2,
+            "startedAt": "2026-10-27T15:28:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:47Z",
+            "conclusion": "success",
+            "name": "Guard exact source",
+            "number": 3,
+            "startedAt": "2026-10-27T15:28:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:53Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v4",
+            "number": 4,
+            "startedAt": "2026-10-27T15:28:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:57Z",
+            "conclusion": "success",
+            "name": "Install exact lockfile",
+            "number": 5,
+            "startedAt": "2026-10-27T15:28:53Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:24Z",
+            "conclusion": "success",
+            "name": "Provision exact Chromium runtime",
+            "number": 6,
+            "startedAt": "2026-10-27T15:28:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:29Z",
+            "conclusion": "success",
+            "name": "Typecheck",
+            "number": 7,
+            "startedAt": "2026-10-27T15:29:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:18Z",
+            "conclusion": "success",
+            "name": "Test",
+            "number": 8,
+            "startedAt": "2026-10-27T15:29:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:18Z",
+            "conclusion": "skipped",
+            "name": "Test (Windows bounded workers)",
+            "number": 9,
+            "startedAt": "2026-10-27T15:30:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:22Z",
+            "conclusion": "success",
+            "name": "Build",
+            "number": 10,
+            "startedAt": "2026-10-27T15:30:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:22Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v4",
+            "number": 19,
+            "startedAt": "2026-10-27T15:30:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:23Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 20,
+            "startedAt": "2026-10-27T15:30:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:30:23Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-10-27T15:30:23Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831/job/122284709511"
+      },
+      {
+        "completedAt": "2026-10-27T15:36:08Z",
+        "conclusion": "success",
+        "databaseId": 122284709699,
+        "name": "project / windows-2025 / node-24",
+        "startedAt": "2026-10-27T15:28:42Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-27T15:28:44Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-27T15:28:43Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:55Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@v4",
+            "number": 2,
+            "startedAt": "2026-10-27T15:28:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:28:58Z",
+            "conclusion": "success",
+            "name": "Guard exact source",
+            "number": 3,
+            "startedAt": "2026-10-27T15:28:55Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:09Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@v4",
+            "number": 4,
+            "startedAt": "2026-10-27T15:28:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:17Z",
+            "conclusion": "success",
+            "name": "Install exact lockfile",
+            "number": 5,
+            "startedAt": "2026-10-27T15:29:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:44Z",
+            "conclusion": "success",
+            "name": "Provision exact Chromium runtime",
+            "number": 6,
+            "startedAt": "2026-10-27T15:29:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:48Z",
+            "conclusion": "success",
+            "name": "Typecheck",
+            "number": 7,
+            "startedAt": "2026-10-27T15:29:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:29:48Z",
+            "conclusion": "skipped",
+            "name": "Test",
+            "number": 8,
+            "startedAt": "2026-10-27T15:29:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:35:59Z",
+            "conclusion": "success",
+            "name": "Test (Windows bounded workers)",
+            "number": 9,
+            "startedAt": "2026-10-27T15:29:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:36:04Z",
+            "conclusion": "success",
+            "name": "Build",
+            "number": 10,
+            "startedAt": "2026-10-27T15:35:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:36:04Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@v4",
+            "number": 19,
+            "startedAt": "2026-10-27T15:36:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:36:06Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@v4",
+            "number": 20,
+            "startedAt": "2026-10-27T15:36:04Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-27T15:36:06Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-10-27T15:36:06Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831/job/122284709699"
+      }
+    ],
+    "status": "queued"
+  },
+  "notice": "Point-in-time canonical job metadata only. Completed Linux/Windows job conclusions are not independent raw full-suite-log verification. macOS queued/in-progress jobs and all six canonical log checks remain required; no gate skipped or relabeled. Final-head six full suites/new setup/Self inner0complete and completed fresh CI review are separate prior evidence. Historical local failures/UNKNOWN causes and E00/release blockers remain."
+}
