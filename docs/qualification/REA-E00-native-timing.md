@@ -4,7 +4,7 @@ Task026 preserves four fixed independent diagnostic captures at44d47ac with all4
 
 Observed29Git operations and2inclusive npm operations locate command-round-trip costs in this reproduction. Ordered cases prove no speedup, observer overhead, cold-start/statistical or historical cause. See [full observations and limits](../../qualification/native-timing-diagnosis/2026-10-26/REPORT.md). Prior actual complete localFAIL12/1599s remains; E00/release BLOCKED. No full-suite repeat, source/deadline repair or unsupported REA/OS capture.
 
-Final interpretation/publication/CI/Self/governance/canonical/remote gates pending. Any repair is a separately bounded task.
+At that original Task026 checkpoint, final interpretation/publication/CI/Self/governance/canonical/remote gates were pending. Task026 subsequently closed canonically through PR648/main36768f4 with final closing bytes verified at55976e3; see its [verified closing record](https://github.com/TheHalfMoon/Ascout/blob/55976e3efa5346f0da86440a0fe5022832ab4934/qualification/native-timing-diagnosis/2026-10-26-closeout/REPORT.md). Its observations do not authorize a repair; Task027 has separate bounded authority and still-open gates below.
 
 
 ### Task027 native clean-state followup

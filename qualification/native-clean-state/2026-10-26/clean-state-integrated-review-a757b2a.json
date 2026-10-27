@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "review_kind": "TASK027_FINAL_INTEGRATED_CORRECTNESS_PRODUCT_PARSIMONY_EVIDENCE_REVIEW",
+  "verdict": "NO_SCOPED_MUST_FIX_FOUND; INTEGRATED_SOURCE_AND_EVIDENCE_CONSISTENT_WITH_EXPLICIT_OPEN_QUALIFICATION",
+  "reviewed_head": "a757b2a37ed82d67147e410c159c485d0f1e2219",
+  "reviewed_tree": "8e63eded02bd2f3f7fd0c91b586daea29c551044",
+  "base_head": "36768f4ffe1e2c18492cb3a8fdccd9274c2c615a",
+  "scope": "Read-only integrated review of the complete canonical-to-a757b2a Task027 change and its minimized evidence. This is not whole-phase, PR, merge, canonical, release or deployment approval.",
+  "bindings": {
+    "repository": "<WORKSPACE>/work/engineering/main-control",
+    "clean_worktree_verified": true,
+    "canonical_to_reviewed_binary_diff_sha256": "5cc654cf9638e71513f1c155e4dd15c33ea7c79f602eb1991d49e91e7d56b9e9",
+    "benchmark_sha256": "151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad",
+    "new_native_test_sha256": "dafd92e594e8a8a0a2ec082e1115073855bdaed81e0d0be7e1b5fd3d0f95c5b8",
+    "packet_sha256": "64d613267d3acb6b56294a23fcecf06aab5b3dc6d45d2fa31bd0650cccce2723",
+    "packet_manifest_sha256": "48b6eaa50e52d843f22cb17db410fbf3bc57e1e64d69e1e5f801533e2cca2f17",
+    "packet_members": 118,
+    "current_source_qualification_head": "b90d14c3b55ff5a8d6cffcbb1fd571386e6896b2",
+    "earlier_source_and_boundary_review_head": "c80bb24308483c0ef1fff07c44e92c2a42968a8a",
+    "earlier_source_review_original_sha256": "b128a77c21a0171fa11bd55d66ee1d396395b43c777ed21536ab42eea2825edf",
+    "earlier_boundary_review_original_sha256": "8f54e21365b9374ad6ff979d472d11ac93b1d5b3b56fc7aa3398b13c364bb526"
+  },
+  "bars": {
+    "correctness": {
+      "verdict": "NO_MUST_FIX_FOUND_WITH_STATIC_AND_RECORDED_NATIVE_LIMITS",
+      "confirmed": [
+        "requireCleanHeadState retains fresh HEAD resolution and write-tree equality before its observation. All four existing preparation/private-worktree/reconstruction call sites remain, as do the post-reconstruction HEAD/tree/unstaged/untracked checks.",
+        "Only empty or all-untracked porcelain output skips the two diff launches. Every other nonempty row calls the original cached-HEAD diff and worktree diff before untracked rejection; this preserves native submodule decisions instead of rejecting every modified submodule row.",
+        "Porcelain-v1/all nonignored untracked flags and the existing reliable-process, native-exit, timeout and truncation handling remain. Prefix classification does not decode filenames. No parser/export seam, cross-checkpoint cache, new retry or weakened Git flag was added.",
+        "The final seven-case test uses public reconstruction APIs and real owned native repositories. Its positive submodule case still requires native diff exit 0, a real modified-submodule row, reconstruction success, expected merge-base HEAD and unchanged target tree. The explicit untracked-ignore setting was moved only into the tracked-submodule rejection case.",
+        "Fixture routing checks precede mutation and API calls; Git commands bind explicit owned metadata/worktrees and root/canonical identity. Real native failures retain their original exception, bounded metadata and failed fixture roots. Success cleanup retains ownership checks."
+      ],
+      "findings": {
+        "must_fix": [],
+        "worth_considering": [],
+        "skip_it": [
+          {
+            "id": "IC-S1",
+            "location": "tests/self-verify-clean-state.native.test.ts:188",
+            "issue": "Index-flag cases preserve a flag while another tracked path is dirty; they do not prove exhaustive flagged-only equivalence.",
+            "concrete_fix": "Keep the published narrow claim. Do not add an unplanned exhaustive flag/sparse-checkout project for this bounded change."
+          },
+          {
+            "id": "IC-S2",
+            "location": "tests/self-verify-clean-state.native.test.ts:10",
+            "issue": "Windows numeric dev/ino identities can lose integer precision. The separate boundary review and current qualification report disclose this; no replacement or escape was observed.",
+            "concrete_fix": "Retain the limitation. Consider bigint identities only in a separately justified ownership-fidelity change; this integrated review does not reclassify it as an observed vulnerability."
+          },
+          {
+            "id": "IC-S3",
+            "location": "benchmarks/self-verify.mjs:243",
+            "issue": "Commands remain successive observations, not an atomic snapshot. Moving status ahead of fallback diffs can change corrupt-state error precedence while remaining fail-closed.",
+            "concrete_fix": "Preserve the existing temporal/error limits; do not claim hostile-concurrent-writer immunity or identical native-fault ordering."
+          }
+        ]
+      }
+    },
+    "product": {
+      "verdict": "NAMED_SOURCE_SCOPE_AND_LIMITED_BENEFIT_MATCH_SPEC; LATER_ACCEPTANCE_GATES_OPEN",
+      "confirmed": [
+        "Independent Git mode/object comparison found 434 baseline src/tests/benchmarks entries, 433 unchanged nontarget entries, only the allowed benchmark changed and only the named native test added. All 15 nontarget control SHA256 bindings matched current bytes.",
+        "All 28 changed paths are inside the allowed Task027 benchmark/test/spec/qualification/ROADMAP/STATE/documentation scope. Existing production src, tests, deadlines, skips, dependencies, workflows, configuration and authority remain frozen.",
+        "The source, current REPORT/STATE/spec and evidence agree that the structural metric is 29 to 23 Git launches with two npm operations, not statistical speedup or historical causation.",
+        "The final fixture typing and seven-case pass are distinguished from the first failed seven-case diagnostic, earlier reporter-omitted UNQUALIFIED control, and original complete-suite failures. Earlier unchanged leaf bindings are not represented as execution on the final whole tree.",
+        "No current local-full-green, recovered original initialization cause, blanket candidate exoneration, provider-independent certification, UA-P07, phase closure or release claim is supplied."
+      ],
+      "findings": {
+        "must_fix": [],
+        "worth_considering": [
+          {
+            "id": "IP-W1",
+            "priority": "P3",
+            "location": "docs/qualification/REA-E00-native-timing.md:7",
+            "issue": "The retained Task026 text says its final interpretation/publication/CI/canonical/remote gates are pending, while the current ROADMAP identifies Task026 as CLOSED_CANONICAL. The appended Task027 section makes the new work clear, so this is a nonblocking historical/current-state ambiguity.",
+            "concrete_fix": "Label that retained sentence as historical to the original Task026 diagnostic checkpoint, or replace it with the verified Task026 closing-record reference while keeping Task027's actual pending gates explicit.",
+            "blocks_scoped_review": false
+          }
+        ],
+        "skip_it": [
+          {
+            "id": "IP-S1",
+            "location": "qualification/native-clean-state/2026-10-26/first-full-suite.json",
+            "issue": "The original new fixture failed during local Git configuration before reconstruction, and its original filesystem was discarded. Later passes and negative controls cannot resolve that original native cause.",
+            "concrete_fix": "Continue carrying the unknown cause and full-suite failure. Do not infer an environmental cause, deletion actor or blanket candidate exoneration."
+          }
+        ]
+      }
+    },
+    "parsimony": {
+      "verdict": "NO_MUST_FIX_FOUND",
+      "confirmed": [
+        "The executable benchmark delta stays inside one private helper/caller and reuses native Git behavior. Conservative diff fallback is smaller than introducing a general status parser or new API.",
+        "The larger new-test helper addresses demonstrated routing and lost-forensics findings within the one authorized test file. The final fixture configuration move is the smallest correction preserving both independent native oracles.",
+        "No production abstraction, dependency, service, daemon, generic fixture framework or speculative product feature was introduced."
+      ],
+      "findings": {
+        "must_fix": [],
+        "worth_considering": [],
+        "skip_it": [
+          {
+            "id": "IR-S1",
+            "location": "specs/027-native-clean-state-observation/FAILURE_FOLLOWUP.md",
+            "issue": "The fixed cost observations and already qualified negative controls are consumed and retain exact-leaf bindings; the later change is fixture setup only.",
+            "concrete_fix": "Do not repeat cost/negative controls or rerun the full suite solely to improve presentation. Any additional execution needs its actual justified gate and must preserve adverse outcomes."
+          }
+        ]
+      }
+    },
+    "evidence": {
+      "verdict": "LOCKED_PACKET_AND_ORIGINAL_BINDINGS_VERIFIED; CLAIMS_BOUNDED",
+      "confirmed": [
+        "ZIP SHA256 equals the lock; CRC validation returned no bad member. There are 118 distinct members: MANIFEST.json plus 117 explicitly listed payloads, with no missing or unlisted payloads.",
+        "All 117 published payload SHA256 values and byte lengths matched MANIFEST records. All 117 original hashes also matched the scoped retained external originals: 113 conventional paths plus the three owned runner JSON paths and engineering/qualify_native.py. The 57 transformed members are consistently identified; no original/published hash substitution was found.",
+        "Recounting individual observation records gives baseline 10 fixture Git plus 19 async Git and candidate 10 fixture Git plus 13 async Git. Both have exactly two original npm operations with the required argument lists, successful child closes, all case stages returned, equal fixture tree d37787697024a7e5076d97a456c8894f3d483a78, no errors and unchanged driver/benchmark/fixture inputs.",
+        "The baseline's native exit 1 is qualified structural budget RED; functional assertions returned. Candidate native exit 0 is qualified structural GREEN. These are independent controls, not original Vitest case outcomes. Private asynchronous streams and nested npm descendants remain outside the observer's stated scope.",
+        "The complete-suite capture at 1a8e2a49292f99ab64dd201708787e32886c5efb/tree ef7d92740766f48c210dd0be553ac0681191795e records native exit 1 after 1955.950835900032 seconds, 2429 passed/6 failed/34 skipped/2469 cases/246 files and a separate browser afterAll failure. Raw original stream hashes matched 34cdfbc1f125f86162bedc8cbfe4d1c766a64fccdcd7d582575103e172a82509 and 50eec14ab3de05e291993c61dda81544326cb57d77557165538ee7c9a0e7796d. The minimized streams retain the literal six failures and hook.",
+        "Routing control is a qualified intentional child failure with one failed/six filtered and unchanged sentinel. First native-init capture remains controller1/child1 UNQUALIFIED with zero diagnostic/retention manifests. Corrected capture records controller0/child1, native init 128, original error, bounded metadata, retained identity and unchanged sentinel.",
+        "The first diagnostic seven-case capture remains native1/6 passed/1 failed at the new status-row assertion. The final genuine fixture setup correction preserves that assertion and native diff0 oracle; final capture records native0/7 passed, and strict supplemental typing records native0 at b90d14c.",
+        "Actual D1 output is identified as advisory. Actual Alibaba preview/rule commands and outputs are identified as scope/rule evidence rather than model review. Existing browser/Graft/TesterArmy infrastructure is unchanged and no fresh unrelated execution is credited."
+      ],
+      "findings": {
+        "must_fix": [],
+        "worth_considering": [],
+        "skip_it": [
+          {
+            "id": "IE-S1",
+            "location": "qualification/native-clean-state/2026-10-26/evidence-lock.json",
+            "issue": "The lock's source_head is the b90 checkpoint before the packet/docs commit, while this review is on a757b2a. Current leaves match, and the report explicitly distinguishes leaf identity from whole-tree execution.",
+            "concrete_fix": "Preserve both exact bindings. Do not relabel prior runs as occurring on a757b2a or treat local packet verification as remote publication proof."
+          },
+          {
+            "id": "IE-S2",
+            "location": "qualification/native-clean-state/2026-10-26/REPORT.md",
+            "issue": "Full-suite qualification, final-head CI/Self, live eligibility, canonical/postmerge and closing remote proof are still open; the unresolved failures are not automatically unrelated.",
+            "concrete_fix": "Keep those actual gates pending and E00/release BLOCKED. This review supplies none of their outcomes or authority."
+          }
+        ]
+      }
+    }
+  },
+  "findings_summary": {
+    "must_fix": 0,
+    "worth_considering": 1,
+    "skip_it": 7
+  },
+  "retained_failure_states": {
+    "complete_local_suite": "NATIVE_1; 2429_PASS_6_FAIL_34_SKIP_2469_CASES_246_FILES; ADDITIONAL_BROWSER_HOOK_FAILURE",
+    "original_initialization_cause": "UNKNOWN; ORIGINAL_FILESYSTEM_DISCARDED",
+    "first_native_init_capture": "CONTROLLER_1_CHILD_1_UNQUALIFIED_REPORTER_OMISSION",
+    "corrected_native_init_capture": "CONTROLLER_0_CHILD_1_NATIVE_GIT_128; QUALIFIED_BOUNDED_FAILURE_CAPTURE",
+    "first_seven_case_diagnostic": "NATIVE_1; 6_PASS_1_FAIL; STATUS_ROW_ASSERTION",
+    "corrected_seven_case": "NATIVE_0; 7_PASS; EXACT_FINAL_TEST_LEAF",
+    "phase_and_release": "OPEN_GATES; E00_RELEASE_BLOCKED"
+  },
+  "input_manifest_sha256": {
+    "ROADMAP.md": "33871422d66a7090d69a6b2602d234b54b2fc41da0e258a1d95342acf623606f",
+    "STATE.md": "c890319a7fb898030924003946bf7546d445dcacefa77d09b44f82e825b69936",
+    "benchmarks/self-verify.mjs": "151eb52a59ee68674b3f4000c47ee6e5282ac573ed8d872d0909a5498ce188ad",
+    "docs/qualification/REA-E00-native-timing.md": "daf6a8a644e4a28c4e11d928fc6a49749ff439710428d009f81b9a2b487bd635",
+    "qualification/native-clean-state/2026-10-26/REPORT.md": "3659d3bfc83e759f72d78df670d3637cfc7dbf43469dd737f88f47d932e1bad6",
+    "qualification/native-clean-state/2026-10-26/candidate-input-lock.json": "3595e8b5ccc387d767aa171c527bd0971910151b18d64fa57ab13e0300c82a9b",
+    "qualification/native-clean-state/2026-10-26/diagnostic-input-lock.json": "7c7346a93c591c3d27a23080c89e9ad97756676f0c5198c5d74690ecd65417af",
+    "qualification/native-clean-state/2026-10-26/diagnostic-results.json": "76471266a76ffe27ac3273cacfe72eb28a93dd68c2919edec9d2f65c2b58c22f",
+    "qualification/native-clean-state/2026-10-26/evidence-lock.json": "c52cc022d17b4594d872788758f16f6bff4c4d657d28c4ff676e70192ba454be",
+    "qualification/native-clean-state/2026-10-26/evidence.zip": "64d613267d3acb6b56294a23fcecf06aab5b3dc6d45d2fa31bd0650cccce2723",
+    "qualification/native-clean-state/2026-10-26/first-full-suite.json": "c31256dba3964664a8568b3bf3fedc5f634123ced82fa16fce0f3e0bfb61f4b6",
+    "qualification/native-clean-state/2026-10-26/local-controls.json": "a1d7a8a0b78719e16bfe3f7afcf5ba8c87a1e899c8efe31b3fde02bb29b197ce",
+    "qualification/native-clean-state/2026-10-26/probe-source-lock.json": "757922ca0df7a1a4aee672e3699c582b3f58107a9cd306d00e1e259c1603a82e",
+    "qualification/native-clean-state/2026-10-26/reporter-failure.json": "d9a95043b74ebdb5c3fa0df3960355b8ce82062b92f391a81c570c852dfc671e",
+    "qualification/native-clean-state/2026-10-26/reporter-input-lock.json": "405f0623332ac93fd00545b32cda6edce8d1b4797121d8cf594e3db253a24f08",
+    "qualification/native-clean-state/2026-10-26/source-qualification.json": "2264561ea6ec4f06b0bc31883d230f665ada8132fa047e05b47d3a386bc2eb8a",
+    "qualification/native-clean-state/2026-10-26/submodule-fixture-input-lock.json": "fcc9cb00c664a6418afa219cd514337958df25c0d0058adf12af90586c091707",
+    "specs/027-native-clean-state-observation/ANALYSIS.md": "4ff37803155581eccf2c31824d65433877833d30910cf687c9591899e5424725",
+    "specs/027-native-clean-state-observation/CONSISTENCY_AND_AUTHORIZATION.md": "c005b3b55bb67a6f275252681a838a61d8bd936007d0e1dd76ca925eb0713462",
+    "specs/027-native-clean-state-observation/CONTROLLER_REVIEW.md": "d9ec5e22122253db3872254dbc0906d2d8ed198d07a91f48e0546a32eacb1a6a",
+    "specs/027-native-clean-state-observation/CONTROL_REVIEW.md": "0facb08086a13c21fb985ad614a71ee5df99ace143fb406b91eff961c5fd2c93",
+    "specs/027-native-clean-state-observation/FAILURE_FOLLOWUP.md": "9d565199d8e08c0fd61e23027de4b2bb86fe056550ec80bde9e2768779aaa667",
+    "specs/027-native-clean-state-observation/FINAL_PLAN_AUDIT.md": "d28ab9ad78da67019659937989c03ee4ec5faf5db1addb915d7b4d49363f0c15",
+    "specs/027-native-clean-state-observation/checklists/requirements.md": "ffe5581df750aa59faccdda96e1f66407deb120bc7ff427687a480e34dba741e",
+    "specs/027-native-clean-state-observation/plan.md": "e675809ca2be1dc456ca76379b80d5deb20b3c5095cf4940f652712ca7c45535",
+    "specs/027-native-clean-state-observation/spec.md": "fc556e1ebfb97f7bfbab17e301a267eebb0a1c891d0f3b704c7db4c0e49a954a",
+    "specs/027-native-clean-state-observation/tasks.md": "fc6dc30c40013db091d073af822abc37586d922f1f4197bfec4dc4a5c96efd38",
+    "tests/self-verify-clean-state.native.test.ts": "dafd92e594e8a8a0a2ec082e1115073855bdaed81e0d0be7e1b5fd3d0f95c5b8"
+  },
+  "review_execution": {
+    "performed": "Read-only source/spec/diff/evidence inspection, Git identity/status/tree/log queries, deterministic SHA256/count/CRC checks, and scoped original-artifact reads. Only this external report was authored.",
+    "not_performed": "No tests, builds, controllers, fixture probes, project-source imports, installs, inference/model-tool calls, process enumeration, remote actions, cleanup or project mutations.",
+    "provider_context": "Fresh combined reviewer subagent on the session model. Reviewer and implementer share OpenAI lineage; role separation is explicit and is not provider-independent certification.",
+    "skill": "<USERPROFILE>/.agents/skills/ps-review/SKILL.md",
+    "capability_fallback": "Repository-root CLAUDE.md and PRODUCT.md were absent. Used the required inline correctness/product/parsimony bars against the Task027 spec and diff; no configured specialist or external-provider result invented. Separate boundary/security source review is preserved at c80 and read for integration; this pass is not a replacement security gate.",
+    "limitations": [
+      "Static inspection and recorded native evidence do not certify every Git configuration, filesystem race, native fault or index-flag combination.",
+      "Prior capture ordering and Git ancestry are not independently timestamp-authenticated.",
+      "Full controller implementations were not rerun or independently revalidated here; concrete control source and qualification logic were read, existing adverse and final boundary reviews remain source-bound.",
+      "No publication/privacy clearance, actual remote-byte proof, whole-phase approval, CI/Self result, merge eligibility, canonical/postmerge result or release authority is supplied."
+    ]
+  },
+  "manifest": "panel: fresh combined correctness/product/parsimony/evidence via session-model subagent; inline PStack bars; separate earlier native-boundary/security review integrated, not replaced; read-only deterministic verification; same OpenAI lineage; zero scoped must-fix; one nonblocking historical-state wording note; all qualification/CI/Self/governance/canonical/remote/release gates remain"
+}
