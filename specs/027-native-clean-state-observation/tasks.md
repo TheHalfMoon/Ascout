@@ -1,6 +1,6 @@
 # Task027-T01
 
-Status: MERGED_CANONICAL PR649/7a089771aaad8f599b2ee342cf2c17eac19f547b; twelve actual native suites verified; Self inner1/FLAKY/materially incomplete retained. Closing reviews/remote proof pending; E00/release BLOCKED.
+Status: CLOSED_CANONICAL focused PR649/main7a08977; twelve actual native suites, finalized closing reviews and actual180-member remote proof. Self inner1/FLAKY/materially incomplete and localFAIL6plus hook retained; E00/release BLOCKED.
 
 1. Read-only frontier, 434-entry/16-control freeze, prior failure/diagnosis/tool and predecessor bindings.
 2. Final independent plan audit; different exact-head consistency/purity; bounded direct-user-derived authority afterward.

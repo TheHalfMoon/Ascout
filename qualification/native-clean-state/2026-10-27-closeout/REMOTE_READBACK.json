@@ -1,0 +1,73 @@
+{
+  "state": "ACTUAL_PRECEDING_CLOSING_REVISION_READ_BACK",
+  "observed_head": "d2c890c2e26ace2b057801923dba98bd3662da5c",
+  "core": {
+    "observed_at_utc": "2026-10-27T10:34:15.467207+00:00",
+    "head": "d2c890c2e26ace2b057801923dba98bd3662da5c",
+    "branch": "evidence/native-clean-state-postmerge-20261027",
+    "path": "qualification/native-clean-state/2026-10-27-closeout",
+    "remote_ref_verified": true,
+    "remote_bytes_equal_local": true,
+    "all_member_hashes_crc_json_python_verified": true,
+    "members": 180,
+    "files": {
+      "evidence-lock.json": {
+        "sha256": "83cd6f37ff8782c385f39bfed7bb7cd1448877992ecbcb6e04613a3e1c24ba28",
+        "bytes": 1124,
+        "git_blob": "7d1a0b555de8d0d61fae0b3017f861cbb08b90dc"
+      },
+      "evidence.zip": {
+        "sha256": "15c7d6da54e77bcdbd3f2d07e475c24b80d5bd5ba7b4247abbf37fb16427dfb9",
+        "bytes": 643074,
+        "git_blob": "503360c8c10917035abeb191d2f9c258b22859ce"
+      },
+      "REPORT.md": {
+        "sha256": "d6f0ddbec2af2ccb6ad78b81c8ab6d4845787f6bbf6b2cbebb542c5f306ecdcb",
+        "bytes": 16199,
+        "git_blob": "864d0df390b00c932cd7cfbd5a0e165178ff2d3d"
+      }
+    },
+    "notice": "Remote evidence durability only; no authentication of sanitized originals or release approval."
+  },
+  "sidecars": {
+    "observed_at_utc": "2026-10-27T10:34:15.887801+00:00",
+    "head": "d2c890c2e26ace2b057801923dba98bd3662da5c",
+    "branch": "evidence/native-clean-state-postmerge-20261027",
+    "prefix": "qualification/native-clean-state/2026-10-27-closeout",
+    "remote_ref_and_all_sidecar_bytes_verified": true,
+    "records": [
+      {
+        "path": "closing-review-manifest.json",
+        "git_blob": "ab944125488d848b4f96fc712be8fdfddb9f1459",
+        "sha256": "c3e933113e943691105c1f866313cde0473237ccc104ebc5cc9ca10679e69a03",
+        "bytes": 2037
+      },
+      {
+        "path": "clean-state-closing-review-correctness-4222e6c.json",
+        "git_blob": "158d402328e7b818780bed90b34dad79a17631ee",
+        "sha256": "a7c788e1664c5699cfcfacdef97c0758e1a2da5dc1334e6ef7c62d7382f70d0d",
+        "bytes": 19357
+      },
+      {
+        "path": "clean-state-closing-review-privacy-4222e6c.json",
+        "git_blob": "af8de6d560eac38972d4c70695bbeb91023a6f69",
+        "sha256": "a41dd835faa2831990062b5c53506b9449da9dbbc96e7a914789d6089361a189",
+        "bytes": 97971
+      },
+      {
+        "path": "closing-sidecars.py",
+        "git_blob": "bea81c9b1883f87aed6493d11957f7972e2943eb",
+        "sha256": "b25fc1ec11d84945c04ca3ec66543cfb2acee59d63143ae89fa89dd3103fbceb",
+        "bytes": 2877
+      },
+      {
+        "path": "close-after-readback.py",
+        "git_blob": "703e02bb296c07f1667cb7a9bc48a38b3d7d0abe",
+        "sha256": "dd857b30336a5f643ddb85b330fa4c14fd0e0ec11be55cf2c39e9c37a6aade5a",
+        "bytes": 6182
+      }
+    ],
+    "notice": "Actual remote evidence durability only; no authentication of minimized originals, release readiness or gate waiver."
+  },
+  "notice": "Point-in-time actual remote proof precedes this bookkeeping commit. This record does not claim a future branch revision was already observed. Verify the final bookkeeping revision through both readback tools before next-task source mutation. Focused canonical closure does not clear original local failures, Self inner1/FLAKY/materially incomplete, unknown causes or E00/release blockers."
+}

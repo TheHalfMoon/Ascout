@@ -1,6 +1,6 @@
 # Task027-T01: reduce native clean-state validation round trips
 
-Status: MERGED_CANONICAL PR649/7a089771aaad8f599b2ee342cf2c17eac19f547b; twelve actual native suites verified; Self inner1/FLAKY/materially incomplete retained. Closing reviews/remote proof pending; E00/release BLOCKED.
+Status: CLOSED_CANONICAL focused PR649/main7a08977; twelve actual native suites, finalized closing reviews and actual180-member remote proof. Self inner1/FLAKY/materially incomplete and localFAIL6plus hook retained; E00/release BLOCKED.
 
 Depends on focused CLOSED_CANONICAL Task026/PR648/main36768f4ffe1e2c18492cb3a8fdccd9274c2c615a. Its finalized closing reviews and actual final 108-member, three-core-file/seven-sidecar GitHub readback at55976e3efa5346f0da86440a0fe5022832ab4934 were verified before this branch. [Closing evidence](https://github.com/TheHalfMoon/Ascout/blob/55976e3efa5346f0da86440a0fe5022832ab4934/qualification/native-timing-diagnosis/2026-10-26-closeout/REPORT.md).
 

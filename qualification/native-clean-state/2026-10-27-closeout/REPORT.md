@@ -1,6 +1,6 @@
 # Task027 canonical clean-state closeout
 
-Status: MERGED_CANONICAL. Closing correctness/privacy reviews and actual closing remote readback remain pending. E00/release remain BLOCKED; Self inner evidence is adverse and materially incomplete.
+Status: CLOSED_CANONICAL for this focused task after finalized clear closing correctness/privacy reviews and actual closing core/member/sidecar readback. E00/release remain BLOCKED; Self inner evidence is adverse and materially incomplete.
 
 [PR649](https://github.com/TheHalfMoon/Ascout/pull/649) merged ordinarily at 7a089771aaad8f599b2ee342cf2c17eac19f547b, with ordered parents 36768f4ffe1e2c18492cb3a8fdccd9274c2c615a, dae521a8b11bef40fe8bfc430d7e098dedfd3f61. Reviewed and merge trees both equal 30fca6fb00065d5ecd36902c5b68e4b199d8a1e9; GitHub-reported signature verification is valid. The last-moment guard verified exact head/base/main, seven actual successful workflow checks, no changes-requested review or unresolved thread, and ordinary merge eligibility. No force/admin/admission, UA-P07 or governance waiver. Concurrent branches remained untouched. Initial final-head three-core-file/six-sidecar readback verified all118 members before merge; actual receipts are included here.
 
@@ -355,3 +355,6 @@ The forward minimized packet preserves all original adverse controls, final/cano
 
 
 Finalized fresh closing correctness and privacy reviews at4222e6c found no scoped must-fix. Both original and public derivative hashes are bound in closing-review-manifest.json; the frozen180-member ZIP is unchanged. Actual closing remote readback still precedes focused closure; no future remote proof or release is inferred.
+
+
+Actual closing readback at d2c890c2e26ace2b057801923dba98bd3662da5c verified three core files, all180 packet members and 5 review sidecars. The finalized review manifest binds original/published report hashes; frozen ZIP15c7d6da54e77bcdbd3f2d07e475c24b80d5bd5ba7b4247abbf37fb16427dfb9 is unchanged. REMOTE_READBACK.json records that preceding revision only. Final bookkeeping bytes still require actual readback before the next task. No original failure was relabeled, and E00/release remain BLOCKED.

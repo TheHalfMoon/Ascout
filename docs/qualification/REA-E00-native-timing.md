@@ -13,3 +13,6 @@ The bounded candidate removes six Git launches from the fixed representative con
 
 
 Task027 canonical update: PR649/main7a08977, twelve actual native suites verified. Self inner1/FLAKY/materially incomplete, local fullFAIL6plus hook and unknown causes retained. Closing reviews/remote proof pending; E00/release BLOCKED. See [canonical closeout](../../qualification/native-clean-state/2026-10-27-closeout/REPORT.md).
+
+
+Task027 focused closure: finalized clear closing reviews and actual180-member three-core-file/5-sidecar readback atd2c890c2e26ace2b057801923dba98bd3662da5c. Final bookkeeping revision must be read back before next repair. Self inner1/FLAKY/materially incomplete, localFAIL6plus hook and unknown causes remain; E00/release BLOCKED.
