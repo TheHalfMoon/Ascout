@@ -73,21 +73,21 @@ These follow from the choices above but were not separately put to the founder. 
 
 ```text
 AMENDMENT_ID = A07
-AMENDMENT_SCOPE = CLI exit and result-reporting semantics only
+AMENDMENT_SCOPE = CLI exit and result-reporting semantics, and the one claim limit in clause 7
 VERSION_CHANGE = 1.3.0 -> 1.4.0
 ```
 
 Amendment text to be appended as a bounded subsection titled `Amendment A07 — Truthful exit semantics`:
 
-1. `ascout review`, `ascout test`, and `ascout security` use these exits: 0 for complete applicable work or an explicitly requested non-assurance operation; 1 for a verified finding or failure; 2 for an error or invalid evidence; 3 for source drift detected by comparing observations at the start and end of a completed read; 4 for required verification that did not complete, including verification engine timeouts and partial coverage. When several apply, precedence is 2, then 3, then 1, then 4, then 0.
-2. Required verification that did not execute MUST NOT exit 0. A verified finding with missing coverage exits 1 and MUST keep the incomplete coverage visible.
-3. `review` MUST NOT exit 0 for an empty working tree while it cannot compare against a base. Its output MUST state that committed changes and ignored files were not considered. A later amendment or authorized packet may permit exit 0 only with a defined, source-bound proof that no reviewable change exists.
+1. `ascout review`, `ascout test`, and `ascout security` use these exits: 0 for complete applicable work or an explicitly requested non-assurance operation; 1 for a verified finding or a `FAIL` or `FLAKY` task; 2 for an error or invalid evidence, including an engine crash or timeout, as in `check`; 3 for source drift detected by comparing observations at the start and end of the operation; 4 for applicable verification that did not complete, including `BLOCKED` or `NOT_RUN` work and partial coverage. When several apply, precedence is 2, then 3, then 1, then 4, then 0.
+2. Applicable verification that did not execute MUST NOT exit 0. Absent an error or drift, a verified finding with missing coverage exits 1 and MUST keep the incomplete coverage visible. A packet that adds an engine MUST define how findings stay visible on exits 2 and 3.
+3. `review` exits 4 on a clean working tree while it cannot compare against a base. A later amendment or authorized packet may permit exit 0 only with a defined, source-bound proof that no reviewable change exists. Every `review` result MUST state that committed changes and ignored files were not considered, until a base comparison exists.
 4. An operation that only renders a plan may exit 0 only when explicitly requested and labeled `NON_ASSURANCE_PLAN`. It MUST NOT be presented as a test PASS.
-5. Operational errors on all commands exit 2 and MUST NOT be presented as repository findings. This includes `init`, `doctor`, and `check` when no valid receipt reaches the caller.
-6. Receipt schema v1.0 and its bytes are unchanged, as are the exits of `check` runs that emit a valid receipt.
+5. Operational errors on all commands exit 2 and MUST NOT be presented as repository findings. This includes `init` and `doctor`, and any `check` run that does not both complete with a valid receipt and deliver its selected output.
+6. Receipt schema v1.0 and its bytes are unchanged, as are the exits of `check` runs that complete with a valid receipt and deliver their selected output.
 7. This amendment introduces no `REFUTED` claim state. Any such state requires a separately authorized qualified contradiction and MUST NOT arise from a raw scanner finding.
 8. This amendment adds no engine, sandbox, network, service, or dependency, and no isolation claim. An exit code is one field of the evidence contract and is not proof of correctness.
-9. For the semantics above only, this amendment supersedes the statement in Amendment A05 clause 8 that `ascout check` remains unchanged, and the statement in Amendment A06 clause 5 that `ascout check`, `ascout review`, and `ascout test` remain unchanged. Those clauses otherwise stay in force.
+9. For the semantics above only, this amendment supersedes the statement in Amendment A05 clause 8 that `ascout check` remains unchanged, and the statement in Amendment A06 clause 5 that `ascout check`, `ascout review`, and `ascout test` remain unchanged. "Additive only" in those clauses concerned effects on other commands. Those clauses otherwise stay in force.
 
 No other normative Constitution text changes.
 
@@ -154,9 +154,9 @@ Create:
 tests/a07-cli-exit-native.test.ts
 ```
 
-Nothing is deleted. `src/git.ts` may gain only two new exported readers built on its existing constrained Git invocation: `readStagedChangedPaths(repositoryRoot, headSha)` and `readRepositoryPrefix(repositoryRoot)`. Its existing functions stay byte-identical.
+Nothing is deleted. `src/git.ts` may gain only two new exported readers built on its existing constrained Git invocation: `readStagedChangedPaths(repositoryRoot, headSha)`, which runs `git diff --cached --no-renames --name-status -z <head> --` and returns `readonly { path: string; change_kind: ChangedFileKind }[]`, and `readRepositoryPrefix(repositoryRoot)`, which runs `git rev-parse --show-prefix` and returns a string. Its existing functions stay byte-identical.
 
-The new test compiles the CLI with `tsc --outDir node_modules/.cache/ascout-a07-cli`, because Project CI runs tests before the build step and workflows are frozen. That ignored location lets the compiled copy resolve dependencies, and the test writes `{"type":"module"}` as a `package.json` in it, because Node's package-scope lookup stops at `node_modules`. `tests/npm-package-content.test.ts` shows the compile step only, since it never runs the output.
+The new test compiles the CLI with `tsc --outDir node_modules/.cache/ascout-a07-cli`, because Project CI runs tests before the build step and workflows are frozen. That ignored location lets the compiled copy resolve its dependencies, though not the receipt schema, so native rows must not depend on a `check` receipt. And the test writes `{"type":"module"}` as a `package.json` in it, because Node's package-scope lookup stops at `node_modules`. `tests/npm-package-content.test.ts` shows the compile step only, since it never runs the output.
 
 ### 5.2 Frozen
 
@@ -164,7 +164,7 @@ The new test compiles the CLI with `tsc --outDir node_modules/.cache/ascout-a07-
 
 ### 5.3 Required output fields
 
-Under Constitution principle II, every `NOT_RUN` carries non-empty machine-readable and human-readable reasons. When a command exits 0, 1, 3, or 4, its JSON output for `review`, `test`, and `security` MUST include these fields, and `exit_code` MUST equal the process exit:
+Under Constitution principle II, every `NOT_RUN` carries non-empty machine-readable and human-readable reasons. When a command exits 0 or 4, its JSON output for `review`, `test`, and `security` MUST include these fields, and `exit_code` MUST equal the process exit. Exit 1 cannot occur at this baseline because no engine exists:
 
 | Field | Values |
 | --- | --- |
@@ -174,12 +174,14 @@ Under Constitution principle II, every `NOT_RUN` carries non-empty machine-reada
 | `reason_text` | Non-empty |
 | `executed_count` | 0 at this baseline |
 
-When `review` exits 4, its JSON MUST also include `comparison: { kind: "working_tree_vs_head", base_ref }`, and `unreviewed_changes`, a list of `{ path, change_kind, previous_path? }` with one entry per path, covering every changed path. The working-tree reader's entry takes precedence, and staged-only paths are added from `readStagedChangedPaths`. For a clean tree, `reasons` no longer says there are no changed files. It states that the working tree matches HEAD and that committed changes and ignored files were not considered.
+When `review` exits 4, its JSON MUST also include `comparison: { kind: "working_tree_vs_head", base_ref }`, `considered: "working_tree_only"`, and `unreviewed_changes`, a list of `{ path, change_kind, previous_path? }` with one entry per path. Entries come first from the tracked results of the working-tree reader, then its untracked results, then `readStagedChangedPaths`. An entry is dropped if its path already appears, or if it equals a `previous_path` already listed. `absence.unreviewed_files` is aligned to the same paths.
 
-Source drift (exit 3) uses this report and no other fields, so nothing is claimed about a tree that has moved:
+Every `review` report's reasons, including those for a clean tree, state that committed changes and ignored files were not considered. A clean-tree report no longer says there are no changed files. It says the working tree matches HEAD, apart from `.ascout/`.
+
+Source drift (exit 3) uses this report and no other fields, so nothing is claimed about a tree that has moved. `drift` joins `REVIEW_REPORT_KINDS`, and terminal output states both observations:
 
 ```text
-{ kind: "drift", schema_version: 1, target_id, outcome: "ERROR", exit_code: 3,
+{ kind: "drift", schema_version: 1, target_id, outcome: "SOURCE_DRIFT", exit_code: 3,
   reason_code: "SOURCE_DRIFT", reason_text, executed_count: 0,
   start: { head_sha, tree_digest }, end: { head_sha, tree_digest } }
 ```
@@ -192,20 +194,22 @@ The usage line becomes `ascout test [--plan] [--profile quick|standard|deep|rele
 
 | Case | Exit | Required result |
 | --- | --- | --- |
-| `review`, changed files, no engine | 4 | `NOT_RUN`, `complete: false` |
+| `review`, changed files, no engine, including with unpushed commits | 4 | `NOT_RUN`, `complete: false`, `considered: "working_tree_only"`; states committed changes and ignored files were not considered |
 | `review`, edit plus deletion | 4 | Every changed path listed as unreviewed, including deleted paths |
 | `review`, rename | 4 | New and previous paths both visible |
 | `review`, deletions only | 4 | Deleted paths listed; not reported as empty |
+| `review`, `git mv a b` | 4 | One entry for `b` with `previous_path: a` |
+| `review`, `git rm --cached f` with `f` on disk | 4 | One entry for `f` |
 | `review`, untracked-only change | 4 | Paths listed |
 | `review`, ordinary staged change | 4 | Paths listed |
 | `review`, staged change with the working copy restored to HEAD content, or a staged new file removed from disk | 4 | Paths listed, using the new staged-path reader |
 | `review`, binary or mode-only change | 4 | Path listed |
 | `review`, clean tree, including with unpushed commits | 4 | `NOT_RUN`; states committed changes and ignored files were not considered |
 | `review`, only gitignored files changed | 4 | Same statement |
-| `review` from a subdirectory, with a tracked or an untracked change, inside or outside it | 2 | Error says to run from the repository root, without printing a path; not reported as empty |
+| `review` from a subdirectory, with a tracked or an untracked change, inside or outside it | 2 | The prefix check runs before any other Git read. Error says to run from the repository root, without printing a path; not reported as empty |
 | `review`, unborn HEAD | 2 | Error; not reported as empty |
 | `review`, HEAD or tree digest differs after a completed read | 3 | The `drift` report in section 5.3 |
-| `review`, read fails because the source changed mid-read | 2 | Error |
+| `review`, read fails because the source changed mid-read | 2 | Error text names the source change |
 | `review`, Git metadata read times out | 2 | Error; distinct from an engine timeout |
 | `test` with each profile, and bare `test` | 4 | `NOT_RUN`, required work and reason visible |
 | `test` outside a repository | 4 | `NOT_RUN` |
@@ -215,9 +219,9 @@ The usage line becomes `ascout test [--plan] [--profile quick|standard|deep|rele
 | `check`, `review`, `doctor` outside a repository | 2 | Error on stderr, empty stdout, no implied finding |
 | `init` failure | 2 | Error on stderr |
 | Unexpected exception in `runCli`, and at the entry-point handler in `src/cli.ts` | 2 | Path-redacted error on stderr, empty stdout. Error logging is guarded so it cannot throw, including when `process.cwd()` fails |
-| Uncaught exception or unhandled rejection after the entry point starts | 2 | Process-level handlers set exit 2 |
-| Running from a deleted working directory, on Linux and macOS | 2 | Proved natively by the new test |
-| Stdout write error, such as a closed pipe | 2 | A process-level stream error handler sets the exit, and no later assignment may lower exit 2; never reported as a finding |
+| Uncaught exception or unhandled rejection after the entry point starts, including during an in-flight `check` | 2 | Process-level handlers log safely and terminate immediately with exit 2, so no pending result can overwrite it. A run lock left behind must not let the next run exit 0 |
+| `init`, `doctor`, `check`, or `review` from a deleted working directory, on Linux and macOS | 2 | Error on stderr. `test` and `security` read no working directory and keep their rows |
+| Stdout write error, such as a closed pipe | 2 | A process-level stream error handler terminates with exit 2; never reported as a finding |
 | `check` receipt render failure | 2 | Error on stderr |
 | Usage error | 2 | Unchanged |
 | `doctor` and `init` success | 0 | Unchanged |
@@ -225,9 +229,10 @@ The usage line becomes `ascout test [--plan] [--profile quick|standard|deep|rele
 
 Each `review`, `test`, and `security` row applies to both JSON and terminal formats.
 
-`tests/a07-cli-exit-native.test.ts` MUST prove, as a real child process of the compiled CLI on every CI platform, each row that can be triggered from outside: every `review`, `test`, `security`, and outside-a-repository row, usage errors, a closed stdout pipe, and a deleted working directory. It covers POSIX `$?` on Linux and macOS, and `$LASTEXITCODE` and `$?` under `pwsh` or Windows PowerShell on Windows. A failed compile or a missing shell MUST fail the test rather than skip it.
+`tests/a07-cli-exit-native.test.ts` MUST prove, as a real child process of the compiled CLI on every CI platform, every `review`, `test`, `security`, and outside-a-repository row not listed below, usage errors, and a closed stdout pipe using `security --format json`. On Linux and macOS it also proves the deleted working directory rows. It covers POSIX `$?` on Linux and macOS, and `$LASTEXITCODE` and `$?` under `pwsh` or Windows PowerShell on Windows. A failed compile or a missing shell MUST fail the test rather than skip it.
 
-These rows may be proved in-process through `runCli` or an existing injection point, and through the listed tests: mid-read source change, post-read drift, receipt render failure, `init` failure, and unexpected exceptions.
+The listed tests prove these rows in-process with `vi.mock`: mid-read source change, post-read drift, Git metadata timeout, receipt render failure, `init` failure, and exceptions inside `runCli`. The new test proves the entry-point and process-level handler rows as a child process started with `node --import <fault module>`, where it generates the fault module itself.
+
 Importing `dist/cli.js` without running it as the entry point performs no work and is not a CLI invocation. This artifact does not change that path. Failures before the handlers are installed, such as a corrupt build or missing dependency during import, and a closed stderr, are outside this packet's guarantee, because they can't be handled by code that never loaded or can't report. They remain known limits.
 
 A finding combined with incomplete coverage cannot occur at this baseline because no engine exists. That case stays `N/A` until an engine packet and MUST NOT be simulated as an executed result.
@@ -260,14 +265,14 @@ specs/017-unified-assurance/A07_TRUTHFUL_EXITS_AUTHORIZATION.md
 
 Merging this artifact is not sufficient by itself. All of the following are required, in terms of this exact set of Project CI lanes: `ubuntu-24.04`, `windows-2025`, and `macos-15`, each on Node 22 and 24.
 
-1. This artifact's base still equals canonical `main`. PR #652 merged at `dafd896` and set these lanes. If `main` moves, update the base and repeat items 2 and 3.
+1. This artifact's base still equals canonical `main`. PR #652 merged at `dafd896` and set these lanes. If `main` moves or the head changes, update the base where needed and repeat items 2 to 5.
 2. Founder confirmation of section 3 on the exact pull-request head, which also serves as R1 with findings recorded. Any later change to the head requires reconfirmation.
 3. Project CI success on that head across all six lanes, and Self Verification success on that head. A cancelled lane is not a success.
 4. Alibaba Open Code Review with no unresolved material findings, or its exact recorded limitation. On this Markdown-only diff, `ocr delegate preview` is expected to report the file as excluded.
 5. Jev evidence, or its exact recorded limitation.
 6. Zero unresolved review threads, and canonical `main` still equal to the base recorded in this artifact immediately before merge.
 7. Guarded normal merge with exact expected head, then verified merge tree, parents, and signature.
-8. Post-merge Project CI success across all six lanes.
+8. Post-merge Project CI success across all six lanes. If it fails, this authorization stays not effective until a fix or revert lands.
 9. Issue #655 closed as `CLOSED_CANONICAL / EFFECTIVE`.
 
 Only after all conditions:
