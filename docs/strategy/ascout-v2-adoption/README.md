@@ -8,8 +8,10 @@ This directory is a **docs-only proposal branched directly from canonical main**
 
 1. [IMPLEMENTATION_FREEZE.md](IMPLEMENTATION_FREEZE.md) — present CLI baseline, phased execution, exact first-slice file boundaries, acceptance, rollback and GO/NO-GO.
 2. [ENGINE_PROFILE_AND_INGESTION.md](ENGINE_PROFILE_AND_INGESTION.md) — proposed typed runner/engine profile, Gitleaks adapter and critical-field mapping, no false-green policy.
-3. [REVIEW_AND_RATIFICATION.md](REVIEW_AND_RATIFICATION.md) — Pulse Goldfish advisory review, explicit FD-1 through FD-8 recommendations, founder and R1 review gates, links and evidence.
-4. Historical detailed research (read-only, no implied authority): [V2 Revision 10 docs, exact commit](https://github.com/TheHalfMoon/Ascout/tree/4949f0202fa715e698a16a5bd11e191462452fdc/docs/strategy/ascout-v2) and [first-round OpenCode Pulse review](https://github.com/TheHalfMoon/Ascout/blob/4cce1e4460b33eff8388dac6559e7022d5cb2af5/docs/strategy/ascout-v2/26_PULSE_GOLDFISH_FIRST_ROUND_2026-11-06.md). When they disagree, current main and the explicit new review record take precedence **for proposed code planning**; none supersede ratified constitutional governance.
+3. [FIRST_SPRINT_TEST_MATRIX.md](FIRST_SPRINT_TEST_MATRIX.md) — exact synthetic E0 setup, A07 exit grid, broker budgets, native-admission and rollback rules.
+4. [REVIEW_AND_RATIFICATION.md](REVIEW_AND_RATIFICATION.md) — Pulse Goldfish advisory review, explicit FD-1 through FD-8 recommendations, founder and R1 review gates, links and evidence.
+5. [PULSE_REVIEW_LEDGER.md](PULSE_REVIEW_LEDGER.md) — second-round Goldfish findings, fixes and exact remaining blockers.
+6. Historical detailed research (read-only, no implied authority): [V2 Revision 10 docs, exact commit](https://github.com/TheHalfMoon/Ascout/tree/4949f0202fa715e698a16a5bd11e191462452fdc/docs/strategy/ascout-v2) and [first-round OpenCode Pulse review](https://github.com/TheHalfMoon/Ascout/blob/4cce1e4460b33eff8388dac6559e7022d5cb2af5/docs/strategy/ascout-v2/26_PULSE_GOLDFISH_FIRST_ROUND_2026-11-06.md). When they disagree, current main and the explicit new review record take precedence **for proposed code planning**; none supersede ratified constitutional governance.
 
 ## Product and trust invariant
 

@@ -15,6 +15,8 @@ Google [Elephant-Goldfish Model](https://github.com/google/elephant-goldfish-mod
 
 The full first-round summary is in [historical Pulse report, signed proposal commit](https://github.com/TheHalfMoon/Ascout/blob/4cce1e4460b33eff8388dac6559e7022d5cb2af5/docs/strategy/ascout-v2/26_PULSE_GOLDFISH_FIRST_ROUND_2026-11-06.md). Reports are advisory **not human R1, founder authorization, proof of actual scanner execution or release evidence**.
 
+**Second-round advisory progress:** new main-rooted PR [#653](https://github.com/TheHalfMoon/Ascout/pull/653) at signed first commit `5c8f9205982b10da2c87b463157c82b5589c7964` has an independently completed Pulse **Implementation Readiness** review (verdict **REVISE**, E0 observation GO; blockers in E1–E5) and Pulse **Design Critic** review (verdict **REVISE**, existing engine qualification/egress/coverage/immutable-snapshot/provenance/secret-handling findings). We have revised the draft to add explicit safeguards and [first-sprint test matrix](FIRST_SPRINT_TEST_MATRIX.md); the final post-edit HEAD must be reviewed again. This does not change FD/R1 status.
+
 **This main-rooted rewrite addresses the critical lineage concern without merging the historical code tree.** The revised document now fixes current CLI baseline, names packet file allowlists, defines an EngineProfileV1/type envelope, an initial Gitleaks field map, and a reproducible E0 truth-table artifact. **A new independent Pulse Goldfish review of this exact revised branch is still mandatory; old reviewer verdicts do not transfer.**
 
 ## 2. Founder decisions — recommendations only
@@ -39,16 +41,16 @@ Do not infer an FD decision from a request to finish a plan. The table is a boun
 | Gate | Required evidence / present state |
 |---|---|
 | **R1 human** | Founder or named reviewer reads **the new main-rooted docs-only PR**, records line-level findings and formal disposition. If founder instead chooses root #578 Option A, original review units U1–U6 must be reviewed and exception scoped. **PENDING.** |
-| **R2 advisory** | Fresh Pulse Goldfish pass on the **exact new branch HEAD**, independently checking comprehension, design, codebase fit and zero-decision implementation readiness. First-round report against old stack is not portable. **PENDING.** |
+| **R2 advisory** | Fresh Pulse Goldfish pass on the **exact final signed branch HEAD after fixes**, independently checking comprehension, design, codebase fit and zero-decision implementation readiness. Initial second-round Design Critic and Implementation Readiness were REVISE; fixes require a **new** review. No PASS is claimed by those runs. **PENDING final verdict.** |
 | **R3 mechanics** | Source-bound `git diff --check`, zero link/ID verifier defects under approved policy, bounded Diffcipline file/line budget, DCO/signed commit, package/notice tests and exact-head CI. The original [#607](https://github.com/TheHalfMoon/Ascout/pull/607) script is *proposed* not adopted; do not claim it is constitutional. **PENDING on new HEAD.** |
-| **CI supported OSes** | Windows 2025, Ubuntu 24.04, and macOS 15 (not retired macOS 14), with Node 22/24; exact-HEAD `Project CI` and `Self Verification`. New macOS 15 CI fix is separate [#652](https://github.com/TheHalfMoon/Ascout/pull/652). **PENDING for this branch.** |
+| **CI supported OSes** | Windows 2025, Ubuntu 24.04, and macOS 15 (not retired macOS 14), with Node 22/24; exact-HEAD `Project CI` and `Self Verification`. New macOS 15 CI fix is separate [#652](https://github.com/TheHalfMoon/Ascout/pull/652). **PENDING for this branch.** If #652 is not adopted, project CI macOS 14 cancellation is recorded as **CANCELLED**, never PASS. Doc review may proceed, but full cross-platform ratification/claimed-macOS release remains BLOCKED until a supported-runner exact-head CI passes or the founder explicitly changes the claimed platform scope via recorded governance. No silent macOS waiver. |
 | **Security/rights** | Real emitted artifacts and pin/rights evidence for any native engine; hostile Git config and untrusted runtime must fail closed. **NOT RUN / BLOCKED** until own source/host qualification. |
 | **Release** | End-to-end real engines and all claimed-platform L3, zero false PASS, no unconsented source export, reproducible releases. **NOT READY**. |
 
 ## 4. Technical closure rules and next source change
 
 - **E0 evidence-only observation may begin on a disposable clone**, because it records actual behavior and changes no production files. It is **not** permission for a source patch or to execute untrusted code. Record exact full SHA, outputs, omissions and fixture provenance as described in [IMPLEMENTATION_FREEZE.md](IMPLEMENTATION_FREEZE.md).
-- **E1 Git hardening** remains blocked by the confidential G30 implementation specification and hostile fixtures; do not publish exploit-sensitive details in a public planning PR.
+- **E1 Git hardening** remains blocked by the confidential GIT-CONFIG-EXEC implementation specification and hostile fixtures; do not publish exploit-sensitive details in a public planning PR.
 - **E2 exits and E6 execution** remain blocked until FD-1/A07; **E4/E5** remain blocked by native profile/pin/privilege approvals and zero-decision schema/test review.
 - **E7–E9** are dependency-ordered future phases with explicit missing qualification. No engineer or agent may decide a new confinement technique, cloud endpoint or release exception outside a reviewed packet.
 - **Plan can be labeled READY FOR FOUNDER RATIFICATION only** after second-round reviewers return and new PR's mechanical checks pass; **IMPLEMENTATION GO** additionally needs founder FD authorization and R1/constitutional approval. Document quality and source runtime readiness are different claims.
