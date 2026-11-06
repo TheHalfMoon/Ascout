@@ -2,7 +2,7 @@
 
 **Status at creation:** `PROPOSED / NOT_EFFECTIVE / FOUNDER_CONFIRMATION_REQUIRED`. Issue #655 holds the live status, because editing this file after confirmation would move the confirmed head.
 **Ledger:** Issue #655
-**Authorization base:** `ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430`. This must be updated before founder confirmation, as section 9 item 1 requires.
+**Authorization base:** `dafd896fdea12c94374dc7cadc4c4c0eda4fa565`, which contains PR #652. The E0 evidence was captured at its first parent, `ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430`; the only difference is the macOS runner in `.github/workflows/ci.yml`.
 **Packet:** `E2 — truthful CLI exits`
 
 ## 1. Purpose
@@ -23,7 +23,7 @@ A07_CONSTITUTION_AMENDMENT = PROPOSED / NOT_RATIFIED
 CONSTITUTION_VERSION = 1.3.0 (Amendments A04, A05, A06 ratified)
 ```
 
-The E0 baseline in draft PR #654 records the problem. At the base above:
+The E0 baseline in draft PR #654 records the problem. At `ecada2bc`:
 
 | Situation | Current exit | Problem |
 | --- | --- | --- |
@@ -260,7 +260,7 @@ specs/017-unified-assurance/A07_TRUTHFUL_EXITS_AUTHORIZATION.md
 
 Merging this artifact is not sufficient by itself. All of the following are required, in terms of this exact set of Project CI lanes: `ubuntu-24.04`, `windows-2025`, and `macos-15`, each on Node 22 and 24.
 
-1. PR #652 merged, or a recorded founder change to this lane set, and this artifact's base updated to the resulting `main`.
+1. This artifact's base still equals canonical `main`. PR #652 merged at `dafd896` and set these lanes. If `main` moves, update the base and repeat items 2 and 3.
 2. Founder confirmation of section 3 on the exact pull-request head, which also serves as R1 with findings recorded. Any later change to the head requires reconfirmation.
 3. Project CI success on that head across all six lanes, and Self Verification success on that head. A cancelled lane is not a success.
 4. Alibaba Open Code Review with no unresolved material findings, or its exact recorded limitation. On this Markdown-only diff, `ocr delegate preview` is expected to report the file as excluded.
