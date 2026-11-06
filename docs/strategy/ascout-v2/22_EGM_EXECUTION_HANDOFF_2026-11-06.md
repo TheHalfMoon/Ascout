@@ -84,7 +84,7 @@ Each packet is a **separate, scoped PR** with exact source/target digests, expli
 - [x] A dated main-versus-plan drift ledger identifies the live `security` placeholder, durable journal, REA-E00, browser CI, ID-grammar and FD8 changes.
 - [ ] **Goldfish:** a fresh-context agent returns an independently recorded comprehension check, adversarial risks, source-fit review, structure, and implementation-readiness verdict; all blockers resolved with source/test edits or clearly owned deferrals.
 - [ ] **Mechanical:** final V2 branch links, explicit ID references and negative fixtures pass the *adopted* verifier, exact-head cross-platform CI, diff/size review, signed/DCO commit policy, and actual repository governance. Unmerged policy does not count.
-- [ ] **Authority:** FD-1…FD-8 have explicit dispositions; independent required reviewer signs off; plan is ratified in the canonical decision chain.
+- [ ] **Authority:** explicit dispositions exist for FD-1 through FD-8; the required independent reviewer signs off; the canonical governance sequence records a final decision on this plan.
 - [ ] **Currentness:** source and docs are reconciled against the actual implementation HEAD and re-audited before the first executable task.
 
 **Verdict at preparation:** **EXECUTION HANDOFF PREPARED; ADOPTION / IMPLEMENTATION GO NOT YET CLAIMED.** Begin only scoped no-new-authority preparatory work (evidence reproduction and tests) until review, mechanical and founder gates close. This prevents an excellent document from falsely becoming a released or trusted product.
