@@ -1,0 +1,56 @@
+{
+  "schema": "ascout.fd8.reslice-manifest/v1",
+  "repository": "TheHalfMoon/Ascout",
+  "base_head": "ca6b6f514e5a8881e2cfa2789b5e5ea43e3aaaad",
+  "source_head": "512b5bc14bdbe875a01c4a137ef134564c6bd1c8",
+  "review_state": "NOT_RATIFIED",
+  "purpose": "Preflight only; no approval to merge or replace PR #578.",
+  "groups": [
+    {
+      "id": "FD8-B-R1",
+      "files": [
+        "docs/strategy/README.md",
+        "docs/strategy/ascout-v2/00_EXECUTIVE_DECISION.md",
+        "docs/strategy/ascout-v2/01_LIVE_REPOSITORY_AUDIT.md",
+        "docs/strategy/ascout-v2/02_PORTFOLIO_SOURCE_INVENTORY.md"
+      ]
+    },
+    {
+      "id": "FD8-B-R2",
+      "files": [
+        "docs/strategy/ascout-v2/03_EXTERNAL_SOURCE_RESEARCH.md",
+        "docs/strategy/ascout-v2/04_CAPABILITY_REUSE_MATRIX.md",
+        "docs/strategy/ascout-v2/05_GAP_AND_RISK_REGISTER.md"
+      ]
+    },
+    {
+      "id": "FD8-B-R3",
+      "files": [
+        "docs/strategy/ascout-v2/06_ARCHITECTURE_OPTIONS.md",
+        "docs/strategy/ascout-v2/07_TARGET_ARCHITECTURE.md",
+        "docs/strategy/ascout-v2/08_SECURITY_AND_TRUST_MODEL.md",
+        "docs/strategy/ascout-v2/10_LOCAL_ZERO_COST_PACKAGING_AND_PLATFORM.md"
+      ]
+    },
+    {
+      "id": "FD8-B-R4",
+      "files": [
+        "docs/strategy/ascout-v2/09_ASSURANCE_EVIDENCE_CONTRACTS.md",
+        "docs/strategy/ascout-v2/11_IMPLEMENTATION_MASTER_PLAN.md",
+        "docs/strategy/ascout-v2/12_TASK_REGISTRY.md"
+      ]
+    },
+    {
+      "id": "FD8-B-R5",
+      "files": [
+        "docs/strategy/ascout-v2/13_BENCHMARK_AND_ACCEPTANCE_PROGRAM.md",
+        "docs/strategy/ascout-v2/14_CRITICAL_DESIGN_CHALLENGE.md",
+        "docs/strategy/ascout-v2/15_IMPLEMENTATION_READINESS_AUDIT.md",
+        "docs/strategy/ascout-v2/DECISION_LOG.md",
+        "docs/strategy/ascout-v2/README.md",
+        "docs/strategy/ascout-v2/SOURCE_PROVENANCE_REGISTER.md",
+        "docs/strategy/ascout-v2/TRACEABILITY_MATRIX.md"
+      ]
+    }
+  ]
+}
