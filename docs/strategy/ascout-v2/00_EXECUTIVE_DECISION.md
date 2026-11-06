@@ -1,5 +1,7 @@
 # 00 — Executive Decision
 
+> **CURRENTNESS NOTICE (2026-11-06):** This is the original, **unratified historical proposal** from the October 2026 V2 research, anchored to `main@ca6b6f5`. Its §§1–2, 4–6 describe original observations and ordering, **not** the present implementation or approved build instructions. On canonical `main@ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430`, `ascout security` already exists but reports `NOT_RUN` without invoking a scanner; `review` and `test` remain non-executing; real-engine implementation and REA-E00 release qualification are still blocked. The current **proposed** architecture is federated security observations with one Ascout claim authority, a first independent Gitleaks vertical slice, and optional separately scoped Sentrdel CLI/release work. For technical execution use [22](22_EGM_EXECUTION_HANDOFF_2026-11-06.md), [23](23_IMPLEMENTATION_CONTRACTS_AND_FIRST_SPRINT_2026-11-06.md), and [25](25_FOUNDER_DECISION_AND_FIRST_PR_FREEZE_2026-11-06.md); for founder decisions see [19](19_PLANNING_GOVERNANCE_AND_REVIEW_PATH.md). **Eight FD decisions, human R1 review, plan admission and implementation authority remain pending.** Do not use the old source probes or original Sentrdel-only description as a current CLI contract.
+
 **Status:** PROPOSED — requires founder ratification.
 **Base:** `main` @ `ca6b6f514e5a8881e2cfa2789b5e5ea43e3aaaad`.
 
