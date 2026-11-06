@@ -21,19 +21,20 @@ WSL2 is a real Linux userland on this one machine. It does not stand in for host
 
 ## Result summary
 
-- **No review, test, or security engine ran in any truth-table row.** The CLI reports this itself for `review` and `security`.
+- **No review, test, or security engine ran in any truth-table row.** The CLI reports this itself for `review` and `security`. For `test`, this rests on its plan-only output and on reading the source.
 - **The current limitations the plan predicted are real.** `review` exits 0 with NOT_RUN on both empty and changed scope, `test --profile standard` exits 0 with only a plan, and `security` exits 1 with NOT_RUN. These are limitations, not desired behavior.
 - **The full test suite did not pass locally on Windows.** See [Test results](#test-results).
 - **Hosted Project CI for `ecada2bc` concluded failure.** Four cells passed and two `macos-14` cells were cancelled. Self Verification has no run for this SHA. See [Exact-head CI](#exact-head-ci).
-- **Windows and Linux agree on exit codes and stdout and stderr byte counts in all 30 captures per platform.** They ran different Node, npm, and Git versions, so this does not isolate the effect of the operating system.
-- Findings F2 and F4 to F8 go beyond what the plan lists. See [Findings](#findings).
+- **Windows and Linux agree on exit codes and stdout and stderr byte counts across 60 captures, 30 per platform, compared pairwise.** They ran different Node, npm, and Git versions, so this does not isolate the effect of the operating system.
+- Findings F1 and F3 are limitations the plan already names. F2, F4, F5, F6, F7, and F8 go beyond it. See [Findings](#findings).
 
 ## Terms
 
 - **E0, E1, E2, and so on:** work packets in the proposed plan in PR #653. E0 is this observation.
-- **Matrix and freeze:** `FIRST_SPRINT_TEST_MATRIX.md` and `IMPLEMENTATION_FREEZE.md` in that PR.
+- **Matrix and freeze:** `FIRST_SPRINT_TEST_MATRIX.md` and `IMPLEMENTATION_FREEZE.md` in that PR. They specify different truth-table columns. This report uses the matrix columns.
 - **FD-1:** a pending founder decision on exit-code semantics. No FD has been decided.
-- **Receipt:** the JSON result of `ascout check`. Its exit precedence is 2 error, then 3 source drift, then 1 finding or failure, then 4 incomplete, then 0 clean.
+- **Receipt:** the JSON result of `ascout check`. Its precedence, which applies only once a receipt exists, is 2 error, then 3 source drift, then 1 finding or failure, then 4 incomplete, then 0 clean.
+- **Expectation column:** `NOT_RUN/0` and `plan/0` mean the expected outcome and exit code.
 - **Verdict column:** AS EXPECTED means the observation equals the plan's stated expectation of current behavior, not that the behavior is good. OBSERVED means the plan stated no expectation. NEW points to a finding.
 
 ## Build and focused tests
@@ -49,7 +50,7 @@ The skipped cases are platform-conditional tests in `tests/process-control.test.
 
 ## CLI truth table
 
-Each cell ran twice on each platform against a newly built fixture, for 30 captures per platform. The table shows the first 12 hex characters of Windows SHA-256 digests of path-sanitized stdout. "varies" means the two Windows runs differed: `check` output holds run IDs and timestamps, and the `review` difference observed is `target_id`, which hashes the fixture path.
+Each cell ran twice on each platform against a newly built fixture, for 30 captures per platform. The table shows the first 12 hex characters of Windows SHA-256 digests of path-sanitized stdout, where `e3b0c44298fc` means empty stdout. `source_sha` values are shortened to 8 characters. "varies" means the two Windows runs differed: `check` output holds run IDs and timestamps, and the `review` difference observed is `target_id`, which hashes the fixture path.
 
 | fixture | source_sha | command | requested_scope | actual_outcome | actual_exit | executed_count | omissions | stdout_digest | source_stability | expectation | verdict | NOT_RUN reason |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -75,7 +76,7 @@ Each cell ran twice on each platform against a newly built fixture, for 30 captu
 
 ### Cells not observed through the CLI
 
-The matrix forbids scripts and dependencies in fixtures, so `check` could only reach exit 4 and the not-a-repo error path through the real CLI. The other exits rest on existing tests that call `runCheck` or `runCli` in-process. They did not go through `dist/cli.js`.
+The freeze asks to observe `check` success, failure, and drift, but the matrix forbids scripts and dependencies in fixtures. Following the matrix, `check` reached only exit 4 and the not-a-repo error path through the real CLI, so CLI observation of the cases below is **NOT_RUN**. The other `check` exits rest on existing tests that call `runCheck` or `runCli` in-process. They did not go through `dist/cli.js`.
 
 | Case | Evidence | Windows default-concurrency run |
 | --- | --- | --- |
@@ -111,7 +112,7 @@ The failing set moved between runs. The first T019 case above passed in the defa
 
 ## Exact-head CI
 
-[Project CI run 40531354831](https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831) ran on a push of `ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430`, and GitHub reports its conclusion as **failure**. No cell reports a failed result. Self Verification is a separate workflow, listed here because the procedure requires it.
+[Project CI run 40531354831](https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831) ran on a push of `ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430`, and GitHub reports its conclusion as **failure**. No test step failed. Both `macos-14` jobs carry the failure annotation "The job was not acquired by Runner of type hosted even after multiple attempts", so those cells never ran tests. This report infers, but GitHub does not state, that those jobs produced the failed run conclusion. Self Verification is a separate workflow, listed here because the procedure requires it.
 
 | Cell | Result |
 | --- | --- |
@@ -142,7 +143,7 @@ These are observations for review. No source was changed.
 
 | Tool | Observed state | Used for this report |
 | --- | --- | --- |
-| OpenCode with `opencode/pulse-alpha-free` | v2.2.5 | Fresh read-only reviews of this report. They are advisory. Not used to produce any result above |
+| OpenCode with `opencode/pulse-alpha-free` | v2.2.5 | Fresh read-only reviews of drafts of this report. They are advisory, found errors that were corrected, and were not used to produce any result above |
 | Local D1 (a small on-device classifier) | Server online, CPU text mode | One advisory triage of a summary of this report, with no specific findings. Not evidence |
 | Alibaba Open Code Review | `ocr` 1.13.6 (`891df1b`) | **No review occurred.** `ocr delegate preview` reports 0 of 1 files reviewable, because this Markdown file is excluded as `unsupported_ext` |
 | PStack | `ps-*` skill files only; no executable or version found locally | **Not used as test evidence** |
