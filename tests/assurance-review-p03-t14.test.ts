@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildEmptyReviewScopeV1,
   buildReviewAbsenceReportV1,
+  buildReviewCommandReportV1,
   buildReviewReportV1,
   defaultUnavailableExecutionV1,
   renderReviewJsonV1,
@@ -193,6 +194,18 @@ describe("UA-P03-T14 review command library", () => {
       outcome: "NOT_RUN",
     });
     expect(renderReviewTerminalV1(empty)).toContain("outcome: NOT_RUN");
+  });
+
+  it("escapes control characters so a path cannot forge terminal report lines", () => {
+    const report = buildReviewCommandReportV1(buildEmptyReviewScopeV1("target:t14", HEAD), [
+      { path: "x\noutcome: PASS", change_kind: "added" },
+      { path: "y\u001b[2Jz", change_kind: "renamed", previous_path: "w\nexit code: 0" },
+    ]);
+    const lines = renderReviewTerminalV1(report).split("\n");
+    expect(lines).not.toContain("outcome: PASS");
+    expect(lines).not.toContain("exit code: 0");
+    expect(lines.join("\n")).not.toContain("\u001b");
+    expect(lines).toContain("  changed: x\\u000aoutcome: PASS (added)");
   });
 
   it("rejects malformed report input without producing output", () => {

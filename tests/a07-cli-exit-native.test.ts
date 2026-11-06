@@ -480,6 +480,27 @@ describe("A07 stream and process faults through the compiled CLI", { timeout: CA
     expect(result.stderr).toContain("a07 fault");
   });
 
+  it("does not let a pending exit 0 overwrite a fault that fired first", () => {
+    const module = faultModule(`
+      const then = Promise.prototype.then;
+      Promise.prototype.then = function (onFulfilled, onRejected) {
+        if (typeof onFulfilled === "function" && String(onFulfilled).includes("process.exitCode")) {
+          setImmediate(() => { throw new Error("a07 early fault"); });
+          return then.call(
+            this,
+            (value) => new Promise((resolve) => setTimeout(() => resolve(onFulfilled(value)), 200)),
+            onRejected,
+          );
+        }
+        return then.call(this, onFulfilled, onRejected);
+      };
+    `);
+    const url = new URL(`file:///${module.replaceAll("\\", "/").replace(/^\/+/u, "")}`).href;
+    const result = cli(temporaryDirectory("ascout-a07-run-"), ["test", "--plan"], ["--import", url]);
+    expect(result.status, result.stderr).toBe(2);
+    expect(result.stderr).toContain("a07 early fault");
+  });
+
   it("exits 2 on a fault during an in-flight check", () => {
     const module = faultModule(`
       import { existsSync } from "node:fs";
