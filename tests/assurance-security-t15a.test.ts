@@ -37,7 +37,7 @@ describe("UA-P06-T15A security benchmark v1 (T09–T14 contracts)", () => {
       "retest.still-observed": "OPEN_STILL_OBSERVED",
       "retest.not-reobserved-unverified": "RETEST_NOT_REOBSERVED/verified=false",
       "repro.linked-not-executed": "LINKED_NOT_EXECUTED/proven=false",
-      "engine.missing-not-run-exit-1": "NOT_RUN/1",
+      "engine.missing-not-run-exit-4": "NOT_RUN/4",
     });
   });
 

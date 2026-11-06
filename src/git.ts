@@ -1389,3 +1389,54 @@ export function readWorkingTreeComparison(
     changed_files: [...tracked, ...untracked].sort(compareChangedFiles),
   };
 }
+
+export interface StagedChangedPath {
+  readonly path: string;
+  readonly change_kind: ChangedFileKind;
+}
+
+const STAGED_STATUS_KINDS: Readonly<Record<string, ChangedFileKind>> = {
+  A: "added",
+  M: "modified",
+  D: "deleted",
+  T: "type_changed",
+};
+
+export function readStagedChangedPaths(
+  repositoryRoot: string,
+  headSha: string,
+): readonly StagedChangedPath[] {
+  if (!FULL_GIT_OBJECT_ID.test(headSha)) {
+    throw new GitIdentityError("git_metadata_error", "unable to read staged paths for an invalid HEAD");
+  }
+  const records = splitNullTerminated(
+    requireSuccessfulGitBuffer(
+      runGitTreeMetadata(repositoryRoot, ["diff", "--cached", "--no-renames", "--name-status", "-z", headSha, "--"]),
+      "unable to read staged paths",
+    ),
+    "git staged path output",
+  );
+  if (records.length % 2 !== 0) {
+    throw new GitIdentityError("git_metadata_error", "unable to parse staged paths");
+  }
+  const entries: StagedChangedPath[] = [];
+  for (let index = 0; index < records.length; index += 2) {
+    const changeKind = STAGED_STATUS_KINDS[decodeUtf8(records[index]!, "git staged status")];
+    if (changeKind === undefined) {
+      throw new GitIdentityError("git_metadata_error", "unable to parse staged paths");
+    }
+    const path = requireCanonicalRepositoryPath(decodeUtf8(records[index + 1]!, "git staged path"));
+    if (!isAscoutRuntimePath(path)) {
+      entries.push({ path, change_kind: changeKind });
+    }
+  }
+  return entries;
+}
+
+export function readRepositoryPrefix(repositoryRoot: string): string {
+  const output = requireSuccessfulGitBuffer(
+    runGitTreeMetadata(repositoryRoot, ["rev-parse", "--show-prefix"]),
+    "not inside a Git work tree, or Git could not be run",
+  );
+  return stripOneTerminalNewline(decodeUtf8(output, "git repository prefix"));
+}

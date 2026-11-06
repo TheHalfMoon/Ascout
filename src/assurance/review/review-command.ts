@@ -28,7 +28,13 @@ import type { RawReviewObservationV1 } from "./raw-observation.js";
 
 export const REVIEW_COMMAND_SCHEMA_VERSION = 1 as const;
 
-export const REVIEW_REPORT_KINDS = ["review", "absence", "empty"] as const;
+export const REVIEW_REPORT_KINDS = ["review", "absence", "empty", "drift"] as const;
+
+export const REVIEW_NOT_RUN_EXIT_CODE = 4 as const;
+export const REVIEW_SOURCE_DRIFT_EXIT_CODE = 3 as const;
+
+const REVIEW_SCOPE_STATEMENT =
+  "committed changes and ignored files were not considered";
 
 export type ReviewReportKindV1 = (typeof REVIEW_REPORT_KINDS)[number];
 
@@ -84,10 +90,50 @@ export interface EmptyReviewReportV1 {
   readonly reasons: readonly string[];
 }
 
+export interface ReviewSourceObservationV1 {
+  readonly head_sha: string;
+  readonly tree_digest: string;
+}
+
+export interface DriftReviewReportV1 {
+  readonly kind: "drift";
+  readonly schema_version: 1;
+  readonly target_id: string;
+  readonly outcome: "SOURCE_DRIFT";
+  readonly exit_code: typeof REVIEW_SOURCE_DRIFT_EXIT_CODE;
+  readonly reason_code: "SOURCE_DRIFT";
+  readonly reason_text: string;
+  readonly executed_count: 0;
+  readonly start: ReviewSourceObservationV1;
+  readonly end: ReviewSourceObservationV1;
+}
+
 export type ReviewReportV1 =
   | FullReviewReportV1
   | AbsenceReviewReportV1
-  | EmptyReviewReportV1;
+  | EmptyReviewReportV1
+  | DriftReviewReportV1;
+
+export interface ReviewChangeV1 {
+  readonly path: string;
+  readonly change_kind: string;
+  readonly previous_path?: string;
+}
+
+export interface ReviewExitFieldsV1 {
+  readonly outcome: "NOT_RUN";
+  readonly exit_code: typeof REVIEW_NOT_RUN_EXIT_CODE;
+  readonly reason_code: "ENGINE_NOT_EXECUTED";
+  readonly reason_text: string;
+  readonly executed_count: 0;
+  readonly comparison: Readonly<{ kind: "working_tree_vs_head"; base_ref: string }>;
+  readonly considered: "working_tree_and_index_only";
+  readonly unreviewed_changes: readonly ReviewChangeV1[];
+}
+
+export type ReviewCommandReportV1 =
+  | (AbsenceReviewReportV1 & ReviewExitFieldsV1)
+  | (EmptyReviewReportV1 & ReviewExitFieldsV1);
 
 export interface ReviewCommandCheckV1 {
   readonly ok: boolean;
@@ -271,8 +317,62 @@ export function buildEmptyReviewScopeV1(
     target_id,
     head_sha,
     outcome: "NOT_RUN" as const,
-    reasons: Object.freeze(["empty scope: no changed files under review"]),
+    reasons: Object.freeze([
+      "the working tree matches HEAD, apart from .ascout/",
+      REVIEW_SCOPE_STATEMENT,
+    ]),
   });
+}
+
+export function buildReviewCommandReportV1(
+  report: AbsenceReviewReportV1 | EmptyReviewReportV1,
+  changes: readonly ReviewChangeV1[],
+): ReviewCommandReportV1 {
+  const fields: ReviewExitFieldsV1 = {
+    outcome: "NOT_RUN",
+    exit_code: REVIEW_NOT_RUN_EXIT_CODE,
+    reason_code: "ENGINE_NOT_EXECUTED",
+    reason_text: `No review engine ran, so nothing was reviewed; ${REVIEW_SCOPE_STATEMENT}.`,
+    executed_count: 0,
+    comparison: Object.freeze({ kind: "working_tree_vs_head", base_ref: report.head_sha }),
+    considered: "working_tree_and_index_only",
+    unreviewed_changes: Object.freeze(changes.map((change) => Object.freeze({ ...change }))),
+  };
+  if (report.kind === "empty") {
+    return Object.freeze({ ...report, ...fields });
+  }
+  return Object.freeze({
+    ...report,
+    absence: Object.freeze({
+      ...report.absence,
+      reasons: Object.freeze([...report.absence.reasons, REVIEW_SCOPE_STATEMENT]),
+    }),
+    ...fields,
+  });
+}
+
+export function buildReviewDriftReportV1(
+  target_id: string,
+  start: ReviewSourceObservationV1,
+  end: ReviewSourceObservationV1,
+): DriftReviewReportV1 {
+  return Object.freeze({
+    kind: "drift" as const,
+    schema_version: REVIEW_COMMAND_SCHEMA_VERSION,
+    target_id,
+    outcome: "SOURCE_DRIFT" as const,
+    exit_code: REVIEW_SOURCE_DRIFT_EXIT_CODE,
+    reason_code: "SOURCE_DRIFT" as const,
+    reason_text: "The source changed between the start and end of this read, so no scope is reported.",
+    executed_count: 0 as const,
+    start: Object.freeze({ head_sha: start.head_sha, tree_digest: start.tree_digest }),
+    end: Object.freeze({ head_sha: end.head_sha, tree_digest: end.tree_digest }),
+  });
+}
+
+// Git paths may hold control characters, which must not forge terminal report lines.
+function escapeTerminalPath(path: string): string {
+  return path.replace(/\p{Cc}/gu, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
 }
 
 export function renderReviewJsonV1(report: ReviewReportV1): string {
@@ -283,6 +383,14 @@ export function renderReviewTerminalV1(report: ReviewReportV1): string {
   const lines: string[] = [];
   lines.push("=== Ascout Review (read-only) ===");
   lines.push(`target: ${report.target_id}`);
+  if (report.kind === "drift") {
+    lines.push(`outcome: ${report.outcome}`);
+    lines.push(`reason: ${report.reason_text}`);
+    lines.push(`start: head ${report.start.head_sha}, tree ${report.start.tree_digest}`);
+    lines.push(`end: head ${report.end.head_sha}, tree ${report.end.tree_digest}`);
+    lines.push(`exit code: ${report.exit_code}`);
+    return lines.join("\n") + "\n";
+  }
   lines.push(`head: ${report.head_sha}`);
   if (report.kind === "review") {
     lines.push(`profile: ${report.profile_id}`);
@@ -293,7 +401,7 @@ export function renderReviewTerminalV1(report: ReviewReportV1): string {
     lines.push(`reviewed files: ${report.coverage.reviewed_files.length}`);
     lines.push(`unreviewed files: ${report.coverage.unreviewed_files.length}`);
     for (const file of report.coverage.unreviewed_files) {
-      lines.push(`  unreviewed: ${file}`);
+      lines.push(`  unreviewed: ${escapeTerminalPath(file)}`);
     }
     for (const group of report.coverage.groups) {
       lines.push(`  group ${group.group_id}: ${group.state}`);
@@ -305,13 +413,29 @@ export function renderReviewTerminalV1(report: ReviewReportV1): string {
     }
     lines.push(`unreviewed files: ${report.absence.unreviewed_files.length}`);
     for (const file of report.absence.unreviewed_files) {
-      lines.push(`  unreviewed: ${file}`);
+      lines.push(`  unreviewed: ${escapeTerminalPath(file)}`);
     }
   } else {
     lines.push(`outcome: ${report.outcome}`);
     for (const reason of report.reasons) {
       lines.push(`reason: ${reason}`);
     }
+  }
+  if ("unreviewed_changes" in report) {
+    const fields = report as ReviewCommandReportV1;
+    lines.push(`outcome: ${fields.outcome} (${fields.reason_code})`);
+    lines.push(fields.reason_text);
+    lines.push(`compared: ${fields.comparison.kind} at ${fields.comparison.base_ref}`);
+    lines.push(`considered: ${fields.considered}`);
+    for (const change of fields.unreviewed_changes) {
+      lines.push(
+        change.previous_path === undefined
+          ? `  changed: ${escapeTerminalPath(change.path)} (${change.change_kind})`
+          : `  changed: ${escapeTerminalPath(change.path)} (${change.change_kind} from ${escapeTerminalPath(change.previous_path)})`,
+      );
+    }
+    lines.push(`executed: ${fields.executed_count}`);
+    lines.push(`exit code: ${fields.exit_code}`);
   }
   return lines.join("\n") + "\n";
 }

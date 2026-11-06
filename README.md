@@ -94,11 +94,11 @@ ascout init
 ascout doctor
 ascout check [--allow-changed-command-surface] [--format json|agent]
 ascout review [--format json|terminal]
-ascout test [--profile quick|standard|deep|release] [--format json|terminal]
+ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]
 ascout security [--format json|terminal]
 ```
 
-**Current command semantics (v0.1.0):** `ascout check` executes supported local verification tasks and produces an evidence receipt. `ascout review` presently reports review scope or unavailable review execution; it does **not** run a code-review engine. `ascout test` presently creates a test plan; it does **not** execute that plan. Both `review` and `test` can currently exit with code 0 even though no review or advanced test execution took place. That exit status is **not an assurance PASS**. A change to those command exit semantics is proposed separately and requires the appropriate compatibility/governance approval. `ascout security` is local and read-only: no security engine is executed yet, so it always reports `NOT_RUN` and exits with code 1; it never reports a security pass or a clean result.
+**Current command semantics (v0.1.0):** `ascout check` executes supported local verification tasks and produces an evidence receipt, and must run from the repository root. `ascout review` reports unreviewed working-tree and index changes; it does **not** run a code-review engine, and it does not consider committed changes or ignored files. `ascout test` does **not** execute tests, and `ascout security` does **not** run a scanner. All three exit `4` because required verification did not run, and that exit status is never an assurance PASS. `ascout test --plan` renders a plan labeled `NON_ASSURANCE_PLAN` and exits `0`; that is not a test result.
 
 When running directly from a source checkout rather than an installed release asset, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
 
@@ -259,6 +259,18 @@ At a high level:
 - refused or unrun required work remains visible in receipt completeness/status rather than being counted as passed.
 
 Consumers should use the receipt fields together with the exit status instead of reducing the receipt to a single boolean.
+
+All commands use the same meanings under Constitution Amendment A07:
+
+| Exit | Meaning |
+| --- | --- |
+| `0` | Complete applicable work, or an explicitly requested non-assurance operation such as `test --plan` |
+| `1` | A verified finding or a `FAIL` or `FLAKY` task |
+| `2` | An error or invalid evidence, including running `check`, `review`, or `doctor` outside a repository, or `check` or `review` from a subdirectory |
+| `3` | Source drift detected between the start and end of the operation |
+| `4` | Applicable verification that did not complete, including `review`, `test`, and `security` today, because no engine runs. `test` and `security` read no repository, so this also applies outside one |
+
+**This is a breaking change.** Earlier versions exited `0` for `review` and `test` and `1` for `security` without running anything, and exited `1` for most operational errors. Failures while Ascout itself is still loading, and output streams closed before it starts, are outside this guarantee. A `GIT_DIR` set in the environment may also defeat the subdirectory check.
 
 ## Package boundary
 

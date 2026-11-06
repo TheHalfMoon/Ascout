@@ -119,4 +119,17 @@ describe("T070 CLI receipt format wiring", () => {
     expect(stdout).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
     expect(error).not.toHaveBeenCalled();
   });
+
+  it("maps a receipt render failure to exit 2, even for a clean receipt (Amendment A07)", async () => {
+    mocks.runCheck.mockResolvedValue({ receipt: { summary: { exit_code: 0 } }, terminalSummary: "unused" });
+    mocks.renderJson.mockImplementation(() => {
+      throw new Error("render failed");
+    });
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await runCli(["check", "--format", "json"])).toBe(2);
+    expect(stdout).not.toHaveBeenCalled();
+    expect(error.mock.calls.flat().map(String).join("\n")).toContain("render failed");
+  });
 });
