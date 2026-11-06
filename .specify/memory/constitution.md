@@ -136,6 +136,20 @@ Ratified by UA-P06 Implementation Authorization (Issue #566, PR #567, effective 
 7. All local-zero-cost gates remain enforced: zero operator runtime cost, offline core, no mandatory Ascout backend, no silent paid fallback, telemetry off by default, local artifact retention by default, explicit data egress, optional engine absence explicit, entitlement truth independence, model source and weight provenance, donor permission and notice, and clean-machine local execution.
 8. No mandatory network, account, key, provider, daemon, server, database, or paid fallback is introduced for any core claim. Missing capability remains explicit NOT_RUN or INCOMPLETE.
 
+### Amendment A07 — Truthful exit semantics
+
+Ratified by A07 Implementation Authorization (Issue #655, PR #656, effective on post-merge qualification of merge b7fe3e20d76d8a652574ec446b8d25032e04fd7d). Scope is CLI exit and result-reporting semantics, and the one claim limit in clause 7. All M1 principles remain in force.
+
+1. `ascout review`, `ascout test`, and `ascout security` use these exits: 0 for complete applicable work or an explicitly requested non-assurance operation; 1 for a verified finding or a `FAIL` or `FLAKY` task; 2 for an error or invalid evidence, including an engine crash or timeout, as in `check`; 3 for source drift detected by comparing observations at the start and end of the operation; 4 for applicable verification that did not complete, including `BLOCKED` or `NOT_RUN` work and partial coverage. When several apply, precedence is 2, then 3, then 1, then 4, then 0.
+2. Applicable verification that did not execute MUST NOT exit 0. Absent an error or drift, a verified finding with missing coverage exits 1 and MUST keep the incomplete coverage visible. A packet that adds an engine MUST define how findings stay visible on exits 2 and 3.
+3. `review` exits 4 on a clean working tree while it cannot compare against a base. A later amendment or authorized packet may permit exit 0 only with a defined, source-bound proof that no reviewable change exists. Until a base comparison exists, every `review` report except those on exits 2 and 3 MUST state that committed changes and ignored files were not considered.
+4. An operation that only renders a plan may exit 0 only when explicitly requested and labeled `NON_ASSURANCE_PLAN`. It MUST NOT be presented as a test PASS.
+5. Operational errors on all commands exit 2 and MUST NOT be presented as repository findings. This includes `init` and `doctor`, and any `check` run that does not both complete with a valid receipt and deliver its selected output. Two cases are excepted: failures while Ascout's own code is still loading, before any handler exists, and standard streams already closed before Ascout starts, which the runtime does not report.
+6. Receipt schema v1.0 and its bytes are unchanged, as are the exits of `check` runs from the repository root that complete with a valid receipt and deliver their selected output. A `check` from a subdirectory exits 2, because it cannot bind the whole source state.
+7. This amendment introduces no `REFUTED` claim state. Any such state requires a separately authorized qualified contradiction and MUST NOT arise from a raw scanner finding.
+8. This amendment adds no engine, sandbox, network, service, or dependency, and no isolation claim. An exit code is one field of the evidence contract and is not proof of correctness.
+9. For the semantics above only, this amendment supersedes the statement in Amendment A05 clause 2 that existing `check` and `test` execution behavior is preserved, the statement in Amendment A05 clause 8 that `ascout check` remains unchanged, and the statement in Amendment A06 clause 5 that `ascout check`, `ascout review`, and `ascout test` remain unchanged. "Additive only" in those clauses concerned effects on other commands. Those clauses otherwise stay in force.
+
 ## Development Workflow and Quality Gates
 
 All product work MUST follow the canonical founding sequence unless a constitutional amendment explicitly changes it:
@@ -175,4 +189,4 @@ Principles protecting evidence integrity, no-green-by-omission, source binding, 
 
 Ponytail/YAGNI is a complexity gate, not an architecture generator. GitHub Spec Kit is the canonical specification workflow, pinned initially by `.specify/PROVENANCE.md`.
 
-**Version**: 1.3.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-09-27
+**Version**: 1.4.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-11-06
