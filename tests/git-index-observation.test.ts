@@ -178,7 +178,7 @@ describe("Task023 actual native Git launch budgets", () => {
       expect(control.calls.length).toBeLessThanOrEqual(budget);
       expect(control.calls.map((call) => call[0])).toContain("check-attr");
       for (const prefix of control.prefixes) {
-        expect(prefix).toEqual(expect.arrayContaining(["-c", "core.fsmonitor=false", "diff.external="]));
+        expect(prefix).toEqual(expect.arrayContaining(["-c", "core.fsmonitor=false", "core.hooksPath=/dev/null", "diff.external=", "submodule.recurse=false"]));
       }
     }, 15_000,
   );
