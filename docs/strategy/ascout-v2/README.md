@@ -60,3 +60,19 @@ No benchmark number in this package is an achieved result unless it is labeled O
 ## Privacy note
 
 Ascout is a public repository. Private owner repositories are reported here only in aggregate, except where a private repository name is already present in canonical public Ascout documents (HarnessMind). No private repository content is reproduced.
+
+## EGM execution handoff (2026-11-06; proposed)
+
+[22 — EGM current-state reconciliation and implementation handoff](22_EGM_EXECUTION_HANDOFF_2026-11-06.md) reconciles the V2 proposal against canonical main `ecada2b`, separates executable packets from unratified gates, and supplies a fresh-context EGM Goldfish review checklist. It is **not** founder ratification, an independent review verdict, or a release/merge authorization.
+
+## Precise execution contracts (2026-11-06; proposed)
+
+[23 — Implementation contracts and first executable sprint](23_IMPLEMENTATION_CONTRACTS_AND_FIRST_SPRINT_2026-11-06.md) fixes the proposed exit/non-assurance decision table, selects Gitleaks 8.30.1 as a historical first-engine admission candidate (subject to exact per-platform binary provenance), and specifies bounded first-slice acceptance, privacy, fallback and no-go gates. It does **not** represent implementation, independent Goldfish PASS, FD ratification or release approval.
+
+## EGM review ledger (2026-11-06; not independent approval)
+
+[24 — EGM review ledger](24_EGM_REVIEW_LEDGER_2026-11-06.md) records repaired proposal contradictions and unresolved adoption/implementation gates. Fresh Goldfish independent review remains NOT_RUN; mechanical checks and author review cannot replace it.
+
+## Pulse Goldfish review and founder packet (2026-11-06)
+
+[25 — Founder decisions and first-PR scope freeze](25_FOUNDER_DECISION_AND_FIRST_PR_FREEZE_2026-11-06.md) records **proposed** FD-1 through FD-8 dispositions without ratifying them. [26 — Pulse / Google EGM first-round review](26_PULSE_GOLDFISH_FIRST_ROUND_2026-11-06.md) records three **completed** fresh-context OpenCode Pulse reviews, one incomplete design-critic attempt and serious source-lineage blockers. **Do not merge this historical stacked branch into main as code; plan a main-rooted docs-only adoption packet.**

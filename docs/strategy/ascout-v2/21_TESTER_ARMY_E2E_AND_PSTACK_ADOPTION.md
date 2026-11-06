@@ -121,7 +121,7 @@ Pstack does not block V1/V2 real-engine completion and is not a new FD.
 
 This supplement is **design-ready for human/independent review only**.
 No `e2e` or Pstack package is installed, bundled or executed by this plan.
-No previously open FD-1…FD-8 is ratified by adding these donor sources.
+Adding these donor sources leaves every pending founder decision unchanged (FD-1 through FD-8).
 Do not merge this document's stacked PR to canonical `main` before the
 base V2 planning stack and its required independent-review / Diffcipline
 gates qualify. Then implement each bounded task with Jev, genuine Alibaba
