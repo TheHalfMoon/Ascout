@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const control = vi.hoisted(() => ({
   calls: [] as string[][],
+  prefixes: [] as string[][],
   intercept: null as ((argv: readonly string[], options: unknown) => unknown) | null,
 }));
 
@@ -14,8 +15,11 @@ vi.mock("node:child_process", async (importOriginal) => {
   const spawnSync = ((...args: unknown[]) => {
     const [file, argv, options] = args;
     if (file === "git" && Array.isArray(argv)) {
-      control.calls.push([...argv]);
-      if (control.intercept !== null) return control.intercept(argv, options);
+      // Every Ascout Git call carries the hardening prefix; the query follows it.
+      const query = argv.slice(argv.lastIndexOf("-c") + 2) as string[];
+      control.prefixes.push(argv.slice(0, argv.length - query.length) as string[]);
+      control.calls.push(query);
+      if (control.intercept !== null) return control.intercept(query, options);
     }
     return (actual.spawnSync as (...values: unknown[]) => unknown)(...args);
   }) as typeof actual.spawnSync;
@@ -39,6 +43,7 @@ function root(): string {
 afterEach(() => {
   control.intercept = null;
   control.calls = [];
+  control.prefixes = [];
   for (const value of roots.splice(0)) {
     if (
       dirname(resolve(value)) !== TEMP_ROOT ||
@@ -60,6 +65,7 @@ function mockIndex(records: readonly Buffer[], head = HEAD, diff = Buffer.alloc(
       output = argv.includes("-v") ? records[Math.min(reads++, records.length - 1)]! : Buffer.from(INDEX);
     } else if (argv[0] === "ls-files" && argv.includes("-v")) output = Buffer.from("H tracked.txt\0");
     else if (argv[0] === "ls-files" && argv.includes("--others")) output = Buffer.alloc(0);
+    else if (argv[0] === "ls-files" && argv.length === 2 && argv[1] === "-z") output = Buffer.alloc(0);
     else if (argv[0] === "diff-files") output = diff;
     else throw new Error("Unexpected Git query in collector boundary test");
     const stdout = encoding === "utf8" ? String(output) : Buffer.from(output);
@@ -160,7 +166,8 @@ function nativeRepository(): string {
 }
 
 describe("Task023 actual native Git launch budgets", () => {
-  it.each([{ modified: false, budget: 10 }, { modified: true, budget: 12 }])(
+  // E1 adds three launches per digest read for the filter check.
+  it.each([{ modified: false, budget: 13 }, { modified: true, budget: 15 }])(
     "uses at most $budget Git launches with modified=$modified", ({ modified, budget }) => {
       const value = nativeRepository();
       if (modified) writeFileSync(join(value, "tracked.txt"), "changed\n");
@@ -169,6 +176,10 @@ describe("Task023 actual native Git launch budgets", () => {
       expect(observed.tracked_index_entry_count).toBe(1);
       expect(observed.unstaged_changed_count).toBe(modified ? 1 : 0);
       expect(control.calls.length).toBeLessThanOrEqual(budget);
+      expect(control.calls.map((call) => call[0])).toContain("check-attr");
+      for (const prefix of control.prefixes) {
+        expect(prefix).toEqual(expect.arrayContaining(["-c", "core.fsmonitor=false", "diff.external="]));
+      }
     }, 15_000,
   );
 });

@@ -101,9 +101,37 @@ export class GitIdentityError extends Error {
   }
 }
 
+// Repository configuration is data, not permission to launch helpers. These
+// overrides beat repository, global, and system config for the keys they name.
+// This is bounded process hardening, not a sandbox.
+const GIT_NULL_DEVICE = "/dev/null"; // Git for Windows accepts this; it rejects NUL here.
+const GIT_CONFIG_OVERRIDES = [
+  "core.fsmonitor=false",
+  `core.hooksPath=${GIT_NULL_DEVICE}`,
+  "diff.external=",
+  "submodule.recurse=false",
+] as const;
+
+function hardenedGitArgs(argv: readonly string[]): string[] {
+  return [...GIT_CONFIG_OVERRIDES.flatMap((setting) => ["-c", setting]), ...argv];
+}
+
+// Global and system config stay in effect, because they carry settings such as
+// core.autocrlf that determine tree identity. Only inherited GIT_* authority goes.
+function hardenedGitEnv(inherited: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(inherited)) {
+    if (!key.toUpperCase().startsWith("GIT_")) {
+      env[key] = value;
+    }
+  }
+  return { ...env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" };
+}
+
 const GIT_METADATA_TIMEOUT_MS = 10_000;
 const GIT_METADATA_MAX_BUFFER_BYTES = 1024 * 1024;
 const GIT_TREE_METADATA_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
+const GIT_ATTRIBUTE_QUERY_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const FILE_HASH_BUFFER_BYTES = 64 * 1024;
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const SYMBOLIC_HEAD_REF = /^refs\/.+$/;
@@ -281,9 +309,10 @@ export function resolveRepositoryIdentity(repositoryRoot: string): RepositoryIde
 }
 
 const defaultGitCommandRunner: GitCommandRunner = (repositoryRoot, argv) => {
-  const result = spawnSync("git", [...argv], {
+  const result = spawnSync("git", hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: "utf8",
+    env: hardenedGitEnv(),
     shell: false,
     timeout: GIT_METADATA_TIMEOUT_MS,
     maxBuffer: GIT_METADATA_MAX_BUFFER_BYTES,
@@ -518,13 +547,19 @@ interface GitBufferCommandResult {
   readonly error?: Error;
 }
 
-function runGitTreeMetadata(repositoryRoot: string, argv: readonly string[]): GitBufferCommandResult {
-  const result = spawnSync("git", [...argv], {
+function runGitTreeMetadata(
+  repositoryRoot: string,
+  argv: readonly string[],
+  stdin?: Buffer,
+): GitBufferCommandResult {
+  const result = spawnSync("git", hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: null,
+    env: hardenedGitEnv(),
     shell: false,
     timeout: GIT_METADATA_TIMEOUT_MS,
-    maxBuffer: GIT_TREE_METADATA_MAX_BUFFER_BYTES,
+    maxBuffer: stdin === undefined ? GIT_TREE_METADATA_MAX_BUFFER_BYTES : GIT_ATTRIBUTE_QUERY_MAX_BUFFER_BYTES,
+    ...(stdin === undefined ? {} : { input: stdin }),
     windowsHide: true,
   });
 
@@ -900,10 +935,51 @@ function sameTreeDigestObservation(left: TreeDigestV1, right: TreeDigestV1): boo
     left.included_untracked_count === right.included_untracked_count;
 }
 
+// A filter attribute makes Git run a driver while reading worktree content, and
+// no option turns that off for every read. check-attr reports it without running
+// one. The attribute alone refuses, so results can't depend on whether a driver
+// happens to be configured on this machine.
+function refuseExecutableGitFilters(repositoryRoot: string): void {
+  const paths = Buffer.concat([
+    requireSuccessfulGitBuffer(
+      runGitTreeMetadata(repositoryRoot, ["ls-files", "-z"]),
+      "unable to list tracked paths for the Git filter check",
+    ),
+    requireSuccessfulGitBuffer(
+      runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
+      "unable to list untracked paths for the Git filter check",
+    ),
+  ]);
+  if (paths.length === 0) {
+    return;
+  }
+  const records = splitNullTerminated(
+    requireSuccessfulGitBuffer(
+      runGitTreeMetadata(repositoryRoot, ["check-attr", "-z", "--stdin", "filter"], paths),
+      "unable to read Git filter attributes",
+    ),
+    "git check-attr output",
+  );
+  if (records.length % 3 !== 0) {
+    throw new GitIdentityError("git_metadata_error", "Git returned incomplete filter attributes");
+  }
+  for (let index = 0; index < records.length; index += 3) {
+    const value = decodeUtf8(records[index + 2]!, "git filter attribute value");
+    if (value !== "unspecified" && value !== "unset") {
+      const path = JSON.stringify(decodeUtf8(records[index]!, "git filter attribute path"));
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `refusing to read this repository: ${path} has a Git filter attribute, and filters can run commands`,
+      );
+    }
+  }
+}
+
 export function readTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
   // Resolve the repository root once so a caller-provided symlink cannot retarget the Git cwd
   // between the two complete observations.
   const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+  refuseExecutableGitFilters(canonicalRoot);
   const first = collectTreeDigestV1(canonicalRoot);
   const second = collectTreeDigestV1(canonicalRoot);
   if (!sameTreeDigestObservation(first, second)) {
@@ -1344,6 +1420,7 @@ export function readWorkingTreeComparison(
   }
 
   const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+  refuseExecutableGitFilters(canonicalRoot);
   const observedHead = readGitHeadState(canonicalRoot).head_sha;
   if (observedHead !== sourceStartHeadSha) {
     throw new GitIdentityError(
