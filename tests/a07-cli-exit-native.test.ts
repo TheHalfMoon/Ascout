@@ -214,7 +214,21 @@ describe("A07 review exits through the compiled CLI", { timeout: CASE_TIMEOUT_MS
   it("reports one entry for git rm --cached with the file on disk", () => {
     const root = repository();
     git(root, "rm", "-q", "--cached", "a.txt");
-    expect(changedPaths(expectReview(root))).toEqual(["a.txt"]);
+    expect(expectReview(root).unreviewed_changes).toEqual([{ path: "a.txt", change_kind: "deleted" }]);
+  });
+
+  it("orders entries as tracked, then untracked, then staged-only", () => {
+    const root = repository();
+    writeFileSync(join(root, "a.txt"), "staged\n");
+    git(root, "add", "a.txt");
+    writeFileSync(join(root, "a.txt"), "base\n");
+    writeFileSync(join(root, "b.txt"), "changed\n");
+    writeFileSync(join(root, "0-new.txt"), "new\n");
+    expect(expectReview(root).unreviewed_changes).toEqual([
+      { path: "b.txt", change_kind: "modified" },
+      { path: "0-new.txt", change_kind: "untracked" },
+      { path: "a.txt", change_kind: "modified" },
+    ]);
   });
 
   it("lists untracked-only and ordinary staged changes", () => {
@@ -291,6 +305,17 @@ describe("A07 review exits through the compiled CLI", { timeout: CASE_TIMEOUT_MS
         expect(result.stderr).toContain("must run from the repository root");
         expect(result.stderr).not.toContain(root);
       }
+    }
+  });
+
+  it("runs the subdirectory check before any other Git read", () => {
+    const root = temporaryDirectory("ascout-a07-unborn-");
+    git(root, "init", "-q");
+    mkdirSync(join(root, "sub"));
+    for (const command of ["review", "check"]) {
+      const result = cli(join(root, "sub"), [command]);
+      expectOperationalError(result);
+      expect(result.stderr).toContain("must run from the repository root");
     }
   });
 

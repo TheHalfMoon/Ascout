@@ -270,7 +270,7 @@ All commands use the same meanings under Constitution Amendment A07:
 | `3` | Source drift detected between the start and end of the operation |
 | `4` | Applicable verification that did not complete, including `review`, `test`, and `security` today, because no engine runs. `test` and `security` read no repository, so this also applies outside one |
 
-**This is a breaking change.** Earlier versions exited `0` for `review` and `test` and `1` for `security` without running anything, and exited `1` for operational errors. Failures while Ascout itself is still loading, and output streams closed before it starts, are outside this guarantee.
+**This is a breaking change.** Earlier versions exited `0` for `review` and `test` and `1` for `security` without running anything, and exited `1` for most operational errors. Failures while Ascout itself is still loading, and output streams closed before it starts, are outside this guarantee. A `GIT_DIR` set in the environment may also defeat the subdirectory check.
 
 ## Package boundary
 
