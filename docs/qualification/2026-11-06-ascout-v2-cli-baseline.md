@@ -1,6 +1,6 @@
 # Ascout V2 E0 CLI baseline
 
-**Status: observation only.** This report records how canonical `main` behaves today. It is not production assurance, it changes no source, and it authorizes no later packet. It follows the proposed E0 procedure in PR #653 at `276c27778d83c6c809bf10600a2fd16f2d62a7fa`, which is itself still an unratified draft.
+**Status: observation only. Nothing here is qualified, and this is not a pass.** This report records how canonical `main` behaved on 2026-11-06. It is not production assurance, it changes no source, and it authorizes no later packet. It follows the proposed E0 procedure in PR #653 at `276c27778d83c6c809bf10600a2fd16f2d62a7fa`, which is itself still an unratified draft.
 
 ## Subject
 
@@ -8,7 +8,7 @@
 | --- | --- |
 | Source | `main@ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430` |
 | Tree | `045a902969f9f4dbc5490a2b435b76cc7ce2c6b2` |
-| Checkouts | Fresh disposable clones; `git status --porcelain` empty before and after every step |
+| Ascout checkouts | Fresh disposable clones; `git status --porcelain` empty in the clone before and after each step |
 | Observed | 2026-11-06 |
 
 | Platform | OS | Node | npm | Git |
@@ -20,12 +20,20 @@ WSL2 is a real Linux userland on this one machine. It does not stand in for host
 
 ## Result summary
 
-- Every required baseline expectation reproduced. `review` exits 0 with NOT_RUN on both empty and changed scope, `test --profile standard` exits 0 with only a plan, and `security` exits 1 with NOT_RUN.
-- No review, test, or security engine ran in any cell.
-- Exit codes and output sizes match between Windows and Linux in all 30 captures.
-- The full test suite **did not pass locally on Windows**. See [Test results](#test-results).
-- Hosted Project CI on this exact head concluded **failure**. Its only non-passing cells are the two cancelled `macos-14` cells. See [Exact-head CI](#exact-head-ci).
-- Five behaviors the plan did not list are recorded in [Findings](#findings).
+- **No review, test, or security engine ran in any cell.** The CLI reports this itself for `review` and `security`.
+- **The current limitations the plan predicted are real.** `review` exits 0 with NOT_RUN on both empty and changed scope, `test --profile standard` exits 0 with only a plan, and `security` exits 1 with NOT_RUN. These are limitations, not desired behavior.
+- **The full test suite did not pass locally on Windows.** See [Test results](#test-results).
+- **Hosted Project CI for `ecada2bc` concluded failure.** Four cells passed and two `macos-14` cells were cancelled. Self Verification has no run for this SHA. See [Exact-head CI](#exact-head-ci).
+- **Windows and Linux agree on exit codes and stdout and stderr byte counts in all 30 captures per platform.** They ran different Node, npm, and Git versions, so this does not isolate the effect of the operating system.
+- Findings F2 and F4 to F8 go beyond what the plan lists. See [Findings](#findings).
+
+## Terms
+
+- **E0, E1, E2, and so on:** work packets in the proposed plan in PR #653. E0 is this observation.
+- **Matrix and freeze:** `FIRST_SPRINT_TEST_MATRIX.md` and `IMPLEMENTATION_FREEZE.md` in that PR.
+- **FD-1:** a pending founder decision on exit-code semantics. No FD has been decided.
+- **Receipt:** the JSON result of `ascout check`. Its exit precedence is 2 error, then 3 source drift, then 1 finding or failure, then 4 incomplete, then 0 clean.
+- **Verdict column:** MATCHES means the observation equals the plan's stated expectation of current behavior, not that the behavior is good. OBSERVED means the plan stated no expectation. NEW points to a finding.
 
 ## Build and focused tests
 
@@ -57,7 +65,7 @@ Each cell ran twice on each platform against a newly built fixture, for 30 captu
 | not-a-repo | `none` | `check --format json` | repository | `GitIdentityError` on stderr; no JSON | 1 | 0 | no receipt | `e3b0c44298fc` | n/a | not pre-specified | NEW: see F4 |  |
 | not-a-repo | `none` | `review --format json` | changed files | `GitIdentityError` on stderr; no JSON | 1 | 0 | no receipt | `e3b0c44298fc` | n/a | not pre-specified | NEW: see F4 |  |
 | not-a-repo | `none` | `test --profile standard --format json` | STANDARD plan | plan JSON; no outcome field | 0 | none reported | plan only; output has no execution or source fields | `e87573e6874f` | n/a | not pre-specified | NEW: see F2 |  |
-| not-a-repo | `none` | `security --format json` | security profile | NOT_RUN `ENGINE_NOT_EXECUTED_IN_UA_P06` | 1 | 0 (`executed:false`) | `scanned_scope: []` | `2d2abfcb2c60` | n/a | not pre-specified | MATCHES | engine not executed |
+| not-a-repo | `none` | `security --format json` | security profile | NOT_RUN `ENGINE_NOT_EXECUTED_IN_UA_P06` | 1 | 0 (`executed:false`) | `scanned_scope: []` | `2d2abfcb2c60` | n/a | not pre-specified | OBSERVED | engine not executed |
 | not-a-repo | `none` | `doctor` | diagnostic | `GitIdentityError` on stderr; no JSON | 1 | 0 | no receipt | `e3b0c44298fc` | n/a | not pre-specified | NEW: see F4 |  |
 
 `source_sha` is the fixture's own HEAD. The Ascout source under test is the subject above.
@@ -102,7 +110,7 @@ The failing set moved between runs. The first T019 case above passed in the defa
 
 ## Exact-head CI
 
-[Project CI run 40531354831](https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831) ran on a push of this exact SHA and concluded **failure**.
+[Project CI run 40531354831](https://github.com/TheHalfMoon/Ascout/actions/runs/40531354831) ran on a push of `ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430`, and GitHub reports its conclusion as **failure**. No cell reports a failed result. Self Verification is a separate workflow, listed here because the procedure requires it.
 
 | Cell | Result |
 | --- | --- |
@@ -114,7 +122,7 @@ The failing set moved between runs. The first T019 case above passed in the defa
 | `macos-14` / Node 24 | CANCELLED |
 | Self Verification | NOT_RUN: no run is recorded for this SHA |
 
-Cancelled cells do not count as PASS, so **macOS is unqualified at this head**. PR #652 proposes `macos-15`, and its own head passed all seven of its checks, but that evidence belongs to a different commit.
+Cancelled cells do not count as PASS, so **macOS is unqualified at `ecada2bc`**. PR #652 proposes `macos-15`, and all seven checks passed on its head `7bbaa7a0`, but that is a different commit and is not evidence for this one.
 
 ## Findings
 
@@ -123,18 +131,19 @@ These are observations for review. No source was changed.
 - **F1. `review` reports success to shell callers without reviewing anything.** With a changed file and no engine, JSON says `complete:false` and lists the file as unreviewed, but the process exits 0. A caller checking only the exit code sees success. This is the FD-1 case the plan already names.
 - **F2. `test --profile standard` is not bound to any source.** It printed identical bytes for the empty fixture, the changed fixture, and a directory that is not a Git repository, always with exit 0. The plan lists the exit 0 but not the absence of a repository requirement.
 - **F3. `security` NOT_RUN uses the same exit code as a finding.** Exit 1 is also the `check` exit for a verified finding. The JSON is unambiguous (`security_pass:false`, `clean_claimed:false`), but the exit code alone cannot separate them.
-- **F4. Operational errors exit 1, not 2.** Outside a repository, `check`, `review`, and `doctor` exit 1 (`src/cli.ts:408-409`). Under the `check` precedence, 1 means a finding and 2 means an error. The message, "unable to list configured Git remotes", also does not say the directory is not a repository. `tests/t106-environment-publication.integration.test.ts` deliberately pins this behavior ("preserves generic unexpected CLI exception behavior at exit 1"), and that file is **not** on the E2 allowlist in the proposed freeze, so the allowlist needs review before E2.
+- **F4. Operational errors exit 1, not 2.** Outside a repository, `check` and `review` exit 1 through the generic handler (`src/cli.ts:408-409`), and `doctor` exits 1 through its own handler (`src/cli.ts:456-460`). Under the `check` precedence, 1 means a finding and 2 means an error. The message, "unable to list configured Git remotes", also does not say the directory is not a repository. `tests/t106-environment-publication.integration.test.ts` pins the generic fallback at exit 1 using an injected error ("preserves generic unexpected CLI exception behavior at exit 1"). It does not exercise this not-a-repo path, but changing the fallback would affect it, and that file is **not** on the E2 allowlist in the proposed freeze. The allowlist needs review before E2.
 - **F5. Empty scope is treated differently across commands.** On the same empty repository, `check` exits 4 and `review` exits 0. The `check` result is the conservative one. FD-1 should decide the intended rule explicitly.
 - **F6. The review identity names a binary not present on this host.** Output names `open-code-review`, while the installed package `@alibaba-group/open-code-review` 1.13.6 provides `ocr`, and no `open-code-review` command exists here. The source pin (`5f8e5ab3`) also differs from the installed build (`891df1b`). E3 and E6 must resolve both.
-- **F7. `npm test` at default concurrency is not a reliable local signal on Windows.** CI uses `--maxWorkers=1` on Windows, while the `test` script does not. Local default-concurrency failures may not reproduce in CI.
+- **F7. `npm test` at default concurrency differs from Windows CI.** CI uses `--maxWorkers=1` on Windows (`.github/workflows/ci.yml:56`), while the `test` script sets no worker limit. On this host, the default run failed more tests than the one-worker run.
+- **F8. `.ascout/` appears as untracked after `check` in a repository that never ran `init`.** Fixtures show `?? .ascout/` in `git status` afterward, on both platforms. Constitution principle VII says `.ascout/` must be ignored by default. HEAD and the tree did not change, and whether this conflicts with that principle needs a decision. `init` was not run, so its behavior is not covered here.
 
 ## Verification tools on this host
 
 | Tool | Observed state | Used for this report |
 | --- | --- | --- |
-| OpenCode | v2.2.5; `opencode/pulse-alpha-free` is listed | See the pull request |
-| Local D1 | Server online, CPU text mode, advisory only | See the pull request |
-| Alibaba Open Code Review | `ocr` 1.13.6 (`891df1b`); `delegate` needs no LLM, `review` needs a configured provider | See the pull request |
+| OpenCode with `opencode/pulse-alpha-free` | v2.2.5 | Fresh read-only reviews of this report. They are advisory. Not used to produce any result above |
+| Local D1 (a small on-device classifier) | Server online, CPU text mode | One advisory triage of a summary of this report, with no specific findings. Not evidence |
+| Alibaba Open Code Review | `ocr` 1.13.6 (`891df1b`) | **No review occurred.** `ocr delegate preview` reports 0 of 1 files reviewable, because this Markdown file is excluded as `unsupported_ext` |
 | PStack | `ps-*` skill files only; no executable or version found locally | **Not used as test evidence** |
 | Gitleaks | Not installed | Not used |
 
@@ -151,7 +160,7 @@ These are observations for review. No source was changed.
 
 Build a disposable clone at the subject SHA, then run `node e0-harness.mjs <clone> <output-dir>`. Fixture commits use fixed dates, so `fixture-empty` and `fixture-changed` should reproduce the HEADs above.
 
-The harness differs from the matrix text in three ways. It sets `commit.gpgsign=false` so host signing settings cannot reach fixtures, fixes commit dates, and adds a `not-a-repo` case.
+The harness differs from the matrix in three ways. It sets `commit.gpgsign=false` so host signing settings cannot reach fixtures, fixes commit dates, and adds a `not-a-repo` case.
 
 <details>
 <summary>e0-harness.mjs</summary>
