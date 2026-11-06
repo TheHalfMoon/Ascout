@@ -227,7 +227,7 @@ Each `review`, `test`, and `security` row applies to both JSON and terminal form
 
 `tests/a07-cli-exit-native.test.ts` MUST prove, as a real child process of the compiled CLI on every CI platform, each row that can be triggered from outside: every `review`, `test`, `security`, and outside-a-repository row, usage errors, a closed stdout pipe, and a deleted working directory. It covers POSIX `$?` on Linux and macOS, and `$LASTEXITCODE` and `$?` under `pwsh` or Windows PowerShell on Windows. A failed compile or a missing shell MUST fail the test rather than skip it.
 
-These rows may be proved in-process through `runCli` or an existing injection point, and through the listed tests: mid-read source change, post-read drift, receipt render failure, `init` failure, and unexpected exceptions. 
+These rows may be proved in-process through `runCli` or an existing injection point, and through the listed tests: mid-read source change, post-read drift, receipt render failure, `init` failure, and unexpected exceptions.
 Importing `dist/cli.js` without running it as the entry point performs no work and is not a CLI invocation. This artifact does not change that path. Failures before the handlers are installed, such as a corrupt build or missing dependency during import, and a closed stderr, are outside this packet's guarantee, because they can't be handled by code that never loaded or can't report. They remain known limits.
 
 A finding combined with incomplete coverage cannot occur at this baseline because no engine exists. That case stays `N/A` until an engine packet and MUST NOT be simulated as an executed result.
