@@ -60,3 +60,7 @@ No benchmark number in this package is an achieved result unless it is labeled O
 ## Privacy note
 
 Ascout is a public repository. Private owner repositories are reported here only in aggregate, except where a private repository name is already present in canonical public Ascout documents (HarnessMind). No private repository content is reproduced.
+
+## EGM execution handoff (2026-11-06; proposed)
+
+[22 — EGM current-state reconciliation and implementation handoff](22_EGM_EXECUTION_HANDOFF_2026-11-06.md) reconciles the V2 proposal against canonical main `ecada2b`, separates executable packets from unratified gates, and supplies a fresh-context EGM Goldfish review checklist. It is **not** founder ratification, an independent review verdict, or a release/merge authorization.
