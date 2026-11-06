@@ -79,19 +79,19 @@ AMENDMENT_SCOPE = CLI exit and result-reporting semantics, and the one claim lim
 VERSION_CHANGE = 1.3.0 -> 1.4.0
 ```
 
-Amendment text to be appended as a bounded subsection titled `Amendment A07 — Truthful exit semantics`:
+Amendment text to be added as a bounded subsection titled `Amendment A07 — Truthful exit semantics`, after Amendment A06 and before `## Development Workflow and Quality Gates`:
 
 1. `ascout review`, `ascout test`, and `ascout security` use these exits: 0 for complete applicable work or an explicitly requested non-assurance operation; 1 for a verified finding or a `FAIL` or `FLAKY` task; 2 for an error or invalid evidence, including an engine crash or timeout, as in `check`; 3 for source drift detected by comparing observations at the start and end of the operation; 4 for applicable verification that did not complete, including `BLOCKED` or `NOT_RUN` work and partial coverage. When several apply, precedence is 2, then 3, then 1, then 4, then 0.
 2. Applicable verification that did not execute MUST NOT exit 0. Absent an error or drift, a verified finding with missing coverage exits 1 and MUST keep the incomplete coverage visible. A packet that adds an engine MUST define how findings stay visible on exits 2 and 3.
-3. `review` exits 4 on a clean working tree while it cannot compare against a base. A later amendment or authorized packet may permit exit 0 only with a defined, source-bound proof that no reviewable change exists. Until a base comparison exists, every `review` report on exit 0 or 4 MUST state that committed changes and ignored files were not considered.
+3. `review` exits 4 on a clean working tree while it cannot compare against a base. A later amendment or authorized packet may permit exit 0 only with a defined, source-bound proof that no reviewable change exists. Until a base comparison exists, every `review` report except those on exits 2 and 3 MUST state that committed changes and ignored files were not considered.
 4. An operation that only renders a plan may exit 0 only when explicitly requested and labeled `NON_ASSURANCE_PLAN`. It MUST NOT be presented as a test PASS.
-5. Operational errors on all commands exit 2 and MUST NOT be presented as repository findings. This includes `init` and `doctor`, and any `check` run that does not both complete with a valid receipt and deliver its selected output. Failures while Ascout's own code is still loading, before any handler exists, are excepted and are not presented as findings by Ascout.
+5. Operational errors on all commands exit 2 and MUST NOT be presented as repository findings. This includes `init` and `doctor`, and any `check` run that does not both complete with a valid receipt and deliver its selected output. Two cases are excepted: failures while Ascout's own code is still loading, before any handler exists, and standard streams already closed before Ascout starts, which the runtime does not report.
 6. Receipt schema v1.0 and its bytes are unchanged, as are the exits of `check` runs from the repository root that complete with a valid receipt and deliver their selected output. A `check` from a subdirectory exits 2, because it cannot bind the whole source state.
 7. This amendment introduces no `REFUTED` claim state. Any such state requires a separately authorized qualified contradiction and MUST NOT arise from a raw scanner finding.
 8. This amendment adds no engine, sandbox, network, service, or dependency, and no isolation claim. An exit code is one field of the evidence contract and is not proof of correctness.
-9. For the semantics above only, this amendment supersedes the statement in Amendment A05 clause 8 that `ascout check` remains unchanged, and the statement in Amendment A06 clause 5 that `ascout check`, `ascout review`, and `ascout test` remain unchanged. "Additive only" in those clauses concerned effects on other commands. Those clauses otherwise stay in force.
+9. For the semantics above only, this amendment supersedes the statement in Amendment A05 clause 2 that existing `check` and `test` execution behavior is preserved, the statement in Amendment A05 clause 8 that `ascout check` remains unchanged, and the statement in Amendment A06 clause 5 that `ascout check`, `ascout review`, and `ascout test` remain unchanged. "Additive only" in those clauses concerned effects on other commands. Those clauses otherwise stay in force.
 
-No other normative Constitution text changes.
+The nine clauses above are the amendment text. No other normative Constitution text changes.
 
 ### 4.2 Review for trust, scope, licensing, and complexity
 
@@ -156,7 +156,7 @@ Create:
 tests/a07-cli-exit-native.test.ts
 ```
 
-Nothing is deleted. `src/git.ts` may gain only two new exported readers built on `runGitTreeMetadata`, its existing buffer Git invocation: `readStagedChangedPaths(repositoryRoot, headSha)`, which runs `git diff --cached --no-renames --name-status -z <head> --` and returns `readonly { path: string; change_kind: ChangedFileKind }[]`, and `readRepositoryPrefix(repositoryRoot)`, which runs `git rev-parse --show-prefix` and returns a string. Its existing functions stay byte-identical.
+Nothing is deleted. `src/git.ts` may gain only two new exported readers built on `runGitTreeMetadata`, its existing buffer Git invocation: `readStagedChangedPaths(repositoryRoot, headSha)`, which runs `git diff --cached --no-renames --name-status -z <head> --` and returns `readonly { path: string; change_kind: ChangedFileKind }[]`, and `readRepositoryPrefix(repositoryRoot)`, which runs `git rev-parse --show-prefix`, throws on any Git failure, and returns the prefix without its trailing newline. Its existing functions stay byte-identical.
 
 The new test compiles the CLI with `tsc --outDir node_modules/.cache/ascout-a07-cli`, because Project CI runs tests before the build step and workflows are frozen. That ignored location lets the compiled copy resolve its dependencies, though not the receipt schema, so native rows must not depend on a `check` receipt. And the test writes `{"type":"module"}` as a `package.json` in it, because Node's package-scope lookup stops at `node_modules`. `tests/npm-package-content.test.ts` shows the compile step only, since it never runs the output.
 
@@ -176,9 +176,9 @@ Under Constitution principle II, every `NOT_RUN` carries non-empty machine-reada
 | `reason_text` | Non-empty |
 | `executed_count` | 0 at this baseline |
 
-When `review` exits 4, its JSON MUST also include `comparison: { kind: "working_tree_vs_head", base_ref }`, `considered: "working_tree_only"`, and `unreviewed_changes`, a list of `{ path, change_kind, previous_path? }` with one entry per path. Entries come first from the tracked results of the working-tree reader, then its untracked results, then `readStagedChangedPaths`. An entry is dropped if its path already appears. A `readStagedChangedPaths` entry is also dropped if it equals a `previous_path` already listed. `absence.unreviewed_files` is aligned to the same paths.
+When `review` exits 4, its JSON MUST also include `comparison: { kind: "working_tree_vs_head", base_ref }`, `considered: "working_tree_and_index_only"`, and `unreviewed_changes`, a list of `{ path, change_kind, previous_path? }` with one entry per path. Entries come first from the tracked results of the working-tree reader, then its untracked results, then `readStagedChangedPaths`. An entry is dropped if its path already appears. A `readStagedChangedPaths` entry is also dropped if it equals a `previous_path` already listed. `absence.unreviewed_files` is aligned to the same paths.
 
-Every `review` report on exit 0 or 4, including a clean tree, states in its reasons that committed changes and ignored files were not considered. Exits 2 and 3 are excepted because they make no statement about scope. A clean-tree report no longer says there are no changed files. It says the working tree matches HEAD, apart from `.ascout/`.
+Every `review` report except those on exits 2 and 3, including a clean tree, states in its reasons that committed changes and ignored files were not considered. Exits 2 and 3 are excepted because they make no statement about scope. A clean-tree report no longer says there are no changed files. It says the working tree matches HEAD, apart from `.ascout/`.
 
 Source drift (exit 3) uses this report and no other fields, so nothing is claimed about a tree that has moved. `drift` joins `REVIEW_REPORT_KINDS`, and terminal output states both observations:
 
@@ -196,7 +196,7 @@ The usage line becomes `ascout test [--plan] [--profile quick|standard|deep|rele
 
 | Case | Exit | Required result |
 | --- | --- | --- |
-| `review`, changed files, no engine, including with unpushed commits | 4 | `NOT_RUN`, `complete: false`, `considered: "working_tree_only"`; states committed changes and ignored files were not considered |
+| `review`, changed files, no engine, including with unpushed commits | 4 | `NOT_RUN`, `complete: false`, `considered: "working_tree_and_index_only"`; states committed changes and ignored files were not considered |
 | `review`, edit plus deletion | 4 | Every changed path listed as unreviewed, including deleted paths |
 | `review`, rename | 4 | New and previous paths both visible |
 | `review`, deletions only | 4 | Deleted paths listed; not reported as empty |
@@ -237,13 +237,13 @@ Each `review`, `test`, and `security` row applies to both JSON and terminal form
 
 The listed tests prove these rows in-process with `vi.mock`: mid-read source change, post-read drift, Git metadata timeout, receipt render failure, `init` failure, and exceptions inside `runCli`. The new test proves the entry-point and process-level handler rows as a child process started with `node --import <fault module>`, where it generates the fault module itself.
 
-Importing `dist/cli.js` without running it as the entry point performs no work and is not a CLI invocation. This artifact does not change that path. Failures before the handlers are installed, such as a corrupt build or missing dependency during import, can't be handled by code that never loaded. Amendment clause 5 excepts them, and they may exit 1. Stderr closed before start, which Node may not report, is also a known limit.
+Importing `dist/cli.js` without running it as the entry point performs no work and is not a CLI invocation. This artifact does not change that path. Failures before the handlers are installed, such as a corrupt build or missing dependency during import, can't be handled by code that never loaded. Amendment clause 5 excepts them, and they may exit 1. Stdout or stderr closed before start, which Node may not report, are also excepted by clause 5. A `GIT_DIR` in the environment may also defeat the prefix guard until E1 strips inherited Git variables, and this is a known limit.
 
 A finding combined with incomplete coverage cannot occur at this baseline because no engine exists. That case stays `N/A` until an engine packet and MUST NOT be simulated as an executed result.
 
 ### 5.5 Rollback
 
-Revert the E2 pull request with a new reviewable commit, then rerun typecheck, build, the full test suite, and the `check` receipt golden comparison. A revert restores old exits that violate amendment clauses 1 to 5 once v1.4.0 is ratified, so it MUST be recorded as an open violation on a new ledger issue, since Issue #655 will be closed, and resolved by a fix-forward or a separate governance change.
+Revert the E2 pull request with a new reviewable commit, then rerun typecheck, build, the full test suite, and the `check` receipt golden comparison. A revert restores old exits that violate amendment clauses 1 to 6 once v1.4.0 is ratified, so it MUST be recorded as an open violation on a new ledger issue, since Issue #655 will be closed, and resolved by a fix-forward or a separate governance change.
 
 ### 5.6 E2 merge gate
 
