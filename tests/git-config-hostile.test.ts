@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 import {
   copyFileSync,
   existsSync,
+  unlinkSync,
+  utimesSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -39,7 +41,9 @@ function posix(path: string): string {
 function isolatedEnv(fixture: Pick<Fixture, "home">, extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(process.env)) {
-    if (!key.toUpperCase().startsWith("GIT_")) env[key] = value;
+    if (!key.toUpperCase().startsWith("GIT_") && key.toLowerCase() !== "nodefaultcurrentdirectoryinexepath") {
+      env[key] = value;
+    }
   }
   return {
     ...env,
@@ -167,12 +171,17 @@ const NON_EXECUTING_VECTORS: readonly Vector[] = [
     for (const hook of ["post-index-change", "pre-commit", "post-checkout", "reference-transaction"]) {
       writeFileSync(join(hooks, hook), `#!/bin/sh\ntouch ${v.marker}\n`, { mode: 0o755 });
     }
+    writeFileSync(join(v.root, "untouched.txt"), "same\n");
+    git(v, "add", "untouched.txt");
+    git(v, "commit", "-qm", "untouched");
+    // Armed only after setup, so setup's own Git commands can't fire it.
     git(v, "config", "core.hooksPath", posix(hooks));
+    const later = new Date(Date.now() + 60_000);
+    utimesSync(join(v.root, "untouched.txt"), later, later);
     return {};
   } },
   { name: "core.sshCommand", arrange: (v) => { git(v, "config", "core.sshCommand", touch(v)); return {}; } },
   { name: "core.pager", arrange: (v) => { git(v, "config", "core.pager", touch(v)); return {}; } },
-  { name: "submodule recursion", arrange: (v) => { git(v, "config", "submodule.recurse", "true"); return {}; } },
   { name: "GIT_EXTERNAL_DIFF", arrange: (v) => ({ GIT_EXTERNAL_DIFF: script(v) }) },
   { name: "GIT_PAGER", arrange: (v) => ({ GIT_PAGER: touch(v) }) },
   { name: "GIT_SSH_COMMAND", arrange: (v) => ({ GIT_SSH_COMMAND: touch(v) }) },
@@ -202,6 +211,77 @@ describe("E1 repository and environment selected helpers", { timeout: TIMEOUT_MS
       }
     },
   );
+
+  // These keys don't launch anything, so a surviving variable shows up as a changed result.
+  it.each([
+    ["GIT_CONFIG_COUNT", (excludes: string) => ({ GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.excludesFile", GIT_CONFIG_VALUE_0: excludes })],
+    ["GIT_CONFIG_PARAMETERS", (excludes: string) => ({ GIT_CONFIG_PARAMETERS: `'core.excludesFile=${excludes}'` })],
+    ["GIT_CONFIG_GLOBAL", (excludes: string, value: Fixture) => {
+      const config = posix(join(value.home, "selected.cfg"));
+      writeFileSync(config, `[core]\n\texcludesFile = ${excludes}\n`);
+      return { GIT_CONFIG_GLOBAL: config };
+    }],
+  ] as const)("ignores configuration selected through %s", (_name, select) => {
+    const value = fixture();
+    const excludes = posix(join(value.home, "excludes"));
+    writeFileSync(excludes, "*.hidden\n");
+    writeFileSync(join(value.root, "x.hidden"), "x\n");
+    const report = JSON.parse(run(value, ["review", "--format", "json"], select(excludes, value)).stdout) as {
+      unreviewed_changes: { path: string }[];
+    };
+    expect(report.unreviewed_changes.map((change) => change.path)).toContain("x.hidden");
+  });
+
+  it("does not run a git planted in the repository", () => {
+    const value = fixture();
+    if (process.platform === "win32") {
+      copyFileSync(process.execPath, join(value.root, "git.exe"));
+      writeFileSync(join(value.root, "rev-parse"), `require("node:fs").writeFileSync(${JSON.stringify(value.marker)}, "");`);
+    } else {
+      writeFileSync(join(value.root, "git"), `#!/bin/sh\n${touch(value)}\n`, { mode: 0o755 });
+    }
+    for (const args of COMMANDS) {
+      const result = run(value, args);
+      expect(existsSync(value.marker), `${args[0]} ran a planted git`).toBe(false);
+      expect(result.status, `${args[0]}: ${result.stderr}`).toBe(args[0] === "doctor" ? 0 : 4);
+    }
+  });
+
+  function promisorRepository(value: Fixture): void {
+    git(value, "config", "core.repositoryformatversion", "1");
+    git(value, "config", "extensions.partialClone", "p");
+    git(value, "config", "remote.p.promisor", "true");
+    git(value, "config", "remote.p.url", ".");
+    git(value, "config", "remote.p.uploadpack", touch(value));
+  }
+
+  function removeObject(value: Fixture, spec: string): void {
+    const found = spawnSync("git", ["rev-parse", spec], { cwd: value.root, env: isolatedEnv(value), encoding: "utf8" });
+    const oid = found.stdout.trim();
+    expect(oid).toMatch(/^[0-9a-f]{40}$/u);
+    unlinkSync(join(value.root, ".git", "objects", oid.slice(0, 2), oid.slice(2)));
+  }
+
+  it("does not lazily fetch a missing blob through a promisor remote", () => {
+    for (const args of COMMANDS) {
+      const value = fixture();
+      removeObject(value, "HEAD:a.txt");
+      promisorRepository(value);
+      run(value, args);
+      expect(existsSync(value.marker), `${args[0]} ran the promisor command`).toBe(false);
+    }
+  });
+
+  it("does not lazily fetch a missing commit through a promisor remote", () => {
+    for (const args of COMMANDS) {
+      const value = fixture();
+      removeObject(value, "HEAD");
+      promisorRepository(value);
+      const result = run(value, args);
+      expect(existsSync(value.marker), `${args[0]} ran the promisor command`).toBe(false);
+      expect(result.status, args[0]).toBe(2);
+    }
+  });
 
   it("ignores GIT_DIR and GIT_WORK_TREE that point at another repository", () => {
     const value = fixture();
@@ -250,6 +330,57 @@ describe("E1 executable filter refusal", { timeout: TIMEOUT_MS }, () => {
       expect(result.stderr).toContain("filter attribute");
       expect(result.stderr).not.toContain(posix(value.root));
       expect(result.stderr).not.toContain(value.root);
+      expect(hasReceipt(value.root)).toBe(false);
+    }
+  });
+
+  it.each(["unset", "unspecified"])("does not run a driver literally named %s", (name) => {
+    for (const command of ["clean", "process"] as const) {
+      for (const args of COMMANDS) {
+        const value = fixture();
+        git(value, "config", `filter.${name}.${command}`, `${touch(value)}; cat`);
+        writeFileSync(join(value.root, ".gitattributes"), `*.dat filter=${name}\n`);
+        run(value, args);
+        expect(existsSync(value.marker), `${args[0]} ran the ${command} driver`).toBe(false);
+      }
+    }
+  });
+
+  it("refuses an empty filter value without running a driver", () => {
+    const value = fixture();
+    writeFileSync(join(value.root, ".gitattributes"), "*.dat filter=\n");
+    const result = run(value, ["review"]);
+    expect(existsSync(value.marker)).toBe(false);
+    expect(result.status, result.stderr).toBe(2);
+  });
+
+  it("refuses a submodule, and never runs a filter inside it", () => {
+    const value = fixture();
+    const inner = join(value.root, "sm");
+    mkdirSync(inner);
+    const innerGit = (...args: readonly string[]) => {
+      const result = spawnSync("git", [...args], { cwd: inner, env: isolatedEnv(value), encoding: "utf8" });
+      if (result.status !== 0) throw new Error(result.stderr);
+    };
+    innerGit("init", "-q");
+    innerGit("config", "user.name", "Inner");
+    innerGit("config", "user.email", "inner@example.invalid");
+    innerGit("config", "commit.gpgsign", "false");
+    writeFileSync(join(inner, ".gitattributes"), "*.dat filter=p\n");
+    writeFileSync(join(inner, "inner.dat"), "one\n");
+    innerGit("add", ".");
+    innerGit("commit", "-qm", "inner");
+    spawnSync("git", ["add", "sm"], { cwd: value.root, env: isolatedEnv(value), encoding: "utf8" });
+    git(value, "commit", "-qm", "add submodule", "--", "sm");
+    // Armed only after setup, so setup's own Git commands can't fire it.
+    innerGit("config", "filter.p.clean", `${touch(value)}; cat`);
+    const later = new Date(Date.now() + 60_000);
+    utimesSync(join(inner, "inner.dat"), later, later);
+    for (const args of COMMANDS) {
+      const result = run(value, args);
+      expect(existsSync(value.marker), `${args[0]} ran a filter in the submodule`).toBe(false);
+      expect(result.status, `${args[0]}: ${result.stderr}`).toBe(2);
+      expect(result.stderr).toContain("submodule");
       expect(hasReceipt(value.root)).toBe(false);
     }
   });

@@ -65,8 +65,8 @@ function mockIndex(records: readonly Buffer[], head = HEAD, diff = Buffer.alloc(
       output = argv.includes("-v") ? records[Math.min(reads++, records.length - 1)]! : Buffer.from(INDEX);
     } else if (argv[0] === "ls-files" && argv.includes("-v")) output = Buffer.from("H tracked.txt\0");
     else if (argv[0] === "ls-files" && argv.includes("--others")) output = Buffer.alloc(0);
-    else if (argv[0] === "ls-files" && argv.length === 2 && argv[1] === "-z") output = Buffer.alloc(0);
     else if (argv[0] === "diff-files") output = diff;
+    else if (argv[0] === "check-attr") output = Buffer.alloc(0);
     else throw new Error("Unexpected Git query in collector boundary test");
     const stdout = encoding === "utf8" ? String(output) : Buffer.from(output);
     return { status: 0, stdout, stderr: encoding === "utf8" ? "" : Buffer.alloc(0) };
@@ -178,7 +178,7 @@ describe("Task023 actual native Git launch budgets", () => {
       expect(control.calls.length).toBeLessThanOrEqual(budget);
       expect(control.calls.map((call) => call[0])).toContain("check-attr");
       for (const prefix of control.prefixes) {
-        expect(prefix).toEqual(expect.arrayContaining(["-c", "core.fsmonitor=false", "core.hooksPath=/dev/null", "diff.external=", "submodule.recurse=false"]));
+        expect(prefix).toEqual(expect.arrayContaining(["-c", "core.fsmonitor=false", "core.hooksPath=/dev/null", "diff.external=", "submodule.recurse=false", "protocol.allow=never", "filter.unset.clean=", "filter.unspecified.process="]));
       }
     }, 15_000,
   );

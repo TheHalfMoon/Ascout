@@ -110,6 +110,11 @@ const GIT_CONFIG_OVERRIDES = [
   `core.hooksPath=${GIT_NULL_DEVICE}`,
   "diff.external=",
   "submodule.recurse=false",
+  "protocol.allow=never",
+  // check-attr reports these driver names exactly like absent attributes, so
+  // they can't be refused by name. An empty command makes Git skip the driver.
+  ...["unset", "unspecified"].flatMap((name) =>
+    ["clean", "smudge", "process"].map((command) => `filter.${name}.${command}=`)),
 ] as const;
 
 function hardenedGitArgs(argv: readonly string[]): string[] {
@@ -119,13 +124,19 @@ function hardenedGitArgs(argv: readonly string[]): string[] {
 // Global and system config stay in effect, because they carry settings such as
 // core.autocrlf that determine tree identity. Only inherited GIT_* authority goes.
 function hardenedGitEnv(inherited: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  // Windows otherwise searches the working directory first, so a git.exe in the
+  // repository would run in place of Git. The search reads this process's own
+  // environment, not the environment passed to the child.
+  if (process.platform === "win32") {
+    process.env.NoDefaultCurrentDirectoryInExePath = "1";
+  }
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(inherited)) {
     if (!key.toUpperCase().startsWith("GIT_")) {
       env[key] = value;
     }
   }
-  return { ...env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" };
+  return { ...env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", GIT_NO_LAZY_FETCH: "1" };
 }
 
 const GIT_METADATA_TIMEOUT_MS = 10_000;
@@ -938,13 +949,35 @@ function sameTreeDigestObservation(left: TreeDigestV1, right: TreeDigestV1): boo
 // A filter attribute makes Git run a driver while reading worktree content, and
 // no option turns that off for every read. check-attr reports it without running
 // one. The attribute alone refuses, so results can't depend on whether a driver
-// happens to be configured on this machine.
+// happens to be configured on this machine. Submodules are refused too: Git
+// inspects them with their own config, which these checks can't see, and ignoring
+// them would stop noticing submodule changes.
 function refuseExecutableGitFilters(repositoryRoot: string): void {
-  const paths = Buffer.concat([
+  const stageRecords = splitNullTerminated(
     requireSuccessfulGitBuffer(
-      runGitTreeMetadata(repositoryRoot, ["ls-files", "-z"]),
+      runGitTreeMetadata(repositoryRoot, ["ls-files", "--stage", "-z"]),
       "unable to list tracked paths for the Git filter check",
     ),
+    "git ls-files --stage output",
+  );
+  const trackedPaths: Buffer[] = [];
+  for (const record of stageRecords) {
+    const separator = record.indexOf(0x09);
+    if (separator < 0) {
+      throw new GitIdentityError("git_metadata_error", "Git returned an invalid index record");
+    }
+    const trackedPath = record.subarray(separator + 1);
+    if (record.subarray(0, 7).toString("latin1") === "160000 ") {
+      const name = JSON.stringify(decodeUtf8(trackedPath, "git submodule path"));
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `refusing to read this repository: ${name} is a Git submodule, which Ascout does not read`,
+      );
+    }
+    trackedPaths.push(trackedPath, Buffer.from([0]));
+  }
+  const paths = Buffer.concat([
+    ...trackedPaths,
     requireSuccessfulGitBuffer(
       runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
       "unable to list untracked paths for the Git filter check",
