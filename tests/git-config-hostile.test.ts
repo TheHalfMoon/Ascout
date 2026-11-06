@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { readWorkingTreeComparison } from "../src/git.js";
 
 // Synthetic fixtures only. Each payload does nothing but create an empty marker
 // file in that fixture's own temp directory. Bounded hardening, not a sandbox.
@@ -383,6 +384,15 @@ describe("E1 executable filter refusal", { timeout: TIMEOUT_MS }, () => {
       expect(result.stderr).toContain("submodule");
       expect(hasReceipt(value.root)).toBe(false);
     }
+  });
+
+  it("refuses in the exported working-tree comparison on its own, before diffing", () => {
+    const value = fixture();
+    git(value, "config", "filter.p.clean", `${touch(value)}; cat`);
+    writeFileSync(join(value.root, ".gitattributes"), "*.dat filter=p\n");
+    const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: value.root, env: isolatedEnv(value), encoding: "utf8" }).stdout.trim();
+    expect(() => readWorkingTreeComparison(value.root, head)).toThrow(/filter attribute/u);
+    expect(existsSync(value.marker)).toBe(false);
   });
 
   it("refuses when only an untracked path matches", () => {
