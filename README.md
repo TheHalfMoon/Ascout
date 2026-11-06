@@ -94,7 +94,7 @@ ascout init
 ascout doctor
 ascout check [--allow-changed-command-surface] [--format json|agent]
 ascout review [--format json|terminal]
-ascout test [--profile quick|standard|deep|release] [--format json|terminal]
+ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]
 ascout security [--format json|terminal]
 ```
 
@@ -266,9 +266,9 @@ All commands use the same meanings under Constitution Amendment A07:
 | --- | --- |
 | `0` | Complete applicable work, or an explicitly requested non-assurance operation such as `test --plan` |
 | `1` | A verified finding or a `FAIL` or `FLAKY` task |
-| `2` | An error or invalid evidence, including running outside a repository, or running `check` or `review` from a subdirectory |
+| `2` | An error or invalid evidence, including running `check`, `review`, or `doctor` outside a repository, or `check` or `review` from a subdirectory |
 | `3` | Source drift detected between the start and end of the operation |
-| `4` | Applicable verification that did not complete, including `review`, `test`, and `security` today, because no engine runs |
+| `4` | Applicable verification that did not complete, including `review`, `test`, and `security` today, because no engine runs. `test` and `security` read no repository, so this also applies outside one |
 
 **This is a breaking change.** Earlier versions exited `0` for `review` and `test` and `1` for `security` without running anything, and exited `1` for operational errors. Failures while Ascout itself is still loading, and output streams closed before it starts, are outside this guarantee.
 

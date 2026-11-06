@@ -370,6 +370,11 @@ export function buildReviewDriftReportV1(
   });
 }
 
+// Git paths may hold control characters, which must not forge terminal report lines.
+function escapeTerminalPath(path: string): string {
+  return path.replace(/\p{Cc}/gu, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
 export function renderReviewJsonV1(report: ReviewReportV1): string {
   return JSON.stringify(report, null, 2) + "\n";
 }
@@ -396,7 +401,7 @@ export function renderReviewTerminalV1(report: ReviewReportV1): string {
     lines.push(`reviewed files: ${report.coverage.reviewed_files.length}`);
     lines.push(`unreviewed files: ${report.coverage.unreviewed_files.length}`);
     for (const file of report.coverage.unreviewed_files) {
-      lines.push(`  unreviewed: ${file}`);
+      lines.push(`  unreviewed: ${escapeTerminalPath(file)}`);
     }
     for (const group of report.coverage.groups) {
       lines.push(`  group ${group.group_id}: ${group.state}`);
@@ -408,7 +413,7 @@ export function renderReviewTerminalV1(report: ReviewReportV1): string {
     }
     lines.push(`unreviewed files: ${report.absence.unreviewed_files.length}`);
     for (const file of report.absence.unreviewed_files) {
-      lines.push(`  unreviewed: ${file}`);
+      lines.push(`  unreviewed: ${escapeTerminalPath(file)}`);
     }
   } else {
     lines.push(`outcome: ${report.outcome}`);
@@ -418,12 +423,15 @@ export function renderReviewTerminalV1(report: ReviewReportV1): string {
   }
   if ("unreviewed_changes" in report) {
     const fields = report as ReviewCommandReportV1;
+    lines.push(`outcome: ${fields.outcome} (${fields.reason_code})`);
+    lines.push(fields.reason_text);
     lines.push(`compared: ${fields.comparison.kind} at ${fields.comparison.base_ref}`);
+    lines.push(`considered: ${fields.considered}`);
     for (const change of fields.unreviewed_changes) {
       lines.push(
         change.previous_path === undefined
-          ? `  changed: ${change.path} (${change.change_kind})`
-          : `  changed: ${change.path} (${change.change_kind} from ${change.previous_path})`,
+          ? `  changed: ${escapeTerminalPath(change.path)} (${change.change_kind})`
+          : `  changed: ${escapeTerminalPath(change.path)} (${change.change_kind} from ${escapeTerminalPath(change.previous_path)})`,
       );
     }
     lines.push(`executed: ${fields.executed_count}`);

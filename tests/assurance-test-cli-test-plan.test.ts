@@ -157,6 +157,7 @@ describe("UA-P05-T09 additive test command", () => {
       expect(terminal).toContain("=== Ascout Test Plan (plan only, no execution) ===");
       expect(terminal).toContain("outcome: NON_ASSURANCE_PLAN (PLAN_ONLY)");
       expect(terminal).not.toMatch(/\bPASS(ED)?\b/u);
+      expect(terminal).toContain("not a test result");
 
       expect(await runCli(["test", "--profile", token, "--plan", "--format", "json"])).toBe(0);
       expect(JSON.parse(String(stdout.mock.calls[0]?.[0]))).toMatchObject({
@@ -179,7 +180,7 @@ describe("UA-P05-T09 additive test command", () => {
     expect(error.mock.calls.flat().map(String).join("\n")).toContain("Usage:");
   });
 
-  it("leaves check parsing, rendering, and exit semantics unchanged", async () => {
+  it("leaves check parsing and review flags unchanged", async () => {
     expect(parseCliArgs(["check"])).toEqual({
       command: "check",
       allowChangedCommandSurface: false,

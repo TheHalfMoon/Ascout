@@ -16,6 +16,7 @@ import {
 import type { LocationValidationV1 } from "../src/assurance/review/location-validator.js";
 import type { RawReviewObservationV1 } from "../src/assurance/review/raw-observation.js";
 import { parseCliArgs, runCli, usageText } from "../src/cli.js";
+import { GitIdentityError } from "../src/git.js";
 
 const HEAD = "e".repeat(40);
 
@@ -24,7 +25,44 @@ const sourceControl = vi.hoisted(() => ({
     | undefined
     | ((call: number, real: (root: string) => unknown, root: string) => unknown),
   calls: 0,
+  working: undefined as undefined | Error,
+  staged: undefined as undefined | Error,
+  gitSpawnFault: false,
 }));
+
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:child_process")>();
+  return {
+    ...actual,
+    spawnSync: (...args: Parameters<typeof actual.spawnSync>) =>
+      sourceControl.gitSpawnFault && args[0] === "git"
+        ? {
+            pid: 0,
+            output: [],
+            status: null,
+            signal: "SIGTERM",
+            stdout: Buffer.alloc(0),
+            stderr: Buffer.alloc(0),
+            error: Object.assign(new Error("spawnSync git ETIMEDOUT"), { code: "ETIMEDOUT" }),
+          }
+        : actual.spawnSync(...args),
+  };
+});
+
+vi.mock("../src/git.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/git.js")>();
+  return {
+    ...actual,
+    readWorkingTreeComparison: (...args: Parameters<typeof actual.readWorkingTreeComparison>) => {
+      if (sourceControl.working !== undefined) throw sourceControl.working;
+      return actual.readWorkingTreeComparison(...args);
+    },
+    readStagedChangedPaths: (...args: Parameters<typeof actual.readStagedChangedPaths>) => {
+      if (sourceControl.staged !== undefined) throw sourceControl.staged;
+      return actual.readStagedChangedPaths(...args);
+    },
+  };
+});
 
 vi.mock("../src/check.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/check.js")>();
@@ -107,6 +145,9 @@ afterEach(() => {
   vi.restoreAllMocks();
   sourceControl.compose = undefined;
   sourceControl.calls = 0;
+  sourceControl.working = undefined;
+  sourceControl.staged = undefined;
+  sourceControl.gitSpawnFault = false;
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -232,24 +273,73 @@ describe("UA-P03-T14 review CLI", () => {
     expect(await runCli(["review"])).toBe(3);
     const terminal = stderr.mock.calls.map((call) => String(call[0])).join("\n");
     expect(terminal).toContain("outcome: SOURCE_DRIFT");
+    expect(terminal).toContain("start: head");
     expect(terminal).toContain("end: head");
   }, 60_000);
 
-  it.each([
-    ["a mid-read source change", "source changed during tree-digest collection"],
-    ["a Git metadata timeout", "git metadata read timed out"],
-  ])("maps %s to exit 2 with empty stdout", async (_label, message) => {
+  it("reports HEAD movement as drift even when the tree digest is unchanged", async () => {
     const root = reviewFixture();
     process.chdir(root);
-    sourceControl.compose = () => {
-      throw new Error(message);
+    sourceControl.compose = (call, real, repositoryRoot) => {
+      const state = real(repositoryRoot) as { head_sha: string };
+      return call === 1 ? state : { ...state, head_sha: "a".repeat(40) };
     };
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await runCli(["review", "--format", "json"])).toBe(3);
+  }, 60_000);
+
+  const midReadSourceChange = () =>
+    new GitIdentityError("git_metadata_error", "source changed during tree-digest collection");
+
+  it.each([
+    ["the start observation", () => { sourceControl.compose = () => { throw midReadSourceChange(); }; }],
+    ["the working-tree read", () => { sourceControl.working = midReadSourceChange(); }],
+    ["the staged read", () => { sourceControl.staged = midReadSourceChange(); }],
+    [
+      "the end observation",
+      () => {
+        sourceControl.compose = (call, real, repositoryRoot) => {
+          if (call > 1) throw midReadSourceChange();
+          return real(repositoryRoot);
+        };
+      },
+    ],
+  ])("maps a source change during %s to exit 2 with empty stdout", async (_label, arrange) => {
+    const root = reviewFixture();
+    process.chdir(root);
+    arrange();
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     expect(await runCli(["review", "--format", "json"])).toBe(2);
     expect(stdout).not.toHaveBeenCalled();
-    expect(stderr.mock.calls.flat().map(String).join("\n")).toContain(message);
+    expect(stderr.mock.calls.flat().map(String).join("\n")).toContain("source changed");
+  }, 60_000);
+
+  it("maps a real Git process timeout to exit 2 with empty stdout", async () => {
+    const root = reviewFixture();
+    process.chdir(root);
+    sourceControl.gitSpawnFault = true;
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await runCli(["review", "--format", "json"])).toBe(2);
+    expect(stdout).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalled();
+  }, 60_000);
+
+  it("never exits 0 when printing a report throws", async () => {
+    const root = reviewFixture();
+    process.chdir(root);
+    vi.spyOn(process.stdout, "write").mockImplementation(() => {
+      throw new Error("write failed");
+    });
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => {
+      throw new Error("log failed");
+    });
+    expect(await runCli(["review", "--format", "json"])).toBe(2);
+    expect(stderr).toHaveBeenCalled();
   }, 60_000);
 
   it("refuses write and publication flags with read-only reasons", async () => {

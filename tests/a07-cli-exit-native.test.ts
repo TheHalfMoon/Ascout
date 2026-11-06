@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   realpathSync,
@@ -103,6 +104,8 @@ function expectReview(root: string): ReviewJson {
     considered: "working_tree_and_index_only",
   });
   expect(report.comparison.kind).toBe("working_tree_vs_head");
+  const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
+  expect(report.comparison.base_ref).toBe(head);
   expect(report.reason_text).toContain(SCOPE_STATEMENT);
   expect(report.absence?.reasons ?? report.reasons).toContain(SCOPE_STATEMENT);
 
@@ -112,14 +115,25 @@ function expectReview(root: string): ReviewJson {
   expect(terminal.stderr).toContain("NOT_RUN");
   expect(terminal.stderr).toContain(SCOPE_STATEMENT);
   expect(terminal.stderr).toContain("exit code: 4");
+  expect(terminal.stderr).toContain("considered: working_tree_and_index_only");
+  expect(terminal.stderr).toContain(report.reason_text);
   for (const change of report.unreviewed_changes) {
     expect(terminal.stderr).toContain(change.path);
+    if (change.previous_path !== undefined) {
+      expect(terminal.stderr).toContain(`from ${change.previous_path}`);
+    }
   }
   return report;
 }
 
 function changedPaths(report: ReviewJson): readonly string[] {
   return report.unreviewed_changes.map((change) => change.path);
+}
+
+function expectOperationalErrorInBothFormats(cwd: string, command: string): void {
+  for (const args of [[command, "--format", "json"], [command]]) {
+    expectOperationalError(cli(cwd, args));
+  }
 }
 
 function expectOperationalError(result: CliResult): void {
@@ -153,6 +167,7 @@ describe("A07 review exits through the compiled CLI", { timeout: CASE_TIMEOUT_MS
     expect(clean.kind).toBe("empty");
     expect(clean.unreviewed_changes).toEqual([]);
     expect(clean.reasons?.join(" ")).not.toContain("no changed files");
+    expect(clean.reasons).toContain("the working tree matches HEAD, apart from .ascout/");
 
     writeFileSync(join(root, "a.txt"), "committed\n");
     git(root, "commit", "-qam", "unreviewed work");
@@ -234,11 +249,30 @@ describe("A07 review exits through the compiled CLI", { timeout: CASE_TIMEOUT_MS
     writeFileSync(join(binary, "a.txt"), Buffer.from([0, 1, 2, 0, 255]));
     expect(changedPaths(expectReview(binary))).toEqual(["a.txt"]);
 
+    const stagedMode = repository();
+    git(stagedMode, "update-index", "--chmod=+x", "a.txt");
+    expect(changedPaths(expectReview(stagedMode))).toContain("a.txt");
+
     if (POSIX) {
       const mode = repository();
       chmodSync(join(mode, "a.txt"), 0o755);
       expect(changedPaths(expectReview(mode))).toEqual(["a.txt"]);
     }
+  });
+
+  it("lists both paths of an unstaged move", () => {
+    const root = repository();
+    writeFileSync(join(root, "moved.txt"), "base\n");
+    unlinkSync(join(root, "a.txt"));
+    expect([...changedPaths(expectReview(root))].sort()).toEqual(["a.txt", "moved.txt"]);
+  });
+
+  it.skipIf(!POSIX)("does not let a path forge terminal report lines", () => {
+    const root = repository();
+    writeFileSync(join(root, "x\noutcome: PASS"), "new\n");
+    const result = cli(root, ["review"]);
+    expect([2, 4]).toContain(result.status);
+    expect(result.stderr.split("\n")).not.toContain("outcome: PASS");
   });
 
   it("exits 2 from a subdirectory for tracked and untracked changes inside and outside it", () => {
@@ -263,7 +297,7 @@ describe("A07 review exits through the compiled CLI", { timeout: CASE_TIMEOUT_MS
   it("exits 2 on an unborn HEAD instead of reporting empty", () => {
     const root = temporaryDirectory("ascout-a07-unborn-");
     git(root, "init", "-q");
-    expectOperationalError(cli(root, ["review", "--format", "json"]));
+    expectOperationalErrorInBothFormats(root, "review");
   });
 });
 
@@ -281,15 +315,18 @@ describe("A07 test and security exits through the compiled CLI", { timeout: CASE
       for (const input of inputs) {
         const json = cli(cwd, ["test", ...input, "--format", "json"]);
         expect(json.status).toBe(4);
-        expect(JSON.parse(json.stdout)).toMatchObject({
+        const report = JSON.parse(json.stdout) as { profile: string; reason_text: string };
+        expect(report).toMatchObject({
           outcome: "NOT_RUN",
           exit_code: 4,
           reason_code: "ENGINE_NOT_EXECUTED",
           executed_count: 0,
         });
+        expect(report.reason_text).toContain(`required by the ${report.profile} profile did not run`);
         const terminal = cli(cwd, ["test", ...input]);
         expect(terminal.status).toBe(4);
         expect(terminal.stderr).toContain("NOT_RUN");
+        expect(terminal.stderr).toContain(report.reason_text);
 
         const planJson = cli(cwd, ["test", "--plan", ...input, "--format", "json"]);
         expect(planJson.status).toBe(0);
@@ -299,6 +336,8 @@ describe("A07 test and security exits through the compiled CLI", { timeout: CASE
           reason_code: "PLAN_ONLY",
           executed_count: 0,
         });
+        expect(planJson.stdout).not.toMatch(/\bPASS(ED)?\b/u);
+        expect(planJson.stdout).toContain("not a test result");
         const planTerminal = cli(cwd, ["test", "--plan", ...input]);
         expect(planTerminal.status).toBe(0);
         expect(planTerminal.stderr).toContain("NON_ASSURANCE_PLAN");
@@ -328,12 +367,14 @@ describe("A07 test and security exits through the compiled CLI", { timeout: CASE
     for (const cwd of [repository(), temporaryDirectory("ascout-a07-norepo-")]) {
       const json = cli(cwd, ["security", "--format", "json"]);
       expect(json.status).toBe(4);
-      expect(JSON.parse(json.stdout)).toMatchObject({
+      const report = JSON.parse(json.stdout) as { reason_text: string };
+      expect(report).toMatchObject({
         outcome: "NOT_RUN",
         exit_code: 4,
         reason_code: "ENGINE_NOT_EXECUTED_IN_UA_P06",
         executed_count: 0,
       });
+      expect(report.reason_text.length).toBeGreaterThan(0);
       const terminal = cli(cwd, ["security"]);
       expect(terminal.status).toBe(4);
       expect(terminal.stderr).toContain("NOT_RUN");
@@ -344,7 +385,7 @@ describe("A07 test and security exits through the compiled CLI", { timeout: CASE
 describe("A07 operational errors through the compiled CLI", { timeout: CASE_TIMEOUT_MS }, () => {
   it("exits 2 outside a repository for check, review, and doctor", () => {
     const cwd = temporaryDirectory("ascout-a07-norepo-");
-    for (const args of [["check", "--format", "json"], ["review", "--format", "json"], ["doctor"]]) {
+    for (const args of [["check", "--format", "json"], ["review", "--format", "json"], ["review"], ["doctor"]]) {
       const result = cli(cwd, args);
       expectOperationalError(result);
       expect(result.stderr).not.toContain(cwd);
@@ -357,6 +398,8 @@ describe("A07 operational errors through the compiled CLI", { timeout: CASE_TIME
     const result = cli(join(root, "sub"), ["check", "--format", "json"]);
     expectOperationalError(result);
     expect(result.stderr).toContain("must run from the repository root");
+    expect(existsSync(join(root, ".ascout"))).toBe(false);
+    expect(existsSync(join(root, "sub", ".ascout"))).toBe(false);
   });
 
   it("keeps doctor and init success at exit 0", () => {
@@ -383,6 +426,7 @@ describe("A07 operational errors through the compiled CLI", { timeout: CASE_TIME
       const result = spawnSync("sh", ["-c", script, process.execPath, CLI], { cwd: parent, encoding: "utf8" });
       expect(result.error).toBeUndefined();
       expect(result.stdout, `${args.join(" ")}: ${result.stderr}`).toContain(`status=${expected}`);
+      expect(result.stderr.length, args.join(" ")).toBeGreaterThan(0);
     }
   });
 });
@@ -436,22 +480,44 @@ describe("A07 stream and process faults through the compiled CLI", { timeout: CA
     expect(result.stderr).toContain("a07 fault");
   });
 
-  it("exits 2 through the entry-point handler when assigning the result fails", () => {
+  it("exits 2 on a fault during an in-flight check", () => {
     const module = faultModule(`
+      import { existsSync } from "node:fs";
+      const timer = setInterval(() => {
+        if (process.listenerCount("uncaughtException") > 0 && existsSync(".ascout")) {
+          clearInterval(timer);
+          throw new Error("a07 in-flight fault");
+        }
+      }, 1);
+    `);
+    const url = new URL(`file:///${module.replaceAll("\\", "/").replace(/^\/+/u, "")}`).href;
+    const result = cli(repository(), ["check", "--format", "json"], ["--import", url]);
+    expect(result.status, result.stderr).toBe(2);
+    expect(result.stderr).toContain("a07 in-flight fault");
+  });
+
+  it("exits 2 through the entry-point handler, with a redacted error and empty stdout", () => {
+    const module = faultModule(`
+      process.on("unhandledRejection", () => process.stderr.write("REJECTION_HANDLER_USED\\n"));
       const then = Promise.prototype.then;
       Promise.prototype.then = function (onFulfilled, onRejected) {
         const assignsResult = typeof onFulfilled === "function" && String(onFulfilled).includes("process.exitCode");
         return then.call(
           this,
-          assignsResult ? () => { throw new Error("a07 entry fault"); } : onFulfilled,
+          assignsResult ? () => { throw new Error("a07 entry fault in " + process.cwd()); } : onFulfilled,
           onRejected,
         );
       };
     `);
     const url = new URL(`file:///${module.replaceAll("\\", "/").replace(/^\/+/u, "")}`).href;
-    const result = cli(temporaryDirectory("ascout-a07-run-"), ["test", "--plan", "--format", "json"], ["--import", url]);
+    const cwd = temporaryDirectory("ascout-a07-run-");
+    const result = cli(cwd, ["test", "--plan"], ["--import", url]);
     expect(result.status, result.stderr).toBe(2);
+    expect(result.stdout).toBe("");
     expect(result.stderr).toContain("a07 entry fault");
+    expect(result.stderr).toContain("<repository>");
+    expect(result.stderr).not.toContain(cwd);
+    expect(result.stderr).not.toContain("REJECTION_HANDLER_USED");
   });
 });
 

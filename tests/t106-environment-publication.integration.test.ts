@@ -153,7 +153,7 @@ describe("T106 environment publication", () => {
     expect(outcome.terminalSummary.length).toBeGreaterThan(0);
   }, 15_000);
 
-  it("maps only the typed environment integrity failure to exit 2 before project tasks and emits no receipt", async () => {
+  it("maps the typed environment integrity failure to exit 2 before project tasks and emits no receipt", async () => {
     const root = initializeFixture();
     process.chdir(root);
     const diagnosticPath = process.cwd();

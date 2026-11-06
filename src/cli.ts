@@ -18,6 +18,7 @@ import {
   renderReviewJsonV1,
   renderReviewTerminalV1,
   type ReviewChangeV1,
+  type ReviewReportV1,
 } from "./assurance/review/review-command.js";
 import {
   buildTestCommandReportV1,
@@ -360,6 +361,14 @@ function collectReviewChanges(
   return changes;
 }
 
+function writeReviewReport(report: ReviewReportV1, format: ReviewFormat): void {
+  if (format === "json") {
+    process.stdout.write(renderReviewJsonV1(report));
+  } else {
+    console.error(renderReviewTerminalV1(report));
+  }
+}
+
 async function runReview(
   repositoryRoot: string,
   format: ReviewFormat | undefined,
@@ -374,11 +383,7 @@ async function runReview(
   const outputFormat: ReviewFormat = format ?? "terminal";
   if (endState.head_sha !== sourceState.head_sha || endState.tree_digest !== sourceState.tree_digest) {
     const drift = buildReviewDriftReportV1(sourceState.repository_id, sourceState, endState);
-    if (outputFormat === "json") {
-      process.stdout.write(renderReviewJsonV1(drift));
-    } else {
-      console.error(renderReviewTerminalV1(drift));
-    }
+    writeReviewReport(drift, outputFormat);
     return drift.exit_code;
   }
   const files = changes.map((change) => change.path).sort();
@@ -397,11 +402,7 @@ async function runReview(
         ),
     changes,
   );
-  if (outputFormat === "json") {
-    process.stdout.write(renderReviewJsonV1(report));
-  } else {
-    console.error(renderReviewTerminalV1(report));
-  }
+  writeReviewReport(report, outputFormat);
   return report.exit_code;
 }
 
