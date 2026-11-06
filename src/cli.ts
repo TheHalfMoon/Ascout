@@ -4,23 +4,25 @@ import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { runCheck } from "./check.js";
 import { collectDiscoveredProject } from "./discovery.js";
-import { EnvironmentIdentityIntegrityError } from "./environment.js";
 import { loadConfig, composeSourceState } from "./check.js";
 import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./discovery.js";
-import { readWorkingTreeComparison } from "./git.js";
+import { readRepositoryPrefix, readStagedChangedPaths, readWorkingTreeComparison } from "./git.js";
 import { renderReceiptAgent } from "./receipt/agent.js";
 import { renderReceiptJson } from "./receipt/json.js";
 import {
   buildEmptyReviewScopeV1,
   buildReviewAbsenceReportV1,
+  buildReviewCommandReportV1,
+  buildReviewDriftReportV1,
   defaultUnavailableExecutionV1,
   renderReviewJsonV1,
   renderReviewTerminalV1,
+  type ReviewChangeV1,
 } from "./assurance/review/review-command.js";
 import {
-  buildTestPlanV1,
+  buildTestCommandReportV1,
+  renderTestCommandTerminalV1,
   renderTestPlanJsonV1,
-  renderTestPlanTerminalV1,
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
 import {
@@ -34,12 +36,14 @@ const COMMANDS = ["init", "doctor", "check", "review", "test", "security"] as co
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
+const PLAN_FLAG = "--plan";
 const CHECK_FORMATS = ["json", "agent"] as const;
 const REVIEW_FORMATS = ["json", "terminal"] as const;
 const TEST_FORMATS = ["json", "terminal"] as const;
 const SECURITY_FORMATS = ["json", "terminal"] as const;
 const TEST_PROFILE_TOKENS = ["quick", "standard", "deep", "release"] as const;
 const REVIEW_WRITE_FLAGS = ["--publish", "--write", "--output", "--push"] as const;
+const OPERATIONAL_ERROR_EXIT_CODE = 2;
 
 export type CliCommand = (typeof COMMANDS)[number];
 export type CheckFormat = (typeof CHECK_FORMATS)[number];
@@ -55,6 +59,7 @@ export interface CliInvocation {
   allowChangedCommandSurface: boolean;
   format?: CheckFormat | ReviewFormat | TestFormat | SecurityFormat;
   profile?: TestProfile;
+  plan?: true;
 }
 
 interface DoctorResult {
@@ -117,6 +122,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   let allowChangedCommandSurface = false;
   let format: CheckFormat | ReviewFormat | TestFormat | SecurityFormat | undefined;
   let profile: TestProfile | undefined;
+  let plan = false;
 
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index]!;
@@ -217,6 +223,17 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       continue;
     }
 
+    if (token === PLAN_FLAG) {
+      if (commandToken !== "test") {
+        throw new CliUsageError(`${PLAN_FLAG} is valid only with the test command.`);
+      }
+      if (plan) {
+        throw new CliUsageError(`${PLAN_FLAG} may be supplied only once.`);
+      }
+      plan = true;
+      continue;
+    }
+
     throw new CliUsageError(`Unknown argument for ${commandToken}: ${token}`);
   }
 
@@ -225,6 +242,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     allowChangedCommandSurface,
     ...(format === undefined ? {} : { format }),
     ...(profile === undefined ? {} : { profile }),
+    ...(plan ? { plan: true as const } : {}),
   };
 }
 
@@ -235,7 +253,7 @@ export function usageText(): string {
     "  ascout doctor",
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${FORMAT_FLAG} json|terminal]`,
-    `  ascout test [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
+    `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
     `  ascout security [${FORMAT_FLAG} json|terminal]`,
   ].join("\n");
 }
@@ -252,6 +270,31 @@ function redactLocalPathFromError(error: unknown, repositoryRoot: string): strin
     if (candidate.length > 0) message = message.replaceAll(candidate, "<repository>");
   }
   return message;
+}
+
+// Reporting an error must not itself throw, including when the working directory is gone.
+function describeOperationalError(error: unknown): string {
+  try {
+    return redactLocalPathFromError(error, process.cwd());
+  } catch {
+    return "ascout: operational error; details withheld because the working directory is unavailable.";
+  }
+}
+
+function reportOperationalError(message: string): void {
+  try {
+    console.error(message);
+  } catch {
+    // Nothing further can be reported; the exit code still carries the error.
+  }
+}
+
+// Files outside the working directory are invisible to the Git readers, so a
+// run from a subdirectory cannot bind the whole source state.
+function requireRepositoryRootWorkingDirectory(command: CliCommand): void {
+  if (readRepositoryPrefix(process.cwd()) !== "") {
+    throw new Error(`ascout ${command} must run from the repository root.`);
+  }
 }
 
 async function runInit(): Promise<number> {
@@ -282,10 +325,41 @@ async function runInit(): Promise<number> {
     console.error("ascout init: created ascout.config.json and ensured .ascout/ is ignored.");
     return 0;
   } catch (error) {
-    console.error(`ascout init failed: ${redactLocalPathFromError(error, process.cwd())}`);
-    return 1;
+    reportOperationalError(`ascout init failed: ${describeOperationalError(error)}`);
+    return OPERATIONAL_ERROR_EXIT_CODE;
   }
 }
+function collectReviewChanges(
+  repositoryRoot: string,
+  headSha: string,
+  changedFiles: ReturnType<typeof readWorkingTreeComparison>["changed_files"],
+): ReviewChangeV1[] {
+  const changes: ReviewChangeV1[] = [];
+  const seen = new Set<string>();
+  const add = (change: ReviewChangeV1): void => {
+    if (!seen.has(change.path)) {
+      seen.add(change.path);
+      changes.push(change);
+    }
+  };
+  const toChange = (file: (typeof changedFiles)[number]): ReviewChangeV1 => ({
+    path: file.path,
+    change_kind: file.change_kind,
+    ...(file.previous_path === undefined ? {} : { previous_path: file.previous_path }),
+  });
+  for (const file of changedFiles) {
+    if (file.change_kind !== "untracked") add(toChange(file));
+  }
+  for (const file of changedFiles) {
+    if (file.change_kind === "untracked") add(toChange(file));
+  }
+  const previousPaths = new Set(changes.flatMap((change) => change.previous_path ?? []));
+  for (const staged of readStagedChangedPaths(repositoryRoot, headSha)) {
+    if (!previousPaths.has(staged.path)) add(staged);
+  }
+  return changes;
+}
+
 async function runReview(
   repositoryRoot: string,
   format: ReviewFormat | undefined,
@@ -295,57 +369,50 @@ async function runReview(
     repositoryRoot,
     sourceState.head_sha,
   );
-  const seen = new Set<string>();
-  const files: string[] = [];
-  for (const file of comparison.changed_files) {
-    if (file.change_kind === "deleted") {
-      continue;
-    }
-    if (!seen.has(file.path)) {
-      seen.add(file.path);
-      files.push(file.path);
-    }
-  }
-  files.sort();
+  const changes = collectReviewChanges(repositoryRoot, sourceState.head_sha, comparison.changed_files);
+  const endState = composeSourceState(repositoryRoot);
   const outputFormat: ReviewFormat = format ?? "terminal";
-  if (files.length === 0) {
-    const report = buildEmptyReviewScopeV1(
-      sourceState.repository_id,
-      sourceState.head_sha,
-    );
+  if (endState.head_sha !== sourceState.head_sha || endState.tree_digest !== sourceState.tree_digest) {
+    const drift = buildReviewDriftReportV1(sourceState.repository_id, sourceState, endState);
     if (outputFormat === "json") {
-      process.stdout.write(renderReviewJsonV1(report));
+      process.stdout.write(renderReviewJsonV1(drift));
     } else {
-      console.error(renderReviewTerminalV1(report));
+      console.error(renderReviewTerminalV1(drift));
     }
-    return 0;
+    return drift.exit_code;
   }
-  const report = buildReviewAbsenceReportV1(
-    sourceState.repository_id,
-    sourceState.head_sha,
-    defaultUnavailableExecutionV1(
-      sourceState.head_sha,
-      "profile:review-default",
-      "capsule:review-default",
-    ),
-    [{ group_id: "group:working-tree", files }],
+  const files = changes.map((change) => change.path).sort();
+  const report = buildReviewCommandReportV1(
+    files.length === 0
+      ? buildEmptyReviewScopeV1(sourceState.repository_id, sourceState.head_sha)
+      : buildReviewAbsenceReportV1(
+          sourceState.repository_id,
+          sourceState.head_sha,
+          defaultUnavailableExecutionV1(
+            sourceState.head_sha,
+            "profile:review-default",
+            "capsule:review-default",
+          ),
+          [{ group_id: "group:working-tree", files }],
+        ),
+    changes,
   );
   if (outputFormat === "json") {
     process.stdout.write(renderReviewJsonV1(report));
   } else {
     console.error(renderReviewTerminalV1(report));
   }
-  return 0;
+  return report.exit_code;
 }
 
-function runTestPlan(profile: TestProfile, format: TestFormat | undefined): number {
-  const plan = buildTestPlanV1(profile);
+function runTest(profile: TestProfile, planOnly: boolean, format: TestFormat | undefined): number {
+  const report = buildTestCommandReportV1(profile, planOnly);
   if (format === "json") {
-    process.stdout.write(renderTestPlanJsonV1(plan));
+    process.stdout.write(renderTestPlanJsonV1(report));
   } else {
-    console.error(renderTestPlanTerminalV1(plan));
+    console.error(renderTestCommandTerminalV1(report));
   }
-  return 0;
+  return report.exit_code;
 }
 
 export async function runCli(argv: readonly string[]): Promise<number> {
@@ -355,6 +422,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       return await runInit();
     }
     if (invocation.command === "check") {
+      requireRepositoryRootWorkingDirectory("check");
       const outcome = await runCheck(process.cwd(), {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
       });
@@ -376,13 +444,14 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // parseCliArgs admits only json|terminal for the review command,
       // so this narrowing reflects parser-guaranteed input.
       const reviewFormat = invocation.format as ReviewFormat | undefined;
+      requireRepositoryRootWorkingDirectory("review");
       return await runReview(process.cwd(), reviewFormat);
     }
     if (invocation.command === "test") {
       // parseCliArgs admits only json|terminal for the test command,
       // so this narrowing reflects parser-guaranteed input.
       const testFormat = invocation.format as TestFormat | undefined;
-      return runTestPlan(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, testFormat);
+      return runTest(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, invocation.plan === true, testFormat);
     }
     if (invocation.command === "security") {
       // Local and read-only: no repository read, process, network, or file write.
@@ -401,12 +470,9 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       console.error(`${error.message}\n\n${usageText()}`);
       return 2;
     }
-    if (error instanceof EnvironmentIdentityIntegrityError) {
-      console.error(redactLocalPathFromError(error, process.cwd()));
-      return 2;
-    }
-    console.error(redactLocalPathFromError(error, process.cwd()));
-    return 1;
+    // EnvironmentIdentityIntegrityError and every other operational error exit 2 (Amendment A07).
+    reportOperationalError(describeOperationalError(error));
+    return OPERATIONAL_ERROR_EXIT_CODE;
   }
 }
 
@@ -456,7 +522,7 @@ function runDoctor(repositoryRoot: string): DoctorResult {
   } catch (error) {
     return {
       output: `Error during doctor: ${redactLocalPathFromError(error, repositoryRoot)}`,
-      exitCode: 1,
+      exitCode: OPERATIONAL_ERROR_EXIT_CODE,
     };
   }
 }
@@ -476,14 +542,26 @@ function classifyEntry(): EntryDisposition {
   }
 }
 
+// A fault handler stops Node from terminating, so it must exit itself. Otherwise
+// a pending runCli could still assign its own result over the error.
+function terminateOnOperationalFault(error: unknown): void {
+  reportOperationalError(`ascout: unexpected error: ${describeOperationalError(error)}`);
+  process.exit(OPERATIONAL_ERROR_EXIT_CODE);
+}
+
+function installOperationalFaultHandlers(): void {
+  process.on("uncaughtException", terminateOnOperationalFault);
+  process.on("unhandledRejection", terminateOnOperationalFault);
+  process.stdout.on("error", () => process.exit(OPERATIONAL_ERROR_EXIT_CODE));
+  process.stderr.on("error", () => process.exit(OPERATIONAL_ERROR_EXIT_CODE));
+}
+
 const entryDisposition = classifyEntry();
 if (entryDisposition === "direct") {
+  installOperationalFaultHandlers();
   runCli(process.argv.slice(2)).then((code) => {
     process.exitCode = code;
-  }).catch((err) => {
-    console.error("ascout: unexpected error:", redactLocalPathFromError(err, process.cwd()));
-    process.exitCode = 1;
-  });
+  }).catch(terminateOnOperationalFault);
 } else if (entryDisposition === "resolution_error") {
   console.error("ascout: unable to resolve CLI entry path. No project task was executed.");
   process.exitCode = 2;

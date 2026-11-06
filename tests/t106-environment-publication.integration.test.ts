@@ -172,7 +172,7 @@ describe("T106 environment publication", () => {
     expect(diagnostic).not.toContain(diagnosticPath);
   });
 
-  it("preserves generic unexpected CLI exception behavior at exit 1", async () => {
+  it("maps a generic unexpected CLI exception to exit 2 (Amendment A07)", async () => {
     const root = initializeFixture();
     process.chdir(root);
     const diagnosticPath = process.cwd();
@@ -180,7 +180,7 @@ describe("T106 environment publication", () => {
     const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    expect(await runCli(["check", "--format", "agent"])).toBe(1);
+    expect(await runCli(["check", "--format", "agent"])).toBe(2);
     expect(control.order).toEqual(["environment"]);
     expect(control.runProcess).not.toHaveBeenCalled();
     expect(stdout).not.toHaveBeenCalled();

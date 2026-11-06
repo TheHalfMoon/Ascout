@@ -19,6 +19,28 @@ import { parseCliArgs, runCli, usageText } from "../src/cli.js";
 
 const HEAD = "e".repeat(40);
 
+const sourceControl = vi.hoisted(() => ({
+  compose: undefined as
+    | undefined
+    | ((call: number, real: (root: string) => unknown, root: string) => unknown),
+  calls: 0,
+}));
+
+vi.mock("../src/check.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/check.js")>();
+  return {
+    ...actual,
+    composeSourceState: (root: string) => {
+      sourceControl.calls += 1;
+      return (sourceControl.compose === undefined
+        ? actual.composeSourceState(root)
+        : sourceControl.compose(sourceControl.calls, actual.composeSourceState, root)) as ReturnType<
+        typeof actual.composeSourceState
+      >;
+    },
+  };
+});
+
 function observation(id: string): RawReviewObservationV1 {
   return {
     schema_version: 1,
@@ -83,6 +105,8 @@ function reviewFixture(): string {
 afterEach(() => {
   process.chdir(originalCwd);
   vi.restoreAllMocks();
+  sourceControl.compose = undefined;
+  sourceControl.calls = 0;
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -151,7 +175,7 @@ describe("UA-P03-T14 review CLI", () => {
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
     const exitTerminal = await runCli(["review"]);
-    expect(exitTerminal).toBe(0);
+    expect(exitTerminal).toBe(4);
     const terminalOutput = terminalError.mock.calls
       .map((call) => String(call[0]))
       .join("\n");
@@ -163,7 +187,7 @@ describe("UA-P03-T14 review CLI", () => {
       .mockImplementation(() => true);
     terminalError.mockClear();
     const exitJson = await runCli(["review", "--format", "json"]);
-    expect(exitJson).toBe(0);
+    expect(exitJson).toBe(4);
     const jsonText = stdout.mock.calls
       .map((call) => String(call[0]))
       .join("");
@@ -175,9 +199,57 @@ describe("UA-P03-T14 review CLI", () => {
     };
     expect(parsed.kind).toBe("absence");
     expect(parsed.absence?.outcome ?? parsed.outcome).toBe("NOT_RUN");
+    expect(parsed).toMatchObject({
+      exit_code: 4,
+      reason_code: "ENGINE_NOT_EXECUTED",
+      executed_count: 0,
+      considered: "working_tree_and_index_only",
+    });
     expect(jsonText).toContain("a.txt");
 
     expect(readFileSync(join(root, "a.txt"), "utf8")).toBe(before);
+  }, 60_000);
+
+  it("reports post-read drift as exit 3 with no claim about the moved tree", async () => {
+    const root = reviewFixture();
+    process.chdir(root);
+    sourceControl.compose = (call, real, repositoryRoot) => {
+      const state = real(repositoryRoot) as { tree_digest: string };
+      return call === 1 ? state : { ...state, tree_digest: "f".repeat(64) };
+    };
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await runCli(["review", "--format", "json"])).toBe(3);
+    const report = JSON.parse(stdout.mock.calls.map((call) => String(call[0])).join("")) as Record<string, unknown>;
+    expect(Object.keys(report).sort()).toEqual(
+      ["end", "executed_count", "exit_code", "kind", "outcome", "reason_code", "reason_text", "schema_version", "start", "target_id"].sort(),
+    );
+    expect(report).toMatchObject({ kind: "drift", outcome: "SOURCE_DRIFT", exit_code: 3, reason_code: "SOURCE_DRIFT" });
+    expect((report.end as { tree_digest: string }).tree_digest).toBe("f".repeat(64));
+
+    sourceControl.calls = 0;
+    expect(await runCli(["review"])).toBe(3);
+    const terminal = stderr.mock.calls.map((call) => String(call[0])).join("\n");
+    expect(terminal).toContain("outcome: SOURCE_DRIFT");
+    expect(terminal).toContain("end: head");
+  }, 60_000);
+
+  it.each([
+    ["a mid-read source change", "source changed during tree-digest collection"],
+    ["a Git metadata timeout", "git metadata read timed out"],
+  ])("maps %s to exit 2 with empty stdout", async (_label, message) => {
+    const root = reviewFixture();
+    process.chdir(root);
+    sourceControl.compose = () => {
+      throw new Error(message);
+    };
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await runCli(["review", "--format", "json"])).toBe(2);
+    expect(stdout).not.toHaveBeenCalled();
+    expect(stderr.mock.calls.flat().map(String).join("\n")).toContain(message);
   }, 60_000);
 
   it("refuses write and publication flags with read-only reasons", async () => {

@@ -130,7 +130,7 @@ export function runSentrdelSecurityBenchmarkV1() {
     { id: "retest.still-observed", class: "remediation-retest", expected: "OPEN_STILL_OBSERVED", observed: stillThere.state },
     { id: "retest.not-reobserved-unverified", class: "remediation-retest", expected: "RETEST_NOT_REOBSERVED/verified=false", observed: `${notReobserved.state}/verified=${notReobserved.remediation_verified}` },
     { id: "repro.linked-not-executed", class: "reproduction-reference", expected: "LINKED_NOT_EXECUTED/proven=false", observed: `${link.state}/proven=${link.exploit_proven}` },
-    { id: "engine.missing-not-run-exit-1", class: "missing-engine", expected: "NOT_RUN/1", observed: `${security.outcome}/${security.exit_code}` },
+    { id: "engine.missing-not-run-exit-4", class: "missing-engine", expected: "NOT_RUN/4", observed: `${security.outcome}/${security.exit_code}` },
   ];
   const results: CaseResult[] = cases.map(c => Object.freeze({ ...c, matched: c.observed === c.expected }));
   const count = (cls: SentrdelSecurityBenchmarkClassV1) => results.filter(r => r.class === cls);

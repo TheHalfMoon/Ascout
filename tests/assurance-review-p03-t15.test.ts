@@ -256,7 +256,7 @@ describe("UA-P03-T15 exact-head phase qualification sentinel", () => {
         "  ascout doctor",
         "  ascout check [--allow-changed-command-surface] [--format json|agent]",
         "  ascout review [--format json|terminal]",
-        "  ascout test [--profile quick|standard|deep|release] [--format json|terminal]",
+        "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
         "  ascout security [--format json|terminal]",
       ].join("\n"),
     );
@@ -271,7 +271,7 @@ describe("UA-P03-T15 exact-head phase qualification sentinel", () => {
     for (const command of ["cyber", "assure"]) {
       expect(() => parseCliArgs([command])).toThrow(CliUsageError);
     }
-    expect(REVIEW_REPORT_KINDS).toEqual(["review", "absence", "empty"]);
+    expect(REVIEW_REPORT_KINDS).toEqual(["review", "absence", "empty", "drift"]);
     expect(ABSENCE_OUTCOMES).toEqual(["NOT_RUN", "INCOMPLETE"]);
   });
 });
