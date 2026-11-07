@@ -266,7 +266,7 @@ All commands use the same meanings under Constitution Amendment A07:
 | --- | --- |
 | `0` | Complete applicable work, or an explicitly requested non-assurance operation such as `test --plan` |
 | `1` | A verified finding or a `FAIL` or `FLAKY` task |
-| `2` | An error or invalid evidence, including running `check`, `review`, or `doctor` outside a repository or from a subdirectory |
+| `2` | An error or invalid evidence, including running `check`, `review`, or `doctor` outside a repository, or `check`, `review`, `doctor`, or `test` from a subdirectory |
 | `3` | Source drift detected between the start and end of the operation |
 | `4` | Applicable verification that did not complete, including `review` today and `test --profile quick`, because no engine runs. `test` and `security` exit `4` outside a repository too |
 

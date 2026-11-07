@@ -253,6 +253,13 @@ describe("runSecurityGitleaksV1 without a real binary", () => {
     }
   }, 60_000);
 
+  it.runIf(qualifiedHost)("exits 2, not NO_REPOSITORY, when Git fails inside something that looks like a repository", async () => {
+    const broken = mkdtempSync(join(base, "broken-"));
+    writeFileSync(join(broken, ".git"), "not a gitdir pointer\n");
+    const outcome = await runSecurityGitleaksV1(broken, process.execPath);
+    expect(outcome.kind).toBe("error");
+  }, 60_000);
+
   it("reports NOT_RUN with exit 4 on a platform with no pinned executable", async () => {
     const outcome = await runSecurityGitleaksV1(repo, process.execPath, { host: { platform: "linux", arch: "arm64" } });
     expect(outcome.kind === "report" && [outcome.report.reason_code, outcome.report.exit_code])

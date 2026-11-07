@@ -31,6 +31,7 @@ import {
   renderTestPlanJsonV1,
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
+import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
 import {
   buildTestNotRunReportV2,
   profileRunsCheckV1,
@@ -437,19 +438,23 @@ async function runTest(profile: TestProfile, planOnly: boolean, format: TestForm
   if (!profileRunsCheckV1(profile)) {
     return writeReport(buildTestNotRunReportV2(profile, "ENGINE_NOT_QUALIFIED"), null);
   }
-  // Outside a repository, or without a working directory, nothing is bound to test (A07).
+  // Outside a repository, or without a working directory, nothing is bound to test (A07). A Git
+  // failure inside a repository is an error instead, and the catch in runCli makes it exit 2.
   let root: string;
   try {
     root = process.cwd();
-    readRepositoryPrefix(root);
   } catch {
     return writeReport(buildTestNotRunReportV2(profile, "NO_REPOSITORY"), null);
   }
+  if (!looksInsideGitWorkTreeV1(root)) {
+    return writeReport(buildTestNotRunReportV2(profile, "NO_REPOSITORY"), null);
+  }
+  readRepositoryPrefix(root);
   refuseUnsupportedRepository(root);
   const outcome = await runCheck(root);
   const result = testRunResultFromReceiptV1(profile, outcome.receipt);
   if (result.kind === "error") {
-    // Exit 2 keeps stdout empty (A07); the check receipt is in the run directory.
+    // Exit 2 keeps stdout empty (A07); the check receipt stays in its run directory.
     reportOperationalError(result.message);
     return OPERATIONAL_ERROR_EXIT_CODE;
   }

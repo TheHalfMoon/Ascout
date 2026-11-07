@@ -61,6 +61,8 @@ export type TestRunReportV2 = TestProfilePlanProjectionV1 &
     executed_count: number;
     check: TestCheckSummaryV1 | null;
     not_run: readonly TestNotRunCapabilityV1[];
+    /** The plan's effect classes and budgets are predictions. Nothing enforces them. */
+    effects_enforced: false;
   }>;
 
 export function profileRunsCheckV1(profile: TestProfile): boolean {
@@ -96,6 +98,7 @@ export function buildTestNotRunReportV2(
     exit_code: 4,
     executed_count: 0,
     check: null,
+    effects_enforced: false,
     not_run: Object.freeze(
       reasonCode === "NO_REPOSITORY"
         ? [
@@ -130,6 +133,7 @@ function summarizeCheck(receipt: ReceiptV1): TestCheckSummaryV1 {
 }
 
 const EXECUTED: ReadonlySet<TaskStatus> = new Set<TaskStatus>(["PASS", "FAIL", "FLAKY"]);
+const TEST_TASK_TYPES: ReadonlySet<string> = new Set(["test", "pytestBasic"]);
 
 export type TestRunResultV1 =
   | { readonly kind: "report"; readonly report: TestRunReportV2 }
@@ -144,15 +148,20 @@ export function testRunResultFromReceiptV1(profile: TestProfile, receipt: Receip
   if (checkExit === 2) {
     return {
       kind: "error",
-      message: "ascout test: check reported an error, so no test result is reported. Run `ascout check` for the receipt.",
+      message:
+        "ascout test: check reported an error, so no test result is reported. Its receipt is at .ascout/runs/" +
+        receipt.run.run_id +
+        "/receipt.json.",
     };
   }
+  // check can complete with only typecheck or lint applicable. A test command needs a test.
+  const testRan = receipt.tasks.some((task) => TEST_TASK_TYPES.has(task.task_type) && task.status === "PASS");
   const plan = projectTestProfilePlanFieldsV1(profile);
   const notRun = notRunCapabilities(profile);
   let exit: 0 | 1 | 3 | 4;
   if (checkExit === 3) exit = 3;
   else if (checkExit === 1) exit = 1;
-  else if (checkExit === 4 || notRun.length > 0) exit = 4;
+  else if (checkExit === 4 || notRun.length > 0 || !testRan) exit = 4;
   else exit = 0;
 
   const outcome: TestRunOutcomeV1 =
@@ -161,14 +170,16 @@ export function testRunResultFromReceiptV1(profile: TestProfile, receipt: Receip
     exit === 3 ? "SOURCE_DRIFT"
       : exit === 1 ? "CHECK_FINDINGS"
       : checkExit === 4 ? "CHECK_INCOMPLETE"
-      : exit === 4 ? "REQUIRED_ENGINE_NOT_RUN"
+      : notRun.length > 0 ? "REQUIRED_ENGINE_NOT_RUN"
+      : !testRan ? "NO_TEST_EXECUTED"
       : "CHECK_COMPLETE";
   const reasonText =
     exit === 3 ? "The source changed during check, so its results describe a tree that no longer exists."
       : exit === 1 ? "check found failures or flaky tests."
       : checkExit === 4 ? "check did not complete all applicable verification."
-      : exit === 4 ? `check completed, but the ${plan.profile} profile also requires engines that did not run.`
-      : "check completed all applicable verification.";
+      : notRun.length > 0 ? `check completed, but the ${plan.profile} profile also requires engines that did not run.`
+      : !testRan ? "check completed, but no test task ran, so nothing was tested."
+      : "check completed all applicable verification, including at least one passing test task.";
 
   return {
     kind: "report",
@@ -183,6 +194,7 @@ export function testRunResultFromReceiptV1(profile: TestProfile, receipt: Receip
       executed_count: receipt.tasks.filter((task) => EXECUTED.has(task.status)).length,
       check: summarizeCheck(receipt),
       not_run: Object.freeze(notRun),
+      effects_enforced: false,
     }),
   };
 }
@@ -203,6 +215,7 @@ export function renderTestRunTerminalV1(report: TestRunReportV2, checkSummary: s
   }
   for (const item of report.not_run) lines.push(`not run: ${item.capability} (${item.reason_code})`);
   lines.push(`exit code: ${report.exit_code}`);
+  lines.push("The plan's effect classes and budgets below are predictions; check runs repository commands with your permissions.");
   // The profile's plan, as `--plan` shows it, without that output's plan-only header.
   lines.push(...renderTestPlanTerminalV1(report).split("\n").slice(1));
   if (checkSummary !== null && checkSummary.length > 0) lines.push("", checkSummary);

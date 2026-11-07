@@ -1,19 +1,26 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { ReceiptV1, TaskStatus } from "../src/receipt/model.js";
 
-const checkControl = vi.hoisted(() => ({ receipt: null as unknown, calls: 0 }));
+const checkControl = vi.hoisted(() => ({
+  receipt: null as unknown,
+  calls: 0,
+  args: [] as unknown[][],
+  throws: false,
+}));
 
 vi.mock("../src/check.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/check.js")>();
   return {
     ...actual,
-    runCheck: async () => {
+    runCheck: async (...args: unknown[]) => {
       checkControl.calls += 1;
+      checkControl.args.push(args);
+      if (checkControl.throws) throw new Error("check failed at " + String(args[0]));
       return { receipt: checkControl.receipt, terminalSummary: "check summary" };
     },
   };
@@ -29,14 +36,18 @@ const HEAD = "a".repeat(40);
 const TREE = "b".repeat(64);
 
 /** The receipt fields the test command reads. The rest of a real receipt is not needed here. */
-function receipt(exitCode: 0 | 1 | 2 | 3 | 4, statuses: readonly TaskStatus[] = ["PASS"]): ReceiptV1 {
+function receipt(
+  exitCode: 0 | 1 | 2 | 3 | 4,
+  statuses: readonly TaskStatus[] = ["PASS"],
+  taskType: "test" | "typecheck" = "test",
+): ReceiptV1 {
   const counts = { PASS: 0, FAIL: 0, FLAKY: 0, BLOCKED: 0, ERROR: 0, NOT_APPLICABLE: 0, NOT_RUN: 0 };
   for (const status of statuses) counts[status] += 1;
   return {
     schema_version: "1.0",
     run: { run_id: "run:fake" },
     source: { start: { head_sha: HEAD, tree_digest: TREE }, end: null },
-    tasks: statuses.map((status, index) => ({ task_id: "task" + index, status, reason_code: null })),
+    tasks: statuses.map((status, index) => ({ task_id: "task" + index, task_type: taskType, status, reason_code: null })),
     summary: {
       exit_code: exitCode,
       completeness: exitCode === 0 ? "complete" : "materially_incomplete",
@@ -59,6 +70,9 @@ describe("testRunResultFromReceiptV1", () => {
     ["DEEP", 1, 1, "FINDINGS", "CHECK_FINDINGS"],
     ["RELEASE", 3, 3, "SOURCE_DRIFT", "SOURCE_DRIFT"],
     ["DEEP", 4, 4, "INCOMPLETE", "CHECK_INCOMPLETE"],
+    ["DEEP", 3, 3, "SOURCE_DRIFT", "SOURCE_DRIFT"],
+    ["RELEASE", 1, 1, "FINDINGS", "CHECK_FINDINGS"],
+    ["RELEASE", 4, 4, "INCOMPLETE", "CHECK_INCOMPLETE"],
   ] as const)("maps %s with check exit %i to exit %i (%s)", (profile, checkExit, exit, outcome, reason) => {
     const result = testRunResultFromReceiptV1(profile, receipt(checkExit));
     expect(result.kind).toBe("report");
@@ -68,7 +82,24 @@ describe("testRunResultFromReceiptV1", () => {
   });
 
   it.each(["STANDARD", "DEEP", "RELEASE"] as const)("turns a check error into exit 2 with no report (%s)", (profile) => {
-    expect(testRunResultFromReceiptV1(profile, receipt(2, ["ERROR"])).kind).toBe("error");
+    const result = testRunResultFromReceiptV1(profile, receipt(2, ["ERROR"]));
+    expect(result.kind).toBe("error");
+    if (result.kind === "error") expect(result.message).toContain(".ascout/runs/run:fake/receipt.json");
+  });
+
+  it("exits 4 when check completes without running any test task", () => {
+    const result = testRunResultFromReceiptV1("STANDARD", receipt(0, ["PASS"], "typecheck"));
+    expect(result.kind === "report" && [result.report.exit_code, result.report.reason_code]).toEqual([4, "NO_TEST_EXECUTED"]);
+  });
+
+  it("keeps the missing engines visible on a finding", () => {
+    const result = testRunResultFromReceiptV1("DEEP", receipt(1, ["FAIL"]));
+    expect(result.kind === "report" && result.report.not_run.length).toBe(3);
+  });
+
+  it("says the plan's effects are not enforced", () => {
+    const result = testRunResultFromReceiptV1("STANDARD", receipt(0));
+    expect(result.kind === "report" && result.report.effects_enforced).toBe(false);
   });
 
   it("lists exactly the engines each profile requires but cannot run", () => {
@@ -127,6 +158,8 @@ describe("ascout test running check", { timeout: 60_000 }, () => {
   afterEach(() => {
     vi.restoreAllMocks();
     checkControl.calls = 0;
+    checkControl.args = [];
+    checkControl.throws = false;
   });
 
   function captured() {
@@ -144,6 +177,8 @@ describe("ascout test running check", { timeout: 60_000 }, () => {
     const out = captured();
     expect(await runCli(["test", "--format", "json"])).toBe(0);
     expect(checkControl.calls).toBe(1);
+    // check runs over this repository with no admission override.
+    expect(checkControl.args).toEqual([[process.cwd()]]);
     expect(out.json()).toMatchObject({ schema_version: 2, outcome: "COMPLETE", exit_code: 0, executed_count: 1 });
   });
 
@@ -151,7 +186,9 @@ describe("ascout test running check", { timeout: 60_000 }, () => {
     checkControl.receipt = receipt(1, ["FAIL"]);
     const out = captured();
     expect(await runCli(["test", "--profile", "deep", "--format", "json"])).toBe(1);
-    expect(out.json()).toMatchObject({ outcome: "FINDINGS", exit_code: 1 });
+    const report = out.json();
+    expect(report).toMatchObject({ outcome: "FINDINGS", exit_code: 1 });
+    expect(report.not_run.map((item: { capability: string }) => item.capability)).toEqual(["mutation", "property-fuzz", "browser"]);
   });
 
   it("exits 2 with stdout empty when check reports an error", async () => {
@@ -160,6 +197,39 @@ describe("ascout test running check", { timeout: 60_000 }, () => {
     expect(await runCli(["test", "--format", "json"])).toBe(2);
     expect(out.stdout).not.toHaveBeenCalled();
     expect(out.stderr.mock.calls.flat().map(String).join("\n")).toContain("check reported an error");
+  });
+
+  it("exits 2 with stdout empty and no path when check throws", async () => {
+    checkControl.throws = true;
+    const out = captured();
+    expect(await runCli(["test", "--format", "json"])).toBe(2);
+    expect(out.stdout).not.toHaveBeenCalled();
+    expect(out.stderr.mock.calls.flat().map(String).join("\n")).not.toContain(repo);
+  });
+
+  it("exits 2 from a repository subdirectory without running check", async () => {
+    mkdirSync(join(repo, "sub"), { recursive: true });
+    process.chdir(join(repo, "sub"));
+    try {
+      captured();
+      expect(await runCli(["test", "--format", "json"])).toBe(2);
+      expect(checkControl.calls).toBe(0);
+    } finally {
+      process.chdir(repo);
+    }
+  });
+
+  it("exits 2, not NO_REPOSITORY, when Git fails inside something that looks like a repository", async () => {
+    const broken = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-test-broken-")));
+    writeFileSync(join(broken, ".git"), "not a gitdir pointer\n");
+    process.chdir(broken);
+    try {
+      captured();
+      expect(await runCli(["test", "--format", "json"])).toBe(2);
+      expect(checkControl.calls).toBe(0);
+    } finally {
+      process.chdir(repo);
+    }
   });
 
   it("never runs check for QUICK", async () => {

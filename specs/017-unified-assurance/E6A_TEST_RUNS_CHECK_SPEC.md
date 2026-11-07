@@ -1,9 +1,17 @@
 # E6 Part One: `ascout test` Runs `check`
 
-**Status:** packet specification under Amendment A07. It changes the A07 acceptance-grid rows
-for `test` inside a repository, under the founder's standing approval of 2026-11-07 rather than a
-separate ratification. The review half of E6 is not here: it needs an LLM provider, which is
-not authorized.
+**Status:** packet specification under Amendment A07, adopted under the founder's standing
+approval of 2026-11-07 rather than a separate ratification. It changes three things A07 fixed for
+`test`:
+
+- **Grid rows inside a repository:** `standard`, `deep`, and `release` now run `check`.
+- **Section 5.3 reason codes, everywhere:** `test` without `--plan` no longer reports
+  `ENGINE_NOT_EXECUTED`. Outside a repository it reports `NO_REPOSITORY`, and `quick` reports
+  `ENGINE_NOT_QUALIFIED`.
+- **Report shape:** every non-plan report is `schema_version` 2, with new `check`, `not_run`,
+  and `effects_enforced` fields. A caller matching the old report breaks.
+
+The review half of E6 is not here: it needs an LLM provider, which is not authorized.
 
 ## What changes
 
@@ -30,27 +38,35 @@ Precedence follows A07: 2, then 3, then 1, then 4, then 0.
 
 | `check` exit | `standard` | `deep`, `release` |
 |---|---|---|
-| 0, complete | 0 `COMPLETE` | 4 `INCOMPLETE`, `REQUIRED_ENGINE_NOT_RUN` |
+| 0, complete, with a test task that passed | 0 `COMPLETE` | 4 `INCOMPLETE`, `REQUIRED_ENGINE_NOT_RUN` |
+| 0, complete, but no test task ran | 4 `INCOMPLETE`, `NO_TEST_EXECUTED` | 4 `INCOMPLETE`, `REQUIRED_ENGINE_NOT_RUN` |
 | 1, failure or flaky | 1 `FINDINGS` | 1 `FINDINGS` |
 | 2, error | 2, stdout empty | 2, stdout empty |
 | 3, source drift | 3 `SOURCE_DRIFT` | 3 `SOURCE_DRIFT` |
 | 4, incomplete | 4 `INCOMPLETE`, `CHECK_INCOMPLETE` | 4 `INCOMPLETE`, `CHECK_INCOMPLETE` |
 
-Outside a Git work tree, or without a working directory, `test` exits 4 with `NO_REPOSITORY`,
-as the A07 row requires. From a repository subdirectory, or in a repository Ascout refuses, it
-exits 2, as `check` does.
+**Why exit 0 needs a test:** `check` can complete when only typecheck or lint applies, for
+example in a TypeScript project with no test runner. A test command that ran no test must not
+pass, so exit 0 also requires a `test` or `pytestBasic` task with status PASS.
+
+For profiles that run `check`: outside a Git work tree, or without a working directory, `test`
+exits 4 with `NO_REPOSITORY`, as the A07 row requires. "Outside" means no `.git` in the working
+directory or any parent. Inside one, a Git failure, a repository subdirectory, or a repository
+Ascout refuses exits 2, as `check` does. `quick` reports `ENGINE_NOT_QUALIFIED` everywhere.
 
 **Findings on exits 2 and 3:** on exit 3 the report keeps `check`'s per-task statuses and states
-that they describe a tree that no longer exists. On exit 2 nothing is reported. The `check`
-receipt stays in the run directory, and `ascout check` shows it.
+that they describe a tree that no longer exists. On exit 2 nothing is reported on stdout.
+When `check` produced a receipt, stderr names its path, `.ascout/runs/<run_id>/receipt.json`.
 
 ## Report
 
 Non-plan output is a v2 report: the profile's plan fields, `outcome`, `reason_code`,
 `reason_text`, `exit_code`, `executed_count` (tasks that passed, failed, or were flaky), a
 `check` summary (`run_id`, exit, completeness, finding count, status counts, per-task status,
-and start source), and `not_run` with each required engine that did not run. Terminal output
-shows the same, with the plan and `check`'s own summary.
+and start source), `not_run` with each required engine that did not run, and
+`effects_enforced: false`. The plan's effect classes and budgets are predictions: `check` runs
+repository commands with the user's permissions, with no isolation and no network limit.
+Terminal output shows the same, with the plan and `check`'s own summary.
 
 ## Side effects
 
@@ -64,6 +80,8 @@ nothing.
 |---|---|
 | `src/assurance/test/test-run-command.ts` | New: profile requirements, exit mapping, report |
 | `src/cli.ts` | Modified: `test` runs `check` for the profiles above |
+| `src/assurance/repository-presence.ts` | New: tells "no repository" from a Git failure inside one |
+| `src/assurance/security/security-gitleaks.ts` | Modified: uses the same test, so a Git failure there also exits 2 |
 | `tests/assurance-test-run-command.test.ts` | New: every exit row, and the CLI with `check` replaced |
 | `tests/assurance-test-cli-test-plan.test.ts` | Modified: runs outside a repository, where nothing runs |
 | `tests/a07-cli-exit-native.test.ts` | Modified: expects `check`'s result inside a repository; copies the receipt schema the compiled copy now needs |
@@ -75,6 +93,11 @@ lives in its own module. The check adapter maps single task statuses and isn't n
 runner belongs to the review half.
 
 ## Known limits
+
+- **An installed package can't write receipts yet.** The receipt code loads its schema from
+  `specs/`, which the package doesn't ship. That already breaks `ascout check` from an installed
+  package. With this packet it breaks `ascout test` there too. The package is private and
+  unpublished. The fix is separate.
 
 - **No real passing or failing project in tests.** Exits 0 and 1 are proved with `check`
   replaced in-process. The compiled-CLI tests reach only `check`'s incomplete result on an empty
