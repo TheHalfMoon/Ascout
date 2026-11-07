@@ -45,9 +45,10 @@ Precedence follows A07: 2, then 3, then 1, then 4, then 0.
 | 3, source drift | 3 `SOURCE_DRIFT` | 3 `SOURCE_DRIFT` |
 | 4, incomplete | 4 `INCOMPLETE`, `CHECK_INCOMPLETE` | 4 `INCOMPLETE`, `CHECK_INCOMPLETE` |
 
-**Why exit 0 needs a test:** `check` can complete when only typecheck or lint applies, for
-example in a TypeScript project with no test runner. A test command that ran no test must not
-pass, so exit 0 also requires a `test` or `pytestBasic` task with status PASS.
+**Why exit 0 needs a test:** a test command that ran no test must not pass, so exit 0 also
+requires a `test` or `pytestBasic` task with status PASS. Real-repository tests show that the
+current `check` already exits 4 in that case, with changed code or on a clean tree, because no
+test exercised anything. This rule is a second guard in case `check` changes.
 
 For profiles that run `check`: outside a Git work tree, or without a working directory, `test`
 exits 4 with `NO_REPOSITORY`, as the A07 row requires. "Outside" means no `.git` in the working
