@@ -1,14 +1,17 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  accessSync,
   closeSync,
+  constants as fsConstants,
   lstatSync,
   openSync,
   readSync,
   readlinkSync,
   realpathSync,
+  statSync,
 } from "node:fs";
-import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { TextDecoder } from "node:util";
 import { URL } from "node:url";
 
@@ -335,8 +338,50 @@ export function resolveRepositoryIdentity(repositoryRoot: string): RepositoryIde
     : repositoryIdentityFromRemote(rawRemote);
 }
 
+// A PATH entry may name a directory the repository controls, including ".", so Git
+// resolves here to an absolute file outside the repository. This is not proof of
+// which Git it is: a directory the user put on PATH stays the user's authority.
+export function trustedGitExecutable(repositoryRoot: string): string | null {
+  let root: string;
+  try {
+    root = realpathSync.native(repositoryRoot);
+  } catch {
+    return null;
+  }
+  const name = process.platform === "win32" ? "git.exe" : "git";
+  // With PATH unset, POSIX exec searched a default path, so this keeps finding Git.
+  const searchPath = process.env.PATH ?? (process.platform === "win32" ? "" : "/usr/local/bin:/usr/bin:/bin");
+  for (const rawEntry of searchPath.split(delimiter)) {
+    const entry = rawEntry.replace(/^"(.*)"$/u, "$1");
+    if (!isAbsolute(entry) || /^[\\/]{2}/u.test(entry)) continue;
+    try {
+      const candidate = join(entry, name);
+      // Both must lie outside: a repository entry could link out to pick the binary, and an
+      // outside entry could link back in.
+      if (isContainedPath(root, realpathSync.native(entry))) continue;
+      if (isContainedPath(root, realpathSync.native(candidate))) continue;
+      if (!statSync(candidate).isFile()) continue;
+      accessSync(candidate, fsConstants.X_OK);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+function noTrustedGitError(): Error {
+  return Object.assign(new Error("no Git executable found outside the repository"), {
+    code: "ENOENT",
+  });
+}
+
 const defaultGitCommandRunner: GitCommandRunner = (repositoryRoot, argv) => {
-  const result = withoutCurrentDirectorySearch(() => spawnSync("git", hardenedGitArgs(argv), {
+  const git = trustedGitExecutable(repositoryRoot);
+  if (git === null) {
+    return { status: null, stdout: "", stderr: "", error: noTrustedGitError() };
+  }
+  const result = withoutCurrentDirectorySearch(() => spawnSync(git, hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: "utf8",
     env: hardenedGitEnv(),
@@ -579,7 +624,11 @@ function runGitTreeMetadata(
   argv: readonly string[],
   stdin?: Buffer,
 ): GitBufferCommandResult {
-  const result = withoutCurrentDirectorySearch(() => spawnSync("git", hardenedGitArgs(argv), {
+  const git = trustedGitExecutable(repositoryRoot);
+  if (git === null) {
+    return { status: null, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0), error: noTrustedGitError() };
+  }
+  const result = withoutCurrentDirectorySearch(() => spawnSync(git, hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: null,
     env: hardenedGitEnv(),
