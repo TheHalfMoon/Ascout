@@ -14,7 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { readWorkingTreeComparison } from "../src/git.js";
+import { readRepositoryPrefix, readWorkingTreeComparison } from "../src/git.js";
 
 // Synthetic fixtures only. Each payload does nothing but create an empty marker
 // file in that fixture's own temp directory. Bounded hardening, not a sandbox.
@@ -268,8 +268,11 @@ describe("E1 repository and environment selected helpers", { timeout: TIMEOUT_MS
       const value = fixture();
       removeObject(value, "HEAD:a.txt");
       promisorRepository(value);
-      run(value, args);
+      git(value, "config", "protocol.file.allow", "always");
+      const result = run(value, args);
       expect(existsSync(value.marker), `${args[0]} ran the promisor command`).toBe(false);
+      expect(result.status, args[0]).toBe(2);
+      expect(result.stderr).toContain("partial clones");
     }
   });
 
@@ -281,6 +284,28 @@ describe("E1 repository and environment selected helpers", { timeout: TIMEOUT_MS
       const result = run(value, args);
       expect(existsSync(value.marker), `${args[0]} ran the promisor command`).toBe(false);
       expect(result.status, args[0]).toBe(2);
+    }
+  });
+
+  it("refuses a promisor remote even when no object is missing", () => {
+    for (const args of COMMANDS) {
+      const value = fixture();
+      git(value, "config", "remote.q.promisor", "true");
+      const result = run(value, args);
+      expect(result.status, args[0]).toBe(2);
+      expect(result.stderr).toContain("partial clones");
+    }
+  });
+
+  it("does not leave the Windows search flag set for project tasks", () => {
+    const key = "NoDefaultCurrentDirectoryInExePath";
+    const previous = process.env[key];
+    delete process.env[key];
+    try {
+      expect(readRepositoryPrefix(fixture().root)).toBe("");
+      expect(process.env[key]).toBeUndefined();
+    } finally {
+      if (previous !== undefined) process.env[key] = previous;
     }
   });
 
@@ -298,10 +323,24 @@ describe("E1 repository and environment selected helpers", { timeout: TIMEOUT_MS
     expect(JSON.parse(report.stdout)).toEqual(JSON.parse(expected.stdout));
   });
 
+  it("runs no helper from a subdirectory on any command", () => {
+    for (const command of ["doctor", "review", "check"]) {
+      const value = fixture();
+      mkdirSync(join(value.root, "sub"));
+      writeFileSync(join(value.root, "sub", "b.dat"), "sub\n");
+      git(value, "config", "filter.p.clean", `${touch(value)}; cat`);
+      writeFileSync(join(value.root, ".gitattributes"), "/b.dat filter=p\n");
+      const result = run(value, [command], {}, join(value.root, "sub"));
+      expect(existsSync(value.marker), `${command} ran a filter`).toBe(false);
+      expect(result.status, result.stderr).toBe(2);
+      expect(result.stderr).toContain("must run from the repository root");
+    }
+  });
+
   it("keeps the subdirectory guard working when GIT_DIR is set", () => {
     const value = fixture();
     mkdirSync(join(value.root, "sub"));
-    for (const command of ["review", "check"]) {
+    for (const command of ["doctor", "review", "check"]) {
       const result = run(value, [command], { GIT_DIR: posix(join(value.root, ".git")) }, join(value.root, "sub"));
       expect(result.status, result.stderr).toBe(2);
       expect(result.stderr).toContain("must run from the repository root");
@@ -435,6 +474,17 @@ describe("E1 executable filter refusal", { timeout: TIMEOUT_MS }, () => {
 });
 
 describe("E1 legitimate repository results", { timeout: TIMEOUT_MS }, () => {
+  it("is not refused because of its own run output", () => {
+    const value = fixture();
+    writeFileSync(join(value.root, ".gitattributes"), "*.json filter=lfs\n");
+    mkdirSync(join(value.root, ".ascout"));
+    writeFileSync(join(value.root, ".ascout", "manifest.json"), "{}\n");
+    for (const args of COMMANDS) {
+      const result = run(value, args);
+      expect(result.status, `${args[0]}: ${result.stderr}`).toBe(args[0] === "doctor" ? 0 : 4);
+    }
+  });
+
   function clean(): Fixture {
     const value = fixture();
     git(value, "checkout", "-q", "--", ".");

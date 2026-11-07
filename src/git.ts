@@ -124,12 +124,6 @@ function hardenedGitArgs(argv: readonly string[]): string[] {
 // Global and system config stay in effect, because they carry settings such as
 // core.autocrlf that determine tree identity. Only inherited GIT_* authority goes.
 function hardenedGitEnv(inherited: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  // Windows otherwise searches the working directory first, so a git.exe in the
-  // repository would run in place of Git. The search reads this process's own
-  // environment, not the environment passed to the child.
-  if (process.platform === "win32") {
-    process.env.NoDefaultCurrentDirectoryInExePath = "1";
-  }
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(inherited)) {
     if (!key.toUpperCase().startsWith("GIT_")) {
@@ -137,6 +131,28 @@ function hardenedGitEnv(inherited: NodeJS.ProcessEnv = process.env): NodeJS.Proc
     }
   }
   return { ...env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", GIT_NO_LAZY_FETCH: "1" };
+}
+
+// Windows otherwise searches the working directory first, so a git.exe in the
+// repository would run in place of Git. The search reads this process's own
+// environment, not the child's, so the flag is set only around the synchronous
+// spawn. Project tasks must not inherit it: it changes how cmd.exe finds tools.
+function withoutCurrentDirectorySearch<T>(spawn: () => T): T {
+  if (process.platform !== "win32") {
+    return spawn();
+  }
+  const key = "NoDefaultCurrentDirectoryInExePath";
+  const previous = process.env[key];
+  process.env[key] = "1";
+  try {
+    return spawn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = previous;
+    }
+  }
 }
 
 const GIT_METADATA_TIMEOUT_MS = 10_000;
@@ -320,7 +336,7 @@ export function resolveRepositoryIdentity(repositoryRoot: string): RepositoryIde
 }
 
 const defaultGitCommandRunner: GitCommandRunner = (repositoryRoot, argv) => {
-  const result = spawnSync("git", hardenedGitArgs(argv), {
+  const result = withoutCurrentDirectorySearch(() => spawnSync("git", hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: "utf8",
     env: hardenedGitEnv(),
@@ -328,7 +344,7 @@ const defaultGitCommandRunner: GitCommandRunner = (repositoryRoot, argv) => {
     timeout: GIT_METADATA_TIMEOUT_MS,
     maxBuffer: GIT_METADATA_MAX_BUFFER_BYTES,
     windowsHide: true,
-  });
+  }));
 
   return {
     status: result.status,
@@ -563,7 +579,7 @@ function runGitTreeMetadata(
   argv: readonly string[],
   stdin?: Buffer,
 ): GitBufferCommandResult {
-  const result = spawnSync("git", hardenedGitArgs(argv), {
+  const result = withoutCurrentDirectorySearch(() => spawnSync("git", hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: null,
     env: hardenedGitEnv(),
@@ -572,7 +588,7 @@ function runGitTreeMetadata(
     maxBuffer: stdin === undefined ? GIT_TREE_METADATA_MAX_BUFFER_BYTES : GIT_ATTRIBUTE_QUERY_MAX_BUFFER_BYTES,
     ...(stdin === undefined ? {} : { input: stdin }),
     windowsHide: true,
-  });
+  }));
 
   return {
     status: result.status,
@@ -914,81 +930,40 @@ function parseUntrackedEntries(repositoryRoot: string, buffer: Buffer): TreeDige
   return entries;
 }
 
-function collectTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
-  const head = readGitHeadState(repositoryRoot).head_sha;
-  const index = parseIndexEntries(requireSuccessfulGitBuffer(
-    runGitTreeMetadata(repositoryRoot, ["ls-files", "--stage", "-v", "-z"]),
-    "unable to read Git index for tree digest",
-  ));
-  const unstaged = parseUnstagedEntries(repositoryRoot, requireSuccessfulGitBuffer(
-    runGitTreeMetadata(repositoryRoot, [
-      "diff-files",
-      "--raw",
-      "--no-abbrev",
-      "--no-renames",
-      "--no-ext-diff",
-      "-z",
-    ]),
-    "unable to read unstaged Git state for tree digest",
-  ));
-  const untracked = parseUntrackedEntries(repositoryRoot, requireSuccessfulGitBuffer(
-    runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
-    "unable to read untracked Git state for tree digest",
-  ));
-
-  return treeDigestV1FromState({ head, index, unstaged, untracked });
-}
-
-function sameTreeDigestObservation(left: TreeDigestV1, right: TreeDigestV1): boolean {
-  return left.tree_digest === right.tree_digest &&
-    left.tracked_index_entry_count === right.tracked_index_entry_count &&
-    left.unstaged_changed_count === right.unstaged_changed_count &&
-    left.included_untracked_count === right.included_untracked_count;
-}
-
 // A filter attribute makes Git run a driver while reading worktree content, and
 // no option turns that off for every read. check-attr reports it without running
 // one. The attribute alone refuses, so results can't depend on whether a driver
 // happens to be configured on this machine. Submodules are refused too: Git
 // inspects them with their own config, which these checks can't see, and ignoring
-// them would stop noticing submodule changes.
-function refuseExecutableGitFilters(repositoryRoot: string): void {
-  const stageRecords = splitNullTerminated(
-    requireSuccessfulGitBuffer(
-      runGitTreeMetadata(repositoryRoot, ["ls-files", "--stage", "-z"]),
-      "unable to list tracked paths for the Git filter check",
-    ),
-    "git ls-files --stage output",
-  );
-  const trackedPaths: Buffer[] = [];
-  for (const record of stageRecords) {
-    const separator = record.indexOf(0x09);
-    if (separator < 0) {
-      throw new GitIdentityError("git_metadata_error", "Git returned an invalid index record");
-    }
-    const trackedPath = record.subarray(separator + 1);
-    if (record.subarray(0, 7).toString("latin1") === "160000 ") {
-      const name = JSON.stringify(decodeUtf8(trackedPath, "git submodule path"));
+// them would stop noticing submodule changes. Callers pass listings they already
+// read, and this must run before anything that reads worktree content.
+function refuseExecutableGitFilters(
+  repositoryRoot: string,
+  index: readonly TreeDigestIndexEntry[],
+  untrackedOutput: Buffer,
+): void {
+  const inputs: Buffer[] = [];
+  for (const entry of index) {
+    if (entry.mode === "160000") {
       throw new GitIdentityError(
         "git_metadata_error",
-        `refusing to read this repository: ${name} is a Git submodule, which Ascout does not read`,
+        `refusing to read this repository: ${JSON.stringify(entry.path)} is a Git submodule, which Ascout does not read`,
       );
     }
-    trackedPaths.push(trackedPath, Buffer.from([0]));
+    inputs.push(Buffer.from(entry.path, "utf8"), Buffer.from([0]));
   }
-  const paths = Buffer.concat([
-    ...trackedPaths,
-    requireSuccessfulGitBuffer(
-      runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
-      "unable to list untracked paths for the Git filter check",
-    ),
-  ]);
-  if (paths.length === 0) {
+  // Ascout's own run output is outside source identity, so it can't cause a refusal.
+  for (const record of splitNullTerminated(untrackedOutput, "git ls-files --others output")) {
+    if (!isAscoutRuntimePath(decodeUtf8(record, "git untracked path"))) {
+      inputs.push(record, Buffer.from([0]));
+    }
+  }
+  if (inputs.length === 0) {
     return;
   }
   const records = splitNullTerminated(
     requireSuccessfulGitBuffer(
-      runGitTreeMetadata(repositoryRoot, ["check-attr", "-z", "--stdin", "filter"], paths),
+      runGitTreeMetadata(repositoryRoot, ["check-attr", "-z", "--stdin", "filter"], Buffer.concat(inputs)),
       "unable to read Git filter attributes",
     ),
     "git check-attr output",
@@ -1008,13 +983,56 @@ function refuseExecutableGitFilters(repositoryRoot: string): void {
   }
 }
 
+function readIndexEntries(repositoryRoot: string): TreeDigestIndexEntry[] {
+  return parseIndexEntries(requireSuccessfulGitBuffer(
+    runGitTreeMetadata(repositoryRoot, ["ls-files", "--stage", "-v", "-z"]),
+    "unable to read Git index for tree digest",
+  ));
+}
+
+function readUntrackedOutput(repositoryRoot: string): Buffer {
+  return requireSuccessfulGitBuffer(
+    runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
+    "unable to read untracked Git state for tree digest",
+  );
+}
+
+function collectTreeDigestV1(repositoryRoot: string, checkFilters: boolean): TreeDigestV1 {
+  const head = readGitHeadState(repositoryRoot).head_sha;
+  const index = readIndexEntries(repositoryRoot);
+  const untrackedOutput = readUntrackedOutput(repositoryRoot);
+  if (checkFilters) {
+    refuseExecutableGitFilters(repositoryRoot, index, untrackedOutput);
+  }
+  const unstaged = parseUnstagedEntries(repositoryRoot, requireSuccessfulGitBuffer(
+    runGitTreeMetadata(repositoryRoot, [
+      "diff-files",
+      "--raw",
+      "--no-abbrev",
+      "--no-renames",
+      "--no-ext-diff",
+      "-z",
+    ]),
+    "unable to read unstaged Git state for tree digest",
+  ));
+  const untracked = parseUntrackedEntries(repositoryRoot, untrackedOutput);
+
+  return treeDigestV1FromState({ head, index, unstaged, untracked });
+}
+
+function sameTreeDigestObservation(left: TreeDigestV1, right: TreeDigestV1): boolean {
+  return left.tree_digest === right.tree_digest &&
+    left.tracked_index_entry_count === right.tracked_index_entry_count &&
+    left.unstaged_changed_count === right.unstaged_changed_count &&
+    left.included_untracked_count === right.included_untracked_count;
+}
+
 export function readTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
   // Resolve the repository root once so a caller-provided symlink cannot retarget the Git cwd
   // between the two complete observations.
   const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
-  refuseExecutableGitFilters(canonicalRoot);
-  const first = collectTreeDigestV1(canonicalRoot);
-  const second = collectTreeDigestV1(canonicalRoot);
+  const first = collectTreeDigestV1(canonicalRoot, true);
+  const second = collectTreeDigestV1(canonicalRoot, false);
   if (!sameTreeDigestObservation(first, second)) {
     throw new GitIdentityError(
       "git_metadata_error",
@@ -1453,7 +1471,7 @@ export function readWorkingTreeComparison(
   }
 
   const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
-  refuseExecutableGitFilters(canonicalRoot);
+  refuseExecutableGitFilters(canonicalRoot, readIndexEntries(canonicalRoot), readUntrackedOutput(canonicalRoot));
   const observedHead = readGitHeadState(canonicalRoot).head_sha;
   if (observedHead !== sourceStartHeadSha) {
     throw new GitIdentityError(
@@ -1549,4 +1567,28 @@ export function readRepositoryPrefix(repositoryRoot: string): string {
     "not inside a Git work tree, or Git could not be run",
   );
   return stripOneTerminalNewline(decodeUtf8(output, "git repository prefix"));
+}
+
+// Commands call this before any read that a repository could steer. From a subdirectory, Git
+// lists only that subdirectory but diffs the whole tree, so the filter check would
+// miss paths. A promisor remote can run a configured command for a missing object,
+// and repository config can reopen transports, so these aren't left to overrides.
+export function refuseUnsupportedRepository(repositoryRoot: string): void {
+  if (readRepositoryPrefix(repositoryRoot) !== "") {
+    throw new GitIdentityError("git_metadata_error", "Ascout must run from the repository root.");
+  }
+  const promisor = runGitTreeMetadata(repositoryRoot, [
+    "config",
+    "--get-regexp",
+    "^(extensions\\.partialclone|remote\\..*\\.promisor)$",
+  ]);
+  if (promisor.error !== undefined || (promisor.status !== 0 && promisor.status !== 1)) {
+    throw new GitIdentityError("git_metadata_error", "unable to read Git partial clone settings");
+  }
+  if (promisor.status === 0) {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      "refusing to read this repository: partial clones and promisor remotes can run commands",
+    );
+  }
 }

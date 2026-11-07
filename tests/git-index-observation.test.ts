@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const control = vi.hoisted(() => ({
   calls: [] as string[][],
   prefixes: [] as string[][],
+  envs: [] as NodeJS.ProcessEnv[],
   intercept: null as ((argv: readonly string[], options: unknown) => unknown) | null,
 }));
 
@@ -18,6 +19,7 @@ vi.mock("node:child_process", async (importOriginal) => {
       // Every Ascout Git call carries the hardening prefix; the query follows it.
       const query = argv.slice(argv.lastIndexOf("-c") + 2) as string[];
       control.prefixes.push(argv.slice(0, argv.length - query.length) as string[]);
+      control.envs.push(((options as { env?: NodeJS.ProcessEnv }).env ?? {}) as NodeJS.ProcessEnv);
       control.calls.push(query);
       if (control.intercept !== null) return control.intercept(query, options);
     }
@@ -44,6 +46,7 @@ afterEach(() => {
   control.intercept = null;
   control.calls = [];
   control.prefixes = [];
+  control.envs = [];
   for (const value of roots.splice(0)) {
     if (
       dirname(resolve(value)) !== TEMP_ROOT ||
@@ -59,7 +62,9 @@ function mockIndex(records: readonly Buffer[], head = HEAD, diff = Buffer.alloc(
   control.intercept = (argv, options) => {
     const encoding = (options as { encoding?: unknown }).encoding;
     let output: string | Buffer;
-    if (argv[0] === "rev-parse") output = `true\nfalse\n${head}\n`;
+    if (argv[0] === "rev-parse" && argv.includes("--show-prefix")) output = Buffer.from("\n");
+    else if (argv[0] === "config") return { status: 1, stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
+    else if (argv[0] === "rev-parse") output = `true\nfalse\n${head}\n`;
     else if (argv[0] === "symbolic-ref") output = "refs/heads/main\n";
     else if (argv[0] === "ls-files" && argv.includes("--stage")) {
       output = argv.includes("-v") ? records[Math.min(reads++, records.length - 1)]! : Buffer.from(INDEX);
@@ -166,8 +171,8 @@ function nativeRepository(): string {
 }
 
 describe("Task023 actual native Git launch budgets", () => {
-  // E1 adds three launches per digest read for the filter check.
-  it.each([{ modified: false, budget: 13 }, { modified: true, budget: 15 }])(
+  // E1 adds one launch per digest read, for check-attr.
+  it.each([{ modified: false, budget: 11 }, { modified: true, budget: 13 }])(
     "uses at most $budget Git launches with modified=$modified", ({ modified, budget }) => {
       const value = nativeRepository();
       if (modified) writeFileSync(join(value, "tracked.txt"), "changed\n");
@@ -177,6 +182,12 @@ describe("Task023 actual native Git launch budgets", () => {
       expect(observed.unstaged_changed_count).toBe(modified ? 1 : 0);
       expect(control.calls.length).toBeLessThanOrEqual(budget);
       expect(control.calls.map((call) => call[0])).toContain("check-attr");
+      for (const env of control.envs) {
+        expect(env).toMatchObject({ GIT_NO_LAZY_FETCH: "1", GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" });
+        expect(Object.keys(env).filter((key) => key.toUpperCase().startsWith("GIT_")).sort()).toEqual(
+          ["GIT_NO_LAZY_FETCH", "GIT_OPTIONAL_LOCKS", "GIT_TERMINAL_PROMPT"],
+        );
+      }
       for (const prefix of control.prefixes) {
         expect(prefix).toEqual(expect.arrayContaining(["-c", "core.fsmonitor=false", "core.hooksPath=/dev/null", "diff.external=", "submodule.recurse=false", "protocol.allow=never", "filter.unset.clean=", "filter.unspecified.process="]));
       }
