@@ -101,9 +101,64 @@ export class GitIdentityError extends Error {
   }
 }
 
+// Repository configuration is data, not permission to launch helpers. These
+// overrides beat repository, global, and system config for the keys they name.
+// This is bounded process hardening, not a sandbox.
+const GIT_NULL_DEVICE = "/dev/null"; // Git for Windows accepts this; it rejects NUL here.
+const GIT_CONFIG_OVERRIDES = [
+  "core.fsmonitor=false",
+  `core.hooksPath=${GIT_NULL_DEVICE}`,
+  "diff.external=",
+  "submodule.recurse=false",
+  "protocol.allow=never",
+  // check-attr reports these driver names exactly like absent attributes, so
+  // they can't be refused by name. An empty command makes Git skip the driver.
+  ...["unset", "unspecified"].flatMap((name) =>
+    ["clean", "smudge", "process"].map((command) => `filter.${name}.${command}=`)),
+] as const;
+
+function hardenedGitArgs(argv: readonly string[]): string[] {
+  return [...GIT_CONFIG_OVERRIDES.flatMap((setting) => ["-c", setting]), ...argv];
+}
+
+// Global and system config stay in effect, because they carry settings such as
+// core.autocrlf that determine tree identity. Only inherited GIT_* authority goes.
+function hardenedGitEnv(inherited: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {};
+  for (const [key, value] of Object.entries(inherited)) {
+    if (!key.toUpperCase().startsWith("GIT_")) {
+      env[key] = value;
+    }
+  }
+  return { ...env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0", GIT_NO_LAZY_FETCH: "1" };
+}
+
+// Windows otherwise searches the working directory first, so a git.exe in the
+// repository would run in place of Git. The search reads this process's own
+// environment, not the child's, so the flag is set only around the synchronous
+// spawn. Project tasks must not inherit it: it changes how cmd.exe finds tools.
+function withoutCurrentDirectorySearch<T>(spawn: () => T): T {
+  if (process.platform !== "win32") {
+    return spawn();
+  }
+  const key = "NoDefaultCurrentDirectoryInExePath";
+  const previous = process.env[key];
+  process.env[key] = "1";
+  try {
+    return spawn();
+  } finally {
+    if (previous === undefined) {
+      delete process.env[key];
+    } else {
+      process.env[key] = previous;
+    }
+  }
+}
+
 const GIT_METADATA_TIMEOUT_MS = 10_000;
 const GIT_METADATA_MAX_BUFFER_BYTES = 1024 * 1024;
 const GIT_TREE_METADATA_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
+const GIT_ATTRIBUTE_QUERY_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const FILE_HASH_BUFFER_BYTES = 64 * 1024;
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const SYMBOLIC_HEAD_REF = /^refs\/.+$/;
@@ -281,14 +336,15 @@ export function resolveRepositoryIdentity(repositoryRoot: string): RepositoryIde
 }
 
 const defaultGitCommandRunner: GitCommandRunner = (repositoryRoot, argv) => {
-  const result = spawnSync("git", [...argv], {
+  const result = withoutCurrentDirectorySearch(() => spawnSync("git", hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: "utf8",
+    env: hardenedGitEnv(),
     shell: false,
     timeout: GIT_METADATA_TIMEOUT_MS,
     maxBuffer: GIT_METADATA_MAX_BUFFER_BYTES,
     windowsHide: true,
-  });
+  }));
 
   return {
     status: result.status,
@@ -518,15 +574,21 @@ interface GitBufferCommandResult {
   readonly error?: Error;
 }
 
-function runGitTreeMetadata(repositoryRoot: string, argv: readonly string[]): GitBufferCommandResult {
-  const result = spawnSync("git", [...argv], {
+function runGitTreeMetadata(
+  repositoryRoot: string,
+  argv: readonly string[],
+  stdin?: Buffer,
+): GitBufferCommandResult {
+  const result = withoutCurrentDirectorySearch(() => spawnSync("git", hardenedGitArgs(argv), {
     cwd: repositoryRoot,
     encoding: null,
+    env: hardenedGitEnv(),
     shell: false,
     timeout: GIT_METADATA_TIMEOUT_MS,
-    maxBuffer: GIT_TREE_METADATA_MAX_BUFFER_BYTES,
+    maxBuffer: stdin === undefined ? GIT_TREE_METADATA_MAX_BUFFER_BYTES : GIT_ATTRIBUTE_QUERY_MAX_BUFFER_BYTES,
+    ...(stdin === undefined ? {} : { input: stdin }),
     windowsHide: true,
-  });
+  }));
 
   return {
     status: result.status,
@@ -868,12 +930,80 @@ function parseUntrackedEntries(repositoryRoot: string, buffer: Buffer): TreeDige
   return entries;
 }
 
-function collectTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
-  const head = readGitHeadState(repositoryRoot).head_sha;
-  const index = parseIndexEntries(requireSuccessfulGitBuffer(
+// A filter attribute makes Git run a driver while reading worktree content, and
+// no option turns that off for every read. check-attr reports it without running
+// one. The attribute alone refuses, so results can't depend on whether a driver
+// happens to be configured on this machine. Submodules are refused too: Git
+// inspects them with their own config, which these checks can't see, and ignoring
+// them would stop noticing submodule changes. Callers pass listings they already
+// read, and this must run before anything that reads worktree content.
+function refuseExecutableGitFilters(
+  repositoryRoot: string,
+  index: readonly TreeDigestIndexEntry[],
+  untrackedOutput: Buffer,
+): void {
+  const inputs: Buffer[] = [];
+  for (const entry of index) {
+    if (entry.mode === "160000") {
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `refusing to read this repository: ${JSON.stringify(entry.path)} is a Git submodule, which Ascout does not read`,
+      );
+    }
+    inputs.push(Buffer.from(entry.path, "utf8"), Buffer.from([0]));
+  }
+  // Ascout's own run output is outside source identity, so it can't cause a refusal.
+  for (const record of splitNullTerminated(untrackedOutput, "git ls-files --others output")) {
+    if (!isAscoutRuntimePath(decodeUtf8(record, "git untracked path"))) {
+      inputs.push(record, Buffer.from([0]));
+    }
+  }
+  if (inputs.length === 0) {
+    return;
+  }
+  const records = splitNullTerminated(
+    requireSuccessfulGitBuffer(
+      runGitTreeMetadata(repositoryRoot, ["check-attr", "-z", "--stdin", "filter"], Buffer.concat(inputs)),
+      "unable to read Git filter attributes",
+    ),
+    "git check-attr output",
+  );
+  if (records.length % 3 !== 0) {
+    throw new GitIdentityError("git_metadata_error", "Git returned incomplete filter attributes");
+  }
+  for (let index = 0; index < records.length; index += 3) {
+    const value = decodeUtf8(records[index + 2]!, "git filter attribute value");
+    if (value !== "unspecified" && value !== "unset") {
+      const path = JSON.stringify(decodeUtf8(records[index]!, "git filter attribute path"));
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `refusing to read this repository: ${path} has a Git filter attribute, and filters can run commands`,
+      );
+    }
+  }
+}
+
+function readIndexEntries(repositoryRoot: string): TreeDigestIndexEntry[] {
+  return parseIndexEntries(requireSuccessfulGitBuffer(
     runGitTreeMetadata(repositoryRoot, ["ls-files", "--stage", "-v", "-z"]),
     "unable to read Git index for tree digest",
   ));
+}
+
+function readUntrackedOutput(repositoryRoot: string): Buffer {
+  return requireSuccessfulGitBuffer(
+    runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
+    "unable to read untracked Git state for tree digest",
+  );
+}
+
+function collectTreeDigestV1(repositoryRoot: string, checkFilters: boolean): TreeDigestV1 {
+  const head = readGitHeadState(repositoryRoot).head_sha;
+  const index = readIndexEntries(repositoryRoot);
+  const untrackedOutput = readUntrackedOutput(repositoryRoot);
+  if (checkFilters) {
+    refuseExecutableGitFilters(repositoryRoot, index, untrackedOutput);
+  }
   const unstaged = parseUnstagedEntries(repositoryRoot, requireSuccessfulGitBuffer(
     runGitTreeMetadata(repositoryRoot, [
       "diff-files",
@@ -885,10 +1015,7 @@ function collectTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
     ]),
     "unable to read unstaged Git state for tree digest",
   ));
-  const untracked = parseUntrackedEntries(repositoryRoot, requireSuccessfulGitBuffer(
-    runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
-    "unable to read untracked Git state for tree digest",
-  ));
+  const untracked = parseUntrackedEntries(repositoryRoot, untrackedOutput);
 
   return treeDigestV1FromState({ head, index, unstaged, untracked });
 }
@@ -904,8 +1031,8 @@ export function readTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
   // Resolve the repository root once so a caller-provided symlink cannot retarget the Git cwd
   // between the two complete observations.
   const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
-  const first = collectTreeDigestV1(canonicalRoot);
-  const second = collectTreeDigestV1(canonicalRoot);
+  const first = collectTreeDigestV1(canonicalRoot, true);
+  const second = collectTreeDigestV1(canonicalRoot, false);
   if (!sameTreeDigestObservation(first, second)) {
     throw new GitIdentityError(
       "git_metadata_error",
@@ -1344,6 +1471,7 @@ export function readWorkingTreeComparison(
   }
 
   const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+  refuseExecutableGitFilters(canonicalRoot, readIndexEntries(canonicalRoot), readUntrackedOutput(canonicalRoot));
   const observedHead = readGitHeadState(canonicalRoot).head_sha;
   if (observedHead !== sourceStartHeadSha) {
     throw new GitIdentityError(
@@ -1439,4 +1567,28 @@ export function readRepositoryPrefix(repositoryRoot: string): string {
     "not inside a Git work tree, or Git could not be run",
   );
   return stripOneTerminalNewline(decodeUtf8(output, "git repository prefix"));
+}
+
+// Commands call this before any read that a repository could steer. From a subdirectory, Git
+// lists only that subdirectory but diffs the whole tree, so the filter check would
+// miss paths. A promisor remote can run a configured command for a missing object,
+// and repository config can reopen transports, so these aren't left to overrides.
+export function refuseUnsupportedRepository(repositoryRoot: string): void {
+  if (readRepositoryPrefix(repositoryRoot) !== "") {
+    throw new GitIdentityError("git_metadata_error", "Ascout must run from the repository root.");
+  }
+  const promisor = runGitTreeMetadata(repositoryRoot, [
+    "config",
+    "--get-regexp",
+    "^(extensions\\.partialclone|remote\\..*\\.(promisor|partialclonefilter))$",
+  ]);
+  if (promisor.error !== undefined || (promisor.status !== 0 && promisor.status !== 1)) {
+    throw new GitIdentityError("git_metadata_error", "unable to read Git partial clone settings");
+  }
+  if (promisor.status === 0) {
+    throw new GitIdentityError(
+      "git_metadata_error",
+      "refusing to read this repository: partial clones and promisor remotes can run commands",
+    );
+  }
 }

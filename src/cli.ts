@@ -6,7 +6,7 @@ import { runCheck } from "./check.js";
 import { collectDiscoveredProject } from "./discovery.js";
 import { loadConfig, composeSourceState } from "./check.js";
 import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./discovery.js";
-import { readRepositoryPrefix, readStagedChangedPaths, readWorkingTreeComparison } from "./git.js";
+import { readStagedChangedPaths, readWorkingTreeComparison, refuseUnsupportedRepository } from "./git.js";
 import { renderReceiptAgent } from "./receipt/agent.js";
 import { renderReceiptJson } from "./receipt/json.js";
 import {
@@ -290,14 +290,6 @@ function reportOperationalError(message: string): void {
   }
 }
 
-// Files outside the working directory are invisible to the Git readers, so a
-// run from a subdirectory cannot bind the whole source state.
-function requireRepositoryRootWorkingDirectory(command: CliCommand): void {
-  if (readRepositoryPrefix(process.cwd()) !== "") {
-    throw new Error(`ascout ${command} must run from the repository root.`);
-  }
-}
-
 async function runInit(): Promise<number> {
   try {
     const root = process.cwd();
@@ -423,7 +415,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       return await runInit();
     }
     if (invocation.command === "check") {
-      requireRepositoryRootWorkingDirectory("check");
+      refuseUnsupportedRepository(process.cwd());
       const outcome = await runCheck(process.cwd(), {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
       });
@@ -445,7 +437,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // parseCliArgs admits only json|terminal for the review command,
       // so this narrowing reflects parser-guaranteed input.
       const reviewFormat = invocation.format as ReviewFormat | undefined;
-      requireRepositoryRootWorkingDirectory("review");
+      refuseUnsupportedRepository(process.cwd());
       return await runReview(process.cwd(), reviewFormat);
     }
     if (invocation.command === "test") {
@@ -479,6 +471,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
 
 function runDoctor(repositoryRoot: string): DoctorResult {
   try {
+    refuseUnsupportedRepository(repositoryRoot);
     const { root, discovery } = collectDiscoveredProject(repositoryRoot);
     const { config } = loadConfig(root);
     const sourceState = composeSourceState(root);
