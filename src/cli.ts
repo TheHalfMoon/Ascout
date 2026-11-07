@@ -6,7 +6,12 @@ import { runCheck } from "./check.js";
 import { collectDiscoveredProject } from "./discovery.js";
 import { loadConfig, composeSourceState } from "./check.js";
 import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./discovery.js";
-import { readStagedChangedPaths, readWorkingTreeComparison, refuseUnsupportedRepository } from "./git.js";
+import {
+  readRepositoryPrefix,
+  readStagedChangedPaths,
+  readWorkingTreeComparison,
+  refuseUnsupportedRepository,
+} from "./git.js";
 import { renderReceiptAgent } from "./receipt/agent.js";
 import { renderReceiptJson } from "./receipt/json.js";
 import {
@@ -26,6 +31,13 @@ import {
   renderTestPlanJsonV1,
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
+import {
+  buildTestNotRunReportV2,
+  profileRunsCheckV1,
+  renderTestRunTerminalV1,
+  testRunResultFromReceiptV1,
+  type TestRunReportV2,
+} from "./assurance/test/test-run-command.js";
 import {
   buildSecurityCommandReportV1,
   renderSecurityJsonV1,
@@ -403,14 +415,45 @@ async function runReview(
   return report.exit_code;
 }
 
-function runTest(profile: TestProfile, planOnly: boolean, format: TestFormat | undefined): number {
-  const report = buildTestCommandReportV1(profile, planOnly);
-  if (format === "json") {
-    process.stdout.write(renderTestPlanJsonV1(report));
-  } else {
-    console.error(renderTestCommandTerminalV1(report));
+async function runTest(profile: TestProfile, planOnly: boolean, format: TestFormat | undefined): Promise<number> {
+  if (planOnly) {
+    const report = buildTestCommandReportV1(profile, true);
+    if (format === "json") {
+      process.stdout.write(renderTestPlanJsonV1(report));
+    } else {
+      console.error(renderTestCommandTerminalV1(report));
+    }
+    return report.exit_code;
   }
-  return report.exit_code;
+
+  const writeReport = (report: TestRunReportV2, checkSummary: string | null): number => {
+    if (format === "json") {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    } else {
+      console.error(renderTestRunTerminalV1(report, checkSummary));
+    }
+    return report.exit_code;
+  };
+  if (!profileRunsCheckV1(profile)) {
+    return writeReport(buildTestNotRunReportV2(profile, "ENGINE_NOT_QUALIFIED"), null);
+  }
+  // Outside a repository, or without a working directory, nothing is bound to test (A07).
+  let root: string;
+  try {
+    root = process.cwd();
+    readRepositoryPrefix(root);
+  } catch {
+    return writeReport(buildTestNotRunReportV2(profile, "NO_REPOSITORY"), null);
+  }
+  refuseUnsupportedRepository(root);
+  const outcome = await runCheck(root);
+  const result = testRunResultFromReceiptV1(profile, outcome.receipt);
+  if (result.kind === "error") {
+    // Exit 2 keeps stdout empty (A07); the check receipt is in the run directory.
+    reportOperationalError(result.message);
+    return OPERATIONAL_ERROR_EXIT_CODE;
+  }
+  return writeReport(result.report, outcome.terminalSummary);
 }
 
 export async function runCli(argv: readonly string[]): Promise<number> {
@@ -449,7 +492,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // parseCliArgs admits only json|terminal for the test command,
       // so this narrowing reflects parser-guaranteed input.
       const testFormat = invocation.format as TestFormat | undefined;
-      return runTest(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, invocation.plan === true, testFormat);
+      return await runTest(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, invocation.plan === true, testFormat);
     }
     if (invocation.command === "security") {
       const gitleaksPath = configuredGitleaksPathV1();

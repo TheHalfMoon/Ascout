@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   CliUsageError,
   parseCliArgs,
@@ -6,11 +9,21 @@ import {
   usageText,
 } from "../src/cli.js";
 
+// `test` now runs check inside a repository. These rows run outside one, where it runs nothing.
+const originalCwd = process.cwd();
+beforeAll(() => {
+  process.chdir(mkdtempSync(join(tmpdir(), "ascout-test-plan-")));
+});
+afterAll(() => {
+  process.chdir(originalCwd);
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("UA-P05-T09 additive test command", () => {
+// Running `test` now starts Git once to find the repository, which can be slow on a loaded host.
+describe("UA-P05-T09 additive test command", { timeout: 60_000 }, () => {
   it("parses the test command with plan defaults and no other surface change", () => {
     expect(parseCliArgs(["test"])).toEqual({
       command: "test",
@@ -70,7 +83,7 @@ describe("UA-P05-T09 additive test command", () => {
     expect(stdout).not.toHaveBeenCalled();
     const output = error.mock.calls.flat().map(String).join("\n");
     expect(output).toContain("=== Ascout Test (NOT_RUN) ===");
-    expect(output).toContain("outcome: NOT_RUN (ENGINE_NOT_EXECUTED)");
+    expect(output).toContain("outcome: NOT_RUN (NO_REPOSITORY)");
     expect(output).toContain("exit code: 4");
     expect(output).toContain("profile: STANDARD");
     expect(output).toContain("scope: TEST");
@@ -94,7 +107,7 @@ describe("UA-P05-T09 additive test command", () => {
       adapter_strategy: "adapter-first",
       outcome: "NOT_RUN",
       exit_code: 4,
-      reason_code: "ENGINE_NOT_EXECUTED",
+      reason_code: "ENGINE_NOT_QUALIFIED",
       executed_count: 0,
     });
   });
