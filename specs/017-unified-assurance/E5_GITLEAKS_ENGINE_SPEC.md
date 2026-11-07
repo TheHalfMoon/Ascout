@@ -8,10 +8,10 @@ Wiring it into `ascout security` is E5 part two, which needs the A07 exit mappin
 
 | File | Change |
 |---|---|
-| `src/assurance/engines/gitleaks-profile.ts` | New: release manifest, fixed configuration, profile, registry entry, `runGitleaksV1` |
+| `src/assurance/engines/gitleaks-profile.ts` | New: release manifest, fixed configuration, profile, registry entry |
 | `src/assurance/engines/gitleaks-adapter.ts` | New: native JSON report to `ascout-engine/1` envelope |
-| `src/assurance/engines/engine-profile-v1.ts` | Modified: `output_format` may be `gitleaks-json-v1` |
-| `src/assurance/engines/execution-broker.ts` | Modified: decodes `gitleaks-json-v1` output with the adapter |
+| `src/assurance/engines/engine-profile-v1.ts` | Modified: `output_format` may be `gitleaks-json-v1`, and `coverage_mode` may be `whole_directory` |
+| `src/assurance/engines/execution-broker.ts` | Modified: decodes `gitleaks-json-v1` output with the adapter, and checks Gitleaks' ignore files |
 | `.github/workflows/real-engines.yml` | New: acquire, verify, and run Gitleaks on 3 OSes x Node 22/24 |
 | `.github/scripts/acquire-gitleaks.mjs` | New: CI-only download, double verification, extraction |
 | `tests/assurance-gitleaks-adapter.test.ts` | New: L0 decoder and profile tests |
@@ -42,7 +42,8 @@ needed for a native format, and the broker change touches only how output is dec
 --redact --ignore-gitleaks-allow --gitleaks-ignore-path <config dir> --no-banner --no-color
 --log-level error`
 
-Flags were read from the v8.30.1 source and are checked in CI against `dir --help`.
+Flags were read from the v8.30.1 source. In CI, the acquisition step fails unless every flag in
+the profile appears in that binary's `dir --help`.
 
 - **Exit codes:** Gitleaks exits 1 on any error, including a partial scan, so findings use 42.
   The exit map is `0` CLEAN, `42` FINDINGS, `1` and `126` ERROR.
@@ -55,14 +56,22 @@ Flags were read from the v8.30.1 source and are checked in CI against `dir --hel
 ## Decoding
 
 The adapter accepts exactly the Gitleaks 8.30.1 finding keys. It refuses unknown keys, missing
-keys, a commit (a directory scan has none), and rule IDs that are not plain identifiers. Paths
-are rebased to the source root, and a finding with an unusable path or line keeps no location.
+keys, a `Fragment` (it would carry a whole file's raw text), a commit (a directory scan has
+none), and rule IDs that are not plain identifiers. Paths are rebased to the source root, with
+backslashes treated as separators only on Windows. A finding with an unusable path or line keeps
+no location.
 Descriptions are flattened and cut to 512 characters. Observation IDs hash the index, rule,
 path, and lines, so no secret byte contributes to them.
 
 The broker builds the envelope from its own observations: the request, the profile digest, the
 source binding, and the run times. The result goes through the same envelope parser as protocol
 output, and the broker's checks then apply unchanged.
+
+For a native report, the broker never publishes the stdout digest, and its secret check runs on
+the decoded envelope instead of the raw report. `--redact` hides only each finding's own secret,
+so a match can hold a second one in raw form. The adapter never copies the match, so findings
+survive, and the report's bytes never leave the broker. A secret in a carried field, such as a
+description, still withholds the whole result as `SECRET_IN_OUTPUT`.
 
 ## What a result can say
 
@@ -74,16 +83,26 @@ output, and the broker's checks then apply unchanged.
 ## Known limits
 
 - **A source `.gitleaksignore` always applies.** Gitleaks loads `<source>/.gitleaksignore` and no
-  flag stops it, so a repository can hide its own findings. `runGitleaksV1` adds a limitation
-  when that file exists.
-- **Archives and symbolic links are not scanned.** These are Gitleaks defaults.
+  flag stops it, so a repository can hide its own findings. The broker checks for the file
+  before and after the run and adds a limitation when it was present. A real test confirms the
+  hiding happens.
+- **Ascout's own ignore location must stay empty.** `--gitleaks-ignore-path` names the
+  configuration directory. A `.gitleaksignore` there stops the run before launch
+  (`ENGINE_IGNORE_FILE_PRESENT`), or makes it `ARTIFACT_CHANGED_DURING_RUN` if it appears during
+  the run.
+- **Some paths are never scanned.** Archives and symbolic links are skipped by default, and the
+  upstream default rules allowlist some paths, such as dependency folders and lockfiles.
 - **The scan reads the live worktree, not a frozen export.** The broker's source binding
   detects tracked changes, within the E4 limits.
 - **Coverage proof is future work.** The plan's per-file manifest and separate canary run are
   not here. The real tests do check that a planted canary is detected.
 - **A shipped qualification cannot exist yet.** It would name one install location's digest.
   Part two must generate records at install or fix the location.
-- **Over 4,096 findings refuses the whole report** as malformed rather than truncate it.
+- **A very large report is cut off, never truncated into a result.** The 1 MiB stdout cap is
+  reached at roughly 2,000 findings, which is `OUTPUT_CAP_EXCEEDED`. The adapter's own
+  4,096-finding limit is a second guard.
+- **The error path has no real-binary test.** An exit of 1 maps to `ENGINE_ERROR`, which the L0
+  tests cover, but no fixture makes the real binary fail.
 
 ## Rollback
 

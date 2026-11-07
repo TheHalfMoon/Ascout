@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { appendFileSync, chmodSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const { GITLEAKS_RELEASE_V1, gitleaksArchiveForV1 } = await import(
+const { GITLEAKS_RELEASE_V1, createGitleaksProfileV1, gitleaksArchiveForV1 } = await import(
   new URL("../../dist/assurance/engines/gitleaks-profile.js", import.meta.url).href
 );
 
@@ -75,6 +75,18 @@ for (const [name, args] of [["version", ["version"]], ["help-dir", ["dir", "--he
   if (result.error || result.status !== 0) fail("gitleaks " + args.join(" ") + " failed");
   writeFileSync(join(captures, name + ".txt"), result.stdout + result.stderr);
 }
+// Every flag the profile passes must appear in this binary's own help text.
+const help = readFileSync(join(captures, "help-dir.txt"), "utf8");
+const flags = createGitleaksProfileV1({
+  executable_absolute_path: executable,
+  executable_sha256: executableDigest,
+  config_absolute_path: join(root, "ascout-gitleaks.toml"),
+  platform: process.platform,
+  arch: process.arch,
+}).argv.filter((argument) => argument.startsWith("--"));
+const missing = flags.filter((flag) => !help.includes(flag + " ") && !help.includes(flag + "\n") && !help.includes(flag + "="));
+if (missing.length > 0) fail("gitleaks dir --help does not list " + missing.join(", "));
+
 const version = readFileSync(join(captures, "version.txt"), "utf8").trim();
 if (!version.includes(GITLEAKS_RELEASE_V1.version)) fail("gitleaks reports version " + JSON.stringify(version));
 writeFileSync(join(captures, "identity.json"), JSON.stringify({

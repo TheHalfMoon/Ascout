@@ -10,16 +10,15 @@ import {
   engineProfileQualificationIdentityV1,
   type EngineProfileV1,
 } from "../src/assurance/engines/engine-profile-v1.js";
-import type { EngineRequestV1 } from "../src/assurance/engines/execution-broker.js";
+import { runQualifiedEngineV1, type EngineRequestV1 } from "../src/assurance/engines/execution-broker.js";
 import {
   createGitleaksProfileV1,
   GITLEAKS_CAPABILITY,
   GITLEAKS_RELEASE_V1,
-  GITLEAKS_SUPPRESSION_LIMITATION_V1,
   gitleaksRegistryEntryV1,
-  runGitleaksV1,
   writeGitleaksConfigV1,
 } from "../src/assurance/engines/gitleaks-profile.js";
+import { GITLEAKS_SUPPRESSION_LIMITATION_V1 } from "../src/assurance/engines/gitleaks-adapter.js";
 import { createEngineQualificationSetV1 } from "../src/assurance/kernel/qualification.js";
 import { createEngineRegistryV1 } from "../src/assurance/kernel/registry.js";
 import { readGitHeadState, readTreeDigestV1 } from "../src/git.js";
@@ -101,7 +100,7 @@ describe.runIf(AVAILABLE)("real Gitleaks through the broker", () => {
   }
 
   const run = (root: string, forProfile: EngineProfileV1 = profile) =>
-    runGitleaksV1(request(root, forProfile), forProfile, new AbortController().signal);
+    runQualifiedEngineV1(request(root, forProfile), forProfile, new AbortController().signal);
 
   beforeAll(() => {
     base = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-e5-")));
@@ -170,7 +169,7 @@ describe.runIf(AVAILABLE)("real Gitleaks through the broker", () => {
     expect(result.envelope?.observations.length).toBeGreaterThan(0);
   }, 120_000);
 
-  it("does not inherit a GITLEAKS_CONFIG from the parent", async () => {
+  it("is not redirected by a GITLEAKS_CONFIG in the parent", async () => {
     const allowAll = join(base, "allow-all.toml");
     writeFileSync(allowAll, 'title = "allow all"\n[allowlist]\npaths = [".*"]\n');
     const previous = process.env.GITLEAKS_CONFIG;
@@ -193,8 +192,23 @@ describe.runIf(AVAILABLE)("real Gitleaks through the broker", () => {
     });
     const result = await run(root);
     expect(result.status).toBe("INCOMPLETE");
+    // The finding really is hidden: no observation and a clean exit, despite the canary.
+    expect(result.exit_code).toBe(0);
+    expect(result.envelope?.observations).toEqual([]);
     expect(result.limitations).toContain(GITLEAKS_SUPPRESSION_LIMITATION_V1);
     expect(JSON.stringify(result)).not.toContain(token);
+  }, 120_000);
+
+  it("refuses to start when Ascout's own ignore location holds a .gitleaksignore", async () => {
+    const planted = join(ascoutDirectory, ".gitleaksignore");
+    writeFileSync(planted, "settings.js:github-pat:1\n");
+    try {
+      const root = repository({ "settings.js": `const token = "${syntheticToken()}";\n` });
+      const result = await run(root);
+      expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "ENGINE_IGNORE_FILE_PRESENT"]);
+    } finally {
+      rmSync(planted, { force: true });
+    }
   }, 120_000);
 
   it("refuses a Gitleaks copy inside the source", async () => {
@@ -229,7 +243,7 @@ describe.runIf(AVAILABLE)("real Gitleaks through the broker", () => {
     const root = repository({ "readme.txt": "x\n" });
     const stale = request(root);
     writeFileSync(join(root, "readme.txt"), "changed\n");
-    const result = await runGitleaksV1(stale, profile, new AbortController().signal);
+    const result = await runQualifiedEngineV1(stale, profile, new AbortController().signal);
     expect([result.status, result.reason_code]).toEqual(["NOT_RUN", "SOURCE_DRIFT_AT_START"]);
   }, 120_000);
 });

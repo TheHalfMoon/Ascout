@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { existsSync, statSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
 
 import {
   EngineEnvelopeError,
@@ -42,9 +44,37 @@ const REQUIRED_KEYS = [
   "Tags",
   "Fingerprint",
 ] as const;
-const OPTIONAL_KEYS = ["Link", "Fragment"] as const;
+// Fragment would carry a whole file's raw text, so a report that includes one is refused.
+const OPTIONAL_KEYS = ["Link"] as const;
+
+export const GITLEAKS_SUPPRESSION_LIMITATION_V1 =
+  "The source root held a .gitleaksignore, which Gitleaks always applies, so findings may be hidden.";
+
+function holdsIgnoreFile(path: string): boolean {
+  try {
+    return statSync(path).isFile() || existsSync(join(path, ".gitleaksignore"));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Which ignore files Gitleaks would read. The engine's own location must hold none, so the
+ * broker refuses to start, or reports a changed artifact, when it does. The source root's
+ * file always applies upstream and can only be reported.
+ */
+export function gitleaksIgnoreFilesV1(
+  profile: EngineProfileV1,
+  sourceRoot: string,
+): { readonly engine: boolean; readonly source: boolean } {
+  const index = profile.argv.indexOf("--gitleaks-ignore-path");
+  const enginePath = index === -1 ? undefined : profile.argv[index + 1];
+  return {
+    engine: enginePath !== undefined && isAbsolute(enginePath) && holdsIgnoreFile(enginePath),
+    source: existsSync(join(sourceRoot, ".gitleaksignore")),
+  };
+}
 const REDACTED = "REDACTED";
-const RULE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const MAX_FINDINGS = 4_096;
 const MAX_MESSAGE_LENGTH = 512;
 
@@ -76,13 +106,14 @@ function requireInteger(value: unknown, field: string): number {
 }
 
 /** A path Gitleaks reports for `dir .`, rebased to the source root, or null when it isn't one. */
-function relativeLocationPath(file: string): string | null {
+function relativeLocationPath(file: string, platform: EngineProfileV1["platform"]): string | null {
+  // A backslash separates paths only on Windows. Elsewhere it is part of a file name.
+  if (platform !== "win32" && file.includes("\\")) return null;
   let path = file.replaceAll("\\", "/");
   while (path.startsWith("./")) path = path.slice(2);
   if (
     path.length === 0 ||
     path.length > 4_096 ||
-    path.startsWith("/") ||
     /^[A-Za-z]:/u.test(path) ||
     /[\u0000-\u001f\u007f:]/u.test(path) ||
     path.split("/").some((segment) => segment === "" || segment === "." || segment === "..")
@@ -92,9 +123,13 @@ function relativeLocationPath(file: string): string | null {
   return path;
 }
 
-function location(record: Record<string, unknown>, index: number): EngineEnvelopeLocationV1 | null {
+function location(
+  record: Record<string, unknown>,
+  index: number,
+  platform: EngineProfileV1["platform"],
+): EngineEnvelopeLocationV1 | null {
   const field = "findings[" + index + "]";
-  const path = relativeLocationPath(requireString(record.File, field + ".File"));
+  const path = relativeLocationPath(requireString(record.File, field + ".File"), platform);
   const startLine = requireInteger(record.StartLine, field + ".StartLine");
   const endLine = requireInteger(record.EndLine, field + ".EndLine");
   // A finding without a usable location is kept, with the location stripped.
@@ -158,8 +193,7 @@ export function decodeGitleaksReportV1(
   if (capabilityId === undefined) invalid("a Gitleaks run needs one requested capability");
   const observations = parseFindings(stdout).map((record, index) => {
     const ruleId = requireString(record.RuleID, "findings[" + index + "].RuleID");
-    if (!RULE_ID.test(ruleId)) invalid("findings[" + index + "].RuleID is not a usable rule identifier");
-    const place = location(record, index);
+    const place = location(record, index, context.profile.platform);
     return {
       observation_id: observationId(index, ruleId, place),
       capability_id: capabilityId,

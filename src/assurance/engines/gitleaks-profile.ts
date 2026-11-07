@@ -9,11 +9,6 @@ import {
   validateEngineProfileV1,
   type EngineProfileV1,
 } from "./engine-profile-v1.js";
-import {
-  runQualifiedEngineV1,
-  type EngineRequestV1,
-  type EngineRunResultV1,
-} from "./execution-broker.js";
 
 export const GITLEAKS_ENGINE_ID = "engine:gitleaks" as const;
 export const GITLEAKS_PROFILE_ID = "profile:gitleaks-dir-v1" as const;
@@ -176,7 +171,7 @@ export function createGitleaksProfileV1(input: GitleaksProfileInputV1): EnginePr
       "126": "ERROR",
     },
     output_format: "gitleaks-json-v1",
-    coverage_mode: "explicit_changed_files",
+    coverage_mode: "whole_directory",
     budget: { ...ENGINE_PROFILE_HARD_CAPS_V1 },
     source_egress: "DENY",
     network: "DENY",
@@ -220,6 +215,7 @@ export function gitleaksRegistryEntryV1(profile: EngineProfileV1): EngineRegistr
         "Gitleaks always applies the source root's .gitleaksignore, which can hide findings.",
         "Gitleaks does not report which files it scanned, so coverage is never complete.",
         "Archives and symbolic links are not scanned.",
+        "The upstream default rules allowlist some paths, such as dependency folders and lockfiles.",
       ],
       authority_ceiling: "E0_READ_ONLY_ANALYSIS",
     }),
@@ -228,26 +224,4 @@ export function gitleaksRegistryEntryV1(profile: EngineProfileV1): EngineRegistr
       configuration_sha256: GITLEAKS_CONFIG_SHA256_V1,
     },
   };
-}
-
-export const GITLEAKS_SUPPRESSION_LIMITATION_V1 =
-  "The source root holds a .gitleaksignore, which Gitleaks always applies, so findings may be hidden.";
-
-/** Runs Gitleaks through the broker and states when the source could have hidden findings. */
-export async function runGitleaksV1(
-  request: EngineRequestV1,
-  profile: EngineProfileV1,
-  signal: AbortSignal,
-): Promise<EngineRunResultV1> {
-  const result = await runQualifiedEngineV1(request, profile, signal);
-  if (result.started_at_epoch_ms === null) return result;
-  let suppressed: boolean;
-  try {
-    suppressed = existsSync(join(realpathSync.native(request.source.root_absolute_path), ".gitleaksignore"));
-  } catch {
-    suppressed = true;
-  }
-  return suppressed
-    ? { ...result, limitations: [...result.limitations, GITLEAKS_SUPPRESSION_LIMITATION_V1] }
-    : result;
 }

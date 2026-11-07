@@ -19,7 +19,11 @@ import { createEngineRegistryV1 } from "../kernel/registry.js";
 import { SENTRDEL_EVIDENCE_SECRET_SHAPES } from "../security/sentrdel-evidence-normalization.js";
 import { readGitHeadState, readTreeDigestV1, refuseUnsupportedRepository } from "../../git.js";
 import { runProcess, type ProcessCapture, type ProcessRunResult } from "../../process.js";
-import { decodeGitleaksReportV1 } from "./gitleaks-adapter.js";
+import {
+  decodeGitleaksReportV1,
+  GITLEAKS_SUPPRESSION_LIMITATION_V1,
+  gitleaksIgnoreFilesV1,
+} from "./gitleaks-adapter.js";
 import {
   EngineEnvelopeError,
   parseEngineEnvelopeV1,
@@ -673,6 +677,16 @@ export async function runQualifiedEngineV1(
     });
   }
 
+  // A native report comes from an engine that reads ignore files the broker does not bind.
+  const nativeReport = validated.output_format === "gitleaks-json-v1";
+  const ignoreBefore = nativeReport ? gitleaksIgnoreFilesV1(validated, sourceRoot) : null;
+  if (ignoreBefore?.engine === true) {
+    return refusal(context, "DENIED_BY_POLICY", "ENGINE_IGNORE_FILE_PRESENT", {
+      ...verified,
+      source_start: sourceStart,
+    });
+  }
+
   const wireRequest = Buffer.from(
     JSON.stringify({
       protocol: ENGINE_PROTOCOL_V1,
@@ -731,21 +745,29 @@ export async function runQualifiedEngineV1(
     sourceRoot,
   );
 
+  const ignoreAfter = nativeReport ? gitleaksIgnoreFilesV1(validated, sourceRoot) : null;
   const sensitive = sensitiveParentValues();
-  const stdoutSecret = containsSecret(run.stdout.bytes, sensitive);
+  // A native report can hold raw text the adapter never copies, such as a second secret in
+  // a match, so its bytes are never published and the check runs on what the result carries.
+  const stdoutSecret = nativeReport ? false : containsSecret(run.stdout.bytes, sensitive);
   const stderrSecret = containsSecret(run.stderr.bytes, sensitive);
-  const secretFound = stdoutSecret || stderrSecret;
-  const outcome = decideOutcome(
+  let outcome = decideOutcome(
     run,
     request,
     validated,
     profileSha256,
     sourceStart,
     sourceEnd,
-    executableAfter.kind === "ok" && configAfter.kind === "ok",
-    secretFound,
+    executableAfter.kind === "ok" && configAfter.kind === "ok" && ignoreAfter?.engine !== true,
+    stdoutSecret || stderrSecret,
     { started_at_epoch_ms: startedAt, ended_at_epoch_ms: endedAt },
   );
+  const decodedSecret =
+    outcome.envelope !== null &&
+    containsSecret(Buffer.from(JSON.stringify(outcome.envelope), "utf8"), sensitive);
+  if (decodedSecret) outcome = decide("MALFORMED_OUTPUT", "SECRET_IN_OUTPUT");
+  const secretFound = stdoutSecret || stderrSecret || decodedSecret;
+  const suppressionPossible = ignoreBefore?.source === true || ignoreAfter?.source === true;
   // Secret checks run on every path, so a run stopped for another reason withholds too.
   return {
     schema: ENGINE_RUN_RESULT_SCHEMA_V1,
@@ -760,7 +782,7 @@ export async function runQualifiedEngineV1(
     source_start: sourceStart,
     source_end: sourceEnd,
     executable_sha256: executableSha256,
-    stdout: streamSummary(run.stdout, stdoutSecret),
+    stdout: streamSummary(run.stdout, stdoutSecret || nativeReport),
     stderr: streamSummary(run.stderr, stderrSecret),
     stderr_excerpt: secretFound ? null : stderrExcerpt(run.stderr, sourceRoot),
     output_withheld: secretFound,
@@ -769,6 +791,10 @@ export async function runQualifiedEngineV1(
     // A failed launch ran nothing, so the limits of a run do not apply to it.
     limitations: outcome.status === "UNAVAILABLE"
       ? []
-      : [...BROKER_LIMITATIONS, TREE_LIMITATION[run.termination_target] as string],
+      : [
+          ...BROKER_LIMITATIONS,
+          TREE_LIMITATION[run.termination_target] as string,
+          ...(suppressionPossible ? [GITLEAKS_SUPPRESSION_LIMITATION_V1] : []),
+        ],
   };
 }

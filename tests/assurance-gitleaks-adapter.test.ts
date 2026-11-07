@@ -140,11 +140,23 @@ describe("decodeGitleaksReportV1", () => {
     expect(envelope.engine).toEqual({ id: "engine:gitleaks", version: "8.30.1", build: "sha256-" + "a".repeat(32) });
   });
 
-  it.each([
-    ["./src/config.js", "src/config.js"],
-    ["src\\config.js", "src/config.js"],
-  ])("rebases the path %j", (file, expected) => {
-    expect(decode([finding({ File: file })]).observations[0]?.location?.path).toBe(expected);
+  it("rebases a dot-relative path", () => {
+    expect(decode([finding({ File: "./src/config.js" })]).observations[0]?.location?.path).toBe("src/config.js");
+  });
+
+  it("rebases a Windows path from a Windows profile", () => {
+    const windows = createGitleaksProfileV1({
+      executable_absolute_path: "C:\\gitleaks\\gitleaks.exe",
+      executable_sha256: "a".repeat(64),
+      config_absolute_path: "C:\\ascout\\ascout-gitleaks.toml",
+      platform: "win32",
+      arch: "x64",
+    });
+    const envelope = decodeGitleaksReportV1(
+      Buffer.from(JSON.stringify([finding({ File: "src\\config.js" })]), "utf8"),
+      { ...CONTEXT, profile: windows, profile_sha256: engineProfileSha256V1(windows) },
+    );
+    expect(envelope.observations[0]?.location?.path).toBe("src/config.js");
   });
 
   it.each([
@@ -194,9 +206,16 @@ describe("decodeGitleaksReportV1", () => {
     }
   });
 
-  it("accepts the optional Link and Fragment fields and drops them", () => {
-    const envelope = decode([finding({ Link: "https://example.invalid/x", Fragment: { Raw: "content" } })]);
-    expect(JSON.stringify(envelope)).not.toContain("content");
+  it("accepts the optional Link field and drops it", () => {
+    const envelope = decode([finding({ Link: "https://example.invalid/x" })]);
     expect(JSON.stringify(envelope)).not.toContain("example.invalid");
+  });
+
+  it("refuses a finding that carries a raw Fragment", () => {
+    expect(errorOf([finding({ Fragment: { Raw: "content" } })])).toBe("INVALID_ENVELOPE");
+  });
+
+  it("treats a backslash as part of a file name outside Windows", () => {
+    expect(decode([finding({ File: "src\\config.js" })]).observations[0]?.location).toBeNull();
   });
 });
