@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createEngineDescriptorV1 } from "../src/assurance/contracts/engine-descriptor.js";
 import { createEngineQualificationV1 } from "../src/assurance/contracts/engine-qualification.js";
@@ -71,6 +71,27 @@ const grandchildSource = "require('node:fs').writeFileSync(process.argv[1], Stri
 
 switch (mode) {
   case "clean": emit(envelope()); break;
+  case "gitleaks_native": {
+    process.stdout.write(JSON.stringify([{
+      RuleID: "github-pat", Description: "A token.", StartLine: 1, EndLine: 1, StartColumn: 1, EndColumn: 9,
+      Match: "REDACTED", Secret: "REDACTED", File: "tracked.txt", SymlinkFile: "", Commit: "", Entropy: 4,
+      Author: "", Email: "", Date: "", Message: "", Tags: [], Fingerprint: "tracked.txt:github-pat:1",
+    }]));
+    process.exitCode = 42;
+    break;
+  }
+  case "gitleaks_native_variant": {
+    // argv[4] picks where a planted value appears: in the dropped Match, or in the Description.
+    const where = process.argv[4], value = process.argv[5];
+    process.stdout.write(JSON.stringify([{
+      RuleID: "generic-api-key", Description: where === "description" ? value : "A key.", StartLine: 1, EndLine: 1,
+      StartColumn: 1, EndColumn: 9, Match: where === "match" ? "key=" + value + " REDACTED" : "REDACTED",
+      Secret: "REDACTED", File: "tracked.txt", SymlinkFile: "", Commit: "", Entropy: 4,
+      Author: "", Email: "", Date: "", Message: "", Tags: [], Fingerprint: "tracked.txt:generic-api-key:1",
+    }]));
+    process.exitCode = 42;
+    break;
+  }
   case "findings": emit(envelope({ observations: [observation] })); process.exitCode = 1; break;
   case "clean_exit_with_findings": emit(envelope({ observations: [observation] })); break;
   case "findings_exit_without_findings": emit(envelope()); process.exitCode = 1; break;
@@ -150,7 +171,7 @@ interface Fixture {
 }
 
 let fixture: Fixture;
-const pidFiles: string[] = [];
+let markerCount = 0;
 
 function sha256(path: string): string {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
@@ -328,10 +349,25 @@ function syntheticToken(): string {
   return ["gh", "p_"].join("") + "a1B2".repeat(9);
 }
 
+/** A marker file no earlier test used, so a stale PID can never be read from it. */
 function freshMarker(): string {
-  const path = join(fixture.base, `marker-${pidFiles.length}.txt`);
-  pidFiles.push(path);
+  markerCount += 1;
+  const path = join(fixture.base, `marker-${markerCount}.txt`);
   return path;
+}
+
+/**
+ * Stops a grandchild this test just saw alive. PIDs are reused, so only a process observed
+ * moments ago may be signalled; never one recorded by an earlier test.
+ */
+function stopIfStillAlive(pid: number): void {
+  if (Number.isSafeInteger(pid) && pid > 0 && isAlive(pid)) {
+    try {
+      process.kill(pid, "SIGKILL");
+    } catch {
+      // Already gone.
+    }
+  }
 }
 
 function isAlive(pid: number): boolean {
@@ -375,21 +411,6 @@ beforeAll(() => {
   };
 }, 60_000);
 
-afterEach(() => {
-  // Any grandchild a test left behind is stopped here, then its marker is forgotten.
-  for (const path of pidFiles.splice(0)) {
-    if (!existsSync(path)) continue;
-    const pid = Number(readFileSync(path, "utf8"));
-    if (Number.isSafeInteger(pid) && pid > 0 && isAlive(pid)) {
-      try {
-        process.kill(pid, "SIGKILL");
-      } catch {
-        // Already gone.
-      }
-    }
-  }
-});
-
 afterAll(() => {
   rmSync(fixture.base, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 });
@@ -425,7 +446,6 @@ describe("runQualifiedEngineV1 complete runs", () => {
       const result = await run(withMarker("env", marker, { environment: { ASCOUT_ENGINE_MODE: "strict" } }));
       expect(result.status).toBe("EXECUTED");
       const seen = JSON.parse(readFileSync(marker, "utf8")) as Record<string, string>;
-      pidFiles.pop();
       const names = Object.keys(seen).map((name) => name.toUpperCase());
       expect(seen.ASCOUT_ENGINE_MODE).toBe("strict");
       expect(names).not.toContain("ASCOUT_E4_PARENT_ONLY");
@@ -685,6 +705,47 @@ describe("runQualifiedEngineV1 refusals before launch", () => {
   }, 30_000);
 });
 
+describe("runQualifiedEngineV1 native output", () => {
+  it("decodes Gitleaks JSON through the adapter and keeps coverage partial", async () => {
+    const result = await run(profileFor("gitleaks_native", {
+      output_format: "gitleaks-json-v1",
+      native_exit_map: { "0": "CLEAN", "1": "ERROR", "42": "FINDINGS" },
+    }));
+    expect([result.status, result.reason_code]).toEqual(["INCOMPLETE", "PARTIAL_COVERAGE"]);
+    expect(result.envelope?.observations.map((observation) => observation.rule_id)).toEqual(["github-pat"]);
+    expect(result.envelope?.capabilities[0]?.coverage).toBe("PARTIAL");
+  }, 60_000);
+
+  it("keeps findings when a dropped field held a secret, but never publishes the report digest", async () => {
+    const token = syntheticToken();
+    const result = await run(profileFor("gitleaks_native_variant", {
+      output_format: "gitleaks-json-v1",
+      native_exit_map: { "0": "CLEAN", "1": "ERROR", "42": "FINDINGS" },
+    }, ["match", token]));
+    expect([result.status, result.reason_code]).toEqual(["INCOMPLETE", "PARTIAL_COVERAGE"]);
+    expect(result.stdout?.sha256).toBeNull();
+    expect(JSON.stringify(result)).not.toContain(token);
+  }, 60_000);
+
+  it("withholds a native report whose carried text holds a secret", async () => {
+    const token = syntheticToken();
+    const result = await run(profileFor("gitleaks_native_variant", {
+      output_format: "gitleaks-json-v1",
+      native_exit_map: { "0": "CLEAN", "1": "ERROR", "42": "FINDINGS" },
+    }, ["description", token]));
+    expect([result.status, result.reason_code]).toEqual(["MALFORMED_OUTPUT", "SECRET_IN_OUTPUT"]);
+    expect(result.envelope).toBeNull();
+    expect(JSON.stringify(result)).not.toContain(token);
+  }, 60_000);
+
+  it("refuses native output from a profile that declares the protocol", async () => {
+    const result = await run(profileFor("gitleaks_native", {
+      native_exit_map: { "0": "CLEAN", "1": "ERROR", "42": "FINDINGS" },
+    }));
+    expect([result.status, result.reason_code]).toEqual(["MALFORMED_OUTPUT", "INVALID_ENVELOPE"]);
+  }, 60_000);
+});
+
 describe("runQualifiedEngineV1 failures during and after a run", () => {
   it.each<[string, string, string]>([
     ["garbage", "MALFORMED_OUTPUT", "INVALID_ENVELOPE"],
@@ -725,7 +786,9 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
     expect(result.envelope).toBeNull();
     expect(existsSync(marker), "the grandchild should have started").toBe(true);
     const pid = Number(readFileSync(marker, "utf8"));
-    expect(await waitFor(() => !isAlive(pid), 5_000), "the grandchild should be gone").toBe(true);
+    const gone = await waitFor(() => !isAlive(pid), 5_000);
+    if (!gone) stopIfStillAlive(pid);
+    expect(gone, "the grandchild should be gone").toBe(true);
   }, 60_000);
 
   it("stops on cancellation and tears down the tree", async () => {
@@ -736,9 +799,11 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
     const pid = Number(readFileSync(marker, "utf8"));
     controller.abort();
     const result = await running;
+    const gone = await waitFor(() => !isAlive(pid), 5_000);
+    if (!gone) stopIfStillAlive(pid);
     expect([result.status, result.reason_code]).toEqual(["INCOMPLETE", "CANCELLED"]);
     expect(result.cleanup_complete).toBe(true);
-    expect(await waitFor(() => !isAlive(pid), 5_000), "the grandchild should be gone").toBe(true);
+    expect(gone, "the grandchild should be gone").toBe(true);
   }, 60_000);
 
   it("stops an engine that passes its stdout cap, and never reports clean", async () => {
@@ -880,7 +945,11 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
     // The wait must come from the drain check, not the 20 second wall limit.
     expect(Date.now() - started).toBeLessThan(15_000);
     expect(existsSync(marker), "the descendant should have started").toBe(true);
-    expect(isAlive(Number(readFileSync(marker, "utf8"))), "this test needs a live escapee").toBe(true);
+    const pid = Number(readFileSync(marker, "utf8"));
+    const alive = isAlive(pid);
+    // The broker reported this escapee alive moments ago, so it is the one to stop.
+    stopIfStillAlive(pid);
+    expect(alive, "this test needs a live escapee").toBe(true);
   }, 60_000);
 
   it.skipIf(process.platform === "win32").each(["escape_holding_pipes", "escape_in_group"])(
@@ -892,7 +961,9 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
       expect(result.cleanup_complete).toBe(true);
       expect(result.envelope).toBeNull();
       const pid = Number(readFileSync(marker, "utf8"));
-      expect(await waitFor(() => !isAlive(pid), 5_000), "the descendant should be gone").toBe(true);
+      const gone = await waitFor(() => !isAlive(pid), 5_000);
+      if (!gone) stopIfStillAlive(pid);
+      expect(gone, "the descendant should be gone").toBe(true);
     },
     60_000,
   );

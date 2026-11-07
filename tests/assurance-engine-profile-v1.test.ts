@@ -167,7 +167,7 @@ describe("validateEngineProfileV1", () => {
     ["network", "ALLOW"],
     ["source_egress", "ALLOW"],
     ["independence", "MODEL"],
-    ["output_format", "gitleaks-json-v1"],
+    ["output_format", "sarif-2.1.0"],
     ["coverage_mode", "all_files"],
     ["schema", "ascout-engine-profile/2"],
     ["platform", "freebsd"],
