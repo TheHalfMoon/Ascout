@@ -239,6 +239,51 @@ describe.runIf(AVAILABLE)("real Gitleaks through the broker", () => {
     expect([result.status, result.reason_code]).toEqual(["VERSION_MISMATCH", "EXECUTABLE_DIGEST_MISMATCH"]);
   }, 120_000);
 
+  describe("ascout security through the compiled CLI", () => {
+    const cliPath = join(process.cwd(), "dist", "cli.js");
+
+    function security(root: string, format: "json" | "terminal") {
+      return spawnSync(process.execPath, [cliPath, "security", "--format", format], {
+        cwd: root,
+        encoding: "utf8",
+        env: { ...process.env, ASCOUT_GITLEAKS_PATH: EXECUTABLE },
+        timeout: 120_000,
+      });
+    }
+
+    it("exits 1 with the finding and partial coverage, and never prints the token", () => {
+      const token = syntheticToken();
+      const root = repository({ "settings.js": `const token = "${token}";\n` });
+      const result = security(root, "json");
+      expect(result.status, result.stderr).toBe(1);
+      const report = JSON.parse(result.stdout);
+      expect([report.outcome, report.coverage, report.exit_code]).toEqual(["FINDINGS", "PARTIAL", 1]);
+      expect(report.findings).toContainEqual(expect.objectContaining({ rule_id: "github-pat", path: "settings.js", start_line: 1 }));
+      expect(report.clean_claimed).toBe(false);
+      expect(result.stdout + result.stderr).not.toContain(token);
+    }, 120_000);
+
+    it("exits 4 when nothing is found, because coverage is unproven", () => {
+      const root = repository({ "readme.txt": "nothing to see\n" });
+      const result = security(root, "json");
+      expect(result.status, result.stderr).toBe(4);
+      const report = JSON.parse(result.stdout);
+      expect([report.outcome, report.reason_code, report.findings]).toEqual(["INCOMPLETE", "COVERAGE_UNPROVEN", []]);
+      expect([report.exit_code, report.executed_count, report.clean_claimed]).toEqual([4, 1, false]);
+    }, 120_000);
+
+    it("prints the terminal report on stderr and nothing on stdout", () => {
+      const token = syntheticToken();
+      const root = repository({ "settings.js": `const token = "${token}";\n` });
+      const result = security(root, "terminal");
+      expect(result.status).toBe(1);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain("github-pat");
+      expect(result.stderr).toContain("not a clean result");
+      expect(result.stderr).not.toContain(token);
+    }, 120_000);
+  });
+
   it("does not start on a stale tree", async () => {
     const root = repository({ "readme.txt": "x\n" });
     const stale = request(root);

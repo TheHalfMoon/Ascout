@@ -104,21 +104,24 @@ The complete types are exported by the modules above. Their fields:
 | Request larger than the stdin cap | `DENIED_BY_POLICY` | `REQUEST_TOO_LARGE` |
 | Launch failed | `UNAVAILABLE` or `ENGINE_ERROR` | `EXECUTABLE_MISSING`, `PROCESS_CONTROL_ERROR` |
 | Teardown could not be confirmed | `ENGINE_ERROR` | `CLEANUP_INCOMPLETE` |
-| Source differs or cannot be read after the run | `INCOMPLETE` | `SOURCE_DRIFT_AT_END`, `SOURCE_BINDING_UNAVAILABLE` |
 | Executable or configuration changed during the run | `VERSION_MISMATCH` | `ARTIFACT_CHANGED_DURING_RUN` |
 | Wall limit reached | `TIMEOUT` | `WALL_TIME_EXCEEDED` |
+| Secret found in output | `MALFORMED_OUTPUT` | `SECRET_IN_OUTPUT` |
+| Engine ended on its own by signal, with an unmapped exit, or with an exit mapped to `ERROR` | `ENGINE_ERROR` | `TERMINATED_BY_SIGNAL`, `UNMAPPED_EXIT`, `NATIVE_ERROR_EXIT` |
+| Source differs or cannot be read after the run | `INCOMPLETE` | `SOURCE_DRIFT_AT_END`, `SOURCE_BINDING_UNAVAILABLE` |
 | Caller cancelled | `INCOMPLETE` | `CANCELLED` |
 | Stream cap reached | `INCOMPLETE` | `OUTPUT_CAP_EXCEEDED` |
 | Descendant outlived the root process | `INCOMPLETE` | `TREE_ESCAPE` |
-| Secret found in output | `MALFORMED_OUTPUT` | `SECRET_IN_OUTPUT` |
-| Ended by signal, unmapped exit, or exit mapped to `ERROR` | `ENGINE_ERROR` | `TERMINATED_BY_SIGNAL`, `UNMAPPED_EXIT`, `NATIVE_ERROR_EXIT` |
 | Exit mapped to `NO_INPUT` | `INCOMPLETE` | `NATIVE_NO_INPUT` |
 | Invalid envelope, disagreement with the run, or a `FAILED` envelope on a success exit | `MALFORMED_OUTPUT` | `INVALID_ENVELOPE`, `REQUEST_ID_MISMATCH`, `ENVELOPE_BINDING_MISMATCH`, `EXIT_ENVELOPE_DISAGREEMENT` |
 | Valid envelope with partial coverage | `INCOMPLETE` | `PARTIAL_COVERAGE` |
 | All conditions in rule 8 met | `EXECUTED` | `RUN_COMPLETE` |
 
-The first matching row after the process ends wins, in table order. A later packet maps these
-results to exit codes. Source drift keeps its own reason code so it can become exit 3.
+The first matching row after the process ends wins, in table order. Errors come before drift,
+and drift before incomplete work, matching A07's exit precedence of 2, then 3, then 1, then 4.
+An exit code counts only when the engine ended on its own, not when the broker stopped it. E5
+part two reordered these rows. A later packet maps these results to exit codes. Source drift
+keeps its own reason code so it can become exit 3.
 
 ## Known limits
 

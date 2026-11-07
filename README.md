@@ -98,7 +98,7 @@ ascout test [--plan] [--profile quick|standard|deep|release] [--format json|term
 ascout security [--format json|terminal]
 ```
 
-**Current command semantics (v0.1.0):** `ascout check` executes supported local verification tasks and produces an evidence receipt, and must run from the repository root. `ascout review` reports unreviewed working-tree and index changes; it does **not** run a code-review engine, and it does not consider committed changes or ignored files. `ascout test` does **not** execute tests, and `ascout security` does **not** run a scanner. All three exit `4` because required verification did not run, and that exit status is never an assurance PASS. `ascout test --plan` renders a plan labeled `NON_ASSURANCE_PLAN` and exits `0`; that is not a test result.
+**Current command semantics (v0.1.0):** `ascout check` executes supported local verification tasks and produces an evidence receipt, and must run from the repository root. `ascout review` reports unreviewed working-tree and index changes; it does **not** run a code-review engine, and it does not consider committed changes or ignored files. `ascout test` does **not** execute tests. `ascout security` runs no scanner unless you opt in to Gitleaks, as described below. Without an engine, all three exit `4` because required verification did not run, and that exit status is never an assurance PASS. `ascout test --plan` renders a plan labeled `NON_ASSURANCE_PLAN` and exits `0`; that is not a test result.
 
 When running directly from a source checkout rather than an installed release asset, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
 
@@ -268,7 +268,9 @@ All commands use the same meanings under Constitution Amendment A07:
 | `1` | A verified finding or a `FAIL` or `FLAKY` task |
 | `2` | An error or invalid evidence, including running `check`, `review`, or `doctor` outside a repository or from a subdirectory |
 | `3` | Source drift detected between the start and end of the operation |
-| `4` | Applicable verification that did not complete, including `review`, `test`, and `security` today, because no engine runs. `test` and `security` read no repository, so this also applies outside one |
+| `4` | Applicable verification that did not complete, including `review` and `test` today, because no engine runs. `test` and `security` without Gitleaks read no repository, so this also applies outside one |
+
+**`ascout security` with Gitleaks.** Set `ASCOUT_GITLEAKS_PATH` to a Gitleaks 8.30.1 executable from the official release, on linux-x64, macOS arm64, or Windows x64. Ascout runs it only if its bytes match the digest pinned for that platform. It never searches `PATH` or downloads anything. Findings exit `1` and list each rule, file, and line, never the secret. A scan with no findings exits `4`, because Gitleaks cannot show which files it scanned, so no scan is a clean result. A repository's own `.gitleaksignore` can hide findings, and the report says so when one exists. Errors, including a repository Ascout refuses, exit `2` with nothing on stdout, and a source change during the scan exits `3`. Neither reports findings. See [`E5B_SECURITY_GITLEAKS_SPEC.md`](specs/017-unified-assurance/E5B_SECURITY_GITLEAKS_SPEC.md).
 
 **This is a breaking change.** Earlier versions exited `0` for `review` and `test` and `1` for `security` without running anything, and exited `1` for most operational errors. Failures while Ascout itself is still loading, and output streams closed before it starts, are outside this guarantee.
 Ascout refuses to read a partial clone, a repository that contains a Git submodule, or one where any tracked or included untracked path has a Git `filter` attribute, because these can run commands. This includes `git-lfs` repositories. It exits `2` and says why. This is bounded process hardening, not a sandbox, and Ascout still supports only your own trusted repository.

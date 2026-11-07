@@ -1,7 +1,7 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CliUsageError, parseCliArgs, runCli, usageText } from "../src/cli.js";
 import {
   SECURITY_COMMAND_NOT_RUN_EXIT_CODE,
@@ -9,8 +9,16 @@ import {
 } from "../src/assurance/security/security-command.js";
 import { buildSentrdelCapabilitiesV1 } from "../src/assurance/security/sentrdel-capability-characterization.js";
 
+const configuredGitleaks = process.env.ASCOUT_GITLEAKS_PATH;
+
+// These rows describe the command without an engine, so the opt-in variable is cleared.
+beforeEach(() => {
+  delete process.env.ASCOUT_GITLEAKS_PATH;
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
+  if (configuredGitleaks !== undefined) process.env.ASCOUT_GITLEAKS_PATH = configuredGitleaks;
 });
 
 function capture() {

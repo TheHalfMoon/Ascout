@@ -66,6 +66,9 @@ if (extraction.error || extraction.status !== 0) fail("extraction failed");
 const executable = realpathSync.native(join(extracted, selected.binary));
 if (process.platform !== "win32") chmodSync(executable, 0o755);
 const executableDigest = sha256(readFileSync(executable));
+if (selected.executable_sha256 !== null && executableDigest !== selected.executable_sha256) {
+  fail("extracted executable digest differs from the pinned one");
+}
 
 // Help and version captures are archived as evidence of the exact flags this binary takes.
 const captures = join(root, "captures");

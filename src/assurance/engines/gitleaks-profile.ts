@@ -22,6 +22,11 @@ export interface GitleaksArchiveV1 {
   readonly sha256: string;
   readonly size: number;
   readonly binary: string;
+  /**
+   * The executable's SHA-256, measured by the Real Engines workflow from this verified archive
+   * on both Node versions. Null where no runner exists, so that platform stays unqualified.
+   */
+  readonly executable_sha256: string | null;
 }
 
 /**
@@ -42,16 +47,25 @@ export const GITLEAKS_RELEASE_V1 = Object.freeze({
     sha256: "061476c21adaf5441516f96f185c1a4706a83cd6329b9b38762271b3d4a52fae",
   }),
   archives: Object.freeze({
-    "linux-x64": archive("linux_x64.tar.gz", "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb", 8_230_402, "gitleaks"),
+    "linux-x64": archive("linux_x64.tar.gz", "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb", 8_230_402, "gitleaks",
+      "88f91962aa2f93ac6ab281d553b9e125f5197bbbce38f9f2437f7299c32e5509"),
     "linux-arm64": archive("linux_arm64.tar.gz", "e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080", 7_601_421, "gitleaks"),
     "darwin-x64": archive("darwin_x64.tar.gz", "dfe101a4db2255fc85120ac7f3d25e4342c3c20cf749f2c20a18081af1952709", 8_359_235, "gitleaks"),
-    "darwin-arm64": archive("darwin_arm64.tar.gz", "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5", 7_897_593, "gitleaks"),
-    "win32-x64": archive("windows_x64.zip", "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e", 8_438_883, "gitleaks.exe"),
+    "darwin-arm64": archive("darwin_arm64.tar.gz", "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5", 7_897_593, "gitleaks",
+      "ba52fb1bfabbcde42f032afad3d6e0b19dff8ed105229a16e7caa338bbc0e84f"),
+    "win32-x64": archive("windows_x64.zip", "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e", 8_438_883, "gitleaks.exe",
+      "17157e2ee8b76fc8b1d8bee607a250e34b8a8023c8bc81822d4b5ee4d78fcb7c"),
     "win32-arm64": archive("windows_arm64.zip", "b95f5e4f5c425cedca7ee203d9afd29597e692c4924a12ed42f970537c72cc0f", 7_701_820, "gitleaks.exe"),
   } satisfies Record<string, GitleaksArchiveV1>),
 });
 
-function archive(suffix: string, sha256: string, size: number, binary: string): GitleaksArchiveV1 {
+function archive(
+  suffix: string,
+  sha256: string,
+  size: number,
+  binary: string,
+  executableSha256: string | null = null,
+): GitleaksArchiveV1 {
   const name = "gitleaks_8.30.1_" + suffix;
   return Object.freeze({
     name,
@@ -59,6 +73,7 @@ function archive(suffix: string, sha256: string, size: number, binary: string): 
     sha256,
     size,
     binary,
+    executable_sha256: executableSha256,
   });
 }
 
