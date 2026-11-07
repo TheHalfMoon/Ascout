@@ -34,7 +34,12 @@ import {
 } from "../engines/gitleaks-profile.js";
 import { createEngineQualificationSetV1 } from "../kernel/qualification.js";
 import { createEngineRegistryV1 } from "../kernel/registry.js";
-import { readGitHeadState, readTreeDigestV1, refuseUnsupportedRepository } from "../../git.js";
+import {
+  readGitHeadState,
+  readRepositoryPrefix,
+  readTreeDigestV1,
+  refuseUnsupportedRepository,
+} from "../../git.js";
 
 export const GITLEAKS_PATH_ENV = "ASCOUT_GITLEAKS_PATH" as const;
 
@@ -133,13 +138,28 @@ function error(message: string): SecurityGitleaksOutcomeV1 {
   return { kind: "error", message: "ascout security: " + message };
 }
 
-/** Maps a broker result to the command's exit and report. Pure, so every row is testable. */
-export function securityOutcomeFromRunV1(result: EngineRunResultV1): SecurityGitleaksOutcomeV1 {
+/**
+ * Maps a broker result to the command's exit and report. Pure, so every row is testable.
+ * `observed` is the command's own reading of the source before it called the broker.
+ */
+export function securityOutcomeFromRunV1(
+  result: EngineRunResultV1,
+  observed: SecuritySourceV1 | null = null,
+): SecurityGitleaksOutcomeV1 {
   const executed = result.started_at_epoch_ms !== null;
+  // A07 precedence puts errors before drift. Withheld output is an error, whatever else happened.
+  if (result.output_withheld) {
+    return error("the Gitleaks run's output held a secret, so nothing from it is reported.");
+  }
+  if (result.reason_code === "SOURCE_BINDING_UNAVAILABLE") {
+    return error("the source could not be read again around the scan, so nothing from it is reported.");
+  }
   if (
     result.reason_code === "SOURCE_DRIFT_AT_START" ||
     result.reason_code === "SOURCE_DRIFT_AT_END"
   ) {
+    // At the start, the broker's only reading is the changed one; the command's came first.
+    const atStart = result.reason_code === "SOURCE_DRIFT_AT_START";
     return {
       kind: "drift",
       report: Object.freeze({
@@ -150,8 +170,8 @@ export function securityOutcomeFromRunV1(result: EngineRunResultV1): SecurityGit
         reason_code: "SOURCE_DRIFT",
         reason_text: "The source changed while it was being scanned, so no result from this run is reported.",
         executed_count: executed ? 1 : 0,
-        start: result.source_start,
-        end: result.source_end,
+        start: atStart ? observed : result.source_start,
+        end: atStart ? result.source_start : result.source_end,
       }),
     };
   }
@@ -160,7 +180,9 @@ export function securityOutcomeFromRunV1(result: EngineRunResultV1): SecurityGit
     case "UNAVAILABLE":
       return notRun(
         "ENGINE_UNAVAILABLE",
-        "The configured Gitleaks executable could not be started (" + result.reason_code + "), so nothing was scanned.",
+        result.reason_code === "EXECUTABLE_MISSING"
+          ? "The configured Gitleaks executable was not found, so nothing was scanned."
+          : "Gitleaks is not available here (" + result.reason_code + "), so nothing was scanned.",
         result,
       );
     case "NOT_RUN":
@@ -176,6 +198,10 @@ export function securityOutcomeFromRunV1(result: EngineRunResultV1): SecurityGit
         }),
       );
       const partial = result.reason_code === "PARTIAL_COVERAGE";
+      // A partial run always has an envelope. Without one, "found nothing" would be a guess.
+      if (partial && result.envelope === null) {
+        return error("the Gitleaks run reported partial coverage without a report.");
+      }
       if (partial && findings.length > 0) {
         return {
           kind: "report",
@@ -244,18 +270,25 @@ function hostPlatform(): { platform: EngineProfileV1["platform"]; arch: EnginePr
  * Runs the configured Gitleaks over the repository at `root`. The caller has already checked
  * that the variable is set. Operational problems before the scan become an error outcome.
  */
+export interface SecurityGitleaksOptionsV1 {
+  readonly signal?: AbortSignal;
+  /** For tests: the platform to look up a pin for. Defaults to this host. */
+  readonly host?: { platform: string; arch: string };
+}
+
 export async function runSecurityGitleaksV1(
-  root: string,
+  root: string | null,
   configuredPath: string,
-  signal: AbortSignal = new AbortController().signal,
+  options: SecurityGitleaksOptionsV1 = {},
 ): Promise<SecurityGitleaksOutcomeV1> {
-  const host = hostPlatform();
+  const signal = options.signal ?? new AbortController().signal;
+  const host = options.host === undefined ? hostPlatform() : supportedHost(options.host);
   const archive = host === null ? null : gitleaksArchiveForV1(host.platform, host.arch);
   const pinned = archive?.executable_sha256 ?? null;
   if (host === null || pinned === null) {
     return notRun(
       "ENGINE_PLATFORM_UNQUALIFIED",
-      "No Gitleaks executable is qualified for " + process.platform + "-" + process.arch + ", so nothing was scanned.",
+      "No Gitleaks executable is qualified for this platform, so nothing was scanned.",
     );
   }
 
@@ -266,11 +299,18 @@ export async function runSecurityGitleaksV1(
     return notRun("ENGINE_UNAVAILABLE", GITLEAKS_PATH_ENV + " does not name an existing file, so nothing was scanned.");
   }
 
-  // Outside a repository there is nothing bound to scan, as before.
-  let source: SecuritySourceV1;
+  // Outside a repository there is nothing bound to scan, as before. Only that case is NOT_RUN:
+  // a repository Ascout refuses, or a read that fails inside one, is an error.
   let sourceRoot: string;
   try {
+    if (root === null) throw new Error("no working directory");
     sourceRoot = realpathSync.native(root);
+    readRepositoryPrefix(sourceRoot);
+  } catch {
+    return notRun("NO_REPOSITORY", "No usable Git repository here, so nothing was scanned.");
+  }
+  let source: SecuritySourceV1;
+  try {
     refuseUnsupportedRepository(sourceRoot);
     source = {
       head_sha: readGitHeadState(sourceRoot).head_sha,
@@ -278,13 +318,16 @@ export async function runSecurityGitleaksV1(
     };
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "";
-    if (/run from the repository root/u.test(message)) {
-      return error("run from the repository root.");
-    }
-    return notRun("NO_REPOSITORY", "No usable Git repository here, so nothing was scanned.");
+    if (/run from the repository root/u.test(message)) return error("run from the repository root.");
+    return error("the repository could not be read for scanning (" + gitReason(message) + ").");
   }
 
-  const workspace = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-gitleaks-")));
+  let workspace: string;
+  try {
+    workspace = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-gitleaks-")));
+  } catch {
+    return error("a temporary configuration directory could not be created.");
+  }
   try {
     const profile = createGitleaksProfileV1({
       executable_absolute_path: executable,
@@ -295,8 +338,12 @@ export async function runSecurityGitleaksV1(
     });
     const entry = gitleaksRegistryEntryV1(profile);
     const platformId = host.platform + "-" + host.arch;
-    // The record names exactly this profile. Its evidence is the Real Engines workflow, which
-    // ran this pinned executable's bytes through the broker on this platform.
+    // This record is self-issued and cannot fail: it names the profile this run builds. The
+    // authority is the pinned executable digest and the fixed configuration digest, which the
+    // broker checks. Its digest fields are derived from those pins, not from any other evidence.
+    const pinDigest = createHash("sha256")
+      .update(JSON.stringify([GITLEAKS_RELEASE_V1.tag, archive?.sha256 ?? null, pinned, profile.config_sha256]))
+      .digest("hex");
     const qualification = createEngineQualificationV1({
       qualification_id: "qualification:gitleaks-8.30.1-" + platformId,
       engine_id: entry.descriptor.engine_id,
@@ -304,15 +351,15 @@ export async function runSecurityGitleaksV1(
       configuration_identity: entry.configuration_identity,
       profile_identities: [engineProfileQualificationIdentityV1(profile)],
       benchmark_corpus_identity: {
-        benchmark_id: "benchmark:real-engines-gitleaks",
-        corpus_id: "corpus:gitleaks-real-tests-v1",
-        corpus_sha256: createHash("sha256").update("tests/assurance-gitleaks-real.test.ts").digest("hex"),
+        benchmark_id: "benchmark:pinned-gitleaks",
+        corpus_id: "corpus:pinned-gitleaks-" + platformId,
+        corpus_sha256: pinDigest,
       },
       platform_identity: {
         platform_id: "platform:" + platformId,
-        platform_sha256: createHash("sha256").update(platformId).digest("hex"),
+        platform_sha256: createHash("sha256").update(platformId + ":" + pinned).digest("hex"),
       },
-      evidence_refs: [{ evidence_ref: "evidence:real-engines-workflow", provider_self_description: false }],
+      evidence_refs: [{ evidence_ref: "evidence:pinned-executable-digest", provider_self_description: false }],
       result: "QUALIFIED",
       qualified_at_epoch_ms: Date.parse(GITLEAKS_RELEASE_V1.published_at),
       expires_at_epoch_ms: null,
@@ -329,11 +376,38 @@ export async function runSecurityGitleaksV1(
         platform_identity: qualification.platform_identity,
       },
     };
-    return securityOutcomeFromRunV1(await runQualifiedEngineV1(request, profile, signal));
+    return securityOutcomeFromRunV1(await runQualifiedEngineV1(request, profile, signal), source);
   } finally {
-    // Only the directory this run created.
-    rmSync(workspace, { recursive: true, force: true });
+    // Only the directory this run created. A failed removal must not replace the result.
+    try {
+      rmSync(workspace, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    } catch {
+      // Left in the temporary directory; it holds only the fixed public configuration.
+    }
   }
+}
+
+/** A fixed, path-free summary of a Git failure. */
+function gitReason(message: string): string {
+  if (/partial clone|promisor/iu.test(message)) return "partial clone";
+  if (/submodule/iu.test(message)) return "submodule";
+  if (/filter/iu.test(message)) return "Git filter attribute";
+  if (/unborn|no commits/iu.test(message)) return "no commits yet";
+  return "Git metadata error";
+}
+
+function supportedHost(host: { platform: string; arch: string }): ReturnType<typeof hostPlatform> {
+  const { platform, arch } = host;
+  if ((platform === "win32" || platform === "linux" || platform === "darwin") && (arch === "x64" || arch === "arm64")) {
+    return { platform, arch };
+  }
+  return null;
+}
+
+// Repository file names reach the terminal, so controls and bidirectional overrides are escaped.
+function printable(text: string): string {
+  return text.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/gu, (character) =>
+    "\\u" + character.charCodeAt(0).toString(16).padStart(4, "0"));
 }
 
 export function renderSecurityGitleaksTerminalV1(report: SecurityGitleaksReportV2 | SecurityDriftReportV1): string {
@@ -353,8 +427,8 @@ export function renderSecurityGitleaksTerminalV1(report: SecurityGitleaksReportV
     `engine: gitleaks ${report.engine.version} (${report.engine.executed ? "executed" : "not executed"})`,
   ];
   for (const finding of report.findings) {
-    const where = finding.path === null ? "(location withheld)" : `${finding.path}:${finding.start_line}`;
-    lines.push(`  ${finding.rule_id}  ${where}  ${finding.message}`);
+    const where = finding.path === null ? "(location withheld)" : `${printable(finding.path)}:${finding.start_line}`;
+    lines.push(`  ${finding.rule_id}  ${where}  ${printable(finding.message)}`);
   }
   for (const limitation of report.limitations) lines.push(`limitation: ${limitation}`);
   lines.push("This is not a security pass and not a clean result.", `exit code: ${report.exit_code}`);

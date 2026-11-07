@@ -454,7 +454,14 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     if (invocation.command === "security") {
       const gitleaksPath = configuredGitleaksPathV1();
       if (gitleaksPath !== null) {
-        const outcome = await runSecurityGitleaksV1(process.cwd(), gitleaksPath);
+        let root: string | null;
+        try {
+          root = process.cwd();
+        } catch {
+          // A deleted working directory is outside a repository, as without an engine.
+          root = null;
+        }
+        const outcome = await runSecurityGitleaksV1(root, gitleaksPath);
         if (outcome.kind === "error") {
           // Exit 2 keeps stdout empty and reports no findings from the failed run (A07).
           reportOperationalError(outcome.message);

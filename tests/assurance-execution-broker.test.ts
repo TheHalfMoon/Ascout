@@ -126,6 +126,7 @@ switch (mode) {
   case "deep_json": process.stdout.write("[".repeat(200000) + JSON.stringify(process.argv[4]) + "]".repeat(200000)); break;
   case "env": writeFileSync(markerPath, JSON.stringify(process.env)); emit(envelope()); break;
   case "mutate_source": appendFileSync("tracked.txt", "changed\n"); emit(envelope()); break;
+  case "mutate_then_fail": appendFileSync("tracked.txt", "changed\n"); process.exitCode = 2; break;
   case "mutate_config": appendFileSync(process.argv[4], "changed\n"); emit(envelope()); break;
   case "tree_hang": {
     // libuv's kill-on-close job would end a plain Windows grandchild along with this process,
@@ -914,6 +915,18 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
       const result = await run(profileFor("mutate_source"));
       expect([result.status, result.reason_code]).toEqual(["INCOMPLETE", "SOURCE_DRIFT_AT_END"]);
       expect(result.envelope).toBeNull();
+      expect(result.source_end?.tree_digest).not.toBe(result.source_start?.tree_digest);
+    } finally {
+      writeFileSync(tracked, original);
+    }
+  }, 60_000);
+
+  it("reports an engine failure ahead of source drift, as A07's precedence requires", async () => {
+    const tracked = join(fixture.repo, "tracked.txt");
+    const original = readFileSync(tracked);
+    try {
+      const result = await run(profileFor("mutate_then_fail"));
+      expect([result.status, result.reason_code]).toEqual(["ENGINE_ERROR", "NATIVE_ERROR_EXIT"]);
       expect(result.source_end?.tree_digest).not.toBe(result.source_start?.tree_digest);
     } finally {
       writeFileSync(tracked, original);

@@ -26,10 +26,12 @@ Other platforms have no pin, so they report NOT_RUN with `ENGINE_PLATFORM_UNQUAL
 
 ## Qualification
 
-The command builds one qualification record per run, naming exactly the profile it runs. The
-profile is fixed by pinned constants, the executable's real path, and a fresh configuration
-directory, so the record carries no choice the caller can make. Its evidence is the Real Engines
-workflow. The kernel still evaluates the record, and the broker still enforces every E4 check.
+The command issues its own qualification record on each run, naming exactly the profile it
+runs. That record cannot fail, so the kernel's evaluation is a formality here. **The real
+authority is the pinned executable digest and the fixed configuration digest**, which the
+broker checks before and after the run. The record's digest fields are derived from those pins.
+The record does not cite a specific workflow run: the pins were measured by the Real Engines
+workflow, and that workflow re-checks them on every run.
 
 ## Exits and reports
 
@@ -37,23 +39,36 @@ workflow. The kernel still evaluates the record, and the broker still enforces e
 |---|---|---|
 | Variable unset or empty | 4 | Unchanged v1 NOT_RUN report |
 | Platform has no pinned executable | 4 | v2 report, `NOT_RUN`, `ENGINE_PLATFORM_UNQUALIFIED` |
-| Configured file missing, or launch fails | 4 | v2 report, `NOT_RUN`, `ENGINE_UNAVAILABLE` |
-| Not inside a usable Git repository | 4 | v2 report, `NOT_RUN`, `NO_REPOSITORY` |
+| Configured file missing | 4 | v2 report, `NOT_RUN`, `ENGINE_UNAVAILABLE` |
+| Not inside a Git work tree, or no working directory | 4 | v2 report, `NOT_RUN`, `NO_REPOSITORY` |
 | Run from a repository subdirectory | 2 | Error on stderr, stdout empty |
+| A repository Ascout refuses (partial clone, submodule, Git filter), no commits yet, or a failed Git read | 2 | Error on stderr naming the kind, stdout empty |
+| Launch fails for another reason, such as no execute permission | 2 | Error on stderr, stdout empty |
+| The source can't be re-read around the scan | 2 | Error on stderr, stdout empty |
 | Findings | 1 | v2 report, `FINDINGS`, coverage `PARTIAL`, each finding's rule, path, lines, and message |
 | No findings | 4 | v2 report, `INCOMPLETE`, `COVERAGE_UNPROVEN` |
 | Run stopped early (cancelled, output cap, escaped process, no input) | 4 | v2 report, `INCOMPLETE`, no findings |
 | Source changed before or during the scan | 3 | Drift report with start and end observations, no findings |
 | Digest mismatch, policy refusal, malformed output, secret in output, engine error, timeout | 2 | Error on stderr, stdout empty, no findings |
 
-**Findings on exits 2 and 3:** none are reported. A failed run's output isn't trusted, and a
-drifted run's findings describe a tree that no longer exists. Neither run is a clean result.
+Precedence follows A07: an error beats drift, and drift beats a finding or incomplete work. The
+broker's decision order was changed in this packet to match (see the E4 specification).
+
+**Findings on exits 2 and 3:** none are reported, not even a count. A failed run's output isn't
+trusted, and the broker decides drift before it decodes the report. A07 clause 2 asks a packet to
+define how findings stay visible on these exits. This packet defines them as not visible, which
+meets the clause's wording but not its intent: a real match can disappear when the tree also
+changed. Neither exit is a clean result, and rerunning on a stable tree shows the findings.
 
 The v2 report always carries `security_pass: false` and `clean_claimed: false`. It also carries
 every broker limitation, including the one for a source `.gitleaksignore`.
 
 The command now reads the repository and starts a process when the variable is set. It writes
-only a temporary configuration directory, which it removes when the run ends.
+only a temporary configuration directory, which it removes when the run ends. If removal fails,
+for example because Windows still holds the file, the result stands and the directory, which
+holds only the fixed public configuration, is left behind. An interrupted run also leaves it.
+
+Terminal output escapes control and bidirectional characters in repository file names.
 
 ## Scope
 
@@ -61,6 +76,9 @@ only a temporary configuration directory, which it removes when the run ends.
 |---|---|
 | `src/assurance/security/security-gitleaks.ts` | New: runner, exit mapping, report, terminal output |
 | `src/cli.ts` | Modified: `security` runs Gitleaks when the variable is set |
+| `src/assurance/engines/execution-broker.ts` | Modified: decision order follows A07 precedence |
+| `specs/017-unified-assurance/E4_EXECUTION_BROKER_SPEC.md` | Modified: status table reordered to match |
+| `tests/a07-cli-exit-native.test.ts`, `tests/assurance-security-t14.test.ts` | Modified: clear the opt-in variable, since their rows describe the command without an engine |
 | `src/assurance/engines/gitleaks-profile.ts` | Modified: pinned executable digests |
 | `.github/scripts/acquire-gitleaks.mjs` | Modified: fails when the extracted executable differs from its pin |
 | `tests/assurance-security-gitleaks.test.ts` | New: each exit row, without a binary |

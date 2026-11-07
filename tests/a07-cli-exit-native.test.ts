@@ -31,8 +31,12 @@ interface CliResult {
 }
 
 function cli(cwd: string, args: readonly string[], nodeArgs: readonly string[] = []): CliResult {
+  // The A07 security rows describe the command without an engine, so the opt-in is cleared.
+  const env = { ...process.env };
+  delete env.ASCOUT_GITLEAKS_PATH;
   const result = spawnSync(process.execPath, [...nodeArgs, CLI, ...args], {
     cwd,
+    env,
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 16 * 1024 * 1024,

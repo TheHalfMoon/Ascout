@@ -269,6 +269,7 @@ describe.runIf(AVAILABLE)("real Gitleaks through the broker", () => {
       expect(result.status, result.stderr).toBe(4);
       const report = JSON.parse(result.stdout);
       expect([report.outcome, report.reason_code, report.findings]).toEqual(["INCOMPLETE", "COVERAGE_UNPROVEN", []]);
+      expect([report.exit_code, report.executed_count, report.clean_claimed]).toEqual([4, 1, false]);
     }, 120_000);
 
     it("prints the terminal report on stderr and nothing on stdout", () => {

@@ -532,23 +532,26 @@ function decideOutcome(
   }
   if (!run.cleanup_complete) return decide("ENGINE_ERROR", "CLEANUP_INCOMPLETE");
   if (run.outcome === "error") return decide("ENGINE_ERROR", "PROCESS_CONTROL_ERROR");
-  if (sourceEnd === null) return decide("INCOMPLETE", "SOURCE_BINDING_UNAVAILABLE");
-  if (!sameBinding(sourceEnd, sourceStart)) return decide("INCOMPLETE", "SOURCE_DRIFT_AT_END");
+  // Errors come before drift, and drift before incomplete work, as in A07's exit precedence.
   if (!artifactsUnchanged) return decide("VERSION_MISMATCH", "ARTIFACT_CHANGED_DURING_RUN");
   if (run.outcome === "timed_out") return decide("TIMEOUT", "WALL_TIME_EXCEEDED");
+  if (secretFound) return decide("MALFORMED_OUTPUT", "SECRET_IN_OUTPUT");
+  // An exit code means something only when the engine ended on its own.
+  const exitedOnItsOwn = run.outcome === "exited";
+  if (exitedOnItsOwn && run.exit_code === null) return decide("ENGINE_ERROR", "TERMINATED_BY_SIGNAL");
+  const nativeExit = exitedOnItsOwn && Object.hasOwn(profile.native_exit_map, String(run.exit_code))
+    ? profile.native_exit_map[String(run.exit_code)]
+    : undefined;
+  if (exitedOnItsOwn && nativeExit === undefined) return decide("ENGINE_ERROR", "UNMAPPED_EXIT");
+  if (nativeExit === "ERROR") return decide("ENGINE_ERROR", "NATIVE_ERROR_EXIT");
+  if (sourceEnd === null) return decide("INCOMPLETE", "SOURCE_BINDING_UNAVAILABLE");
+  if (!sameBinding(sourceEnd, sourceStart)) return decide("INCOMPLETE", "SOURCE_DRIFT_AT_END");
   if (run.outcome === "cancelled") return decide("INCOMPLETE", "CANCELLED");
   if (run.outcome === "capture_limit" || run.stdout.truncated || run.stderr.truncated) {
     return decide("INCOMPLETE", "OUTPUT_CAP_EXCEEDED");
   }
   if (run.outcome === "tree_escape") return decide("INCOMPLETE", "TREE_ESCAPE");
-  if (secretFound) return decide("MALFORMED_OUTPUT", "SECRET_IN_OUTPUT");
-  if (run.exit_code === null) return decide("ENGINE_ERROR", "TERMINATED_BY_SIGNAL");
-
-  const nativeExit = Object.hasOwn(profile.native_exit_map, String(run.exit_code))
-    ? profile.native_exit_map[String(run.exit_code)]
-    : undefined;
   if (nativeExit === undefined) return decide("ENGINE_ERROR", "UNMAPPED_EXIT");
-  if (nativeExit === "ERROR") return decide("ENGINE_ERROR", "NATIVE_ERROR_EXIT");
   if (nativeExit === "NO_INPUT") return decide("INCOMPLETE", "NATIVE_NO_INPUT");
   return decideFromEnvelope(run, request, profile, profileSha256, sourceStart, nativeExit, window);
 }
