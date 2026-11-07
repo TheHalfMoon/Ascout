@@ -31,6 +31,11 @@ import {
   renderSecurityJsonV1,
   renderSecurityTerminalV1,
 } from "./assurance/security/security-command.js";
+import {
+  configuredGitleaksPathV1,
+  renderSecurityGitleaksTerminalV1,
+  runSecurityGitleaksV1,
+} from "./assurance/security/security-gitleaks.js";
 import type { TestProfile } from "./assurance/test/profile-policy.js";
 
 const COMMANDS = ["init", "doctor", "check", "review", "test", "security"] as const;
@@ -447,7 +452,23 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       return runTest(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, invocation.plan === true, testFormat);
     }
     if (invocation.command === "security") {
-      // Local and read-only: no repository read, process, network, or file write.
+      const gitleaksPath = configuredGitleaksPathV1();
+      if (gitleaksPath !== null) {
+        const outcome = await runSecurityGitleaksV1(process.cwd(), gitleaksPath);
+        if (outcome.kind === "error") {
+          // Exit 2 keeps stdout empty and reports no findings from the failed run (A07).
+          reportOperationalError(outcome.message);
+          return OPERATIONAL_ERROR_EXIT_CODE;
+        }
+        if (invocation.format === "json") {
+          process.stdout.write(`${JSON.stringify(outcome.report, null, 2)}\n`);
+        } else {
+          console.error(renderSecurityGitleaksTerminalV1(outcome.report));
+        }
+        return outcome.report.exit_code;
+      }
+      // Without a configured engine: local and read-only, with no repository read, process,
+      // network, or file write.
       const report = buildSecurityCommandReportV1();
       if (invocation.format === "json") {
         process.stdout.write(renderSecurityJsonV1(report));
