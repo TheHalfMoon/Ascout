@@ -1580,7 +1580,7 @@ export function refuseUnsupportedRepository(repositoryRoot: string): void {
   const promisor = runGitTreeMetadata(repositoryRoot, [
     "config",
     "--get-regexp",
-    "^(extensions\\.partialclone|remote\\..*\\.promisor)$",
+    "^(extensions\\.partialclone|remote\\..*\\.(promisor|partialclonefilter))$",
   ]);
   if (promisor.error !== undefined || (promisor.status !== 0 && promisor.status !== 1)) {
     throw new GitIdentityError("git_metadata_error", "unable to read Git partial clone settings");

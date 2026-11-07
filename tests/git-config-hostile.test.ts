@@ -287,15 +287,18 @@ describe("E1 repository and environment selected helpers", { timeout: TIMEOUT_MS
     }
   });
 
-  it("refuses a promisor remote even when no object is missing", () => {
-    for (const args of COMMANDS) {
-      const value = fixture();
-      git(value, "config", "remote.q.promisor", "true");
-      const result = run(value, args);
-      expect(result.status, args[0]).toBe(2);
-      expect(result.stderr).toContain("partial clones");
-    }
-  });
+  it.each(["remote.q.promisor", "remote.q.partialclonefilter", "extensions.partialClone"])(
+    "refuses a repository with %s even when no object is missing",
+    (key) => {
+      for (const args of COMMANDS) {
+        const value = fixture();
+        git(value, "config", key, key.endsWith("filter") ? "blob:none" : "q");
+        const result = run(value, args);
+        expect(result.status, `${args[0]}: ${result.stderr}`).toBe(2);
+        expect(result.stderr).toContain("partial clones");
+      }
+    },
+  );
 
   it("does not leave the Windows search flag set for project tasks", () => {
     const key = "NoDefaultCurrentDirectoryInExePath";
