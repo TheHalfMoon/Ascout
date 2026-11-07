@@ -107,3 +107,14 @@ UA_ROADMAP_RECONCILIATION = DEFINED
 FINAL_ECONOMICS_QUALIFICATION = DEFINED
 IMPLEMENTATION_AUTHORITY_FROM_THIS_PACKAGE = NO
 ```
+
+## Ascout V2 unified verification planning package — 2026-10-08 (PROPOSED)
+
+[`ascout-v2/`](ascout-v2/README.md) is a live-audited redesign proposal against `main` at `ca6b6f514e5a8881e2cfa2789b5e5ea43e3aaaad`. It proposes reordering the remaining UA-P06–P18 program into vertical execution slices (V0–V8). It also proposes Amendment A07 (truthful process interface and claim refutation) and a single Execution Broker with honestly declared containment tiers.
+
+It does not edit or supersede the 2026-09-19 or 2026-09-22 packages. Supersession takes effect only through founder ratification and the reconciliation steps listed in `ascout-v2/11_IMPLEMENTATION_MASTER_PLAN.md` §3.
+
+```text
+IMPLEMENTATION_AUTHORITY_FROM_THIS_PACKAGE = NO
+FOUNDER_DECISIONS_REQUIRED = FD-1 … FD-6
+```
