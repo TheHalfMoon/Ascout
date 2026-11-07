@@ -1,13 +1,15 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
@@ -191,5 +193,30 @@ describe("T082/T087 npm package content and identity", () => {
     const cliTarget = join(extractedRoot, "dist", "cli.js");
     expect(existsSync(cliTarget)).toBe(true);
     expect(readFileSync(cliTarget, "utf8").startsWith("#!/usr/bin/env node")).toBe(true);
-  }, 60_000);
+
+    // The packed CLI must write a receipt from the package alone. Its command path loads only
+    // cross-spawn and that package's dependencies, copied here rather than linked.
+    for (const dependency of ["cross-spawn", "which", "isexe", "path-key", "shebang-command", "shebang-regex"]) {
+      cpSync(join(repositoryRoot, "node_modules", dependency), join(extractedRoot, "node_modules", dependency), {
+        recursive: true,
+        dereference: true,
+      });
+    }
+    const subject = join(root, "subject");
+    mkdirSync(subject);
+    for (const args of [["init", "-q"], ["config", "user.name", "t"], ["config", "user.email", "t@example.invalid"], ["config", "commit.gpgsign", "false"]]) {
+      execFileSync("git", args, { cwd: subject, stdio: "pipe", windowsHide: true });
+    }
+    writeFileSync(join(subject, "a.txt"), "a\n");
+    execFileSync("git", ["add", "."], { cwd: subject, stdio: "pipe", windowsHide: true });
+    execFileSync("git", ["commit", "-qm", "x"], { cwd: subject, stdio: "pipe", windowsHide: true });
+
+    const check = spawnSync(process.execPath, [cliTarget, "check", "--format", "json"], { cwd: subject, encoding: "utf8", windowsHide: true });
+    // A repository with no applicable task is incomplete (4), not an error (2).
+    expect(check.status, check.stderr).toBe(4);
+    expect(JSON.parse(check.stdout)).toMatchObject({ schema_version: "1.0", summary: { exit_code: 4 } });
+    const test = spawnSync(process.execPath, [cliTarget, "test", "--format", "json"], { cwd: subject, encoding: "utf8", windowsHide: true });
+    expect(test.status, test.stderr).toBe(4);
+    expect(JSON.parse(test.stdout)).toMatchObject({ reason_code: "CHECK_INCOMPLETE", check: { exit_code: 4 } });
+  }, 180_000);
 });

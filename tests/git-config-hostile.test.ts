@@ -21,8 +21,6 @@ import { readRepositoryPrefix, readWorkingTreeComparison } from "../src/git.js";
 const PROJECT_ROOT = resolve(__dirname, "..");
 const OUT_DIR = join(PROJECT_ROOT, "node_modules", ".cache", "ascout-e1-cli");
 const CLI = join(OUT_DIR, "cli.js");
-const SCHEMA_PATH = join("specs", "001-changed-code-verification-receipt", "contracts", "receipt-v1.schema.json");
-const COPIED_SCHEMA = join(PROJECT_ROOT, "node_modules", ".cache", SCHEMA_PATH);
 const TIMEOUT_MS = 300_000;
 const COMMANDS = [["doctor"], ["review", "--format", "json"], ["check", "--format", "json"]] as const;
 
@@ -113,14 +111,10 @@ beforeAll(() => {
   );
   expect(compile.status, compile.stdout + compile.stderr).toBe(0);
   writeFileSync(join(OUT_DIR, "package.json"), JSON.stringify({ type: "module" }));
-  // The compiled receipt module resolves its schema relative to itself.
-  mkdirSync(dirname(COPIED_SCHEMA), { recursive: true });
-  copyFileSync(join(PROJECT_ROOT, SCHEMA_PATH), COPIED_SCHEMA);
 }, TIMEOUT_MS);
 
 afterAll(() => {
   rmSync(OUT_DIR, { recursive: true, force: true });
-  rmSync(join(PROJECT_ROOT, "node_modules", ".cache", "specs"), { recursive: true, force: true });
   for (const root of temporaryRoots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
