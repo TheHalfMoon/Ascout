@@ -54,13 +54,17 @@ The complete types are exported by the modules above. Their fields:
 
 1. **Admission stays in the kernel.** A profile is adapter configuration. The broker refuses
    to start unless `evaluateEngineQualificationV1` returns `QUALIFIED` for the registry entry
-   matching the profile's executable digest, configuration digest, and version. The broker
-   reads the clock itself, so a caller cannot choose the qualification date.
+   matching the profile's executable digest, configuration digest, and version. A qualification
+   must name the profile's full digest as `profile-sha256:<digest>`, so changing `argv`, the
+   environment, the exit map, or the budget under the same `profile_id` is `PROFILE_DRIFT`. The
+   broker reads the clock itself.
 2. **Fixed executable.** The path is absolute, not UNC, and canonical, and it lies outside the
    source root. Its SHA-256 is checked before the run and again after it. On Windows it must be
-   an `.exe`, so `cross-spawn` never routes it through `cmd.exe`.
+   an `.exe`. The broker starts the file directly, so `cross-spawn` cannot route it through
+   `cmd.exe`.
 3. **Fixed configuration.** The configuration file follows the same path rules, and its
-   digest is checked the same way. The subject repository cannot supply it.
+   digest is checked the same way. `argv` must pass its path to the engine. Whether an engine
+   also reads configuration from its working directory is for that engine's qualification.
 4. **Sanitized environment.** The child starts from an empty environment. A profile may set
    only `LANG`, `LC_ALL`, `TZ`, `NO_COLOR`, and `ASCOUT_ENGINE_*`. Nothing else is inherited,
    including `PATH`. On Windows the broker sets `SystemRoot` and `WINDIR`, and sets the other
@@ -71,13 +75,14 @@ The complete types are exported by the modules above. Their fields:
 6. **Source binding.** HEAD and the tree digest must match the request before the start and
    again after the end.
 7. **Output handling.** Raw stdout and stderr never leave the broker. Stdout is returned only
-   as a parsed envelope. Stderr is returned only as a short excerpt with paths replaced. Output
-   holding a recognized secret shape or the value of a sensitive parent environment variable is
-   withheld entirely, and the run fails closed.
+   as a parsed envelope. Stderr is returned only as a short excerpt with paths replaced and
+   control characters removed, and not at all if it hit its cap. Output holding a recognized
+   secret shape or the value of a sensitive parent environment variable, in raw form or after
+   JSON decoding, is withheld entirely, and the run fails closed.
 8. **`EXECUTED` is narrow.** It requires a clean process end, a known native exit code, a valid
    envelope that agrees with the exit code, every requested capability executed with complete
-   coverage, and an unchanged source, executable, and configuration. It describes a run. It is
-   not a claim that the source is safe.
+   coverage, and unchanged HEAD, tree digest, executable, and configuration. It describes a run.
+   It is not a claim that the source is safe.
 
 ## Status mapping
 
@@ -106,7 +111,7 @@ The complete types are exported by the modules above. Their fields:
 | Secret found in output | `MALFORMED_OUTPUT` | `SECRET_IN_OUTPUT` |
 | Ended by signal, unmapped exit, or exit mapped to `ERROR` | `ENGINE_ERROR` | `TERMINATED_BY_SIGNAL`, `UNMAPPED_EXIT`, `NATIVE_ERROR_EXIT` |
 | Exit mapped to `NO_INPUT` | `INCOMPLETE` | `NATIVE_NO_INPUT` |
-| Invalid envelope or disagreement with the run | `MALFORMED_OUTPUT` | `INVALID_ENVELOPE`, `REQUEST_ID_MISMATCH`, `ENVELOPE_BINDING_MISMATCH`, `EXIT_ENVELOPE_DISAGREEMENT` |
+| Invalid envelope, disagreement with the run, or a `FAILED` envelope on a success exit | `MALFORMED_OUTPUT` | `INVALID_ENVELOPE`, `REQUEST_ID_MISMATCH`, `ENVELOPE_BINDING_MISMATCH`, `EXIT_ENVELOPE_DISAGREEMENT` |
 | Valid envelope with partial coverage | `INCOMPLETE` | `PARTIAL_COVERAGE` |
 | All conditions in rule 8 met | `EXECUTED` | `RUN_COMPLETE` |
 
@@ -115,7 +120,16 @@ results to exit codes. Source drift keeps its own reason code so it can become e
 
 ## Known limits
 
-Each limit that applies to a run is repeated in the result's `limitations`.
+A run's result repeats the limits that apply to it in `limitations`. A refusal before launch
+leaves `limitations` empty.
+
+- **The caller supplies the trust root.** The registry, the qualification records, and the
+  platform identity come from the request and are parsed, not authenticated. The broker checks
+  the profile's OS and architecture against the host, but a caller could present another host's
+  platform identity or its own records. Callers must pass records shipped with Ascout and never
+  records read from the subject repository.
+- **Source binding sees HEAD and the tree digest only.** An engine could change an ignored file,
+  `.git/info/exclude`, or a hook and leave both the same. A frozen export in E5 removes this.
 
 - **This is not a sandbox.** The engine runs with the user's rights. E7 owns containment.
 - **Network denial is a request, not enforcement.** Nothing blocks a socket. A scanner that
@@ -132,8 +146,9 @@ Each limit that applies to a run is repeated in the result's `limitations`.
 - **Source binding uses the live worktree.** Running over a frozen export belongs with the
   first real scanner in E5.
 - **Trusted Git means outside the repository.** A `PATH` directory the user controls is still
-  the user's authority. If the only Git on `PATH` lies inside the repository, Git is reported
-  as unavailable.
+  the user's authority. UNC `PATH` entries are skipped. If no Git remains, the Git read fails
+  closed, and the current error message describes an unusable repository rather than missing
+  Git. `src/quality/worktree.ts` still launches `git` by name, and nothing in `src/` calls it.
 
 ## Rollback
 

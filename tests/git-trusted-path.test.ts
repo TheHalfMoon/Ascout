@@ -7,15 +7,22 @@ import {
   mkdtempSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join, relative } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { GitIdentityError, readGitHeadState, readTreeDigestV1 } from "../src/git.js";
+import {
+  GitIdentityError,
+  readGitHeadState,
+  readTreeDigestV1,
+  trustedGitExecutable,
+} from "../src/git.js";
 
 const ORIGINAL_PATH = process.env.PATH ?? "";
+const GIT_NAME = process.platform === "win32" ? "git.exe" : "git";
 
 let base: string;
 let repo: string;
@@ -54,7 +61,7 @@ beforeAll(() => {
   plantGit(join(repo, "tools"));
   plantGit(repo);
   // The planted files are local to the fixture and must not move the tree digest test.
-  writeFileSync(join(repo, ".git", "info", "exclude"), "tools/\ngit\ngit.exe\n");
+  writeFileSync(join(repo, ".git", "info", "exclude"), "tools/\n..bin/\ngit\ngit.exe\n");
 }, 60_000);
 
 afterEach(() => {
@@ -82,6 +89,7 @@ describe("Git executable resolution", () => {
 
   it("reports Git as unavailable when only a planted Git is on PATH", () => {
     process.env.PATH = [repo, join(repo, "tools"), "."].join(delimiter);
+    expect(trustedGitExecutable(repo)).toBeNull();
     expect(() => readGitHeadState(repo)).toThrow(GitIdentityError);
     expect(existsSync(plantedMarker)).toBe(false);
   });
@@ -90,12 +98,30 @@ describe("Git executable resolution", () => {
     const outside = join(base, "outside-bin");
     plantGit(outside);
     process.env.PATH = [repo, outside, ORIGINAL_PATH].join(delimiter);
-    // The outside directory is the user's own authority, so it wins over later entries.
-    // What matters here is that the repository's copy was skipped to reach it.
-    expect(() => readGitHeadState(repo)).toThrow(GitIdentityError);
-    if (process.platform !== "win32") {
-      expect(existsSync(plantedMarker)).toBe(true);
-      rmSync(plantedMarker, { force: true });
-    }
+    expect(trustedGitExecutable(repo)).toBe(join(outside, GIT_NAME));
+  });
+
+  it("treats a directory whose name only starts with two dots as inside the repository", () => {
+    const dotted = join(repo, "..bin");
+    plantGit(dotted);
+    process.env.PATH = [dotted, ORIGINAL_PATH].join(delimiter);
+    const selected = trustedGitExecutable(repo);
+    expect(selected).not.toBeNull();
+    expect(selected).not.toBe(join(dotted, GIT_NAME));
+  });
+
+  it.skipIf(process.platform === "win32")("skips a link outside the repository that leads back in", () => {
+    const linkDirectory = join(base, "link-bin");
+    mkdirSync(linkDirectory);
+    symlinkSync(join(repo, GIT_NAME), join(linkDirectory, GIT_NAME));
+    process.env.PATH = [linkDirectory, ORIGINAL_PATH].join(delimiter);
+    const selected = trustedGitExecutable(repo);
+    expect(selected).not.toBeNull();
+    expect(selected).not.toBe(join(linkDirectory, GIT_NAME));
+  });
+
+  it.skipIf(process.platform === "win32")("searches a default path when PATH is unset", () => {
+    delete process.env.PATH;
+    expect(trustedGitExecutable(repo)).not.toBeNull();
   });
 });

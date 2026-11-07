@@ -38,7 +38,8 @@ vi.mock("node:child_process", async (importOriginal) => {
   return {
     ...actual,
     spawnSync: (...args: Parameters<typeof actual.spawnSync>) => {
-      if (args[0] === "git") {
+      // Git launches by absolute path, so it is recognized by file name.
+      if (/(?:^|[\\/])git(?:\.exe)?$/u.test(String(args[0]))) {
         sourceControl.gitSpawnCount += 1;
         const failAt = sourceControl.gitSpawnFailAt;
         if (

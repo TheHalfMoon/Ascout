@@ -1,4 +1,5 @@
 import {
+  spawn,
   type ChildProcess,
   type SpawnOptions,
   type SpawnSyncOptions,
@@ -30,6 +31,8 @@ export interface ProcessRunRequest {
   readonly timeout_ms: number;
   readonly termination_grace_ms: number;
   readonly capture_cap_bytes: number;
+  /** Starts file exactly as named. On Windows cross-spawn would otherwise read it and may use cmd.exe. */
+  readonly exact_executable?: boolean;
   /** Replaces capture_cap_bytes for stderr. */
   readonly stderr_capture_cap_bytes?: number;
   /** Written to the child's stdin, which is then closed. Stdin is ignored when omitted. */
@@ -429,7 +432,9 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
 
   let child: ChildProcess;
   try {
-    child = crossSpawn(request.file, [...request.argv], spawnOptions(request));
+    child = request.exact_executable === true
+      ? spawn(request.file, [...request.argv], spawnOptions(request))
+      : crossSpawn(request.file, [...request.argv], spawnOptions(request));
   } catch (error) {
     const normalized = error instanceof Error ? error : new Error("process launch threw a non-Error value");
     return errorResult(target, normalized, emptyCapture(), emptyCapture(), false, true);
@@ -469,8 +474,10 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   };
 
   let drainTimer: NodeJS.Timeout | null = null;
+  let settled = false;
   const armDrainTimer = (): void => {
     if (drainTimer !== null) clearTimeout(drainTimer);
+    if (settled) return;
     drainTimer = setTimeout(() => requestStop("tree_escape"), ROOT_EXIT_DRAIN_WAIT_MS);
   };
   const clearDrainTimer = (): void => {
@@ -585,6 +592,7 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   ]);
   if (timeoutHandle !== null) clearTimeout(timeoutHandle);
   signal?.removeEventListener("abort", onAbort);
+  settled = true;
   clearDrainTimer();
 
   if (completion.kind === "closed") {
@@ -663,7 +671,11 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   }
 
   const timedOut = completion.kind === "timeout";
-  const cleanupComplete = await terminateProcessTree(rootPid, request.termination_grace_ms);
+  // Windows may have reused the PID of a root that exited, so taskkill could hit a stranger's
+  // tree. Nothing can walk the orphaned tree anyway, so its teardown stays unconfirmed.
+  const cleanupComplete = rootExited && target === "native_process_tree"
+    ? false
+    : await terminateProcessTree(rootPid, request.termination_grace_ms);
   const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
   if (close === null) releasePipes();
 

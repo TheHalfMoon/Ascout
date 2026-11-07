@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
@@ -15,7 +16,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { createEngineDescriptorV1 } from "../src/assurance/contracts/engine-descriptor.js";
 import { createEngineQualificationV1 } from "../src/assurance/contracts/engine-qualification.js";
-import { ENGINE_PROFILE_HARD_CAPS_V1 } from "../src/assurance/engines/engine-profile-v1.js";
+import {
+  ENGINE_PROFILE_HARD_CAPS_V1,
+  engineProfileQualificationIdentityV1,
+  validateEngineProfileV1,
+} from "../src/assurance/engines/engine-profile-v1.js";
 import {
   runQualifiedEngineV1,
   type EngineRequestV1,
@@ -88,12 +93,20 @@ switch (mode) {
   case "secret_stdout": process.stdout.write(process.argv[4]); break;
   case "secret_stderr": process.stderr.write(process.argv[4]); emit(envelope()); break;
   case "secret_in_diagnostic": emit(envelope({ diagnostics: [{ code: "note:1", message: process.argv[4] }] })); break;
+  case "escaped_secret_in_diagnostic": {
+    const text = JSON.stringify(envelope({ diagnostics: [{ code: "note:1", message: "@@" }] }));
+    const escaped = [...process.argv[4]].map((c) => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0")).join("");
+    process.stdout.write(text.replace("@@", () => escaped));
+    break;
+  }
   case "stderr_paths": process.stderr.write("at " + process.cwd() + "/x\n"); emit(envelope()); break;
   case "env": writeFileSync(markerPath, JSON.stringify(process.env)); emit(envelope()); break;
   case "mutate_source": appendFileSync("tracked.txt", "changed\n"); emit(envelope()); break;
   case "mutate_config": appendFileSync(process.argv[4], "changed\n"); emit(envelope()); break;
   case "tree_hang": {
-    const child = spawn(process.execPath, ["-e", grandchildSource, markerPath], { stdio: "ignore" });
+    // libuv's kill-on-close job would end a plain Windows grandchild along with this process,
+    // so detaching there makes the broker's own tree kill the thing being tested.
+    const child = spawn(process.execPath, ["-e", grandchildSource, markerPath], { stdio: "ignore", detached: process.platform === "win32" });
     child.unref();
     holdOpen();
     break;
@@ -172,7 +185,13 @@ function profileFor(
       pinned_release_digest: "f".repeat(64),
     },
     executable_absolute_path: realpathSync(process.execPath),
-    argv: [fixture.script, mode, join(fixture.base, "marker-unused"), ...extraArgs],
+    argv: [
+      fixture.script,
+      mode,
+      join(fixture.base, "marker-unused"),
+      ...extraArgs,
+      String(overrides.config_absolute_path ?? fixture.config),
+    ],
     environment: {},
     config_absolute_path: fixture.config,
     config_sha256: fixture.configSha256,
@@ -271,8 +290,34 @@ function requestFor(overrides: Partial<EngineRequestV1> = {}): EngineRequestV1 {
   };
 }
 
-function run(profile: EngineProfileV1, request = requestFor(), signal = new AbortController().signal) {
+/** The qualification every test run names by default: this exact profile's digest. */
+function identityOf(profile: EngineProfileV1): string {
+  try {
+    return engineProfileQualificationIdentityV1(validateEngineProfileV1(profile));
+  } catch {
+    return "profile:invalid-in-this-test";
+  }
+}
+
+function run(
+  profile: EngineProfileV1,
+  overrides: Partial<EngineRequestV1> & { readonly options?: QualificationOptions } = {},
+  signal = new AbortController().signal,
+) {
+  const { options, ...fields } = overrides;
+  const request = requestFor({
+    qualification: qualificationFor({ profileIdentities: [identityOf(profile)], ...options }),
+    ...fields,
+  });
   return runQualifiedEngineV1(request, profile, signal);
+}
+
+function withMarker(
+  mode: string,
+  marker: string,
+  overrides: Parameters<typeof profileFor>[1] = {},
+): EngineProfileV1 {
+  return { ...profileFor(mode, overrides), argv: [fixture.script, mode, marker, fixture.config] };
 }
 
 /** A synthetic value assembled at run time, so no secret-shaped text is committed. */
@@ -349,7 +394,7 @@ afterAll(() => {
 describe("runQualifiedEngineV1 complete runs", () => {
   it("reports EXECUTED for a clean run bound to source, profile, and request", async () => {
     const request = requestFor();
-    const result = await run(profileFor("clean"), request);
+    const result = await run(profileFor("clean"));
     expect(result.status).toBe("EXECUTED");
     expect(result.reason_code).toBe("RUN_COMPLETE");
     expect(result.qualification_id).toBe("qualification:fixture");
@@ -374,8 +419,7 @@ describe("runQualifiedEngineV1 complete runs", () => {
     const previous = process.env.ASCOUT_E4_PARENT_ONLY;
     process.env.ASCOUT_E4_PARENT_ONLY = "parent-value";
     try {
-      const base = profileFor("env", { environment: { ASCOUT_ENGINE_MODE: "strict" } });
-      const result = await run({ ...base, argv: [fixture.script, "env", marker] });
+      const result = await run(withMarker("env", marker, { environment: { ASCOUT_ENGINE_MODE: "strict" } }));
       expect(result.status).toBe("EXECUTED");
       const seen = JSON.parse(readFileSync(marker, "utf8")) as Record<string, string>;
       pidFiles.pop();
@@ -389,7 +433,8 @@ describe("runQualifiedEngineV1 complete runs", () => {
         // Windows needs these two to load system libraries. libuv fills in the rest
         // unless they are set, so the broker sets them empty.
         if (process.platform === "win32" && /^(?:SYSTEMROOT|WINDIR)$/iu.test(name)) continue;
-        expect(process.platform, name).toBe("win32");
+        // Node copies its coverage directory to children unless it is set, as it is here.
+        if (name !== "NODE_V8_COVERAGE") expect(process.platform, name).toBe("win32");
         expect(value, name).toBe("");
       }
     } finally {
@@ -412,14 +457,14 @@ describe("runQualifiedEngineV1 refusals before launch", () => {
   }, 30_000);
 
   it("refuses an invalid request", async () => {
-    const result = await run(profileFor("clean"), requestFor({ request_id: "bad id" }));
+    const result = await run(profileFor("clean"), { request_id: "bad id" });
     expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "INVALID_REQUEST"]);
   }, 30_000);
 
   it("does not start when the signal is already aborted", async () => {
     const controller = new AbortController();
     controller.abort();
-    const result = await run(profileFor("clean"), requestFor(), controller.signal);
+    const result = await run(profileFor("clean"), {}, controller.signal);
     expect([result.status, result.reason_code]).toEqual(["NOT_RUN", "CANCELLED_BEFORE_START"]);
   }, 30_000);
 
@@ -436,15 +481,12 @@ describe("runQualifiedEngineV1 refusals before launch", () => {
   }, 30_000);
 
   it("refuses a capability outside the profile", async () => {
-    const result = await run(profileFor("clean"), requestFor({ capabilities: ["capability:other"] }));
+    const result = await run(profileFor("clean"), { capabilities: ["capability:other"] });
     expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "CAPABILITY_NOT_ADMITTED"]);
   }, 30_000);
 
   it("refuses a profile capability outside the descriptor", async () => {
-    const result = await run(
-      profileFor("clean"),
-      requestFor({ qualification: qualificationFor({ capabilities: ["capability:other"] }) }),
-    );
+    const result = await run(profileFor("clean"), { options: { capabilities: ["capability:other"] } });
     expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "CAPABILITY_NOT_ADMITTED"]);
   }, 30_000);
 
@@ -461,35 +503,78 @@ describe("runQualifiedEngineV1 refusals before launch", () => {
     ["is internal", { engineKind: "INTERNAL" }],
     ["is not admitted", { admission: "PENDING" }],
   ])("refuses a descriptor that %s", async (_label, options) => {
-    const result = await run(
-      profileFor("clean"),
-      requestFor({ qualification: qualificationFor(options) }),
-    );
+    const result = await run(profileFor("clean"), { options });
     expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "DESCRIPTOR_NOT_ADMISSIBLE"]);
   }, 30_000);
 
   it("uses the kernel's refusal for an expired qualification", async () => {
-    const result = await run(
-      profileFor("clean"),
-      requestFor({ qualification: qualificationFor({ expires: 2_000 }) }),
-    );
+    const result = await run(profileFor("clean"), { options: { expires: 2_000 } });
     expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "EXPIRED"]);
   }, 30_000);
 
   it("uses the kernel's refusal for a profile outside the qualification", async () => {
-    const result = await run(
-      profileFor("clean"),
-      requestFor({ qualification: qualificationFor({ profileIdentities: ["profile:other"] }) }),
-    );
+    const result = await run(profileFor("clean"), { options: { profileIdentities: ["profile:other"] } });
     expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "PROFILE_DRIFT"]);
+  }, 30_000);
+
+  it("refuses changed argv under a qualified profile ID", async () => {
+    const qualified = profileFor("clean");
+    const changed: EngineProfileV1 = { ...qualified, argv: [...qualified.argv, "--extra"] };
+    expect(changed.profile_id).toBe(qualified.profile_id);
+    const result = await run(changed, {
+      options: { profileIdentities: [identityOf(qualified)] },
+    });
+    expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "PROFILE_DRIFT"]);
+    expect(result.started_at_epoch_ms).toBeNull();
+  }, 30_000);
+
+  it("is not fooled by a capability array that answers its own checks", async () => {
+    const crafted = Object.assign(["capability:other"], { every: () => true, includes: () => true });
+    const result = await run(profileFor("clean"), { capabilities: crafted });
+    expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "CAPABILITY_NOT_ADMITTED"]);
+  }, 30_000);
+
+  it("refuses a registry that does not parse, such as a string of capabilities", async () => {
+    const good = qualificationFor({ profileIdentities: [identityOf(profileFor("clean"))] });
+    const [entry] = good.registry.entries;
+    const registry = {
+      ...good.registry,
+      entries: [{ ...entry, descriptor: { ...entry?.descriptor, capabilities: "capability:scan-extended" } }],
+    } as never;
+    const result = await run(profileFor("clean"), { qualification: { ...good, registry } });
+    expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "INVALID_REQUEST"]);
+  }, 30_000);
+
+  it("refuses a request whose getter throws, and claims no run limits", async () => {
+    const hostile = Object.defineProperty({ ...requestFor() }, "source", {
+      get() {
+        throw new Error("hostile getter");
+      },
+    });
+    const result = await runQualifiedEngineV1(hostile, profileFor("clean"), new AbortController().signal);
+    expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "INVALID_REQUEST"]);
+    expect(result.limitations).toEqual([]);
+  }, 30_000);
+
+  it("treats a directory whose name only starts with two dots as inside the source", async () => {
+    const dotted = join(fixture.repo, "..tools");
+    mkdirSync(dotted, { recursive: true });
+    const planted = join(dotted, "planted.exe");
+    writeFileSync(planted, "planted");
+    try {
+      const result = await run(profileFor("clean", { executable_absolute_path: planted }));
+      expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "REPOSITORY_CONTROLLED_PATH"]);
+    } finally {
+      rmSync(dotted, { recursive: true, force: true });
+    }
   }, 30_000);
 
   it("uses the kernel's refusal for another platform identity", async () => {
     const qualification = {
-      ...qualificationFor(),
+      ...qualificationFor({ profileIdentities: [identityOf(profileFor("clean"))] }),
       platform_identity: { platform_id: "platform:other", platform_sha256: "e".repeat(64) },
     };
-    const result = await run(profileFor("clean"), requestFor({ qualification }));
+    const result = await run(profileFor("clean"), { qualification });
     expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "PLATFORM_DRIFT"]);
   }, 30_000);
 
@@ -534,12 +619,12 @@ describe("runQualifiedEngineV1 refusals before launch", () => {
     fixture = { ...saved, nodeSha256: wrong };
     let qualification: EngineRequestV1["qualification"];
     try {
-      qualification = qualificationFor();
+      qualification = qualificationFor({ profileIdentities: [identityOf(profile)] });
     } finally {
       fixture = saved;
     }
     expect(descriptorDigest).not.toBe(wrong);
-    const result = await run(profile, requestFor({ qualification }));
+    const result = await run(profile, { qualification });
     expect([result.status, result.reason_code]).toEqual(["VERSION_MISMATCH", "EXECUTABLE_DIGEST_MISMATCH"]);
     expect(result.started_at_epoch_ms).toBeNull();
   }, 30_000);
@@ -553,21 +638,21 @@ describe("runQualifiedEngineV1 refusals before launch", () => {
 
   it("does not start on a stale HEAD or a stale tree", async () => {
     const current = requestFor();
-    const staleHead = await run(profileFor("clean"), requestFor({
+    const staleHead = await run(profileFor("clean"), {
       source: { ...current.source, head_sha: "0".repeat(40) },
-    }));
+    });
     expect([staleHead.status, staleHead.reason_code]).toEqual(["NOT_RUN", "SOURCE_DRIFT_AT_START"]);
     expect(staleHead.started_at_epoch_ms).toBeNull();
-    const staleTree = await run(profileFor("clean"), requestFor({
+    const staleTree = await run(profileFor("clean"), {
       source: { ...current.source, tree_digest: "0".repeat(64) },
-    }));
+    });
     expect([staleTree.status, staleTree.reason_code]).toEqual(["NOT_RUN", "SOURCE_DRIFT_AT_START"]);
   }, 60_000);
 
   it("does not start outside a usable Git source", async () => {
-    const result = await run(profileFor("clean"), requestFor({
+    const result = await run(profileFor("clean"), {
       source: { ...requestFor().source, root_absolute_path: mkdtempSync(join(fixture.base, "not-git-")) },
-    }));
+    });
     expect([result.status, result.reason_code]).toEqual(["NOT_RUN", "SOURCE_BINDING_UNAVAILABLE"]);
   }, 30_000);
 
@@ -590,7 +675,7 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
     ["clean_exit_with_findings", "MALFORMED_OUTPUT", "EXIT_ENVELOPE_DISAGREEMENT"],
     ["findings_exit_without_findings", "MALFORMED_OUTPUT", "EXIT_ENVELOPE_DISAGREEMENT"],
     ["partial", "INCOMPLETE", "PARTIAL_COVERAGE"],
-    ["failed_execution", "INCOMPLETE", "PARTIAL_COVERAGE"],
+    ["failed_execution", "MALFORMED_OUTPUT", "EXIT_ENVELOPE_DISAGREEMENT"],
     ["no_input", "INCOMPLETE", "NATIVE_NO_INPUT"],
     ["native_error", "ENGINE_ERROR", "NATIVE_ERROR_EXIT"],
     ["unmapped_exit", "ENGINE_ERROR", "UNMAPPED_EXIT"],
@@ -610,10 +695,9 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
 
   it("stops at the wall limit, tears down the tree, and reports TIMEOUT", async () => {
     const marker = freshMarker();
-    const base = profileFor("tree_hang", {
+    const result = await run(withMarker("tree_hang", marker, {
       budget: { ...ENGINE_PROFILE_HARD_CAPS_V1, max_wall_ms: 3_000 },
-    });
-    const result = await run({ ...base, argv: [fixture.script, "tree_hang", marker] });
+    }));
     expect([result.status, result.reason_code]).toEqual(["TIMEOUT", "WALL_TIME_EXCEEDED"]);
     expect(result.cleanup_complete).toBe(true);
     expect(result.envelope).toBeNull();
@@ -624,9 +708,8 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
 
   it("stops on cancellation and tears down the tree", async () => {
     const marker = freshMarker();
-    const base = profileFor("tree_hang");
     const controller = new AbortController();
-    const running = run({ ...base, argv: [fixture.script, "tree_hang", marker] }, requestFor(), controller.signal);
+    const running = run(withMarker("tree_hang", marker), {}, controller.signal);
     expect(await waitFor(() => existsSync(marker), 10_000)).toBe(true);
     const pid = Number(readFileSync(marker, "utf8"));
     controller.abort();
@@ -655,7 +738,7 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
     expect(result.envelope).toBeNull();
   }, 60_000);
 
-  it.each(["secret_stdout", "secret_stderr", "secret_in_diagnostic"])(
+  it.each(["secret_stdout", "secret_stderr", "secret_in_diagnostic", "escaped_secret_in_diagnostic"])(
     "withholds all output for %s",
     async (mode) => {
       const token = syntheticToken();
@@ -681,6 +764,29 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
       if (previous === undefined) delete process.env.ASCOUT_E4_TEST_TOKEN;
       else process.env.ASCOUT_E4_TEST_TOKEN = previous;
     }
+  }, 60_000);
+
+  it("withholds a sensitive value that JSON escaping changed", async () => {
+    const value = 'pa"ss-exact-value-w0rd';
+    const previous = process.env.ASCOUT_E4_TEST_PASSWORD;
+    process.env.ASCOUT_E4_TEST_PASSWORD = value;
+    try {
+      const result = await run(profileFor("secret_in_diagnostic", {}, [value.replaceAll('"', "'") ]));
+      expect(result.status).toBe("EXECUTED");
+      const escaped = await run(profileFor("escaped_secret_in_diagnostic", {}, [value]));
+      expect(escaped.reason_code).toBe("SECRET_IN_OUTPUT");
+      expect(escaped.envelope).toBeNull();
+    } finally {
+      if (previous === undefined) delete process.env.ASCOUT_E4_TEST_PASSWORD;
+      else process.env.ASCOUT_E4_TEST_PASSWORD = previous;
+    }
+  }, 60_000);
+
+  it("returns no stderr excerpt when stderr hit its cap", async () => {
+    const budget = { ...ENGINE_PROFILE_HARD_CAPS_V1, max_stderr_bytes: 1_024 };
+    const result = await run(profileFor("stderr_flood", { budget }));
+    expect(result.stderr?.cap_hit).toBe(true);
+    expect(result.stderr_excerpt).toBeNull();
   }, 60_000);
 
   it("replaces the source path in the stderr excerpt", async () => {
@@ -720,9 +826,8 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
 
   it("fails closed when a detached descendant outlives the root and holds its pipes", async () => {
     const marker = freshMarker();
-    const base = profileFor("escape_detached_holding_pipes");
     const started = Date.now();
-    const result = await run({ ...base, argv: [fixture.script, "escape_detached_holding_pipes", marker] });
+    const result = await run(withMarker("escape_detached_holding_pipes", marker));
     expect([result.status, result.reason_code]).toEqual(["ENGINE_ERROR", "CLEANUP_INCOMPLETE"]);
     expect(result.cleanup_complete).toBe(false);
     expect(result.envelope).toBeNull();
@@ -736,8 +841,7 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
     "finds and stops a descendant left in the process group by %s",
     async (mode) => {
       const marker = freshMarker();
-      const base = profileFor(mode);
-      const result = await run({ ...base, argv: [fixture.script, mode, marker] });
+      const result = await run(withMarker(mode, marker));
       expect([result.status, result.reason_code]).toEqual(["INCOMPLETE", "TREE_ESCAPE"]);
       expect(result.cleanup_complete).toBe(true);
       expect(result.envelope).toBeNull();

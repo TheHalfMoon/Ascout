@@ -15,7 +15,8 @@ vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
   const spawnSync = ((...args: unknown[]) => {
     const [file, argv, options] = args;
-    if (file === "git" && Array.isArray(argv)) {
+    // Git launches by absolute path, so it is recognized by file name.
+    if (typeof file === "string" && /(?:^|[\\/])git(?:\.exe)?$/u.test(file) && Array.isArray(argv)) {
       // Every Ascout Git call carries the hardening prefix; the query follows it.
       const query = argv.slice(argv.lastIndexOf("-c") + 2) as string[];
       control.prefixes.push(argv.slice(0, argv.length - query.length) as string[]);

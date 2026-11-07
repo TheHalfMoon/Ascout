@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, relative } from "node:path";
+import { isAbsolute, relative, sep } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 
 import type {
@@ -11,9 +11,11 @@ import type {
 } from "../contracts/engine-qualification.js";
 import type { EngineRegistryEntryV1, EngineRegistryV1 } from "../kernel/registry.js";
 import {
+  createEngineQualificationSetV1,
   evaluateEngineQualificationV1,
   type EngineQualificationSetV1,
 } from "../kernel/qualification.js";
+import { createEngineRegistryV1 } from "../kernel/registry.js";
 import { SENTRDEL_EVIDENCE_SECRET_SHAPES } from "../security/sentrdel-evidence-normalization.js";
 import { readGitHeadState, readTreeDigestV1, refuseUnsupportedRepository } from "../../git.js";
 import { runProcess, type ProcessCapture, type ProcessRunResult } from "../../process.js";
@@ -25,6 +27,7 @@ import {
 } from "./engine-envelope-v1.js";
 import {
   ENGINE_PROTOCOL_V1,
+  engineProfileQualificationIdentityV1,
   engineProfileSha256V1,
   validateEngineProfileV1,
   type EngineProfileV1,
@@ -112,6 +115,9 @@ const BROKER_LIMITATIONS = Object.freeze([
   "Network denial is a request; the broker does not block sockets.",
   "Secret detection covers known shapes and exact sensitive values only.",
   "Source binding read the live worktree, not a frozen export.",
+  "Source binding does not cover ignored files or Git metadata such as hooks.",
+  "A file swapped between the digest check and launch and then restored is not detected.",
+  "The qualification records and platform identity are trusted as the caller supplied them.",
 ]);
 const TREE_LIMITATION: Readonly<Record<string, string>> = Object.freeze({
   native_process_tree:
@@ -154,22 +160,50 @@ function refusal(
     output_withheld: false,
     envelope: null,
     cleanup_complete: true,
-    limitations: BROKER_LIMITATIONS,
+    limitations: [],
     ...extra,
   };
 }
 
-/** Returns a reason for refusal, or null. The qualification records are checked by the kernel. */
+/**
+ * Copies every field once into plain frozen data and parses the kernel records, so later
+ * reads cannot see different values and a crafted object cannot answer a check for itself.
+ */
+function snapshotRequest(request: EngineRequestV1): EngineRequestV1 | null {
+  try {
+    if (!Array.isArray(request.capabilities)) return null;
+    const { source, qualification } = request;
+    return Object.freeze({
+      schema: request.schema,
+      request_id: request.request_id,
+      source: Object.freeze({
+        root_absolute_path: source.root_absolute_path,
+        head_sha: source.head_sha,
+        tree_digest: source.tree_digest,
+      }),
+      capabilities: Object.freeze(Array.prototype.slice.call(request.capabilities) as string[]),
+      qualification: Object.freeze({
+        registry: createEngineRegistryV1(qualification.registry.entries),
+        qualification_set: createEngineQualificationSetV1(
+          qualification.qualification_set.qualifications,
+        ),
+        benchmark_corpus_identity: { ...qualification.benchmark_corpus_identity },
+        platform_identity: { ...qualification.platform_identity },
+      }),
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** Returns a reason for refusal, or null. Takes the output of snapshotRequest. */
 function validateRequestShape(request: EngineRequestV1): string | null {
-  if (typeof request !== "object" || request === null) return "request must be an object";
   if (request.schema !== ENGINE_REQUEST_SCHEMA_V1) return "request schema is unknown";
   if (typeof request.request_id !== "string" || !OPAQUE_ID.test(request.request_id)) {
     return "request_id is invalid";
   }
   const source = request.source;
   if (
-    typeof source !== "object" ||
-    source === null ||
     typeof source.root_absolute_path !== "string" ||
     !isAbsolute(source.root_absolute_path) ||
     source.root_absolute_path.includes("\0") ||
@@ -182,15 +216,11 @@ function validateRequestShape(request: EngineRequestV1): string | null {
   }
   const capabilities = request.capabilities;
   if (
-    !Array.isArray(capabilities) ||
     capabilities.length === 0 ||
     capabilities.some((entry) => typeof entry !== "string" || !OPAQUE_ID.test(entry)) ||
     new Set(capabilities).size !== capabilities.length
   ) {
     return "request capabilities are invalid";
-  }
-  if (typeof request.qualification !== "object" || request.qualification === null) {
-    return "request qualification is missing";
   }
   return null;
 }
@@ -223,9 +253,11 @@ function descriptorAdmissible(entry: EngineRegistryEntryV1): boolean {
 }
 
 function isInside(root: string, candidate: string): boolean {
-  const fold = process.platform === "win32" ? (value: string) => value.toLowerCase() : (value: string) => value;
-  const fromRoot = relative(fold(root), fold(candidate));
-  return fromRoot === "" || (!fromRoot.startsWith("..") && !isAbsolute(fromRoot));
+  const fromRoot = relative(root, candidate);
+  return (
+    fromRoot === "" ||
+    (fromRoot !== ".." && !fromRoot.startsWith(".." + sep) && !isAbsolute(fromRoot))
+  );
 }
 
 type FileCheck =
@@ -237,7 +269,8 @@ type FileCheck =
 
 async function sha256OfFile(path: string): Promise<string> {
   const hash = createHash("sha256");
-  for await (const chunk of createReadStream(path)) {
+  // A file that grows past the size check cannot keep this read going.
+  for await (const chunk of createReadStream(path, { end: MAX_HASHED_FILE_BYTES })) {
     hash.update(chunk as Buffer);
   }
   return hash.digest("hex");
@@ -300,9 +333,12 @@ const WINDOWS_BLANKED_ENVIRONMENT = Object.freeze({
 });
 
 function engineEnvironment(profile: EngineProfileV1): NodeJS.ProcessEnv {
-  if (process.platform !== "win32") return { ...profile.environment };
+  // Node copies this one into every child that does not set it.
+  const coverage = process.env.NODE_V8_COVERAGE === undefined ? {} : { NODE_V8_COVERAGE: "" };
+  if (process.platform !== "win32") return { ...coverage, ...profile.environment };
   const systemRoot = process.env.SystemRoot ?? "";
   return {
+    ...coverage,
     ...WINDOWS_BLANKED_ENVIRONMENT,
     WINDIR: systemRoot,
     SystemRoot: systemRoot,
@@ -324,12 +360,31 @@ function sensitiveParentValues(): readonly string[] {
   return [...values];
 }
 
-function containsSecret(bytes: Buffer, sensitiveValues: readonly string[]): boolean {
-  const text = bytes.toString("utf8");
+function textHoldsSecret(text: string, sensitiveValues: readonly string[]): boolean {
   return (
     SENTRDEL_EVIDENCE_SECRET_SHAPES.some((shape) => shape.test(text)) ||
     sensitiveValues.some((value) => text.includes(value))
   );
+}
+
+function jsonHoldsSecret(value: unknown, sensitiveValues: readonly string[]): boolean {
+  if (typeof value === "string") return textHoldsSecret(value, sensitiveValues);
+  if (typeof value !== "object" || value === null) return false;
+  return Object.entries(value).some(
+    ([key, entry]) =>
+      textHoldsSecret(key, sensitiveValues) || jsonHoldsSecret(entry, sensitiveValues),
+  );
+}
+
+// JSON can spell a secret with escapes, and the parsed text is what the result would carry.
+function containsSecret(bytes: Buffer, sensitiveValues: readonly string[]): boolean {
+  const text = bytes.toString("utf8");
+  if (textHoldsSecret(text, sensitiveValues)) return true;
+  try {
+    return jsonHoldsSecret(JSON.parse(text), sensitiveValues);
+  } catch {
+    return false;
+  }
 }
 
 function streamSummary(capture: ProcessCapture, withheld: boolean): EngineRunStreamV1 {
@@ -342,12 +397,16 @@ function streamSummary(capture: ProcessCapture, withheld: boolean): EngineRunStr
 }
 
 function stderrExcerpt(capture: ProcessCapture, sourceRoot: string): string | null {
-  if (capture.captured_bytes === 0) return null;
+  // A cut at the cap can split a secret so that its shape no longer matches.
+  if (capture.captured_bytes === 0 || capture.truncated) return null;
   let text = capture.bytes.subarray(0, STDERR_EXCERPT_BYTES).toString("utf8");
   text = text.replaceAll(sourceRoot, "<source>");
   const home = homedir();
   if (home.length > 0) text = text.replaceAll(home, "<home>");
-  return text;
+  return text
+    .replace(/[A-Za-z]:[\\/][^\s"'<>|]*/gu, "<path>")
+    .replace(/(^|[\s"'=(])\/[^\s"'<>|]+/gu, "$1<path>")
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/gu, "");
 }
 
 interface OutcomeDecision {
@@ -385,6 +444,9 @@ function decideFromEnvelope(
     !sameBinding(envelope.source, sourceStart)
   ) {
     return decide("MALFORMED_OUTPUT", "ENVELOPE_BINDING_MISMATCH");
+  }
+  if (envelope.execution.state === "FAILED") {
+    return decide("MALFORMED_OUTPUT", "EXIT_ENVELOPE_DISAGREEMENT");
   }
   const reported = envelope.capabilities.map((capability) => capability.id).sort();
   if (!isDeepStrictEqual(reported, [...request.capabilities].sort())) {
@@ -441,25 +503,27 @@ function decideOutcome(
 }
 
 export async function runQualifiedEngineV1(
-  request: EngineRequestV1,
+  untrustedRequest: EngineRequestV1,
   profile: EngineProfileV1,
   signal: AbortSignal,
 ): Promise<EngineRunResultV1> {
   // The type is not a check: a profile may have been built from serialized data.
   let validated: EngineProfileV1;
+  let profileSha256: string;
   try {
     validated = validateEngineProfileV1(profile);
+    profileSha256 = engineProfileSha256V1(validated);
   } catch {
     return refusal(emptyContext(), "DENIED_BY_POLICY", "INVALID_PROFILE");
   }
-  const profileSha256 = engineProfileSha256V1(validated);
   const profileContext = {
     request_id: null,
     engine_id: validated.engine_id,
     profile_id: validated.profile_id,
     profile_sha256: profileSha256,
   };
-  if (validateRequestShape(request) !== null) {
+  const request = snapshotRequest(untrustedRequest);
+  if (request === null || validateRequestShape(request) !== null) {
     return refusal(profileContext, "DENIED_BY_POLICY", "INVALID_REQUEST");
   }
   const context: RunContext = { ...profileContext, request_id: request.request_id };
@@ -472,12 +536,7 @@ export async function runQualifiedEngineV1(
     return refusal(context, "DENIED_BY_POLICY", "CAPABILITY_NOT_ADMITTED");
   }
 
-  let entries: readonly EngineRegistryEntryV1[];
-  try {
-    entries = matchingRegistryEntries(request.qualification.registry, validated);
-  } catch {
-    return refusal(context, "DENIED_BY_POLICY", "INVALID_REQUEST");
-  }
+  const entries = matchingRegistryEntries(request.qualification.registry, validated);
   const entry = entries[0];
   if (entries.length !== 1 || entry === undefined) {
     return refusal(context, "DENIED_BY_POLICY", "ENGINE_NOT_REGISTERED");
@@ -500,7 +559,7 @@ export async function runQualifiedEngineV1(
           implementation_identity: entry.descriptor.implementation_identity,
           configuration_identity: entry.configuration_identity,
         },
-        profile_identities: [validated.profile_id],
+        profile_identities: [engineProfileQualificationIdentityV1(validated)],
         benchmark_corpus_identity: request.qualification.benchmark_corpus_identity,
         platform_identity: request.qualification.platform_identity,
         as_of_epoch_ms: Date.now(),
@@ -590,6 +649,7 @@ export async function runQualifiedEngineV1(
   const startedAt = Date.now();
   const run = await runProcess({
     file: validated.executable_absolute_path,
+    exact_executable: true,
     argv: validated.argv,
     cwd: sourceRoot,
     env: engineEnvironment(validated),

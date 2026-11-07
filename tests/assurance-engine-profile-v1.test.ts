@@ -25,7 +25,7 @@ function validInput(): Record<string, unknown> {
       pinned_release_digest: B,
     },
     executable_absolute_path: "/opt/fixture/engine",
-    argv: ["--scan", "two words"],
+    argv: ["--scan", "two words", "--config=/opt/fixture/config.toml"],
     environment: { LANG: "C", ASCOUT_ENGINE_MODE: "strict" },
     config_absolute_path: "/opt/fixture/config.toml",
     config_sha256: B,
@@ -49,6 +49,7 @@ function windowsInput(executable: string): Record<string, unknown> {
     ...validInput(),
     platform: "win32",
     executable_absolute_path: executable,
+    argv: ["C:\\engine\\config.toml"],
     config_absolute_path: "C:\\engine\\config.toml",
   };
 }
@@ -67,8 +68,15 @@ describe("validateEngineProfileV1", () => {
     const reversed = Object.fromEntries(Object.entries(validInput()).reverse());
     const right = validateEngineProfileV1(reversed);
     expect(engineProfileSha256V1(left)).toBe(engineProfileSha256V1(right));
-    const other = validateEngineProfileV1(withField("argv", ["--other"]));
+    const other = validateEngineProfileV1(withField("argv", ["--other", "/opt/fixture/config.toml"]));
     expect(engineProfileSha256V1(other)).not.toBe(engineProfileSha256V1(left));
+  });
+
+  it("refuses argv that never passes the configuration to the engine", () => {
+    expect(() => validateEngineProfileV1(withField("argv", ["--scan"]))).toThrow(/config_absolute_path/u);
+    expect(() =>
+      validateEngineProfileV1(withField("argv", ["--config=/other/config.toml"])),
+    ).toThrow(/config_absolute_path/u);
   });
 
   it("refuses unknown and missing fields", () => {
@@ -165,7 +173,7 @@ describe("validateEngineProfileV1", () => {
     ["platform", "freebsd"],
     ["arch", "ia32"],
     ["config_sha256", "A".repeat(64)],
-    ["argv", ["line\nbreak"]],
+    ["argv", ["/opt/fixture/config.toml", "line\nbreak"]],
     ["argv", "--scan"],
     ["requested_capabilities", []],
     ["requested_capabilities", ["capability:b", "capability:a"]],

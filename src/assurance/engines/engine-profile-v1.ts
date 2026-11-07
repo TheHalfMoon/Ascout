@@ -174,7 +174,7 @@ function requireFixedAbsolutePath(
     }
     return value;
   }
-  if (!pathPosix.isAbsolute(value) || value.startsWith("//")) {
+  if (!pathPosix.isAbsolute(value)) {
     throw new TypeError(field + " must be an absolute local path");
   }
   if (pathPosix.normalize(value) !== value) {
@@ -364,6 +364,17 @@ export function validateEngineProfileV1(input: unknown): EngineProfileV1 {
     throw new TypeError("executable_absolute_path must name an .exe file on Windows");
   }
 
+  const argv = parseArgv(record.argv);
+  const configPath = requireFixedAbsolutePath(
+    record.config_absolute_path,
+    platform,
+    "config_absolute_path",
+  );
+  // A digest-checked configuration the engine never receives would check nothing.
+  if (!argv.some((argument) => argument === configPath || argument.endsWith("=" + configPath))) {
+    throw new TypeError("argv must pass config_absolute_path to the engine");
+  }
+
   return deepFreeze<EngineProfileV1>({
     schema: requireLiteral(record.schema, ENGINE_PROFILE_SCHEMA_V1, "schema"),
     engine_id: requireOpaqueId(record.engine_id, "engine_id"),
@@ -373,13 +384,9 @@ export function validateEngineProfileV1(input: unknown): EngineProfileV1 {
     arch: requireOneOf(record.arch, ["x64", "arm64"] as const, "arch"),
     artifact: parseArtifact(record.artifact),
     executable_absolute_path: executable,
-    argv: parseArgv(record.argv),
+    argv,
     environment: parseEnvironment(record.environment),
-    config_absolute_path: requireFixedAbsolutePath(
-      record.config_absolute_path,
-      platform,
-      "config_absolute_path",
-    ),
+    config_absolute_path: configPath,
     config_sha256: requireSha256(record.config_sha256, "config_sha256"),
     requested_capabilities: parseCapabilities(record.requested_capabilities),
     native_exit_map: parseNativeExitMap(record.native_exit_map),
@@ -394,4 +401,9 @@ export function validateEngineProfileV1(input: unknown): EngineProfileV1 {
 
 export function engineProfileSha256V1(profile: EngineProfileV1): string {
   return canonicalAssuranceSha256V1(profile);
+}
+
+/** The identity a qualification must name, so it covers what runs and not just a label. */
+export function engineProfileQualificationIdentityV1(profile: EngineProfileV1): string {
+  return "profile-sha256:" + engineProfileSha256V1(profile);
 }

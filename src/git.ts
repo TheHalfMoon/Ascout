@@ -341,23 +341,23 @@ export function resolveRepositoryIdentity(repositoryRoot: string): RepositoryIde
 // A PATH entry may name a directory the repository controls, including ".", so Git
 // resolves here to an absolute file outside the repository. This is not proof of
 // which Git it is: a directory the user put on PATH stays the user's authority.
-function trustedGitExecutable(repositoryRoot: string): string | null {
+export function trustedGitExecutable(repositoryRoot: string): string | null {
   let root: string;
   try {
-    root = realpathSync(repositoryRoot);
+    root = realpathSync.native(repositoryRoot);
   } catch {
     return null;
   }
-  const fold = (value: string): string => (process.platform === "win32" ? value.toLowerCase() : value);
   const name = process.platform === "win32" ? "git.exe" : "git";
-  for (const rawEntry of (process.env.PATH ?? "").split(delimiter)) {
+  // With PATH unset, POSIX exec searched a default path, so this keeps finding Git.
+  const searchPath = process.env.PATH ?? (process.platform === "win32" ? "" : "/usr/local/bin:/usr/bin:/bin");
+  for (const rawEntry of searchPath.split(delimiter)) {
     const entry = rawEntry.replace(/^"(.*)"$/u, "$1");
     if (!isAbsolute(entry) || entry.startsWith("\\\\") || entry.startsWith("//")) continue;
     try {
-      const directory = realpathSync(entry);
-      const fromRoot = relative(fold(root), fold(directory));
-      if (fromRoot === "" || (!fromRoot.startsWith("..") && !isAbsolute(fromRoot))) continue;
       const candidate = join(entry, name);
+      // The file's real location decides, so a link out of the repository does not hide it.
+      if (isContainedPath(root, realpathSync.native(candidate))) continue;
       if (!statSync(candidate).isFile()) continue;
       accessSync(candidate, fsConstants.X_OK);
       return candidate;
