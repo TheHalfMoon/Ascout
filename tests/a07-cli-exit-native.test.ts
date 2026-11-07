@@ -1,7 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
-  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -11,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // Amendment A07 section 5.4: exits proved through the compiled CLI as a real child process.
@@ -156,11 +155,6 @@ beforeAll(() => {
   );
   expect(compile.status, compile.stdout + compile.stderr).toBe(0);
   writeFileSync(join(OUT_DIR, "package.json"), JSON.stringify({ type: "module" }));
-  // `test` now runs check, which loads the receipt schema relative to the compiled code.
-  const schema = join("specs", "001-changed-code-verification-receipt", "contracts", "receipt-v1.schema.json");
-  const copiedSchema = join(PROJECT_ROOT, "node_modules", ".cache", schema);
-  mkdirSync(dirname(copiedSchema), { recursive: true });
-  copyFileSync(join(PROJECT_ROOT, schema), copiedSchema);
 }, CASE_TIMEOUT_MS);
 
 afterAll(() => {

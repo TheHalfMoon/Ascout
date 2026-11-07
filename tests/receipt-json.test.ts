@@ -263,8 +263,9 @@ describe("T026 receipt JSON renderer", () => {
     ["unsupported string", "email"],
   ])("fails closed on %s JSON Schema format declarations", async (_label: string, format: unknown) => {
     vi.resetModules();
-    vi.doMock("node:fs", () => ({
-      readFileSync: () => JSON.stringify({
+    // The schema is embedded, so a malformed one is injected through its module.
+    vi.doMock("../src/receipt/receipt-v1-schema.js", () => ({
+      RECEIPT_V1_SCHEMA: ({
         $schema: "https://json-schema.org/draft/2020-12/schema",
         $id: "urn:ascout:receipt:v1",
         type: "object",
@@ -279,7 +280,7 @@ describe("T026 receipt JSON renderer", () => {
       expect(() => validateWithMockedSchema({ started_at: "2024-02-29T23:59:59Z" }))
         .toThrow('$schema.properties.started_at.format: only "date-time" format is supported');
     } finally {
-      vi.doUnmock("node:fs");
+      vi.doUnmock("../src/receipt/receipt-v1-schema.js");
       vi.resetModules();
     }
   });
@@ -296,8 +297,9 @@ describe("T026 receipt JSON renderer", () => {
     ["required duplicate", { type: "object", required: ["ok", "ok"] }],
   ])("fails closed on malformed %s JSON Schema keyword values", async (_label: string, childSchema: unknown) => {
     vi.resetModules();
-    vi.doMock("node:fs", () => ({
-      readFileSync: () => JSON.stringify({
+    // The schema is embedded, so a malformed one is injected through its module.
+    vi.doMock("../src/receipt/receipt-v1-schema.js", () => ({
+      RECEIPT_V1_SCHEMA: ({
         $schema: "https://json-schema.org/draft/2020-12/schema",
         $id: "urn:ascout:receipt:v1",
         type: "object",
@@ -309,15 +311,16 @@ describe("T026 receipt JSON renderer", () => {
       const { validateReceiptJsonSchema: validateWithMockedSchema } = await import("../src/receipt/json.js");
       expect(() => validateWithMockedSchema({ value: 1 })).toThrow();
     } finally {
-      vi.doUnmock("node:fs");
+      vi.doUnmock("../src/receipt/receipt-v1-schema.js");
       vi.resetModules();
     }
   });
 
   it("fails closed on unresolved local JSON Schema refs during schema loading", async () => {
     vi.resetModules();
-    vi.doMock("node:fs", () => ({
-      readFileSync: () => JSON.stringify({
+    // The schema is embedded, so a malformed one is injected through its module.
+    vi.doMock("../src/receipt/receipt-v1-schema.js", () => ({
+      RECEIPT_V1_SCHEMA: ({
         $schema: "https://json-schema.org/draft/2020-12/schema",
         $id: "urn:ascout:receipt:v1",
         type: "object",
@@ -335,15 +338,16 @@ describe("T026 receipt JSON renderer", () => {
       expect(() => validateWithMockedSchema({}))
         .toThrow("unresolvable JSON Schema ref: #/$defs/missing");
     } finally {
-      vi.doUnmock("node:fs");
+      vi.doUnmock("../src/receipt/receipt-v1-schema.js");
       vi.resetModules();
     }
   });
 
   it("fails closed when a local JSON Schema ref targets a non-schema container", async () => {
     vi.resetModules();
-    vi.doMock("node:fs", () => ({
-      readFileSync: () => JSON.stringify({
+    // The schema is embedded, so a malformed one is injected through its module.
+    vi.doMock("../src/receipt/receipt-v1-schema.js", () => ({
+      RECEIPT_V1_SCHEMA: ({
         $schema: "https://json-schema.org/draft/2020-12/schema",
         $id: "urn:ascout:receipt:v1",
         type: "object",
@@ -361,15 +365,16 @@ describe("T026 receipt JSON renderer", () => {
       expect(() => validateWithMockedSchema({}))
         .toThrow("$schema.properties.optional.$ref: local ref must target a schema node");
     } finally {
-      vi.doUnmock("node:fs");
+      vi.doUnmock("../src/receipt/receipt-v1-schema.js");
       vi.resetModules();
     }
   });
 
   it("counts JSON Schema string lengths in Unicode code points", async () => {
     vi.resetModules();
-    vi.doMock("node:fs", () => ({
-      readFileSync: () => JSON.stringify({
+    // The schema is embedded, so a malformed one is injected through its module.
+    vi.doMock("../src/receipt/receipt-v1-schema.js", () => ({
+      RECEIPT_V1_SCHEMA: ({
         $schema: "https://json-schema.org/draft/2020-12/schema",
         $id: "urn:ascout:receipt:v1",
         type: "object",
@@ -387,7 +392,7 @@ describe("T026 receipt JSON renderer", () => {
       expect(tooShort.issues.some((issue) => issue.path === "$.value" && issue.keyword === "minLength")).toBe(true);
       expect(validateWithMockedSchema({ value: "😀😀" })).toEqual({ valid: true, issues: [] });
     } finally {
-      vi.doUnmock("node:fs");
+      vi.doUnmock("../src/receipt/receipt-v1-schema.js");
       vi.resetModules();
     }
   });
