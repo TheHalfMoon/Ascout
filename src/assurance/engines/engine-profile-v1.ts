@@ -14,7 +14,10 @@ export const ENGINE_PROFILE_HARD_CAPS_V1 = Object.freeze({
   max_network_requests: 0,
 });
 
-export const ENGINE_NATIVE_EXITS_V1 = ["CLEAN", "FINDINGS", "NO_INPUT", "ERROR"] as const;
+export const ENGINE_OUTPUT_FORMATS_V1 = [ENGINE_PROTOCOL_V1, "gitleaks-json-v1"] as const;
+export type EngineOutputFormatV1 = (typeof ENGINE_OUTPUT_FORMATS_V1)[number];
+
+export const ENGINE_NATIVE_EXITS_V1 =["CLEAN", "FINDINGS", "NO_INPUT", "ERROR"] as const;
 export type EngineNativeExitV1 = (typeof ENGINE_NATIVE_EXITS_V1)[number];
 
 export interface EngineProfileArtifactV1 {
@@ -48,7 +51,8 @@ export interface EngineProfileV1 {
   readonly config_sha256: string;
   readonly requested_capabilities: readonly string[];
   readonly native_exit_map: Readonly<Record<string, EngineNativeExitV1>>;
-  readonly output_format: typeof ENGINE_PROTOCOL_V1;
+  /** The protocol itself, or a native format the broker decodes into an envelope. */
+  readonly output_format: EngineOutputFormatV1;
   readonly coverage_mode: "explicit_changed_files";
   readonly budget: EngineProfileBudgetV1;
   readonly source_egress: "DENY";
@@ -390,7 +394,7 @@ export function validateEngineProfileV1(input: unknown): EngineProfileV1 {
     config_sha256: requireSha256(record.config_sha256, "config_sha256"),
     requested_capabilities: parseCapabilities(record.requested_capabilities),
     native_exit_map: parseNativeExitMap(record.native_exit_map),
-    output_format: requireLiteral(record.output_format, ENGINE_PROTOCOL_V1, "output_format"),
+    output_format: requireOneOf(record.output_format, ENGINE_OUTPUT_FORMATS_V1, "output_format"),
     coverage_mode: requireLiteral(record.coverage_mode, "explicit_changed_files", "coverage_mode"),
     budget: parseBudget(record.budget),
     source_egress: requireLiteral(record.source_egress, "DENY", "source_egress"),

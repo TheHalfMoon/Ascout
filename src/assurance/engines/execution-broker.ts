@@ -19,6 +19,7 @@ import { createEngineRegistryV1 } from "../kernel/registry.js";
 import { SENTRDEL_EVIDENCE_SECRET_SHAPES } from "../security/sentrdel-evidence-normalization.js";
 import { readGitHeadState, readTreeDigestV1, refuseUnsupportedRepository } from "../../git.js";
 import { runProcess, type ProcessCapture, type ProcessRunResult } from "../../process.js";
+import { decodeGitleaksReportV1 } from "./gitleaks-adapter.js";
 import {
   EngineEnvelopeError,
   parseEngineEnvelopeV1,
@@ -438,6 +439,11 @@ function stderrExcerpt(capture: ProcessCapture, sourceRoot: string): string | nu
     .replace(/(^|[^\w.<>-])\/[^\s"'<>|]+/gu, "$1<path>");
 }
 
+interface RunWindow {
+  readonly started_at_epoch_ms: number;
+  readonly ended_at_epoch_ms: number;
+}
+
 interface OutcomeDecision {
   readonly status: EngineRunStatusV1;
   readonly reason_code: string;
@@ -455,10 +461,21 @@ function decideFromEnvelope(
   profileSha256: string,
   sourceStart: EngineEnvelopeSourceV1,
   nativeExit: "CLEAN" | "FINDINGS",
+  window: RunWindow,
 ): OutcomeDecision {
   let envelope: EngineEnvelopeV1;
   try {
-    envelope = parseEngineEnvelopeV1(run.stdout.bytes, request.request_id);
+    envelope = profile.output_format === "gitleaks-json-v1"
+      ? decodeGitleaksReportV1(run.stdout.bytes, {
+          request_id: request.request_id,
+          profile,
+          profile_sha256: profileSha256,
+          source: sourceStart,
+          capabilities: request.capabilities,
+          started_at_epoch_ms: window.started_at_epoch_ms,
+          ended_at_epoch_ms: window.ended_at_epoch_ms,
+        })
+      : parseEngineEnvelopeV1(run.stdout.bytes, request.request_id);
   } catch (error) {
     return decide(
       "MALFORMED_OUTPUT",
@@ -504,6 +521,7 @@ function decideOutcome(
   sourceEnd: EngineEnvelopeSourceV1 | null,
   artifactsUnchanged: boolean,
   secretFound: boolean,
+  window: RunWindow,
 ): OutcomeDecision {
   if (run.outcome === "error" && run.error?.code === "ENOENT") {
     return decide("UNAVAILABLE", "EXECUTABLE_MISSING");
@@ -528,7 +546,7 @@ function decideOutcome(
   if (nativeExit === undefined) return decide("ENGINE_ERROR", "UNMAPPED_EXIT");
   if (nativeExit === "ERROR") return decide("ENGINE_ERROR", "NATIVE_ERROR_EXIT");
   if (nativeExit === "NO_INPUT") return decide("INCOMPLETE", "NATIVE_NO_INPUT");
-  return decideFromEnvelope(run, request, profile, profileSha256, sourceStart, nativeExit);
+  return decideFromEnvelope(run, request, profile, profileSha256, sourceStart, nativeExit, window);
 }
 
 export async function runQualifiedEngineV1(
@@ -726,6 +744,7 @@ export async function runQualifiedEngineV1(
     sourceEnd,
     executableAfter.kind === "ok" && configAfter.kind === "ok",
     secretFound,
+    { started_at_epoch_ms: startedAt, ended_at_epoch_ms: endedAt },
   );
   // Secret checks run on every path, so a run stopped for another reason withholds too.
   return {
