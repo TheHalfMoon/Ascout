@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join, relative } from "node:path";
+import { delimiter, isAbsolute, join, relative } from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -44,7 +44,7 @@ function plantGit(directory: string): void {
 }
 
 beforeAll(() => {
-  base = realpathSync(mkdtempSync(join(tmpdir(), "ascout-git-path-")));
+  base = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-git-path-")));
   repo = join(base, "repo");
   plantedMarker = join(base, "planted.txt");
   const run = (...args: string[]) => {
@@ -79,12 +79,23 @@ describe("Git executable resolution", () => {
     ["a repository subdirectory", () => join(repo, "tools")],
     ["a dot entry", () => "."],
     ["an empty entry", () => ""],
-    ["a relative entry", () => relative(process.cwd(), join(repo, "tools"))],
+    ["a relative entry", () => "tools"],
   ])("skips %s on PATH and still finds real Git", (_label, entry) => {
-    process.env.PATH = entry() + delimiter + ORIGINAL_PATH;
-    expect(readGitHeadState(repo).head_sha).toBe(head);
-    expect(readTreeDigestV1(repo).tree_digest).toMatch(/^[a-f0-9]{64}$/u);
-    expect(existsSync(plantedMarker)).toBe(false);
+    // From the repository, these relative forms all name a directory holding a planted Git.
+    const previous = process.cwd();
+    process.chdir(repo);
+    try {
+      process.env.PATH = entry() + delimiter + ORIGINAL_PATH;
+      const selected = trustedGitExecutable(repo);
+      expect(selected).not.toBeNull();
+      expect(isAbsolute(selected as string)).toBe(true);
+      expect(relative(repo, selected as string).startsWith("..")).toBe(true);
+      expect(readGitHeadState(repo).head_sha).toBe(head);
+      expect(readTreeDigestV1(repo).tree_digest).toMatch(/^[a-f0-9]{64}$/u);
+      expect(existsSync(plantedMarker)).toBe(false);
+    } finally {
+      process.chdir(previous);
+    }
   });
 
   it("reports Git as unavailable when only a planted Git is on PATH", () => {
@@ -118,6 +129,19 @@ describe("Git executable resolution", () => {
     const selected = trustedGitExecutable(repo);
     expect(selected).not.toBeNull();
     expect(selected).not.toBe(join(linkDirectory, GIT_NAME));
+  });
+
+  it.skipIf(process.platform === "win32")("skips a repository entry whose Git points out of the repository", () => {
+    const linked = join(repo, "linked");
+    mkdirSync(linked);
+    const target = join(base, "chosen-by-repository");
+    plantGit(target);
+    symlinkSync(join(target, GIT_NAME), join(linked, GIT_NAME));
+    writeFileSync(join(repo, ".git", "info", "exclude"), "tools/\n..bin/\nlinked/\ngit\ngit.exe\n");
+    process.env.PATH = [linked, ORIGINAL_PATH].join(delimiter);
+    const selected = trustedGitExecutable(repo);
+    expect(selected).not.toBeNull();
+    expect(selected).not.toBe(join(linked, GIT_NAME));
   });
 
   it.skipIf(process.platform === "win32")("searches a default path when PATH is unset", () => {

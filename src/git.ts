@@ -353,10 +353,12 @@ export function trustedGitExecutable(repositoryRoot: string): string | null {
   const searchPath = process.env.PATH ?? (process.platform === "win32" ? "" : "/usr/local/bin:/usr/bin:/bin");
   for (const rawEntry of searchPath.split(delimiter)) {
     const entry = rawEntry.replace(/^"(.*)"$/u, "$1");
-    if (!isAbsolute(entry) || entry.startsWith("\\\\") || entry.startsWith("//")) continue;
+    if (!isAbsolute(entry) || /^[\\/]{2}/u.test(entry)) continue;
     try {
       const candidate = join(entry, name);
-      // The file's real location decides, so a link out of the repository does not hide it.
+      // Both must lie outside: a repository entry could link out to pick the binary, and an
+      // outside entry could link back in.
+      if (isContainedPath(root, realpathSync.native(entry))) continue;
       if (isContainedPath(root, realpathSync.native(candidate))) continue;
       if (!statSync(candidate).isFile()) continue;
       accessSync(candidate, fsConstants.X_OK);

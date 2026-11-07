@@ -10,14 +10,16 @@ No real scanner is admitted, and no CLI command calls the broker yet.
 | `src/assurance/engines/engine-profile-v1.ts` | New: profile type, validator, digest |
 | `src/assurance/engines/engine-envelope-v1.ts` | New: `ascout-engine/1` output parser |
 | `src/assurance/engines/execution-broker.ts` | New: `runQualifiedEngineV1` |
-| `src/process.ts` | Modified: optional stdin, abort signal, per-stream cap, stop on cap, tree exit check |
+| `src/process.ts` | Modified: optional direct spawn, stdin, abort signal, per-stream cap, stop on cap, tree exit check |
 | `src/git.ts` | Modified: Git resolves to an absolute path outside the repository |
 
 `src/git.ts` is outside the file list frozen for E4 in the adoption plan. It is included
 because packet E1 recorded this gap and moved it here: a `PATH` entry could select a planted
 Git. The broker binds source through Git, so the binding depends on this fix.
 
-Existing `runProcess` callers set none of the new options and see no change.
+Existing `runProcess` callers set none of the new options. One change reaches them: when
+cleanup cannot be confirmed, `runProcess` now closes its pipes so a descendant cannot keep Ascout
+alive. Their returned results are the same.
 
 ## Frozen signatures
 
@@ -128,6 +130,9 @@ leaves `limitations` empty.
   the profile's OS and architecture against the host, but a caller could present another host's
   platform identity or its own records. Callers must pass records shipped with Ascout and never
   records read from the subject repository.
+- **A qualification names one exact profile.** The digest covers the absolute executable and
+  configuration paths, so a record shipped with Ascout matches only one install location. E5 must
+  either fix that location or generate the records at install.
 - **Source binding sees HEAD and the tree digest only.** An engine could change an ignored file,
   `.git/info/exclude`, or a hook and leave both the same. A frozen export in E5 removes this.
 

@@ -166,11 +166,13 @@ function refusal(
 }
 
 /**
- * Copies every field once into plain frozen data and parses the kernel records, so later
- * reads cannot see different values and a crafted object cannot answer a check for itself.
+ * Clones to plain data and parses the kernel records, so later reads cannot see different
+ * values and a crafted object cannot answer a check for itself. structuredClone drops
+ * prototypes and species, and refuses own functions.
  */
-function snapshotRequest(request: EngineRequestV1): EngineRequestV1 | null {
+function snapshotRequest(untrusted: EngineRequestV1): EngineRequestV1 | null {
   try {
+    const request = structuredClone(untrusted);
     if (!Array.isArray(request.capabilities)) return null;
     const { source, qualification } = request;
     return Object.freeze({
@@ -181,7 +183,7 @@ function snapshotRequest(request: EngineRequestV1): EngineRequestV1 | null {
         head_sha: source.head_sha,
         tree_digest: source.tree_digest,
       }),
-      capabilities: Object.freeze(Array.prototype.slice.call(request.capabilities) as string[]),
+      capabilities: Object.freeze([...request.capabilities]),
       qualification: Object.freeze({
         registry: createEngineRegistryV1(qualification.registry.entries),
         qualification_set: createEngineQualificationSetV1(
@@ -360,6 +362,22 @@ function sensitiveParentValues(): readonly string[] {
   return [...values];
 }
 
+function withoutControlCharacters(text: string): string {
+  return text
+    .replace(/\u001b\[[0-9;]*[A-Za-z]/gu, "")
+    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/gu, "");
+}
+
+function homeDirectory(): string | null {
+  try {
+    const home = homedir();
+    // A bare root would turn every slash into the placeholder.
+    return home.length > 1 && !/^[A-Za-z]:[\\/]?$/u.test(home) ? home : null;
+  } catch {
+    return null;
+  }
+}
+
 function textHoldsSecret(text: string, sensitiveValues: readonly string[]): boolean {
   return (
     SENTRDEL_EVIDENCE_SECRET_SHAPES.some((shape) => shape.test(text)) ||
@@ -379,11 +397,20 @@ function jsonHoldsSecret(value: unknown, sensitiveValues: readonly string[]): bo
 // JSON can spell a secret with escapes, and the parsed text is what the result would carry.
 function containsSecret(bytes: Buffer, sensitiveValues: readonly string[]): boolean {
   const text = bytes.toString("utf8");
+  // The excerpt removes control characters, which could join a split secret back together.
   if (textHoldsSecret(text, sensitiveValues)) return true;
+  if (textHoldsSecret(withoutControlCharacters(text), sensitiveValues)) return true;
+  let parsed: unknown;
   try {
-    return jsonHoldsSecret(JSON.parse(text), sensitiveValues);
+    parsed = JSON.parse(text);
   } catch {
     return false;
+  }
+  try {
+    return jsonHoldsSecret(parsed, sensitiveValues);
+  } catch {
+    // JSON too deep to walk could hide anything, so it counts as holding a secret.
+    return true;
   }
 }
 
@@ -399,14 +426,16 @@ function streamSummary(capture: ProcessCapture, withheld: boolean): EngineRunStr
 function stderrExcerpt(capture: ProcessCapture, sourceRoot: string): string | null {
   // A cut at the cap can split a secret so that its shape no longer matches.
   if (capture.captured_bytes === 0 || capture.truncated) return null;
-  let text = capture.bytes.subarray(0, STDERR_EXCERPT_BYTES).toString("utf8");
+  let text = withoutControlCharacters(
+    capture.bytes.subarray(0, STDERR_EXCERPT_BYTES).toString("utf8"),
+  );
   text = text.replaceAll(sourceRoot, "<source>");
-  const home = homedir();
-  if (home.length > 0) text = text.replaceAll(home, "<home>");
+  const home = homeDirectory();
+  if (home !== null) text = text.replaceAll(home, "<home>");
   return text
     .replace(/[A-Za-z]:[\\/][^\s"'<>|]*/gu, "<path>")
-    .replace(/(^|[\s"'=(])\/[^\s"'<>|]+/gu, "$1<path>")
-    .replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/gu, "");
+    .replace(/[\\/]{2}[^\s"'<>|]+/gu, "<path>")
+    .replace(/(^|[^\w.<>-])\/[^\s"'<>|]+/gu, "$1<path>");
 }
 
 interface OutcomeDecision {
@@ -511,7 +540,7 @@ export async function runQualifiedEngineV1(
   let validated: EngineProfileV1;
   let profileSha256: string;
   try {
-    validated = validateEngineProfileV1(profile);
+    validated = validateEngineProfileV1(structuredClone(profile));
     profileSha256 = engineProfileSha256V1(validated);
   } catch {
     return refusal(emptyContext(), "DENIED_BY_POLICY", "INVALID_PROFILE");
@@ -647,21 +676,29 @@ export async function runQualifiedEngineV1(
   }
 
   const startedAt = Date.now();
-  const run = await runProcess({
-    file: validated.executable_absolute_path,
-    exact_executable: true,
-    argv: validated.argv,
-    cwd: sourceRoot,
-    env: engineEnvironment(validated),
-    timeout_ms: validated.budget.max_wall_ms,
-    termination_grace_ms: TERMINATION_GRACE_MS,
-    capture_cap_bytes: validated.budget.max_stdout_bytes,
-    stderr_capture_cap_bytes: validated.budget.max_stderr_bytes,
-    stdin_bytes: wireRequest,
-    signal,
-    stop_on_capture_limit: true,
-    require_tree_exit: true,
-  });
+  let run: ProcessRunResult;
+  try {
+    run = await runProcess({
+      file: validated.executable_absolute_path,
+      exact_executable: true,
+      argv: validated.argv,
+      cwd: sourceRoot,
+      env: engineEnvironment(validated),
+      timeout_ms: validated.budget.max_wall_ms,
+      termination_grace_ms: TERMINATION_GRACE_MS,
+      capture_cap_bytes: validated.budget.max_stdout_bytes,
+      stderr_capture_cap_bytes: validated.budget.max_stderr_bytes,
+      stdin_bytes: wireRequest,
+      signal,
+      stop_on_capture_limit: true,
+      require_tree_exit: true,
+    });
+  } catch {
+    return refusal(context, "ENGINE_ERROR", "PROCESS_CONTROL_ERROR", {
+      ...verified,
+      source_start: sourceStart,
+    });
+  }
   const endedAt = Date.now();
 
   const sourceEnd = readSourceBinding(sourceRoot);
@@ -710,9 +747,9 @@ export async function runQualifiedEngineV1(
     output_withheld: secretFound,
     envelope: secretFound ? null : outcome.envelope,
     cleanup_complete: run.cleanup_complete,
-    limitations: [
-      ...BROKER_LIMITATIONS,
-      TREE_LIMITATION[run.termination_target] as string,
-    ],
+    // A failed launch ran nothing, so the limits of a run do not apply to it.
+    limitations: outcome.status === "UNAVAILABLE"
+      ? []
+      : [...BROKER_LIMITATIONS, TREE_LIMITATION[run.termination_target] as string],
   };
 }

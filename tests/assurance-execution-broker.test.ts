@@ -100,6 +100,9 @@ switch (mode) {
     break;
   }
   case "stderr_paths": process.stderr.write("at " + process.cwd() + "/x\n"); emit(envelope()); break;
+  case "stderr_other_paths": process.stderr.write("a C:\\Other\\x.txt b [/opt/other/x] c \\\\host\\share\\x d \u001b[31m/opt/ansi/x\n"); emit(envelope()); break;
+  case "secret_split_by_control": process.stderr.write(process.argv[4].slice(0, 3) + "\u0001" + process.argv[4].slice(3)); emit(envelope()); break;
+  case "deep_json": process.stdout.write("[".repeat(200000) + JSON.stringify(process.argv[4]) + "]".repeat(200000)); break;
   case "env": writeFileSync(markerPath, JSON.stringify(process.env)); emit(envelope()); break;
   case "mutate_source": appendFileSync("tracked.txt", "changed\n"); emit(envelope()); break;
   case "mutate_config": appendFileSync(process.argv[4], "changed\n"); emit(envelope()); break;
@@ -184,7 +187,7 @@ function profileFor(
       provenance_reference: "provenance:fixture",
       pinned_release_digest: "f".repeat(64),
     },
-    executable_absolute_path: realpathSync(process.execPath),
+    executable_absolute_path: realpathSync.native(process.execPath),
     argv: [
       fixture.script,
       mode,
@@ -350,7 +353,7 @@ async function waitFor(condition: () => boolean, milliseconds: number): Promise<
 }
 
 beforeAll(() => {
-  const base = realpathSync(mkdtempSync(join(tmpdir(), "ascout-e4-")));
+  const base = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-e4-")));
   const repo = join(base, "repo");
   spawnSync("git", ["init", "-q", repo]);
   writeFileSync(join(repo, "tracked.txt"), "content\n");
@@ -365,7 +368,7 @@ beforeAll(() => {
     repo,
     script,
     config,
-    nodeSha256: sha256(realpathSync(process.execPath)),
+    nodeSha256: sha256(realpathSync.native(process.execPath)),
     configSha256: sha256(config),
     headSha: readGitHeadState(repo).head_sha,
     treeDigest: readTreeDigestV1(repo).tree_digest,
@@ -433,6 +436,8 @@ describe("runQualifiedEngineV1 complete runs", () => {
         // Windows needs these two to load system libraries. libuv fills in the rest
         // unless they are set, so the broker sets them empty.
         if (process.platform === "win32" && /^(?:SYSTEMROOT|WINDIR)$/iu.test(name)) continue;
+        // macOS adds this inside the child as it starts. It is not inherited.
+        if (process.platform === "darwin" && name === "__CF_USER_TEXT_ENCODING") continue;
         // Node copies its coverage directory to children unless it is set, as it is here.
         if (name !== "NODE_V8_COVERAGE") expect(process.platform, name).toBe("win32");
         expect(value, name).toBe("");
@@ -531,7 +536,24 @@ describe("runQualifiedEngineV1 refusals before launch", () => {
   it("is not fooled by a capability array that answers its own checks", async () => {
     const crafted = Object.assign(["capability:other"], { every: () => true, includes: () => true });
     const result = await run(profileFor("clean"), { capabilities: crafted });
+    expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "INVALID_REQUEST"]);
+  }, 30_000);
+
+  it("is not fooled by a capability array that supplies its own copy through species", async () => {
+    const crafted = ["capability:other"] as unknown as string[] & { constructor: unknown };
+    crafted.constructor = {
+      [Symbol.species]: function species() {
+        return Object.assign([], { every: () => true, some: () => false });
+      },
+    };
+    const result = await run(profileFor("clean"), { capabilities: crafted });
+    // Cloning drops the symbol key, which leaves a plain array holding the unadmitted capability.
     expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "CAPABILITY_NOT_ADMITTED"]);
+  }, 30_000);
+
+  it("refuses a lone surrogate in argv with a status, not a rejected promise", async () => {
+    const result = await run(profileFor("clean", {}, ["\ud800"]));
+    expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "INVALID_PROFILE"]);
   }, 30_000);
 
   it("refuses a registry that does not parse, such as a string of capabilities", async () => {
@@ -604,7 +626,7 @@ describe("runQualifiedEngineV1 refusals before launch", () => {
 
   it.skipIf(process.platform === "win32")("refuses a symlink to the executable", async () => {
     const link = join(fixture.base, "engine-link");
-    symlinkSync(realpathSync(process.execPath), link);
+    symlinkSync(realpathSync.native(process.execPath), link);
     const result = await run(profileFor("clean", { executable_absolute_path: link }));
     expect([result.status, result.reason_code]).toEqual(["DENIED_BY_POLICY", "NON_CANONICAL_PATH"]);
   }, 30_000);
@@ -779,6 +801,30 @@ describe("runQualifiedEngineV1 failures during and after a run", () => {
     } finally {
       if (previous === undefined) delete process.env.ASCOUT_E4_TEST_PASSWORD;
       else process.env.ASCOUT_E4_TEST_PASSWORD = previous;
+    }
+  }, 60_000);
+
+  it("withholds a secret split by a control character", async () => {
+    const token = syntheticToken();
+    const result = await run(profileFor("secret_split_by_control", {}, [token]));
+    expect([result.status, result.reason_code]).toEqual(["MALFORMED_OUTPUT", "SECRET_IN_OUTPUT"]);
+    expect(result.stderr_excerpt).toBeNull();
+    expect(JSON.stringify(result)).not.toContain(token);
+  }, 60_000);
+
+  it("withholds output nested too deeply to scan", async () => {
+    const result = await run(profileFor("deep_json", {}, ["x"]));
+    expect(result.status).toBe("MALFORMED_OUTPUT");
+    expect(result.envelope).toBeNull();
+    // JSON.parse may refuse this depth itself, which also ends in a rejected envelope.
+    if (result.output_withheld) expect(result.stdout?.sha256).toBeNull();
+  }, 60_000);
+
+  it("replaces other absolute paths and removes escape codes in the stderr excerpt", async () => {
+    const result = await run(profileFor("stderr_other_paths"));
+    expect(result.status).toBe("EXECUTED");
+    for (const leaked of ["Other", "/opt/other", "host", "/opt/ansi", "\u001b"]) {
+      expect(result.stderr_excerpt).not.toContain(leaked);
     }
   }, 60_000);
 

@@ -579,6 +579,13 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
     }, request.timeout_ms);
   });
 
+  // Windows may have reused the PID of a root that exited, so taskkill could hit a stranger's
+  // tree. Nothing can walk the orphaned tree anyway, so only the pipes closing can confirm it.
+  const terminateOwnedTree = async (): Promise<boolean> =>
+    rootExited && target === "native_process_tree"
+      ? true
+      : terminateProcessTree(rootPid, request.termination_grace_ms);
+
   const signal = request.signal;
   const onAbort = (): void => requestStop("cancelled");
   signal?.addEventListener("abort", onAbort, { once: true });
@@ -656,7 +663,7 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
       }
     }
 
-    const cleanupComplete = await terminateProcessTree(rootPid, request.termination_grace_ms);
+    const cleanupComplete = await terminateOwnedTree();
     const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
     if (close === null) releasePipes();
     return errorResult(
@@ -671,11 +678,7 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   }
 
   const timedOut = completion.kind === "timeout";
-  // Windows may have reused the PID of a root that exited, so taskkill could hit a stranger's
-  // tree. Nothing can walk the orphaned tree anyway, so its teardown stays unconfirmed.
-  const cleanupComplete = rootExited && target === "native_process_tree"
-    ? false
-    : await terminateProcessTree(rootPid, request.termination_grace_ms);
+  const cleanupComplete = await terminateOwnedTree();
   const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
   if (close === null) releasePipes();
 

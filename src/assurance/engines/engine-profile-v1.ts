@@ -359,7 +359,7 @@ export function validateEngineProfileV1(input: unknown): EngineProfileV1 {
     platform,
     "executable_absolute_path",
   );
-  // cross-spawn routes every other Windows file through cmd.exe.
+  // Windows can start only an .exe directly. Anything else would need a shell.
   if (platform === "win32" && !/\.exe$/iu.test(executable)) {
     throw new TypeError("executable_absolute_path must name an .exe file on Windows");
   }
