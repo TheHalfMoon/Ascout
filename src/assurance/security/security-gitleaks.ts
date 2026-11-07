@@ -34,6 +34,7 @@ import {
 } from "../engines/gitleaks-profile.js";
 import { createEngineQualificationSetV1 } from "../kernel/qualification.js";
 import { createEngineRegistryV1 } from "../kernel/registry.js";
+import { looksInsideGitWorkTreeV1 } from "../repository-presence.js";
 import {
   readGitHeadState,
   readRepositoryPrefix,
@@ -305,12 +306,15 @@ export async function runSecurityGitleaksV1(
   try {
     if (root === null) throw new Error("no working directory");
     sourceRoot = realpathSync.native(root);
-    readRepositoryPrefix(sourceRoot);
   } catch {
+    return notRun("NO_REPOSITORY", "No usable Git repository here, so nothing was scanned.");
+  }
+  if (!looksInsideGitWorkTreeV1(sourceRoot)) {
     return notRun("NO_REPOSITORY", "No usable Git repository here, so nothing was scanned.");
   }
   let source: SecuritySourceV1;
   try {
+    readRepositoryPrefix(sourceRoot);
     refuseUnsupportedRepository(sourceRoot);
     source = {
       head_sha: readGitHeadState(sourceRoot).head_sha,

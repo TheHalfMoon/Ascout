@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -10,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 // Amendment A07 section 5.4: exits proved through the compiled CLI as a real child process.
@@ -155,6 +156,11 @@ beforeAll(() => {
   );
   expect(compile.status, compile.stdout + compile.stderr).toBe(0);
   writeFileSync(join(OUT_DIR, "package.json"), JSON.stringify({ type: "module" }));
+  // `test` now runs check, which loads the receipt schema relative to the compiled code.
+  const schema = join("specs", "001-changed-code-verification-receipt", "contracts", "receipt-v1.schema.json");
+  const copiedSchema = join(PROJECT_ROOT, "node_modules", ".cache", schema);
+  mkdirSync(dirname(copiedSchema), { recursive: true });
+  copyFileSync(join(PROJECT_ROOT, schema), copiedSchema);
 }, CASE_TIMEOUT_MS);
 
 afterAll(() => {
@@ -340,21 +346,33 @@ describe("A07 test and security exits through the compiled CLI", { timeout: CASE
   ];
 
   it("exits 4 for test and 0 for test --plan, inside and outside a repository", () => {
-    for (const cwd of [repository(), temporaryDirectory("ascout-a07-norepo-")]) {
+    const inside = repository();
+    for (const cwd of [inside, temporaryDirectory("ascout-a07-norepo-")]) {
       for (const input of inputs) {
         const json = cli(cwd, ["test", ...input, "--format", "json"]);
-        expect(json.status).toBe(4);
+        expect(json.status, json.stderr).toBe(4);
         const report = JSON.parse(json.stdout) as { profile: string; reason_text: string };
-        expect(report).toMatchObject({
-          outcome: "NOT_RUN",
-          exit_code: 4,
-          reason_code: "ENGINE_NOT_EXECUTED",
-          executed_count: 0,
-        });
-        expect(report.reason_text).toContain(`required by the ${report.profile} profile did not run`);
+        if (cwd !== inside || report.profile === "QUICK") {
+          // Nothing ran: QUICK has no qualified engine, and outside a repository check can't run.
+          expect(report).toMatchObject({
+            outcome: "NOT_RUN",
+            exit_code: 4,
+            // QUICK never looks for a repository, so its reason is the same everywhere.
+            reason_code: report.profile === "QUICK" ? "ENGINE_NOT_QUALIFIED" : "NO_REPOSITORY",
+            executed_count: 0,
+          });
+          expect(report.reason_text).toContain(`required by the ${report.profile} profile did not run`);
+        } else {
+          // check ran on a repository with no applicable tasks, so its result is incomplete.
+          expect(report).toMatchObject({
+            outcome: "INCOMPLETE",
+            exit_code: 4,
+            reason_code: "CHECK_INCOMPLETE",
+            check: { exit_code: 4 },
+          });
+        }
         const terminal = cli(cwd, ["test", ...input]);
-        expect(terminal.status).toBe(4);
-        expect(terminal.stderr).toContain("NOT_RUN");
+        expect(terminal.status, terminal.stderr).toBe(4);
         expect(terminal.stderr).toContain(report.reason_text);
 
         const planJson = cli(cwd, ["test", "--plan", ...input, "--format", "json"]);
