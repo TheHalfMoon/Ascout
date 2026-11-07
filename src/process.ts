@@ -6,7 +6,13 @@ import {
 import { createRequire } from "node:module";
 import { win32 as pathWin32 } from "node:path";
 
-export type ProcessOutcome = "exited" | "timed_out" | "error";
+export type ProcessOutcome =
+  | "exited"
+  | "timed_out"
+  | "error"
+  | "cancelled"
+  | "capture_limit"
+  | "tree_escape";
 export type ProcessTerminationTarget = "process_group" | "native_process_tree";
 
 export interface ProcessCapture {
@@ -24,6 +30,16 @@ export interface ProcessRunRequest {
   readonly timeout_ms: number;
   readonly termination_grace_ms: number;
   readonly capture_cap_bytes: number;
+  /** Replaces capture_cap_bytes for stderr. */
+  readonly stderr_capture_cap_bytes?: number;
+  /** Written to the child's stdin, which is then closed. Stdin is ignored when omitted. */
+  readonly stdin_bytes?: Uint8Array;
+  /** Stops the owned tree on abort, with outcome "cancelled". */
+  readonly signal?: AbortSignal;
+  /** Stops the owned tree when a stream passes its cap, with outcome "capture_limit". */
+  readonly stop_on_capture_limit?: boolean;
+  /** Stops any descendant seen to outlive the root, with outcome "tree_escape". */
+  readonly require_tree_exit?: boolean;
 }
 
 export interface ProcessErrorDetail {
@@ -84,10 +100,13 @@ type LaunchObservation =
   | { readonly kind: "spawned" }
   | { readonly kind: "error"; readonly error: Error };
 
+type StopReason = "cancelled" | "capture_limit" | "tree_escape";
+
 type TimedObservation =
   | { readonly kind: "timeout" }
   | { readonly kind: "closed"; readonly close: CloseObservation }
-  | { readonly kind: "control_error"; readonly error: Error };
+  | { readonly kind: "control_error"; readonly error: Error }
+  | { readonly kind: "stopped"; readonly reason: StopReason };
 
 type GroupSignalResult = "sent" | "gone" | "error";
 
@@ -98,6 +117,10 @@ const PROCESS_GROUP_POLL_MS = 20;
 const FORCEFUL_PROCESS_GROUP_WAIT_MS = 1_000;
 const POST_TERMINATION_CLOSE_WAIT_MS = 1_000;
 const WINDOWS_TREE_KILL_TIMEOUT_MS = 5_000;
+// After the root exits, its streams should end once the pipe buffers drain. Output
+// restarts this wait, so a slow drain is not mistaken for a descendant holding the pipes.
+const ROOT_EXIT_DRAIN_WAIT_MS = 1_000;
+const ROOT_EXIT_GROUP_WAIT_MS = 250;
 
 function requireNonEmptyNoNul(value: string, field: string): void {
   if (value.length === 0) {
@@ -124,6 +147,12 @@ function validateRequest(request: ProcessRunRequest): void {
   requireIntegerAtLeast(request.timeout_ms, 1, "timeout_ms");
   requireIntegerAtLeast(request.termination_grace_ms, 0, "termination_grace_ms");
   requireIntegerAtLeast(request.capture_cap_bytes, 0, "capture_cap_bytes");
+  if (request.stderr_capture_cap_bytes !== undefined) {
+    requireIntegerAtLeast(request.stderr_capture_cap_bytes, 0, "stderr_capture_cap_bytes");
+  }
+  if (request.stdin_bytes !== undefined && !(request.stdin_bytes instanceof Uint8Array)) {
+    throw new ProcessControlError("stdin_bytes must be a Uint8Array");
+  }
 
   if (process.platform === "win32" && containsWindowsCommandSeparator(request.file)) {
     throw new ProcessControlError("file must not contain CR or LF on Windows");
@@ -351,7 +380,7 @@ function spawnOptions(request: ProcessRunRequest): SpawnOptions {
     shell: false,
     detached: process.platform !== "win32",
     windowsHide: true,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: [request.stdin_bytes === undefined ? "ignore" : "pipe", "pipe", "pipe"],
     ...(request.env === undefined ? {} : { env: { ...request.env } }),
   };
 }
@@ -383,6 +412,20 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   const target = terminationTarget();
   const stdoutCapture = newMutableCapture();
   const stderrCapture = newMutableCapture();
+  const stderrCapBytes = request.stderr_capture_cap_bytes ?? request.capture_cap_bytes;
+
+  if (request.signal?.aborted === true) {
+    return {
+      outcome: "cancelled",
+      exit_code: null,
+      signal: null,
+      timed_out: false,
+      cleanup_complete: true,
+      termination_target: target,
+      stdout: emptyCapture(),
+      stderr: emptyCapture(),
+    };
+  }
 
   let child: ChildProcess;
   try {
@@ -416,14 +459,58 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
     resolveRuntimeError?.({ kind: "control_error", error });
   };
 
+  let resolveStop: ((observation: TimedObservation) => void) | null = null;
+  const stopPromise = new Promise<TimedObservation>((resolve) => {
+    resolveStop = resolve;
+  });
+  const requestStop = (reason: StopReason): void => {
+    timeoutObserved = true;
+    resolveStop?.({ kind: "stopped", reason });
+  };
+
+  let drainTimer: NodeJS.Timeout | null = null;
+  const armDrainTimer = (): void => {
+    if (drainTimer !== null) clearTimeout(drainTimer);
+    drainTimer = setTimeout(() => requestStop("tree_escape"), ROOT_EXIT_DRAIN_WAIT_MS);
+  };
+  const clearDrainTimer = (): void => {
+    if (drainTimer !== null) clearTimeout(drainTimer);
+  };
+  let rootExited = false;
+  if (request.require_tree_exit === true) {
+    child.once("exit", () => {
+      rootExited = true;
+      armDrainTimer();
+    });
+  }
+  const observeOutput = (capture: MutableCapture, chunk: Buffer, capBytes: number): void => {
+    observeCapture(capture, chunk, capBytes);
+    if (request.stop_on_capture_limit === true && capture.truncated) {
+      requestStop("capture_limit");
+    }
+    if (rootExited) armDrainTimer();
+  };
+
   child.stdout.on("data", (chunk: Buffer) => {
-    observeCapture(stdoutCapture, chunk, request.capture_cap_bytes);
+    observeOutput(stdoutCapture, chunk, request.capture_cap_bytes);
   });
   child.stdout.on("error", recordRuntimeError);
   child.stderr.on("data", (chunk: Buffer) => {
-    observeCapture(stderrCapture, chunk, request.capture_cap_bytes);
+    observeOutput(stderrCapture, chunk, stderrCapBytes);
   });
   child.stderr.on("error", recordRuntimeError);
+
+  if (request.stdin_bytes !== undefined) {
+    // A child may exit without reading its input, so a broken pipe here is not a failure.
+    child.stdin?.on("error", () => {});
+    child.stdin?.end(Buffer.from(request.stdin_bytes));
+  }
+  // A descendant holding these pipes would otherwise keep this process alive after we return.
+  const releasePipes = (): void => {
+    child.stdin?.destroy();
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+  };
 
   let launchResolved = false;
   const launchPromise = new Promise<LaunchObservation>((resolve) => {
@@ -485,14 +572,44 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
     }, request.timeout_ms);
   });
 
+  const signal = request.signal;
+  const onAbort = (): void => requestStop("cancelled");
+  signal?.addEventListener("abort", onAbort, { once: true });
+  if (signal?.aborted === true) onAbort();
+
   const completion = await Promise.race([
     closePromise.then((close): TimedObservation => ({ kind: "closed", close })),
     timeoutPromise,
     runtimeErrorPromise,
+    stopPromise,
   ]);
   if (timeoutHandle !== null) clearTimeout(timeoutHandle);
+  signal?.removeEventListener("abort", onAbort);
+  clearDrainTimer();
 
   if (completion.kind === "closed") {
+    // Streams can close while a descendant that dropped them still runs in the group.
+    if (
+      request.require_tree_exit === true &&
+      target === "process_group" &&
+      preTimeoutRuntimeError === null &&
+      !(await waitForProcessGroupGone(rootPid, ROOT_EXIT_GROUP_WAIT_MS))
+    ) {
+      const groupGone = await terminateProcessTree(rootPid, request.termination_grace_ms);
+      return {
+        outcome: groupGone ? "tree_escape" : "error",
+        exit_code: completion.close.exit_code,
+        signal: completion.close.signal,
+        timed_out: false,
+        cleanup_complete: groupGone,
+        termination_target: target,
+        stdout: finalizeCapture(stdoutCapture),
+        stderr: finalizeCapture(stderrCapture),
+        ...(groupGone
+          ? {}
+          : { error: { message: "process group outlived its root and could not be stopped" } }),
+      };
+    }
     if (preTimeoutRuntimeError !== null) {
       return errorResult(
         target,
@@ -533,6 +650,7 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
 
     const cleanupComplete = await terminateProcessTree(rootPid, request.termination_grace_ms);
     const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
+    if (close === null) releasePipes();
     return errorResult(
       target,
       completion.error,
@@ -544,26 +662,29 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
     );
   }
 
+  const timedOut = completion.kind === "timeout";
   const cleanupComplete = await terminateProcessTree(rootPid, request.termination_grace_ms);
   const close = await closeWithin(closePromise, POST_TERMINATION_CLOSE_WAIT_MS);
+  if (close === null) releasePipes();
 
   if (!cleanupComplete || close === null || preTimeoutRuntimeError !== null) {
     return errorResult(
       target,
-      preTimeoutRuntimeError ?? new Error("process timeout cleanup did not complete"),
+      preTimeoutRuntimeError ??
+        new Error(`process ${timedOut ? "timeout" : "stop"} cleanup did not complete`),
       finalizeCapture(stdoutCapture),
       finalizeCapture(stderrCapture),
-      true,
+      timedOut,
       cleanupComplete && close !== null,
       close,
     );
   }
 
   return {
-    outcome: "timed_out",
+    outcome: timedOut ? "timed_out" : completion.reason,
     exit_code: close.exit_code,
     signal: close.signal,
-    timed_out: true,
+    timed_out: timedOut,
     cleanup_complete: true,
     termination_target: target,
     stdout: finalizeCapture(stdoutCapture),
