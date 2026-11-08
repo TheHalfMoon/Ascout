@@ -667,7 +667,7 @@ async function executePlannedTask(
 
 
 const CANONICAL_RUN_RELATIVE_PATH =
-  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
 interface PersistedTextArtifact extends PersistedCapture {
   readonly text: string;

@@ -33,7 +33,7 @@ export interface FailingTestIdentity {
 }
 
 const CANONICAL_REPOSITORY_PATH =
-  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
 function repositoryPathFromMachineName(repositoryRoot: string, machineName: string): string | null {
   if (machineName.length === 0 || machineName.includes("\0")) return null;
