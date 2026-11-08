@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { realpathSync, existsSync, writeFileSync, readFileSync } from "node:fs";
+import { realpathSync, existsSync, lstatSync, writeFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { runCheck } from "./check.js";
@@ -308,16 +308,31 @@ function reportOperationalError(message: string): void {
   }
 }
 
+/** Throws unless `path` is absent or a regular file, so init never writes through a link. */
+function requireAbsentOrRegularFile(path: string, name: string): void {
+  let stats;
+  try {
+    stats = lstatSync(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  if (!stats.isFile()) throw new Error(`${name} is not a regular file; init does not write through links`);
+}
+
 async function runInit(): Promise<number> {
   try {
     const root = process.cwd();
 
     const configPath = join(root, "ascout.config.json");
+    requireAbsentOrRegularFile(configPath, "ascout.config.json");
     if (!existsSync(configPath)) {
-      writeFileSync(configPath, JSON.stringify({ version: 1 }, null, 2));
+      // "wx" fails on anything already there, including a link created since the check.
+      writeFileSync(configPath, JSON.stringify({ version: 1 }, null, 2), { flag: "wx" });
     }
 
     const gitignorePath = join(root, ".gitignore");
+    requireAbsentOrRegularFile(gitignorePath, ".gitignore");
     const gitignoreEntry = ".ascout/";
     let gitignoreContent = "";
     if (existsSync(gitignorePath)) {
