@@ -1027,7 +1027,8 @@ export interface DiscoveredProject {
   readonly discovery: ProjectDiscovery;
 }
 
-export function collectDiscoveredProject(repositoryRoot: string): DiscoveredProject {
+/** The repository root as discovery reads it: resolved, real, and an existing directory. */
+export function canonicalRepositoryRoot(repositoryRoot: string): string {
   const requestedRoot = resolve(repositoryRoot);
   let root: string;
   try {
@@ -1039,6 +1040,11 @@ export function collectDiscoveredProject(repositoryRoot: string): DiscoveredProj
     if (error instanceof DiscoveryError) throw error;
     throw new DiscoveryError("invalid_repository_root", "repository root must be an existing directory");
   }
+  return root;
+}
+
+export function collectDiscoveredProject(repositoryRoot: string): DiscoveredProject {
+  const root = canonicalRepositoryRoot(repositoryRoot);
   const files = collectFiles(root);
   return { root, files, discovery: discoverProjectFromFiles(files) };
 }
