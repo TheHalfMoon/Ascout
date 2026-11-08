@@ -15,6 +15,7 @@
  */
 
 import type { IntentActionKind, IntentConditionKind } from "./intent.js";
+import { redactSecretMarkers } from "./secret-markers.js";
 
 export const DEFAULT_ACTION_TIMEOUT_MS = 30000;
 export const MAX_ACTION_TIMEOUT_MS = 120000;
@@ -289,7 +290,8 @@ function createError(input: {
 }): BrowserActionError {
   requireId(input.code, "error code");
   requireSingleLine(input.message, "error message");
-  return { code: input.code, message: input.message };
+  // Error text can come from the page (a console error, a URL in a navigation failure).
+  return { code: input.code, message: redactSecretMarkers(input.message) };
 }
 
 /**
