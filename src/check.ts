@@ -499,6 +499,7 @@ async function executePlannedTask(
     file: plan.argv[0]!,
     argv: plan.argv.slice(1),
     cwd: workingDirectoryPath(repositoryRoot, plan.workingDirectory),
+    resolve_bare_file_outside: repositoryRoot,
     ...(options.env === undefined ? {} : { env: options.env }),
     timeout_ms: timeoutMs,
     termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,

@@ -342,29 +342,52 @@ export function resolveRepositoryIdentity(repositoryRoot: string): RepositoryIde
 // resolves here to an absolute file outside the repository. This is not proof of
 // which Git it is: a directory the user put on PATH stays the user's authority.
 export function trustedGitExecutable(repositoryRoot: string): string | null {
+  return trustedExecutableOnPath(repositoryRoot, [process.platform === "win32" ? "git.exe" : "git"]);
+}
+
+/**
+ * Resolves a bare command name the way the shell would, but only through absolute PATH
+ * entries outside the repository. On Windows, a name without a PATHEXT extension tries
+ * each extension in PATHEXT order, so `npm` finds `npm.cmd`. Never searches the current
+ * directory, which Windows lookup otherwise does first.
+ */
+export function trustedCommandExecutable(repositoryRoot: string, command: string): string | null {
+  if (process.platform !== "win32") return trustedExecutableOnPath(repositoryRoot, [command]);
+  const extensions = (process.env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD")
+    .split(";")
+    .filter((extension) => /^\.[A-Za-z0-9]+$/u.test(extension));
+  const hasExtension = extensions.some((extension) => command.toLowerCase().endsWith(extension.toLowerCase()));
+  return trustedExecutableOnPath(
+    repositoryRoot,
+    hasExtension ? [command] : extensions.map((extension) => `${command}${extension.toLowerCase()}`),
+  );
+}
+
+function trustedExecutableOnPath(repositoryRoot: string, names: readonly string[]): string | null {
   let root: string;
   try {
     root = realpathSync.native(repositoryRoot);
   } catch {
     return null;
   }
-  const name = process.platform === "win32" ? "git.exe" : "git";
-  // With PATH unset, POSIX exec searched a default path, so this keeps finding Git.
+  // With PATH unset, POSIX exec searched a default path, so this keeps finding the command.
   const searchPath = process.env.PATH ?? (process.platform === "win32" ? "" : "/usr/local/bin:/usr/bin:/bin");
   for (const rawEntry of searchPath.split(delimiter)) {
     const entry = rawEntry.replace(/^"(.*)"$/u, "$1");
     if (!isAbsolute(entry) || /^[\\/]{2}/u.test(entry)) continue;
-    try {
-      const candidate = join(entry, name);
-      // Both must lie outside: a repository entry could link out to pick the binary, and an
-      // outside entry could link back in.
-      if (isContainedPath(root, realpathSync.native(entry))) continue;
-      if (isContainedPath(root, realpathSync.native(candidate))) continue;
-      if (!statSync(candidate).isFile()) continue;
-      accessSync(candidate, fsConstants.X_OK);
-      return candidate;
-    } catch {
-      continue;
+    for (const name of names) {
+      try {
+        const candidate = join(entry, name);
+        // Both must lie outside: a repository entry could link out to pick the binary, and an
+        // outside entry could link back in.
+        if (isContainedPath(root, realpathSync.native(entry))) continue;
+        if (isContainedPath(root, realpathSync.native(candidate))) continue;
+        if (!statSync(candidate).isFile()) continue;
+        accessSync(candidate, fsConstants.X_OK);
+        return candidate;
+      } catch {
+        continue;
+      }
     }
   }
   return null;

@@ -7,6 +7,8 @@ import {
 import { createRequire } from "node:module";
 import { win32 as pathWin32 } from "node:path";
 
+import { trustedCommandExecutable } from "./git.js";
+
 export type ProcessOutcome =
   | "exited"
   | "timed_out"
@@ -43,6 +45,15 @@ export interface ProcessRunRequest {
   readonly stop_on_capture_limit?: boolean;
   /** Stops any descendant seen to outlive the root, with outcome "tree_escape". */
   readonly require_tree_exit?: boolean;
+  /**
+   * Resolves a bare `file` through PATH entries outside this repository root before launch,
+   * so no lookup searches the working directory. Unresolved, nothing starts.
+   */
+  readonly resolve_bare_file_outside?: string;
+}
+
+function isBareCommand(file: string): boolean {
+  return !file.includes("/") && !file.includes("\\");
 }
 
 export interface ProcessErrorDetail {
@@ -430,11 +441,21 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
     };
   }
 
+  let file = request.file;
+  if (request.resolve_bare_file_outside !== undefined && isBareCommand(file)) {
+    const resolved = trustedCommandExecutable(request.resolve_bare_file_outside, file);
+    if (resolved === null) {
+      const error = Object.assign(new Error(`no ${file} executable found on PATH outside the repository`), { code: "ENOENT" });
+      return errorResult(target, error, emptyCapture(), emptyCapture(), false, true);
+    }
+    file = resolved;
+  }
+
   let child: ChildProcess;
   try {
     child = request.exact_executable === true
-      ? spawn(request.file, [...request.argv], spawnOptions(request))
-      : crossSpawn(request.file, [...request.argv], spawnOptions(request));
+      ? spawn(file, [...request.argv], spawnOptions(request))
+      : crossSpawn(file, [...request.argv], spawnOptions(request));
   } catch (error) {
     const normalized = error instanceof Error ? error : new Error("process launch threw a non-Error value");
     return errorResult(target, normalized, emptyCapture(), emptyCapture(), false, true);
