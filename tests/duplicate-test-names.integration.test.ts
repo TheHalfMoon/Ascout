@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -84,7 +84,8 @@ function run(root: string, file: string, argv: readonly string[]): void {
 
 describe("check with two same-named tests, one failing", () => {
   it("reports the failure instead of an invalid receipt", async () => {
-    const root = mkdtempSync(join(tmpdir(), "ascout-duplicate-names-"));
+    // The runner reports the long path; Windows runners give tmpdir() as an 8.3 short path.
+    const root = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-duplicate-names-")));
     try {
       mkdirSync(join(root, "src"), { recursive: true });
       mkdirSync(join(root, "tests"), { recursive: true });
