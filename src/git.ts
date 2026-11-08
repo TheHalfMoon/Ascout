@@ -378,13 +378,16 @@ function trustedExecutableOnPath(repositoryRoot: string, names: readonly string[
     for (const name of names) {
       try {
         const candidate = join(entry, name);
-        // Both must lie outside: a repository entry could link out to pick the binary, and an
-        // outside entry could link back in.
+        // Each must lie outside: a repository entry, even one that links out, would let the
+        // repository pick the binary, and an outside entry could link back in.
+        if (isContainedPath(root, resolve(entry)) || isContainedPath(resolve(repositoryRoot), resolve(entry))) continue;
         if (isContainedPath(root, realpathSync.native(entry))) continue;
-        if (isContainedPath(root, realpathSync.native(candidate))) continue;
-        if (!statSync(candidate).isFile()) continue;
-        accessSync(candidate, fsConstants.X_OK);
-        return candidate;
+        const resolved = realpathSync.native(candidate);
+        if (isContainedPath(root, resolved)) continue;
+        if (!statSync(resolved).isFile()) continue;
+        accessSync(resolved, fsConstants.X_OK);
+        // The resolved path, so a link re-pointed after this check can't change what runs.
+        return resolved;
       } catch {
         continue;
       }
