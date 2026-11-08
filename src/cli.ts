@@ -474,7 +474,7 @@ async function runTest(profile: TestProfile, planOnly: boolean, format: TestForm
   }
   readRepositoryPrefix(root);
   refuseUnsupportedRepository(root);
-  const outcome = await runCheck(root);
+  const outcome = await withRunCancellation((signal) => runCheck(root, { signal }));
   const result = testRunResultFromReceiptV1(profile, outcome.receipt);
   if (result.kind === "error") {
     // Exit 2 keeps stdout empty (A07); the check receipt stays in its run directory.
@@ -482,6 +482,28 @@ async function runTest(profile: TestProfile, planOnly: boolean, format: TestForm
     return OPERATIONAL_ERROR_EXIT_CODE;
   }
   return writeReport(result.report, outcome.terminalSummary);
+}
+
+const CANCEL_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
+
+/**
+ * Runs check with its own cancellation. The first SIGINT, SIGTERM, or SIGHUP stops the running
+ * task's process tree and skips the rest, so the receipt still records the run; a second exits at
+ * once. Without this, Ctrl-C ended Ascout and left the task tree running with no timeout.
+ */
+export async function withRunCancellation<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const onSignal = (): void => {
+    if (controller.signal.aborted) process.exit(OPERATIONAL_ERROR_EXIT_CODE);
+    reportOperationalError("ascout: cancelling; stopping the running task. Signal again to exit at once.");
+    controller.abort();
+  };
+  for (const name of CANCEL_SIGNALS) process.on(name, onSignal);
+  try {
+    return await run(controller.signal);
+  } finally {
+    for (const name of CANCEL_SIGNALS) process.off(name, onSignal);
+  }
 }
 
 export async function runCli(argv: readonly string[]): Promise<number> {
@@ -492,9 +514,10 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     }
     if (invocation.command === "check") {
       refuseUnsupportedRepository(process.cwd());
-      const outcome = await runCheck(process.cwd(), {
+      const outcome = await withRunCancellation((signal) => runCheck(process.cwd(), {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
-      });
+        signal,
+      }));
       if (invocation.format === "json") {
         process.stdout.write(renderReceiptJson(outcome.receipt));
       } else if (invocation.format === "agent") {
