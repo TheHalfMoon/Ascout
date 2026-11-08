@@ -19,6 +19,7 @@ import {
   readContainedWorktreeText,
   readGitHeadState,
   readTreeDigestV1,
+  readUntrackedIgnoredPaths,
   readWorkingTreeComparison,
   resolveRepositoryIdentity,
   type GitChangedFile,
@@ -92,9 +93,13 @@ export const COMMAND_SURFACE_CHANGED_REASON_TEXT =
  */
 export interface AdmissionRefusal {
   readonly status: "NOT_RUN";
-  readonly reasonCode: typeof COMMAND_SURFACE_CHANGED_REASON_CODE;
+  readonly reasonCode: typeof COMMAND_SURFACE_CHANGED_REASON_CODE | typeof AUTHORITY_FILE_IGNORED_REASON_CODE;
   readonly reasonText: string;
 }
+
+export const AUTHORITY_FILE_IGNORED_REASON_CODE = "authority_file_ignored" as const;
+const AUTHORITY_FILE_IGNORED_REASON_TEXT =
+  "A file this task's command or configuration comes from is untracked and ignored by Git, so Ascout can't tell whether it changed. Track the file or stop ignoring it.";
 
 export interface TaskAdmissionDecision {
   readonly taskType: SemanticTaskType;
@@ -115,6 +120,11 @@ export interface RunAdmissionOptions extends CommandSurfaceClassifyOptions {
    * automation.
    */
   readonly allowChangedCommandSurface?: boolean;
+  /**
+   * Authority paths Git reports as untracked and ignored. The comparison leaves them out,
+   * so they can never show as changed; a task that depends on one doesn't launch.
+   */
+  readonly untrackedIgnoredPaths?: readonly string[];
 }
 
 function emptyDecision(taskType: SemanticTaskType): TaskAdmissionDecision {
@@ -133,10 +143,23 @@ export function decideTaskAdmission(
   authorityPaths: readonly string[],
   changedFiles: readonly ChangedPathView[],
   allowChangedCommandSurface: boolean,
+  untrackedIgnoredPaths: ReadonlySet<string> = new Set(),
 ): TaskAdmissionDecision {
   const changedAuthorityPaths = intersectChangedAuthorityPaths(authorityPaths, changedFiles);
 
   if (changedAuthorityPaths.length === 0) {
+    // The override can't admit these: the receipt names only changed paths in the comparison.
+    if (authorityPaths.some((path) => untrackedIgnoredPaths.has(path))) {
+      return {
+        ...emptyDecision(taskType),
+        launchAllowed: false,
+        refusal: {
+          status: "NOT_RUN",
+          reasonCode: AUTHORITY_FILE_IGNORED_REASON_CODE,
+          reasonText: AUTHORITY_FILE_IGNORED_REASON_TEXT,
+        },
+      };
+    }
     return emptyDecision(taskType);
   }
 
@@ -177,8 +200,9 @@ export function decideRunAdmissions(
   changedFiles: readonly ChangedPathView[],
   options: RunAdmissionOptions = {},
 ): RunAdmissionDecisions {
-  const { allowChangedCommandSurface = false, ...classifyOptions } = options;
+  const { allowChangedCommandSurface = false, untrackedIgnoredPaths = [], ...classifyOptions } = options;
   const surfaces = classifyCommandSurfaces(discovery, classifyOptions);
+  const ignored = new Set(untrackedIgnoredPaths);
   const result = {} as Record<SemanticTaskType, TaskAdmissionDecision>;
 
   for (const task of FIXED_SEMANTIC_TASKS) {
@@ -187,6 +211,7 @@ export function decideRunAdmissions(
       surfaces[task].authorityPaths,
       changedFiles,
       allowChangedCommandSurface,
+      ignored,
     );
   }
 
@@ -1525,10 +1550,13 @@ export async function runCheck(
         changed_files: gitComparison.changed_files.map(toChangedFileV1),
       };
 
+      const surfaceOptions = { ascoutConfigPath: ASCOUT_CONFIG_PATH, tasks: config.tasks ?? null };
+      const surfaces = classifyCommandSurfaces(discovery, surfaceOptions);
+      const allAuthorityPaths = [...new Set(FIXED_SEMANTIC_TASKS.flatMap((task) => surfaces[task].authorityPaths))];
       const decisions = decideRunAdmissions(discovery, gitComparison.changed_files, {
+        ...surfaceOptions,
         allowChangedCommandSurface: options.allowChangedCommandSurface === true,
-        ascoutConfigPath: ASCOUT_CONFIG_PATH,
-        tasks: config.tasks ?? null,
+        untrackedIgnoredPaths: readUntrackedIgnoredPaths(root, allAuthorityPaths),
       });
       const preRunWidening = decidePreRunWidening(discovery, gitComparison.changed_files);
       const selectionMode = preRunWidening.widened ? "full" as const : "native_related" as const;

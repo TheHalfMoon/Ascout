@@ -1633,6 +1633,27 @@ const STAGED_STATUS_KINDS: Readonly<Record<string, ChangedFileKind>> = {
   T: "type_changed",
 };
 
+/**
+ * Returns which of `paths` are untracked and ignored by Git. The working-tree comparison
+ * leaves such files out, so their absence from it doesn't mean they are unchanged.
+ */
+export function readUntrackedIgnoredPaths(
+  repositoryRoot: string,
+  paths: readonly string[],
+): readonly string[] {
+  if (paths.length === 0) return [];
+  const records = splitNullTerminated(
+    requireSuccessfulGitBuffer(
+      runGitTreeMetadata(repositoryRoot, [
+        "--literal-pathspecs", "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--", ...paths,
+      ]),
+      "unable to read ignored untracked paths",
+    ),
+    "git ignored untracked path output",
+  );
+  return records.map((record) => requireCanonicalRepositoryPath(decodeUtf8(record, "git ignored untracked path")));
+}
+
 export function readStagedChangedPaths(
   repositoryRoot: string,
   headSha: string,
