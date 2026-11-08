@@ -64,8 +64,10 @@ describe("check with a task that leaves a descendant running", () => {
       const { receipt } = await runCheck(root);
       const task = receipt.tasks.find(({ task_id }) => task_id === "typecheck");
       expect(task?.status).toBe("ERROR");
-      // Windows can't stop an exited root's descendants, so it reports cleanup as incomplete.
-      expect(task?.reason_code).toBe(POSIX ? "task_tree_escape" : "process_error");
+      // A detached descendant leaves the Windows job and the POSIX process group, so no platform
+      // can stop it: the task reports that cleanup did not complete.
+      expect(task?.reason_code).toBe("process_error");
+      expect(task?.reason_text).toContain("cleanup did not complete");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
