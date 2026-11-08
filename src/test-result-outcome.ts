@@ -38,3 +38,20 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 function positiveCount(value: unknown): boolean {
   return typeof value === "number" && value > 0;
 }
+
+/**
+ * Reads whether a pytest JUnit XML report records a failure: a test suite whose failures or
+ * errors count is above zero, or a test case holding a failure or error element. A report with no
+ * test suite counts as a failure, so a missing or emptied report fails closed.
+ */
+export function junitResultRecordsFailure(xml: string): boolean {
+  const suites = [...xml.matchAll(/<testsuite\b([^>]*)>/gu)];
+  if (suites.length === 0) return true;
+  for (const [, attributes] of suites) {
+    for (const pattern of [/\bfailures="(\d+)"/u, /\berrors="(\d+)"/u]) {
+      const value = pattern.exec(attributes ?? "")?.[1];
+      if (value === undefined || Number(value) > 0) return true;
+    }
+  }
+  return /<(?:failure|error)\b/u.test(xml);
+}
