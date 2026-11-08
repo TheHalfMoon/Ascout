@@ -25,7 +25,7 @@ import {
   type GitChangedFile,
 } from "./git.js";
 import { acquireRunLock } from "./lock.js";
-import { runProcess } from "./process.js";
+import { runProcess, type ProcessRunResult } from "./process.js";
 import {
   redactExactValues,
   redactPersistedArgv,
@@ -549,6 +549,46 @@ interface ExecutePlannedTaskOptions {
   readonly evidenceSequenceStart?: number;
 }
 
+/**
+ * Maps a finished task process to its receipt status. Only a clean exit passes; a timeout
+ * says whether its process tree was confirmed stopped, and a tree escape is never a result.
+ */
+export function taskStatusFromProcess(
+  result: Pick<ProcessRunResult, "outcome" | "exit_code" | "signal" | "timed_out" | "cleanup_complete" | "error">,
+  timeoutMs: number,
+): { status: TaskResultV1["status"]; reasonCode: string | null; reasonText: string | null; failures: number } {
+  let status: TaskResultV1["status"];
+  let reasonCode: string | null = null;
+  let reasonText: string | null = null;
+  let failures = 0;
+
+  if (result.outcome === "exited" && result.exit_code === 0 && result.signal === null) {
+    status = "PASS";
+  } else if (result.outcome === "exited" && result.exit_code !== null && result.signal === null) {
+    status = "FAIL";
+    failures = 1;
+  } else if (result.timed_out) {
+    status = "ERROR";
+    reasonCode = result.cleanup_complete ? "task_timeout" : "task_timeout_cleanup_incomplete";
+    reasonText = result.cleanup_complete
+      ? `Task exceeded its ${timeoutMs} ms budget and its process tree was terminated.`
+      : `Task exceeded its ${timeoutMs} ms budget, and Ascout could not confirm its process tree stopped.`;
+  } else if (result.outcome === "tree_escape") {
+    status = "ERROR";
+    reasonCode = "task_tree_escape";
+    reasonText = "The task's process exited but left descendant processes running, which Ascout stopped. Evidence from the run isn't trusted.";
+  } else if (result.signal !== null) {
+    status = "ERROR";
+    reasonCode = "process_signalled";
+    reasonText = `The task process terminated on signal ${result.signal}.`;
+  } else {
+    status = "ERROR";
+    reasonCode = "process_error";
+    reasonText = result.error?.message ?? "The task process failed without a recorded exit code.";
+  }
+  return { status, reasonCode, reasonText, failures };
+}
+
 async function executePlannedTask(
   repositoryRoot: string,
   runId: string,
@@ -567,6 +607,8 @@ async function executePlannedTask(
     argv: plan.argv.slice(1),
     cwd: workingDirectoryPath(repositoryRoot, plan.workingDirectory),
     resolve_bare_file_outside: repositoryRoot,
+    // A descendant left running could rewrite this run's evidence after the runner exits.
+    require_tree_exit: true,
     ...(options.env === undefined ? {} : { env: options.env }),
     timeout_ms: timeoutMs,
     termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
@@ -590,29 +632,7 @@ async function executePlannedTask(
   const persistedArgv = redactPersistedArgv(plan.argv, secrets);
   const argvRedacted = persistedArgv.some((value, index) => value !== plan.argv[index]);
 
-  let status: TaskResultV1["status"];
-  let reasonCode: string | null = null;
-  let reasonText: string | null = null;
-  let failures = 0;
-
-  if (result.outcome === "exited" && result.exit_code === 0 && result.signal === null) {
-    status = "PASS";
-  } else if (result.outcome === "exited" && result.exit_code !== null && result.signal === null) {
-    status = "FAIL";
-    failures = 1;
-  } else if (result.timed_out) {
-    status = "ERROR";
-    reasonCode = "task_timeout";
-    reasonText = `Task exceeded its ${timeoutMs} ms budget and its process tree was terminated.`;
-  } else if (result.signal !== null) {
-    status = "ERROR";
-    reasonCode = "process_signalled";
-    reasonText = `The task process terminated on signal ${result.signal}.`;
-  } else {
-    status = "ERROR";
-    reasonCode = "process_error";
-    reasonText = result.error?.message ?? "The task process failed without a recorded exit code.";
-  }
+  const { status, reasonCode, reasonText, failures } = taskStatusFromProcess(result, timeoutMs);
 
   return {
     task: {
