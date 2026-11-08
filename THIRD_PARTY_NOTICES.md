@@ -13,6 +13,21 @@ This file records the exact direct third-party packages selected by Ascout and t
 - The exact current npm graph and integrity records are committed in `package-lock.json`. This reconciliation does not imply a new npm release, a security audit, or any change to historical T086 evidence.
 - Task022 updates existing development pins to `vite@6.4.5`, `vitest@4.1.12` and `@vitest/coverage-v8@4.1.12`, their existing Vitest closure, and transitive `source-map-js@1.2.2` (BSD-3-Clause). The graph retains417 entries; all unrelated resolutions and runtime pins remain unchanged. Exact registry metadata binds the changed tarballs and integrity values below. Current qualification and provenance limitations are recorded separately; historical generation-time results remain scoped to their original graph.
 
+## External tools Ascout runs but does not distribute
+
+Ascout does not bundle, download, or redistribute these tools. A user or CI job supplies the executable, and Ascout refuses any copy whose digest does not match the pin.
+
+### Gitleaks 8.30.1
+
+- **Use:** `ascout security` runs it through the bounded execution broker, from the path in `ASCOUT_GITLEAKS_PATH`.
+- **License:** MIT — <https://github.com/gitleaks/gitleaks/blob/master/LICENSE>
+- **Source:** tag `v8.30.1` at commit `83d9cd684c87d95d656c1458ef04895a7f1cbd8e` — <https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1>
+- **Pinned release archives (SHA-256):**
+  - `gitleaks_8.30.1_linux_x64.tar.gz` — `551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb`
+  - `gitleaks_8.30.1_darwin_arm64.tar.gz` — `b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5`
+  - `gitleaks_8.30.1_windows_x64.zip` — `d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e`
+- The pins live in `src/assurance/engines/gitleaks-profile.ts`; `tests/third-party-notices.test.ts` checks this entry against them.
+
 ## Historical T086 candidate binding (2026-08; preserved)
 
 T086 revalidated this ledger against canonical `main` at `a9bae09a71b4ff92097182a8d97f5ff6a0511603`.
