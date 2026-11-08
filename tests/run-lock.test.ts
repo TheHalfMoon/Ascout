@@ -94,7 +94,9 @@ describe("T022 run lock", () => {
       pid: number;
       token: string;
     };
-    expect(persisted.version).toBe(1);
+    // Version 2 owners record a digest of their host and PID namespace.
+    expect(persisted.version).toBe(2);
+    expect((persisted as { host?: string }).host).toMatch(/^[0-9a-f]{32}$/);
     expect(persisted.pid).toBe(process.pid);
     expect(persisted.token).toMatch(/^[0-9a-f]{32}$/);
     expect(existsSync(recoveryPath(repositoryRoot))).toBe(false);
@@ -149,7 +151,9 @@ describe("T022 run lock", () => {
       token: string;
     };
 
-    expect(persisted.version).toBe(1);
+    // Version 2 owners record a digest of their host and PID namespace.
+    expect(persisted.version).toBe(2);
+    expect((persisted as { host?: string }).host).toMatch(/^[0-9a-f]{32}$/);
     expect(persisted.pid).toBe(process.pid);
     expect(persisted.token).not.toBe("1".repeat(32));
     expect(existsSync(recoveryPath(repositoryRoot))).toBe(false);
