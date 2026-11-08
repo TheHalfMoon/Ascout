@@ -9,6 +9,7 @@ import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./d
 import {
   readRepositoryPrefix,
   readStagedChangedPaths,
+  readContainedWorktreeText,
   readWorkingTreeComparison,
   refuseUnsupportedRepository,
 } from "./git.js";
@@ -32,6 +33,9 @@ import {
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
+import { readLocalReviewConfigV1 } from "./assurance/review/local-review-provider.js";
+import { runLocalReviewV1 } from "./assurance/review/local-review-run.js";
+import { redactExactValues, selectedSecretValues } from "./redact.js";
 import {
   buildTestNotRunReportV2,
   profileRunsCheckV1,
@@ -56,6 +60,7 @@ const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
 const PLAN_FLAG = "--plan";
+const LOCAL_MODEL_FLAG = "--local-model";
 const CHECK_FORMATS = ["json", "agent"] as const;
 const REVIEW_FORMATS = ["json", "terminal"] as const;
 const TEST_FORMATS = ["json", "terminal"] as const;
@@ -79,6 +84,7 @@ export interface CliInvocation {
   format?: CheckFormat | ReviewFormat | TestFormat | SecurityFormat;
   profile?: TestProfile;
   plan?: true;
+  localModel?: true;
 }
 
 interface DoctorResult {
@@ -142,6 +148,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   let format: CheckFormat | ReviewFormat | TestFormat | SecurityFormat | undefined;
   let profile: TestProfile | undefined;
   let plan = false;
+  let localModel = false;
 
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index]!;
@@ -242,6 +249,17 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       continue;
     }
 
+    if (token === LOCAL_MODEL_FLAG) {
+      if (commandToken !== "review") {
+        throw new CliUsageError(`${LOCAL_MODEL_FLAG} is valid only with the review command.`);
+      }
+      if (localModel) {
+        throw new CliUsageError(`${LOCAL_MODEL_FLAG} may be supplied only once.`);
+      }
+      localModel = true;
+      continue;
+    }
+
     if (token === PLAN_FLAG) {
       if (commandToken !== "test") {
         throw new CliUsageError(`${PLAN_FLAG} is valid only with the test command.`);
@@ -262,6 +280,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     ...(format === undefined ? {} : { format }),
     ...(profile === undefined ? {} : { profile }),
     ...(plan ? { plan: true as const } : {}),
+    ...(localModel ? { localModel: true as const } : {}),
   };
 }
 
@@ -271,7 +290,7 @@ export function usageText(): string {
     "  ascout init",
     "  ascout doctor",
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
-    `  ascout review [${FORMAT_FLAG} json|terminal]`,
+    `  ascout review [${LOCAL_MODEL_FLAG}] [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
     `  ascout security [${FORMAT_FLAG} json|terminal]`,
   ].join("\n");
@@ -402,9 +421,10 @@ function writeReviewReport(report: ReviewReportV1, format: ReviewFormat): void {
   }
 }
 
-async function runReview(
+export async function runReview(
   repositoryRoot: string,
   format: ReviewFormat | undefined,
+  localModel = false,
 ): Promise<number> {
   const sourceState = composeSourceState(repositoryRoot);
   const comparison = readWorkingTreeComparison(
@@ -418,6 +438,31 @@ async function runReview(
     const drift = buildReviewDriftReportV1(sourceState.repository_id, sourceState, endState);
     writeReviewReport(drift, outputFormat);
     return drift.exit_code;
+  }
+  if (localModel && changes.length > 0) {
+    const secrets = selectedSecretValues(process.env, { recognized_names: [], configured_names: [], minimum_value_bytes: 8 });
+    const result = await runLocalReviewV1({
+      target_id: sourceState.repository_id,
+      head_sha: sourceState.head_sha,
+      config: readLocalReviewConfigV1(repositoryRoot),
+      changed_files: comparison.changed_files,
+      changes,
+      readText: (path, maxBytes) => readContainedWorktreeText(repositoryRoot, path, maxBytes),
+      redact: (text) => redactExactValues(text, secrets),
+    });
+    if (result.kind === "error") {
+      reportOperationalError(result.message);
+      return OPERATIONAL_ERROR_EXIT_CODE;
+    }
+    // The model can take minutes; a source that changed meanwhile was not the source reviewed.
+    const afterState = composeSourceState(repositoryRoot);
+    if (afterState.head_sha !== sourceState.head_sha || afterState.tree_digest !== sourceState.tree_digest) {
+      const drift = buildReviewDriftReportV1(sourceState.repository_id, sourceState, afterState);
+      writeReviewReport(drift, outputFormat);
+      return drift.exit_code;
+    }
+    writeReviewReport(result.report, outputFormat);
+    return result.report.exit_code;
   }
   const files = changes.map((change) => change.path).sort();
   const report = buildReviewCommandReportV1(
@@ -537,7 +582,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // so this narrowing reflects parser-guaranteed input.
       const reviewFormat = invocation.format as ReviewFormat | undefined;
       refuseUnsupportedRepository(process.cwd());
-      return await runReview(process.cwd(), reviewFormat);
+      return await runReview(process.cwd(), reviewFormat, invocation.localModel === true);
     }
     if (invocation.command === "test") {
       // parseCliArgs admits only json|terminal for the test command,

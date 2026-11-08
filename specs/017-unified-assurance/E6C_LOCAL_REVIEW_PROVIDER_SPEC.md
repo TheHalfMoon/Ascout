@@ -64,7 +64,7 @@ pipeline then validates locations, screens for injection, accounts coverage, and
 
 ## Known limits
 
-- **Not wired yet.** The next packet calls this from `ascout review`.
+- **Wiring.** `ascout review --local-model` calls this; see `E6D_LOCAL_REVIEW_WIRING_SPEC.md`.
 - **CI has no model.** Tests use a fake local server; a real-model run is a local qualification.
 - **Quality is the model's.** A small local model misses issues and reports false ones. That is why
   its output is advisory.
