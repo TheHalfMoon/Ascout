@@ -189,15 +189,35 @@ export function actionSemanticError(
   return null;
 }
 
-/** Pure origin join for origin-relative navigate targets. */
+/**
+ * Resolves a navigate target against the session origin. Execution is limited to that origin,
+ * so a target that resolves anywhere else, or carries credentials, is null and is refused.
+ */
 export function resolveNavigateTarget(
   application_origin: string,
   target: string,
-): string {
-  if (/^https?:\/\//.test(target)) {
-    return target;
+): string | null {
+  let resolved: URL;
+  try {
+    resolved = new URL(target, application_origin);
+  } catch {
+    return null;
   }
-  return `${application_origin}${target}`;
+  if (resolved.origin !== new URL(application_origin).origin) return null;
+  if (resolved.username !== "" || resolved.password !== "") return null;
+  return resolved.href;
+}
+
+/** True for an http(s) URL outside the session origin, which the context refuses to load. */
+export function isOffOriginRequest(application_origin: string, url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return true;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  return parsed.origin !== new URL(application_origin).origin;
 }
 
 const CONSOLE_CLEAN_STATEMENTS = new Set([
@@ -285,6 +305,12 @@ export async function launchPlaywrightSession(
   try {
     browser_version = browser.version();
     context = await browser.newContext();
+    // Redirects and subresources included: nothing outside the session origin loads.
+    await context.route("**/*", (route) =>
+      isOffOriginRequest(session.application_origin, route.request().url())
+        ? route.abort("blockedbyclient")
+        : route.continue(),
+    );
     page = await context.newPage();
     page.on("console", (message) => {
       if (message.type() === "error") {
@@ -357,16 +383,21 @@ export async function launchPlaywrightSession(
           status: "refused",
         });
       }
-      const effective =
-        request.kind === "navigate"
-          ? {
-              ...request,
-              target: resolveNavigateTarget(
-                session.application_origin,
-                request.target,
-              ),
-            }
-          : request;
+      const navigateTarget = request.kind === "navigate"
+        ? resolveNavigateTarget(session.application_origin, request.target)
+        : null;
+      if (request.kind === "navigate" && navigateTarget === null) {
+        return createActionResponse({
+          duration_ms: now() - started,
+          error: { code: "E_OFF_ORIGIN", message: "navigate target is outside the session origin" },
+          evidence_refs: [],
+          request_id: request.request_id,
+          session_id: session.session_id,
+          source_identity: session.source_identity,
+          status: "refused",
+        });
+      }
+      const effective = navigateTarget === null ? request : { ...request, target: navigateTarget };
       try {
         await runAction(page, effective, resolveTarget);
         return createActionResponse({

@@ -5,7 +5,7 @@ import { launchPlaywrightSession } from "../src/browser/playwright-adapter.js";
 // Synthetic handles prove public lifetime/error contracts, not native browser qualification.
 const fake = vi.hoisted(() => ({
   page: { on: vi.fn(), url: vi.fn() },
-  context: { newPage: vi.fn(), close: vi.fn() },
+  context: { newPage: vi.fn(), close: vi.fn(), route: vi.fn() },
   browser: { version: vi.fn(), newContext: vi.fn(), close: vi.fn(), isConnected: vi.fn() },
   launch: vi.fn(),
 }));
@@ -44,6 +44,8 @@ beforeEach(() => {
   fake.browser.isConnected.mockReturnValue(true);
   fake.browser.newContext.mockResolvedValue(fake.context);
   fake.context.newPage.mockResolvedValue(fake.page);
+  // The adapter installs its origin guard on every context.
+  fake.context.route.mockResolvedValue(undefined);
   fake.context.close.mockResolvedValue(undefined);
   fake.browser.close.mockResolvedValue(undefined);
   fake.launch.mockResolvedValue(fake.browser);
