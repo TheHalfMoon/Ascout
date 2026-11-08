@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
 import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -265,7 +266,15 @@ export interface CheckRunOptions {
    * by agent automation.
    */
   readonly allowChangedCommandSurface?: boolean;
+  /**
+   * Cancels the run: the running task's process tree is stopped, later tasks don't start,
+   * and the receipt records them as cancelled.
+   */
+  readonly signal?: AbortSignal;
 }
+
+/** The current run's cancellation signal, reached by every task launch without threading it through. */
+const runCancellation = new AsyncLocalStorage<AbortSignal | undefined>();
 
 export interface CheckOutcome {
   readonly receipt: ReceiptV1;
@@ -587,6 +596,12 @@ export function taskStatusFromProcess(
     reasonText = result.cleanup_complete
       ? `Task exceeded its ${timeoutMs} ms budget and its process tree was terminated.`
       : `Task exceeded its ${timeoutMs} ms budget, and Ascout could not confirm its process tree stopped.`;
+  } else if (result.outcome === "cancelled") {
+    status = "ERROR";
+    reasonCode = "task_cancelled";
+    reasonText = result.cleanup_complete
+      ? "The run was cancelled, so this task was stopped or never started."
+      : "The run was cancelled, and Ascout could not confirm this task's process tree stopped.";
   } else if (result.outcome === "tree_escape") {
     status = "ERROR";
     reasonCode = "task_tree_escape";
@@ -616,6 +631,7 @@ async function executePlannedTask(
 ): Promise<ExecutedTask> {
   const startedMs = Date.now();
   const startedAt = new Date(startedMs).toISOString();
+  const cancellation = runCancellation.getStore();
   const result = await runProcess({
     file: plan.argv[0]!,
     argv: plan.argv.slice(1),
@@ -623,6 +639,7 @@ async function executePlannedTask(
     resolve_bare_file_outside: repositoryRoot,
     // A descendant left running could rewrite this run's evidence after the runner exits.
     require_tree_exit: true,
+    ...(cancellation === undefined ? {} : { signal: cancellation }),
     ...(options.env === undefined ? {} : { env: options.env }),
     timeout_ms: timeoutMs,
     termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
@@ -1611,6 +1628,13 @@ function assertSemanticallyValid(receipt: ReceiptV1): void {
 export async function runCheck(
   repositoryRoot: string,
   options: CheckRunOptions = {},
+): Promise<CheckOutcome> {
+  return runCancellation.run(options.signal, () => runCheckWithinCancellation(repositoryRoot, options));
+}
+
+async function runCheckWithinCancellation(
+  repositoryRoot: string,
+  options: CheckRunOptions,
 ): Promise<CheckOutcome> {
   const lock = await acquireRunLock(repositoryRoot);
   try {
