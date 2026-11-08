@@ -68,6 +68,7 @@ import {
   type FailingTestIdentity,
   type TestAssertionObservation,
 } from "./test-reproduction.js";
+import { machineResultRecordsFailure } from "./test-result-outcome.js";
 import { planESLintTask } from "./tools/eslint.js";
 import { planJestTargetedRerun } from "./tools/jest-rerun.js";
 import { planJestTask, type JestTaskPlan, type PlannedJestTask } from "./tools/jest.js";
@@ -867,16 +868,18 @@ function validVitestMachineResult(text: string): boolean {
     Array.isArray((value as { readonly testResults?: unknown }).testResults);
 }
 
-function withVitestEvidenceError(
+function withTestTaskError(
   executed: ExecutedTask,
   generated: readonly PersistedTextArtifact[],
+  reasonCode: string,
+  reasonText: string,
 ): ExecutedTestTask {
   return {
     task: {
       ...executed.task,
       status: "ERROR",
-      reason_code: "vitest_evidence_invalid",
-      reason_text: "Vitest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
+      reason_code: reasonCode,
+      reason_text: reasonText,
       evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
       artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
     },
@@ -887,6 +890,36 @@ function withVitestEvidenceError(
     selectedTestCounts: [null],
     machineResults: [],
   };
+}
+
+/**
+ * A runner that exits 0 while its own machine result records a failure was
+ * configured or altered to hide failures. Its exit code can't be trusted, and
+ * neither can a rerun judged by exit code, so the task is ERROR, not PASS.
+ */
+function withFailureHiddenByExitCode(
+  executed: ExecutedTask,
+  generated: readonly PersistedTextArtifact[],
+  runner: "Vitest" | "Jest",
+): ExecutedTestTask {
+  return withTestTaskError(
+    executed,
+    generated,
+    "test_exit_contradicts_results",
+    `${runner} exited 0, but its machine result records a failed test or suite.`,
+  );
+}
+
+function withVitestEvidenceError(
+  executed: ExecutedTask,
+  generated: readonly PersistedTextArtifact[],
+): ExecutedTestTask {
+  return withTestTaskError(
+    executed,
+    generated,
+    "vitest_evidence_invalid",
+    "Vitest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
+  );
 }
 
 async function executeVitestTask(
@@ -947,6 +980,9 @@ async function executeVitestTask(
     );
     generated.push(machine);
     if (!validVitestMachineResult(machine.text)) return withVitestEvidenceError(executed, generated);
+    if (executed.task.status === "PASS" && machineResultRecordsFailure(machine.text)) {
+      return withFailureHiddenByExitCode(executed, generated, "Vitest");
+    }
     selectedTestCount = observedSelectedTestCount(machine.text);
     machineResult = { runner: "vitest", text: machine.text, evidenceId: machine.evidence.evidence_id, basePlan: plan };
 
@@ -1014,22 +1050,12 @@ function withJestEvidenceError(
   executed: ExecutedTask,
   generated: readonly PersistedTextArtifact[],
 ): ExecutedTestTask {
-  return {
-    task: {
-      ...executed.task,
-      status: "ERROR",
-      reason_code: "jest_evidence_invalid",
-      reason_text: "Jest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
-      evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
-      artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
-    },
-    evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
-    artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
-    coveragePoints: null,
-    branchPoints: null,
-    selectedTestCounts: [null],
-    machineResults: [],
-  };
+  return withTestTaskError(
+    executed,
+    generated,
+    "jest_evidence_invalid",
+    "Jest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
+  );
 }
 
 async function executeJestTask(
@@ -1090,6 +1116,9 @@ async function executeJestTask(
     );
     generated.push(machine);
     if (!validJestMachineResult(machine.text)) return withJestEvidenceError(executed, generated);
+    if (executed.task.status === "PASS" && machineResultRecordsFailure(machine.text)) {
+      return withFailureHiddenByExitCode(executed, generated, "Jest");
+    }
     selectedTestCount = observedSelectedTestCount(machine.text);
     machineResult = { runner: "jest", text: machine.text, evidenceId: machine.evidence.evidence_id, basePlan: plan };
 
