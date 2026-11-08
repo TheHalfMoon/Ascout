@@ -1103,10 +1103,10 @@ async function executeVitestTask(
       secrets,
     );
     generated.push(coverage);
-    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
+    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot, plan.workingDirectory);
     if (lineNormalized.outcome !== "resolved") return withVitestEvidenceError(executed, generated);
     coveragePoints = lineNormalized.points;
-    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
+    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot, plan.workingDirectory);
     if (branchNormalized.outcome === "resolved") {
       branchPoints = branchNormalized.observations;
     } else if (branchNormalized.reason === LCOV_NO_BRANCH_DATA_REASON) {
@@ -1239,10 +1239,10 @@ async function executeJestTask(
       secrets,
     );
     generated.push(coverage);
-    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
+    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot, plan.workingDirectory);
     if (lineNormalized.outcome !== "resolved") return withJestEvidenceError(executed, generated);
     coveragePoints = lineNormalized.points;
-    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
+    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot, plan.workingDirectory);
     if (branchNormalized.outcome === "resolved") {
       branchPoints = branchNormalized.observations;
     } else if (branchNormalized.reason === LCOV_NO_BRANCH_DATA_REASON) {
