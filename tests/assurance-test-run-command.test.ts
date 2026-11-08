@@ -92,6 +92,18 @@ describe("testRunResultFromReceiptV1", () => {
     expect(result.kind === "report" && [result.report.exit_code, result.report.reason_code]).toEqual([4, "NO_TEST_EXECUTED"]);
   });
 
+  it.each([
+    [0, 4, "NO_TEST_EXECUTED"],
+    [3, 0, "CHECK_COMPLETE"],
+    [null, 0, "CHECK_COMPLETE"],
+  ] as const)("with %s selected tests, a passing test task exits %i (%s)", (selected, exit, reason) => {
+    // Vitest runs with --passWithNoTests, so zero selected tests means none ran.
+    const base = receipt(0, ["PASS"], "test");
+    const withSelection = { ...base, selection: { selected_test_count: selected } } as unknown as ReceiptV1;
+    const result = testRunResultFromReceiptV1("STANDARD", withSelection);
+    expect(result.kind === "report" && [result.report.exit_code, result.report.reason_code]).toEqual([exit, reason]);
+  });
+
   it("keeps the missing engines visible on a finding", () => {
     const result = testRunResultFromReceiptV1("DEEP", receipt(1, ["FAIL"]));
     expect(result.kind === "report" && result.report.not_run.length).toBe(3);
