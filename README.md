@@ -225,12 +225,23 @@ A receipt is bound to the source Ascout actually observed:
 - `source.start.head_sha` is the exact full Git object ID resolved at source start;
 - for `working_tree_vs_head`, `comparison.base_ref` must equal that same exact object ID;
 - SHA-1 repositories use 40-hex object IDs and SHA-256 repositories use 64-hex object IDs;
+- the start fingerprint is taken before Ascout reads any configuration, and the tree is fingerprinted again once discovery, configuration, and the changed-file list are read; if they differ, `check` stops with an error instead of acting on a mixed reading;
 - source state is rehashed at the end so drift is reported independently from task completeness;
 - persisted paths are canonical repository/run-relative slash-separated paths;
 - invalid raw absolute, drive, UNC, URI, backslash, traversal, duplicate-separator, or trailing-separator spellings are rejected before lossy normalization can repair them into valid-looking evidence;
 - evidence/artifact references must resolve inside the run/task contract.
 
 The repository identity itself is privacy-safe: Ascout persists a hashed normalized remote identity when available or a hashed canonical-local identity, rather than persisting raw credential-bearing origins or raw absolute local repository paths.
+
+### Limits of the source fingerprint
+
+The fingerprint follows Git's view of the working tree, not raw file bytes, so a change Git itself treats as no change is not seen as a change or as drift:
+
+- **Attribute conversions.** A tracked file whose working copy matches the index after Git's conversions counts as unchanged. Those conversions are line endings (`text`, `eol`, `core.autocrlf`), `ident` keyword expansion, and `working-tree-encoding`. Text placed inside an `$Id: ... $` keyword, or a line-ending flip, can therefore go unseen.
+- **Mode bits.** With `core.fileMode=false`, a permission change is not seen.
+- **Git's stat cache.** Git decides which tracked files to re-read from size and timestamps. An edit that keeps the size and restores the timestamps can be missed, and `core.checkStat=minimal` widens that.
+
+Executable filters (`clean`, `smudge`, `process`) are refused outright. These conversions are not, because refusing them would block the many repositories that use `text=auto`. If a repository's command or configuration files must be byte-exact, don't apply `ident`, `eol`, or `working-tree-encoding` attributes to them.
 
 ## Receipts and local artifacts
 
