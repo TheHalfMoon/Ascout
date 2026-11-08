@@ -24,10 +24,8 @@
  *   captured on every session for evidence binding.
  */
 
-import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
 import { chromium } from "playwright";
 import type { Browser, BrowserContext, Page } from "playwright";
 import {
@@ -45,7 +43,6 @@ import type {
 } from "./executor.js";
 
 export const PINNED_PLAYWRIGHT_VERSION = "1.63.0";
-export const PLAYWRIGHT_INSTALL_TIMEOUT_MS = 600000;
 
 const require = createRequire(import.meta.url);
 
@@ -103,40 +100,19 @@ export function assertPinnedPlaywrightVersion(actual: unknown): void {
   }
 }
 
-function playwrightCliPath(): string {
-  const packageJsonPath = require.resolve("playwright/package.json");
-  return join(dirname(packageJsonPath), "cli.js");
-}
-
 /**
- * Ensures the pinned Chromium build is installed, provisioning it with
- * fixed argv when the executable is missing. Never a shell, never test
- * text: argv is one of two literal tuples below.
+ * Returns the pinned Chromium build's executable, or fails when it is missing. It never installs
+ * one: that downloads hundreds of megabytes, can run apt through sudo on Linux, and blocks the
+ * event loop for minutes, so it is an explicit developer step, as CI already does.
  */
 export function ensureChromiumInstalled(): string {
   const executablePath = chromium.executablePath();
-  if (existsSync(executablePath)) {
-    return executablePath;
-  }
-  const cliPath = playwrightCliPath();
-  const args =
-    process.platform === "linux"
-      ? ["install", "--with-deps", "chromium"]
-      : ["install", "chromium"];
-  try {
-    execFileSync(process.execPath, [cliPath, ...args], {
-      stdio: "pipe",
-      timeout: PLAYWRIGHT_INSTALL_TIMEOUT_MS,
-    });
-  } catch (error) {
+  if (!existsSync(executablePath)) {
     throw new Error(
-      `Chromium provisioning failed (fixed argv: node cli.js ${args.join(" ")}): ${firstLine(error)}`,
+      `Chromium for Playwright ${PINNED_PLAYWRIGHT_VERSION} is not installed; install it with \`npx playwright install chromium\``,
     );
   }
-  if (!existsSync(chromium.executablePath())) {
-    throw new Error("Chromium provisioning reported success but no executable exists");
-  }
-  return chromium.executablePath();
+  return executablePath;
 }
 
 function firstLine(error: unknown): string {
