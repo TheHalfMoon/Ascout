@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import {
   link,
+  lstat,
   mkdir,
   open,
   realpath,
@@ -399,6 +400,18 @@ async function releaseOwnedLock(
   await removeMutationGuard(recoveryPath, mutationOwner);
 }
 
+async function requirePhysicalLockDirectory(path: string, allowAbsent: boolean): Promise<void> {
+  try {
+    if (!(await lstat(path)).isDirectory()) {
+      throw lockError("run_lock_unverifiable", "Ascout runtime directory is not a physical directory");
+    }
+  } catch (error) {
+    if (error instanceof RunLockError) throw error;
+    if (allowAbsent && (error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw lockError("run_lock_unverifiable", "Ascout runtime directory could not be inspected", error);
+  }
+}
+
 export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHandle> {
   if (repositoryRoot.length === 0 || repositoryRoot.includes("\0")) {
     throw lockError("run_lock_unverifiable", "repository root must be a non-empty path without NUL");
@@ -425,11 +438,15 @@ export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHan
   const recoveryPath = join(lockDirectory, RECOVERY_FILENAME);
   const owner = newOwner();
 
+  // mkdir follows a link, so a linked .ascout would put the lock files, or a new directory,
+  // somewhere else. It is checked before creation and again after.
+  await requirePhysicalLockDirectory(lockDirectory, true);
   try {
     await mkdir(lockDirectory, { recursive: true });
   } catch (error) {
     throw lockError("run_lock_io", "failed to create Ascout runtime directory", error);
   }
+  await requirePhysicalLockDirectory(lockDirectory, false);
 
   let released = false;
   let releaseInFlight: Promise<void> | null = null;
