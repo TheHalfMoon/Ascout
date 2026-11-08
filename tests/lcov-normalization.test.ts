@@ -82,7 +82,7 @@ describe("T050 strict line-only LCOV normalization", () => {
     });
   });
 
-  it("fails closed when any completed source record lacks usable DA line data", () => {
+  it("keeps other files' coverage when one record has no DA line data", () => {
     const input = [
       "SF:/repo/src/covered.ts",
       "DA:1,1",
@@ -94,10 +94,10 @@ describe("T050 strict line-only LCOV normalization", () => {
       "",
     ].join("\n");
 
+    // The record without DA lines yields no points, so changed lines there stay unresolved in exercise.
     expect(normalizeLcovLineCoverage(input, "/repo")).toEqual({
-      outcome: "unresolved",
-      count: null,
-      reason: "no usable line coverage records",
+      outcome: "resolved",
+      points: [{ path: "src/covered.ts", line: 1, count: 1, instrumented: true }],
     });
   });
 

@@ -170,7 +170,12 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
 
     if (rawLine === "end_of_record") {
       if (currentSource === null) continue;
-      if (!currentRecordHadLineData) return unresolved(REASON_NO_LINE_DATA);
+      // Istanbul writes such a record for a file with no statements, such as a types-only
+      // module. It yields no points, so a changed file here stays unresolved in exercise.
+      if (!currentRecordHadLineData) {
+        currentSource = null;
+        continue;
+      }
       sawCompleteSourceRecord = true;
       currentSource = null;
       currentRecordHadLineData = false;
