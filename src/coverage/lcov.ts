@@ -103,15 +103,21 @@ function canonicalRepositoryPath(path: string): string | null {
   return canonical;
 }
 
-function mapSourcePath(repositoryRoot: string, sourcePath: string): string | null {
+/**
+ * Maps an LCOV source path to a repository path. A relative path is relative to the runner's
+ * working directory, which is `baseDirectory` (repository-relative) in a package-scoped run.
+ */
+function mapSourcePath(repositoryRoot: string, sourcePath: string, baseDirectory: string | null): string | null {
   if (repositoryRoot.length === 0 || sourcePath.length === 0) return null;
+  const fromBase = (relativePath: string): string =>
+    baseDirectory === null || baseDirectory === "" ? relativePath : posix.normalize(`${baseDirectory}/${relativePath}`);
 
   const windowsStyle = WINDOWS_ABSOLUTE.test(repositoryRoot) || WINDOWS_ABSOLUTE.test(sourcePath);
   if (windowsStyle) {
     if (!win32.isAbsolute(repositoryRoot)) return null;
     const candidate = win32.isAbsolute(sourcePath)
       ? win32.relative(win32.resolve(repositoryRoot), win32.resolve(sourcePath))
-      : sourcePath;
+      : fromBase(sourcePath.replaceAll("\\", "/"));
     const repositoryRelative = candidate.replaceAll("\\", "/");
     if (!isContainedRelativePath(repositoryRelative)) return null;
     return canonicalRepositoryPath(repositoryRelative);
@@ -120,7 +126,7 @@ function mapSourcePath(repositoryRoot: string, sourcePath: string): string | nul
   if (!posix.isAbsolute(repositoryRoot)) return null;
   const candidate = posix.isAbsolute(sourcePath)
     ? posix.relative(posix.resolve(repositoryRoot), posix.resolve(sourcePath))
-    : sourcePath;
+    : fromBase(sourcePath);
   if (!isContainedRelativePath(candidate)) return null;
   return canonicalRepositoryPath(candidate);
 }
@@ -151,7 +157,11 @@ function addCount(
   return true;
 }
 
-export function normalizeLcovLineCoverage(input: string, repositoryRoot: string): LcovLineCoverageResult {
+export function normalizeLcovLineCoverage(
+  input: string,
+  repositoryRoot: string,
+  baseDirectory: string | null = null,
+): LcovLineCoverageResult {
   const counts = new Map<string, Map<number, number>>();
   let currentSource: string | null = null;
   let currentRecordHadLineData = false;
@@ -161,7 +171,7 @@ export function normalizeLcovLineCoverage(input: string, repositoryRoot: string)
   for (const rawLine of lines) {
     if (rawLine.startsWith("SF:")) {
       if (currentSource !== null) return unresolved(REASON_INCOMPLETE_RECORD);
-      const mapped = mapSourcePath(repositoryRoot, rawLine.slice(3));
+      const mapped = mapSourcePath(repositoryRoot, rawLine.slice(3), baseDirectory);
       if (mapped === null) return unresolved(REASON_SOURCE_UNMAPPABLE);
       currentSource = mapped;
       currentRecordHadLineData = false;
@@ -297,6 +307,7 @@ function branchStateFor(taken: number | null): LcovBranchState {
 export function normalizeLcovBranchCoverage(
   input: string,
   repositoryRoot: string,
+  baseDirectory: string | null = null,
 ): LcovBranchCoverageResult {
   const observations = new Map<string, AggregatedBranchObservation>();
   let currentSource: string | null = null;
@@ -304,7 +315,7 @@ export function normalizeLcovBranchCoverage(
   for (const rawLine of input.split(/\r?\n/u)) {
     if (rawLine.startsWith("SF:")) {
       if (currentSource !== null) return unresolvedBranch(REASON_INCOMPLETE_RECORD);
-      const mapped = mapSourcePath(repositoryRoot, rawLine.slice(3));
+      const mapped = mapSourcePath(repositoryRoot, rawLine.slice(3), baseDirectory);
       if (mapped === null) return unresolvedBranch(REASON_SOURCE_UNMAPPABLE);
       currentSource = mapped;
       continue;
