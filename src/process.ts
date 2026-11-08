@@ -504,19 +504,18 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
   const clearDrainTimer = (): void => {
     if (drainTimer !== null) clearTimeout(drainTimer);
   };
+  // Always tracked: on Windows a timeout must not taskkill an exited root's PID, which may be reused.
   let rootExited = false;
-  if (request.require_tree_exit === true) {
-    child.once("exit", () => {
-      rootExited = true;
-      armDrainTimer();
-    });
-  }
+  child.once("exit", () => {
+    rootExited = true;
+    if (request.require_tree_exit === true) armDrainTimer();
+  });
   const observeOutput = (capture: MutableCapture, chunk: Buffer, capBytes: number): void => {
     observeCapture(capture, chunk, capBytes);
     if (request.stop_on_capture_limit === true && capture.truncated) {
       requestStop("capture_limit");
     }
-    if (rootExited) armDrainTimer();
+    if (rootExited && request.require_tree_exit === true) armDrainTimer();
   };
 
   child.stdout.on("data", (chunk: Buffer) => {
