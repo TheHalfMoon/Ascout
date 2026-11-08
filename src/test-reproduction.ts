@@ -12,6 +12,11 @@ export interface TestAssertionObservation {
   readonly fullName: string;
   readonly outcome: TestObservationOutcome;
   readonly evidenceId: string;
+  /**
+   * True when one results file holds more than one test with this path and name. They count as
+   * one observation, failed if any failed, and Ascout can't tell which of them a rerun reproduced.
+   */
+  readonly ambiguous?: true;
 }
 
 export interface NormalizedTestReproduction {
@@ -60,6 +65,7 @@ export function parseTestAssertionObservations(
   if (!Array.isArray(suites)) return [];
 
   const observations: TestAssertionObservation[] = [];
+  const indexByIdentity = new Map<string, number>();
   for (const suiteValue of suites) {
     if (typeof suiteValue !== "object" || suiteValue === null || Array.isArray(suiteValue)) continue;
     const suite = suiteValue as { readonly name?: unknown; readonly assertionResults?: unknown };
@@ -72,6 +78,18 @@ export function parseTestAssertionObservations(
       const assertion = assertionValue as { readonly fullName?: unknown; readonly status?: unknown };
       if (typeof assertion.fullName !== "string" || assertion.fullName.length === 0 || assertion.fullName.includes("\0")) continue;
       if (assertion.status !== "passed" && assertion.status !== "failed") continue;
+      const key = `${path}\u0000${assertion.fullName}`;
+      const seen = indexByIdentity.get(key);
+      if (seen !== undefined) {
+        const earlier = observations[seen]!;
+        observations[seen] = {
+          ...earlier,
+          outcome: earlier.outcome === "failed" || assertion.status === "failed" ? "failed" : "passed",
+          ambiguous: true,
+        };
+        continue;
+      }
+      indexByIdentity.set(key, observations.length);
       observations.push({
         path,
         fullName: assertion.fullName,
@@ -153,7 +171,12 @@ export function buildNormalizedTestFinding(
   identity: FailingTestIdentity,
   observations: readonly TestAssertionObservation[],
 ): FindingV1 {
-  const normalized = normalizeTestReproduction(observations.map(({ outcome }) => outcome));
+  // Two same-named tests in one file can't be told apart, so only one failing observation
+  // counts: reproduction stays unknown and the task is never FLAKY.
+  const counted = observations.some(({ ambiguous }) => ambiguous === true)
+    ? observations.filter(({ outcome }) => outcome === "failed").slice(0, 1)
+    : observations;
+  const normalized = normalizeTestReproduction(counted.map(({ outcome }) => outcome));
   return {
     finding_id: `test.finding.${index + 1}`,
     task_id: "test",
@@ -169,7 +192,7 @@ export function buildNormalizedTestFinding(
     reproduced: normalized.reproduced,
     fingerprint_version: null,
     fingerprint: null,
-    evidence_ids: [...new Set(observations.map(({ evidenceId }) => evidenceId))],
+    evidence_ids: [...new Set(counted.map(({ evidenceId }) => evidenceId))],
   };
 }
 
