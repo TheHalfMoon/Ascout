@@ -170,7 +170,7 @@ describe("ascout review --local-model against a fake local server", () => {
     vi.restoreAllMocks();
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    rmSync(scratch, { recursive: true, force: true });
+    rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   });
 
   function setUp(changedContent: string): { repo: string; output: () => string } {
