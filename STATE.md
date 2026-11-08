@@ -1,7 +1,35 @@
-Last updated: 2026-10-27 Asia/Riyadh · Branch: ps/rea-self-browser-readiness
+Last updated: 2026-11-09 Asia/Riyadh · Branch: main
 
-Task028 exact workflow-only implementation53efe84 has no source correctness/product/parsimony must-fix and separate SECURITY_BOUNDARY_CLEAR. The roadmap editorial pending-implementation note is corrected. Frozen28-member packet SHA9de221cb302c8fb00d313c78d235e8feae54952a3cee9599095b77e10901b0c4 prepared; final combined integrated/publication/privacy revieweba4030 found no findings. Its finalized report is a separate sidecar, preserving the frozen packet. Actual hosted execution and subsequent gates remain. Final plan audit1757f56 PLAN_CLEAR, different consistency51fb2f4 CONSISTENCY_CLEAR, bounded user authority1a5b444 all precede the first edit. The exact existing pinned Chromium1.63.0 setup step is now copied into Self after lock install/before build/capture. Mechanical removal recovers original target bytes; all435source/test/benchmark entries and14nontarget controls unchanged. No hosted execution or local test/build/browser setup occurred for this change.
+## Where Ascout stands
 
-Task027/PR649 is focused CLOSED_CANONICAL onmain7a08977 with actual final9812e4a3core6sidecar180-member proof verified before this branch. Prior Self inner1/FLAKY/materially incomplete (2runs1failure), localfullFAIL6plus hook and UNKNOWN browser/fixture causes remain. Upfront prerequisite gap is observed; its relation to the prior failure remains unproved. E00/release BLOCKED.
+Ascout is a private, unpublished package (`private: true`); no npm release, GitHub release, or tag has been made.
 
-Actual local D1 triage is advisory only; Alibaba preview/rules both0 (3reviewable/10total), not model approval. Next: focused PR and actual hosted setup/matrix/Self truth, live eligibility and canonical/closing remote gates. No duplicate local full run for an unchanged local source tree, no paid service/new dependency/cloud requirement/global config/deadline/admission/UA-P07 or release waiver. Raw evidence retained.
+### Adoption plan (execution-first V0–V9)
+
+| Packet | State |
+| --- | --- |
+| E1 Git command security | Done. Hostile repository Git configuration can't execute (`tests/git-config-hostile.test.ts`). |
+| E2 truthful exits (A07) | Done. Exits 0 complete, 1 findings, 2 error, 3 source drift, 4 incomplete. |
+| E3 notices | Done once the Gitleaks notice (#697) merges. |
+| E4 bounded execution broker | Done (`runQualifiedEngineV1`): pinned digests, empty environment, caps, source binding, owned process-tree teardown. |
+| E5 Gitleaks | Done. `ascout security` runs Gitleaks 8.30.1 on Linux x64, macOS arm64, and Windows x64, qualified on real binaries in CI. |
+| E6 test | Done. `ascout test` runs `check`; deep and release profiles report the engines that don't run yet. |
+| E6 review | Not run. A review provider must be authorized first; no paid or hosted inference is authorized, and no qualified local provider exists. The provider decision gate is merged and fails closed. |
+| E7 containment | Blocked on founder decision FD-4 and native proof. A private host-specific spec is prepared. Ascout claims no T1 containment. |
+| E8 optional MCP and end-to-end | Blocked until core real-engine claims are qualified and a reviewed protocol spec exists. |
+| E9 distribution | Blocked on founder decision FD-6 and release authority. |
+
+### Security review (2026-11-08)
+
+A whole-project security review found no critical issues. All high and medium findings and most low findings are fixed (PRs #667–#696); one is documented as a known limit (README, "Limits of the source fingerprint"). Two items remain: statement-level coverage, which needs a receipt version change, and repository settings (a `main` ruleset and Dependabot alerts), which are the owner's to change.
+
+### Open decisions for the founder
+
+- Authorize a review provider for E6, or keep review not run.
+- FD-4 for E7 containment.
+- FD-6 and release authority for E9.
+- FD-8 for the historical plan PR #651, and ratification of #653.
+- Repository settings: a `main` ruleset and Dependabot alerts.
+- Disposition of the older open planning PRs (#577–#635).
+
+`ROADMAP.md` is the closed record of the REA engineering maintenance run (spec 018) and is kept as history.
