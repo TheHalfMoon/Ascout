@@ -273,6 +273,9 @@ export async function launchPlaywrightSession(
   const executable_path = ensureChromiumInstalled();
   const browser: Browser = await chromium.launch({
     headless: options?.headless ?? true,
+    // Playwright launches Chromium with --no-sandbox unless told otherwise. A renderer exploit
+    // on a page under test must stay inside the sandbox, not run as the developer.
+    chromiumSandbox: true,
   });
   let browser_version: string;
   let context: BrowserContext;

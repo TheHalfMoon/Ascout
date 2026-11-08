@@ -42,6 +42,11 @@ jobs:
       - name: Provision exact Chromium runtime
         run: >-
           node -e "const {spawnSync}=require('node:child_process');const {dirname,join}=require('node:path');const pkgPath=require.resolve('playwright/package.json');const pkg=require(pkgPath);if(pkg.version!=='1.63.0')throw new Error('expected playwright@1.63.0, got '+String(pkg.version));const cli=join(dirname(pkgPath),'cli.js');const args=process.platform==='linux'?['install','--with-deps','chromium']:['install','chromium'];const result=spawnSync(process.execPath,[cli,...args],{stdio:'inherit'});if(result.error)throw result.error;if(result.status!==0)process.exit(result.status??1)"
+      - name: Allow Chromium's sandbox on Ubuntu
+        if: runner.os == 'Linux'
+        # Ubuntu 23.10+ AppArmor blocks the unprivileged user namespaces Chromium's sandbox needs;
+        # the browser adapter launches with the sandbox on and does not fall back to --no-sandbox.
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Typecheck
         run: npm run typecheck
       - name: Test
