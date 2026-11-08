@@ -133,7 +133,6 @@ function summarizeCheck(receipt: ReceiptV1): TestCheckSummaryV1 {
 }
 
 const EXECUTED: ReadonlySet<TaskStatus> = new Set<TaskStatus>(["PASS", "FAIL", "FLAKY"]);
-const TEST_TASK_TYPES: ReadonlySet<string> = new Set(["test", "pytestBasic"]);
 
 export type TestRunResultV1 =
   | { readonly kind: "report"; readonly report: TestRunReportV2 }
@@ -155,7 +154,11 @@ export function testRunResultFromReceiptV1(profile: TestProfile, receipt: Receip
     };
   }
   // check can complete with only typecheck or lint applicable. A test command needs a test.
-  const testRan = receipt.tasks.some((task) => TEST_TASK_TYPES.has(task.task_type) && task.status === "PASS");
+  // Vitest runs with --passWithNoTests, so a passing JS test task that selected zero tests ran none.
+  const zeroTestsSelected = receipt.selection?.selected_test_count === 0;
+  const testRan = receipt.tasks.some((task) =>
+    task.status === "PASS" && (task.task_type === "pytestBasic" || (task.task_type === "test" && !zeroTestsSelected))
+  );
   const plan = projectTestProfilePlanFieldsV1(profile);
   const notRun = notRunCapabilities(profile);
   let exit: 0 | 1 | 3 | 4;
