@@ -196,10 +196,10 @@ describe("parseReviewFindingsV1", () => {
   });
 
   it("drops empty or malformed findings and counts them", () => {
-    const parsed = parseReviewFindingsV1(JSON.stringify({ findings: [{ path: "src/a.ts", message: "" }, null, { message: "Kept.", severity: "nonsense" }] }), binding);
+    const parsed = parseReviewFindingsV1(JSON.stringify({ findings: [{ path: "src/a.ts", message: "" }, { message: "  \n " }, null, { message: "Kept.", severity: "nonsense" }] }), binding);
     expect(parsed.observations).toHaveLength(1);
     expect(parsed.observations[0]).toMatchObject({ severity_hint: "unknown", location_hint: null });
-    expect(parsed.rejected).toBe(2);
+    expect(parsed.rejected).toBe(3);
   });
 
   it.each(["not json", "[]", '{"other":1}'])("treats %j as a malformed reply", (content) => {
