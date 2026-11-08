@@ -17,6 +17,7 @@ import {
   type TaskStatus,
   type TestChangeV1,
 } from "./model.js";
+import { escapeTerminalText } from "../terminal-text.js";
 
 export interface BuildReceiptInput {
   readonly run: RunReceiptV1;
@@ -166,25 +167,12 @@ function admissionMark(task: TaskResultV1): string {
   return "";
 }
 
-function escapeTerminalControlCharacters(value: string): string {
-  let rendered = "";
-  for (const character of value) {
-    const codePoint = character.codePointAt(0)!;
-    const isControl = codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f);
-    const isUnicodeLineSeparator = codePoint === 0x2028 || codePoint === 0x2029;
-    rendered += isControl || isUnicodeLineSeparator
-      ? `\\u${codePoint.toString(16).padStart(4, "0")}`
-      : character;
-  }
-  return rendered;
-}
-
 function renderSelectionScope(scope: SelectionV1["initial_scope"]): string {
   if (scope.kind === "repository") return "repository";
   if (scope.path === null) {
     throw new Error("package selection scope path must be non-null");
   }
-  return `package:${escapeTerminalControlCharacters(scope.path)}`;
+  return `package:${escapeTerminalText(scope.path)}`;
 }
 
 /**
@@ -214,10 +202,11 @@ export function renderTerminalSummary(receipt: ReceiptV1): string {
   lines.push("tasks:");
   for (const task of receipt.tasks) {
     let line = `  [${task.status}] ${task.task_id} (${task.task_type})${admissionMark(task)}`;
-    if (task.reason_text !== null) line += ` - ${task.reason_text}`;
+    // Reason text can come from ascout.config.json, and paths from the repository.
+    if (task.reason_text !== null) line += ` - ${escapeTerminalText(task.reason_text)}`;
     lines.push(line);
     if (task.changed_authority_paths.length > 0) {
-      lines.push(`    changed authority: ${task.changed_authority_paths.join(", ")}`);
+      lines.push(`    changed authority: ${task.changed_authority_paths.map(escapeTerminalText).join(", ")}`);
     }
   }
 
@@ -235,7 +224,7 @@ export function renderTerminalSummary(receipt: ReceiptV1): string {
   if (omissions.length > 0) {
     lines.push("omissions:");
     for (const task of omissions) {
-      lines.push(`  ${task.task_id}: ${task.status}(${task.reason_code ?? "unknown"}) ${task.reason_text ?? ""}`.trimEnd());
+      lines.push(`  ${task.task_id}: ${task.status}(${task.reason_code ?? "unknown"}) ${escapeTerminalText(task.reason_text ?? "")}`.trimEnd());
     }
   }
 
