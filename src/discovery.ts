@@ -75,6 +75,35 @@ export interface ProjectDiscovery {
     readonly vitest: LocalNodeToolDiscovery;
     readonly jest: LocalNodeToolDiscovery;
   };
+  /**
+   * Files a tool loads on its own, beyond the configs Ascout passes or reads. They never
+   * change what is launched; they only join the task's authority paths, so a change to
+   * one is refused like a change to the tool's config. Absent means none.
+   */
+  readonly loadedConfigPaths?: LoadedConfigPaths;
+}
+
+export interface LoadedConfigPaths {
+  /** `.npmrc`, `.yarnrc`, `.yarnrc.yml`: read when a package script runs. */
+  readonly packageManager: readonly string[];
+  /** `vite.config.*` and `vitest.workspace.*`, which Vitest loads without `--config`. */
+  readonly vitest: readonly string[];
+  /** Babel configuration, which babel-jest loads. */
+  readonly jest: readonly string[];
+  /** `.pytest.ini`, which pytest prefers over `pyproject.toml`, `tox.ini`, and `setup.cfg`. */
+  readonly pytest: readonly string[];
+}
+
+const PACKAGE_MANAGER_CONFIG_NAME = /^(?:\.npmrc|\.yarnrc|\.yarnrc\.yml)$/u;
+const VITEST_LOADED_CONFIG_NAME = /^(?:vite\.config|vitest\.workspace)\.(?:js|mjs|cjs|ts|mts|cts|json)$/u;
+const JEST_LOADED_CONFIG_NAME = /^(?:babel\.config\.(?:js|mjs|cjs|ts|mts|cts|json)|\.babelrc(?:\.(?:js|mjs|cjs|json))?)$/u;
+const PYTEST_LOADED_CONFIG_NAME = /^\.pytest\.ini$/u;
+
+function isLoadedConfigName(name: string): boolean {
+  return PACKAGE_MANAGER_CONFIG_NAME.test(name) ||
+    VITEST_LOADED_CONFIG_NAME.test(name) ||
+    JEST_LOADED_CONFIG_NAME.test(name) ||
+    PYTEST_LOADED_CONFIG_NAME.test(name);
 }
 
 export type DiscoveryErrorCode =
@@ -624,7 +653,42 @@ export function discoverProjectFromFiles(files: DiscoveryFileMap): ProjectDiscov
       vitest: discoverNodeTool(normalized, scopedManifests, "vitest", roots, allowNestedRunnerFallback),
       jest: discoverNodeTool(normalized, scopedManifests, "jest", roots, allowNestedRunnerFallback),
     },
+    loadedConfigPaths: discoverLoadedConfigPaths(normalized, roots),
   };
+}
+
+function discoverLoadedConfigPaths(
+  files: Readonly<Record<string, string>>,
+  roots: readonly string[],
+): LoadedConfigPaths {
+  // The repository root counts for every package: package managers and Babel read upward.
+  const scopes = new Set(["", ...roots]);
+  const matching = (pattern: RegExp) =>
+    sortedUnique(Object.keys(files).filter((path) => scopes.has(dirname(path)) && pattern.test(basename(path))));
+  return {
+    packageManager: matching(PACKAGE_MANAGER_CONFIG_NAME),
+    vitest: matching(VITEST_LOADED_CONFIG_NAME),
+    jest: matching(JEST_LOADED_CONFIG_NAME),
+    pytest: matching(PYTEST_LOADED_CONFIG_NAME),
+  };
+}
+
+function loadedConfigAuthority(discovery: ProjectDiscovery, task: SemanticTaskType): readonly string[] {
+  const loaded = discovery.loadedConfigPaths;
+  if (loaded === undefined) return [];
+  const packageManager = packageScriptOwners(discovery, task).length > 0 ? loaded.packageManager : [];
+  switch (task) {
+    case "typecheck":
+    case "lint":
+      return packageManager;
+    case "test": {
+      const runner = discovery.jsTestRunner.state === "resolved" ? discovery.jsTestRunner.value : null;
+      const runnerConfigs = runner === "vitest" ? loaded.vitest : runner === "jest" ? loaded.jest : [];
+      return [...packageManager, ...runnerConfigs];
+    }
+    case "pytestBasic":
+      return loaded.pytest;
+  }
 }
 
 const ASCOUT_CONFIG_PATH = "ascout.config.json";
@@ -768,7 +832,7 @@ export function classifyCommandSurfaces(
     if (overridden.has(task)) {
       authorityPaths = [ascoutPath];
     } else {
-      const withBase = baseAuthorityPaths(discovery, task);
+      const withBase = sortedUnique([...baseAuthorityPaths(discovery, task), ...loadedConfigAuthority(discovery, task)]);
       const withAscout = configured.has(task)
         ? sortedUnique([...withBase, ascoutPath])
         : withBase;
@@ -895,7 +959,8 @@ function collectFiles(root: string): DiscoveryFileMap {
       /^eslint\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name) ||
       /^\.eslintrc(?:\.(?:js|cjs|json|yaml|yml))?$/u.test(name) ||
       /^vitest\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u.test(name) ||
-      /^jest\.config\.(?:js|mjs|cjs|ts|json)$/u.test(name)
+      /^jest\.config\.(?:js|mjs|cjs|ts|json)$/u.test(name) ||
+      isLoadedConfigName(name)
     );
   }
 
