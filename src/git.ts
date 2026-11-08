@@ -817,6 +817,37 @@ function containedRegularFilePath(repositoryRoot: string, path: string): string 
   return realFile;
 }
 
+/**
+ * Reads a worktree file as text when it is a regular file that resolves inside
+ * the repository and holds at most `maxBytes`. Anything else returns null, so
+ * callers can fail closed.
+ */
+export function readContainedWorktreeText(
+  repositoryRoot: string,
+  path: string,
+  maxBytes: number,
+): string | null {
+  let descriptor: number | undefined;
+  try {
+    descriptor = openSync(containedRegularFilePath(repositoryRoot, path), "r");
+    const chunks: Buffer[] = [];
+    let totalBytes = 0;
+    const buffer = Buffer.allocUnsafe(FILE_HASH_BUFFER_BYTES);
+    while (true) {
+      const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
+      if (bytesRead === 0) break;
+      totalBytes += bytesRead;
+      if (totalBytes > maxBytes) return null;
+      chunks.push(Buffer.from(buffer.subarray(0, bytesRead)));
+    }
+    return Buffer.concat(chunks).toString("utf8");
+  } catch {
+    return null;
+  } finally {
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
 function readSymlinkTarget(repositoryRoot: string, path: string): Buffer {
   const absolutePath = repositoryPath(repositoryRoot, path);
   try {

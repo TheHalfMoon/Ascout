@@ -9,6 +9,17 @@ const DEFAULT_JS_TEST_SURFACE =
 const VITEST_CONFIG_NAME = /^vitest\.config\.(?:js|mjs|cjs|ts|mts|cts)$/u;
 const JEST_CONFIG_NAME = /^jest\.config\.(?:js|mjs|cjs|ts|json)$/u;
 const COVERAGE_SOURCE_MAPPING_UNRESOLVED = "coverage_source_mapping_unresolved" as const;
+const COVERAGE_IGNORE_HINT_IN_FILE = "coverage_ignore_hint_in_file" as const;
+const CHANGED_SOURCE_UNREADABLE = "changed_source_unreadable" as const;
+/** Comments that make V8, c8, Istanbul, or Node's runner leave lines out of coverage. */
+const COVERAGE_IGNORE_HINT = /\b(?:v8|c8|istanbul)\s+ignore\b|\bnode:coverage\s+(?:ignore|disable)\b/u;
+
+export function hasCoverageIgnoreHint(text: string): boolean {
+  return COVERAGE_IGNORE_HINT.test(text);
+}
+
+/** Reads a changed file's current text, or null when it can't be read. */
+export type ChangedSourceReader = (path: string) => string | null;
 const BRANCH_EVIDENCE_UNRESOLVED = "changed branch evidence is unresolved" as const;
 
 function compareStrings(left: string, right: string): number {
@@ -40,17 +51,23 @@ function lineInRanges(line: number, ranges: readonly (readonly [number, number])
   return ranges.some(([start, end]) => start <= line && line <= end);
 }
 
-function unresolvedRecords(file: GitChangedFile, sourceTaskId: string): ExerciseRecordV1[] {
+function unresolvedRecords(
+  file: GitChangedFile,
+  sourceTaskId: string,
+  reason: string = COVERAGE_SOURCE_MAPPING_UNRESOLVED,
+  skipLines: ReadonlySet<number> = new Set(),
+): ExerciseRecordV1[] {
   const records: ExerciseRecordV1[] = [];
   for (const [start, end] of file.changed_new_line_ranges) {
     for (let line = start; line <= end; line += 1) {
+      if (skipLines.has(line)) continue;
       records.push({
         path: file.path,
         line,
         state: "UNRESOLVED",
         execution_count: null,
         source_task_ids: [sourceTaskId],
-        reason: COVERAGE_SOURCE_MAPPING_UNRESOLVED,
+        reason,
       });
     }
   }
@@ -181,12 +198,19 @@ function buildBranchExercise(
  * LCOV DA points remain the exclusive source for line-level exercise records.
  * T102 adds normalized BRDA observations as an independent internal dimension;
  * receipt-facing branch publication remains reserved for T103.
+ *
+ * A changed line with no DA point leaves no record, because blank lines,
+ * comments, and statement continuations have none. A coverage-ignore comment
+ * also removes DA points, so with `readSource`, every changed line without one
+ * in a changed source file that holds such a comment, or can't be read, is
+ * UNRESOLVED instead.
  */
 export function buildChangedLineExercise(
   changedFiles: readonly GitChangedFile[],
   coveragePoints: readonly LcovLinePoint[],
   sourceTaskId: string,
   branchPoints?: readonly LcovBranchPoint[],
+  readSource?: ChangedSourceReader,
 ): ExerciseV1 & BranchExercise {
   const pointsByPath = new Map<string, LcovLinePoint[]>();
   for (const point of coveragePoints) {
@@ -220,6 +244,15 @@ export function buildChangedLineExercise(
         execution_count: point.count,
         source_task_ids: [sourceTaskId],
       });
+    }
+
+    if (readSource !== undefined && isChangedProductionSource(file)) {
+      const text = readSource(file.path);
+      if (text === null || hasCoverageIgnoreHint(text)) {
+        const reason = text === null ? CHANGED_SOURCE_UNREADABLE : COVERAGE_IGNORE_HINT_IN_FILE;
+        const linesWithPoints = new Set(points.map(({ line }) => line));
+        records.push(...unresolvedRecords(file, sourceTaskId, reason, linesWithPoints));
+      }
     }
   }
 
