@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
-import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   FIXED_SEMANTIC_TASKS,
   classifyCommandSurfaces,
@@ -125,6 +125,22 @@ export interface RunAdmissionOptions extends CommandSurfaceClassifyOptions {
    * so they can never show as changed; a task that depends on one doesn't launch.
    */
   readonly untrackedIgnoredPaths?: readonly string[];
+  /**
+   * For authority paths that are symbolic links, the repository path each resolves to. A
+   * task loads the target's content, so the target joins the task's authority paths.
+   */
+  readonly symlinkTargets?: ReadonlyMap<string, string>;
+}
+
+function withSymlinkTargets(
+  authorityPaths: readonly string[],
+  symlinkTargets: ReadonlyMap<string, string>,
+): readonly string[] {
+  const targets = authorityPaths.flatMap((path) => {
+    const target = symlinkTargets.get(path);
+    return target === undefined ? [] : [target];
+  });
+  return targets.length === 0 ? authorityPaths : [...new Set([...authorityPaths, ...targets])].sort();
 }
 
 function emptyDecision(taskType: SemanticTaskType): TaskAdmissionDecision {
@@ -200,7 +216,7 @@ export function decideRunAdmissions(
   changedFiles: readonly ChangedPathView[],
   options: RunAdmissionOptions = {},
 ): RunAdmissionDecisions {
-  const { allowChangedCommandSurface = false, untrackedIgnoredPaths = [], ...classifyOptions } = options;
+  const { allowChangedCommandSurface = false, untrackedIgnoredPaths = [], symlinkTargets = new Map(), ...classifyOptions } = options;
   const surfaces = classifyCommandSurfaces(discovery, classifyOptions);
   const ignored = new Set(untrackedIgnoredPaths);
   const result = {} as Record<SemanticTaskType, TaskAdmissionDecision>;
@@ -208,7 +224,7 @@ export function decideRunAdmissions(
   for (const task of FIXED_SEMANTIC_TASKS) {
     result[task] = decideTaskAdmission(
       task,
-      surfaces[task].authorityPaths,
+      withSymlinkTargets(surfaces[task].authorityPaths, symlinkTargets),
       changedFiles,
       allowChangedCommandSurface,
       ignored,
@@ -376,8 +392,34 @@ function toChangedFileV1(file: GitChangedFile): ChangedFileV1 {
   };
 }
 
+/**
+ * The repository path a symbolic link at `path` resolves to: its target inside the
+ * repository, null for a target outside it or one that can't be resolved, and
+ * undefined when `path` isn't a symbolic link.
+ */
+export function symlinkTargetInRepository(repositoryRoot: string, path: string): string | null | undefined {
+  const absolute = join(repositoryRoot, ...path.split("/"));
+  try {
+    if (!lstatSync(absolute).isSymbolicLink()) return undefined;
+  } catch {
+    return undefined;
+  }
+  try {
+    const relativeTarget = relative(realpathSync.native(repositoryRoot), realpathSync.native(absolute));
+    if (relativeTarget === "" || relativeTarget === ".." || relativeTarget.startsWith(`..${sep}`) || isAbsolute(relativeTarget)) {
+      return null;
+    }
+    return relativeTarget.split(sep).join("/");
+  } catch {
+    return null;
+  }
+}
+
 export function loadConfig(repositoryRoot: string): { config: ConfigV1; digest: string } {
   const path = join(repositoryRoot, ASCOUT_CONFIG_PATH);
+  if (symlinkTargetInRepository(repositoryRoot, ASCOUT_CONFIG_PATH) === null) {
+    throw new Error(`${ASCOUT_CONFIG_PATH} is a symbolic link that resolves outside the repository`);
+  }
   let raw: Buffer;
   try {
     raw = readFileSync(path);
@@ -1552,11 +1594,19 @@ export async function runCheck(
 
       const surfaceOptions = { ascoutConfigPath: ASCOUT_CONFIG_PATH, tasks: config.tasks ?? null };
       const surfaces = classifyCommandSurfaces(discovery, surfaceOptions);
-      const allAuthorityPaths = [...new Set(FIXED_SEMANTIC_TASKS.flatMap((task) => surfaces[task].authorityPaths))];
+      const declaredAuthorityPaths = [...new Set(FIXED_SEMANTIC_TASKS.flatMap((task) => surfaces[task].authorityPaths))];
+      // Discovery already refuses links that leave the repository, and loadConfig refuses ascout.config.json.
+      const symlinkTargets = new Map<string, string>();
+      for (const path of declaredAuthorityPaths) {
+        const target = symlinkTargetInRepository(root, path);
+        if (typeof target === "string") symlinkTargets.set(path, target);
+      }
+      const allAuthorityPaths = [...new Set([...declaredAuthorityPaths, ...symlinkTargets.values()])];
       const decisions = decideRunAdmissions(discovery, gitComparison.changed_files, {
         ...surfaceOptions,
         allowChangedCommandSurface: options.allowChangedCommandSurface === true,
         untrackedIgnoredPaths: readUntrackedIgnoredPaths(root, allAuthorityPaths),
+        symlinkTargets,
       });
       const preRunWidening = decidePreRunWidening(discovery, gitComparison.changed_files);
       const selectionMode = preRunWidening.widened ? "full" as const : "native_related" as const;
