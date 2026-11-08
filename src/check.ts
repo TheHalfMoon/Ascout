@@ -16,6 +16,7 @@ import { normalizeLcovLineCoverage, normalizeLcovBranchCoverage, type LcovLinePo
 import { buildChangedLineExercise } from "./exercise.js";
 import { observeEnvironment } from "./environment.js";
 import {
+  readContainedWorktreeText,
   readGitHeadState,
   readTreeDigestV1,
   readWorkingTreeComparison,
@@ -200,6 +201,8 @@ const MAX_CONFIG_BYTES = 1024 * 1024;
 const DEFAULT_TASK_TIMEOUT_MS = 600_000;
 const DEFAULT_TERMINATION_GRACE_MS = 5_000;
 const TASK_CAPTURE_CAP_BYTES = 8 * 1024 * 1024;
+/** A changed source file larger than this is treated as unreadable, so its uncovered lines stay unresolved. */
+const CHANGED_SOURCE_READ_CAP_BYTES = 8 * 1024 * 1024;
 const MIN_SECRET_VALUE_BYTES = 8;
 const LCOV_NO_BRANCH_DATA_REASON = "no usable branch coverage records";
 
@@ -1735,20 +1738,17 @@ export async function runCheck(
         artifacts.push(...executed.artifacts);
       }
 
+      const readChangedSource = (path: string): string | null =>
+        readContainedWorktreeText(root, path, CHANGED_SOURCE_READ_CAP_BYTES);
       const fullExercise = exerciseCoveragePoints === null
         ? emptyExercise()
-        : exerciseBranchPoints === null
-          ? buildChangedLineExercise(
-              gitComparison.changed_files,
-              exerciseCoveragePoints,
-              "test",
-            )
-          : buildChangedLineExercise(
-              gitComparison.changed_files,
-              exerciseCoveragePoints,
-              "test",
-              exerciseBranchPoints,
-            );
+        : buildChangedLineExercise(
+            gitComparison.changed_files,
+            exerciseCoveragePoints,
+            "test",
+            exerciseBranchPoints ?? undefined,
+            readChangedSource,
+          );
       const exercise: ExerciseV1 = {
         changed_executable_lines: fullExercise.changed_executable_lines,
         exercised_lines: fullExercise.exercised_lines,
