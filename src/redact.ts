@@ -66,18 +66,49 @@ export function selectedSecretValues(
   return [...values].sort(compareSecretValues);
 }
 
+/** A cut tail this long that starts a secret is removed; shorter ones reveal too little to matter. */
+const MIN_REDACTED_TAIL_CHARS = 4;
+
+/**
+ * Removes every selected secret. Removing one can join the text around it into another
+ * occurrence, so removal repeats until none remains; each pass shortens the text, so it ends.
+ */
 export function redactExactValues(
   value: string,
   secrets: readonly string[],
 ): string {
-  let redacted = value;
   for (const secret of secrets) {
     if (secret.length === 0) {
       throw new TypeError("secret values must be non-empty");
     }
-    redacted = redacted.replaceAll(secret, "");
+  }
+  let redacted = value;
+  while (secrets.some((secret) => redacted.includes(secret))) {
+    for (const secret of secrets) redacted = redacted.replaceAll(secret, "");
   }
   return redacted;
+}
+
+/**
+ * For output cut at a capture cap: removes a tail that begins a selected secret, which exact
+ * matching can't see because the rest of the secret was cut off.
+ */
+export function redactCutTail(
+  value: string,
+  secrets: readonly string[],
+): { readonly text: string; readonly redacted: boolean } {
+  let longest = 0;
+  for (const secret of secrets) {
+    for (let length = Math.min(secret.length - 1, value.length); length >= MIN_REDACTED_TAIL_CHARS; length -= 1) {
+      if (value.endsWith(secret.slice(0, length))) {
+        longest = Math.max(longest, length);
+        break;
+      }
+    }
+  }
+  return longest === 0
+    ? { text: value, redacted: false }
+    : { text: value.slice(0, value.length - longest), redacted: true };
 }
 
 export function redactPersistedArgv(

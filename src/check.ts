@@ -27,6 +27,7 @@ import {
 import { acquireRunLock } from "./lock.js";
 import { runProcess, type ProcessRunResult } from "./process.js";
 import {
+  redactCutTail,
   redactExactValues,
   redactPersistedArgv,
   selectedSecretValues,
@@ -477,7 +478,11 @@ function persistCapture(
   secrets: readonly string[],
 ): PersistedCapture {
   const rawText = bytes.toString("utf8");
-  const text = redactExactValues(rawText, secrets);
+  // Capture stops at a byte cap, so a secret can straddle the cut and only its start remains.
+  const cut = truncated
+    ? redactCutTail(redactExactValues(rawText, secrets), secrets)
+    : { text: redactExactValues(rawText, secrets), redacted: false };
+  const text = cut.text;
   const persisted = Buffer.from(text, "utf8");
   const capturePath = join(rawPath, fileName);
   let captureFd: number | null = null;
@@ -490,7 +495,7 @@ function persistCapture(
 
   const sha256 = createSha256(persisted);
   const artifactId = `${taskId}.${fileName}`;
-  const redacted = secrets.some((secret) => rawText.includes(secret));
+  const redacted = cut.redacted || secrets.some((secret) => rawText.includes(secret));
 
   return {
     artifact: {
