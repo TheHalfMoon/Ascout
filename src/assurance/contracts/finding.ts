@@ -21,7 +21,7 @@ const FINDING_STATUS_SET = new Set<string>(FINDING_STATUSES);
 const OPAQUE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const STATE_ID = /^[A-Z][A-Z0-9_]{0,63}$/u;
 const SAFE_RELATIVE_PATH =
-  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 const MAX_LIST_ITEMS = 256;
 const MAX_TEXT_LENGTH = 512;
 

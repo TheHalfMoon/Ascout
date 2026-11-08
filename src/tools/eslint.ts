@@ -74,7 +74,7 @@ const ESLINT_LAUNCH_SUFFIX_PRIORITY = ["", ".cmd", ".exe"] as const;
 const LINTABLE_SOURCE = /\.(?:js|mjs|cjs|jsx|ts|mts|cts|tsx)$/u;
 const DIRECT_FLAT_ESLINT_CONFIG = /^eslint\.config\.(?:js|mjs|cjs)$/u;
 const CANONICAL_REPOSITORY_PATH =
-  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
 type JsonRecord = Record<string, unknown>;
 

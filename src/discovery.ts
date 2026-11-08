@@ -146,7 +146,7 @@ const TOOL_METADATA = {
 const EXECUTABLE_SUFFIXES = ["", ".cmd", ".exe", ".ps1"] as const;
 const SIMPLE_WORKSPACE_STAR = /^([^*?\[\]{}]+)\/\*$/;
 const CANONICAL_PATH =
-  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/;
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/;
 const MAX_DISCOVERY_FILE_BYTES = 1024 * 1024;
 const MAX_DISCOVERY_ENTRIES = 20_000;
 const CONTENT_REQUIRED_NAMES = new Set([
