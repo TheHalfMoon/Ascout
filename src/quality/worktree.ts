@@ -13,8 +13,10 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, resolve, sep } from "node:path";
+import { existsSync, lstatSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+
+import { trustedGitExecutable } from "../git.js";
 import type { CandidateProposal } from "./candidate.js";
 
 export interface CandidateWorktree {
@@ -34,12 +36,18 @@ function requireAbsoluteDir(value: string, field: string): void {
   }
 }
 
+// No network: a promisor (partial-clone) repository would otherwise fetch missing objects.
+const NO_NETWORK_GIT_ARGS = ["-c", "protocol.allow=never"] as const;
+
 function runGit(cwd: string, args: readonly string[]): string {
+  // Git from PATH outside the repository, never one the repository supplies.
+  const git = trustedGitExecutable(cwd);
+  if (git === null) throw new Error("no Git executable found outside the repository");
   try {
-    return execFileSync("git", [...args], {
+    return execFileSync(git, [...NO_NETWORK_GIT_ARGS, ...args], {
       cwd,
       encoding: "utf8",
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_NO_LAZY_FETCH: "1" },
       stdio: ["ignore", "pipe", "pipe"],
       timeout: GIT_TIMEOUT_MS,
     });
@@ -64,6 +72,26 @@ function resolveInside(root: string, rel: string): string {
     throw new TypeError("path escapes its root");
   }
   return resolved;
+}
+
+/**
+ * Refuses a destination reached through a link. The worktree is a checkout of the repository,
+ * so a committed symlink such as tests -> ../src would otherwise send the write into source.
+ * Each existing component is checked before anything is created.
+ */
+function requireNoLinkOnPath(root: string, destination: string): void {
+  let current = root;
+  for (const segment of relative(root, destination).split(sep)) {
+    current = join(current, segment);
+    let isLink: boolean;
+    try {
+      isLink = lstatSync(current).isSymbolicLink();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw error;
+    }
+    if (isLink) throw new TypeError("test file path passes through a link");
+  }
 }
 
 /**
@@ -141,6 +169,7 @@ export function materializeProposal(
     throw new TypeError("only a proposed candidate may be materialized");
   }
   const destination = resolveInside(worktree.path, proposal.test_file);
+  requireNoLinkOnPath(worktree.path, destination);
   mkdirSync(dirname(destination), { recursive: true });
   writeFileSync(destination, proposal.body, "utf8");
   return destination;
