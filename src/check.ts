@@ -73,7 +73,7 @@ import {
   type FailingTestIdentity,
   type TestAssertionObservation,
 } from "./test-reproduction.js";
-import { machineResultRecordsFailure } from "./test-result-outcome.js";
+import { junitResultRecordsFailure, machineResultRecordsFailure } from "./test-result-outcome.js";
 import { planESLintTask } from "./tools/eslint.js";
 import { planJestTargetedRerun } from "./tools/jest-rerun.js";
 import { planJestTask, type JestTaskPlan, type PlannedJestTask } from "./tools/jest.js";
@@ -1045,6 +1045,57 @@ function withVitestEvidenceError(
   );
 }
 
+const PYTEST_RESULTS_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Runs discovered pytest with a JUnit XML report and reads it. pytest's exit status alone can be
+ * rewritten, for example by a conftest.py hook, so an exit 0 whose report records a failure, or
+ * that left no report, is ERROR rather than PASS. A configured override command is run as given.
+ */
+async function executePytestWithResults(
+  repositoryRoot: string,
+  runId: string,
+  rawPath: string,
+  plan: NormalizedPlan & { state: "planned" },
+  decision: TaskAdmissionDecision,
+  secrets: readonly string[],
+  timeoutMs: number,
+): Promise<ExecutedTask> {
+  mkdirSync(join(rawPath, "pytest"), { recursive: true });
+  const resultsRelativePath = `.ascout/runs/${runId}/raw/pytest/pytest-results.xml`;
+  const executed = await executePlannedTask(
+    repositoryRoot,
+    runId,
+    rawPath,
+    "pytestBasic",
+    { ...plan, argv: [...plan.argv, `--junitxml=${resultsRelativePath}`] },
+    decision,
+    secrets,
+    timeoutMs,
+  );
+  if (executed.task.status !== "PASS") return executed;
+
+  let xml: string | null;
+  try {
+    const bytes = readFileSync(join(rawPath, "pytest", "pytest-results.xml"));
+    xml = bytes.byteLength > PYTEST_RESULTS_MAX_BYTES ? null : bytes.toString("utf8");
+  } catch {
+    xml = null;
+  }
+  if (xml !== null && !junitResultRecordsFailure(xml)) return executed;
+  return {
+    ...executed,
+    task: {
+      ...executed.task,
+      status: "ERROR",
+      reason_code: xml === null ? "pytest_results_missing" : "test_exit_contradicts_results",
+      reason_text: xml === null
+        ? "pytest exited 0 but left no readable JUnit report, so its result can't be confirmed."
+        : "pytest exited 0, but its JUnit report records a failed or errored test.",
+    },
+  };
+}
+
 async function executeVitestTask(
   repositoryRoot: string,
   runId: string,
@@ -1901,6 +1952,16 @@ async function runCheckWithinCancellation(
           exerciseCoveragePoints = finalExecuted.coveragePoints;
           exerciseBranchPoints = finalExecuted.branchPoints;
           executed = finalExecuted;
+        } else if (task === "pytestBasic" && plan.authorizedBy === "discovery") {
+          executed = await executePytestWithResults(
+            root,
+            runId,
+            runDir.raw_path,
+            plan as NormalizedPlan & { state: "planned" },
+            decision,
+            secrets,
+            taskTimeoutMs(config, task),
+          );
         } else {
           executed = await executePlannedTask(
             root,
