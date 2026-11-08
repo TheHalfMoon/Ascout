@@ -25,6 +25,7 @@ import {
 } from "./finding-normalization.js";
 import type { LocationValidationV1 } from "./location-validator.js";
 import type { RawReviewObservationV1 } from "./raw-observation.js";
+import { escapeTerminalText } from "../../terminal-text.js";
 
 export const REVIEW_COMMAND_SCHEMA_VERSION = 1 as const;
 
@@ -372,7 +373,7 @@ export function buildReviewDriftReportV1(
 
 // Git paths may hold control characters, which must not forge terminal report lines.
 function escapeTerminalPath(path: string): string {
-  return path.replace(/\p{Cc}/gu, (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  return escapeTerminalText(path);
 }
 
 export function renderReviewJsonV1(report: ReviewReportV1): string {

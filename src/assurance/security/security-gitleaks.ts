@@ -41,6 +41,7 @@ import {
   readTreeDigestV1,
   refuseUnsupportedRepository,
 } from "../../git.js";
+import { escapeTerminalText } from "../../terminal-text.js";
 
 export const GITLEAKS_PATH_ENV = "ASCOUT_GITLEAKS_PATH" as const;
 
@@ -410,8 +411,7 @@ function supportedHost(host: { platform: string; arch: string }): ReturnType<typ
 
 // Repository file names reach the terminal, so controls and bidirectional overrides are escaped.
 function printable(text: string): string {
-  return text.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/gu, (character) =>
-    "\\u" + character.charCodeAt(0).toString(16).padStart(4, "0"));
+  return escapeTerminalText(text);
 }
 
 export function renderSecurityGitleaksTerminalV1(report: SecurityGitleaksReportV2 | SecurityDriftReportV1): string {
