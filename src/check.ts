@@ -4,6 +4,7 @@ import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, lstat
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   FIXED_SEMANTIC_TASKS,
+  canonicalRepositoryRoot,
   classifyCommandSurfaces,
   collectDiscoveredProject,
   intersectChangedAuthorityPaths,
@@ -1638,7 +1639,11 @@ async function runCheckWithinCancellation(
 ): Promise<CheckOutcome> {
   const lock = await acquireRunLock(repositoryRoot);
   try {
-    const { root, files, discovery } = collectDiscoveredProject(repositoryRoot);
+    // The start fingerprint comes first, so every file check reads to decide what to run lies
+    // between it and the recheck below; a write in that window can't go unseen.
+    const startRoot = canonicalRepositoryRoot(repositoryRoot);
+    const sourceStart = composeSourceState(startRoot);
+    const { root, files, discovery } = collectDiscoveredProject(startRoot);
     const environment = observeEnvironment(root, files, discovery);
     const { config, digest } = loadConfig(root);
     const runId = generateRunId();
@@ -1646,7 +1651,6 @@ async function runCheckWithinCancellation(
 
     try {
       const runStartedAt = new Date().toISOString();
-      const sourceStart = composeSourceState(root);
       const gitComparison = readWorkingTreeComparison(root, sourceStart.head_sha);
       const comparison: ComparisonV1 = {
         kind: gitComparison.kind,
@@ -1673,6 +1677,9 @@ async function runCheckWithinCancellation(
         untrackedIgnoredPaths: readUntrackedIgnoredPaths(root, allAuthorityPaths),
         symlinkTargets,
       });
+      if (readTreeDigestV1(root).tree_digest !== sourceStart.tree_digest) {
+        throw new Error("the repository changed while check was reading its configuration and changes; rerun check");
+      }
       const preRunWidening = decidePreRunWidening(discovery, gitComparison.changed_files);
       const selectionMode = preRunWidening.widened ? "full" as const : "native_related" as const;
       const testPlanningChangedFiles = preRunPlanningChangedFiles(
