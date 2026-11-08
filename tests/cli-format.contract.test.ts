@@ -76,6 +76,7 @@ describe("T070 CLI receipt format wiring", () => {
     expect(mocks.runCheck).toHaveBeenCalledTimes(1);
     expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
       allowChangedCommandSurface: false,
+      signal: expect.any(AbortSignal),
     });
     expect(error).toHaveBeenCalledWith("terminal-output");
     expect(stdout).not.toHaveBeenCalled();
@@ -111,6 +112,7 @@ describe("T070 CLI receipt format wiring", () => {
     expect(mocks.runCheck).toHaveBeenCalledTimes(1);
     expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
       allowChangedCommandSurface: true,
+      signal: expect.any(AbortSignal),
     });
     expect(mocks.renderAgent).toHaveBeenCalledTimes(1);
     expect(mocks.renderAgent).toHaveBeenCalledWith(receipt);

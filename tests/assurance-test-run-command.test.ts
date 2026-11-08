@@ -189,8 +189,8 @@ describe("ascout test running check", { timeout: 60_000 }, () => {
     const out = captured();
     expect(await runCli(["test", "--format", "json"])).toBe(0);
     expect(checkControl.calls).toBe(1);
-    // check runs over this repository with no admission override.
-    expect(checkControl.args).toEqual([[process.cwd()]]);
+    // check runs over this repository with no admission override, and can be cancelled.
+    expect(checkControl.args).toEqual([[process.cwd(), { signal: expect.any(AbortSignal) }]]);
     expect(out.json()).toMatchObject({ schema_version: 2, outcome: "COMPLETE", exit_code: 0, executed_count: 1 });
   });
 
