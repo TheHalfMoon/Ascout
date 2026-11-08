@@ -11,6 +11,8 @@
 import { createHash } from "node:crypto";
 import { containsSecretMaterialV1, containsExternalAttestationV1 } from "./sentrdel-evidence-normalization.js";
 import { SENTRDEL_PINNED_REVISION, SENTRDEL_PINNED_TREE } from "./sentrdel-source-pin.js";
+import { compareCodeUnitsV1 } from "./sentrdel-code-unit-order.js";
+import { assertNonPromotedObservationV1, readOwnDataV1, readOwnListV1 } from "./sentrdel-observation-read.js";
 
 export const SENTRDEL_SARIF_EXPORT_AUTHORITY = "UA-P06-T11" as const;
 /** Matches the T11A import bound, so every export can be re-imported. */
@@ -18,12 +20,6 @@ export const SENTRDEL_SARIF_EXPORT_MAX_OBSERVATIONS = 4_096 as const;
 
 const SHA1 = /^[0-9a-f]{40}$/u;
 const ID = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/u;
-/** Fields whose exact values prove the record never claimed more than an observation. */
-const NON_PROMOTED: Readonly<Record<string, unknown>> = Object.freeze({
-  schema_version: 1, phase_authority: "UA-P06-T04", authority: "OBSERVATION_ONLY",
-  engine_pin: SENTRDEL_PINNED_REVISION, engine_tree: SENTRDEL_PINNED_TREE, assurance_effect: "NONE",
-  finding_emitted: false, claim_assessment_emitted: false, global_clean_claimed: false, remediation_verified: false,
-});
 
 /** A fresh copy of only the fields the export reads. */
 interface Obs {
@@ -52,17 +48,11 @@ function safe(value: string, what: string): string {
  * the exported fields this way gives the same no-getter guarantee.
  */
 function own(record: unknown, key: string): unknown {
-  if (typeof record !== "object" || record === null) fail(`${key} needs a record`);
-  const descriptor = Object.getOwnPropertyDescriptor(record, key);
-  if (descriptor === undefined || !Object.hasOwn(descriptor, "value")) fail(`${key} must be an own data property`);
-  return descriptor.value;
+  return readOwnDataV1(record, key, fail);
 }
 
 function list(value: unknown, what: string, max: number): unknown[] {
-  if (!Array.isArray(value)) fail(`${what} must be an array`);
-  const length = own(value, "length");
-  if (!Number.isSafeInteger(length) || (length as number) > max) fail(`${what} must be bounded`);
-  return Array.from({ length: length as number }, (_, index) => own(value, String(index)));
+  return readOwnListV1(value, what, max, fail);
 }
 
 function text(record: unknown, key: string): string {
@@ -78,9 +68,7 @@ function line(value: unknown): number | null {
 }
 
 function checkObservation(raw: unknown): Obs {
-  for (const [key, expected] of Object.entries(NON_PROMOTED)) {
-    if (own(raw, key) !== expected) fail(`observation ${key} claims more than a pinned T04 observation`);
-  }
+  assertNonPromotedObservationV1(raw, fail);
   const sourceHead = own(raw, "source_head");
   if (typeof sourceHead !== "string" || !SHA1.test(sourceHead)) fail("observation source_head is invalid");
   const ruleRaw = own(raw, "rule_id");
@@ -157,10 +145,7 @@ export function exportSentrdelSarifV1(observations: unknown) {
   const ids = checked.map(o => o.observation_id);
   if (new Set(ids).size !== ids.length) fail("observations must be unique");
   // UTF-16 code-unit order keeps the log independent of input order and host locale.
-  const ordered = [...checked].sort((a, b) => {
-    if (a.observation_id === b.observation_id) return 0;
-    return a.observation_id < b.observation_id ? -1 : 1;
-  });
+  const ordered = [...checked].sort((a, b) => compareCodeUnitsV1(a.observation_id, b.observation_id));
   const log = {
     $schema: "https://json.schemastore.org/sarif-2.1.0.json",
     version: "2.1.0",

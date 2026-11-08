@@ -13,6 +13,7 @@ import { SENTRDEL_UNKNOWN_TOKENS } from "./sentrdel-capability-characterization.
 import { SENTRDEL_ENGINE_ID, SENTRDEL_ENGINE_VERSION } from "./sentrdel-engine-boundary.js";
 import { containsSecretMaterialV1, containsExternalAttestationV1 } from "./sentrdel-evidence-normalization.js";
 import { SENTRDEL_PINNED_REVISION, SENTRDEL_PINNED_TREE } from "./sentrdel-source-pin.js";
+import { compareCodeUnitsV1 as compareCodeUnits } from "./sentrdel-code-unit-order.js";
 
 export const SENTRDEL_REGRESSION_AUTHORITY = "UA-P06-T10" as const;
 export const SENTRDEL_REGRESSION_DONOR_PATH = "crates/sentrdel-review/src/regression/model.rs" as const;
@@ -163,11 +164,6 @@ function classify(base: Evaluation | undefined, candidate: Evaluation | undefine
   if (base.definition_digest !== candidate.definition_digest) return ["UNKNOWN", "INVARIANT_DEFINITION_CONFLICT"];
   return SENTRDEL_REGRESSION_TRANSITIONS[`${effective(base)}>${effective(candidate)}`] ??
     ["UNKNOWN", "SEMANTIC_CONTINUITY_UNPROVEN"];
-}
-
-function compareCodeUnits(left: string, right: string): number {
-  if (left === right) return 0;
-  return left < right ? -1 : 1;
 }
 
 function presence(base: Evaluation | undefined, candidate: Evaluation | undefined): SentrdelRegressionRecordV1["pair_presence"] {
