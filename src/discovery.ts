@@ -696,6 +696,8 @@ const ASCOUT_CONFIG_PATH = "ascout.config.json";
 export interface ChangedPathView {
   readonly path: string;
   readonly previous_path?: string;
+  /** Git's change kind, when known: "added", "modified", "deleted", or another. */
+  readonly change_kind?: string;
 }
 
 export interface TaskCommandAuthority {

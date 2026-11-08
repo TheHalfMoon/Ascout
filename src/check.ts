@@ -221,11 +221,20 @@ export function decideRunAdmissions(
   const surfaces = classifyCommandSurfaces(discovery, classifyOptions);
   const ignored = new Set(untrackedIgnoredPaths);
   const result = {} as Record<SemanticTaskType, TaskAdmissionDecision>;
+  // Settings outside tasks, such as timeouts and redactEnv, apply to every task. An edit to an
+  // existing config can weaken them, so it is a surface change for all; a new one, as
+  // ascout init writes, keeps the per-task rule.
+  const ascoutPath = classifyOptions.ascoutConfigPath ?? "ascout.config.json";
+  const existingConfigEdited = changedFiles.some((file) =>
+    (file.path === ascoutPath || file.previous_path === ascoutPath) && file.change_kind !== "added"
+  );
 
   for (const task of FIXED_SEMANTIC_TASKS) {
+    const declared = surfaces[task].authorityPaths;
+    const authority = existingConfigEdited && !declared.includes(ascoutPath) ? [...declared, ascoutPath].sort() : declared;
     result[task] = decideTaskAdmission(
       task,
-      withSymlinkTargets(surfaces[task].authorityPaths, symlinkTargets),
+      withSymlinkTargets(authority, symlinkTargets),
       changedFiles,
       allowChangedCommandSurface,
       ignored,
