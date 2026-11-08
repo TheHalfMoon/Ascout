@@ -1445,6 +1445,8 @@ async function normalizeFailedTestExecution(
     while (
       targetObservations.length < 3 &&
       targetObservations.length > 0 &&
+      // A rerun can't tell same-named tests apart, so it would prove nothing.
+      !targetObservations.some(({ ambiguous }) => ambiguous === true) &&
       targetObservations.every((observation) => observation.outcome === "failed")
     ) {
       const observationOrdinal = (targetObservations.length + 1) as 2 | 3;
