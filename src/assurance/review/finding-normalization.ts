@@ -4,6 +4,7 @@ import {
   type DiagnosticBatchInputV1,
 } from "./diagnostic-accounting.js";
 import type { ReviewCoverageV1 } from "./coverage-accounting.js";
+import { screenObservationInjectionV1 } from "./injection-boundary.js";
 import {
   LOCATION_STATES,
   type LocationStateV1,
@@ -89,7 +90,9 @@ export function normalizeReviewFindingV1(
     }),
     location_state: validation.state,
     location_reasons: Object.freeze([...validation.reasons]),
-    promotable: validation.state === "VALID",
+    // A valid location alone isn't enough: an observation that tries to instruct its reader
+    // ("ignore previous instructions") stays a raw observation and is never promoted.
+    promotable: validation.state === "VALID" && screenObservationInjectionV1(observation).verdict === "CLEAN",
     provenance: Object.freeze({
       producer_class: observation.producer_class,
       rule_id: observation.rule_id,

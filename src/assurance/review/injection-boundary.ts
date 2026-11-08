@@ -45,6 +45,10 @@ const PATTERNS: readonly {
   { phrase: "disregard previous instructions", kind: "AUTHORITY_OVERRIDE" },
   { phrase: "disregard all previous", kind: "AUTHORITY_OVERRIDE" },
   { phrase: "override previous", kind: "AUTHORITY_OVERRIDE" },
+  { phrase: "ignore prior", kind: "AUTHORITY_OVERRIDE" },
+  { phrase: "disregard prior", kind: "AUTHORITY_OVERRIDE" },
+  { phrase: "prior directives", kind: "AUTHORITY_OVERRIDE" },
+  { phrase: "previous directives", kind: "AUTHORITY_OVERRIDE" },
   { phrase: "bypass review", kind: "AUTHORITY_OVERRIDE" },
   { phrase: "bypass verification", kind: "AUTHORITY_OVERRIDE" },
   { phrase: "you are now", kind: "ROLE_REASSIGNMENT" },
@@ -68,8 +72,17 @@ const PATTERNS: readonly {
   { phrase: "mark as verified", kind: "GOVERNANCE_OVERRIDE" },
 ]);
 
+/**
+ * Folds text so separators, look-alikes, and invisible characters can't split a phrase:
+ * compatibility normalization (full-width letters), format characters removed (zero-width
+ * joiners and spaces), lower case, and every run of non-letters and non-digits made one space.
+ */
 function normalizeSeparators(text: string): string {
-  return text.replace(/[-_.:]+/gu, " ").replace(/\s+/gu, " ");
+  return text
+    .normalize("NFKC")
+    .replace(/\p{Cf}/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ");
 }
 
 function excerptOf(text: string): {
@@ -105,7 +118,7 @@ export function screenObservationInjectionV1(
     // Separator folding defeats hyphen/underscore/dot/colon variants
     // (e.g. rule ids like "rule:skip-review"); patterns are stored
     // in already-folded form.
-    const folded = normalizeSeparators(field.text.toLowerCase());
+    const folded = normalizeSeparators(field.text);
     let fieldHit = false;
     for (const pattern of PATTERNS) {
       if (folded.includes(pattern.phrase)) {
