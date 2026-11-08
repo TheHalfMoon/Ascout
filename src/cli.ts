@@ -277,16 +277,24 @@ export function usageText(): string {
   ].join("\n");
 }
 
-function redactLocalPathFromError(error: unknown, repositoryRoot: string): string {
+export function redactLocalPathFromError(error: unknown, repositoryRoot: string): string {
   let message = String(error);
   const candidates = new Set([repositoryRoot, resolve(repositoryRoot)]);
-  try {
-    candidates.add(realpathSync(repositoryRoot));
-  } catch {
-    // A failing path may not have a resolvable real path; lexical candidates still apply.
+  // Errors carry the on-disk spelling from native realpath, which can differ in case from the
+  // working directory the user typed on Windows.
+  for (const resolveReal of [realpathSync, realpathSync.native]) {
+    try {
+      candidates.add(resolveReal(repositoryRoot));
+    } catch {
+      // A failing path may not have a resolvable real path; lexical candidates still apply.
+    }
   }
-  for (const candidate of candidates) {
-    if (candidate.length > 0) message = message.replaceAll(candidate, "<repository>");
+  for (const candidate of [...candidates]) candidates.add(candidate.replaceAll("\\", "/"));
+  // Windows paths ignore case, so a match must too.
+  const flags = process.platform === "win32" ? "giu" : "gu";
+  const longestFirst = [...candidates].filter((candidate) => candidate.length > 0).sort((a, b) => b.length - a.length);
+  for (const candidate of longestFirst) {
+    message = message.replace(new RegExp(candidate.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), flags), "<repository>");
   }
   return message;
 }
