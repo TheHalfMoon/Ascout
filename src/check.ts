@@ -1349,6 +1349,11 @@ async function executeTargetedTestObservation(
     reasonCode: null,
     reasonText: null,
   };
+  // Windows can't pass CR or LF in an argument, so a test named with one can't be rerun.
+  // Its single observation stands, and reproduction stays unknown.
+  if (process.platform === "win32" && normalizedPlan.argv.some((argument) => /[\r\n]/u.test(argument))) {
+    return { observation: null, evidence: [], artifacts: [], finishedAt: null, outputTruncated: false };
+  }
   const sequenceStart = observationOrdinal === 2 ? 9 : 12;
   const executed = await executePlannedTask(
     repositoryRoot,
