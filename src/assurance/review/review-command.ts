@@ -376,6 +376,32 @@ function escapeTerminalPath(path: string): string {
   return escapeTerminalText(path);
 }
 
+interface AdvisoryReviewFieldsV1 {
+  readonly records: readonly NormalizedReviewRecordV1[];
+  readonly outcome: string;
+  readonly exit_code: number;
+  readonly reason_text: string;
+  readonly provider: { readonly model: string; readonly independence: string; readonly rejected_findings: number };
+}
+
+// Model text is untrusted, so every piece of it is escaped before it reaches the terminal.
+function renderAdvisoryReview(report: AdvisoryReviewFieldsV1, lines: string[]): void {
+  lines.push(`advisory: local model ${escapeTerminalText(report.provider.model)} (${report.provider.independence}); never human R1`);
+  for (const record of report.records) {
+    const { observation } = record;
+    const where = observation.location_hint === null
+      ? "(no location)"
+      : `${escapeTerminalPath(observation.location_hint.path)}:${observation.location_hint.start_line ?? "?"}`;
+    lines.push(`  [${observation.severity_hint}] ${where} ${escapeTerminalText(observation.body)}${record.promotable ? "" : ` (${record.location_state})`}`);
+  }
+  if (report.provider.rejected_findings > 0) {
+    lines.push(`dropped malformed findings: ${report.provider.rejected_findings}`);
+  }
+  lines.push(`outcome: ${report.outcome}`);
+  lines.push(report.reason_text);
+  lines.push(`exit code: ${report.exit_code}`);
+}
+
 export function renderReviewJsonV1(report: ReviewReportV1): string {
   return JSON.stringify(report, null, 2) + "\n";
 }
@@ -406,6 +432,9 @@ export function renderReviewTerminalV1(report: ReviewReportV1): string {
     }
     for (const group of report.coverage.groups) {
       lines.push(`  group ${group.group_id}: ${group.state}`);
+    }
+    if ("advisory" in report) {
+      renderAdvisoryReview(report as unknown as AdvisoryReviewFieldsV1, lines);
     }
   } else if (report.kind === "absence") {
     lines.push(`outcome: ${report.absence.outcome}`);
