@@ -64,13 +64,11 @@ describe("UA-P05-T01 test profile policy", () => {
       "E0_READ_ONLY_ANALYSIS",
       "E1_LOCAL_DETERMINISTIC_PROCESS",
       "E2_LOCAL_WRITE_ARTIFACT_ONLY",
-      "E3_ISOLATED_LOCAL_EXECUTION",
     ]);
     expect(predictTestProfileEffectsV1("STANDARD")).toEqual([
       "E0_READ_ONLY_ANALYSIS",
       "E1_LOCAL_DETERMINISTIC_PROCESS",
       "E2_LOCAL_WRITE_ARTIFACT_ONLY",
-      "E3_ISOLATED_LOCAL_EXECUTION",
     ]);
     expect(predictTestProfileEffectsV1("DEEP")).toContain(
       "E4_BROWSER_OR_APP_INTERACTION",
@@ -83,6 +81,8 @@ describe("UA-P05-T01 test profile policy", () => {
       expect(effects).not.toContain("E5_AUTHORIZED_NETWORK_READ");
       expect(effects).not.toContain("E6_AUTHORIZED_EXTERNAL_SIDE_EFFECT");
       expect(effects).not.toContain("E7_ACTIVE_SECURITY_VALIDATION");
+      // Nothing is isolated yet (T0), so no profile may predict isolated execution.
+      expect(effects).not.toContain("E3_ISOLATED_LOCAL_EXECUTION");
     }
   });
 

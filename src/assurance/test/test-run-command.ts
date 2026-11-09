@@ -1,3 +1,4 @@
+import { currentContainmentV1, type ContainmentReportV1 } from "../containment/containment-tier.js";
 /**
  * E6 — `ascout test` runs the real `check`.
  *
@@ -63,6 +64,8 @@ export type TestRunReportV2 = TestProfilePlanProjectionV1 &
     not_run: readonly TestNotRunCapabilityV1[];
     /** The plan's effect classes and budgets are predictions. Nothing enforces them. */
     effects_enforced: false;
+    /** What isolates the code `check` runs: nothing, at T0 (E7-CONTAIN). */
+    containment: ContainmentReportV1;
   }>;
 
 export function profileRunsCheckV1(profile: TestProfile): boolean {
@@ -99,6 +102,7 @@ export function buildTestNotRunReportV2(
     executed_count: 0,
     check: null,
     effects_enforced: false,
+    containment: currentContainmentV1(),
     not_run: Object.freeze(
       reasonCode === "NO_REPOSITORY"
         ? [
@@ -198,6 +202,7 @@ export function testRunResultFromReceiptV1(profile: TestProfile, receipt: Receip
       check: summarizeCheck(receipt),
       not_run: Object.freeze(notRun),
       effects_enforced: false,
+      containment: currentContainmentV1(),
     }),
   };
 }
@@ -217,6 +222,7 @@ export function renderTestRunTerminalV1(report: TestRunReportV2, checkSummary: s
     }
   }
   for (const item of report.not_run) lines.push(`not run: ${item.capability} (${item.reason_code})`);
+  lines.push(`containment: ${report.containment.tier} ${report.containment.label}. ${report.containment.reason_text}`);
   lines.push(`exit code: ${report.exit_code}`);
   lines.push("The plan's effect classes and budgets below are predictions; check runs repository commands with your permissions.");
   // The profile's plan, as `--plan` shows it, without that output's plan-only header.
