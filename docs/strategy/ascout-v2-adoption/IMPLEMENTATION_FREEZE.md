@@ -1,5 +1,7 @@
 # Implementation Freeze — Execution-First V0–V9
 
+> **Reconciled 2026-11-09:** E0–E6 are now implemented on main. See [CURRENT_STATE_RECONCILIATION_2026-11-09.md](CURRENT_STATE_RECONCILIATION_2026-11-09.md), which governs current-state statements. The text below is kept as the historical proposal at `ecada2b`.
+
 See [FIRST_SPRINT_TEST_MATRIX.md](FIRST_SPRINT_TEST_MATRIX.md) for bounded synthetic fixtures, exit-code coverage, broker budget candidates and rollback procedures.
 
 **PROPOSED, not approved; source baseline `ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430`.** This file is a code-authoring *scope contract*, not executable code. Fresh `main` must be observed when any packet starts; an implementation branch is created **from that main**, never from historical #578/#651. No donor import, modification of old signed evidence, publication, or untrusted-code execution is authorized by a planning PR.

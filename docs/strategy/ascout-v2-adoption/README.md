@@ -1,5 +1,7 @@
 # Ascout V2 — Main-Rooted Adoption Plan
 
+> **Reconciled 2026-11-09:** E0–E6 are now implemented on main. See [CURRENT_STATE_RECONCILIATION_2026-11-09.md](CURRENT_STATE_RECONCILIATION_2026-11-09.md), which governs current-state statements. The text below is kept as the historical proposal at `ecada2b`.
+
 **Status:** FOUNDER REVIEW CANDIDATE; **not ratified**, not a release, and no implementation authorisation. **Source baseline:** `main@ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430` (2026-10-27). Check a fresh canonical `main` SHA before any new code PR. **Ascout remains local-first, privacy-first and no required cloud/paid runtime.**
 
 This directory is a **docs-only proposal branched directly from canonical main**, with no historical V2 source, test, package, workflow or vendor files imported. It is the safe alternative to merging the outdated code tree carried under old [#578](https://github.com/TheHalfMoon/Ascout/pull/578) → [#597](https://github.com/TheHalfMoon/Ascout/pull/597) → [#651](https://github.com/TheHalfMoon/Ascout/pull/651). **Do not merge those stacks wholesale into main**: review found their source history does not contain current main and may remove current modules. Preserve them as immutable research/proposal references, not current implementation.

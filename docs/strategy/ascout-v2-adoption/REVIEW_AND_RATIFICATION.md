@@ -1,5 +1,7 @@
 # Review, Founder Decisions and Ratification Gates
 
+> **Reconciled 2026-11-09:** E0–E6 are now implemented on main. See [CURRENT_STATE_RECONCILIATION_2026-11-09.md](CURRENT_STATE_RECONCILIATION_2026-11-09.md), which governs current-state statements. The text below is kept as the historical proposal at `ecada2b`.
+
 **As of 2026-11-06 — PROPOSED, NOT RATIFIED.** This is a new docs-only branch rooted at current canonical `main@ecada2bc53a5ff4dd34f777b91c0ac0a3f0b8430`. No source, tests, vendor, registry metadata, CI file or runtime rights have been changed by this plan.
 
 ## 1. Actual EGM/Pulse review evidence
