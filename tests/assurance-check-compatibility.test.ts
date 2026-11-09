@@ -61,8 +61,8 @@ const EXPECTED_USAGE = [
   "  ascout init",
   "  ascout doctor",
   "  ascout check [--allow-changed-command-surface] [--format json|agent]",
-  "  ascout review [--format json|terminal]",
-  "  ascout test [--profile quick|standard|deep|release] [--format json|terminal]",
+  "  ascout review [--local-model] [--format json|terminal]",
+  "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
   "  ascout security [--format json|terminal]",
 ].join("\n");
 
@@ -130,6 +130,7 @@ describe("UA-P01-T17 existing ascout check compatibility", () => {
       expect(mocks.runCheck).toHaveBeenCalledTimes(1);
       expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
         allowChangedCommandSurface: false,
+        signal: expect.any(AbortSignal),
       });
       expect(error).toHaveBeenCalledTimes(1);
       expect(error).toHaveBeenCalledWith(terminalSummary);
@@ -161,6 +162,7 @@ describe("UA-P01-T17 existing ascout check compatibility", () => {
     expect(mocks.runCheck).toHaveBeenCalledTimes(1);
     expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
       allowChangedCommandSurface: false,
+      signal: expect.any(AbortSignal),
     });
     expect(mocks.renderJson).toHaveBeenCalledTimes(1);
     expect(mocks.renderJson).toHaveBeenCalledWith(receipt);
@@ -201,6 +203,7 @@ describe("UA-P01-T17 existing ascout check compatibility", () => {
     expect(mocks.runCheck).toHaveBeenCalledTimes(1);
     expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
       allowChangedCommandSurface: true,
+      signal: expect.any(AbortSignal),
     });
     expect(mocks.renderAgent).toHaveBeenCalledTimes(1);
     expect(mocks.renderAgent).toHaveBeenCalledWith(receipt);

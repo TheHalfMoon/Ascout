@@ -1,6 +1,8 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { readFileSync, readlinkSync } from "node:fs";
 import {
   link,
+  lstat,
   mkdir,
   open,
   realpath,
@@ -8,6 +10,7 @@ import {
   unlink,
   type FileHandle,
 } from "node:fs/promises";
+import { hostname } from "node:os";
 import { join, resolve } from "node:path";
 
 export type RunLockErrorCode =
@@ -28,9 +31,40 @@ export class RunLockError extends Error {
 }
 
 interface RunLockOwner {
-  readonly version: 1;
+  readonly version: 1 | 2;
   readonly pid: number;
   readonly token: string;
+  /** Version 2: a digest of the owner's host and PID namespace. Version 1 owners have none. */
+  readonly host?: string;
+}
+
+const HOST_IDENTITY_HEX = /^[0-9a-f]{32}$/;
+let cachedHostIdentity: string | null = null;
+
+/**
+ * Identifies where a PID is meaningful: the platform (Windows and WSL share a hostname), the
+ * hostname (NFS clients), and on Linux the boot and PID namespace (containers share a kernel but
+ * not PIDs). Hashed, so the lock file holds no raw hostname.
+ */
+function currentHostIdentity(): string {
+  if (cachedHostIdentity !== null) return cachedHostIdentity;
+  const parts = [process.platform, hostname()];
+  if (process.platform === "linux") {
+    for (const read of [() => readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim(), () => readlinkSync("/proc/self/ns/pid")]) {
+      try {
+        parts.push(read());
+      } catch {
+        parts.push("");
+      }
+    }
+  }
+  cachedHostIdentity = createHash("sha256").update(parts.join("\u0000")).digest("hex").slice(0, 32);
+  return cachedHostIdentity;
+}
+
+/** A PID check only means anything for an owner on this host and in this PID namespace. */
+function ownerIsForeign(owner: RunLockOwner): boolean {
+  return owner.host !== undefined && owner.host !== currentHostIdentity();
 }
 
 type LockState =
@@ -69,7 +103,8 @@ function lockError(
 
 function newOwner(): RunLockOwner {
   return {
-    version: 1,
+    version: 2,
+    host: currentHostIdentity(),
     pid: process.pid,
     token: randomBytes(OWNER_TOKEN_BYTES).toString("hex"),
   };
@@ -94,36 +129,29 @@ function parseOwner(raw: string): RunLockOwner | null {
   }
 
   const record = candidate as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  if (
-    keys.length !== 3 ||
-    keys[0] !== "pid" ||
-    keys[1] !== "token" ||
-    keys[2] !== "version"
-  ) {
-    return null;
-  }
-
-  if (record.version !== 1) return null;
+  const keys = Object.keys(record).sort().join(",");
+  const version1 = keys === "pid,token,version" && record.version === 1;
+  const version2 = keys === "host,pid,token,version" && record.version === 2 &&
+    typeof record.host === "string" && HOST_IDENTITY_HEX.test(record.host);
+  if (!version1 && !version2) return null;
   if (!Number.isSafeInteger(record.pid) || (record.pid as number) <= 0) return null;
   if (typeof record.token !== "string" || !/^[0-9a-f]{32}$/.test(record.token)) {
     return null;
   }
 
-  return {
-    version: 1,
-    pid: record.pid as number,
-    token: record.token,
-  };
+  return version2
+    ? { version: 2, host: record.host as string, pid: record.pid as number, token: record.token }
+    : { version: 1, pid: record.pid as number, token: record.token };
 }
 
 function sameOwner(left: RunLockOwner, right: RunLockOwner): boolean {
-  return left.version === right.version && left.pid === right.pid && left.token === right.token;
+  return left.version === right.version && left.host === right.host && left.pid === right.pid && left.token === right.token;
 }
 
-function ownerIsDefinitelyDead(pid: number): boolean {
+function ownerIsDefinitelyDead(owner: RunLockOwner): boolean {
+  if (ownerIsForeign(owner)) return false;
   try {
-    process.kill(pid, 0);
+    process.kill(owner.pid, 0);
     return false;
   } catch (error) {
     return nodeErrorCode(error) === "ESRCH";
@@ -224,7 +252,7 @@ async function acquireMutationGuard(recoveryPath: string): Promise<RunLockOwner>
       );
     }
 
-    if (ownerIsDefinitelyDead(state.owner.pid)) {
+    if (ownerIsDefinitelyDead(state.owner)) {
       throw lockError(
         "run_lock_recovery_busy",
         "stale run-lock mutation guard blocks automatic mutation; refusing unsafe takeover",
@@ -284,7 +312,7 @@ async function recoverDeadOwnerUnderGuard(
     );
   }
   if (!sameOwner(state.owner, observedOwner)) return "retry";
-  if (!ownerIsDefinitelyDead(state.owner.pid)) {
+  if (!ownerIsDefinitelyDead(state.owner)) {
     throw lockError("run_lock_held", "run lock owner is still alive or cannot be proven dead");
   }
 
@@ -312,7 +340,13 @@ async function acquireMainLockUnderGuard(
       "existing .ascout/run.lock has no verifiable owner; refusing recovery",
     );
   }
-  if (!ownerIsDefinitelyDead(state.owner.pid)) {
+  if (ownerIsForeign(state.owner)) {
+    throw lockError(
+      "run_lock_held",
+      "an Ascout run on another host or PID namespace owns .ascout/run.lock; if that run has ended, delete the file",
+    );
+  }
+  if (!ownerIsDefinitelyDead(state.owner)) {
     throw lockError("run_lock_held", "another Ascout run owns .ascout/run.lock");
   }
 
@@ -399,6 +433,18 @@ async function releaseOwnedLock(
   await removeMutationGuard(recoveryPath, mutationOwner);
 }
 
+async function requirePhysicalLockDirectory(path: string, allowAbsent: boolean): Promise<void> {
+  try {
+    if (!(await lstat(path)).isDirectory()) {
+      throw lockError("run_lock_unverifiable", "Ascout runtime directory is not a physical directory");
+    }
+  } catch (error) {
+    if (error instanceof RunLockError) throw error;
+    if (allowAbsent && (error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw lockError("run_lock_unverifiable", "Ascout runtime directory could not be inspected", error);
+  }
+}
+
 export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHandle> {
   if (repositoryRoot.length === 0 || repositoryRoot.includes("\0")) {
     throw lockError("run_lock_unverifiable", "repository root must be a non-empty path without NUL");
@@ -425,11 +471,15 @@ export async function acquireRunLock(repositoryRoot: string): Promise<RunLockHan
   const recoveryPath = join(lockDirectory, RECOVERY_FILENAME);
   const owner = newOwner();
 
+  // mkdir follows a link, so a linked .ascout would put the lock files, or a new directory,
+  // somewhere else. It is checked before creation and again after.
+  await requirePhysicalLockDirectory(lockDirectory, true);
   try {
     await mkdir(lockDirectory, { recursive: true });
   } catch (error) {
     throw lockError("run_lock_io", "failed to create Ascout runtime directory", error);
   }
+  await requirePhysicalLockDirectory(lockDirectory, false);
 
   let released = false;
   let releaseInFlight: Promise<void> | null = null;

@@ -277,7 +277,7 @@ export interface ReceiptSemanticValidationResult {
 
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const SHA256 = /^[a-f0-9]{64}$/;
-const CANONICAL_RELATIVE_PATH = /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/]+(?:\/[^/]+)*$/;
+const CANONICAL_RELATIVE_PATH = /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/]+(?:\/[^/]+)*$/;
 const EXECUTED_OUTCOME_STATUSES = new Set<TaskStatus>(["PASS", "FAIL", "FLAKY"]);
 const EXERCISE_TEST_TASK_TYPES = new Set<TaskType>(["test"]);
 

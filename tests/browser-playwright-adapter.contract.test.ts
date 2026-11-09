@@ -58,7 +58,7 @@ describe("spec016 p016-04 adapter contract (no browser needed)", () => {
     expect(actionSemanticError("navigate", null)).toBeNull();
   });
 
-  it("joins origin-relative navigate targets purely", () => {
+  it("joins origin-relative navigate targets purely and refuses other origins", () => {
     expect(
       resolveNavigateTarget("http://127.0.0.1:3100", "/cart"),
     ).toBe("http://127.0.0.1:3100/cart");
@@ -67,6 +67,6 @@ describe("spec016 p016-04 adapter contract (no browser needed)", () => {
         "http://127.0.0.1:3100",
         "https://example.test/x",
       ),
-    ).toBe("https://example.test/x");
+    ).toBeNull();
   });
 });

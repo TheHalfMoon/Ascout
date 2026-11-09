@@ -37,3 +37,23 @@ describe("direct dependency notice integrity", () => {
     });
   }
 });
+
+describe("external tool notices", () => {
+  const section = notices.slice(notices.indexOf("### Gitleaks"));
+
+  it("names the pinned Gitleaks release, its source commit, and its license", async () => {
+    const { GITLEAKS_RELEASE_V1 } = await import("../src/assurance/engines/gitleaks-profile.js");
+    expect(section).toContain(`Gitleaks ${GITLEAKS_RELEASE_V1.version}`);
+    expect(section).toContain(GITLEAKS_RELEASE_V1.tag_commit);
+    expect(section).toContain(GITLEAKS_RELEASE_V1.license_spdx);
+  });
+
+  it("lists every qualified platform's archive digest", async () => {
+    const { GITLEAKS_RELEASE_V1 } = await import("../src/assurance/engines/gitleaks-profile.js");
+    const qualified = Object.values(GITLEAKS_RELEASE_V1.archives).filter((archive) => archive.executable_sha256 !== null);
+    expect(qualified.length).toBeGreaterThan(0);
+    for (const archive of qualified) {
+      expect(section).toContain(`${archive.name}\` — \`${archive.sha256}`);
+    }
+  });
+});

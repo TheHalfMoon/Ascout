@@ -76,6 +76,7 @@ describe("T070 CLI receipt format wiring", () => {
     expect(mocks.runCheck).toHaveBeenCalledTimes(1);
     expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
       allowChangedCommandSurface: false,
+      signal: expect.any(AbortSignal),
     });
     expect(error).toHaveBeenCalledWith("terminal-output");
     expect(stdout).not.toHaveBeenCalled();
@@ -111,6 +112,7 @@ describe("T070 CLI receipt format wiring", () => {
     expect(mocks.runCheck).toHaveBeenCalledTimes(1);
     expect(mocks.runCheck).toHaveBeenCalledWith(process.cwd(), {
       allowChangedCommandSurface: true,
+      signal: expect.any(AbortSignal),
     });
     expect(mocks.renderAgent).toHaveBeenCalledTimes(1);
     expect(mocks.renderAgent).toHaveBeenCalledWith(receipt);
@@ -118,5 +120,18 @@ describe("T070 CLI receipt format wiring", () => {
     expect(stdout).toHaveBeenCalledTimes(1);
     expect(stdout).toHaveBeenCalledWith("ASCOUT_AGENT_V1 repo=remote:x head=y stability=stable");
     expect(error).not.toHaveBeenCalled();
+  });
+
+  it("maps a receipt render failure to exit 2, even for a clean receipt (Amendment A07)", async () => {
+    mocks.runCheck.mockResolvedValue({ receipt: { summary: { exit_code: 0 } }, terminalSummary: "unused" });
+    mocks.renderJson.mockImplementation(() => {
+      throw new Error("render failed");
+    });
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    expect(await runCli(["check", "--format", "json"])).toBe(2);
+    expect(stdout).not.toHaveBeenCalled();
+    expect(error.mock.calls.flat().map(String).join("\n")).toContain("render failed");
   });
 });

@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 
+import { RECEIPT_V1_SCHEMA } from "./receipt-v1-schema.js";
 import {
   validateReceiptSemantics,
   type ReceiptSemanticIssue,
@@ -48,10 +48,6 @@ export class ReceiptContractValidationError extends Error {
   }
 }
 
-const RECEIPT_SCHEMA_URL = new URL(
-  "../../specs/001-changed-code-verification-receipt/contracts/receipt-v1.schema.json",
-  import.meta.url,
-);
 const DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema";
 const RECEIPT_SCHEMA_ID = "urn:ascout:receipt:v1";
 const DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-](\d{2}):(\d{2}))$/;
@@ -345,12 +341,9 @@ function assertSupportedSchema(
 function loadReceiptSchema(): JsonSchema {
   if (cachedSchema !== undefined) return cachedSchema;
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(RECEIPT_SCHEMA_URL, "utf8")) as unknown;
-  } catch (error) {
-    throw new Error(`failed to load receipt v1 JSON Schema: ${error instanceof Error ? error.message : String(error)}`);
-  }
+  // Embedded at build time, so an installed package needs no file beside its code. A private
+  // copy keeps the shared constant safe from anything that might change the parsed schema.
+  const parsed: unknown = structuredClone(RECEIPT_V1_SCHEMA);
 
   const schema = schemaRecord(parsed, "$schema");
   if (schema.$schema !== DRAFT_2020_12) {

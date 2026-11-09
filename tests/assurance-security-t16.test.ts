@@ -85,7 +85,7 @@ describe("UA-P06-T16 P6 qualification: section 11 hard-zero invariants", () => {
   it("missing_engine_converted_to_pass = 0", () => {
     expect([notRunBecomesPassV1(), timeoutBecomesPassV1(), unknownBecomesPassV1()]).toEqual([false, false, false]);
     expect(benchmark.hard_gates.missing_engine_converted_to_pass).toBe(0);
-    expect(buildSecurityCommandReportV1()).toMatchObject({ outcome: "NOT_RUN", exit_code: 1 });
+    expect(buildSecurityCommandReportV1()).toMatchObject({ outcome: "NOT_RUN", exit_code: 4 });
   });
 
   it("mock_substituted_for_real_component = 0", () => {
@@ -108,8 +108,8 @@ describe("UA-P06-T16 P6 qualification: section 11 hard-zero invariants", () => {
       "  ascout init",
       "  ascout doctor",
       "  ascout check [--allow-changed-command-surface] [--format json|agent]",
-      "  ascout review [--format json|terminal]",
-      "  ascout test [--profile quick|standard|deep|release] [--format json|terminal]",
+      "  ascout review [--local-model] [--format json|terminal]",
+      "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
       "  ascout security [--format json|terminal]",
     ]);
     for (const command of ["init", "doctor", "check", "review", "test", "security"] as const) {

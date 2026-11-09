@@ -1,8 +1,12 @@
 import { execFileSync } from "node:child_process";
 import {
   mkdtempSync,
+  readdirSync,
   readFileSync,
+  rmdirSync,
   rmSync,
+  symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -281,4 +285,25 @@ describe("spec015 wedge1 candidate worktree", () => {
       disposeCandidateWorktree(worktree);
     }
   }, 60_000);
+  it("refuses to write through a link inside the worktree", () => {
+    const fixture = initFixture();
+    const worktree = createCandidateWorktree({
+      name: "candidate-link",
+      parent_dir: parentDir(),
+      repo_root: fixture.root,
+      tree_id: fixture.head,
+    });
+    const outside = parentDir();
+    try {
+      // A committed symlink such as tests -> ../elsewhere checks out as a link.
+      symlinkSync(outside, join(worktree.path, "tests"), process.platform === "win32" ? "junction" : "dir");
+      expect(() => materializeProposal(worktree, proposal(fixture.head, "tests/x.test.js"))).toThrow(/link/u);
+      expect(readdirSync(outside)).toEqual([]);
+    } finally {
+      // Remove only the link, never what it points to.
+      (process.platform === "win32" ? rmdirSync : unlinkSync)(join(worktree.path, "tests"));
+      disposeCandidateWorktree(worktree);
+    }
+  }, 60_000);
+
 });

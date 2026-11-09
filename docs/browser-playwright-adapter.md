@@ -59,6 +59,20 @@ Fourth Spec 016 implementation slice under P016-01 authorization
   (`playwright` 5 MB, `playwright-core` 14 MB, unpacked core 13.5 MB);
   browser binaries ~660 MB in the Playwright cache (outside the repo).
 
+## Chromium sandbox
+
+Chromium launches with its sandbox on (`chromiumSandbox: true`); there is no `--no-sandbox`
+fallback. On Ubuntu 23.10 and later, AppArmor blocks the unprivileged user namespaces the
+sandbox needs, and Chromium exits with "No usable sandbox". To run the browser adapter there,
+allow them, as the Linux CI jobs do:
+
+```bash
+sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+```
+
+This lasts until reboot. To keep it, add
+`kernel.apparmor_restrict_unprivileged_userns=0` to a file in `/etc/sysctl.d/`.
+
 ## Behavior contract
 
 - `launchPlaywrightSession` enforces the exact pin, provisions Chromium if

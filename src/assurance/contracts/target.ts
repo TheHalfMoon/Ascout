@@ -18,7 +18,7 @@ const LOCKFILE_BY_MANAGER = {
   yarn: "yarn.lock",
 } as const;
 const SAFE_RELATIVE_PATH =
-  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
 export interface AssuranceRepositoryIdentityV1 {
   readonly repository_id: string;

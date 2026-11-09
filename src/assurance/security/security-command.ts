@@ -4,7 +4,7 @@
  * Local, read-only, zero-cost. UA-P06 executes no Sentrdel binary, so the
  * command has no engine to run: it reports NOT_RUN with the reason, the pinned
  * engine identity, and the characterized capability scope, and the caller
- * exits 1 (founder decision A, effective UA-P06-T14 CLI surface amendment).
+ * exits 4 because required verification did not run (Amendment A07).
  * It reads no repository files, starts no process, opens no network
  * connection, and writes nothing except its report to stdout/stderr.
  */
@@ -12,7 +12,7 @@ import { buildSentrdelCapabilitiesV1 } from "./sentrdel-capability-characterizat
 import { SENTRDEL_ENGINE_ID, SENTRDEL_ENGINE_VERSION } from "./sentrdel-engine-boundary.js";
 import { SENTRDEL_PINNED_REVISION, SENTRDEL_PINNED_TREE } from "./sentrdel-source-pin.js";
 
-export const SECURITY_COMMAND_NOT_RUN_EXIT_CODE = 1 as const;
+export const SECURITY_COMMAND_NOT_RUN_EXIT_CODE = 4 as const;
 export const SECURITY_NOT_RUN_REASON = "ENGINE_NOT_EXECUTED_IN_UA_P06" as const;
 
 export interface SecurityCommandReportV1 {
@@ -30,6 +30,7 @@ export interface SecurityCommandReportV1 {
   readonly assurance_effect: "NONE";
   readonly network: "NONE";
   readonly writes: "NONE";
+  readonly executed_count: 0;
   readonly exit_code: typeof SECURITY_COMMAND_NOT_RUN_EXIT_CODE;
 }
 
@@ -54,6 +55,7 @@ export function buildSecurityCommandReportV1(): SecurityCommandReportV1 {
     assurance_effect: "NONE",
     network: "NONE",
     writes: "NONE",
+    executed_count: 0,
     exit_code: SECURITY_COMMAND_NOT_RUN_EXIT_CODE,
   });
 }
@@ -70,5 +72,6 @@ export function renderSecurityTerminalV1(report: SecurityCommandReportV1): strin
     `engine: ${report.engine.id} ${report.engine.version} @ ${report.engine.pin.slice(0, 12)} (not executed)`,
     `capabilities characterized: ${report.capabilities.length}; run: 0`,
     "This is not a security pass and not a clean result.",
+    `exit code: ${report.exit_code}`,
   ].join("\n");
 }

@@ -1,7 +1,7 @@
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CliUsageError, parseCliArgs, runCli, usageText } from "../src/cli.js";
 import {
   SECURITY_COMMAND_NOT_RUN_EXIT_CODE,
@@ -9,8 +9,16 @@ import {
 } from "../src/assurance/security/security-command.js";
 import { buildSentrdelCapabilitiesV1 } from "../src/assurance/security/sentrdel-capability-characterization.js";
 
+const configuredGitleaks = process.env.ASCOUT_GITLEAKS_PATH;
+
+// These rows describe the command without an engine, so the opt-in variable is cleared.
+beforeEach(() => {
+  delete process.env.ASCOUT_GITLEAKS_PATH;
+});
+
 afterEach(() => {
   vi.restoreAllMocks();
+  if (configuredGitleaks !== undefined) process.env.ASCOUT_GITLEAKS_PATH = configuredGitleaks;
 });
 
 function capture() {
@@ -22,7 +30,7 @@ function capture() {
   };
 }
 
-describe("UA-P06-T14 ascout security (effective amendment #625, decisions A and B)", () => {
+describe("UA-P06-T14 ascout security (decision B, with exits from Amendment A07)", () => {
   it("parses exactly security with optional --format json|terminal", () => {
     expect(parseCliArgs(["security"])).toEqual({ command: "security", allowChangedCommandSurface: false });
     expect(parseCliArgs(["security", "--format", "json"])).toEqual({
@@ -51,9 +59,9 @@ describe("UA-P06-T14 ascout security (effective amendment #625, decisions A and 
     expect(lines.at(-1)).toBe("  ascout security [--format json|terminal]");
   });
 
-  it("reports NOT_RUN on stderr and exits 1, never a pass (decision A)", async () => {
+  it("reports NOT_RUN on stderr and exits 4, never a pass (Amendment A07)", async () => {
     const io = capture();
-    expect(await runCli(["security"])).toBe(1);
+    expect(await runCli(["security"])).toBe(4);
     expect(io.stdout()).toBe("");
     const text = io.stderr();
     expect(text).toContain("=== Ascout Security (NOT_RUN) ===");
@@ -62,19 +70,19 @@ describe("UA-P06-T14 ascout security (effective amendment #625, decisions A and 
     expect(text).not.toMatch(/\bPASS(ED)?\b|\bCLEAN\b|\bSECURE\b/u);
   });
 
-  it("emits the JSON report on stdout and exits 1", async () => {
+  it("emits the JSON report on stdout and exits 4", async () => {
     const io = capture();
-    expect(await runCli(["security", "--format", "json"])).toBe(1);
+    expect(await runCli(["security", "--format", "json"])).toBe(4);
     const report = JSON.parse(io.stdout());
     expect(report).toEqual(JSON.parse(JSON.stringify(buildSecurityCommandReportV1())));
     expect(report).toMatchObject({
       kind: "security", outcome: "NOT_RUN", security_pass: false, clean_claimed: false, findings_emitted: false,
-      assurance_effect: "NONE", network: "NONE", writes: "NONE", exit_code: 1, scanned_scope: [],
+      assurance_effect: "NONE", network: "NONE", writes: "NONE", exit_code: 4, executed_count: 0, scanned_scope: [],
       engine: { executed: false },
     });
     expect(report.capabilities).toHaveLength(buildSentrdelCapabilitiesV1().length);
     expect(report.capabilities.every((c: { run: boolean }) => c.run === false)).toBe(true);
-    expect(SECURITY_COMMAND_NOT_RUN_EXIT_CODE).toBe(1);
+    expect(SECURITY_COMMAND_NOT_RUN_EXIT_CODE).toBe(4);
   });
 
   it("is deterministic, local, and read-only", async () => {
@@ -87,7 +95,7 @@ describe("UA-P06-T14 ascout security (effective amendment #625, decisions A and 
     const cwd = vi.spyOn(process, "cwd").mockReturnValue(dir);
     try {
       capture();
-      expect(await runCli(["security", "--format", "json"])).toBe(1);
+      expect(await runCli(["security", "--format", "json"])).toBe(4);
       expect(readdirSync(dir)).toEqual([]);
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
@@ -107,8 +115,8 @@ describe("UA-P06-T14 ascout security (effective amendment #625, decisions A and 
       "  ascout init",
       "  ascout doctor",
       "  ascout check [--allow-changed-command-surface] [--format json|agent]",
-      "  ascout review [--format json|terminal]",
-      "  ascout test [--profile quick|standard|deep|release] [--format json|terminal]",
+      "  ascout review [--local-model] [--format json|terminal]",
+      "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
     ]);
   });
 });

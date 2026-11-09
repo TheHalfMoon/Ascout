@@ -24,10 +24,8 @@
  *   captured on every session for evidence binding.
  */
 
-import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
 import { chromium } from "playwright";
 import type { Browser, BrowserContext, Page } from "playwright";
 import {
@@ -45,7 +43,6 @@ import type {
 } from "./executor.js";
 
 export const PINNED_PLAYWRIGHT_VERSION = "1.63.0";
-export const PLAYWRIGHT_INSTALL_TIMEOUT_MS = 600000;
 
 const require = createRequire(import.meta.url);
 
@@ -103,40 +100,19 @@ export function assertPinnedPlaywrightVersion(actual: unknown): void {
   }
 }
 
-function playwrightCliPath(): string {
-  const packageJsonPath = require.resolve("playwright/package.json");
-  return join(dirname(packageJsonPath), "cli.js");
-}
-
 /**
- * Ensures the pinned Chromium build is installed, provisioning it with
- * fixed argv when the executable is missing. Never a shell, never test
- * text: argv is one of two literal tuples below.
+ * Returns the pinned Chromium build's executable, or fails when it is missing. It never installs
+ * one: that downloads hundreds of megabytes, can run apt through sudo on Linux, and blocks the
+ * event loop for minutes, so it is an explicit developer step, as CI already does.
  */
 export function ensureChromiumInstalled(): string {
   const executablePath = chromium.executablePath();
-  if (existsSync(executablePath)) {
-    return executablePath;
-  }
-  const cliPath = playwrightCliPath();
-  const args =
-    process.platform === "linux"
-      ? ["install", "--with-deps", "chromium"]
-      : ["install", "chromium"];
-  try {
-    execFileSync(process.execPath, [cliPath, ...args], {
-      stdio: "pipe",
-      timeout: PLAYWRIGHT_INSTALL_TIMEOUT_MS,
-    });
-  } catch (error) {
+  if (!existsSync(executablePath)) {
     throw new Error(
-      `Chromium provisioning failed (fixed argv: node cli.js ${args.join(" ")}): ${firstLine(error)}`,
+      `Chromium for Playwright ${PINNED_PLAYWRIGHT_VERSION} is not installed; install it with \`npx playwright install chromium\``,
     );
   }
-  if (!existsSync(chromium.executablePath())) {
-    throw new Error("Chromium provisioning reported success but no executable exists");
-  }
-  return chromium.executablePath();
+  return executablePath;
 }
 
 function firstLine(error: unknown): string {
@@ -189,15 +165,35 @@ export function actionSemanticError(
   return null;
 }
 
-/** Pure origin join for origin-relative navigate targets. */
+/**
+ * Resolves a navigate target against the session origin. Execution is limited to that origin,
+ * so a target that resolves anywhere else, or carries credentials, is null and is refused.
+ */
 export function resolveNavigateTarget(
   application_origin: string,
   target: string,
-): string {
-  if (/^https?:\/\//.test(target)) {
-    return target;
+): string | null {
+  let resolved: URL;
+  try {
+    resolved = new URL(target, application_origin);
+  } catch {
+    return null;
   }
-  return `${application_origin}${target}`;
+  if (resolved.origin !== new URL(application_origin).origin) return null;
+  if (resolved.username !== "" || resolved.password !== "") return null;
+  return resolved.href;
+}
+
+/** True for an http(s) URL outside the session origin, which the context refuses to load. */
+export function isOffOriginRequest(application_origin: string, url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return true;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  return parsed.origin !== new URL(application_origin).origin;
 }
 
 const CONSOLE_CLEAN_STATEMENTS = new Set([
@@ -277,6 +273,9 @@ export async function launchPlaywrightSession(
   const executable_path = ensureChromiumInstalled();
   const browser: Browser = await chromium.launch({
     headless: options?.headless ?? true,
+    // Playwright launches Chromium with --no-sandbox unless told otherwise. A renderer exploit
+    // on a page under test must stay inside the sandbox, not run as the developer.
+    chromiumSandbox: true,
   });
   let browser_version: string;
   let context: BrowserContext;
@@ -285,6 +284,12 @@ export async function launchPlaywrightSession(
   try {
     browser_version = browser.version();
     context = await browser.newContext();
+    // Redirects and subresources included: nothing outside the session origin loads.
+    await context.route("**/*", (route) =>
+      isOffOriginRequest(session.application_origin, route.request().url())
+        ? route.abort("blockedbyclient")
+        : route.continue(),
+    );
     page = await context.newPage();
     page.on("console", (message) => {
       if (message.type() === "error") {
@@ -357,16 +362,21 @@ export async function launchPlaywrightSession(
           status: "refused",
         });
       }
-      const effective =
-        request.kind === "navigate"
-          ? {
-              ...request,
-              target: resolveNavigateTarget(
-                session.application_origin,
-                request.target,
-              ),
-            }
-          : request;
+      const navigateTarget = request.kind === "navigate"
+        ? resolveNavigateTarget(session.application_origin, request.target)
+        : null;
+      if (request.kind === "navigate" && navigateTarget === null) {
+        return createActionResponse({
+          duration_ms: now() - started,
+          error: { code: "E_OFF_ORIGIN", message: "navigate target is outside the session origin" },
+          evidence_refs: [],
+          request_id: request.request_id,
+          session_id: session.session_id,
+          source_identity: session.source_identity,
+          status: "refused",
+        });
+      }
+      const effective = navigateTarget === null ? request : { ...request, target: navigateTarget };
       try {
         await runAction(page, effective, resolveTarget);
         return createActionResponse({

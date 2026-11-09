@@ -33,6 +33,7 @@ import type {
   BrowserArtifactRef,
   BrowserAssertionResponse,
 } from "./executor.js";
+import { BROWSER_SECRET_MARKERS } from "./secret-markers.js";
 
 export type BrowserOracleKind =
   | "dom_deterministic"
@@ -221,15 +222,7 @@ const CONSOLE_STREAMS: readonly BrowserConsoleStream[] = [
   "page-error",
 ];
 
-const SECRET_MARKERS: readonly RegExp[] = [
-  /\bghp_[A-Za-z0-9]{20,}/,
-  /\bgho_[A-Za-z0-9]{20,}/,
-  /\bgithub_pat_[A-Za-z0-9_]{20,}/,
-  /\bAKIA[0-9A-Z]{16}\b/,
-  /\bxox[baprs]-[A-Za-z0-9-]{10,}/,
-  /\bsk-(live|test)-[A-Za-z0-9]{10,}/,
-  /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/,
-];
+const SECRET_MARKERS = BROWSER_SECRET_MARKERS;
 
 function compareText(left: string, right: string): number {
   if (left < right) return -1;

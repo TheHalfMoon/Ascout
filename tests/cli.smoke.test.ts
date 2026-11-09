@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -77,8 +77,7 @@ describe("T007 CLI startup smoke", () => {
     const exitCode = await runCli(["doctor"]);
     const output = errorSpy.mock.calls.flat().map(String).join("\n");
 
-    expect(typeof exitCode).toBe("number");
-    expect(exitCode).not.toBe(0);
+    expect(exitCode).toBe(2);
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(output).not.toContain(emptyProject);
     expect(readdirSync(emptyProject)).toEqual([]);
@@ -102,6 +101,21 @@ describe("T007 CLI startup smoke", () => {
       command: "check",
       allowChangedCommandSurface: true,
     });
+  });
+
+  it("maps an init failure to exit 2 with a redacted error (Amendment A07)", async () => {
+    const project = mkdtempSync(join(tmpdir(), "ascout-a07-init-"));
+    temporaryDirectories.push(project);
+    mkdirSync(join(project, ".gitignore"));
+    process.chdir(project);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    vi.resetModules();
+    const { runCli } = await import("../src/cli.js");
+    expect(await runCli(["init"])).toBe(2);
+    const output = errorSpy.mock.calls.flat().map(String).join("\n");
+    expect(output).toContain("ascout init failed:");
+    expect(output).not.toContain(project);
   });
 
   it("keeps init limited to config plus .gitignore and does not pre-create runtime state", async () => {

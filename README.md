@@ -1,6 +1,6 @@
 # Ascout
 
-> **Verify everything AI ships.**  
+> **Verify everything AI ships.**
 > **Know exactly what passed, failed, and was never checked.**
 
 Ascout is a local, evidence-bound verification layer for AI-built software. It inspects the exact Git working-tree state, discovers supported project-local verification tools, runs bounded checks, and emits a receipt that distinguishes what was proved from what failed, was refused, remained unresolved, or was not run.
@@ -93,12 +93,12 @@ The last command prints usage and exits with a usage error because a command is 
 ascout init
 ascout doctor
 ascout check [--allow-changed-command-surface] [--format json|agent]
-ascout review [--format json|terminal]
-ascout test [--profile quick|standard|deep|release] [--format json|terminal]
+ascout review [--local-model] [--format json|terminal]
+ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]
 ascout security [--format json|terminal]
 ```
 
-**Current command semantics (v0.1.0):** `ascout check` executes supported local verification tasks and produces an evidence receipt. `ascout review` presently reports review scope or unavailable review execution; it does **not** run a code-review engine. `ascout test` presently creates a test plan; it does **not** execute that plan. Both `review` and `test` can currently exit with code 0 even though no review or advanced test execution took place. That exit status is **not an assurance PASS**. A change to those command exit semantics is proposed separately and requires the appropriate compatibility/governance approval. `ascout security` is local and read-only: no security engine is executed yet, so it always reports `NOT_RUN` and exits with code 1; it never reports a security pass or a clean result.
+**Current command semantics (v0.1.0):** `ascout check` executes supported local verification tasks and produces an evidence receipt, and must run from the repository root. `ascout review` reports unreviewed working-tree and index changes; it does **not** run a code-review engine unless you opt in to a local model with `--local-model`, as described below, and it does not consider committed changes or ignored files. `ascout test` runs `check` for the `standard` (default), `deep`, and `release` profiles, so inside a repository it executes the same admitted verification commands as `ascout check` and returns its result. `deep` and `release` also require mutation, property-fuzz, browser, and other engines that do not run yet, so they exit `4` unless `check` found a failure or drift. `quick` has no qualified engine and runs nothing. `ascout security` runs no scanner unless you opt in to Gitleaks, as described below. Without an engine, these commands exit `4` because required verification did not run, and that exit status is never an assurance PASS. `ascout test --plan` renders a plan labeled `NON_ASSURANCE_PLAN` and exits `0`; that is not a test result.
 
 When running directly from a source checkout rather than an installed release asset, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
 
@@ -225,12 +225,23 @@ A receipt is bound to the source Ascout actually observed:
 - `source.start.head_sha` is the exact full Git object ID resolved at source start;
 - for `working_tree_vs_head`, `comparison.base_ref` must equal that same exact object ID;
 - SHA-1 repositories use 40-hex object IDs and SHA-256 repositories use 64-hex object IDs;
+- the start fingerprint is taken before Ascout reads any configuration, and the tree is fingerprinted again once discovery, configuration, and the changed-file list are read; if they differ, `check` stops with an error instead of acting on a mixed reading;
 - source state is rehashed at the end so drift is reported independently from task completeness;
 - persisted paths are canonical repository/run-relative slash-separated paths;
 - invalid raw absolute, drive, UNC, URI, backslash, traversal, duplicate-separator, or trailing-separator spellings are rejected before lossy normalization can repair them into valid-looking evidence;
 - evidence/artifact references must resolve inside the run/task contract.
 
 The repository identity itself is privacy-safe: Ascout persists a hashed normalized remote identity when available or a hashed canonical-local identity, rather than persisting raw credential-bearing origins or raw absolute local repository paths.
+
+### Limits of the source fingerprint
+
+The fingerprint follows Git's view of the working tree, not raw file bytes, so a change Git itself treats as no change is not seen as a change or as drift:
+
+- **Attribute conversions.** A tracked file whose working copy matches the index after Git's conversions counts as unchanged. Those conversions are line endings (`text`, `eol`, `core.autocrlf`), `ident` keyword expansion, and `working-tree-encoding`. Text placed inside an `$Id: ... $` keyword, or a line-ending flip, can therefore go unseen.
+- **Mode bits.** With `core.fileMode=false`, a permission change is not seen.
+- **Git's stat cache.** Git decides which tracked files to re-read from size and timestamps. An edit that keeps the size and restores the timestamps can be missed, and `core.checkStat=minimal` widens that.
+
+Executable filters (`clean`, `smudge`, `process`) are refused outright. These conversions are not, because refusing them would block the many repositories that use `text=auto`. If a repository's command or configuration files must be byte-exact, don't apply `ident`, `eol`, or `working-tree-encoding` attributes to them.
 
 ## Receipts and local artifacts
 
@@ -259,6 +270,23 @@ At a high level:
 - refused or unrun required work remains visible in receipt completeness/status rather than being counted as passed.
 
 Consumers should use the receipt fields together with the exit status instead of reducing the receipt to a single boolean.
+
+All commands use the same meanings under Constitution Amendment A07:
+
+| Exit | Meaning |
+| --- | --- |
+| `0` | Complete applicable work, or an explicitly requested non-assurance operation such as `test --plan` |
+| `1` | A verified finding or a `FAIL` or `FLAKY` task |
+| `2` | An error or invalid evidence, including running `check`, `review`, or `doctor` outside a repository, or `check`, `review`, `doctor`, or `test` from a subdirectory |
+| `3` | Source drift detected between the start and end of the operation |
+| `4` | Applicable verification that did not complete, including `review` today and `test --profile quick`, because no engine runs. `test` and `security` exit `4` outside a repository too |
+
+**`ascout security` with Gitleaks.** Set `ASCOUT_GITLEAKS_PATH` to a Gitleaks 8.30.1 executable from the official release, on linux-x64, macOS arm64, or Windows x64. Ascout runs it only if its bytes match the digest pinned for that platform. It never searches `PATH` or downloads anything. Findings exit `1` and list each rule, file, and line, never the secret. A scan with no findings exits `4`, because Gitleaks cannot show which files it scanned, so no scan is a clean result. A repository's own `.gitleaksignore` can hide findings, and the report says so when one exists. Errors, including a repository Ascout refuses, exit `2` with nothing on stdout, and a source change during the scan exits `3`. Neither reports findings. See [`E5B_SECURITY_GITLEAKS_SPEC.md`](specs/017-unified-assurance/E5B_SECURITY_GITLEAKS_SPEC.md).
+
+**`ascout review --local-model`.** Reviews the working-tree changes with a code model served by [Ollama](https://ollama.com) on your own machine. You authorize it in `review-provider.json` in your config directory (`%APPDATA%ascout` on Windows, `~/.config/ascout` elsewhere), never in the repository. Ascout talks only to `http://127.0.0.1` or `http://[::1]`, and nothing leaves your machine. The review is **advisory**: a small local model misses problems and reports false ones, and its output never counts as human review. Findings it can place in the changed lines exit `1`. If it reports none and saw every changed file, it exits `0`, which is advice and not a clean review. If it saw only part of the change, it exits `4`. A missing provider, a refused one, or a model that fails or times out also exits `4`. A malformed config exits `2`, and a source change during the review exits `3`. See [`E6D_LOCAL_REVIEW_WIRING_SPEC.md`](specs/017-unified-assurance/E6D_LOCAL_REVIEW_WIRING_SPEC.md).
+
+**This is a breaking change.** Earlier versions exited `0` for `review` and `test` and `1` for `security` without running anything, and exited `1` for most operational errors. Failures while Ascout itself is still loading, and output streams closed before it starts, are outside this guarantee.
+Ascout refuses to read a partial clone, a repository that contains a Git submodule, or one where any tracked or included untracked path has a Git `filter` attribute, because these can run commands. This includes `git-lfs` repositories. It exits `2` and says why. This is bounded process hardening, not a sandbox, and Ascout still supports only your own trusted repository.
 
 ## Package boundary
 

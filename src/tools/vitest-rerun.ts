@@ -42,7 +42,7 @@ export interface UnavailableVitestTargetedRerun {
 export type VitestTargetedRerunPlan = PlannedVitestTargetedRerun | UnavailableVitestTargetedRerun;
 
 const CANONICAL_REPOSITORY_PATH =
-  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
 function validRunId(runId: string): boolean {
   return /^[A-Za-z0-9._-]+$/u.test(runId) && runId !== "." && runId !== "..";

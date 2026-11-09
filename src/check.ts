@@ -1,8 +1,10 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
-import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   FIXED_SEMANTIC_TASKS,
+  canonicalRepositoryRoot,
   classifyCommandSurfaces,
   collectDiscoveredProject,
   intersectChangedAuthorityPaths,
@@ -16,15 +18,18 @@ import { normalizeLcovLineCoverage, normalizeLcovBranchCoverage, type LcovLinePo
 import { buildChangedLineExercise } from "./exercise.js";
 import { observeEnvironment } from "./environment.js";
 import {
+  readContainedWorktreeText,
   readGitHeadState,
   readTreeDigestV1,
+  readUntrackedIgnoredPaths,
   readWorkingTreeComparison,
   resolveRepositoryIdentity,
   type GitChangedFile,
 } from "./git.js";
 import { acquireRunLock } from "./lock.js";
-import { runProcess } from "./process.js";
+import { runProcess, type ProcessRunResult } from "./process.js";
 import {
+  redactCutTail,
   redactExactValues,
   redactPersistedArgv,
   selectedSecretValues,
@@ -68,6 +73,7 @@ import {
   type FailingTestIdentity,
   type TestAssertionObservation,
 } from "./test-reproduction.js";
+import { junitResultRecordsFailure, machineResultRecordsFailure } from "./test-result-outcome.js";
 import { planESLintTask } from "./tools/eslint.js";
 import { planJestTargetedRerun } from "./tools/jest-rerun.js";
 import { planJestTask, type JestTaskPlan, type PlannedJestTask } from "./tools/jest.js";
@@ -90,9 +96,13 @@ export const COMMAND_SURFACE_CHANGED_REASON_TEXT =
  */
 export interface AdmissionRefusal {
   readonly status: "NOT_RUN";
-  readonly reasonCode: typeof COMMAND_SURFACE_CHANGED_REASON_CODE;
+  readonly reasonCode: typeof COMMAND_SURFACE_CHANGED_REASON_CODE | typeof AUTHORITY_FILE_IGNORED_REASON_CODE;
   readonly reasonText: string;
 }
+
+export const AUTHORITY_FILE_IGNORED_REASON_CODE = "authority_file_ignored" as const;
+const AUTHORITY_FILE_IGNORED_REASON_TEXT =
+  "A file this task's command or configuration comes from is untracked and ignored by Git, so Ascout can't tell whether it changed. Track the file or stop ignoring it.";
 
 export interface TaskAdmissionDecision {
   readonly taskType: SemanticTaskType;
@@ -113,6 +123,27 @@ export interface RunAdmissionOptions extends CommandSurfaceClassifyOptions {
    * automation.
    */
   readonly allowChangedCommandSurface?: boolean;
+  /**
+   * Authority paths Git reports as untracked and ignored. The comparison leaves them out,
+   * so they can never show as changed; a task that depends on one doesn't launch.
+   */
+  readonly untrackedIgnoredPaths?: readonly string[];
+  /**
+   * For authority paths that are symbolic links, the repository path each resolves to. A
+   * task loads the target's content, so the target joins the task's authority paths.
+   */
+  readonly symlinkTargets?: ReadonlyMap<string, string>;
+}
+
+function withSymlinkTargets(
+  authorityPaths: readonly string[],
+  symlinkTargets: ReadonlyMap<string, string>,
+): readonly string[] {
+  const targets = authorityPaths.flatMap((path) => {
+    const target = symlinkTargets.get(path);
+    return target === undefined ? [] : [target];
+  });
+  return targets.length === 0 ? authorityPaths : [...new Set([...authorityPaths, ...targets])].sort();
 }
 
 function emptyDecision(taskType: SemanticTaskType): TaskAdmissionDecision {
@@ -131,10 +162,23 @@ export function decideTaskAdmission(
   authorityPaths: readonly string[],
   changedFiles: readonly ChangedPathView[],
   allowChangedCommandSurface: boolean,
+  untrackedIgnoredPaths: ReadonlySet<string> = new Set(),
 ): TaskAdmissionDecision {
   const changedAuthorityPaths = intersectChangedAuthorityPaths(authorityPaths, changedFiles);
 
   if (changedAuthorityPaths.length === 0) {
+    // The override can't admit these: the receipt names only changed paths in the comparison.
+    if (authorityPaths.some((path) => untrackedIgnoredPaths.has(path))) {
+      return {
+        ...emptyDecision(taskType),
+        launchAllowed: false,
+        refusal: {
+          status: "NOT_RUN",
+          reasonCode: AUTHORITY_FILE_IGNORED_REASON_CODE,
+          reasonText: AUTHORITY_FILE_IGNORED_REASON_TEXT,
+        },
+      };
+    }
     return emptyDecision(taskType);
   }
 
@@ -175,16 +219,27 @@ export function decideRunAdmissions(
   changedFiles: readonly ChangedPathView[],
   options: RunAdmissionOptions = {},
 ): RunAdmissionDecisions {
-  const { allowChangedCommandSurface = false, ...classifyOptions } = options;
+  const { allowChangedCommandSurface = false, untrackedIgnoredPaths = [], symlinkTargets = new Map(), ...classifyOptions } = options;
   const surfaces = classifyCommandSurfaces(discovery, classifyOptions);
+  const ignored = new Set(untrackedIgnoredPaths);
   const result = {} as Record<SemanticTaskType, TaskAdmissionDecision>;
+  // Settings outside tasks, such as timeouts and redactEnv, apply to every task. An edit to an
+  // existing config can weaken them, so it is a surface change for all; a new one, as
+  // ascout init writes, keeps the per-task rule.
+  const ascoutPath = classifyOptions.ascoutConfigPath ?? "ascout.config.json";
+  const existingConfigEdited = changedFiles.some((file) =>
+    (file.path === ascoutPath || file.previous_path === ascoutPath) && file.change_kind !== "added"
+  );
 
   for (const task of FIXED_SEMANTIC_TASKS) {
+    const declared = surfaces[task].authorityPaths;
+    const authority = existingConfigEdited && !declared.includes(ascoutPath) ? [...declared, ascoutPath].sort() : declared;
     result[task] = decideTaskAdmission(
       task,
-      surfaces[task].authorityPaths,
+      withSymlinkTargets(authority, symlinkTargets),
       changedFiles,
       allowChangedCommandSurface,
+      ignored,
     );
   }
 
@@ -200,6 +255,8 @@ const MAX_CONFIG_BYTES = 1024 * 1024;
 const DEFAULT_TASK_TIMEOUT_MS = 600_000;
 const DEFAULT_TERMINATION_GRACE_MS = 5_000;
 const TASK_CAPTURE_CAP_BYTES = 8 * 1024 * 1024;
+/** A changed source file larger than this is treated as unreadable, so its uncovered lines stay unresolved. */
+const CHANGED_SOURCE_READ_CAP_BYTES = 8 * 1024 * 1024;
 const MIN_SECRET_VALUE_BYTES = 8;
 const LCOV_NO_BRANCH_DATA_REASON = "no usable branch coverage records";
 
@@ -210,7 +267,15 @@ export interface CheckRunOptions {
    * by agent automation.
    */
   readonly allowChangedCommandSurface?: boolean;
+  /**
+   * Cancels the run: the running task's process tree is stopped, later tasks don't start,
+   * and the receipt records them as cancelled.
+   */
+  readonly signal?: AbortSignal;
 }
+
+/** The current run's cancellation signal, reached by every task launch without threading it through. */
+const runCancellation = new AsyncLocalStorage<AbortSignal | undefined>();
 
 export interface CheckOutcome {
   readonly receipt: ReceiptV1;
@@ -347,8 +412,34 @@ function toChangedFileV1(file: GitChangedFile): ChangedFileV1 {
   };
 }
 
+/**
+ * The repository path a symbolic link at `path` resolves to: its target inside the
+ * repository, null for a target outside it or one that can't be resolved, and
+ * undefined when `path` isn't a symbolic link.
+ */
+export function symlinkTargetInRepository(repositoryRoot: string, path: string): string | null | undefined {
+  const absolute = join(repositoryRoot, ...path.split("/"));
+  try {
+    if (!lstatSync(absolute).isSymbolicLink()) return undefined;
+  } catch {
+    return undefined;
+  }
+  try {
+    const relativeTarget = relative(realpathSync.native(repositoryRoot), realpathSync.native(absolute));
+    if (relativeTarget === "" || relativeTarget === ".." || relativeTarget.startsWith(`..${sep}`) || isAbsolute(relativeTarget)) {
+      return null;
+    }
+    return relativeTarget.split(sep).join("/");
+  } catch {
+    return null;
+  }
+}
+
 export function loadConfig(repositoryRoot: string): { config: ConfigV1; digest: string } {
   const path = join(repositoryRoot, ASCOUT_CONFIG_PATH);
+  if (symlinkTargetInRepository(repositoryRoot, ASCOUT_CONFIG_PATH) === null) {
+    throw new Error(`${ASCOUT_CONFIG_PATH} is a symbolic link that resolves outside the repository`);
+  }
   let raw: Buffer;
   try {
     raw = readFileSync(path);
@@ -406,7 +497,11 @@ function persistCapture(
   secrets: readonly string[],
 ): PersistedCapture {
   const rawText = bytes.toString("utf8");
-  const text = redactExactValues(rawText, secrets);
+  // Capture stops at a byte cap, so a secret can straddle the cut and only its start remains.
+  const cut = truncated
+    ? redactCutTail(redactExactValues(rawText, secrets), secrets)
+    : { text: redactExactValues(rawText, secrets), redacted: false };
+  const text = cut.text;
   const persisted = Buffer.from(text, "utf8");
   const capturePath = join(rawPath, fileName);
   let captureFd: number | null = null;
@@ -419,7 +514,7 @@ function persistCapture(
 
   const sha256 = createSha256(persisted);
   const artifactId = `${taskId}.${fileName}`;
-  const redacted = secrets.some((secret) => rawText.includes(secret));
+  const redacted = cut.redacted || secrets.some((secret) => rawText.includes(secret));
 
   return {
     artifact: {
@@ -478,6 +573,52 @@ interface ExecutePlannedTaskOptions {
   readonly evidenceSequenceStart?: number;
 }
 
+/**
+ * Maps a finished task process to its receipt status. Only a clean exit passes; a timeout
+ * says whether its process tree was confirmed stopped, and a tree escape is never a result.
+ */
+export function taskStatusFromProcess(
+  result: Pick<ProcessRunResult, "outcome" | "exit_code" | "signal" | "timed_out" | "cleanup_complete" | "error">,
+  timeoutMs: number,
+): { status: TaskResultV1["status"]; reasonCode: string | null; reasonText: string | null; failures: number } {
+  let status: TaskResultV1["status"];
+  let reasonCode: string | null = null;
+  let reasonText: string | null = null;
+  let failures = 0;
+
+  if (result.outcome === "exited" && result.exit_code === 0 && result.signal === null) {
+    status = "PASS";
+  } else if (result.outcome === "exited" && result.exit_code !== null && result.signal === null) {
+    status = "FAIL";
+    failures = 1;
+  } else if (result.timed_out) {
+    status = "ERROR";
+    reasonCode = result.cleanup_complete ? "task_timeout" : "task_timeout_cleanup_incomplete";
+    reasonText = result.cleanup_complete
+      ? `Task exceeded its ${timeoutMs} ms budget and its process tree was terminated.`
+      : `Task exceeded its ${timeoutMs} ms budget, and Ascout could not confirm its process tree stopped.`;
+  } else if (result.outcome === "cancelled") {
+    status = "ERROR";
+    reasonCode = "task_cancelled";
+    reasonText = result.cleanup_complete
+      ? "The run was cancelled, so this task was stopped or never started."
+      : "The run was cancelled, and Ascout could not confirm this task's process tree stopped.";
+  } else if (result.outcome === "tree_escape") {
+    status = "ERROR";
+    reasonCode = "task_tree_escape";
+    reasonText = "The task's process exited but left descendant processes running, which Ascout stopped. Evidence from the run isn't trusted.";
+  } else if (result.signal !== null) {
+    status = "ERROR";
+    reasonCode = "process_signalled";
+    reasonText = `The task process terminated on signal ${result.signal}.`;
+  } else {
+    status = "ERROR";
+    reasonCode = "process_error";
+    reasonText = result.error?.message ?? "The task process failed without a recorded exit code.";
+  }
+  return { status, reasonCode, reasonText, failures };
+}
+
 async function executePlannedTask(
   repositoryRoot: string,
   runId: string,
@@ -491,10 +632,15 @@ async function executePlannedTask(
 ): Promise<ExecutedTask> {
   const startedMs = Date.now();
   const startedAt = new Date(startedMs).toISOString();
+  const cancellation = runCancellation.getStore();
   const result = await runProcess({
     file: plan.argv[0]!,
     argv: plan.argv.slice(1),
     cwd: workingDirectoryPath(repositoryRoot, plan.workingDirectory),
+    resolve_bare_file_outside: repositoryRoot,
+    // A descendant left running could rewrite this run's evidence after the runner exits.
+    require_tree_exit: true,
+    ...(cancellation === undefined ? {} : { signal: cancellation }),
     ...(options.env === undefined ? {} : { env: options.env }),
     timeout_ms: timeoutMs,
     termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
@@ -518,29 +664,7 @@ async function executePlannedTask(
   const persistedArgv = redactPersistedArgv(plan.argv, secrets);
   const argvRedacted = persistedArgv.some((value, index) => value !== plan.argv[index]);
 
-  let status: TaskResultV1["status"];
-  let reasonCode: string | null = null;
-  let reasonText: string | null = null;
-  let failures = 0;
-
-  if (result.outcome === "exited" && result.exit_code === 0 && result.signal === null) {
-    status = "PASS";
-  } else if (result.outcome === "exited" && result.exit_code !== null && result.signal === null) {
-    status = "FAIL";
-    failures = 1;
-  } else if (result.timed_out) {
-    status = "ERROR";
-    reasonCode = "task_timeout";
-    reasonText = `Task exceeded its ${timeoutMs} ms budget and its process tree was terminated.`;
-  } else if (result.signal !== null) {
-    status = "ERROR";
-    reasonCode = "process_signalled";
-    reasonText = `The task process terminated on signal ${result.signal}.`;
-  } else {
-    status = "ERROR";
-    reasonCode = "process_error";
-    reasonText = result.error?.message ?? "The task process failed without a recorded exit code.";
-  }
+  const { status, reasonCode, reasonText, failures } = taskStatusFromProcess(result, timeoutMs);
 
   return {
     task: {
@@ -575,7 +699,7 @@ async function executePlannedTask(
 
 
 const CANONICAL_RUN_RELATIVE_PATH =
-  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?!.+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
+  /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
 interface PersistedTextArtifact extends PersistedCapture {
   readonly text: string;
@@ -867,16 +991,18 @@ function validVitestMachineResult(text: string): boolean {
     Array.isArray((value as { readonly testResults?: unknown }).testResults);
 }
 
-function withVitestEvidenceError(
+function withTestTaskError(
   executed: ExecutedTask,
   generated: readonly PersistedTextArtifact[],
+  reasonCode: string,
+  reasonText: string,
 ): ExecutedTestTask {
   return {
     task: {
       ...executed.task,
       status: "ERROR",
-      reason_code: "vitest_evidence_invalid",
-      reason_text: "Vitest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
+      reason_code: reasonCode,
+      reason_text: reasonText,
       evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
       artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
     },
@@ -886,6 +1012,87 @@ function withVitestEvidenceError(
     branchPoints: null,
     selectedTestCounts: [null],
     machineResults: [],
+  };
+}
+
+/**
+ * A runner that exits 0 while its own machine result records a failure was
+ * configured or altered to hide failures. Its exit code can't be trusted, and
+ * neither can a rerun judged by exit code, so the task is ERROR, not PASS.
+ */
+function withFailureHiddenByExitCode(
+  executed: ExecutedTask,
+  generated: readonly PersistedTextArtifact[],
+  runner: "Vitest" | "Jest",
+): ExecutedTestTask {
+  return withTestTaskError(
+    executed,
+    generated,
+    "test_exit_contradicts_results",
+    `${runner} exited 0, but its machine result records a failed test or suite.`,
+  );
+}
+
+function withVitestEvidenceError(
+  executed: ExecutedTask,
+  generated: readonly PersistedTextArtifact[],
+): ExecutedTestTask {
+  return withTestTaskError(
+    executed,
+    generated,
+    "vitest_evidence_invalid",
+    "Vitest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
+  );
+}
+
+const PYTEST_RESULTS_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Runs discovered pytest with a JUnit XML report and reads it. pytest's exit status alone can be
+ * rewritten, for example by a conftest.py hook, so an exit 0 whose report records a failure, or
+ * that left no report, is ERROR rather than PASS. A configured override command is run as given.
+ */
+async function executePytestWithResults(
+  repositoryRoot: string,
+  runId: string,
+  rawPath: string,
+  plan: NormalizedPlan & { state: "planned" },
+  decision: TaskAdmissionDecision,
+  secrets: readonly string[],
+  timeoutMs: number,
+): Promise<ExecutedTask> {
+  mkdirSync(join(rawPath, "pytest"), { recursive: true });
+  const resultsRelativePath = `.ascout/runs/${runId}/raw/pytest/pytest-results.xml`;
+  const executed = await executePlannedTask(
+    repositoryRoot,
+    runId,
+    rawPath,
+    "pytestBasic",
+    { ...plan, argv: [...plan.argv, `--junitxml=${resultsRelativePath}`] },
+    decision,
+    secrets,
+    timeoutMs,
+  );
+  if (executed.task.status !== "PASS") return executed;
+
+  let xml: string | null;
+  try {
+    const bytes = readFileSync(join(rawPath, "pytest", "pytest-results.xml"));
+    xml = bytes.byteLength > PYTEST_RESULTS_MAX_BYTES ? null : bytes.toString("utf8");
+  } catch {
+    xml = null;
+  }
+  if (xml !== null && !junitResultRecordsFailure(xml)) return executed;
+  return {
+    ...executed,
+    task: {
+      ...executed.task,
+      status: "ERROR",
+      reason_code: xml === null ? "pytest_results_missing" : "test_exit_contradicts_results",
+      reason_text: xml === null
+        ? "pytest exited 0 but left no readable JUnit report, so its result can't be confirmed."
+        : "pytest exited 0, but its JUnit report records a failed or errored test.",
+    },
   };
 }
 
@@ -947,6 +1154,9 @@ async function executeVitestTask(
     );
     generated.push(machine);
     if (!validVitestMachineResult(machine.text)) return withVitestEvidenceError(executed, generated);
+    if (executed.task.status === "PASS" && machineResultRecordsFailure(machine.text)) {
+      return withFailureHiddenByExitCode(executed, generated, "Vitest");
+    }
     selectedTestCount = observedSelectedTestCount(machine.text);
     machineResult = { runner: "vitest", text: machine.text, evidenceId: machine.evidence.evidence_id, basePlan: plan };
 
@@ -962,10 +1172,10 @@ async function executeVitestTask(
       secrets,
     );
     generated.push(coverage);
-    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
+    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot, plan.workingDirectory);
     if (lineNormalized.outcome !== "resolved") return withVitestEvidenceError(executed, generated);
     coveragePoints = lineNormalized.points;
-    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
+    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot, plan.workingDirectory);
     if (branchNormalized.outcome === "resolved") {
       branchPoints = branchNormalized.observations;
     } else if (branchNormalized.reason === LCOV_NO_BRANCH_DATA_REASON) {
@@ -1014,22 +1224,12 @@ function withJestEvidenceError(
   executed: ExecutedTask,
   generated: readonly PersistedTextArtifact[],
 ): ExecutedTestTask {
-  return {
-    task: {
-      ...executed.task,
-      status: "ERROR",
-      reason_code: "jest_evidence_invalid",
-      reason_text: "Jest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
-      evidence_ids: [...executed.task.evidence_ids, ...generated.map(({ evidence }) => evidence.evidence_id)],
-      artifact_refs: [...executed.task.artifact_refs, ...generated.map(({ artifact }) => artifact.artifact_id)],
-    },
-    evidence: [...executed.evidence, ...generated.map(({ evidence }) => evidence)],
-    artifacts: [...executed.artifacts, ...generated.map(({ artifact }) => artifact)],
-    coveragePoints: null,
-    branchPoints: null,
-    selectedTestCounts: [null],
-    machineResults: [],
-  };
+  return withTestTaskError(
+    executed,
+    generated,
+    "jest_evidence_invalid",
+    "Jest did not produce bounded, parseable machine-result and LCOV evidence inside the current Ascout run.",
+  );
 }
 
 async function executeJestTask(
@@ -1090,6 +1290,9 @@ async function executeJestTask(
     );
     generated.push(machine);
     if (!validJestMachineResult(machine.text)) return withJestEvidenceError(executed, generated);
+    if (executed.task.status === "PASS" && machineResultRecordsFailure(machine.text)) {
+      return withFailureHiddenByExitCode(executed, generated, "Jest");
+    }
     selectedTestCount = observedSelectedTestCount(machine.text);
     machineResult = { runner: "jest", text: machine.text, evidenceId: machine.evidence.evidence_id, basePlan: plan };
 
@@ -1105,10 +1308,10 @@ async function executeJestTask(
       secrets,
     );
     generated.push(coverage);
-    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot);
+    const lineNormalized = normalizeLcovLineCoverage(coverage.text, repositoryRoot, plan.workingDirectory);
     if (lineNormalized.outcome !== "resolved") return withJestEvidenceError(executed, generated);
     coveragePoints = lineNormalized.points;
-    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot);
+    const branchNormalized = normalizeLcovBranchCoverage(coverage.text, repositoryRoot, plan.workingDirectory);
     if (branchNormalized.outcome === "resolved") {
       branchPoints = branchNormalized.observations;
     } else if (branchNormalized.reason === LCOV_NO_BRANCH_DATA_REASON) {
@@ -1229,6 +1432,11 @@ async function executeTargetedTestObservation(
     reasonCode: null,
     reasonText: null,
   };
+  // Windows can't pass CR or LF in an argument, so a test named with one can't be rerun.
+  // Its single observation stands, and reproduction stays unknown.
+  if (process.platform === "win32" && normalizedPlan.argv.some((argument) => /[\r\n]/u.test(argument))) {
+    return { observation: null, evidence: [], artifacts: [], finishedAt: null, outputTruncated: false };
+  }
   const sequenceStart = observationOrdinal === 2 ? 9 : 12;
   const executed = await executePlannedTask(
     repositoryRoot,
@@ -1345,6 +1553,8 @@ async function normalizeFailedTestExecution(
     while (
       targetObservations.length < 3 &&
       targetObservations.length > 0 &&
+      // A rerun can't tell same-named tests apart, so it would prove nothing.
+      !targetObservations.some(({ ambiguous }) => ambiguous === true) &&
       targetObservations.every((observation) => observation.outcome === "failed")
     ) {
       const observationOrdinal = (targetObservations.length + 1) as 2 | 3;
@@ -1471,9 +1681,20 @@ export async function runCheck(
   repositoryRoot: string,
   options: CheckRunOptions = {},
 ): Promise<CheckOutcome> {
+  return runCancellation.run(options.signal, () => runCheckWithinCancellation(repositoryRoot, options));
+}
+
+async function runCheckWithinCancellation(
+  repositoryRoot: string,
+  options: CheckRunOptions,
+): Promise<CheckOutcome> {
   const lock = await acquireRunLock(repositoryRoot);
   try {
-    const { root, files, discovery } = collectDiscoveredProject(repositoryRoot);
+    // The start fingerprint comes first, so every file check reads to decide what to run lies
+    // between it and the recheck below; a write in that window can't go unseen.
+    const startRoot = canonicalRepositoryRoot(repositoryRoot);
+    const sourceStart = composeSourceState(startRoot);
+    const { root, files, discovery } = collectDiscoveredProject(startRoot);
     const environment = observeEnvironment(root, files, discovery);
     const { config, digest } = loadConfig(root);
     const runId = generateRunId();
@@ -1481,7 +1702,6 @@ export async function runCheck(
 
     try {
       const runStartedAt = new Date().toISOString();
-      const sourceStart = composeSourceState(root);
       const gitComparison = readWorkingTreeComparison(root, sourceStart.head_sha);
       const comparison: ComparisonV1 = {
         kind: gitComparison.kind,
@@ -1492,11 +1712,25 @@ export async function runCheck(
         changed_files: gitComparison.changed_files.map(toChangedFileV1),
       };
 
+      const surfaceOptions = { ascoutConfigPath: ASCOUT_CONFIG_PATH, tasks: config.tasks ?? null };
+      const surfaces = classifyCommandSurfaces(discovery, surfaceOptions);
+      const declaredAuthorityPaths = [...new Set(FIXED_SEMANTIC_TASKS.flatMap((task) => surfaces[task].authorityPaths))];
+      // Discovery already refuses links that leave the repository, and loadConfig refuses ascout.config.json.
+      const symlinkTargets = new Map<string, string>();
+      for (const path of declaredAuthorityPaths) {
+        const target = symlinkTargetInRepository(root, path);
+        if (typeof target === "string") symlinkTargets.set(path, target);
+      }
+      const allAuthorityPaths = [...new Set([...declaredAuthorityPaths, ...symlinkTargets.values()])];
       const decisions = decideRunAdmissions(discovery, gitComparison.changed_files, {
+        ...surfaceOptions,
         allowChangedCommandSurface: options.allowChangedCommandSurface === true,
-        ascoutConfigPath: ASCOUT_CONFIG_PATH,
-        tasks: config.tasks ?? null,
+        untrackedIgnoredPaths: readUntrackedIgnoredPaths(root, allAuthorityPaths),
+        symlinkTargets,
       });
+      if (readTreeDigestV1(root).tree_digest !== sourceStart.tree_digest) {
+        throw new Error("the repository changed while check was reading its configuration and changes; rerun check");
+      }
       const preRunWidening = decidePreRunWidening(discovery, gitComparison.changed_files);
       const selectionMode = preRunWidening.widened ? "full" as const : "native_related" as const;
       const testPlanningChangedFiles = preRunPlanningChangedFiles(
@@ -1718,6 +1952,16 @@ export async function runCheck(
           exerciseCoveragePoints = finalExecuted.coveragePoints;
           exerciseBranchPoints = finalExecuted.branchPoints;
           executed = finalExecuted;
+        } else if (task === "pytestBasic" && plan.authorizedBy === "discovery") {
+          executed = await executePytestWithResults(
+            root,
+            runId,
+            runDir.raw_path,
+            plan as NormalizedPlan & { state: "planned" },
+            decision,
+            secrets,
+            taskTimeoutMs(config, task),
+          );
         } else {
           executed = await executePlannedTask(
             root,
@@ -1735,20 +1979,17 @@ export async function runCheck(
         artifacts.push(...executed.artifacts);
       }
 
+      const readChangedSource = (path: string): string | null =>
+        readContainedWorktreeText(root, path, CHANGED_SOURCE_READ_CAP_BYTES);
       const fullExercise = exerciseCoveragePoints === null
         ? emptyExercise()
-        : exerciseBranchPoints === null
-          ? buildChangedLineExercise(
-              gitComparison.changed_files,
-              exerciseCoveragePoints,
-              "test",
-            )
-          : buildChangedLineExercise(
-              gitComparison.changed_files,
-              exerciseCoveragePoints,
-              "test",
-              exerciseBranchPoints,
-            );
+        : buildChangedLineExercise(
+            gitComparison.changed_files,
+            exerciseCoveragePoints,
+            "test",
+            exerciseBranchPoints ?? undefined,
+            readChangedSource,
+          );
       const exercise: ExerciseV1 = {
         changed_executable_lines: fullExercise.changed_executable_lines,
         exercised_lines: fullExercise.exercised_lines,

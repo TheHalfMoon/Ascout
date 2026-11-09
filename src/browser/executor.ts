@@ -15,6 +15,7 @@
  */
 
 import type { IntentActionKind, IntentConditionKind } from "./intent.js";
+import { redactSecretMarkers } from "./secret-markers.js";
 
 export const DEFAULT_ACTION_TIMEOUT_MS = 30000;
 export const MAX_ACTION_TIMEOUT_MS = 120000;
@@ -202,6 +203,10 @@ function requireHttpOrigin(value: string, field: string): void {
   if (parsed.pathname !== "/" || parsed.search !== "" || parsed.hash !== "") {
     throw new TypeError(`${field} must be a bare origin without path or query`);
   }
+  // "http://127.0.0.1:3000@attacker.example" parses as host attacker.example.
+  if (parsed.username !== "" || parsed.password !== "") {
+    throw new TypeError(`${field} must not carry credentials`);
+  }
 }
 
 function requireTimeoutMs(value: number): void {
@@ -289,7 +294,8 @@ function createError(input: {
 }): BrowserActionError {
   requireId(input.code, "error code");
   requireSingleLine(input.message, "error message");
-  return { code: input.code, message: input.message };
+  // Error text can come from the page (a console error, a URL in a navigation failure).
+  return { code: input.code, message: redactSecretMarkers(input.message) };
 }
 
 /**
