@@ -11,6 +11,7 @@ import { CHECK_IDS, evaluateRequiredChecksV1, type CheckId, type PolicyEvaluatio
  */
 export const POLICY_SCHEMA_VERSION = 1 as const;
 export const DEFAULT_POLICY_PATH = ".github/ascout-policy.json";
+export const POLICY_MAX_BYTES = 16 * 1024;
 
 export interface PrPolicyV1 {
   readonly version: typeof POLICY_SCHEMA_VERSION;
@@ -25,7 +26,7 @@ export type PolicyParseResultV1 = { readonly ok: true; readonly policy: PrPolicy
 
 /** Parses a policy file. Anything unexpected is refused, so a typo can't silently weaken the gate. */
 export function parsePrPolicyV1(text: string): PolicyParseResultV1 {
-  if (text.length > 16 * 1024) return { ok: false, reason: "policy file is too large" };
+  if (text.length > POLICY_MAX_BYTES) return { ok: false, reason: "policy file is too large" };
   let value: unknown;
   try {
     value = JSON.parse(text);

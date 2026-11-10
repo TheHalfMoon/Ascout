@@ -93,9 +93,52 @@ describe("the check run under a team policy", () => {
   });
 
   it("marks required checks in the summary comment and titles it by the policy verdict", () => {
-    const body = summaryCommentV1(bundle(4, 4, 0), testOnly);
+    const body = summaryCommentV1(bundle(4, 4, 0), { evidence_trusted: true, policy: testOnly });
     expect(body).toContain("### Ascout verification: passed the team policy");
     expect(body).toContain("| security | no | incomplete");
     expect(body).toContain("| test | yes | complete");
+    expect(body).toContain("Team policy (.github/ascout-policy.json on the default branch): **PASS**");
+  });
+
+  it("never lets the summary comment claim a pass the check run capped", () => {
+    const run = checkRunFromEvidenceV1(bundle(4, 4, 0), ctx(false));
+    const body = summaryCommentV1(bundle(4, 4, 0), { evidence_trusted: false, policy: testOnly });
+    expect(run.output.title).toContain("needs a maintainer");
+    expect(body).toContain("### Ascout verification: needs a maintainer");
+    expect(body).not.toContain("passed");
+    expect(body).toContain("A maintainer must verify it.");
+  });
+
+  it("does not say only exit 0 passes beside a policy pass where an optional check exited 4", () => {
+    const run = checkRunFromEvidenceV1(bundle(4, 4, 0), ctx(true));
+    const body = summaryCommentV1(bundle(4, 4, 0), { evidence_trusted: true, policy: testOnly });
+    for (const text of [run.output.summary, body]) {
+      expect(text).not.toContain("Only 0 passes");
+      expect(text).not.toContain("never a pass");
+      expect(text).toContain("every required check must be 0");
+    }
+  });
+
+  it("names the cause of a failure in both titles instead of a bare 'failed'", () => {
+    const run = checkRunFromEvidenceV1(bundle(2, 4, 0), ctx(true));
+    expect(run.output.title).toBe("Ascout: error");
+    expect(summaryCommentV1(bundle(1, 4, 0), { evidence_trusted: true, policy: testOnly })).toContain("### Ascout verification: findings");
+  });
+});
+
+describe("without a policy, the check behaves exactly as before", () => {
+  it.each([
+    [0, "success", "complete"],
+    [1, "failure", "findings"],
+    [2, "failure", "error"],
+    [3, "failure", "source changed during the run"],
+    [4, "action_required", "incomplete: required work did not run"],
+  ] as const)("exit %i in every check is %s, titled %s", (exit, conclusion, label) => {
+    const context = { trusted_head_sha: HEAD, evidence_trusted: true, details_url: "https://github.com/o/r/actions/runs/1" };
+    const run = checkRunFromEvidenceV1(bundle(exit, exit, exit), context);
+    expect(run.conclusion).toBe(conclusion);
+    expect(run.output.title).toBe(`Ascout: ${label}`);
+    expect(run.output.summary).toContain("Only 0 passes");
+    expect(summaryCommentV1(bundle(exit, exit, exit), context)).toContain(`### Ascout verification: ${label}`);
   });
 });

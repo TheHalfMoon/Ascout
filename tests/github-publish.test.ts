@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
 import { execFileSync, spawn } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { AddressInfo } from "node:net";
@@ -277,10 +277,43 @@ describe("publishing under a team policy", () => {
     expect(state.requests).toEqual([]);
   }, 300_000);
 
-  it("refuses when the policy path exists but cannot be read as a file", async () => {
+  it("refuses when the policy path is not a regular file", async () => {
     reset();
     const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p5.json", 0, 0, 0), policyPath: scratch }));
-    expect(outcome).toMatchObject({ kind: "refused", reason: "policy file could not be read" });
+    expect(outcome).toMatchObject({ kind: "refused", reason: "policy path is not a regular file" });
     expect(state.requests).toEqual([]);
+  });
+
+  it("refuses a policy that is a symbolic link, even to a valid policy", async (context) => {
+    reset();
+    const link = join(scratch, "linked-policy.json");
+    try {
+      symlinkSync(writePolicy("p6-target.json", testOnly), link, "file");
+    } catch {
+      context.skip(); // creating a symlink needs a privilege Windows may not grant
+    }
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p6.json", 4, 4, 0), policyPath: link }));
+    expect(outcome).toMatchObject({ kind: "refused", reason: "policy path is not a regular file" });
+    expect(state.requests).toEqual([]);
+  });
+
+  it("refuses an oversized policy before reading it, with no network at all", async () => {
+    reset();
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p7.json", 0, 0, 0), policyPath: writePolicy("p7-policy.json", testOnly + " ".repeat(17_000)) }));
+    expect(outcome).toMatchObject({ kind: "refused", reason: "policy file is too large" });
+    expect(state.requests).toEqual([]);
+  });
+
+  it("accepts a policy saved with a byte-order mark", async () => {
+    reset();
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p8.json", 4, 4, 0), policyPath: writePolicy("p8-policy.json", String.fromCharCode(0xfeff) + testOnly) }));
+    expect(outcome).toMatchObject({ kind: "published", conclusion: "success" });
+  });
+
+  it("posts a summary comment that agrees with a capped check run", async () => {
+    reset({ author: "contributor" });
+    await publishPrEvidenceV1(input({ bundlePath: writeMixed("p9.json", 4, 4, 0), policyPath: writePolicy("p9-policy.json", testOnly) }));
+    expect(state.comments[0]!.body).toContain("needs a maintainer");
+    expect(state.comments[0]!.body).not.toContain("passed");
   });
 });

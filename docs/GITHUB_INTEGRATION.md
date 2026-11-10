@@ -52,12 +52,21 @@ A repository can choose which checks a pull request must complete, in
 - **A finding, an error, or a source change in any check always fails,** required or not. The policy
   only decides which checks must *complete*.
 - **No file means every check is required.**
-- **An invalid policy fails closed:** the publisher refuses to publish, and no check run appears.
-  Unknown keys, unknown or duplicate check names, an empty list, or an unknown version all count as
-  invalid.
+- **An invalid policy fails closed:** the publisher refuses to publish, the publish job fails
+  (exit 2), and no check run appears. All of these count as invalid:
+  - unknown keys, unknown or duplicate check names, an empty list, or an unknown version;
+  - a symbolic link or anything else that is not a regular file;
+  - a file over 16 KiB.
+
+  A leading byte-order mark is accepted.
+- **The publisher reads the policy relative to its working directory,** so run `ascout pr-publish`
+  from the root of the default-branch checkout, as `ascout-pr-publish.yml` does. With a
+  `working-directory` setting or a `path:` checkout it finds no file and requires every check. That
+  is the stricter result, and the summary names the default policy.
 - **The trust rules below still apply.** A policy pass from untrusted evidence is still capped at
   `action_required`.
-- The summary marks each check as required or not.
+- The check run and the summary comment mark each check as required or not, and both say the same
+  thing, including when untrusted evidence is capped.
 
 ## Check Run results
 
@@ -66,7 +75,7 @@ A repository can choose which checks a pull request must complete, in
 | Every required check complete (exit 0), and no check failing | `success` | Yes |
 | Any check with findings, an error, or source changed (exit 1, 2, 3) | `failure` | No |
 | A required check incomplete: required work did not run (exit 4) | `action_required` | No. `neutral` is never used, because branch protection treats it as passing. |
-| Evidence from a fork PR that claims success | `action_required` | No |
+| Untrusted evidence that would pass: a fork, an author or actor not on the allowlist, a bot, or another base | `action_required`, under "Ascout verification (untrusted)" | No |
 
 ## Security model and known limits
 
