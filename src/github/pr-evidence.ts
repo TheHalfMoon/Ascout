@@ -290,6 +290,6 @@ export function summaryCommentV1(evidence: PrEvidenceV1): string {
     summaryTable(evidence),
     "",
     ...(unlocated.length > 0 ? ["**Findings without a line:**", ...unlocated.slice(0, 10).map((finding) => `- ${finding.check}: ${neutralizeMarkdownV1(finding.title, 200)}`), ""] : []),
-    "Located findings are annotations on the **Ascout verification** check. Exit 4 means required work did not run, which is never a pass.",
+    "Located findings are annotations on this commit's Ascout check run. Exit 4 means required work did not run, which is never a pass.",
   ].join("\n");
 }

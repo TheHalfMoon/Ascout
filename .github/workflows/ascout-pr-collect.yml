@@ -31,6 +31,10 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build Ascout from this pull request
         run: npm run build
+      - name: Install Chromium for this repository's browser tests
+        shell: bash
+        run: |
+          node -e "const {spawnSync}=require('node:child_process');const {dirname,join}=require('node:path');const pkgPath=require.resolve('playwright/package.json');const pkg=require(pkgPath);if(pkg.version!=='1.63.0')throw new Error('expected playwright@1.63.0, got '+String(pkg.version));const cli=join(dirname(pkgPath),'cli.js');const args=process.platform==='linux'?['install','--with-deps','chromium']:['install','chromium'];const result=spawnSync(process.execPath,[cli,...args],{stdio:'inherit'});if(result.error)throw result.error;if(result.status!==0)process.exit(result.status??1)"
       - name: Collect evidence for the pull request's changes
         env:
           PR_HEAD: ${{ github.event.pull_request.head.sha }}

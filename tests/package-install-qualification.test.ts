@@ -25,7 +25,7 @@ function npm(argv: readonly string[], cwd: string): string {
   const result = npmCli !== undefined && npmCli.endsWith(".js")
     ? spawnSync(process.execPath, [npmCli, ...argv], { cwd, env, encoding: "utf8", windowsHide: true })
     : crossSpawn.sync("npm", [...argv], { cwd, env, encoding: "utf8", windowsHide: true });
-  if (result.error !== undefined || result.status !== 0) {
+  if (result.error != null || result.status !== 0) {
     throw new Error(`npm ${argv.join(" ")} failed (status ${String(result.status)}): ${String(result.stderr).slice(-2000)}`);
   }
   return String(result.stdout);
