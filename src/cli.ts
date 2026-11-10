@@ -33,6 +33,7 @@ import {
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
+import { serveMcpV1 } from "./mcp/server.js";
 import {
   computeDoctorV1,
   computeReviewV1,
@@ -63,7 +64,7 @@ import {
 } from "./assurance/security/security-gitleaks.js";
 import type { TestProfile } from "./assurance/test/profile-policy.js";
 
-const COMMANDS = ["init", "doctor", "check", "review", "test", "security"] as const;
+const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
@@ -152,6 +153,12 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   let profile: TestProfile | undefined;
   let plan = false;
   let localModel = false;
+
+  if (commandToken === "mcp" && rest.length > 0) {
+    // The scope of an MCP server is fixed by whoever launches it, and a repository's own MCP
+    // config can launch it, so it accepts no options at all (E8 design, "who launches the server").
+    throw new CliUsageError("ascout mcp takes no options.");
+  }
 
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index]!;
@@ -306,6 +313,7 @@ export function usageText(): string {
     `  ascout review [${LOCAL_MODEL_FLAG}] [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
     `  ascout security [${FORMAT_FLAG} json|terminal]`,
+    "  ascout mcp",
   ].join("\n");
 }
 
@@ -484,6 +492,18 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         console.error(outcome.terminalSummary);
       }
       return outcome.receipt.summary.exit_code;
+    }
+    if (invocation.command === "mcp") {
+      // Refuses to start outside a repository root, or in a repository Ascout refuses (exit 2).
+      const root = realpathSync.native(process.cwd());
+      refuseUnsupportedRepository(root);
+      return await serveMcpV1({
+        root,
+        gitleaksPath: configuredGitleaksPathV1(),
+        input: process.stdin,
+        output: process.stdout,
+        log: (line) => reportOperationalError(line),
+      });
     }
     if (invocation.command === "doctor") {
       const result = computeDoctorV1(process.cwd());
