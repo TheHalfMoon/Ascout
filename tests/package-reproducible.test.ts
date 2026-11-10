@@ -23,7 +23,7 @@ function npm(argv: readonly string[], cwd: string): string {
   const result = npmCli !== undefined && npmCli.endsWith(".js")
     ? spawnSync(process.execPath, [npmCli, ...argv], { cwd, env, encoding: "utf8", windowsHide: true })
     : crossSpawn.sync("npm", [...argv], { cwd, env, encoding: "utf8", windowsHide: true });
-  if (result.error !== undefined || result.status !== 0) throw new Error(`npm ${argv.join(" ")}: ${String(result.stderr).slice(-1500)}`);
+  if (result.error != null || result.status !== 0) throw new Error(`npm ${argv.join(" ")}: ${String(result.stderr).slice(-1500)}`);
   return String(result.stdout);
 }
 
