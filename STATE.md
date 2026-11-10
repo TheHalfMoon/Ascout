@@ -2,7 +2,7 @@ Last updated: 2026-11-10 Asia/Riyadh · Branch: main
 
 ## Where Ascout stands
 
-Ascout is a private, unpublished package (`private: true`); no npm release, GitHub release, or tag has been made.
+Ascout's only release is GitHub release `v0.1.0` (2026-09-12, from 55688b5, tarball asset only). Nothing is on npm, and `package.json` keeps `private: true`. `main` is 750 commits past that tag. The FD-6 decision packet is in `docs/governance/FD6_RELEASE_DECISION_PACKET.md`.
 
 ### Adoption plan (execution-first V0–V9)
 

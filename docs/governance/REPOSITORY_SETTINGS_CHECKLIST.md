@@ -85,4 +85,4 @@ merging. Keep the required list in step with the workflows.
 ## Not settings, but related
 
 - **npm `private: true`** only blocks npm publication. The GitHub repository itself is public.
-- **Releases and tags.** None exist. Creating one stays behind FD-6.
+- **Releases and tags.** One exists: GitHub release `v0.1.0` (2026-09-12). A new one stays behind FD-6. *Corrected 2026-11-10; the first version of this checklist wrongly said none existed.*
