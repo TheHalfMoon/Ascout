@@ -20,7 +20,7 @@ History is not rewritten.
 | E6 review | BLOCKED, OCR delegate | Done as **advisory, opt-in** review. `ascout review --local-model` is loopback-only Ollama (founder-authorized local model, 2026-11-09) and never human R1. The default path is still NOT_RUN (exit 4). The OCR path was not adopted. | #666 (fail-closed provider decision), #699, #700; E6B–E6D specs |
 | E7 containment | BLOCKED FD-4 and native proof | **Still BLOCKED.** Process-tree teardown and Job Objects are T0 lifetime control, not filesystem and network isolation. No T1 is claimed. | FD-4 has no recorded disposition |
 | E8 MCP and E2E | BLOCKED | **Still BLOCKED.** A design may be proposed; implementation needs its reviewed protocol spec. | — |
-| E9 distribution | BLOCKED FD-6 | **Still BLOCKED.** `private: true`; no release, tag, or publication. | FD-6 has no recorded disposition |
+| E9 distribution | BLOCKED FD-6 | **Still BLOCKED.** `private: true`; no new release. The only release is GitHub release `v0.1.0` (2026-09-12), with nothing on npm. *Corrected 2026-11-10.* | FD-6 has no recorded disposition |
 
 A security review on 2026-11-08 fixed every high and medium finding (#667–#696), on top of the packets above.
 
