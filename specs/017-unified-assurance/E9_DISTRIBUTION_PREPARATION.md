@@ -1,6 +1,6 @@
 # E9 Preparation: Packaging, Signing Plan, Install, and Qualification
 
-**Status:** preparation. **Nothing here publishes, tags, releases, or signs.** E9 is blocked on
+**Status:** preparation. **Nothing here publishes, tags, releases, or signs.** The only existing release is GitHub release `v0.1.0` (2026-09-12); nothing is on npm. E9 is blocked on
 founder decision FD-6 and the owner's release authority. `package.json` keeps `private: true`, and
 this packet doesn't change it.
 
