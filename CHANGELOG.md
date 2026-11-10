@@ -5,8 +5,9 @@ break compatibility, and each breaking change is listed under **Breaking**.
 
 ## 0.2.0 (release candidate, not published)
 
-Not released. Publication waits for the independent human security review, human R1 of the release
-PR, and the founder's explicit approval. GitHub Releases only; not on npm.
+Not released. Publication waits for the founder's explicit approval. GitHub Releases only; not on
+npm. The founder waived the independent human security review and human R1 for this release; neither
+was performed. The release was checked by independent AI security reviews, audits, and CI instead.
 
 Changes on `main` since `v0.1.0` (55688b5, GitHub release 2026-09-12).
 
@@ -53,8 +54,8 @@ Changes on `main` since `v0.1.0` (55688b5, GitHub release 2026-09-12).
   time caps, source binding, and process-tree teardown.
 - The fixes from the 2026-11-08 security review (#667–#696).
 - Ctrl-C stops a running task's process tree.
-- Fixes from independent AI security reviews of this release candidate (separate contexts;
-  supplementary, not the required human review):
+- Fixes from independent AI security reviews of this release candidate (separate contexts; not a
+  human review, which the founder waived):
   - a local-model finding counts only on a changed line;
   - the model reporting nothing exits `4`, not `0`;
   - the data fence is escaped in any case;
@@ -78,6 +79,9 @@ Changes on `main` since `v0.1.0` (55688b5, GitHub release 2026-09-12).
   on code you don't trust.
 - `test --profile deep` and `release` exit `4`, because mutation, fuzz, and browser engines
   don't run yet.
+- Runtime dependencies other than `cross-spawn` and `playwright` resolve to their newest compatible
+  versions at install time; no shrinkwrap ships. Install with `--ignore-scripts` to keep any
+  dependency's install scripts from running.
 - Uninstalling leaves each repository's `.ascout/` and any review-provider config in your user
   config directory.
 

@@ -25,9 +25,9 @@ published, tagged, or signed. Each section states facts observed on that date, t
 | Reproducible tarball | Yes, per OS and Node version. Cross-lane digest equality is a release-time step. |
 | Notices for shipped and invoked components | Yes (E3). Re-check on the release head. |
 | Containment stated honestly | Yes: T0 trusted-local, said in every test report and in the README |
-| Independent **human** security review of the release head | **No** |
-| Human R1 of the release PR | **No** |
-| FD-6 disposition and owner release authority | **No**. This packet asks for them. |
+| Independent **human** security review of the release head | **Waived by the founder; not performed** |
+| Human R1 of the release PR | **Waived by the founder; not performed** |
+| FD-6 disposition and owner release authority | Disposed on 2026-11-10 (see the decision record). Publication still needs the founder's explicit approval. |
 
 ## Decisions needed
 
@@ -79,19 +79,28 @@ For option C, nothing ships. The CHANGELOG keeps its "Unreleased" section.
 
 ## Decision record
 
-Founder direction given in chat on 2026-11-10. The founder first sent a message waiving both human
-reviews. It was **superseded the same day** by the direction below, which keeps both reviews
-mandatory. **No waiver is in effect.**
+Founder decisions given in chat on 2026-11-10, in this order:
 
-| Item | Choice | Date | Conditions |
+1. A message waiving both human reviews.
+2. A direction keeping both reviews mandatory.
+3. **The final decision: "NO HUMAN REVIEW REQUIRED."** The founder explicitly waived the independent
+   human security review and human R1 for v0.2.0. The clarification is also posted on PR #712
+   (2026-11-10 14:25 UTC).
+
+The final decision governs. **Neither human review was performed.** The waivers below are
+recorded as waivers, not as completed reviews.
+
+| Item | Decision | Date | Conditions |
 |---|---|---|---|
-| Prepare a release candidate | Approved: v0.2.0 | 2026-11-10 | Engineering preparation and PRs only. No release, final tag, npm publication, signing, or deployment without separate explicit authorization. |
-| Channel | GitHub Releases only | 2026-11-10 | Not npm. |
+| Prepare a release candidate | Approved: v0.2.0 | 2026-11-10 | No publication, final tag, npm publication, signing, attestation, or deployment without separate explicit founder authorization |
+| Channel | GitHub Releases only | 2026-11-10 | Not npm |
 | Checksums | SHA-256 | 2026-11-10 | |
-| Provenance | GitHub Actions build-provenance attestations | 2026-11-10 | An attestation is a Sigstore signature, so it runs only after separate authorization to sign. The workflow ships with it off. |
-| Platforms | Linux x64, macOS arm64, Windows x64; Node 22 and 24 | 2026-11-10 | Based on verified platform evidence |
+| Provenance | GitHub Actions build-provenance attestation | 2026-11-10 | It signs, so it runs only after separate authorization. The workflow ships with it off. |
+| Platforms | Linux x64, macOS arm64, Windows x64; Node 22 and 24 | 2026-11-10 | Based on verified CI evidence |
 | Containment | T0 trusted-local limits stay documented | 2026-11-10 | |
-| Independent human security review | **Mandatory. PENDING.** | 2026-11-10 | Not waived. AI reviews are supplementary and are not this review. |
-| Human R1 of the release PR | **Mandatory. PENDING.** | 2026-11-10 | Not waived. |
-| FD-6 overall | **Not fully approved. Release is not GO.** | 2026-11-10 | It can't be GO while either human review is outstanding. |
-| Publication, final tag | Not authorized | 2026-11-10 | Needs the founder's separate explicit approval. |
+| Independent human security review | **WAIVED by the founder. Not performed.** | 2026-11-10 | Replaced by three independent AI security reviews in separate contexts, a dependency audit, a secret scan, a static scan, and full CI. None of these is a human review. |
+| Human R1 of the release PR (#712) | **WAIVED by the founder. Not performed.** | 2026-11-10 | No human read the release head. |
+| Merge of #712 | Authorized | 2026-11-10 | After every required check passes on the final commit |
+| Publication and final `v0.2.0` tag | **Not authorized** | 2026-11-10 | Needs the founder's explicit approval |
+| Signing and attestation | **Not authorized** | 2026-11-10 | Needs the founder's explicit approval. Set up the `release-attest` environment with a required reviewer first (settings checklist §7). |
+| Accepted residual risk | No shrinkwrap: transitive runtime dependencies float within semver ranges | 2026-11-10 | From the supply-chain AI review (Medium). Shipping a shrinkwrap would change the tarball's tested contents; the release notes recommend `--ignore-scripts`. Revisit for 0.3.0. |

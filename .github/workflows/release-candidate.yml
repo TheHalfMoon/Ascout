@@ -44,7 +44,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
+          # No dependency cache: a release build starts from the lockfile alone.
       - name: Install exact lockfile
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build
@@ -58,7 +58,7 @@ jobs:
       - name: Qualify install, run, exit codes, and uninstall
         shell: bash
         run: node .github/scripts/rc-qualify.mjs rc/*.tgz rc/qualification-${{ matrix.os }}-node-${{ matrix.node }}.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: rc-${{ matrix.os }}-node-${{ matrix.node }}
@@ -85,6 +85,7 @@ jobs:
           node - <<'EOF'
           const fs = require("fs"), path = require("path"), crypto = require("crypto");
           const lanes = fs.readdirSync("lanes").sort();
+          if (lanes.length !== 6) throw new Error(`expected 6 lanes, got ${lanes.length}: ${lanes.join(", ")}`);
           const byNode = {};
           let reference = null;
           for (const lane of lanes) {
@@ -98,6 +99,7 @@ jobs:
             if (!qualification.passed) throw new Error(`${lane} failed qualification`);
             if (lane === "rc-ubuntu-24.04-node-24") reference = { dir, tgz, digest };
           }
+          if (reference === null) throw new Error("reference lane rc-ubuntu-24.04-node-24 is missing");
           for (const [node, entries] of Object.entries(byNode)) {
             if (new Set(entries.map((entry) => entry.digest)).size !== 1) throw new Error(`node ${node}: tarballs differ across operating systems`);
           }
@@ -109,7 +111,7 @@ jobs:
           fs.writeFileSync("candidate/lanes.json", `${JSON.stringify({ byNode, sameAcrossNode, reference: "rc-ubuntu-24.04-node-24" }, null, 2)}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `tarball=${reference.tgz}\n`);
           EOF
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-candidate
           path: candidate/
@@ -119,7 +121,10 @@ jobs:
   attest:
     name: build-provenance attestation (only when requested)
     needs: compare
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.attest == true }}
+    # Signs only on a manual run with attest: true, from main or a release branch, through the
+    # release-attest environment, where the owner can require their own approval.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.attest == true && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/v')) }}
+    environment: release-attest
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
