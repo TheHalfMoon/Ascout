@@ -1,5 +1,7 @@
 # Contributing to Ascout
 
+**Ascout is Free, Open Source, and Community-Driven.** Contributions from individual developers, students, open-source maintainers, and engineers at companies are welcome. The current Ascout Core is Apache-2.0; commercial use of that core is allowed. Future paid organizational features must not remove rights already granted to core users. Read [Community and product commitments](docs/COMMUNITY_AND_PRODUCT.md) and [brand identity](docs/BRAND_IDENTITY.md) before proposing product-facing naming changes.
+
 Thank you for helping improve Ascout. Contributions must preserve the repository's evidence-first, fail-closed design and its canonical specification workflow.
 
 ## Scope and trust model
