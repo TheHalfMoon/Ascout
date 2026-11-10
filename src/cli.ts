@@ -33,6 +33,14 @@ import {
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
+import {
+  computeDoctorV1,
+  computeReviewV1,
+  computeSecurityV1,
+  computeTestPlanV1,
+  redactLocalPathFromError,
+  renderDoctorTerminalV1,
+} from "./command-functions.js";
 import { readLocalReviewConfigV1 } from "./assurance/review/local-review-provider.js";
 import { runLocalReviewV1 } from "./assurance/review/local-review-run.js";
 import { redactExactValues, selectedSecretValues } from "./redact.js";
@@ -85,11 +93,6 @@ export interface CliInvocation {
   profile?: TestProfile;
   plan?: true;
   localModel?: true;
-}
-
-interface DoctorResult {
-  readonly output: string;
-  readonly exitCode: number;
 }
 
 export class CliUsageError extends Error {
@@ -175,8 +178,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     }
 
     if (token === FORMAT_FLAG) {
-      if (commandToken !== "check" && commandToken !== "review" && commandToken !== "test" && commandToken !== "security") {
-        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check, review, test, or security command.`);
+      if (commandToken !== "check" && commandToken !== "review" && commandToken !== "test" && commandToken !== "security" && commandToken !== "doctor") {
+        throw new CliUsageError(`${FORMAT_FLAG} is valid only with the check, doctor, review, test, or security command.`);
       }
       if (format !== undefined) {
         throw new CliUsageError(`${FORMAT_FLAG} may be supplied only once.`);
@@ -197,6 +200,16 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       }
       if (value === undefined) {
         throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${REVIEW_FORMATS.join("|")}.`);
+      }
+      if (commandToken === "doctor") {
+        if (!isReviewFormat(value)) {
+          throw new CliUsageError(
+            `Unsupported doctor format: ${value}. Expected one of: ${REVIEW_FORMATS.join("|")}.`,
+          );
+        }
+        format = value;
+        index += 1;
+        continue;
       }
       if (commandToken === "security") {
         if (!isSecurityFormat(value)) {
@@ -288,7 +301,7 @@ export function usageText(): string {
   return [
     "Usage:",
     "  ascout init",
-    "  ascout doctor",
+    `  ascout doctor [${FORMAT_FLAG} json|terminal]`,
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${LOCAL_MODEL_FLAG}] [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
@@ -296,29 +309,8 @@ export function usageText(): string {
   ].join("\n");
 }
 
-export function redactLocalPathFromError(error: unknown, repositoryRoot: string): string {
-  let message = String(error);
-  const candidates = new Set([repositoryRoot, resolve(repositoryRoot)]);
-  // Errors carry the on-disk spelling from native realpath, which can differ in case from the
-  // working directory the user typed on Windows.
-  for (const resolveReal of [realpathSync, realpathSync.native]) {
-    try {
-      candidates.add(resolveReal(repositoryRoot));
-    } catch {
-      // A failing path may not have a resolvable real path; lexical candidates still apply.
-    }
-  }
-  for (const candidate of [...candidates]) candidates.add(candidate.replaceAll("\\", "/"));
-  // Windows paths ignore case, so a match must too.
-  const flags = process.platform === "win32" ? "giu" : "gu";
-  const longestFirst = [...candidates].filter((candidate) => candidate.length > 0).sort((a, b) => b.length - a.length);
-  for (const candidate of longestFirst) {
-    message = message.replace(new RegExp(candidate.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), flags), "<repository>");
-  }
-  return message;
-}
+export { redactLocalPathFromError };
 
-// Reporting an error must not itself throw, including when the working directory is gone.
 function describeOperationalError(error: unknown): string {
   try {
     return redactLocalPathFromError(error, process.cwd());
@@ -382,37 +374,6 @@ async function runInit(): Promise<number> {
     return OPERATIONAL_ERROR_EXIT_CODE;
   }
 }
-function collectReviewChanges(
-  repositoryRoot: string,
-  headSha: string,
-  changedFiles: ReturnType<typeof readWorkingTreeComparison>["changed_files"],
-): ReviewChangeV1[] {
-  const changes: ReviewChangeV1[] = [];
-  const seen = new Set<string>();
-  const add = (change: ReviewChangeV1): void => {
-    if (!seen.has(change.path)) {
-      seen.add(change.path);
-      changes.push(change);
-    }
-  };
-  const toChange = (file: (typeof changedFiles)[number]): ReviewChangeV1 => ({
-    path: file.path,
-    change_kind: file.change_kind,
-    ...(file.previous_path === undefined ? {} : { previous_path: file.previous_path }),
-  });
-  for (const file of changedFiles) {
-    if (file.change_kind !== "untracked") add(toChange(file));
-  }
-  for (const file of changedFiles) {
-    if (file.change_kind === "untracked") add(toChange(file));
-  }
-  const previousPaths = new Set(changes.flatMap((change) => change.previous_path ?? []));
-  for (const staged of readStagedChangedPaths(repositoryRoot, headSha)) {
-    if (!previousPaths.has(staged.path)) add(staged);
-  }
-  return changes;
-}
-
 function writeReviewReport(report: ReviewReportV1, format: ReviewFormat): void {
   if (format === "json") {
     process.stdout.write(renderReviewJsonV1(report));
@@ -426,73 +387,25 @@ export async function runReview(
   format: ReviewFormat | undefined,
   localModel = false,
 ): Promise<number> {
-  const sourceState = composeSourceState(repositoryRoot);
-  const comparison = readWorkingTreeComparison(
-    repositoryRoot,
-    sourceState.head_sha,
-  );
-  const changes = collectReviewChanges(repositoryRoot, sourceState.head_sha, comparison.changed_files);
-  const endState = composeSourceState(repositoryRoot);
-  const outputFormat: ReviewFormat = format ?? "terminal";
-  if (endState.head_sha !== sourceState.head_sha || endState.tree_digest !== sourceState.tree_digest) {
-    const drift = buildReviewDriftReportV1(sourceState.repository_id, sourceState, endState);
-    writeReviewReport(drift, outputFormat);
-    return drift.exit_code;
+  const result = await computeReviewV1(repositoryRoot, { localModel });
+  if (result.kind === "error") {
+    reportOperationalError(result.message);
+    return result.exit_code;
   }
-  if (localModel && changes.length > 0) {
-    const secrets = selectedSecretValues(process.env, { recognized_names: [], configured_names: [], minimum_value_bytes: 8 });
-    const result = await runLocalReviewV1({
-      target_id: sourceState.repository_id,
-      head_sha: sourceState.head_sha,
-      config: readLocalReviewConfigV1(repositoryRoot),
-      changed_files: comparison.changed_files,
-      changes,
-      readText: (path, maxBytes) => readContainedWorktreeText(repositoryRoot, path, maxBytes),
-      redact: (text) => redactExactValues(text, secrets),
-    });
-    if (result.kind === "error") {
-      reportOperationalError(result.message);
-      return OPERATIONAL_ERROR_EXIT_CODE;
-    }
-    // The model can take minutes; a source that changed meanwhile was not the source reviewed.
-    const afterState = composeSourceState(repositoryRoot);
-    if (afterState.head_sha !== sourceState.head_sha || afterState.tree_digest !== sourceState.tree_digest) {
-      const drift = buildReviewDriftReportV1(sourceState.repository_id, sourceState, afterState);
-      writeReviewReport(drift, outputFormat);
-      return drift.exit_code;
-    }
-    writeReviewReport(result.report, outputFormat);
-    return result.report.exit_code;
-  }
-  const files = changes.map((change) => change.path).sort();
-  const report = buildReviewCommandReportV1(
-    files.length === 0
-      ? buildEmptyReviewScopeV1(sourceState.repository_id, sourceState.head_sha)
-      : buildReviewAbsenceReportV1(
-          sourceState.repository_id,
-          sourceState.head_sha,
-          defaultUnavailableExecutionV1(
-            sourceState.head_sha,
-            "profile:review-default",
-            "capsule:review-default",
-          ),
-          [{ group_id: "group:working-tree", files }],
-        ),
-    changes,
-  );
-  writeReviewReport(report, outputFormat);
-  return report.exit_code;
+  writeReviewReport(result.report, format ?? "terminal");
+  return result.exit_code;
 }
 
 async function runTest(profile: TestProfile, planOnly: boolean, format: TestFormat | undefined): Promise<number> {
   if (planOnly) {
-    const report = buildTestCommandReportV1(profile, true);
+    const result = computeTestPlanV1(profile);
+    if (result.kind === "error") return result.exit_code;
     if (format === "json") {
-      process.stdout.write(renderTestPlanJsonV1(report));
+      process.stdout.write(renderTestPlanJsonV1(result.report));
     } else {
-      console.error(renderTestCommandTerminalV1(report));
+      console.error(renderTestCommandTerminalV1(result.report));
     }
-    return report.exit_code;
+    return result.exit_code;
   }
 
   const writeReport = (report: TestRunReportV2, checkSummary: string | null): number => {
@@ -573,15 +486,21 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       return outcome.receipt.summary.exit_code;
     }
     if (invocation.command === "doctor") {
-      const result = runDoctor(process.cwd());
-      console.error(result.output);
-      return result.exitCode;
+      const result = computeDoctorV1(process.cwd());
+      if (result.kind === "error") {
+        console.error(result.message);
+      } else if (invocation.format === "json") {
+        process.stdout.write(`${JSON.stringify(result.report, null, 2)}
+`);
+      } else {
+        console.error(renderDoctorTerminalV1(result.report));
+      }
+      return result.exit_code;
     }
     if (invocation.command === "review") {
       // parseCliArgs admits only json|terminal for the review command,
       // so this narrowing reflects parser-guaranteed input.
       const reviewFormat = invocation.format as ReviewFormat | undefined;
-      refuseUnsupportedRepository(process.cwd());
       return await runReview(process.cwd(), reviewFormat, invocation.localModel === true);
     }
     if (invocation.command === "test") {
@@ -592,36 +511,36 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     }
     if (invocation.command === "security") {
       const gitleaksPath = configuredGitleaksPathV1();
+      let root: string | null = null;
       if (gitleaksPath !== null) {
-        let root: string | null;
         try {
           root = process.cwd();
         } catch {
           // A deleted working directory is outside a repository, as without an engine.
           root = null;
         }
-        const outcome = await runSecurityGitleaksV1(root, gitleaksPath);
-        if (outcome.kind === "error") {
-          // Exit 2 keeps stdout empty and reports no findings from the failed run (A07).
-          reportOperationalError(outcome.message);
-          return OPERATIONAL_ERROR_EXIT_CODE;
-        }
-        if (invocation.format === "json") {
-          process.stdout.write(`${JSON.stringify(outcome.report, null, 2)}\n`);
-        } else {
-          console.error(renderSecurityGitleaksTerminalV1(outcome.report));
-        }
-        return outcome.report.exit_code;
       }
       // Without a configured engine: local and read-only, with no repository read, process,
       // network, or file write.
-      const report = buildSecurityCommandReportV1();
-      if (invocation.format === "json") {
-        process.stdout.write(renderSecurityJsonV1(report));
-      } else {
-        console.error(renderSecurityTerminalV1(report));
+      const result = await computeSecurityV1(root, gitleaksPath);
+      if (result.kind === "error") {
+        // Exit 2 keeps stdout empty and reports no findings from the failed run (A07).
+        reportOperationalError(result.message);
+        return result.exit_code;
       }
-      return report.exit_code;
+      if (result.report.engine === "gitleaks") {
+        if (invocation.format === "json") {
+          process.stdout.write(`${JSON.stringify(result.report.report, null, 2)}
+`);
+        } else {
+          console.error(renderSecurityGitleaksTerminalV1(result.report.report));
+        }
+      } else if (invocation.format === "json") {
+        process.stdout.write(renderSecurityJsonV1(result.report.report));
+      } else {
+        console.error(renderSecurityTerminalV1(result.report.report));
+      }
+      return result.exit_code;
     }
     console.error(`ascout ${invocation.command}: not implemented.`);
     return 2;
@@ -633,58 +552,6 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     // EnvironmentIdentityIntegrityError and every other operational error exit 2 (Amendment A07).
     reportOperationalError(describeOperationalError(error));
     return OPERATIONAL_ERROR_EXIT_CODE;
-  }
-}
-
-function runDoctor(repositoryRoot: string): DoctorResult {
-  try {
-    refuseUnsupportedRepository(repositoryRoot);
-    const { root, discovery } = collectDiscoveredProject(repositoryRoot);
-    const { config } = loadConfig(root);
-    const sourceState = composeSourceState(root);
-    const gitComparison = readWorkingTreeComparison(root, sourceState.head_sha);
-    const changedFiles = gitComparison.changed_files;
-    const classifyOptions: CommandSurfaceClassifyOptions = {
-      ascoutConfigPath: "ascout.config.json",
-      tasks: config.tasks ?? null,
-    };
-    const surfaces = classifyCommandSurfaces(discovery, classifyOptions);
-
-    const changedKindCounts = new Map<string, number>();
-    for (const file of changedFiles) {
-      changedKindCounts.set(file.change_kind, (changedKindCounts.get(file.change_kind) ?? 0) + 1);
-    }
-
-    const lines: string[] = [];
-    lines.push("=== Doctor Output ===\n");
-    lines.push(`Repository identity: ${sourceState.repository_id}`);
-    lines.push(`Repository identity kind: ${sourceState.repository_id_kind}`);
-    lines.push(`Portable identity: ${sourceState.portable}`);
-    lines.push(`Config source: ${existsSync(join(root, "ascout.config.json")) ? "repository_config" : "built_in_defaults"}`);
-    lines.push("\n--- Discovered Project ---");
-    lines.push(`Workspace kind: ${discovery.workspace.kind}`);
-    lines.push(`Package manager: ${discovery.packageManager.state === "resolved" ? discovery.packageManager.value : discovery.packageManager.reasonCode}`);
-    lines.push(`Js test runner: ${discovery.jsTestRunner.state === "resolved" ? discovery.jsTestRunner.value : discovery.jsTestRunner.reasonCode}`);
-    lines.push(`Pytest basic: ${discovery.pytestBasic.state === "resolved" ? discovery.pytestBasic.value : discovery.pytestBasic.reasonCode}`);
-    lines.push("\n--- Authority Classification ---");
-    for (const task of ["typecheck", "lint", "pytestBasic", "test"] as const) {
-      const surface = surfaces[task];
-      lines.push(`${task}:`);
-      lines.push(`  authorityPathCount: ${surface.authorityPaths.length}`);
-      lines.push(`  effectivePytestConfig: ${surface.effectivePytestConfig === null ? "absent" : "present"}`);
-    }
-    lines.push("\n--- Changed Files ---");
-    lines.push(`Count: ${changedFiles.length}`);
-    for (const kind of ["added", "modified", "deleted", "renamed", "type_changed", "untracked"] as const) {
-      const count = changedKindCounts.get(kind) ?? 0;
-      if (count > 0) lines.push(`  ${kind}: ${count}`);
-    }
-    return { output: lines.join("\n"), exitCode: 0 };
-  } catch (error) {
-    return {
-      output: `Error during doctor: ${redactLocalPathFromError(error, repositoryRoot)}`,
-      exitCode: OPERATIONAL_ERROR_EXIT_CODE,
-    };
   }
 }
 

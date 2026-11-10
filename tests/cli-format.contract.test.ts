@@ -58,7 +58,7 @@ describe("T070 CLI receipt format wiring", () => {
       ["check", "--format"],
       ["check", "--format", "terminal"],
       ["check", "--format", "json", "--format", "agent"],
-      ["doctor", "--format", "json"],
+      ["doctor", "--format", "agent"],
       ["init", "--format", "agent"],
     ]) {
       expect(() => parseCliArgs(argv)).toThrow(CliUsageError);

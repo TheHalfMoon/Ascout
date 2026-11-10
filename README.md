@@ -91,7 +91,7 @@ The last command prints usage and exits with a usage error because a command is 
 
 ```text
 ascout init
-ascout doctor
+ascout doctor [--format json|terminal]
 ascout check [--allow-changed-command-surface] [--format json|agent]
 ascout review [--local-model] [--format json|terminal]
 ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]
@@ -139,7 +139,7 @@ ascout init
 ### 2. Inspect discovery without running verification tasks
 
 ```sh
-ascout doctor
+ascout doctor [--format json|terminal]
 ```
 
 `doctor` reports privacy-safe repository identity, project/tool discovery, configuration source, effective command-authority counts, and changed-file facts. It does not execute the verification task matrix.
