@@ -1,0 +1,136 @@
+name: Release Candidate
+
+# Builds and qualifies a release-candidate tarball. It never publishes a release, creates a tag,
+# or publishes to npm. Build-provenance attestation signs the artifact through Sigstore, so it
+# runs only when someone starts the workflow by hand with `attest: true`, after the founder has
+# separately authorized signing (FD-6).
+on:
+  push:
+    branches:
+      - "release/v*"
+  workflow_dispatch:
+    inputs:
+      attest:
+        description: "Create a build-provenance attestation (signs; needs founder authorization)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build / ${{ matrix.os }} / node-${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - macos-15
+          - windows-2025
+        node:
+          - "22"
+          - "24"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Guard exact source
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: node -e "const cp=require('node:child_process');const h=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();if(h!==process.env.EXPECTED_SHA)throw new Error('expected '+process.env.EXPECTED_SHA+', got '+h)"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build
+        run: npm run build
+      - name: Pack
+        shell: bash
+        run: |
+          mkdir -p rc
+          npm pack --ignore-scripts --pack-destination rc
+          node -e "const fs=require('fs'),c=require('crypto');const f=fs.readdirSync('rc').filter(n=>n.endsWith('.tgz'));if(f.length!==1)throw new Error('expected one tarball, got '+f);const h=c.createHash('sha256').update(fs.readFileSync('rc/'+f[0])).digest('hex');fs.writeFileSync('rc/'+f[0]+'.sha256',h+'  '+f[0]+'\n');console.log(h+'  '+f[0]);"
+      - name: Qualify install, run, exit codes, and uninstall
+        shell: bash
+        run: node .github/scripts/rc-qualify.mjs rc/*.tgz rc/qualification-${{ matrix.os }}-node-${{ matrix.node }}.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: rc-${{ matrix.os }}-node-${{ matrix.node }}
+          path: rc/
+          if-no-files-found: error
+          retention-days: 90
+
+  compare:
+    name: compare digests and assemble candidate
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      tarball: ${{ steps.assemble.outputs.tarball }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: rc-*
+          path: lanes
+      - name: Require identical tarballs across operating systems
+        id: assemble
+        shell: bash
+        run: |
+          node - <<'EOF'
+          const fs = require("fs"), path = require("path"), crypto = require("crypto");
+          const lanes = fs.readdirSync("lanes").sort();
+          const byNode = {};
+          let reference = null;
+          for (const lane of lanes) {
+            const dir = path.join("lanes", lane);
+            const tgz = fs.readdirSync(dir).find((name) => name.endsWith(".tgz"));
+            const digest = crypto.createHash("sha256").update(fs.readFileSync(path.join(dir, tgz))).digest("hex");
+            const qualification = JSON.parse(fs.readFileSync(path.join(dir, fs.readdirSync(dir).find((name) => name.startsWith("qualification-"))), "utf8"));
+            const node = lane.split("node-")[1];
+            (byNode[node] ??= []).push({ lane, digest, qualified: qualification.passed });
+            console.log(`${digest}  ${lane}  qualified=${qualification.passed}`);
+            if (!qualification.passed) throw new Error(`${lane} failed qualification`);
+            if (lane === "rc-ubuntu-24.04-node-24") reference = { dir, tgz, digest };
+          }
+          for (const [node, entries] of Object.entries(byNode)) {
+            if (new Set(entries.map((entry) => entry.digest)).size !== 1) throw new Error(`node ${node}: tarballs differ across operating systems`);
+          }
+          const sameAcrossNode = new Set(Object.values(byNode).flat().map((entry) => entry.digest)).size === 1;
+          console.log(`identical across Node 22 and 24: ${sameAcrossNode}`);
+          fs.mkdirSync("candidate");
+          fs.copyFileSync(path.join(reference.dir, reference.tgz), path.join("candidate", reference.tgz));
+          fs.writeFileSync("candidate/SHA256SUMS", `${reference.digest}  ${reference.tgz}\n`);
+          fs.writeFileSync("candidate/lanes.json", `${JSON.stringify({ byNode, sameAcrossNode, reference: "rc-ubuntu-24.04-node-24" }, null, 2)}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `tarball=${reference.tgz}\n`);
+          EOF
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: release-candidate
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 90
+
+  attest:
+    name: build-provenance attestation (only when requested)
+    needs: compare
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.attest == true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-candidate
+          path: candidate
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: candidate/${{ needs.compare.outputs.tarball }}

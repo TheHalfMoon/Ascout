@@ -77,15 +77,21 @@ For option 1A with 2A, these steps follow, each its own PR with checks:
 
 For option C, nothing ships. The CHANGELOG keeps its "Unreleased" section.
 
-## Decision record (to be filled in by the founder)
+## Decision record
+
+Founder direction given in chat on 2026-11-10. The founder first sent a message waiving both human
+reviews. It was **superseded the same day** by the direction below, which keeps both reviews
+mandatory. **No waiver is in effect.**
 
 | Item | Choice | Date | Conditions |
 |---|---|---|---|
-| Release now / version | | | |
-| Channel | | | |
-| Signing and provenance | | | |
-| Platforms | | | |
-| Human security review | met by ___ / waived by founder | | |
-| Human R1 of the release PR | met by ___ / waived by founder | | |
-
-A blank row means PENDING, not yes.
+| Prepare a release candidate | Approved: v0.2.0 | 2026-11-10 | Engineering preparation and PRs only. No release, final tag, npm publication, signing, or deployment without separate explicit authorization. |
+| Channel | GitHub Releases only | 2026-11-10 | Not npm. |
+| Checksums | SHA-256 | 2026-11-10 | |
+| Provenance | GitHub Actions build-provenance attestations | 2026-11-10 | An attestation is a Sigstore signature, so it runs only after separate authorization to sign. The workflow ships with it off. |
+| Platforms | Linux x64, macOS arm64, Windows x64; Node 22 and 24 | 2026-11-10 | Based on verified platform evidence |
+| Containment | T0 trusted-local limits stay documented | 2026-11-10 | |
+| Independent human security review | **Mandatory. PENDING.** | 2026-11-10 | Not waived. AI reviews are supplementary and are not this review. |
+| Human R1 of the release PR | **Mandatory. PENDING.** | 2026-11-10 | Not waived. |
+| FD-6 overall | **Not fully approved. Release is not GO.** | 2026-11-10 | It can't be GO while either human review is outstanding. |
+| Publication, final tag | Not authorized | 2026-11-10 | Needs the founder's separate explicit approval. |

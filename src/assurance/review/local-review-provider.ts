@@ -200,7 +200,12 @@ export async function callLocalReviewModelV1(call: LocalReviewCallV1): Promise<L
   try {
     const versionResponse = await fetch(new URL("/api/version", base), { redirect: "error", signal });
     const versionText = versionResponse.ok ? await readBounded(versionResponse, 4096) : null;
-    const version = versionText === null ? "unknown" : String((JSON.parse(versionText) as { version?: unknown }).version ?? "unknown");
+    let version = "unknown";
+    try {
+      if (versionText !== null) version = String((JSON.parse(versionText) as { version?: unknown }).version ?? "unknown");
+    } catch {
+      // A server that doesn't answer /api/version in JSON still gets a chance; its version is unknown.
+    }
     const response = await fetch(new URL("/api/chat", base), {
       method: "POST",
       redirect: "error",

@@ -33,12 +33,12 @@ The report is the full review report plus:
 | `advisory` | always `true` |
 | `satisfies_human_r1` | always `false` |
 | `outcome` | `FINDINGS`, `NO_FINDINGS`, or `INCOMPLETE` |
-| `exit_code` | `1`, `0`, or `4` |
+| `exit_code` | `1` or `4` |
 | `provider` | model, family, independence, Ollama version, dropped findings |
 
 - **`FINDINGS`, exit 1:** at least one finding is placed on a changed file's real lines. Findings
   that can't be placed are listed but don't count.
-- **`NO_FINDINGS`, exit 0:** nothing placeable, and the model saw every changed file. The report
+- **`NO_FINDINGS`, exit 4** (changed from exit 0 on 2026-11-10, after a security review showed a prompt injection could make an unreviewed change exit 0): nothing placeable, and the model saw every changed file. The report
   says this is advice, not a clean review.
 - **`INCOMPLETE`, exit 4:** nothing placeable, and some changed files were left out.
 

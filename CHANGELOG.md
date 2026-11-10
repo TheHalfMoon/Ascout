@@ -3,11 +3,25 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
-## Unreleased (draft for a proposed 0.2.0; nothing is released until FD-6 is decided)
+## 0.2.0 (release candidate, not published)
+
+Not released. Publication waits for the independent human security review, human R1 of the release
+PR, and the founder's explicit approval. GitHub Releases only; not on npm.
 
 Changes on `main` since `v0.1.0` (55688b5, GitHub release 2026-09-12).
 
-### Breaking
+### Breaking: exit codes changed since 0.1.0
+
+| Command | 0.1.0 exit when nothing ran | 0.2.0 exit |
+|---|---|---|
+| `ascout review` | `0` | `4` (not run) |
+| `ascout test` | `0` | `4`, or the `check` result for profiles that run it |
+| `ascout security` | `1` | `4`; findings exit `1` |
+| Most operational errors | `1` | `2` |
+| Source changed during the run | — | `3` |
+
+`0` now means the applicable work completed, and `4` is never a pass. Check scripts that test only for
+`0` or non-zero.
 
 - **Truthful exits (Amendment A07).** `review`, `test`, and `security` exit `4` when required work
   did not run. Before, `review` and `test` exited `0` and `security` exited `1` without running
@@ -39,6 +53,14 @@ Changes on `main` since `v0.1.0` (55688b5, GitHub release 2026-09-12).
   time caps, source binding, and process-tree teardown.
 - The fixes from the 2026-11-08 security review (#667–#696).
 - Ctrl-C stops a running task's process tree.
+- Fixes from independent AI security reviews of this release candidate (separate contexts;
+  supplementary, not the required human review):
+  - a local-model finding counts only on a changed line;
+  - the model reporting nothing exits `4`, not `0`;
+  - the data fence is escaped in any case;
+  - an MCP call can't overlap a tool that is still stopping, and synchronous tools respect their
+    deadline;
+  - MCP output respects backpressure, and the result cap applies to the final frame.
 
 ### Fixed
 
@@ -48,6 +70,10 @@ Changes on `main` since `v0.1.0` (55688b5, GitHub release 2026-09-12).
 
 ### Known limits
 
+- Supported: Linux x64, macOS arm64, and Windows x64, on Node 22 and 24. Other platforms are
+  unsupported.
+- `check` receipts still record `ascout_version: "0.1.0-m1"`. Receipt v1.0 is byte-frozen, so the
+  receipt producer's version string doesn't follow the package version.
 - Trusted-local only: Ascout runs your repository's own tools with your rights. Do not run it
   on code you don't trust.
 - `test --profile deep` and `release` exit `4`, because mutation, fuzz, and browser engines
