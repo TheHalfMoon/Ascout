@@ -31,6 +31,9 @@ describe("overall state and check-run conclusion", () => {
   it("follows A07 precedence: error, drift, findings, incomplete, complete", () => {
     expect(overallStateV1([c("review", 0), c("security", 4), c("test", 1)])).toBe("FINDINGS");
     expect(overallStateV1([c("review", 3), c("test", 2)])).toBe("ERROR");
+    expect(overallStateV1([c("review", 1), c("test", 2)])).toBe("ERROR");
+    expect(overallStateV1([c("review", 1), c("test", 3)])).toBe("SOURCE_DRIFT");
+    expect(overallStateV1([c("review", 4), c("test", 1)])).toBe("FINDINGS");
     expect(overallStateV1([c("review", 0), c("test", 4)])).toBe("INCOMPLETE");
     expect(overallStateV1([c("review", 0), c("security", 0), c("test", 0)])).toBe("COMPLETE");
     expect(overallStateV1([])).toBe("INCOMPLETE");
