@@ -284,6 +284,14 @@ describe("publishing under a team policy", () => {
     expect(state.requests).toEqual([]);
   });
 
+  it("refuses, rather than falling back to the default, when the policy path fails for any reason but absence", async () => {
+    reset();
+    const underAFile = join(writePolicy("p10-not-a-dir.json", testOnly), "ascout-policy.json");
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p10.json", 0, 0, 0), policyPath: underAFile }));
+    expect(outcome).toMatchObject({ kind: "refused", reason: "policy file could not be read" });
+    expect(state.requests).toEqual([]);
+  });
+
   it("refuses a policy that is a symbolic link, even to a valid policy", async (context) => {
     reset();
     const link = join(scratch, "linked-policy.json");
