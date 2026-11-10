@@ -42,7 +42,7 @@ export function buildSecurityCommandReportV1(): SecurityCommandReportV1 {
     kind: "security",
     outcome: "NOT_RUN",
     reason_code: SECURITY_NOT_RUN_REASON,
-    reason_text: "No security engine is executed in UA-P06; nothing was scanned, so no security result exists.",
+    reason_text: "No security engine ran, so nothing was scanned and no security result exists.",
     engine: Object.freeze({
       id: SENTRDEL_ENGINE_ID, version: SENTRDEL_ENGINE_VERSION,
       pin: SENTRDEL_PINNED_REVISION, tree: SENTRDEL_PINNED_TREE, executed: false,
