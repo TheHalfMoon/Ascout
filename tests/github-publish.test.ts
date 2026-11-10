@@ -286,8 +286,9 @@ describe("publishing under a team policy", () => {
 
   it("refuses, rather than falling back to the default, when the policy path fails for any reason but absence", async () => {
     reset();
-    const underAFile = join(writePolicy("p10-not-a-dir.json", testOnly), "ascout-policy.json");
-    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p10.json", 0, 0, 0), policyPath: underAFile }));
+    // A NUL byte makes the file system call throw on every platform, with a code other than ENOENT.
+    const unusable = join(scratch, `policy${String.fromCharCode(0)}.json`);
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p10.json", 0, 0, 0), policyPath: unusable }));
     expect(outcome).toMatchObject({ kind: "refused", reason: "policy file could not be read" });
     expect(state.requests).toEqual([]);
   });
