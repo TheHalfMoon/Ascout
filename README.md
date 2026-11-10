@@ -2,6 +2,8 @@
 
 > **Verify everything AI ships.**
 > **Know exactly what passed, failed, and was never checked.**
+>
+> **Free • Open Source • Community-Driven** — Apache-2.0 · [Contribute](CONTRIBUTING.md) · [Community and product commitments](docs/COMMUNITY_AND_PRODUCT.md)
 
 Ascout is a local, evidence-bound verification layer for AI-built software. It inspects the exact Git working-tree state, discovers supported project-local verification tools, runs bounded checks, and emits a receipt that distinguishes what was proved from what failed, was refused, remained unresolved, or was not run.
 
@@ -9,11 +11,29 @@ Ascout's M1 goal is deliberately narrow: make changed-code verification harder t
 
 ## Status
 
-Ascout has completed canonical **M1 release hardening** and the bounded **M2 selection-configuration fidelity** milestone. M2 adds benchmark-backed single-package nested Jest/Vitest configuration fidelity while preserving the M1 receipt, trust, admission, dependency, and publication boundaries. The package is version `0.1.0`, remains `private: true`, and is not published to npm. Spec 013 qualifies an npm-compatible tarball for GitHub Release distribution; a GitHub Release is separate from npm-registry publication.
+**Latest public release: [v0.2.0](https://github.com/TheHalfMoon/Ascout/releases/tag/v0.2.0), published November 10, 2026.** Download the verified tarball and checksum from GitHub Releases; Ascout is **not** published to the npm registry, and the package manifest retains `private: true` to prevent accidental registry publication. The release supports Windows x64, Linux x64, and macOS arm64 on Node.js 22 or 24, with Git installed. Its published features are a local CLI and a bounded, read-only stdio MCP server. **No desktop GUI, hosted service, GitHub PR bot, paid team plan, or enterprise control plane is currently released.** M1 and M2 verification remain bounded by the documented trust and evidence contracts.
 
 Canonical T087 selected the repository package identity `@thehalfmoon/ascout` while preserving the executable name `ascout`. The scoped identity is a repository decision, not a claim that authenticated npm scope ownership or publication authority has been proven; any future publication requires separate authenticated npm scope/ownership evidence and separate release/publication authority.
 
 GitHub `main`, the canonical Spec Kit artifacts under `specs/001-changed-code-verification-receipt/` and `specs/002-selection-config-fidelity/`, and merged task PRs are the source of current implementation truth. The simplified M1 builder map remains in `specs/001-changed-code-verification-receipt/IMPLEMENTATION_RUNBOOK.md`.
+
+## Free and community-led by design
+
+Ascout is **free to use, open source under Apache-2.0, and open to community contributions**. Individuals, students, independent developers, maintainers, and open-source projects can use the same locally executable verification core without paying Ascout. There is no Ascout cloud account, mandatory subscription, hosted AI inference, or per-run metering for the core.
+
+The intended product experience is **CLI + MCP first**, with future CI/GitHub integration. A desktop application is **not required** for the current direction. Users choose their own local tools and optional AI providers; Ascout does not supply or pay for model tokens, hosted compute, or GitHub runner minutes. Some upstream services or user-provided providers may charge the user independently.
+
+**Community-driven** means contributions, bug reports, reproducible benchmarks, accessibility improvements, and documented governance proposals are welcome. It does not imply an elected governance body or existing community vote. See [Contributing](CONTRIBUTING.md) and [Community and product commitments](docs/COMMUNITY_AND_PRODUCT.md).
+
+### Business model: free core, optional paid organizational capabilities
+
+The future **Teams, Business, and Enterprise** offering is intended to charge organizations for *additional* organizational value: centrally administered policies, fleet-wide verification visibility, audit and compliance exports, organization permissions/SSO, customer-hosted deployment support, commercial SLAs, and managed organization integrations. **These features and subscriptions are proposals, not shipping features, prices, or current entitlements.** AI inference and verification execution should run on customer-owned infrastructure with customer-authorized models.
+
+Apache-2.0 permits commercial use of the existing open-source core, including by companies. **Companies are not required to pay just to run or modify Ascout Core.** Future paid capabilities, licensing, support, and commercial terms must be separately defined; do not misrepresent the Apache-licensed core as restricted to noncommercial use. See [product and community policy](docs/COMMUNITY_AND_PRODUCT.md).
+
+### Identity and source transparency
+
+**Ascout** is the only active product name for its CLI, MCP, reports, packages, documentation, and future integrations. Third-party tool names may still appear when accurately identifying a compatible tool or retaining legally required notices, licenses, historical citations, and provenance. See [branding policy](docs/BRAND_IDENTITY.md). Source attribution is not another product brand.
 
 ## What M1 does
 
