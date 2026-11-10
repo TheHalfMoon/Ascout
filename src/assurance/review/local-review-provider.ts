@@ -162,6 +162,8 @@ export interface LocalReviewCallV1 {
   readonly diff: string;
   readonly timeoutMs: number;
   readonly maxResponseBytes: number;
+  /** Aborts the call early, as when a caller is cancelled; the timeout still applies. */
+  readonly signal?: AbortSignal;
 }
 
 export type LocalReviewCallResultV1 =
@@ -193,7 +195,8 @@ async function readBounded(response: Response, maxBytes: number): Promise<string
 export async function callLocalReviewModelV1(call: LocalReviewCallV1): Promise<LocalReviewCallResultV1> {
   if (!isLoopbackEndpoint(call.endpoint)) return { ok: false, reason: "endpoint is not loopback" };
   const base = new URL(call.endpoint);
-  const signal = AbortSignal.timeout(call.timeoutMs);
+  const timeout = AbortSignal.timeout(call.timeoutMs);
+  const signal = call.signal === undefined ? timeout : AbortSignal.any([timeout, call.signal]);
   try {
     const versionResponse = await fetch(new URL("/api/version", base), { redirect: "error", signal });
     const versionText = versionResponse.ok ? await readBounded(versionResponse, 4096) : null;
@@ -213,7 +216,7 @@ export async function callLocalReviewModelV1(call: LocalReviewCallV1): Promise<L
     return { ok: true, version: /^[A-Za-z0-9._+-]{1,64}$/u.test(version) ? version : "unknown", content };
   } catch (error) {
     const name = error instanceof Error ? error.name : "";
-    return { ok: false, reason: name === "TimeoutError" ? "the model did not answer in time" : "the model server could not be reached" };
+    return { ok: false, reason: name === "TimeoutError" ? "the model did not answer in time" : name === "AbortError" ? "the review was cancelled" : "the model server could not be reached" };
   }
 }
 

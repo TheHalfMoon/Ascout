@@ -135,6 +135,7 @@ export interface LocalReviewRunInputV1 {
   readonly readText: (path: string, maxBytes: number) => string | null;
   readonly redact: (text: string) => string;
   readonly call?: (call: LocalReviewCallV1) => Promise<LocalReviewCallResultV1>;
+  readonly signal?: AbortSignal;
 }
 
 function notRun(
@@ -197,6 +198,7 @@ export async function runLocalReviewV1(input: LocalReviewRunInputV1): Promise<Lo
     diff: payload.text,
     timeoutMs: LOCAL_REVIEW_LIMITS.timeout_ms,
     maxResponseBytes: LOCAL_REVIEW_LIMITS.max_response_bytes,
+    ...(input.signal === undefined ? {} : { signal: input.signal }),
   });
   if (!reply.ok) {
     const status: ReviewExecutionStatusV1 = reply.reason === "the model did not answer in time" ? "TIMEOUT" : "ERROR";

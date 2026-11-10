@@ -106,7 +106,7 @@ describe("UA-P06-T16 P6 qualification: section 11 hard-zero invariants", () => {
     expect(usageText().split("\n")).toEqual([
       "Usage:",
       "  ascout init",
-      "  ascout doctor",
+      "  ascout doctor [--format json|terminal]",
       "  ascout check [--allow-changed-command-surface] [--format json|agent]",
       "  ascout review [--local-model] [--format json|terminal]",
       "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",

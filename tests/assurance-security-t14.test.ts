@@ -113,7 +113,7 @@ describe("UA-P06-T14 ascout security (decision B, with exits from Amendment A07)
     expect(usageText().split("\n").slice(0, 6)).toEqual([
       "Usage:",
       "  ascout init",
-      "  ascout doctor",
+      "  ascout doctor [--format json|terminal]",
       "  ascout check [--allow-changed-command-surface] [--format json|agent]",
       "  ascout review [--local-model] [--format json|terminal]",
       "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
