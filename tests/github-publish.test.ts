@@ -1,7 +1,8 @@
 import { createServer, type Server } from "node:http";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { AddressInfo } from "node:net";
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -243,6 +244,38 @@ describe("publishing under a team policy", () => {
     expect(outcome).toMatchObject({ kind: "refused", reason: expect.stringContaining("policy") });
     expect(state.requests).toEqual([]);
   });
+
+  it("the CLI reads the policy from its own working directory, the trusted default-branch checkout", async () => {
+    const outDir = join(resolve(__dirname, ".."), "node_modules", ".cache", "ascout-policy-cli");
+    execFileSync(process.execPath, [join(resolve(__dirname, ".."), "node_modules", "typescript", "bin", "tsc"), "-p", join(resolve(__dirname, ".."), "tsconfig.json"), "--outDir", outDir], { stdio: "pipe" });
+    const checkout = join(scratch, "checkout");
+    mkdirSync(join(checkout, ".github"), { recursive: true });
+    const env = {
+      ...process.env,
+      GITHUB_REPOSITORY: "o/r", ASCOUT_PR_HEAD_SHA: HEAD, ASCOUT_PR_HEAD_REPOSITORY: "o/r", ASCOUT_PR_HEAD_BRANCH: "feature",
+      ASCOUT_PR_DETAILS_URL: "https://github.com/o/r/actions/runs/1", GITHUB_TOKEN: "test-token", GITHUB_API_URL: origin,
+      ASCOUT_PR_TRIGGERING_ACTOR: "maintainer", ASCOUT_PR_TRUSTED_ACTORS: "maintainer", ASCOUT_PR_REQUIRED_BASE: "main", ASCOUT_PR_NUMBER: "7",
+    };
+    const cli = (bundle: string) => new Promise<{ code: number | null; stdout: string }>((done) => {
+      const child = spawn(process.execPath, [join(outDir, "cli.js"), "pr-publish", bundle], { cwd: checkout, env });
+      let stdout = "";
+      child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString("utf8"); });
+      child.on("close", (code) => done({ code, stdout }));
+    });
+
+    reset();
+    writeFileSync(join(checkout, ".github", "ascout-policy.json"), JSON.stringify({ version: 1, required_checks: ["test"] }));
+    const passed = await cli(writeMixed("cli1.json", 4, 4, 0));
+    expect(passed.code).toBe(0);
+    expect(JSON.parse(passed.stdout)).toMatchObject({ kind: "published", conclusion: "success" });
+
+    reset();
+    writeFileSync(join(checkout, ".github", "ascout-policy.json"), "{ not json");
+    const refused = await cli(writeMixed("cli2.json", 0, 0, 0));
+    expect(refused.code).toBe(2);
+    expect(JSON.parse(refused.stdout)).toMatchObject({ kind: "refused", reason: expect.stringContaining("policy") });
+    expect(state.requests).toEqual([]);
+  }, 300_000);
 
   it("refuses when the policy path exists but cannot be read as a file", async () => {
     reset();

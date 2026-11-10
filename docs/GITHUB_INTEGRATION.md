@@ -38,13 +38,34 @@ This repository builds Ascout from source in both jobs. A consuming repository w
 released tarball instead, once a release includes these commands. Runner minutes are yours, and
 Ascout runs no service.
 
+## Team policy
+
+A repository can choose which checks a pull request must complete, in
+`.github/ascout-policy.json` on its default branch:
+
+```json
+{ "version": 1, "required_checks": ["test"] }
+```
+
+- **Only the publisher reads the policy,** from its own default-branch checkout. It never reads it
+  from the pull request, so a PR cannot relax its own requirements.
+- **A finding, an error, or a source change in any check always fails,** required or not. The policy
+  only decides which checks must *complete*.
+- **No file means every check is required.**
+- **An invalid policy fails closed:** the publisher refuses to publish, and no check run appears.
+  Unknown keys, unknown or duplicate check names, an empty list, or an unknown version all count as
+  invalid.
+- **The trust rules below still apply.** A policy pass from untrusted evidence is still capped at
+  `action_required`.
+- The summary marks each check as required or not.
+
 ## Check Run results
 
-| Overall state | Conclusion | Passes branch protection? |
+| Policy verdict | Conclusion | Passes branch protection? |
 |---|---|---|
-| Complete (exit 0) | `success` | Yes |
-| Findings, error, or source changed (exit 1, 2, 3) | `failure` | No |
-| Incomplete: required work did not run (exit 4) | `action_required` | No. `neutral` is never used, because branch protection treats it as passing. |
+| Every required check complete (exit 0), and no check failing | `success` | Yes |
+| Any check with findings, an error, or source changed (exit 1, 2, 3) | `failure` | No |
+| A required check incomplete: required work did not run (exit 4) | `action_required` | No. `neutral` is never used, because branch protection treats it as passing. |
 | Evidence from a fork PR that claims success | `action_required` | No |
 
 ## Security model and known limits
@@ -72,6 +93,7 @@ trust itself, from the trusted event:
   with the same name through the GitHub Actions app. Hard, tamper-proof gating needs a dedicated
   GitHub App, which is planned and not built.
 - **Several open PRs from one branch are ambiguous**, so the publisher annotates none of them.
-- **Honest collection can't be green yet.** Review without a model and Gitleaks on a clean scan
-  both exit 4. Per-repository policy over which checks are required is the next work package.
+- **Honest collection can't be green under the default policy.** Review without a model and
+  Gitleaks on a clean scan both exit 4. A repository that wants a pass on tests alone has to say so in
+  its team policy. The summary always shows which checks did not run.
 - AI review, where configured, is advisory and never makes the check pass.
