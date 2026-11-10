@@ -1,0 +1,3 @@
+# Keep shipped source LF on every checkout, so packages build identically on Windows, Linux,
+# and macOS (a CRLF checkout puts carriage returns inside multi-line template strings).
+src/** text eol=lf
