@@ -296,10 +296,8 @@ describe.runIf(AVAILABLE)("real Gitleaks through the broker", () => {
       });
       let raw = "";
       child.stdout.on("data", (chunk: Buffer) => { raw += chunk.toString("utf8"); });
-      const lines = () => raw.split("
-").filter((line) => line !== "");
-      child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "ascout_security" } })}
-`);
+      const lines = () => raw.split("\n").filter((line) => line !== "");
+      child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "ascout_security" } })}\n`);
       const started = Date.now();
       while (lines().length < 1) {
         if (Date.now() - started > 120_000) throw new Error("no MCP reply: " + raw);
@@ -321,20 +319,17 @@ describe.runIf(AVAILABLE)("real Gitleaks through the broker", () => {
 
     it("reports the finding as FINDINGS, matches the CLI report, and never carries the token", async () => {
       const token = syntheticToken();
-      const root = repository({ "settings.js": `const token = "${token}";
-` });
+      const root = repository({ "settings.js": `const token = "${token}";\n` });
       const { raw, body } = await securityOverMcp(root);
       expect([body.exit_code, body.assurance]).toEqual([1, "FINDINGS"]);
       const cli = cliJson(root);
-      expect(`${JSON.stringify(body.report, null, 2)}
-`).toBe(cli.stdout);
+      expect(`${JSON.stringify(body.report, null, 2)}\n`).toBe(cli.stdout);
       expect(cli.status).toBe(1);
       expect(raw).not.toContain(token);
     }, 180_000);
 
     it("reports a clean scan as INCOMPLETE, never COMPLETE", async () => {
-      const root = repository({ "readme.txt": "nothing to see
-" });
+      const root = repository({ "readme.txt": "nothing to see\n" });
       const { body } = await securityOverMcp(root);
       expect([body.exit_code, body.assurance]).toEqual([4, "INCOMPLETE"]);
     }, 180_000);
