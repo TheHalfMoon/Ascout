@@ -10,6 +10,8 @@ export const PR_EVIDENCE_SCHEMA = "ascout.pr-evidence/v1" as const;
 export const PR_EVIDENCE_MAX_BYTES = 1024 * 1024;
 export const PR_EVIDENCE_MAX_FINDINGS = 50;
 export const CHECK_RUN_NAME = "Ascout verification";
+/** Untrusted evidence is published under its own name, so it can never overwrite or satisfy the required check. */
+export const UNTRUSTED_CHECK_RUN_NAME = "Ascout verification (untrusted)";
 export const SUMMARY_COMMENT_MARKER = "<!-- ascout:pr-summary:v1 -->";
 
 export const CHECK_IDS = ["review", "security", "test"] as const;
@@ -184,7 +186,11 @@ export function neutralizeMarkdownV1(text: string, max = 500): string {
 export interface PublishContextV1 {
   /** The PR head from the trusted workflow event, never from the bundle. */
   readonly trusted_head_sha: string;
-  /** True only when the PR comes from the base repository itself, not a fork. */
+  /**
+   * True only when the publisher decided this evidence may vouch for a pass: a same-repository PR,
+   * targeting the protected base, whose author and triggering actor are allowlisted maintainers
+   * and not bots. Collection runs PR code, so anything else may be forged.
+   */
   readonly evidence_trusted: boolean;
   /** A link to the run that produced the evidence. */
   readonly details_url: string;
@@ -246,15 +252,15 @@ export function checkRunFromEvidenceV1(evidence: PrEvidenceV1, context: PublishC
   const reported = CONCLUSION_BY_STATE[evidence.overall.state];
   const capped = !context.evidence_trusted && reported === "success";
   return {
-    name: CHECK_RUN_NAME,
+    name: context.evidence_trusted ? CHECK_RUN_NAME : UNTRUSTED_CHECK_RUN_NAME,
     head_sha: context.trusted_head_sha,
     details_url: context.details_url,
     status: "completed",
     conclusion: capped ? "action_required" : reported,
     output: {
-      title: capped ? "Ascout: needs a maintainer: evidence came from untrusted pull request code" : `Ascout: ${STATE_LABEL[evidence.overall.state]}`,
+      title: capped ? "Ascout: needs a maintainer: this evidence came from pull request code that is not trusted to vouch for a pass" : `Ascout: ${STATE_LABEL[evidence.overall.state]}`,
       summary: [
-        ...(capped ? ["**This pull request comes from a fork, so its own code produced this evidence, and a pass cannot be trusted.** Re-run Ascout from a trusted context before relying on it.", ""] : []),
+        ...(capped ? ["**This pull request's own code produced this evidence, and its author is not on the trusted list, so a pass cannot be trusted.** A maintainer must verify it.", ""] : []),
         summaryTable(evidence),
         "",
         `${evidence.findings.length} finding(s)${evidence.findings_truncated ? ", more not shown" : ""}. Exit codes: 0 complete, 1 findings, 2 error, 3 source changed, 4 incomplete. Only 0 passes.`,

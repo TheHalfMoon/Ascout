@@ -31,6 +31,14 @@ export interface PublishInputV1 {
   readonly apiUrl: string;
   /** The login the publisher's comments are written as. */
   readonly botLogin: string;
+  /** workflow_run.triggering_actor.login. */
+  readonly triggeringActor: string;
+  /** Maintainers whose same-repository PRs may produce a pass. Empty means nobody. */
+  readonly trustedActors: readonly string[];
+  /** The protected base branch the PR must target, usually the default branch. */
+  readonly requiredBase: string;
+  /** workflow_run.pull_requests[0].number when GitHub provides it (same-repository PRs). */
+  readonly prNumber?: number;
   readonly fetch?: typeof fetch;
 }
 
@@ -50,6 +58,12 @@ export function apiOriginV1(apiUrl: string): string {
   if (url.protocol !== "https:" && !loopback) throw new Error("the GitHub API URL must use https");
   if (url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== "") throw new Error("the GitHub API URL must be a plain origin");
   return url.origin + url.pathname.replace(/\/+$/u, "");
+}
+
+/** A maintainer on the allowlist, never a bot account. */
+export function isTrustedActorV1(login: string, trusted: readonly string[]): boolean {
+  if (login === "" || login.endsWith("[bot]")) return false;
+  return trusted.some((name) => name.toLowerCase() === login.toLowerCase());
 }
 
 export async function publishPrEvidenceV1(input: PublishInputV1): Promise<PublishOutcomeV1> {
@@ -93,15 +107,28 @@ export async function publishPrEvidenceV1(input: PublishInputV1): Promise<Publis
   };
 
   const [owner] = input.headRepository.split("/");
-  const pulls = await api("GET", `/repos/${input.repository}/pulls?state=open&head=${encodeURIComponent(`${owner}:${input.headBranch}`)}&per_page=10`) as { number: number; head: { sha: string; repo: { full_name: string } | null } }[];
-  const pr = pulls.find((candidate) => candidate.head.repo?.full_name === input.headRepository);
+  type Pull = { number: number; state?: string; user: { login: string; type?: string } | null; base: { ref: string }; head: { sha: string; repo: { full_name: string } | null } };
+  let pr: Pull | undefined;
+  if (input.prNumber !== undefined) {
+    const one = await api("GET", `/repos/${input.repository}/pulls/${input.prNumber}`) as Pull;
+    if (one.state === "open" && one.head.repo?.full_name === input.headRepository) pr = one;
+  } else {
+    const pulls = await api("GET", `/repos/${input.repository}/pulls?state=open&head=${encodeURIComponent(`${owner}:${input.headBranch}`)}&per_page=10`) as Pull[];
+    const matches = pulls.filter((candidate) => candidate.head.repo?.full_name === input.headRepository && candidate.base.ref === input.requiredBase);
+    // Several open PRs from one branch are ambiguous: annotate none rather than the wrong one.
+    if (matches.length > 1) return { kind: "refused", reason: "more than one open pull request for that head branch" };
+    pr = matches[0];
+  }
   if (pr === undefined) return { kind: "refused", reason: "no open pull request for that head branch" };
   // The trusted SHA must still be the PR head. If someone pushed since collection, this result is stale.
   if (pr.head.sha !== input.headSha) return { kind: "stale", pr: pr.number, current_head: pr.head.sha };
 
   const context: PublishContextV1 = {
     trusted_head_sha: input.headSha,
-    evidence_trusted: input.headRepository === input.repository,
+    evidence_trusted: input.headRepository === input.repository
+      && pr.base.ref === input.requiredBase
+      && isTrustedActorV1(input.triggeringActor, input.trustedActors)
+      && isTrustedActorV1(pr.user?.login ?? "", input.trustedActors),
     details_url: detailsUrl.toString(),
   };
   if (!evidenceMatchesHeadV1(evidence, context)) return { kind: "refused", reason: "the evidence describes a different commit than the pull request head" };

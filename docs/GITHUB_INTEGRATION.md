@@ -49,16 +49,29 @@ Ascout runs no service.
 
 ## Security model and known limits
 
-- **Fork PRs can forge evidence.** The collect job runs PR code, which on a fork is the
-  attacker's, including their workflow files. So evidence from a fork can report problems, but it
-  can never produce `success`; it is capped at `action_required`. Same-repository PRs come from
-  people with write access.
-- **The check name is not exclusive (known limit).** Any workflow job, including one added in a
-  fork PR, can create a check run named "Ascout verification" through the same GitHub Actions app.
-  A ruleset that requires the check by name can't tell them apart. Hard gating needs the check to
-  come from a dedicated GitHub App, which is planned and not built. Until then, treat the check as
-  a strong signal for same-repository PRs, not as a tamper-proof gate.
-- **Honest collection can't be green today.** Review without a model and Gitleaks on a clean scan
-  both exit 4, because neither can prove coverage. A per-repository policy deciding which checks
-  are required is planned, so that teams can gate on the checks they choose.
+**Collection runs pull request code**: the repository's tests, and in this repository the Ascout
+build itself. So any PR, fork or not, can forge its own evidence. The publisher therefore decides
+trust itself, from the trusted event:
+
+- **A pass needs all of these:**
+  - a same-repository PR;
+  - targeting the protected base (the default branch);
+  - whose author **and** triggering actor are on the maintainer allowlist (the repository variable
+    `ASCOUT_PR_TRUSTED_ACTORS`, comma-separated);
+  - neither of whom is a bot.
+
+  The allowlist is **empty by default, so no PR evidence turns the required check green until a
+  maintainer opts in.**
+- **Everything else is published as "Ascout verification (untrusted)",** a separate check name, so
+  it can never overwrite or satisfy the required check. It is capped at `action_required` when it
+  claims a pass, and it can still report failures.
+- **Trusting a maintainer means trusting their PR's code and dependencies.** A malicious dependency
+  in a maintainer's PR runs during collection like any other code. Dependabot and other bots are
+  never trusted.
+- **The check name is not exclusive.** A job a PR adds to its own workflow can create a check run
+  with the same name through the GitHub Actions app. Hard, tamper-proof gating needs a dedicated
+  GitHub App, which is planned and not built.
+- **Several open PRs from one branch are ambiguous**, so the publisher annotates none of them.
+- **Honest collection can't be green yet.** Review without a model and Gitleaks on a clean scan
+  both exit 4. Per-repository policy over which checks are required is the next work package.
 - AI review, where configured, is advisory and never makes the check pass.

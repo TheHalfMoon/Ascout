@@ -6,7 +6,7 @@ import type { AddressInfo } from "node:net";
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { apiOriginV1, publishPrEvidenceV1, type PublishInputV1 } from "../src/github/publish.js";
+import { apiOriginV1, isTrustedActorV1, publishPrEvidenceV1, type PublishInputV1 } from "../src/github/publish.js";
 import { SUMMARY_COMMENT_MARKER, buildPrEvidenceV1, stateForExitCode, type PrCheckV1 } from "../src/github/pr-evidence.js";
 
 const HEAD = "a".repeat(40);
@@ -23,6 +23,9 @@ function writeBundle(name: string, exit: PrCheckV1["exit_code"], headSha = HEAD)
 interface FakeState {
   prHead: string;
   headRepo: string;
+  author: string;
+  base: string;
+  extraPulls: number;
   comments: { id: number; user: { login: string }; body: string }[];
   requests: { method: string; url: string; body: unknown }[];
 }
@@ -41,7 +44,11 @@ beforeAll(async () => {
       const url = new URL(request.url!, "http://x");
       const send = (status: number, value: unknown) => { response.statusCode = status; response.end(JSON.stringify(value)); };
       if (request.method === "GET" && url.pathname === "/repos/o/r/pulls") {
-        return send(200, [{ number: 7, head: { sha: state.prHead, repo: { full_name: state.headRepo } } }]);
+        const pr = { number: 7, state: "open", user: { login: state.author }, base: { ref: state.base }, head: { sha: state.prHead, repo: { full_name: state.headRepo } } };
+        return send(200, [pr, ...Array.from({ length: state.extraPulls }, (_, i) => ({ ...pr, number: 8 + i }))]);
+      }
+      if (request.method === "GET" && url.pathname === "/repos/o/r/pulls/7") {
+        return send(200, { number: 7, state: "open", user: { login: state.author }, base: { ref: state.base }, head: { sha: state.prHead, repo: { full_name: state.headRepo } } });
       }
       if (request.method === "POST" && url.pathname === "/repos/o/r/check-runs") return send(201, { id: 99 });
       if (request.method === "GET" && url.pathname === "/repos/o/r/issues/7/comments") return send(200, state.comments);
@@ -64,7 +71,7 @@ afterAll(async () => {
 });
 
 function input(overrides: Partial<PublishInputV1> = {}): PublishInputV1 {
-  state = state ?? { prHead: HEAD, headRepo: "o/r", comments: [], requests: [] };
+  state = state ?? { prHead: HEAD, headRepo: "o/r", author: "maintainer", base: "main", extraPulls: 0, comments: [], requests: [] };
   return {
     bundlePath: writeBundle("b.json", 4),
     repository: "o/r",
@@ -75,11 +82,15 @@ function input(overrides: Partial<PublishInputV1> = {}): PublishInputV1 {
     token: "test-token",
     apiUrl: origin,
     botLogin: "github-actions[bot]",
+    triggeringActor: "maintainer",
+    trustedActors: ["maintainer"],
+    requiredBase: "main",
     ...overrides,
   };
 }
 
-const reset = (overrides: Partial<FakeState> = {}) => { state = { prHead: HEAD, headRepo: "o/r", comments: [], requests: [], ...overrides }; };
+const reset = (overrides: Partial<FakeState> = {}) => { state = { prHead: HEAD, headRepo: "o/r", author: "maintainer", base: "main", extraPulls: 0, comments: [], requests: [], ...overrides }; };
+const checkRunBody = () => state.requests.find((r) => r.url === "/repos/o/r/check-runs")!.body as Record<string, unknown>;
 const writes = () => state.requests.filter((r) => r.method !== "GET");
 
 describe("publishing PR evidence", () => {
@@ -147,5 +158,43 @@ describe("publishing PR evidence", () => {
     expect(() => apiOriginV1("http://api.github.com")).toThrow();
     expect(() => apiOriginV1("https://user:pw@api.github.com")).toThrow();
     expect(() => apiOriginV1("https://api.github.com/?x=1")).toThrow();
+  });
+
+  it("only an allowlisted maintainer's same-repository PR to the protected base can pass, under the real check name", async () => {
+    reset();
+    expect(await publishPrEvidenceV1(input({ bundlePath: writeBundle("t1.json", 0) }))).toMatchObject({ conclusion: "success" });
+    expect(checkRunBody().name).toBe("Ascout verification");
+  });
+
+  it.each([
+    ["an author who is not on the list", { author: "contributor" }, {}],
+    ["a triggering actor who is not on the list", {}, { triggeringActor: "contributor" }],
+    ["a bot, even if listed", { author: "dependabot[bot]" }, { trustedActors: ["maintainer", "dependabot[bot]"] }],
+    ["an empty allowlist", {}, { trustedActors: [] }],
+    ["a PR to another base, via the event's PR number", { base: "release" }, { prNumber: 7 }],
+  ])("publishes a claimed pass from %s as untrusted: action_required, under a separate check name", async (_label, fake, overrides) => {
+    reset(fake as Partial<FakeState>);
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeBundle("t2.json", 0), ...(overrides as Partial<PublishInputV1>) }));
+    expect(outcome).toMatchObject({ kind: "published", conclusion: "action_required" });
+    expect(checkRunBody().name).toBe("Ascout verification (untrusted)");
+  });
+
+  it("refuses when several open PRs share the head branch, rather than annotating the wrong one", async () => {
+    reset({ extraPulls: 1 });
+    expect(await publishPrEvidenceV1(input())).toMatchObject({ kind: "refused", reason: expect.stringContaining("more than one") });
+    expect(writes()).toEqual([]);
+  });
+
+  it("uses the event's PR number when GitHub provides it", async () => {
+    reset();
+    await publishPrEvidenceV1(input({ prNumber: 7 }));
+    expect(state.requests.some((r) => r.url === "/repos/o/r/pulls/7")).toBe(true);
+    expect(state.requests.some((r) => r.url.startsWith("/repos/o/r/pulls?"))).toBe(false);
+  });
+
+  it("recognizes maintainers case-insensitively and never a bot", () => {
+    expect(isTrustedActorV1("Maintainer", ["maintainer"])).toBe(true);
+    expect(isTrustedActorV1("renovate[bot]", ["renovate[bot]"])).toBe(false);
+    expect(isTrustedActorV1("", ["x"])).toBe(false);
   });
 });

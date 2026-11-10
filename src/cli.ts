@@ -543,6 +543,10 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         token: required("GITHUB_TOKEN"),
         apiUrl: env.GITHUB_API_URL || "https://api.github.com",
         botLogin: env.ASCOUT_PR_BOT_LOGIN || "github-actions[bot]",
+        triggeringActor: env.ASCOUT_PR_TRIGGERING_ACTOR ?? "",
+        trustedActors: (env.ASCOUT_PR_TRUSTED_ACTORS ?? "").split(",").map((name) => name.trim()).filter((name) => name !== ""),
+        requiredBase: required("ASCOUT_PR_REQUIRED_BASE"),
+        ...(/^[1-9][0-9]{0,9}$/u.test(env.ASCOUT_PR_NUMBER ?? "") ? { prNumber: Number(env.ASCOUT_PR_NUMBER) } : {}),
       });
       process.stdout.write(`${JSON.stringify(outcome)}
 `);

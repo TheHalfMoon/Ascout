@@ -165,7 +165,8 @@ describe("the independent security review's findings", () => {
     const forged = all(0);
     const run = checkRunFromEvidenceV1(forged, { ...ctx, evidence_trusted: false });
     expect(run.conclusion).toBe("action_required");
-    expect(run.output.title).toContain("untrusted");
+    expect(run.output.title).toContain("not trusted");
+    expect(run.name).toBe("Ascout verification (untrusted)");
     // Untrusted evidence can still report a failure.
     expect(checkRunFromEvidenceV1(all(1), { ...ctx, evidence_trusted: false }).conclusion).toBe("failure");
   });
