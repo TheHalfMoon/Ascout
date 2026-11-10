@@ -82,6 +82,13 @@ merging. Keep the required list in step with the workflows.
 | Allowed actions | All | "Allow owner-created and selected actions": `actions/checkout`, `actions/setup-node`, `actions/upload-artifact` (the workflows already pin all three by SHA) |
 | Require actions pinned to a full SHA | Off | On. Every current `uses:` is already SHA-pinned. |
 
+## 7. Release attestation environment
+
+The Release Candidate workflow's attestation job runs in an environment named `release-attest`.
+GitHub creates that environment on first use, with no protection. Before authorizing signing, set it
+up with yourself as a required reviewer, limited to `main` and `release/v*`. Then signing needs your
+click on top of the `attest: true` input. Settings → Environments → `release-attest`.
+
 ## Not settings, but related
 
 - **npm `private: true`** only blocks npm publication. The GitHub repository itself is public.

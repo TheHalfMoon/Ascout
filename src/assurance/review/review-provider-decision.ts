@@ -87,7 +87,7 @@ export function decideReviewProviderV1(
   if (sendsSource && !policy.allow_source_egress) reasons.push("SOURCE_EGRESS_NOT_AUTHORIZED");
   if (candidate.metadata.credential_required) reasons.push("CREDENTIAL_REQUIRED");
 
-  const independence = candidate.model_family === policy.author_model_family ? "SAME_MODEL_FAMILY" : "INDEPENDENT_MODEL";
+  const independence = candidate.model_family.toLowerCase() === policy.author_model_family.toLowerCase() ? "SAME_MODEL_FAMILY" : "INDEPENDENT_MODEL";
   if (reasons.length > 0) return decision("BLOCKED", reasons, profile.metadata.provider_identity, independence);
   return decision(
     "RUNNABLE_ADVISORY",

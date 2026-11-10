@@ -16,7 +16,8 @@ import {
   type LocalReviewCallV1,
   type LocalReviewConfigResultV1,
 } from "./local-review-provider.js";
-import { validateObservationLocationV1 } from "./location-validator.js";
+import { validateObservationLocationV1, type LocationValidationV1 } from "./location-validator.js";
+import type { RawReviewObservationV1 } from "./raw-observation.js";
 import { currentReviewProviderPolicyV1, decideReviewProviderV1 } from "./review-provider-decision.js";
 
 export const LOCAL_REVIEW_ENGINE_ID = "engine:review-ollama" as const;
@@ -79,7 +80,9 @@ export function buildLocalReviewPayloadV1(
     const lines = text.split("\n");
     if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
     const width = String(lines.length).length;
-    const body: string[] = [`=== FILE: ${file.path} (${file.change_kind}) ===`];
+    // A path may hold control characters; keep it to one line so it can't fake a FILE header.
+    const shownPath = file.path.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/gu, "?");
+    const body: string[] = [`=== FILE: ${shownPath} (${file.change_kind}) ===`];
     body.push(`changed lines: ${file.changed_new_line_ranges.map(([start, end]) => (start === end ? `${start}` : `${start}-${end}`)).join(", ")}`);
     for (const [from, to] of mergeWindows(file.changed_new_line_ranges, limits.context_lines, lines.length)) {
       if (body.length > 2) body.push("...");
@@ -87,7 +90,8 @@ export function buildLocalReviewPayloadV1(
         body.push(`${String(line).padStart(width)}| ${lines[line - 1] ?? ""}`);
       }
     }
-    const section = redact(body.join("\n")).replaceAll("</diff>", "<\\/diff>");
+    // Escape any closing tag of the data fence, in any letter case or spacing.
+    const section = redact(body.join("\n")).replace(/<\s*\/\s*diff\s*>/giu, "<\\/diff>");
     const size = Buffer.byteLength(section, "utf8") + 1;
     if (bytes + size > limits.max_payload_bytes) continue;
     bytes += size;
@@ -96,6 +100,23 @@ export function buildLocalReviewPayloadV1(
     lineCounts[file.path] = lines.length;
   }
   return { text: sections.join("\n"), reviewed_files: reviewed, line_counts: lineCounts };
+}
+
+/**
+ * A finding counts only if it names a start line inside one of its file's changed line ranges.
+ * Anything else, such as no line or an untouched line, can't be promoted.
+ */
+function onChangedLines(
+  observation: RawReviewObservationV1,
+  validation: LocationValidationV1,
+  changedRanges: ReadonlyMap<string, readonly (readonly [number, number])[]>,
+): LocationValidationV1 {
+  if (validation.state !== "VALID" || observation.location_hint === null) return validation;
+  const { path, start_line, end_line } = observation.location_hint;
+  const end = end_line ?? start_line;
+  const ranges = changedRanges.get(path) ?? [];
+  if (start_line !== null && end !== null && ranges.some(([from, to]) => start_line <= to && end >= from)) return validation;
+  return { ...validation, state: "LINE_OUT_OF_RANGE", reasons: Object.freeze(["finding is not on a changed line"]) };
 }
 
 export type LocalReviewOutcomeV1 = "FINDINGS" | "NO_FINDINGS" | "INCOMPLETE";
@@ -113,7 +134,7 @@ export type LocalReviewCommandReportV1 = FullReviewReportV1 & {
   readonly advisory: true;
   readonly satisfies_human_r1: false;
   readonly outcome: LocalReviewOutcomeV1;
-  readonly exit_code: 0 | 1 | 4;
+  readonly exit_code: 1 | 4;
   readonly reason_text: string;
   readonly provider: LocalReviewProviderReportV1;
   readonly comparison: Readonly<{ kind: "working_tree_vs_head"; base_ref: string }>;
@@ -217,6 +238,7 @@ export async function runLocalReviewV1(input: LocalReviewRunInputV1): Promise<Lo
     return notRun(input, "ERROR", ["the local model's reply was not the expected findings object"], reply.version);
   }
   const context = { expected_head_sha: input.head_sha, known_files: payload.reviewed_files, file_line_counts: payload.line_counts };
+  const changedRanges = new Map(input.changed_files.map((file) => [file.path, file.changed_new_line_ranges]));
   const review = buildReviewReportV1({
     target_id: input.target_id,
     head_sha: input.head_sha,
@@ -224,13 +246,14 @@ export async function runLocalReviewV1(input: LocalReviewRunInputV1): Promise<Lo
     capsule_id: LOCAL_REVIEW_CAPSULE_ID,
     groups: [{ group_id: GROUP_ID, files: input.changes.map((change) => change.path).sort() }],
     reviewed_files: payload.reviewed_files,
-    entries: parsed.observations.map((observation) => ({ observation, validation: validateObservationLocationV1(observation, context) })),
+    entries: parsed.observations.map((observation) => ({ observation, validation: onChangedLines(observation, validateObservationLocationV1(observation, context), changedRanges) })),
   });
   const outcome: LocalReviewOutcomeV1 = review.counts.promotable > 0 ? "FINDINGS" : review.counts.complete ? "NO_FINDINGS" : "INCOMPLETE";
-  const exit_code = outcome === "FINDINGS" ? 1 : outcome === "NO_FINDINGS" ? 0 : 4;
+  // A model's silence is advice, never a completed review, so it doesn't exit 0 (A07).
+  const exit_code = outcome === "FINDINGS" ? 1 : 4;
   const reason_text = {
     FINDINGS: "The local model reported findings. They are advisory and untrusted; check each one.",
-    NO_FINDINGS: "The local model reported nothing it could place in the changed lines. That is advice, not a clean review.",
+    NO_FINDINGS: "The local model reported nothing it could place on the changed lines. That is advice, not a clean review, so the change still counts as unreviewed.",
     INCOMPLETE: "The local model reviewed only part of the change, and the rest stays unreviewed.",
   }[outcome];
   return {

@@ -182,9 +182,11 @@ Every successful result is a single JSON text content block with this shape:
   checks that `src/mcp/server.ts` and `src/command-functions.ts` import no network module
   (`node:net`, `http`, `https`, `http2`, `dgram`, `tls`). The local-model path, which does use
   the network, is unreachable from MCP in v1.
-- **Time limits on the two synchronous tools.** `ascout_doctor` and `ascout_test_plan` run
-  synchronously, so their limit can't interrupt them mid-run. The Git timeouts inside doctor
-  bound it instead. `ascout_review` and `ascout_security` are aborted through their signal.
+- **Time limits.** `ascout_security` is aborted through its signal. `ascout_doctor`,
+  `ascout_test_plan` and `ascout_review` without a model run synchronously, so the server checks
+  their deadline when they return and reports a late result as stopped. After any limit or abort,
+  the busy slot stays held until the tool has finished, so a new call never overlaps it. Both
+  were fixed after an independent AI security review on 2026-11-10.
 - **E2E-1 caught a mismatch while this was being built.** The security result first carried an
   internal wrapper. It now returns exactly the `ascout security --format json` report.
 

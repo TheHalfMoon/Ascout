@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { CliUsageError, parseCliArgs } from "../src/cli.js";
 import type { CommandResultV1 } from "../src/command-functions.js";
-import { MCP_MAX_MESSAGE_BYTES, MCP_MAX_RESULT_BYTES, serveMcpV1 } from "../src/mcp/server.js";
+import { ASCOUT_PACKAGE_VERSION, MCP_MAX_MESSAGE_BYTES, MCP_MAX_RESULT_BYTES, serveMcpV1 } from "../src/mcp/server.js";
 
 // E8 part one: security regression tests M-1..M-15 and end-to-end proof E2E-1 from
 // specs/017-unified-assurance/E8_MCP_E2E_DESIGN.md.
@@ -127,7 +127,7 @@ describe("MCP protocol and bounds", () => {
     s.send(call(2, "ascout_doctor"));
     s.send(call(1, "ascout_doctor"));
     const busy = await s.waitFor(2);
-    expect(busy.map((reply) => [reply.id, reply.error?.code])).toEqual([[2, -32000], [1, -32600]]);
+    expect(busy.map((reply) => [reply.id, reply.error?.code])).toEqual([[2, -32000], [null, -32600]]);
     release();
     const all = await s.waitFor(3);
     expect(all[2]).toMatchObject({ id: 1, result: { isError: false } });
@@ -148,6 +148,59 @@ describe("MCP protocol and bounds", () => {
     expect(aborted).toBe(true);
     expect(reply!.result.isError).toBe(true);
     expect(s.raw()).not.toContain("late");
+  });
+
+  it("M-4 after a time limit: the next call waits until the stopped tool has finished", async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let raw = "";
+    output.on("data", (chunk: Buffer) => { raw += chunk.toString("utf8"); });
+    let active = 0;
+    let peak = 0;
+    let finishedAt = 0;
+    // A tool that ignores its abort signal and takes 400 ms, against a 50 ms limit.
+    const done = serveMcpV1({
+      root: repo, gitleaksPath: null, input, output, limitsMs: { ascout_review: 50 },
+      runTool: async () => {
+        active += 1; peak = Math.max(peak, active);
+        await new Promise((r) => setTimeout(r, 400));
+        active -= 1; finishedAt = Date.now();
+        return { kind: "report", report: {}, exit_code: 4 };
+      },
+    });
+    const lines = () => raw.split("\n").filter((line) => line !== "").map((line) => JSON.parse(line) as Message);
+    input.write(`${JSON.stringify(call(1, "ascout_review"))}\n`);
+    while (lines().length < 1) await new Promise((r) => setTimeout(r, 10));
+    const stoppedAt = Date.now();
+    expect(lines()[0]!.result.isError).toBe(true);
+    expect(stoppedAt).toBeGreaterThanOrEqual(finishedAt);
+    input.write(`${JSON.stringify(call(2, "ascout_review"))}\n`);
+    while (lines().length < 2) await new Promise((r) => setTimeout(r, 10));
+    expect(peak).toBe(1);
+    input.end();
+    await done;
+  });
+
+  it("enforces the time limit on a tool that runs synchronously past it", async () => {
+    const input = new PassThrough();
+    const output = new PassThrough();
+    let raw = "";
+    output.on("data", (chunk: Buffer) => { raw += chunk.toString("utf8"); });
+    const done = serveMcpV1({
+      root: repo, gitleaksPath: null, input, output, limitsMs: { ascout_doctor: 30 },
+      runTool: async () => {
+        const until = Date.now() + 120;
+        while (Date.now() < until) { /* blocks the event loop, like a synchronous tool */ }
+        return { kind: "report", report: { secret: "late" }, exit_code: 0 };
+      },
+    });
+    input.write(`${JSON.stringify(call(1, "ascout_doctor"))}\n`);
+    while (!raw.includes("\n")) await new Promise((r) => setTimeout(r, 10));
+    const reply = JSON.parse(raw.split("\n")[0]!) as Message;
+    expect(reply.result.isError).toBe(true);
+    expect(raw).not.toContain("late");
+    input.end();
+    await done;
   });
 
   it("M-12: a result over 4 MiB is an error, never a truncated report", async () => {
@@ -227,6 +280,10 @@ describe("launch", () => {
   it("M-5: ascout mcp takes no options, --local-model included", () => {
     expect(parseCliArgs(["mcp"])).toMatchObject({ command: "mcp" });
     for (const extra of ["--local-model", "--format", "json", "--root"]) expect(() => parseCliArgs(["mcp", extra])).toThrow("ascout mcp takes no options.");
+  });
+
+  it("reports the package version in serverInfo", () => {
+    expect(ASCOUT_PACKAGE_VERSION).toBe((JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf8")) as { version: string }).version);
   });
 
   it("M-10: the server and command modules import no network module", () => {
