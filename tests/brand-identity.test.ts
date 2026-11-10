@@ -73,6 +73,7 @@ const COMMANDS: readonly (readonly string[])[] = [
   [], ["--help"], ["nope"], ["review"], ["review", "--format", "json"], ["review", "--bogus"],
   ["test", "--plan"], ["test", "--plan", "--format", "json"], ["test", "--profile", "quick", "--format", "json"],
   ["security"], ["security", "--format", "json"], ["doctor"], ["doctor", "--format", "json"], ["mcp", "--x"],
+  ["pr-evidence", "--skip-tests"], ["pr-evidence", "--bogus"], ["pr-publish"],
 ];
 
 describe("Ascout identity on active surfaces", () => {

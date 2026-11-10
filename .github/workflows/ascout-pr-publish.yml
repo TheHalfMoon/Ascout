@@ -1,0 +1,59 @@
+name: Ascout PR Publish
+
+# Privileged half of the Ascout GitHub integration. It runs only this repository's default-branch
+# code, never pull request code. It downloads the evidence bundle from "Ascout PR Collect", treats
+# it as untrusted, and publishes one Check Run and one summary comment. Every location it writes to
+# comes from the trusted workflow_run event, passed through the environment. Collection runs PR
+# code, so only evidence from an allowlisted maintainer's same-repository PR can produce a pass;
+# anything else is published as "Ascout verification (untrusted)" and never satisfies the check.
+on:
+  workflow_run:
+    workflows: ["Ascout PR Collect"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: ascout publish
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.path == '.github/workflows/ascout-pr-collect.yml' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build Ascout from the default branch
+        run: npm run build
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ascout-pr-evidence
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/evidence
+      - name: Publish the Check Run and summary comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASCOUT_PR_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          ASCOUT_PR_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          ASCOUT_PR_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          ASCOUT_PR_DETAILS_URL: ${{ github.event.workflow_run.html_url }}
+          ASCOUT_PR_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+          ASCOUT_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          ASCOUT_PR_REQUIRED_BASE: ${{ github.event.repository.default_branch }}
+          # Maintainers whose same-repository PRs may earn a pass. Empty (the default) means no PR
+          # evidence can turn the required check green; set the repository variable to opt in.
+          ASCOUT_PR_TRUSTED_ACTORS: ${{ vars.ASCOUT_PR_TRUSTED_ACTORS }}
+        shell: bash
+        run: node dist/cli.js pr-publish "$RUNNER_TEMP/evidence/ascout-pr-evidence.json"

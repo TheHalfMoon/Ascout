@@ -1719,3 +1719,23 @@ export function refuseUnsupportedRepository(repositoryRoot: string): void {
     );
   }
 }
+
+/**
+ * True when the working tree holds exactly the content of `sha`: no tracked difference and no
+ * untracked, non-ignored file. The GitHub collect job uses it after a soft reset to the merge base,
+ * so the bundle can name the PR head while review sees the PR's changes. This guards honesty, not
+ * trust: on a pull request, the PR itself authored the code that runs this check.
+ */
+export function worktreeMatchesCommitV1(repositoryRoot: string, sha: string): boolean {
+  if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(sha)) return false;
+  const diff = runGitTreeMetadata(repositoryRoot, ["diff", "--quiet", "--no-ext-diff", "--no-textconv", sha, "--"]);
+  if (diff.error !== undefined || (diff.status !== 0 && diff.status !== 1)) {
+    throw new GitIdentityError("git_metadata_error", "unable to compare the working tree with the pull request head");
+  }
+  if (diff.status === 1) return false;
+  const untracked = runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]);
+  if (untracked.error !== undefined || untracked.status !== 0) {
+    throw new GitIdentityError("git_metadata_error", "unable to list untracked files");
+  }
+  return untracked.stdout.byteLength === 0;
+}
