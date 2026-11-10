@@ -16,7 +16,7 @@ Ascout is a private, unpublished package (`private: true`); no npm release, GitH
 | E6 test | Done. `ascout test` runs `check`; deep and release profiles report the engines that don't run yet. |
 | E6 review | Advisory, opt-in. The founder authorized a local model on 2026-11-09. `ascout review --local-model` sends the changed lines only to Ollama on loopback (`qwen2.5-coder:7b` locally), never to a hosted service (#699, #700). Output is advisory and never human R1. Without the flag, or without the founder's config, review stays not run (exit 4). CI has no model and tests against a fake server. |
 | E7 containment | T0 stated, T1 blocked. Every `ascout test` report carries a T0 trusted-local record (no filesystem or network isolation), and no profile predicts isolated execution any more (#702). T1 is blocked on FD-4, the private host spec, native proof, and human security review. |
-| E8 optional MCP and end-to-end | Design proposed in #703 (revision 2, after an advisory design-critic review): stdio-only, four read-only tools, no repository-code execution. Implementation waits for human R1 of the design. |
+| E8 optional MCP and end-to-end | Done. `ascout mcp` is a stdio MCP server with no socket and no options, offering four read-only tools (review without a model, security, doctor, test plan). It does not expose `check`, `test`, `init`, or the local model. Every result carries the CLI's JSON report unchanged and an `assurance` field, where a plan is never COMPLETE. Packets: design #703, command functions #707, server and M-1..M-15 plus E2E-1 #708, real Gitleaks over MCP on 3 OSes #709. The founder authorized proceeding on 2026-11-10; no line-level human R1 is recorded. |
 | E9 distribution | Preparation only. CI installs the packed tarball offline, runs it through npm's shim, and uninstalls it on all three OSes (#704). A signing and provenance plan is written. No release; blocked on FD-6 and release authority. |
 
 ### Security review (2026-11-08)
@@ -29,7 +29,7 @@ A whole-project security review found no critical issues. All high and medium fi
 - FD-6 and release authority for E9.
 - FD-8 for the historical plan PR #651, and ratification of #653.
 - Repository settings: see `docs/governance/REPOSITORY_SETTINGS_CHECKLIST.md` (#705). `main` is unprotected, Dependabot alerts are off, and private vulnerability reporting is off even though `SECURITY.md` relies on it.
-- Human R1 of the E8 design (#703) and of the reconciled adoption packet (#653).
+- Human R1 of the reconciled adoption packet (#653), and optionally of the E8 packets (#703, #707–#709), which merged on the founder's go-ahead without a line-level R1.
 - Disposition of the older open planning PRs (#577–#635).
 
 `ROADMAP.md` is the closed record of the REA engineering maintenance run (spec 018) and is kept as history.
