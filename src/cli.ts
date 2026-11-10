@@ -35,6 +35,7 @@ import {
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
 import { serveMcpV1 } from "./mcp/server.js";
 import { collectPrEvidenceV1 } from "./github/collect.js";
+import { publishPrEvidenceV1 } from "./github/publish.js";
 import {
   computeDoctorV1,
   computeReviewV1,
@@ -65,7 +66,7 @@ import {
 } from "./assurance/security/security-gitleaks.js";
 import type { TestProfile } from "./assurance/test/profile-policy.js";
 
-const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp", "pr-evidence"] as const;
+const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp", "pr-evidence", "pr-publish"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
@@ -96,6 +97,8 @@ export interface CliInvocation {
   plan?: true;
   localModel?: true;
   skipTests?: true;
+  bundlePath?: string;
+  prHead?: string;
 }
 
 export class CliUsageError extends Error {
@@ -156,11 +159,28 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   let plan = false;
   let localModel = false;
 
-  if (commandToken === "pr-evidence") {
-    if (rest.some((token) => token !== "--skip-tests") || rest.length > 1) {
-      throw new CliUsageError("ascout pr-evidence accepts only --skip-tests.");
+  if (commandToken === "pr-publish") {
+    if (rest.length !== 1 || rest[0]!.startsWith("-")) {
+      throw new CliUsageError("ascout pr-publish takes one argument: the evidence bundle path.");
     }
-    return { command: "pr-evidence", allowChangedCommandSurface: false, ...(rest.length === 1 ? { skipTests: true as const } : {}) };
+    return { command: "pr-publish", allowChangedCommandSurface: false, bundlePath: rest[0]! };
+  }
+
+  if (commandToken === "pr-evidence") {
+    let skipTests = false;
+    let prHead: string | undefined;
+    for (let index = 0; index < rest.length; index += 1) {
+      const token = rest[index]!;
+      if (token === "--skip-tests" && !skipTests) {
+        skipTests = true;
+      } else if (token === "--pr-head" && prHead === undefined && /^[0-9a-f]{40}$/u.test(rest[index + 1] ?? "")) {
+        prHead = rest[index + 1]!;
+        index += 1;
+      } else {
+        throw new CliUsageError("ascout pr-evidence accepts --skip-tests and --pr-head <40-hex sha>.");
+      }
+    }
+    return { command: "pr-evidence", allowChangedCommandSurface: false, ...(skipTests ? { skipTests: true as const } : {}), ...(prHead === undefined ? {} : { prHead }) };
   }
 
   if (commandToken === "mcp" && rest.length > 0) {
@@ -321,7 +341,8 @@ export function usageText(): string {
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${LOCAL_MODEL_FLAG}] [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
-    "  ascout pr-evidence [--skip-tests]",
+    "  ascout pr-evidence [--skip-tests] [--pr-head <sha>]",
+    "  ascout pr-publish <bundle>",
     `  ascout security [${FORMAT_FLAG} json|terminal]`,
     "  ascout mcp",
   ].join("\n");
@@ -503,11 +524,35 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       }
       return outcome.receipt.summary.exit_code;
     }
+    if (invocation.command === "pr-publish") {
+      // Privileged GitHub publish step. Every location comes from the trusted workflow event, set
+      // in the environment by the workflow; the bundle is untrusted and validated.
+      const env = process.env;
+      const required = (name: string): string => {
+        const value = env[name];
+        if (value === undefined || value === "") throw new Error(`${name} is not set`);
+        return value;
+      };
+      const outcome = await publishPrEvidenceV1({
+        bundlePath: invocation.bundlePath!,
+        repository: required("GITHUB_REPOSITORY"),
+        headSha: required("ASCOUT_PR_HEAD_SHA"),
+        headRepository: required("ASCOUT_PR_HEAD_REPOSITORY"),
+        headBranch: required("ASCOUT_PR_HEAD_BRANCH"),
+        detailsUrl: required("ASCOUT_PR_DETAILS_URL"),
+        token: required("GITHUB_TOKEN"),
+        apiUrl: env.GITHUB_API_URL || "https://api.github.com",
+        botLogin: env.ASCOUT_PR_BOT_LOGIN || "github-actions[bot]",
+      });
+      process.stdout.write(`${JSON.stringify(outcome)}
+`);
+      return outcome.kind === "published" ? 0 : outcome.kind === "stale" ? 3 : OPERATIONAL_ERROR_EXIT_CODE;
+    }
     if (invocation.command === "pr-evidence") {
       // The PR evidence bundle for the GitHub integration, as JSON on stdout. Runs the repository's
       // own tests unless --skip-tests (T0 trusted-local); exits with the overall A07 code.
       const root = realpathSync.native(process.cwd());
-      const evidence = await withRunCancellation((signal) => collectPrEvidenceV1({ root, gitleaksPath: configuredGitleaksPathV1(), runTests: invocation.skipTests !== true, signal }));
+      const evidence = await withRunCancellation((signal) => collectPrEvidenceV1({ root, gitleaksPath: configuredGitleaksPathV1(), runTests: invocation.skipTests !== true, ...(invocation.prHead === undefined ? {} : { prHead: invocation.prHead }), signal }));
       process.stdout.write(`${JSON.stringify(evidence, null, 2)}
 `);
       return evidence.overall.exit_code;

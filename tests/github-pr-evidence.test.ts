@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { collectPrEvidenceV1 } from "../src/github/collect.js";
+import { computeReviewV1 } from "../src/command-functions.js";
 import {
   CHECK_RUN_NAME,
   CONCLUSION_BY_STATE,
@@ -212,6 +213,65 @@ describe("the independent security review's findings", () => {
       });
       expect(evidence.findings[0]!.title.length).toBeLessThanOrEqual(200);
       expect(validatePrEvidenceV1(JSON.stringify(evidence)).ok).toBe(true);
+    } finally {
+      rmSync(repo, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
+  }, 120_000);
+});
+
+describe("PR range review: soft reset to the merge base, bundle names the PR head", () => {
+  function prRepo(): { repo: string; prSha: string; baseSha: string; git: (...args: string[]) => string } {
+    const repo = realpathSync(mkdtempSync(join(tmpdir(), "ascout-pr-range-")));
+    const git = (...args: string[]) => {
+      const result = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+      expect(result.status, `git ${args.join(" ")}: ${result.stderr}`).toBe(0);
+      return result.stdout.trim();
+    };
+    git("init", "-q"); git("config", "user.name", "t"); git("config", "user.email", "t@example.invalid"); git("config", "commit.gpgsign", "false");
+    writeFileSync(join(repo, "a.txt"), "a\n"); git("add", "."); git("commit", "-qm", "base");
+    const baseSha = git("rev-parse", "HEAD");
+    writeFileSync(join(repo, "a.txt"), "a\nchanged by the PR\n"); writeFileSync(join(repo, "new.txt"), "new\n");
+    git("add", "."); git("commit", "-qm", "pr");
+    const prSha = git("rev-parse", "HEAD");
+    git("reset", "-q", "--soft", baseSha);
+    return { repo, prSha, baseSha, git };
+  }
+
+  it("reviews the PR's changes and stamps the verified PR head", async () => {
+    const { repo, prSha } = prRepo();
+    try {
+      const evidence = await collectPrEvidenceV1({ root: repo, gitleaksPath: null, runTests: false, prHead: prSha });
+      expect(evidence.head_sha).toBe(prSha);
+      const review = evidence.checks.find((check) => check.id === "review")!;
+      expect(review.state).toBe("INCOMPLETE");
+      const direct = await computeReviewV1(repo);
+      expect(direct.kind).toBe("report");
+      if (direct.kind === "report") {
+        const changes = (direct.report as { unreviewed_changes?: { path: string }[] }).unreviewed_changes ?? [];
+        expect(changes.map((change) => change.path).sort()).toEqual(["a.txt", "new.txt"]);
+      }
+      expect(validatePrEvidenceV1(JSON.stringify(evidence)).ok).toBe(true);
+    } finally {
+      rmSync(repo, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
+  }, 120_000);
+
+  it("refuses to name a PR head the working tree does not match", async () => {
+    const { repo, prSha, baseSha } = prRepo();
+    try {
+      writeFileSync(join(repo, "a.txt"), "tampered\n");
+      await expect(collectPrEvidenceV1({ root: repo, gitleaksPath: null, runTests: false, prHead: prSha })).rejects.toThrow(/exactly the pull request head/u);
+      await expect(collectPrEvidenceV1({ root: repo, gitleaksPath: null, runTests: false, prHead: baseSha })).rejects.toThrow(/exactly the pull request head/u);
+    } finally {
+      rmSync(repo, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
+  }, 120_000);
+
+  it("refuses when an untracked, non-ignored file was added to the working tree", async () => {
+    const { repo, prSha } = prRepo();
+    try {
+      writeFileSync(join(repo, "extra.txt"), "smuggled\n");
+      await expect(collectPrEvidenceV1({ root: repo, gitleaksPath: null, runTests: false, prHead: prSha })).rejects.toThrow(/exactly the pull request head/u);
     } finally {
       rmSync(repo, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }

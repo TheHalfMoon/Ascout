@@ -1,0 +1,55 @@
+name: Ascout PR Collect
+
+# Unprivileged half of the Ascout GitHub integration. It runs pull request code (the repository's
+# own tests, through `check`), so it has a read-only token and no secrets. It only produces an
+# evidence bundle; "Ascout PR Publish" turns that into a Check Run from trusted code.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ascout-pr-collect-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  collect:
+    name: ascout collect
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - name: Install exact lockfile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build Ascout from this pull request
+        run: npm run build
+      - name: Collect evidence for the pull request's changes
+        env:
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          # Review sees the PR's changes when HEAD is the merge base and the working tree is the PR
+          # head; pr-evidence verifies the tree matches PR_HEAD exactly before naming it.
+          base=$(git merge-base "$PR_BASE" "$PR_HEAD")
+          git reset -q --soft "$base"
+          set +e
+          node dist/cli.js pr-evidence --pr-head "$PR_HEAD" > "$RUNNER_TEMP/ascout-pr-evidence.json"
+          code=$?
+          set -e
+          echo "ascout pr-evidence exited $code (0 complete, 1 findings, 2 error, 3 drift, 4 incomplete)"
+          test -s "$RUNNER_TEMP/ascout-pr-evidence.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ascout-pr-evidence
+          path: ${{ runner.temp }}/ascout-pr-evidence.json
+          if-no-files-found: error
+          retention-days: 7

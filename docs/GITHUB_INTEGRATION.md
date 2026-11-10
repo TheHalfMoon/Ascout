@@ -1,7 +1,8 @@
 # Ascout GitHub integration (in development)
 
-**Status:** part one, the evidence collector and the publish-side logic, is on `main`. The
-publisher and the installable workflows come in part two. **Nothing here is released yet.**
+**Status:** the collector (`ascout pr-evidence`), the publisher (`ascout pr-publish`), and two workflows
+are on `main`, and this repository runs them on its own pull requests. **None of it is in a release
+yet:** v0.2.0 doesn't include these commands.
 
 ## Design
 
@@ -20,6 +21,22 @@ Ascout runs entirely on the customer's own runners. Ascout operates no service.
      drift rather than as a result;
    - it posts one **Ascout verification** Check Run with located findings as annotations;
    - it updates a single summary comment in place, matched by marker **and** bot author.
+
+## Installing it in a repository
+
+Copy two workflow files from this repository into `.github/workflows/` in yours:
+
+- `ascout-pr-collect.yml` runs on `pull_request` with `contents: read` only. It checks out the PR
+  head, soft-resets to the merge base so review sees exactly the PR's changes, and runs
+  `ascout pr-evidence --pr-head <sha>`. Ascout verifies that the working tree holds exactly that
+  commit before naming it. The job uploads the bundle.
+- `ascout-pr-publish.yml` runs on `workflow_run` after collection, from your default branch. It
+  downloads the bundle and runs `ascout pr-publish`, which posts the **Ascout verification** Check
+  Run and one summary comment.
+
+This repository builds Ascout from source in both jobs. A consuming repository would install the
+released tarball instead, once a release includes these commands. Runner minutes are yours, and
+Ascout runs no service.
 
 ## Check Run results
 

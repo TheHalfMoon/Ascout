@@ -1,6 +1,6 @@
 import { runCheck } from "../check.js";
 import { computeReviewV1, computeSecurityV1, type CommandResultV1 } from "../command-functions.js";
-import { readGitHeadState, refuseUnsupportedRepository } from "../git.js";
+import { readGitHeadState, refuseUnsupportedRepository, worktreeMatchesCommitV1 } from "../git.js";
 import { testRunResultFromReceiptV1 } from "../assurance/test/test-run-command.js";
 import { ASCOUT_PACKAGE_VERSION } from "../mcp/server.js";
 import {
@@ -23,6 +23,11 @@ export interface CollectOptionsV1 {
   readonly root: string;
   readonly gitleaksPath: string | null;
   readonly runTests: boolean;
+  /**
+   * The PR head, when the job soft-reset to the merge base so review sees the PR's changes. It is
+   * used as the bundle's head only if the working tree holds exactly that commit's content.
+   */
+  readonly prHead?: string;
   readonly signal?: AbortSignal;
   /** For tests: replaces the check run. */
   readonly runTestCheck?: (root: string, signal: AbortSignal) => Promise<CommandResultV1<{ exit_code: number; outcome: string; reason_text: string; failed_tasks: readonly string[] }>>;
@@ -50,7 +55,13 @@ async function defaultRunTestCheck(root: string, signal: AbortSignal): ReturnTyp
 export async function collectPrEvidenceV1(options: CollectOptionsV1): Promise<PrEvidenceV1> {
   const signal = options.signal ?? new AbortController().signal;
   refuseUnsupportedRepository(options.root);
-  const head = readGitHeadState(options.root).head_sha;
+  let head = readGitHeadState(options.root).head_sha;
+  if (options.prHead !== undefined) {
+    if (!worktreeMatchesCommitV1(options.root, options.prHead)) {
+      throw new Error("the working tree does not hold exactly the pull request head's content");
+    }
+    head = options.prHead;
+  }
   const checks: PrCheckV1[] = [];
   const findings: PrFindingV1[] = [];
 
