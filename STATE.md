@@ -2,7 +2,7 @@ Last updated: 2026-11-10 Asia/Riyadh · Branch: main
 
 ## Where Ascout stands
 
-Ascout's only release is GitHub release `v0.1.0` (2026-09-12, from 55688b5, tarball asset only). Nothing is on npm, and `package.json` keeps `private: true`. `main` is 750 commits past that tag. The FD-6 decision packet is in `docs/governance/FD6_RELEASE_DECISION_PACKET.md`.
+Ascout v0.2.0 is released on GitHub: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.2.0 (published 2026-11-10, tag `v0.2.0` at `0741873`, tarball SHA-256 `43bd9c2e52389500ae5bc38b3595ff47e2a916794bef2e383dabfb2632b2bc63`, with a verified GitHub build-provenance attestation). It is not on npm. `v0.1.0` (2026-09-12) is superseded.
 
 ### Adoption plan (execution-first V0–V9)
 
@@ -17,7 +17,7 @@ Ascout's only release is GitHub release `v0.1.0` (2026-09-12, from 55688b5, tarb
 | E6 review | Advisory, opt-in. The founder authorized a local model on 2026-11-09. `ascout review --local-model` sends the changed lines only to Ollama on loopback (`qwen2.5-coder:7b` locally), never to a hosted service (#699, #700). Output is advisory and never human R1. Without the flag, or without the founder's config, review stays not run (exit 4). CI has no model and tests against a fake server. |
 | E7 containment | T0 stated, T1 blocked. Every `ascout test` report carries a T0 trusted-local record (no filesystem or network isolation), and no profile predicts isolated execution any more (#702). T1 is blocked on FD-4, the private host spec, native proof, and human security review. |
 | E8 optional MCP and end-to-end | Done. `ascout mcp` is a stdio MCP server with no socket and no options, offering four read-only tools (review without a model, security, doctor, test plan). It does not expose `check`, `test`, `init`, or the local model. Every result carries the CLI's JSON report unchanged and an `assurance` field, where a plan is never COMPLETE. Packets: design #703, command functions #707, server and M-1..M-15 plus E2E-1 #708, real Gitleaks over MCP on 3 OSes #709. The founder authorized proceeding on 2026-11-10; no line-level human R1 is recorded. |
-| E9 distribution | v0.2.0 release candidate prepared and qualified (#712). The tarball is bit-identical on Linux, macOS and Windows with Node 22 and 24, and installs, runs and uninstalls on each. The founder waived both human reviews (not performed). Not published, tagged, signed or attested; each needs the founder's explicit approval. GitHub Releases only, never npm. |
+| E9 distribution | Released v0.2.0 on GitHub only (#712, run 42874746620). The tarball is bit-identical on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24, and qualified on each. A build-provenance attestation (SLSA v1) is verified. The founder waived both human reviews; neither was performed. |
 
 ### Security review (2026-11-08)
 
@@ -26,9 +26,8 @@ A whole-project security review found no critical issues. All high and medium fi
 ### Open decisions for the founder
 
 - FD-4 for E7 containment.
-- Publication of v0.2.0, signing or attestation, and the `v0.2.0` tag (FD-6 is otherwise disposed).
 - FD-8 for the historical plan PR #651, and ratification of #653.
-- Repository settings: see `docs/governance/REPOSITORY_SETTINGS_CHECKLIST.md` (#705). `main` is unprotected, Dependabot alerts are off, and private vulnerability reporting is off even though `SECURITY.md` relies on it.
+- Repository settings: private vulnerability reporting and a `main` ruleset (PRs, linear history, the 13 required checks, no force push or deletion) are on as of 2026-11-10. Dependabot alerts are still off.
 - Human R1 of the reconciled adoption packet (#653), and optionally of the E8 packets (#703, #707–#709), which merged on the founder's go-ahead without a line-level R1.
 - Disposition of the older open planning PRs (#577–#635).
 
