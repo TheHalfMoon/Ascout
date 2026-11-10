@@ -94,7 +94,7 @@ function lineNumber(value: unknown): value is number | null {
 }
 
 /** A repository-relative path with no traversal, no absolute root, and no control characters. */
-function safePath(value: unknown): value is string | null {
+export function safePath(value: unknown): value is string | null {
   if (value === null) return true;
   if (typeof value !== "string" || value.length === 0 || value.length > 512) return false;
   if (/[\u0000-\u001f\u007f]/u.test(value) || value.startsWith("/") || /^[A-Za-z]:/u.test(value) || value.includes("\\")) return false;
@@ -124,7 +124,8 @@ export function validatePrEvidenceV1(text: string): ValidationResultV1 {
   if (record.schema !== PR_EVIDENCE_SCHEMA) return { ok: false, reason: "unsupported bundle schema" };
   if (!boundedString(record.ascout_version, 32) || !/^[0-9A-Za-z.+-]+$/u.test(record.ascout_version)) return { ok: false, reason: "invalid ascout version" };
   if (typeof record.head_sha !== "string" || !SHA.test(record.head_sha)) return { ok: false, reason: "invalid head sha" };
-  if (!Array.isArray(record.checks) || record.checks.length === 0 || record.checks.length > CHECK_IDS.length) return { ok: false, reason: "invalid checks" };
+  // Every check must be present: a bundle that drops one could otherwise hide work that never ran.
+  if (!Array.isArray(record.checks) || record.checks.length !== CHECK_IDS.length) return { ok: false, reason: "a bundle must report every check" };
   const seen = new Set<string>();
   for (const check of record.checks as unknown[]) {
     const c = check as Record<string, unknown>;
@@ -159,20 +160,50 @@ export const CONCLUSION_BY_STATE: Record<CheckState, "success" | "failure" | "ac
   INCOMPLETE: "action_required",
 };
 
-/** Untrusted text in Markdown: no HTML, no mentions, no links or code fences that change structure. */
+/**
+ * Untrusted text in Markdown: no HTML or entities, no mentions, no links (bare URLs are broken so
+ * GitHub can't autolink them), no code fences, and no control or bidirectional characters.
+ */
 export function neutralizeMarkdownV1(text: string, max = 500): string {
   const clipped = text.length > max ? `${text.slice(0, max)}…` : text;
   return clipped
-    .replace(/[\u0000-\u001f\u007f]/gu, " ")
+    .replace(/[\p{Cc}\p{Bidi_Control}]/gu, " ")
+    .replace(/&/gu, "&amp;")
     .replace(/[\\`*_{}[\]()#+!|~]/gu, (ch) => `\\${ch}`)
     .replace(/</gu, "&lt;")
     .replace(/>/gu, "&gt;")
-    .replace(/@/gu, "@​");
+    .replace(/@/gu, "@​")
+    .replace(/:\/\//gu, ":​//")
+    .replace(/www\./giu, (m) => `${m.slice(0, 3)}​.`);
+}
+
+/**
+ * Who produced the evidence. Collection runs PR code, so a bundle from a fork, or from any author
+ * the publisher does not trust, may be forged and must never turn the check green.
+ */
+export interface PublishContextV1 {
+  /** The PR head from the trusted workflow event, never from the bundle. */
+  readonly trusted_head_sha: string;
+  /** True only when the PR comes from the base repository itself, not a fork. */
+  readonly evidence_trusted: boolean;
+  /** A link to the run that produced the evidence. */
+  readonly details_url: string;
+}
+
+/** True when the bundle describes the commit the publisher is about to annotate. */
+export function evidenceMatchesHeadV1(evidence: PrEvidenceV1, context: PublishContextV1): boolean {
+  return SHA.test(context.trusted_head_sha) && evidence.head_sha === context.trusted_head_sha;
+}
+
+/** The publisher's own summary comment: written by its bot, and starting with the marker. */
+export function isOwnSummaryCommentV1(comment: { user?: { login?: string; type?: string } | null; body?: string | null }, botLogin: string): boolean {
+  return comment.user?.login === botLogin && typeof comment.body === "string" && comment.body.startsWith(SUMMARY_COMMENT_MARKER);
 }
 
 export interface CheckRunPayloadV1 {
   readonly name: string;
   readonly head_sha: string;
+  readonly details_url: string;
   readonly status: "completed";
   readonly conclusion: "success" | "failure" | "action_required";
   readonly output: {
@@ -202,16 +233,28 @@ function summaryTable(evidence: PrEvidenceV1): string {
   return ["| Check | Result | Exit | Why |", "|---|---|---|---|", ...rows].join("\n");
 }
 
-export function checkRunFromEvidenceV1(evidence: PrEvidenceV1): CheckRunPayloadV1 {
+/**
+ * The Check Run for a validated bundle. The commit comes from the trusted context, never the
+ * bundle, and a bundle that names another commit is refused. Evidence produced by untrusted PR
+ * code is capped at action_required: it may report problems, but it can never vouch for a pass.
+ */
+export function checkRunFromEvidenceV1(evidence: PrEvidenceV1, context: PublishContextV1): CheckRunPayloadV1 {
+  if (!evidenceMatchesHeadV1(evidence, context)) {
+    throw new Error("the evidence describes a different commit than the pull request head");
+  }
   const located = evidence.findings.filter((finding) => finding.path !== null && finding.start_line !== null);
+  const reported = CONCLUSION_BY_STATE[evidence.overall.state];
+  const capped = !context.evidence_trusted && reported === "success";
   return {
     name: CHECK_RUN_NAME,
-    head_sha: evidence.head_sha,
+    head_sha: context.trusted_head_sha,
+    details_url: context.details_url,
     status: "completed",
-    conclusion: CONCLUSION_BY_STATE[evidence.overall.state],
+    conclusion: capped ? "action_required" : reported,
     output: {
-      title: `Ascout: ${STATE_LABEL[evidence.overall.state]}`,
+      title: capped ? "Ascout: needs a maintainer: evidence came from untrusted pull request code" : `Ascout: ${STATE_LABEL[evidence.overall.state]}`,
       summary: [
+        ...(capped ? ["**This pull request comes from a fork, so its own code produced this evidence, and a pass cannot be trusted.** Re-run Ascout from a trusted context before relying on it.", ""] : []),
         summaryTable(evidence),
         "",
         `${evidence.findings.length} finding(s)${evidence.findings_truncated ? ", more not shown" : ""}. Exit codes: 0 complete, 1 findings, 2 error, 3 source changed, 4 incomplete. Only 0 passes.`,

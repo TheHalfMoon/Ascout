@@ -5,6 +5,7 @@ import { testRunResultFromReceiptV1 } from "../assurance/test/test-run-command.j
 import { ASCOUT_PACKAGE_VERSION } from "../mcp/server.js";
 import {
   buildPrEvidenceV1,
+  safePath,
   stateForExitCode,
   type CheckId,
   type PrCheckV1,
@@ -99,9 +100,17 @@ export async function collectPrEvidenceV1(options: CollectOptionsV1): Promise<Pr
     checks.push(check("test", 4, "NOT_RUN", "Tests were not run in this collection (disabled by configuration)."));
   }
 
-  // A file path or line from a tool must be repository-relative to become an annotation.
-  const safe = findings.map((finding) => (finding.path !== null && (finding.path.startsWith("/") || finding.path.includes("..") || /^[A-Za-z]:/u.test(finding.path))
-    ? { ...finding, path: null, start_line: null, end_line: null }
-    : finding));
+  // The same path rule the publisher's validator applies, so an odd file name drops only the
+  // location, never the whole honest bundle; titles from tool output are capped the same way.
+  const safe = findings.map((finding) => {
+    const located = safePath(finding.path) && finding.path !== null;
+    const ordered = finding.start_line === null || finding.end_line === null || finding.end_line >= finding.start_line;
+    return {
+      ...finding,
+      title: finding.title.slice(0, 200),
+      message: finding.message.slice(0, 2000),
+      ...(located && ordered ? {} : { path: null, start_line: null, end_line: null }),
+    };
+  });
   return buildPrEvidenceV1({ ascout_version: ASCOUT_PACKAGE_VERSION, head_sha: head, checks, findings: safe });
 }
