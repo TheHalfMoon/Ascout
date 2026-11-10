@@ -34,6 +34,7 @@ import {
 } from "./assurance/test/test-plan-command.js";
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
 import { serveMcpV1 } from "./mcp/server.js";
+import { collectPrEvidenceV1 } from "./github/collect.js";
 import {
   computeDoctorV1,
   computeReviewV1,
@@ -64,7 +65,7 @@ import {
 } from "./assurance/security/security-gitleaks.js";
 import type { TestProfile } from "./assurance/test/profile-policy.js";
 
-const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp"] as const;
+const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp", "pr-evidence"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
@@ -94,6 +95,7 @@ export interface CliInvocation {
   profile?: TestProfile;
   plan?: true;
   localModel?: true;
+  skipTests?: true;
 }
 
 export class CliUsageError extends Error {
@@ -153,6 +155,13 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   let profile: TestProfile | undefined;
   let plan = false;
   let localModel = false;
+
+  if (commandToken === "pr-evidence") {
+    if (rest.some((token) => token !== "--skip-tests") || rest.length > 1) {
+      throw new CliUsageError("ascout pr-evidence accepts only --skip-tests.");
+    }
+    return { command: "pr-evidence", allowChangedCommandSurface: false, ...(rest.length === 1 ? { skipTests: true as const } : {}) };
+  }
 
   if (commandToken === "mcp" && rest.length > 0) {
     // The scope of an MCP server is fixed by whoever launches it, and a repository's own MCP
@@ -312,6 +321,7 @@ export function usageText(): string {
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${LOCAL_MODEL_FLAG}] [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
+    "  ascout pr-evidence [--skip-tests]",
     `  ascout security [${FORMAT_FLAG} json|terminal]`,
     "  ascout mcp",
   ].join("\n");
@@ -492,6 +502,15 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         console.error(outcome.terminalSummary);
       }
       return outcome.receipt.summary.exit_code;
+    }
+    if (invocation.command === "pr-evidence") {
+      // The PR evidence bundle for the GitHub integration, as JSON on stdout. Runs the repository's
+      // own tests unless --skip-tests (T0 trusted-local); exits with the overall A07 code.
+      const root = realpathSync.native(process.cwd());
+      const evidence = await withRunCancellation((signal) => collectPrEvidenceV1({ root, gitleaksPath: configuredGitleaksPathV1(), runTests: invocation.skipTests !== true, signal }));
+      process.stdout.write(`${JSON.stringify(evidence, null, 2)}
+`);
+      return evidence.overall.exit_code;
     }
     if (invocation.command === "mcp") {
       // Refuses to start outside a repository root, or in a repository Ascout refuses (exit 2).

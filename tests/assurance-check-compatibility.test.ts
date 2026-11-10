@@ -63,6 +63,7 @@ const EXPECTED_USAGE = [
   "  ascout check [--allow-changed-command-surface] [--format json|agent]",
   "  ascout review [--local-model] [--format json|terminal]",
   "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
+  "  ascout pr-evidence [--skip-tests]",
   "  ascout security [--format json|terminal]",
   "  ascout mcp",
 ].join("\n");
