@@ -36,6 +36,7 @@ import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
 import { serveMcpV1 } from "./mcp/server.js";
 import { collectPrEvidenceV1 } from "./github/collect.js";
 import { publishPrEvidenceV1 } from "./github/publish.js";
+import { DEFAULT_POLICY_PATH } from "./github/policy.js";
 import {
   computeDoctorV1,
   computeReviewV1,
@@ -547,6 +548,8 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         trustedActors: (env.ASCOUT_PR_TRUSTED_ACTORS ?? "").split(",").map((name) => name.trim()).filter((name) => name !== ""),
         requiredBase: required("ASCOUT_PR_REQUIRED_BASE"),
         ...(/^[1-9][0-9]{0,9}$/u.test(env.ASCOUT_PR_NUMBER ?? "") ? { prNumber: Number(env.ASCOUT_PR_NUMBER) } : {}),
+        // The policy comes from the publisher's own default-branch checkout, never from the PR.
+        policyPath: resolve(process.cwd(), DEFAULT_POLICY_PATH),
       });
       process.stdout.write(`${JSON.stringify(outcome)}
 `);

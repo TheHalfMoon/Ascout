@@ -9,6 +9,7 @@ import {
   validatePrEvidenceV1,
   type PublishContextV1,
 } from "./pr-evidence.js";
+import { DEFAULT_PR_POLICY, parsePrPolicyV1, type PrPolicyV1 } from "./policy.js";
 
 /**
  * Publishes validated PR evidence to GitHub. This runs only in the privileged job (workflow_run),
@@ -39,7 +40,28 @@ export interface PublishInputV1 {
   readonly requiredBase: string;
   /** workflow_run.pull_requests[0].number when GitHub provides it (same-repository PRs). */
   readonly prNumber?: number;
+  /**
+   * The team policy file in the publisher's own default-branch checkout, never the PR's. A missing
+   * file means every check is required; an unreadable or invalid one refuses to publish.
+   */
+  readonly policyPath?: string;
   readonly fetch?: typeof fetch;
+}
+
+export type PolicyLoadResultV1 = { readonly ok: true; readonly policy: PrPolicyV1 } | { readonly ok: false; readonly reason: string };
+
+/** Loads the team policy. Only a missing file falls back to the default; anything else fails closed. */
+export function loadPrPolicyV1(path: string | undefined): PolicyLoadResultV1 {
+  if (path === undefined) return { ok: true, policy: DEFAULT_PR_POLICY };
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { ok: true, policy: DEFAULT_PR_POLICY };
+    return { ok: false, reason: "policy file could not be read" };
+  }
+  const parsed = parsePrPolicyV1(text);
+  return parsed.ok ? parsed : { ok: false, reason: `policy rejected: ${parsed.reason}` };
 }
 
 export type PublishOutcomeV1 =
@@ -84,6 +106,9 @@ export async function publishPrEvidenceV1(input: PublishInputV1): Promise<Publis
   const validated = validatePrEvidenceV1(text);
   if (!validated.ok) return { kind: "refused", reason: `bundle rejected: ${validated.reason}` };
   const evidence = validated.evidence;
+  const loaded = loadPrPolicyV1(input.policyPath);
+  if (!loaded.ok) return { kind: "refused", reason: loaded.reason };
+  const policy = { required_checks: loaded.policy.required_checks, source: loaded.policy.source };
 
   const origin = apiOriginV1(input.apiUrl);
   const doFetch = input.fetch ?? fetch;
@@ -130,13 +155,14 @@ export async function publishPrEvidenceV1(input: PublishInputV1): Promise<Publis
       && isTrustedActorV1(input.triggeringActor, input.trustedActors)
       && isTrustedActorV1(pr.user?.login ?? "", input.trustedActors),
     details_url: detailsUrl.toString(),
+    policy,
   };
   if (!evidenceMatchesHeadV1(evidence, context)) return { kind: "refused", reason: "the evidence describes a different commit than the pull request head" };
 
   const run = checkRunFromEvidenceV1(evidence, context);
   const created = await api("POST", `/repos/${input.repository}/check-runs`, run) as { id: number };
 
-  const body = summaryCommentV1(evidence);
+  const body = summaryCommentV1(evidence, policy);
   let existing: { id: number } | undefined;
   for (let page = 1; page <= 10 && existing === undefined; page += 1) {
     const comments = await api("GET", `/repos/${input.repository}/issues/${pr.number}/comments?per_page=100&page=${page}`) as { id: number; user: { login: string } | null; body: string | null }[];
