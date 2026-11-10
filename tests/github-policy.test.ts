@@ -28,7 +28,7 @@ describe("team policy file", () => {
     ["an unknown check", JSON.stringify({ version: 1, required_checks: ["tests"] })],
     ["a non-string check", JSON.stringify({ version: 1, required_checks: [1] })],
     ["a duplicate check", JSON.stringify({ version: 1, required_checks: ["test", "test"] })],
-    ["a file over 16 KiB", JSON.stringify({ version: 1, required_checks: ["test"], pad: "x".repeat(17_000) })],
+    ["a file over 16 KiB, even if otherwise valid", JSON.stringify({ version: 1, required_checks: ["test"] }) + " ".repeat(17_000)],
   ])("refuses %s, so a typo can never weaken the gate", (_label, text) => {
     expect(parsePrPolicyV1(text).ok).toBe(false);
   });
