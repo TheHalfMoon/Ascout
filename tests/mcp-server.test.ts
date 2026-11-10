@@ -107,6 +107,7 @@ describe("MCP protocol and bounds", () => {
     const replies = await s.waitFor(6);
     expect(replies.map((reply) => reply.error?.code ?? "ok")).toEqual([-32700, -32600, -32600, -32600, -32600, "ok"]);
     expect(replies[5]!.id).toBe(4);
+    expect(replies[1]!.error!.message).toContain("batch");
     s.input.end();
   });
 
@@ -225,7 +226,7 @@ describe("MCP tools against a real repository", () => {
 describe("launch", () => {
   it("M-5: ascout mcp takes no options, --local-model included", () => {
     expect(parseCliArgs(["mcp"])).toMatchObject({ command: "mcp" });
-    for (const extra of ["--local-model", "--format", "json", "--root"]) expect(() => parseCliArgs(["mcp", extra])).toThrow(CliUsageError);
+    for (const extra of ["--local-model", "--format", "json", "--root"]) expect(() => parseCliArgs(["mcp", extra])).toThrow("ascout mcp takes no options.");
   });
 
   it("M-10: the server and command modules import no network module", () => {
