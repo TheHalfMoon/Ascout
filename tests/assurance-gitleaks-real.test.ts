@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -282,6 +282,62 @@ describe.runIf(AVAILABLE)("real Gitleaks through the broker", () => {
       expect(result.stderr).toContain("not a clean result");
       expect(result.stderr).not.toContain(token);
     }, 120_000);
+  });
+
+  // E8 part two (E2E-2): the same pinned Gitleaks reached through ascout mcp.
+  describe("ascout_security over MCP", () => {
+    const cliPath = join(process.cwd(), "dist", "cli.js");
+
+    async function securityOverMcp(root: string): Promise<{ raw: string; body: { exit_code: number; assurance: string; report: unknown } }> {
+      const child = spawn(process.execPath, [cliPath, "mcp"], {
+        cwd: root,
+        env: { ...process.env, ASCOUT_GITLEAKS_PATH: EXECUTABLE },
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      let raw = "";
+      child.stdout.on("data", (chunk: Buffer) => { raw += chunk.toString("utf8"); });
+      const lines = () => raw.split("
+").filter((line) => line !== "");
+      child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "ascout_security" } })}
+`);
+      const started = Date.now();
+      while (lines().length < 1) {
+        if (Date.now() - started > 120_000) throw new Error("no MCP reply: " + raw);
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      child.stdin.end();
+      await new Promise((r) => child.on("exit", r));
+      const reply = JSON.parse(lines()[0]!) as { result: { isError: boolean; content: { text: string }[] } };
+      expect(reply.result.isError).toBe(false);
+      return { raw, body: JSON.parse(reply.result.content[0]!.text) };
+    }
+
+    function cliJson(root: string): { stdout: string; status: number | null } {
+      const result = spawnSync(process.execPath, [cliPath, "security", "--format", "json"], {
+        cwd: root, encoding: "utf8", env: { ...process.env, ASCOUT_GITLEAKS_PATH: EXECUTABLE }, timeout: 120_000,
+      });
+      return { stdout: result.stdout, status: result.status };
+    }
+
+    it("reports the finding as FINDINGS, matches the CLI report, and never carries the token", async () => {
+      const token = syntheticToken();
+      const root = repository({ "settings.js": `const token = "${token}";
+` });
+      const { raw, body } = await securityOverMcp(root);
+      expect([body.exit_code, body.assurance]).toEqual([1, "FINDINGS"]);
+      const cli = cliJson(root);
+      expect(`${JSON.stringify(body.report, null, 2)}
+`).toBe(cli.stdout);
+      expect(cli.status).toBe(1);
+      expect(raw).not.toContain(token);
+    }, 180_000);
+
+    it("reports a clean scan as INCOMPLETE, never COMPLETE", async () => {
+      const root = repository({ "readme.txt": "nothing to see
+" });
+      const { body } = await securityOverMcp(root);
+      expect([body.exit_code, body.assurance]).toEqual([4, "INCOMPLETE"]);
+    }, 180_000);
   });
 
   it("does not start on a stale tree", async () => {
