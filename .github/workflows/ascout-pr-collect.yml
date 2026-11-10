@@ -53,3 +53,11 @@ jobs:
           path: ${{ runner.temp }}/ascout-pr-evidence.json
           if-no-files-found: error
           retention-days: 7
+      - name: Keep the check receipt, so a failing task can be read from the run
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ascout-check-receipt
+          path: .ascout/runs/
+          if-no-files-found: warn
+          retention-days: 7
