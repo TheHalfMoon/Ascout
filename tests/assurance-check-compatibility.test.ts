@@ -64,6 +64,7 @@ const EXPECTED_USAGE = [
   "  ascout review [--local-model] [--format json|terminal]",
   "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
   "  ascout security [--format json|terminal]",
+  "  ascout mcp",
 ].join("\n");
 
 afterEach(() => {

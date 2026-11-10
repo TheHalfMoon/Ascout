@@ -175,6 +175,19 @@ Every successful result is a single JSON text content block with this shape:
 | 2026-11-10 | Local OpenCode with Qwen2.5-Coder 7B, on the revision 2 diff | Advisory, independent family | NONE: no findings. A small model's "none" is weak evidence. |
 | 2026-11-10 | Founder, in chat | Authorization to proceed | The founder said they would review this, then directed the work to go ahead, with local Alibaba-family review where review is needed. This is recorded as the founder's go-ahead, not as a line-by-line human R1. |
 
+## Implementation notes (part one)
+
+- **M-10 is a static check, not a socket listing.** Node's own stdio may use socket pairs on some
+  platforms, so listing the server's sockets can't tell them from a listener. Instead the test
+  checks that `src/mcp/server.ts` and `src/command-functions.ts` import no network module
+  (`node:net`, `http`, `https`, `http2`, `dgram`, `tls`). The local-model path, which does use
+  the network, is unreachable from MCP in v1.
+- **Time limits on the two synchronous tools.** `ascout_doctor` and `ascout_test_plan` run
+  synchronously, so their limit can't interrupt them mid-run. The Git timeouts inside doctor
+  bound it instead. `ascout_review` and `ascout_security` are aborted through their signal.
+- **E2E-1 caught a mismatch while this was being built.** The security result first carried an
+  internal wrapper. It now returns exactly the `ascout security --format json` report.
+
 ## Rollback
 
 E8 is additive. Part zero is behavior-preserving by test. Removing `mcp` returns Ascout to CLI-only.
