@@ -4,6 +4,23 @@
   "private": true,
   "description": "Verify everything AI ships.",
   "license": "Apache-2.0",
+  "keywords": [
+    "ascout",
+    "verification",
+    "code-review",
+    "ai",
+    "mcp",
+    "cli",
+    "receipts"
+  ],
+  "homepage": "https://github.com/TheHalfMoon/Ascout#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheHalfMoon/Ascout.git"
+  },
+  "bugs": {
+    "url": "https://github.com/TheHalfMoon/Ascout/issues"
+  },
   "type": "module",
   "files": [
     "dist"
