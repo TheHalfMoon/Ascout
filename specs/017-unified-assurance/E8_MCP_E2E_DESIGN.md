@@ -171,7 +171,9 @@ Every successful result is a single JSON text content block with this shape:
 |---|---|---|---|
 | 2026-11-09 | Design-critic subagent, fresh context, read-only (Claude) | Advisory, same model family as the author | REVISE: 1 Blocker (in-process wrapper impossible as written), 5 Major, 5 Minor. All are addressed in revision 2. |
 | 2026-11-09 | Local OpenCode with Qwen2.5-Coder 7B | Advisory, independent family | NOT_RUN: the local model was no longer installed |
-| — | Human R1 | Required | PENDING |
+| 2026-11-10 | Alibaba open-code-review v1.13.6, local Qwen | Advisory | NOT_RUN: OCR does not review Markdown ("unsupported_ext") |
+| 2026-11-10 | Local OpenCode with Qwen2.5-Coder 7B, on the revision 2 diff | Advisory, independent family | NONE: no findings. A small model's "none" is weak evidence. |
+| 2026-11-10 | Founder, in chat | Authorization to proceed | The founder said they would review this, then directed the work to go ahead, with local Alibaba-family review where review is needed. This is recorded as the founder's go-ahead, not as a line-by-line human R1. |
 
 ## Rollback
 
