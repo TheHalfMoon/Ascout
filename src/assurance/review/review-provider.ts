@@ -60,7 +60,12 @@ export function openAICompatibleProviderV1(config: LocalReviewProviderConfigV1, 
 
 /** The provider a config names. The call is injectable for tests only. */
 export function providerForConfigV1(config: LocalReviewProviderConfigV1, call?: ModelCallV1): ReviewProviderV2 {
-  const make = config.provider === "openai-compatible" ? openAICompatibleProviderV1 : ollamaProviderV1;
+  // Exhaustive: a new provider id fails to compile here until it has its own provider.
+  const makers: Record<LocalReviewProviderConfigV1["provider"], typeof ollamaProviderV1> = {
+    ollama: ollamaProviderV1,
+    "openai-compatible": openAICompatibleProviderV1,
+  };
+  const make = makers[config.provider];
   return call === undefined ? make(config) : make(config, call);
 }
 

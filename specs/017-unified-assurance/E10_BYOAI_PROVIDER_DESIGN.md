@@ -34,7 +34,7 @@ Ascout. Three rules hold throughout:
 - **Policy:** the decision gate (E6B) hardcodes `allow_paid: false` and `allow_source_egress:
   false`. It also blocks any provider that needs a credential.
 - **Payload:** numbered excerpts of each changed file. These are the changed lines with ±10 lines of
-  context, not a unified diff, even though the prompt calls it one.
+  context, not a unified diff. Until E10b, the prompt called it one.
   - Redaction removes the values of four token variables only (`GITHUB_TOKEN`, `GH_TOKEN`,
     `NPM_TOKEN`, `NODE_AUTH_TOKEN`). Secrets written in the code are **not** redacted.
   - Untracked files that git does not ignore are included.
