@@ -426,8 +426,10 @@ export async function runReview(
   repositoryRoot: string,
   format: ReviewFormat | undefined,
   localModel = false,
+  /** Tests only: where review-provider.json lives. The CLI itself never passes it. */
+  testConfigHome?: string,
 ): Promise<number> {
-  const result = await computeReviewV1(repositoryRoot, { localModel });
+  const result = await computeReviewV1(repositoryRoot, { localModel, ...(testConfigHome === undefined ? {} : { configHome: testConfigHome }) });
   if (result.kind === "error") {
     reportOperationalError(result.message);
     return result.exit_code;

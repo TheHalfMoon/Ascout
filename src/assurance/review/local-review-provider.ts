@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { Agent, request } from "node:http";
+import { userInfo } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import {
@@ -34,16 +35,30 @@ const CONFIG_KEYS = ["authorized_by_founder", "endpoint", "model", "model_family
 const MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/u;
 const MAX_CONFIG_BYTES = 16 * 1024;
 
-/** The review-provider config path in the user's config directory. */
-export function localReviewConfigPath(env: NodeJS.ProcessEnv = process.env): string {
-  if (env.ASCOUT_CONFIG_HOME !== undefined && env.ASCOUT_CONFIG_HOME !== "") {
-    return join(env.ASCOUT_CONFIG_HOME, "review-provider.json");
+export interface LocalReviewConfigLocationV1 {
+  /**
+   * Tests only: the directory holding review-provider.json. The CLI and MCP never set it, and no
+   * environment variable can, so a repository's scripts can't point Ascout at a config they wrote.
+   */
+  readonly configHome?: string;
+}
+
+/**
+ * The review-provider config path, derived from the operating-system account and never from HOME,
+ * XDG_CONFIG_HOME, APPDATA, or ASCOUT_CONFIG_HOME (E10a). Null when the account has no home directory.
+ */
+export function localReviewConfigPath(location: LocalReviewConfigLocationV1 = {}): string | null {
+  if (location.configHome !== undefined) return join(location.configHome, "review-provider.json");
+  let home: string;
+  try {
+    home = userInfo().homedir;
+  } catch {
+    return null;
   }
-  if (process.platform === "win32" && env.APPDATA !== undefined && env.APPDATA !== "") {
-    return join(env.APPDATA, "ascout", "review-provider.json");
-  }
-  const base = env.XDG_CONFIG_HOME !== undefined && env.XDG_CONFIG_HOME !== "" ? env.XDG_CONFIG_HOME : join(homedir(), ".config");
-  return join(base, "ascout", "review-provider.json");
+  if (home === "") return null;
+  return process.platform === "win32"
+    ? join(home, "AppData", "Roaming", "ascout", "review-provider.json")
+    : join(home, ".config", "ascout", "review-provider.json");
 }
 
 function isInside(root: string, candidate: string): boolean {
@@ -69,13 +84,18 @@ export function isLoopbackEndpoint(endpoint: string): boolean {
  * Reads the review-provider config. A config that resolves inside the repository under review is
  * refused, because a repository must never be able to authorize its own reviewer.
  */
-export function readLocalReviewConfigV1(repositoryRoot: string, env: NodeJS.ProcessEnv = process.env): LocalReviewConfigResultV1 {
-  const path = localReviewConfigPath(env);
+export function readLocalReviewConfigV1(repositoryRoot: string, location: LocalReviewConfigLocationV1 = {}): LocalReviewConfigResultV1 {
+  const path = localReviewConfigPath(location);
+  if (path === null) return { state: "invalid", path: "(no home directory)", reason: "the account's home directory could not be determined" };
   if (!existsSync(path)) return { state: "absent", path };
   const invalid = (reason: string): LocalReviewConfigResultV1 => ({ state: "invalid", path, reason });
   try {
     if (isInside(realpathSync.native(resolve(repositoryRoot)), realpathSync.native(path))) {
       return invalid("the review-provider config lies inside the repository under review");
+    }
+    // Defense in depth: another account must not be able to rewrite who reviews this user's code.
+    if (process.platform !== "win32" && (statSync(path).mode & 0o022) !== 0) {
+      return invalid("the review-provider config is writable by other users");
     }
   } catch {
     return invalid("the review-provider config path could not be resolved");
@@ -170,27 +190,44 @@ export type LocalReviewCallResultV1 =
   | { readonly ok: true; readonly version: string; readonly content: string }
   | { readonly ok: false; readonly reason: string };
 
-async function readBounded(response: Response, maxBytes: number): Promise<string | null> {
-  const reader = response.body?.getReader();
-  if (reader === undefined) return "";
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks).toString("utf8");
+/**
+ * One HTTP exchange with a loopback server. It uses node:http with its own agent rather than fetch,
+ * so no proxy setting (HTTP_PROXY, NODE_USE_ENV_PROXY, NODE_OPTIONS) can route it elsewhere, and it
+ * follows no redirect. The body is null when the response passes maxBytes.
+ */
+function loopbackExchange(url: URL, method: "GET" | "POST", body: string | undefined, signal: AbortSignal, maxBytes: number): Promise<{ status: number; text: string | null }> {
+  return new Promise((resolvePromise, reject) => {
+    const outgoing = request({
+      agent: new Agent({ keepAlive: false }),
+      host: url.hostname.replace(/^\[|\]$/gu, ""),
+      port: url.port === "" ? 80 : Number(url.port),
+      path: url.pathname,
+      method,
+      signal,
+      headers: body === undefined ? {} : { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
+    }, (response) => {
+      const chunks: Buffer[] = [];
+      let total = 0;
+      response.on("data", (chunk: Buffer) => {
+        total += chunk.byteLength;
+        if (total > maxBytes) {
+          response.destroy();
+          resolvePromise({ status: response.statusCode ?? 0, text: null });
+          return;
+        }
+        chunks.push(chunk);
+      });
+      response.on("end", () => resolvePromise({ status: response.statusCode ?? 0, text: Buffer.concat(chunks).toString("utf8") }));
+      response.on("error", reject);
+    });
+    outgoing.on("error", reject);
+    outgoing.end(body);
+  });
 }
 
 /**
  * Sends one diff to the local model. Refuses any endpoint that isn't loopback, follows no
- * redirect, and bounds both the wait and the response size.
+ * redirect, ignores proxy settings, and bounds both the wait and the response size.
  */
 export async function callLocalReviewModelV1(call: LocalReviewCallV1): Promise<LocalReviewCallResultV1> {
   if (!isLoopbackEndpoint(call.endpoint)) return { ok: false, reason: "endpoint is not loopback" };
@@ -198,30 +235,21 @@ export async function callLocalReviewModelV1(call: LocalReviewCallV1): Promise<L
   const timeout = AbortSignal.timeout(call.timeoutMs);
   const signal = call.signal === undefined ? timeout : AbortSignal.any([timeout, call.signal]);
   try {
-    const versionResponse = await fetch(new URL("/api/version", base), { redirect: "error", signal });
-    const versionText = versionResponse.ok ? await readBounded(versionResponse, 4096) : null;
+    const versionResponse = await loopbackExchange(new URL("/api/version", base), "GET", undefined, signal, 4096);
     let version = "unknown";
     try {
-      if (versionText !== null) version = String((JSON.parse(versionText) as { version?: unknown }).version ?? "unknown");
+      if (versionResponse.status === 200 && versionResponse.text !== null) version = String((JSON.parse(versionResponse.text) as { version?: unknown }).version ?? "unknown");
     } catch {
       // A server that doesn't answer /api/version in JSON still gets a chance; its version is unknown.
     }
-    const response = await fetch(new URL("/api/chat", base), {
-      method: "POST",
-      redirect: "error",
-      signal,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(buildReviewRequestV1(call.model, call.diff)),
-    });
-    if (!response.ok) return { ok: false, reason: `the model server answered HTTP ${response.status}` };
-    const text = await readBounded(response, call.maxResponseBytes);
-    if (text === null) return { ok: false, reason: "the model response exceeded its size limit" };
-    const content = (JSON.parse(text) as { message?: { content?: unknown } }).message?.content;
+    const response = await loopbackExchange(new URL("/api/chat", base), "POST", JSON.stringify(buildReviewRequestV1(call.model, call.diff)), signal, call.maxResponseBytes);
+    if (response.status < 200 || response.status > 299) return { ok: false, reason: `the model server answered HTTP ${response.status}` };
+    if (response.text === null) return { ok: false, reason: "the model response exceeded its size limit" };
+    const content = (JSON.parse(response.text) as { message?: { content?: unknown } }).message?.content;
     if (typeof content !== "string") return { ok: false, reason: "the model response had no message content" };
     return { ok: true, version: /^[A-Za-z0-9._+-]{1,64}$/u.test(version) ? version : "unknown", content };
-  } catch (error) {
-    const name = error instanceof Error ? error.name : "";
-    return { ok: false, reason: name === "TimeoutError" ? "the model did not answer in time" : name === "AbortError" ? "the review was cancelled" : "the model server could not be reached" };
+  } catch {
+    return { ok: false, reason: timeout.aborted ? "the model did not answer in time" : call.signal?.aborted === true ? "the review was cancelled" : "the model server could not be reached" };
   }
 }
 

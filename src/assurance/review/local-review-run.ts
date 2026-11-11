@@ -9,7 +9,6 @@ import {
 } from "./review-command.js";
 import type { ReviewExecutionResultV1, ReviewExecutionStatusV1 } from "../engines/review/opencode-review-adapter.js";
 import {
-  callLocalReviewModelV1,
   localReviewCandidateV1,
   parseReviewFindingsV1,
   type LocalReviewCallResultV1,
@@ -19,6 +18,7 @@ import {
 import { validateObservationLocationV1, type LocationValidationV1 } from "./location-validator.js";
 import type { RawReviewObservationV1 } from "./raw-observation.js";
 import { currentReviewProviderPolicyV1, decideReviewProviderV1 } from "./review-provider-decision.js";
+import { ollamaProviderV1, type ReviewPayloadV1, type ReviewProviderV2 } from "./review-provider.js";
 
 export const LOCAL_REVIEW_ENGINE_ID = "engine:review-ollama" as const;
 export const LOCAL_REVIEW_PROFILE_ID = "profile:local-review" as const;
@@ -36,10 +36,17 @@ export const LOCAL_REVIEW_LIMITS = Object.freeze({
   max_response_bytes: 1024 * 1024,
 });
 
-export interface LocalReviewPayloadV1 {
-  readonly text: string;
-  readonly reviewed_files: readonly string[];
-  readonly line_counts: Readonly<Record<string, number>>;
+export type LocalReviewPayloadV1 = ReviewPayloadV1;
+
+/**
+ * File names never sent to any model, whatever the operator configures: environment files, keys,
+ * certificates, and credential stores. Matched on the file name, case-insensitively.
+ */
+const NEVER_SENT = /^(?:\.env.*|.*\.pem|.*\.key|id_rsa.*|id_ed25519.*|id_ecdsa.*|.*\.p12|.*\.pfx|\.npmrc|\.pypirc|\.netrc|credentials.*)$/iu;
+
+/** True for a path whose file name must never reach a model. */
+export function isNeverSentPathV1(path: string): boolean {
+  return NEVER_SENT.test(path.slice(path.lastIndexOf("/") + 1));
 }
 
 function mergeWindows(ranges: readonly (readonly [number, number])[], context: number, lineCount: number): [number, number][] {
@@ -59,8 +66,8 @@ function mergeWindows(ranges: readonly (readonly [number, number])[], context: n
 
 /**
  * The text the model reviews: for each changed text file, the changed lines with some context,
- * numbered so the model can point at them. Files that are deleted, binary, unreadable, or past the
- * size budget are left out and stay unreviewed. Every selected secret value is removed, and the
+ * numbered so the model can point at them. Files that are deleted, binary, unreadable, untracked,
+ * secret-shaped by name, or past the size budget are left out and stay unreviewed. Every selected secret value is removed, and the
  * closing fence is escaped so file content cannot end the data block.
  */
 export function buildLocalReviewPayloadV1(
@@ -75,6 +82,8 @@ export function buildLocalReviewPayloadV1(
   let bytes = 0;
   for (const file of [...changedFiles].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))) {
     if (file.change_kind === "deleted" || file.line_semantics !== "text" || file.changed_new_line_ranges.length === 0) continue;
+    // A file git doesn't track may be a local secret nobody meant to share, such as an un-ignored .env.
+    if (file.change_kind === "untracked" || isNeverSentPathV1(file.path)) continue;
     const text = readText(file.path, limits.max_file_bytes);
     if (text === null) continue;
     const lines = text.split("\n");
@@ -155,7 +164,10 @@ export interface LocalReviewRunInputV1 {
   readonly changes: readonly ReviewChangeV1[];
   readonly readText: (path: string, maxBytes: number) => string | null;
   readonly redact: (text: string) => string;
+  /** Tests only: replaces the model call behind the configured provider. */
   readonly call?: (call: LocalReviewCallV1) => Promise<LocalReviewCallResultV1>;
+  /** Tests only: replaces the provider built from the config. */
+  readonly provider?: ReviewProviderV2;
   readonly signal?: AbortSignal;
 }
 
@@ -212,15 +224,16 @@ export async function runLocalReviewV1(input: LocalReviewRunInputV1): Promise<Lo
   if (payload.reviewed_files.length === 0) {
     return notRun(input, "NOT_QUALIFIED", ["no changed file has text lines the local model can review"]);
   }
-  const call = input.call ?? callLocalReviewModelV1;
-  const reply = await call({
-    endpoint: config.config.endpoint,
-    model: config.config.model,
-    diff: payload.text,
-    timeoutMs: LOCAL_REVIEW_LIMITS.timeout_ms,
-    maxResponseBytes: LOCAL_REVIEW_LIMITS.max_response_bytes,
-    ...(input.signal === undefined ? {} : { signal: input.signal }),
-  });
+  const provider = input.provider ?? ollamaProviderV1(config.config, ...(input.call === undefined ? [] : [input.call]));
+  // The one egress gate: nothing in E10a may leave loopback. Remote providers wait for E10c.
+  if (provider.egress !== "NONE") {
+    return notRun(input, "REFUSED", ["the review provider is not on loopback, and sending source off this machine is not allowed"]);
+  }
+  const reply = await provider.review(
+    payload,
+    { timeoutMs: LOCAL_REVIEW_LIMITS.timeout_ms, maxResponseBytes: LOCAL_REVIEW_LIMITS.max_response_bytes },
+    input.signal,
+  );
   if (!reply.ok) {
     const status: ReviewExecutionStatusV1 = reply.reason === "the model did not answer in time" ? "TIMEOUT" : "ERROR";
     return notRun(input, status, [reply.reason]);
@@ -233,7 +246,8 @@ export async function runLocalReviewV1(input: LocalReviewRunInputV1): Promise<Lo
     capsule_id: LOCAL_REVIEW_CAPSULE_ID,
     head_sha: input.head_sha,
   };
-  const parsed = parseReviewFindingsV1(reply.content, binding);
+  // A model can echo a secret back; remove every selected value before anything is reported.
+  const parsed = parseReviewFindingsV1(input.redact(reply.content), binding);
   if (!parsed.well_formed) {
     return notRun(input, "ERROR", ["the local model's reply was not the expected findings object"], reply.version);
   }

@@ -194,7 +194,7 @@ describe("ascout review --local-model against a fake local server", () => {
     rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   });
 
-  function setUp(changedContent: string): { repo: string; output: () => string } {
+  function setUp(changedContent: string): { repo: string; config: string; output: () => string } {
     const repo = join(scratch, "repo");
     const config = join(scratch, "config");
     mkdirSync(join(repo, "src"), { recursive: true });
@@ -209,16 +209,15 @@ describe("ascout review --local-model against a fake local server", () => {
     git("commit", "-qm", "base");
     writeFileSync(join(repo, "src", "a.ts"), changedContent);
     writeFileSync(join(config, "review-provider.json"), JSON.stringify({ version: 1, ...CONFIG, endpoint }));
-    vi.stubEnv("ASCOUT_CONFIG_HOME", config);
     let stdout = "";
     vi.spyOn(process.stdout, "write").mockImplementation((chunk) => { stdout += String(chunk); return true; });
-    return { repo, output: () => stdout };
+    return { repo, config, output: () => stdout };
   }
 
   it("reviews the working-tree change and reports the finding in JSON, exit 1", async () => {
-    const { repo, output } = setUp("export const a = 1;\nexport const b = 3;\n");
+    const { repo, config, output } = setUp("export const a = 1;\nexport const b = 3;\n");
 
-    const exit = await runReview(repo, "json", true);
+    const exit = await runReview(repo, "json", true, config);
 
     const report = JSON.parse(output()) as { advisory: boolean; outcome: string; records: { observation: { body: string }; promotable: boolean }[] };
     expect(exit).toBe(1);
@@ -228,12 +227,12 @@ describe("ascout review --local-model against a fake local server", () => {
 
   it("never sends a recognized secret value to the model", async () => {
     const secret = "ghp_" + "x".repeat(36);
-    const { repo } = setUp(`export const a = 1;\nexport const token = "${secret}";\n`);
+    const { repo, config } = setUp(`export const a = 1;\nexport const token = "${secret}";\n`);
     vi.stubEnv("GITHUB_TOKEN", secret);
     const bodies: string[] = [];
     onChat = (body) => bodies.push(body);
 
-    await runReview(repo, "json", true);
+    await runReview(repo, "json", true, config);
 
     expect(bodies).toHaveLength(1);
     expect(bodies[0]).toContain("export const token");
@@ -241,10 +240,10 @@ describe("ascout review --local-model against a fake local server", () => {
   }, 60_000);
 
   it("reports drift, not findings, when the source changes while the model runs", async () => {
-    const { repo, output } = setUp("export const a = 1;\nexport const b = 3;\n");
+    const { repo, config, output } = setUp("export const a = 1;\nexport const b = 3;\n");
     onChat = () => writeFileSync(join(repo, "src", "a.ts"), "changed meanwhile\n");
 
-    const exit = await runReview(repo, "json", true);
+    const exit = await runReview(repo, "json", true, config);
 
     expect(exit).toBe(3);
     expect(JSON.parse(output())).toMatchObject({ kind: "drift", outcome: "SOURCE_DRIFT" });
