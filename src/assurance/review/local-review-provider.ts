@@ -41,6 +41,8 @@ export interface LocalReviewConfigLocationV1 {
    * environment variable can, so a repository's scripts can't point Ascout at a config they wrote.
    */
   readonly configHome?: string;
+  /** Tests only: stands in for the account's home-directory lookup. */
+  readonly accountHome?: () => string;
 }
 
 /**
@@ -51,7 +53,7 @@ export function localReviewConfigPath(location: LocalReviewConfigLocationV1 = {}
   if (location.configHome !== undefined) return join(location.configHome, "review-provider.json");
   let home: string;
   try {
-    home = userInfo().homedir;
+    home = location.accountHome === undefined ? userInfo().homedir : location.accountHome();
   } catch {
     return null;
   }

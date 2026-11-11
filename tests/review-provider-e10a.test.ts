@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir, userInfo } from "node:os";
@@ -10,7 +10,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import type { GitChangedFile } from "../src/git.js";
 import { redactExactValues, selectedSecretValues } from "../src/redact.js";
-import { localReviewConfigPath, readLocalReviewConfigV1, type LocalReviewConfigResultV1 } from "../src/assurance/review/local-review-provider.js";
+import { callLocalReviewModelV1, localReviewConfigPath, readLocalReviewConfigV1, type LocalReviewConfigResultV1 } from "../src/assurance/review/local-review-provider.js";
 import { buildLocalReviewPayloadV1, isNeverSentPathV1, runLocalReviewV1 } from "../src/assurance/review/local-review-run.js";
 import { egressForEndpointV1, ollamaProviderV1, type ReviewProviderV2 } from "../src/assurance/review/review-provider.js";
 
@@ -54,6 +54,24 @@ describe("the config location comes from the account, never the environment", ()
     expect(expected).toBe(process.platform === "win32"
       ? join(userInfo().homedir, "AppData", "Roaming", "ascout", "review-provider.json")
       : join(userInfo().homedir, ".config", "ascout", "review-provider.json"));
+  });
+
+  it("treats an account with no home directory as not configured, so nothing runs", () => {
+    const thrown = { accountHome: () => { throw new Error("no passwd entry"); } };
+    expect(localReviewConfigPath(thrown)).toBeNull();
+    expect(localReviewConfigPath({ accountHome: () => "" })).toBeNull();
+    expect(readLocalReviewConfigV1(scratch, thrown)).toMatchObject({ state: "absent" });
+  });
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)("refuses a config owned by another account", () => {
+    const home = join(scratch, "foreign-owner");
+    mkdirSync(home);
+    chmodSync(home, 0o700);
+    // /etc/passwd belongs to root; the link makes it this account's config path.
+    symlinkSync("/etc/passwd", join(home, "review-provider.json"));
+    const repo = join(scratch, "repo-owner");
+    mkdirSync(repo);
+    expect(readLocalReviewConfigV1(repo, { configHome: home })).toMatchObject({ state: "invalid", reason: expect.stringContaining("not owned by this account") });
   });
 
   it.skipIf(process.platform === "win32")("refuses a config, or a config folder, another user can write", () => {
@@ -123,6 +141,21 @@ describe("the provider interface and its egress gate", () => {
     expect(result.kind).toBe("review");
     expect(JSON.stringify(result)).not.toContain(secret);
     expect(JSON.stringify(result)).toContain("[REDACTED]");
+  });
+
+  it("reports a model server reply that is not JSON as such, and never as a review", async () => {
+    const server = createServer((request, response) => {
+      request.resume();
+      request.on("end", () => response.end(request.url === "/api/version" ? '{"version":"0.1"}' : "<html>not json</html>"));
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    try {
+      const reply = await callLocalReviewModelV1({ endpoint: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, model: "m", diff: "x", timeoutMs: 20_000, maxResponseBytes: 65_536 });
+      expect(reply).toEqual({ ok: false, reason: "the model server's reply was not JSON" });
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((done) => server.close(() => done()));
+    }
   });
 
   it("removes a secret the model writes with JSON escapes, using the real redactor", async () => {
