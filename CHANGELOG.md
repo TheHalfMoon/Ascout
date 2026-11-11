@@ -3,10 +3,20 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
-## 0.2.0 (release candidate, not published)
+## Unreleased
 
-Not released. Publication waits for the founder's explicit approval. GitHub Releases only; not on
-npm. The founder waived the independent human security review and human R1 for this release; neither
+On `main`, not in any release.
+
+- GitHub PR integration, run by the customer on the customer's own runners: `ascout pr-evidence`,
+  `ascout pr-publish`, and the collect and publish workflows (#716–#718). See
+  `docs/GITHUB_INTEGRATION.md`.
+- Per-repository team policy for the PR check, `.github/ascout-policy.json` (#719).
+- The security NOT_RUN reason no longer shows an internal phase label (#720).
+
+## 0.2.0 (2026-11-10)
+
+Published as a GitHub Release on 2026-11-10 (tag `v0.2.0` at `0741873`) with a build-provenance
+attestation. Not on npm. The founder waived the independent human security review and human R1 for this release; neither
 was performed. The release was checked by independent AI security reviews, audits, and CI instead.
 
 Changes on `main` since `v0.1.0` (55688b5, GitHub release 2026-09-12).
