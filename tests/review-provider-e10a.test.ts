@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { GitChangedFile } from "../src/git.js";
+import { redactExactValues, selectedSecretValues } from "../src/redact.js";
 import { localReviewConfigPath, readLocalReviewConfigV1, type LocalReviewConfigResultV1 } from "../src/assurance/review/local-review-provider.js";
 import { buildLocalReviewPayloadV1, isNeverSentPathV1, runLocalReviewV1 } from "../src/assurance/review/local-review-run.js";
 import { egressForEndpointV1, ollamaProviderV1, type ReviewProviderV2 } from "../src/assurance/review/review-provider.js";
@@ -55,20 +56,27 @@ describe("the config location comes from the account, never the environment", ()
       : join(userInfo().homedir, ".config", "ascout", "review-provider.json"));
   });
 
-  it.skipIf(process.platform === "win32")("refuses a config another user can write", () => {
+  it.skipIf(process.platform === "win32")("refuses a config, or a config folder, another user can write", () => {
     const home = join(scratch, "group-writable");
     mkdirSync(home);
+    chmodSync(home, 0o700);
     const path = join(home, "review-provider.json");
     writeFileSync(path, JSON.stringify({ version: 1, ...CONFIG }));
+    const repo = join(scratch, "repo-x");
     chmodSync(path, 0o664);
-    expect(readLocalReviewConfigV1(scratch === home ? "/" : join(scratch, "repo-x"), { configHome: home })).toMatchObject({ state: "invalid", reason: expect.stringContaining("writable by other users") });
+    expect(readLocalReviewConfigV1(repo, { configHome: home })).toMatchObject({ state: "invalid", reason: expect.stringContaining("writable by other users") });
     chmodSync(path, 0o600);
-    expect(readLocalReviewConfigV1(join(scratch, "repo-x"), { configHome: home }).state).toBe("loaded");
+    expect(readLocalReviewConfigV1(repo, { configHome: home }).state).toBe("loaded");
+    chmodSync(home, 0o777);
+    expect(readLocalReviewConfigV1(repo, { configHome: home })).toMatchObject({ state: "invalid", reason: expect.stringContaining("writable by other users") });
+    chmodSync(home, 0o700);
   });
 });
 
 describe("what a model may be sent", () => {
-  it.each([".env", ".env.local", "config/.ENV.production", ".envrc", "deploy/server.pem", "id_rsa", "id_rsa.pub", "keys/id_ed25519", "tls.KEY", "cert.p12", "cert.pfx", ".npmrc", ".pypirc", ".netrc", "credentials.json", "aws/credentials"])(
+  it.each([".env", ".env.local", "config/.ENV.production", ".envrc", "deploy/server.pem", "id_rsa", "id_rsa.pub", "keys/id_ed25519", "tls.KEY", "cert.p12", "cert.pfx", ".npmrc", ".pypirc", ".netrc", "credentials.json", "aws/credentials",
+    "secret.json", "config/secrets.yaml", "prod.env", ".git-credentials", "id_dsa", "server.jks", "app.keystore", "putty/key.ppk",
+    "config/credentials/service.json", "home/.ssh/config", ".aws/config", "deploy/secrets/db.txt"])(
     "never sends %s",
     (path) => expect(isNeverSentPathV1(path)).toBe(true),
   );
@@ -90,7 +98,7 @@ describe("the provider interface and its egress gate", () => {
   it("derives egress from the endpoint, never from config", () => {
     expect(egressForEndpointV1("http://127.0.0.1:11434")).toBe("NONE");
     expect(egressForEndpointV1("http://[::1]:11434")).toBe("NONE");
-    for (const endpoint of ["http://localhost:11434", "https://127.0.0.1:11434", "http://127.0.0.2:1", "http://[::ffff:127.0.0.1]:1", "https://api.example.com", "not a url"]) {
+    for (const endpoint of ["http://localhost:11434", "https://127.0.0.1:11434", "http://127.0.0.2:1", "http://[::ffff:127.0.0.1]:1", "https://api.example.com", "not a url", "http://127.0.0.1:0"]) {
       expect(egressForEndpointV1(endpoint)).toBe("REMOTE");
     }
     expect(ollamaProviderV1(CONFIG).disclosure()).toEqual({ provider: "ollama", endpoint_host: "127.0.0.1:11434", model: "qwen2.5-coder:7b", egress: "NONE" });
@@ -114,6 +122,22 @@ describe("the provider interface and its egress gate", () => {
     expect(result.kind).toBe("review");
     expect(JSON.stringify(result)).not.toContain(secret);
     expect(JSON.stringify(result)).toContain("[REDACTED]");
+  });
+
+  it("removes a secret the model writes with JSON escapes, using the real redactor", async () => {
+    const secret = "ghp_" + "Z".repeat(36);
+    const secrets = selectedSecretValues({ GITHUB_TOKEN: secret }, { recognized_names: [], configured_names: [], minimum_value_bytes: 8 });
+    // The reply spells one character as a JSON unicode escape, so the raw text never contains the secret.
+    const escapedZ = String.fromCharCode(92) + "u005A";
+    const raw = JSON.stringify({ findings: [{ path: "src/a.ts", start_line: 1, end_line: 1, severity: "major", category: "bug", message: `leaks ${secret}` }] });
+    const content = raw.replace(secret, secret.slice(0, 5) + escapedZ + secret.slice(6));
+    expect(content).not.toContain(secret);
+    const result = await runLocalReviewV1(runInput([file("src/a.ts")], {
+      redact: (text) => redactExactValues(text, secrets),
+      call: async () => ({ ok: true, version: "0.1", content }),
+    }));
+    expect(result.kind).toBe("review");
+    expect(JSON.stringify(result)).not.toContain(secret);
   });
 });
 
@@ -155,7 +179,17 @@ describe("proxy settings cannot route a loopback review elsewhere", () => {
     }
   });
 
-  it("talks to the model directly with HTTP_PROXY and NODE_USE_ENV_PROXY set, while plain fetch would use the proxy", async () => {
+  // Node 24 can route fetch through HTTP_PROXY, even for 127.0.0.1. Older Node may not, so the
+  // control that proves the proxy was live is asserted only where the switch exists.
+  const proxySwitchExists = Number(process.versions.node.split(".")[0]) >= 24;
+
+  it.each([
+    ["NODE_USE_ENV_PROXY=1", { NODE_USE_ENV_PROXY: "1" }],
+    ["NODE_OPTIONS=--use-env-proxy", { NODE_OPTIONS: "--use-env-proxy" }],
+  ])("talks to the model directly with HTTP_PROXY and %s set, while plain fetch would use the proxy", async (_label, proxySwitch) => {
+    if (!proxySwitchExists && "NODE_OPTIONS" in proxySwitch) return;
+    modelRequests.length = 0;
+    proxyHits = 0;
     const modelUrl = `http://127.0.0.1:${(model.address() as AddressInfo).port}`;
     const proxyUrl = `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`;
     const script = join(scratch, "proxy-probe.mjs");
@@ -166,7 +200,7 @@ describe("proxy settings cannot route a loopback review elsewhere", () => {
       `try { const r = await fetch(${JSON.stringify(`${modelUrl}/control`)}, { signal: AbortSignal.timeout(20000) }); control = String(r.status); } catch (e) { control = "error"; }`,
       `console.log(JSON.stringify({ reply, control }));`,
     ].join("\n"));
-    const env = { ...process.env, HTTP_PROXY: proxyUrl, http_proxy: proxyUrl, HTTPS_PROXY: proxyUrl, NO_PROXY: "", no_proxy: "", NODE_USE_ENV_PROXY: "1" };
+    const env = { ...process.env, HTTP_PROXY: proxyUrl, http_proxy: proxyUrl, HTTPS_PROXY: proxyUrl, NO_PROXY: "", no_proxy: "", ...proxySwitch };
     const stdout = await new Promise<string>((done, fail) => {
       const child = spawn(process.execPath, [script], { env });
       let out = "";
@@ -179,8 +213,10 @@ describe("proxy settings cannot route a loopback review elsewhere", () => {
     expect(reply).toMatchObject({ ok: true });
     expect(modelRequests).toEqual(expect.arrayContaining(["GET /api/version", "POST /api/chat"]));
     // The positive control: under the same environment, plain fetch went to the proxy, not the model.
-    expect(modelRequests).not.toContain("GET /control");
-    expect(control).not.toBe("200");
-    expect(proxyHits).toBeGreaterThan(0);
+    if (proxySwitchExists) {
+      expect(modelRequests).not.toContain("GET /control");
+      expect(control).not.toBe("200");
+      expect(proxyHits).toBeGreaterThan(0);
+    }
   }, 120_000);
 });

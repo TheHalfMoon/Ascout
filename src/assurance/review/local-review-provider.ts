@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { Agent, request } from "node:http";
 import { userInfo } from "node:os";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import {
   MAX_OBSERVATION_BODY_CHARS,
@@ -77,7 +77,8 @@ export function isLoopbackEndpoint(endpoint: string): boolean {
   return url.protocol === "http:" &&
     (url.hostname === "127.0.0.1" || url.hostname === "[::1]") &&
     url.username === "" && url.password === "" &&
-    (url.pathname === "/" || url.pathname === "") && url.search === "" && url.hash === "";
+    (url.pathname === "/" || url.pathname === "") && url.search === "" && url.hash === "" &&
+    url.port !== "0";
 }
 
 /**
@@ -86,7 +87,8 @@ export function isLoopbackEndpoint(endpoint: string): boolean {
  */
 export function readLocalReviewConfigV1(repositoryRoot: string, location: LocalReviewConfigLocationV1 = {}): LocalReviewConfigResultV1 {
   const path = localReviewConfigPath(location);
-  if (path === null) return { state: "invalid", path: "(no home directory)", reason: "the account's home directory could not be determined" };
+  // An account with no home directory can't have configured anything: nothing runs (exit 4).
+  if (path === null) return { state: "absent", path: "(no home directory for this account)" };
   if (!existsSync(path)) return { state: "absent", path };
   const invalid = (reason: string): LocalReviewConfigResultV1 => ({ state: "invalid", path, reason });
   try {
@@ -94,8 +96,15 @@ export function readLocalReviewConfigV1(repositoryRoot: string, location: LocalR
       return invalid("the review-provider config lies inside the repository under review");
     }
     // Defense in depth: another account must not be able to rewrite who reviews this user's code.
-    if (process.platform !== "win32" && (statSync(path).mode & 0o022) !== 0) {
-      return invalid("the review-provider config is writable by other users");
+    // Windows ACLs are not checked; the file sits in the account's own profile.
+    if (process.platform !== "win32") {
+      const file = statSync(path);
+      if (typeof process.getuid === "function" && file.uid !== process.getuid()) {
+        return invalid("the review-provider config is not owned by this account");
+      }
+      if ((file.mode & 0o022) !== 0 || (statSync(dirname(path)).mode & 0o022) !== 0) {
+        return invalid("the review-provider config or its folder is writable by other users");
+      }
     }
   } catch {
     return invalid("the review-provider config path could not be resolved");
@@ -245,7 +254,13 @@ export async function callLocalReviewModelV1(call: LocalReviewCallV1): Promise<L
     const response = await loopbackExchange(new URL("/api/chat", base), "POST", JSON.stringify(buildReviewRequestV1(call.model, call.diff)), signal, call.maxResponseBytes);
     if (response.status < 200 || response.status > 299) return { ok: false, reason: `the model server answered HTTP ${response.status}` };
     if (response.text === null) return { ok: false, reason: "the model response exceeded its size limit" };
-    const content = (JSON.parse(response.text) as { message?: { content?: unknown } }).message?.content;
+    let envelope: { message?: { content?: unknown } } | null;
+    try {
+      envelope = JSON.parse(response.text) as { message?: { content?: unknown } } | null;
+    } catch {
+      return { ok: false, reason: "the model server's reply was not JSON" };
+    }
+    const content = envelope?.message?.content;
     if (typeof content !== "string") return { ok: false, reason: "the model response had no message content" };
     return { ok: true, version: /^[A-Za-z0-9._+-]{1,64}$/u.test(version) ? version : "unknown", content };
   } catch {
@@ -266,7 +281,15 @@ const CATEGORY = /^[a-z][a-z0-9_-]{0,31}$/u;
  * Turns the model's JSON into untrusted raw observations. Anything malformed is dropped and
  * counted; a reply that isn't the expected JSON object yields no observations and well_formed false.
  */
-export function parseReviewFindingsV1(content: string, binding: ObservationExecutionBindingV1): ParsedReviewFindingsV1 {
+export function parseReviewFindingsV1(
+  content: string,
+  binding: ObservationExecutionBindingV1,
+  /**
+   * Applied to every string the model returns, after JSON decoding, so an escaped secret (one written
+   * with \u escapes) is decoded before it is removed.
+   */
+  clean: (text: string) => string = (text) => text,
+): ParsedReviewFindingsV1 {
   let value: unknown;
   try {
     value = JSON.parse(content) as unknown;
@@ -292,9 +315,9 @@ export function parseReviewFindingsV1(content: string, binding: ObservationExecu
       producer_class: "MODEL",
       severity_hint: severity,
       category_hint: typeof finding?.category === "string" && CATEGORY.test(finding.category) ? finding.category : "unknown",
-      body: typeof finding?.message === "string" ? finding.message.slice(0, MAX_OBSERVATION_BODY_CHARS) : "",
+      body: typeof finding?.message === "string" ? clean(finding.message).slice(0, MAX_OBSERVATION_BODY_CHARS) : "",
       location_hint: typeof finding?.path === "string"
-        ? { path: finding.path, start_line: line(finding.start_line), end_line: line(finding.end_line) }
+        ? { path: clean(finding.path), start_line: line(finding.start_line), end_line: line(finding.end_line) }
         : null,
       rule_id: null,
       confidence: null,

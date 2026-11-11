@@ -40,13 +40,17 @@ export type LocalReviewPayloadV1 = ReviewPayloadV1;
 
 /**
  * File names never sent to any model, whatever the operator configures: environment files, keys,
- * certificates, and credential stores. Matched on the file name, case-insensitively.
+ * certificates, keystores, and credential stores. Matched case-insensitively on the file name, and
+ * on every folder name for folders that hold secrets.
  */
-const NEVER_SENT = /^(?:\.env.*|.*\.pem|.*\.key|id_rsa.*|id_ed25519.*|id_ecdsa.*|.*\.p12|.*\.pfx|\.npmrc|\.pypirc|\.netrc|credentials.*)$/iu;
+const NEVER_SENT = /^(?:\.env.*|.*\.env|.*\.pem|.*\.key|id_rsa.*|id_dsa.*|id_ed25519.*|id_ecdsa.*|.*\.p12|.*\.pfx|.*\.jks|.*\.keystore|.*\.ppk|\.npmrc|\.pypirc|\.netrc|\.git-credentials|secrets?\..*|credentials.*)$/iu;
+const NEVER_SENT_FOLDER = /^(?:\.ssh|\.aws|\.gnupg|credentials|secrets)$/iu;
 
-/** True for a path whose file name must never reach a model. */
+/** True for a path whose file name, or any folder on the way to it, must never reach a model. */
 export function isNeverSentPathV1(path: string): boolean {
-  return NEVER_SENT.test(path.slice(path.lastIndexOf("/") + 1));
+  const segments = path.split("/");
+  const name = segments.pop() ?? "";
+  return NEVER_SENT.test(name) || segments.some((folder) => NEVER_SENT_FOLDER.test(folder));
 }
 
 function mergeWindows(ranges: readonly (readonly [number, number])[], context: number, lineCount: number): [number, number][] {
@@ -247,7 +251,7 @@ export async function runLocalReviewV1(input: LocalReviewRunInputV1): Promise<Lo
     head_sha: input.head_sha,
   };
   // A model can echo a secret back; remove every selected value before anything is reported.
-  const parsed = parseReviewFindingsV1(input.redact(reply.content), binding);
+  const parsed = parseReviewFindingsV1(reply.content, binding, input.redact);
   if (!parsed.well_formed) {
     return notRun(input, "ERROR", ["the local model's reply was not the expected findings object"], reply.version);
   }

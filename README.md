@@ -312,7 +312,8 @@ Ascout connects only to `http://127.0.0.1` or `http://[::1]` and ignores proxy s
 
 The model never sees these files, which stay unreviewed:
 - untracked files;
-- files named like secrets: `.env*`, `*.pem`, `*.key`, `id_rsa*`, `id_ed25519*`, `id_ecdsa*`, `*.p12`, `*.pfx`, `.npmrc`, `.pypirc`, `.netrc`, `credentials*`.
+- files named like secrets: `.env*`, `*.env`, `*.pem`, `*.key`, `id_rsa*`, `id_dsa*`, `id_ed25519*`, `id_ecdsa*`, `*.p12`, `*.pfx`, `*.jks`, `*.keystore`, `*.ppk`, `.npmrc`, `.pypirc`, `.netrc`, `.git-credentials`, `secret.*`, `secrets.*`, `credentials*`;
+- anything inside a folder named `.ssh`, `.aws`, `.gnupg`, `credentials` or `secrets`.
 
 The values of the token variables Ascout knows (`GITHUB_TOKEN`, `GH_TOKEN`, `NPM_TOKEN`, `NODE_AUTH_TOKEN`) are removed from what the model sees and from its reply. Other secrets written in your code are not removed.
 
