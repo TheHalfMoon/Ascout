@@ -46,22 +46,22 @@ function writeConfig(dir: string, overrides: Record<string, unknown> = {}): void
 
 describe("review-provider config", () => {
   it("lives in the user's config directory", () => {
-    expect(localReviewConfigPath({ ASCOUT_CONFIG_HOME: configHome })).toBe(join(configHome, "review-provider.json"));
+    expect(localReviewConfigPath({ configHome })).toBe(join(configHome, "review-provider.json"));
   });
 
   it("is absent until the founder writes it", () => {
-    expect(readLocalReviewConfigV1(repo, { ASCOUT_CONFIG_HOME: configHome }).state).toBe("absent");
+    expect(readLocalReviewConfigV1(repo, { configHome }).state).toBe("absent");
   });
 
   it("loads a valid config", () => {
     writeConfig(configHome);
-    const result = readLocalReviewConfigV1(repo, { ASCOUT_CONFIG_HOME: configHome });
+    const result = readLocalReviewConfigV1(repo, { configHome });
     expect(result).toMatchObject({ state: "loaded", config: { model: "qwen2.5-coder:7b", model_family: "qwen", authorized_by_founder: true } });
   });
 
   it("refuses a config inside the repository under review", () => {
     writeConfig(repo);
-    expect(readLocalReviewConfigV1(repo, { ASCOUT_CONFIG_HOME: repo })).toMatchObject({ state: "invalid", reason: expect.stringContaining("inside the repository") });
+    expect(readLocalReviewConfigV1(repo, { configHome: repo })).toMatchObject({ state: "invalid", reason: expect.stringContaining("inside the repository") });
   });
 
   it.each([
@@ -74,7 +74,7 @@ describe("review-provider config", () => {
     ["an extra key", { api_key: "x" }],
   ])("refuses %s", (_label, overrides) => {
     writeConfig(configHome, overrides);
-    expect(readLocalReviewConfigV1(repo, { ASCOUT_CONFIG_HOME: configHome }).state).toBe("invalid");
+    expect(readLocalReviewConfigV1(repo, { configHome }).state).toBe("invalid");
   });
 });
 

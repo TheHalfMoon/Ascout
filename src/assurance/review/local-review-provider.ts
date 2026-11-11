@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { Agent, request } from "node:http";
+import { userInfo } from "node:os";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import {
   MAX_OBSERVATION_BODY_CHARS,
@@ -34,16 +35,54 @@ const CONFIG_KEYS = ["authorized_by_founder", "endpoint", "model", "model_family
 const MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/u;
 const MAX_CONFIG_BYTES = 16 * 1024;
 
-/** The review-provider config path in the user's config directory. */
-export function localReviewConfigPath(env: NodeJS.ProcessEnv = process.env): string {
-  if (env.ASCOUT_CONFIG_HOME !== undefined && env.ASCOUT_CONFIG_HOME !== "") {
-    return join(env.ASCOUT_CONFIG_HOME, "review-provider.json");
+export interface LocalReviewConfigLocationV1 {
+  /**
+   * Tests only: the directory holding review-provider.json. The CLI and MCP never set it, and no
+   * environment variable can, so a repository's scripts can't point Ascout at a config they wrote.
+   */
+  readonly configHome?: string | undefined;
+  /** Tests only: stands in for the account's home-directory lookup. */
+  readonly accountHome?: () => string;
+}
+
+/** Where review-provider.json lives under an account's home directory on a given platform. */
+export function configPathForHomeV1(home: string, platform: NodeJS.Platform): string {
+  return platform === "win32"
+    ? join(home, "AppData", "Roaming", "ascout", "review-provider.json")
+    : join(home, ".config", "ascout", "review-provider.json");
+}
+
+/**
+ * Why a config's owner or permissions make it untrustworthy, or null if they don't. On POSIX the file
+ * must belong to this account, and neither it nor its folder may be writable by others. Windows ACLs
+ * are not checked; the file sits in the account's own profile.
+ */
+export function configPermissionProblemV1(
+  platform: NodeJS.Platform,
+  file: { readonly uid: number; readonly mode: number },
+  folderMode: number,
+  accountUid: () => number,
+): string | null {
+  if (platform === "win32") return null;
+  if (file.uid !== accountUid()) return "the review-provider config is not owned by this account";
+  if ((file.mode & 0o022) !== 0 || (folderMode & 0o022) !== 0) return "the review-provider config or its folder is writable by other users";
+  return null;
+}
+
+/**
+ * The review-provider config path, derived from the operating-system account and never from HOME,
+ * XDG_CONFIG_HOME, APPDATA, or ASCOUT_CONFIG_HOME (E10a). Null when the account has no home directory.
+ */
+export function localReviewConfigPath(location: LocalReviewConfigLocationV1 = {}): string | null {
+  if (location.configHome !== undefined) return join(location.configHome, "review-provider.json");
+  let home: string;
+  try {
+    home = location.accountHome === undefined ? userInfo().homedir : location.accountHome();
+  } catch {
+    return null;
   }
-  if (process.platform === "win32" && env.APPDATA !== undefined && env.APPDATA !== "") {
-    return join(env.APPDATA, "ascout", "review-provider.json");
-  }
-  const base = env.XDG_CONFIG_HOME !== undefined && env.XDG_CONFIG_HOME !== "" ? env.XDG_CONFIG_HOME : join(homedir(), ".config");
-  return join(base, "ascout", "review-provider.json");
+  if (home === "") return null;
+  return configPathForHomeV1(home, process.platform);
 }
 
 function isInside(root: string, candidate: string): boolean {
@@ -62,21 +101,28 @@ export function isLoopbackEndpoint(endpoint: string): boolean {
   return url.protocol === "http:" &&
     (url.hostname === "127.0.0.1" || url.hostname === "[::1]") &&
     url.username === "" && url.password === "" &&
-    (url.pathname === "/" || url.pathname === "") && url.search === "" && url.hash === "";
+    (url.pathname === "/" || url.pathname === "") && url.search === "" && url.hash === "" &&
+    // An explicit, nonzero port: model servers never listen on 80, and 0 means "any".
+    url.port !== "" && url.port !== "0";
 }
 
 /**
  * Reads the review-provider config. A config that resolves inside the repository under review is
  * refused, because a repository must never be able to authorize its own reviewer.
  */
-export function readLocalReviewConfigV1(repositoryRoot: string, env: NodeJS.ProcessEnv = process.env): LocalReviewConfigResultV1 {
-  const path = localReviewConfigPath(env);
+export function readLocalReviewConfigV1(repositoryRoot: string, location: LocalReviewConfigLocationV1 = {}): LocalReviewConfigResultV1 {
+  const path = localReviewConfigPath(location);
+  // An account with no home directory can't have configured anything: nothing runs (exit 4).
+  if (path === null) return { state: "absent", path: "(no home directory for this account)" };
   if (!existsSync(path)) return { state: "absent", path };
   const invalid = (reason: string): LocalReviewConfigResultV1 => ({ state: "invalid", path, reason });
   try {
     if (isInside(realpathSync.native(resolve(repositoryRoot)), realpathSync.native(path))) {
       return invalid("the review-provider config lies inside the repository under review");
     }
+    // Defense in depth: another account must not be able to rewrite who reviews this user's code.
+    const problem = configPermissionProblemV1(process.platform, statSync(path), statSync(dirname(path)).mode, () => (process.getuid as () => number)());
+    if (problem !== null) return invalid(problem);
   } catch {
     return invalid("the review-provider config path could not be resolved");
   }
@@ -170,27 +216,44 @@ export type LocalReviewCallResultV1 =
   | { readonly ok: true; readonly version: string; readonly content: string }
   | { readonly ok: false; readonly reason: string };
 
-async function readBounded(response: Response, maxBytes: number): Promise<string | null> {
-  const reader = response.body?.getReader();
-  if (reader === undefined) return "";
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks).toString("utf8");
+/**
+ * One HTTP exchange with a loopback server. It uses node:http with its own agent rather than fetch,
+ * so no proxy setting (HTTP_PROXY, NODE_USE_ENV_PROXY, NODE_OPTIONS) can route it elsewhere, and it
+ * follows no redirect. The body is null when the response passes maxBytes.
+ */
+function loopbackExchange(url: URL, method: "GET" | "POST", body: string | undefined, signal: AbortSignal, maxBytes: number): Promise<{ status: number; text: string | null }> {
+  return new Promise((resolvePromise, reject) => {
+    const outgoing = request({
+      agent: new Agent({ keepAlive: false }),
+      host: url.hostname.replace(/^\[|\]$/gu, ""),
+      port: Number(url.port),
+      path: url.pathname,
+      method,
+      signal,
+      headers: body === undefined ? {} : { "content-type": "application/json", "content-length": Buffer.byteLength(body) },
+    }, (response) => {
+      const chunks: Buffer[] = [];
+      let total = 0;
+      response.on("data", (chunk: Buffer) => {
+        total += chunk.byteLength;
+        if (total > maxBytes) {
+          response.destroy();
+          resolvePromise({ status: Number(response.statusCode), text: null });
+          return;
+        }
+        chunks.push(chunk);
+      });
+      response.on("end", () => resolvePromise({ status: Number(response.statusCode), text: Buffer.concat(chunks).toString("utf8") }));
+      response.on("error", reject);
+    });
+    outgoing.on("error", reject);
+    outgoing.end(body);
+  });
 }
 
 /**
  * Sends one diff to the local model. Refuses any endpoint that isn't loopback, follows no
- * redirect, and bounds both the wait and the response size.
+ * redirect, ignores proxy settings, and bounds both the wait and the response size.
  */
 export async function callLocalReviewModelV1(call: LocalReviewCallV1): Promise<LocalReviewCallResultV1> {
   if (!isLoopbackEndpoint(call.endpoint)) return { ok: false, reason: "endpoint is not loopback" };
@@ -198,30 +261,27 @@ export async function callLocalReviewModelV1(call: LocalReviewCallV1): Promise<L
   const timeout = AbortSignal.timeout(call.timeoutMs);
   const signal = call.signal === undefined ? timeout : AbortSignal.any([timeout, call.signal]);
   try {
-    const versionResponse = await fetch(new URL("/api/version", base), { redirect: "error", signal });
-    const versionText = versionResponse.ok ? await readBounded(versionResponse, 4096) : null;
+    const versionResponse = await loopbackExchange(new URL("/api/version", base), "GET", undefined, signal, 4096);
     let version = "unknown";
     try {
-      if (versionText !== null) version = String((JSON.parse(versionText) as { version?: unknown }).version ?? "unknown");
+      if (versionResponse.status === 200 && versionResponse.text !== null) version = String((JSON.parse(versionResponse.text) as { version?: unknown }).version ?? "unknown");
     } catch {
       // A server that doesn't answer /api/version in JSON still gets a chance; its version is unknown.
     }
-    const response = await fetch(new URL("/api/chat", base), {
-      method: "POST",
-      redirect: "error",
-      signal,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(buildReviewRequestV1(call.model, call.diff)),
-    });
-    if (!response.ok) return { ok: false, reason: `the model server answered HTTP ${response.status}` };
-    const text = await readBounded(response, call.maxResponseBytes);
-    if (text === null) return { ok: false, reason: "the model response exceeded its size limit" };
-    const content = (JSON.parse(text) as { message?: { content?: unknown } }).message?.content;
+    const response = await loopbackExchange(new URL("/api/chat", base), "POST", JSON.stringify(buildReviewRequestV1(call.model, call.diff)), signal, call.maxResponseBytes);
+    if (response.status < 200 || response.status > 299) return { ok: false, reason: `the model server answered HTTP ${response.status}` };
+    if (response.text === null) return { ok: false, reason: "the model response exceeded its size limit" };
+    let envelope: { message?: { content?: unknown } } | null;
+    try {
+      envelope = JSON.parse(response.text) as { message?: { content?: unknown } } | null;
+    } catch {
+      return { ok: false, reason: "the model server's reply was not JSON" };
+    }
+    const content = envelope?.message?.content;
     if (typeof content !== "string") return { ok: false, reason: "the model response had no message content" };
     return { ok: true, version: /^[A-Za-z0-9._+-]{1,64}$/u.test(version) ? version : "unknown", content };
-  } catch (error) {
-    const name = error instanceof Error ? error.name : "";
-    return { ok: false, reason: name === "TimeoutError" ? "the model did not answer in time" : name === "AbortError" ? "the review was cancelled" : "the model server could not be reached" };
+  } catch {
+    return { ok: false, reason: timeout.aborted ? "the model did not answer in time" : call.signal?.aborted === true ? "the review was cancelled" : "the model server could not be reached" };
   }
 }
 
@@ -238,7 +298,15 @@ const CATEGORY = /^[a-z][a-z0-9_-]{0,31}$/u;
  * Turns the model's JSON into untrusted raw observations. Anything malformed is dropped and
  * counted; a reply that isn't the expected JSON object yields no observations and well_formed false.
  */
-export function parseReviewFindingsV1(content: string, binding: ObservationExecutionBindingV1): ParsedReviewFindingsV1 {
+export function parseReviewFindingsV1(
+  content: string,
+  binding: ObservationExecutionBindingV1,
+  /**
+   * Applied to every string the model returns, after JSON decoding, so an escaped secret (one written
+   * with \u escapes) is decoded before it is removed.
+   */
+  clean: (text: string) => string = (text) => text,
+): ParsedReviewFindingsV1 {
   let value: unknown;
   try {
     value = JSON.parse(content) as unknown;
@@ -264,9 +332,9 @@ export function parseReviewFindingsV1(content: string, binding: ObservationExecu
       producer_class: "MODEL",
       severity_hint: severity,
       category_hint: typeof finding?.category === "string" && CATEGORY.test(finding.category) ? finding.category : "unknown",
-      body: typeof finding?.message === "string" ? finding.message.slice(0, MAX_OBSERVATION_BODY_CHARS) : "",
+      body: typeof finding?.message === "string" ? clean(finding.message).slice(0, MAX_OBSERVATION_BODY_CHARS) : "",
       location_hint: typeof finding?.path === "string"
-        ? { path: finding.path, start_line: line(finding.start_line), end_line: line(finding.end_line) }
+        ? { path: clean(finding.path), start_line: line(finding.start_line), end_line: line(finding.end_line) }
         : null,
       rule_id: null,
       confidence: null,

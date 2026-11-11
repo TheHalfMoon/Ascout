@@ -119,15 +119,32 @@ interface ReviewProviderV2 {
 
 - **`egress` is computed by Ascout** from the endpoint after validation. A loopback address is
   `NONE`, and anything else is `REMOTE`. A config file can't claim a remote host is local.
-- **`review` returns raw text only.** Before parsing, shared code redacts the run's secret values and
-  any credential from that text. It then parses with the existing `parseReviewFindingsV1` and marks
-  every finding `producer_class: "MODEL"` and `authority: "NONE_UNTRUSTED"`.
-- **There is a single egress choke point.** It is the only function that may open a non-loopback
-  connection, and it checks the run's egress decision first. Tests replace the network with a
-  sentinel that fails on any other connection.
+- **`review` returns raw text only.** Shared code parses it with the existing `parseReviewFindingsV1`.
+  After JSON decoding, it removes the run's selected secret values from every string the model
+  returned, so a secret written with escapes is caught too. It marks every finding
+  `producer_class: "MODEL"` and `authority: "NONE_UNTRUSTED"`. Credentials (E10c) join the same
+  redaction set.
+- **There is a single egress choke point.** In E10a it is a gate in the review run that refuses any
+  provider whose egress is not `NONE`, before any call. E10c adds the only function that may open a
+  non-loopback connection, and the network-sentinel test with it.
 
-Beyond the E6 fixes above, E10a changes no behavior. The tests prove the CLI's bytes and exit codes
-are otherwise unchanged.
+### As built (E10a)
+
+- **Implemented:**
+  - the interface;
+  - Ollama behind it;
+  - the egress gate;
+  - the config location derived from the account. On POSIX, a config is refused when it isn't owned
+    by the account, or when it or its folder is writable by others. Windows ACLs are not checked;
+  - proxy-free loopback HTTP, tested against `NODE_USE_ENV_PROXY` and `NODE_OPTIONS=--use-env-proxy`.
+    A positive control shows that Node 24's `fetch` does use the proxy, even for `127.0.0.1`;
+  - untracked files and the built-in secret names are never sent;
+  - reply redaction after decoding.
+- **Not yet:** `disclosure()` exists but isn't printed. Printing it before a request matters when
+  code can leave the machine, so it comes with E10c.
+
+Beyond the E6 fixes above, E10a changes no behavior. The tests prove that exit codes are otherwise
+unchanged.
 
 ## Loopback, OpenAI-compatible (E10b)
 
