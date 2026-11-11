@@ -171,6 +171,8 @@ describe("the provider interface and its egress gate", () => {
       expect(await callLocalReviewModelV1(call)).toMatchObject({ ok: true, version: "unknown" });
       version = "0.12.3";
       expect(await callLocalReviewModelV1(call)).toMatchObject({ ok: true, version: "0.12.3" });
+      version = undefined as unknown as string;
+      expect(await callLocalReviewModelV1(call)).toMatchObject({ ok: true, version: "unknown" });
     } finally {
       server.closeAllConnections();
       await new Promise<void>((done) => server.close(() => done()));
@@ -195,6 +197,16 @@ describe("the provider interface and its egress gate", () => {
     expect(result.kind).toBe("review");
     expect(JSON.stringify(result)).not.toContain(secret);
     expect(JSON.stringify(result)).toContain("[REDACTED]");
+  });
+
+  it("says the server could not be reached, with or without a live cancel signal", async () => {
+    const closed = createServer();
+    await new Promise<void>((done) => closed.listen(0, "127.0.0.1", done));
+    const endpoint = `http://127.0.0.1:${(closed.address() as AddressInfo).port}`;
+    await new Promise<void>((done) => closed.close(() => done()));
+    const call = { endpoint, model: "m", diff: "x", timeoutMs: 20_000, maxResponseBytes: 65_536 };
+    expect(await callLocalReviewModelV1(call)).toEqual({ ok: false, reason: "the model server could not be reached" });
+    expect(await callLocalReviewModelV1({ ...call, signal: new AbortController().signal })).toEqual({ ok: false, reason: "the model server could not be reached" });
   });
 
   it("reports a model server reply that is not JSON as such, and never as a review", async () => {
