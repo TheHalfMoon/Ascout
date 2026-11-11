@@ -15,7 +15,7 @@ On `main`, not in any release.
 - Local AI review (E10a, #723): a provider interface. Also hardening: the config location comes from
   the OS account, proxy settings are ignored, untracked and secret-named files are never sent, the
   model's reply is redacted, and an explicit port is required.
-- Local AI review (E10b): `"provider": "openai-compatible"` for loopback servers that speak the
+- Local AI review (E10b, #724): `"provider": "openai-compatible"` for loopback servers that speak the
   OpenAI-compatible chat API.
 
 ## 0.2.0 (2026-11-10)
