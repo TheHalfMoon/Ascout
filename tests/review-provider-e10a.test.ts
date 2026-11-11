@@ -63,6 +63,7 @@ describe("the config location comes from the account, never the environment", ()
     const path = join(home, "review-provider.json");
     writeFileSync(path, JSON.stringify({ version: 1, ...CONFIG }));
     const repo = join(scratch, "repo-x");
+    mkdirSync(repo);
     chmodSync(path, 0o664);
     expect(readLocalReviewConfigV1(repo, { configHome: home })).toMatchObject({ state: "invalid", reason: expect.stringContaining("writable by other users") });
     chmodSync(path, 0o600);
