@@ -32,6 +32,9 @@ const ALLOWED_IDENTIFIERS: readonly { token: string; reason: string }[] = [
   { token: "engine:sentrdel", reason: "Security report names the separate Sentrdel scanner as not executed" },
 ];
 
+/** Internal roadmap labels (phase "UA-P06", task "UA-P06-T14") mean nothing to users. */
+const INTERNAL_LABEL = /\bUA-P\d+(?:-T\d+)?\b/u;
+
 function foreignNamesIn(text: string): string[] {
   let scrubbed = text;
   for (const { token } of [...ALLOWED_IDENTIFIERS].sort((a, b) => b.token.length - a.token.length)) {
@@ -88,6 +91,15 @@ describe("Ascout identity on active surfaces", () => {
     expect(offenders).toEqual([]);
   }, 600_000);
 
+  it("no CLI output shows users an internal planning label such as a phase or task id", () => {
+    const leaks: string[] = [];
+    for (const args of COMMANDS) {
+      const found = run(repo, args).match(INTERNAL_LABEL);
+      if (found !== null) leaks.push(`ascout ${args.join(" ")}: ${found[0]}`);
+    }
+    expect(leaks).toEqual([]);
+  }, 600_000);
+
   it("usage presents the executable as ascout", () => {
     const usage = run(outside, []);
     expect(usage).toContain("Usage:");
@@ -135,5 +147,8 @@ describe("the brand guard itself", () => {
     expect(foreignNamesIn("opencode is great")).toEqual(["opencode"]);
     expect(foreignNamesIn("compares shares graftless")).toEqual([]);
     for (const { reason } of ALLOWED_IDENTIFIERS) expect(reason.length).toBeGreaterThan(20);
+    expect(INTERNAL_LABEL.test("No security engine is executed in UA-P06;")).toBe(true);
+    expect(INTERNAL_LABEL.test("authority UA-P06-T14")).toBe(true);
+    expect(INTERNAL_LABEL.test("No security engine ran.")).toBe(false);
   });
 });
