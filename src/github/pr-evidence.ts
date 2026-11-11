@@ -194,7 +194,41 @@ export interface PublishContextV1 {
   readonly evidence_trusted: boolean;
   /** A link to the run that produced the evidence. */
   readonly details_url: string;
+  /**
+   * The team policy, read by the publisher from its default-branch checkout, never from the PR.
+   * When absent, every check is required. The verdict is always computed here from the evidence.
+   */
+  readonly policy?: {
+    readonly required_checks: readonly CheckId[];
+    readonly source: "default" | "file";
+  };
 }
+
+export type PolicyVerdictV1 = "PASS" | "FAIL" | "INCOMPLETE";
+
+export interface PolicyEvaluationV1 {
+  readonly verdict: PolicyVerdictV1;
+  readonly reasons: readonly string[];
+}
+
+/**
+ * Evaluates evidence against the required checks. A finding, error, or source change in any check
+ * always fails; otherwise every required check must be complete to pass.
+ */
+export function evaluateRequiredChecksV1(evidence: PrEvidenceV1, required: readonly CheckId[]): PolicyEvaluationV1 {
+  const failing = evidence.checks.filter((check) => check.state === "FINDINGS" || check.state === "ERROR" || check.state === "SOURCE_DRIFT");
+  if (failing.length > 0) {
+    return { verdict: "FAIL", reasons: failing.map((check) => `${check.id}: ${STATE_LABEL[check.state]}`) };
+  }
+  if (required.length === 0) return { verdict: "INCOMPLETE", reasons: ["no check is required, so nothing can vouch for a pass"] };
+  const missing = required.filter((id) => evidence.checks.find((check) => check.id === id)?.state !== "COMPLETE");
+  if (missing.length > 0) {
+    return { verdict: "INCOMPLETE", reasons: missing.map((id) => `${id}: required, but did not complete`) };
+  }
+  return { verdict: "PASS", reasons: [] };
+}
+
+const CONCLUSION_BY_VERDICT = { PASS: "success", FAIL: "failure", INCOMPLETE: "action_required" } as const;
 
 /** True when the bundle describes the commit the publisher is about to annotate. */
 export function evidenceMatchesHeadV1(evidence: PrEvidenceV1, context: PublishContextV1): boolean {
@@ -234,9 +268,46 @@ const STATE_LABEL: Record<CheckState, string> = {
   INCOMPLETE: "incomplete: required work did not run",
 };
 
-function summaryTable(evidence: PrEvidenceV1): string {
-  const rows = evidence.checks.map((check) => `| ${check.id} | ${STATE_LABEL[check.state]} | ${check.exit_code} | ${neutralizeMarkdownV1(check.reason, 200)} |`);
-  return ["| Check | Result | Exit | Why |", "|---|---|---|---|", ...rows].join("\n");
+function summaryTable(evidence: PrEvidenceV1, required?: readonly CheckId[]): string {
+  const isRequired = (id: CheckId) => (required === undefined || required.includes(id) ? "yes" : "no");
+  const rows = evidence.checks.map((check) => `| ${check.id} | ${isRequired(check.id)} | ${STATE_LABEL[check.state]} | ${check.exit_code} | ${neutralizeMarkdownV1(check.reason, 200)} |`);
+  return ["| Check | Required | Result | Exit | Why |", "|---|---|---|---|---|", ...rows].join("\n");
+}
+
+const VERDICT_TITLE = { PASS: "passed the team policy", FAIL: "failed", INCOMPLETE: "incomplete: a required check did not run" } as const;
+
+/** What both the check run and the summary comment say, computed once so they can never disagree. */
+interface VerdictViewV1 {
+  readonly conclusion: CheckRunPayloadV1["conclusion"];
+  readonly capped: boolean;
+  /** Short result phrase, used in both titles. */
+  readonly label: string;
+  /** Lines shown under the table: the cap notice and the policy result. */
+  readonly notes: readonly string[];
+  /** The closing explanation of what passes. */
+  readonly rule: string;
+}
+
+const CAPPED_LABEL = "needs a maintainer: this evidence came from pull request code that is not trusted to vouch for a pass";
+
+function verdictViewV1(evidence: PrEvidenceV1, view: Pick<PublishContextV1, "evidence_trusted" | "policy">): VerdictViewV1 {
+  // With a policy, only required checks must complete; without one, every check must.
+  const evaluation = view.policy === undefined ? undefined : evaluateRequiredChecksV1(evidence, view.policy.required_checks);
+  const reported = evaluation === undefined ? CONCLUSION_BY_STATE[evidence.overall.state] : CONCLUSION_BY_VERDICT[evaluation.verdict];
+  const capped = !view.evidence_trusted && reported === "success";
+  // A failure names its cause (findings, error, source changed) from A07 precedence.
+  const plain = evaluation === undefined || evaluation.verdict === "FAIL" ? STATE_LABEL[evidence.overall.state] : VERDICT_TITLE[evaluation.verdict];
+  const notes: string[] = [];
+  if (capped) notes.push("**This pull request's own code produced this evidence, and its author is not on the trusted list, so a pass cannot be trusted.** A maintainer must verify it.");
+  if (view.policy !== undefined && evaluation !== undefined) {
+    const source = view.policy.source === "file" ? ".github/ascout-policy.json on the default branch" : "default: every check required";
+    const reasons = evaluation.reasons.length > 0 ? ` (${evaluation.reasons.map((reason) => neutralizeMarkdownV1(reason, 120)).join("; ")})` : "";
+    notes.push(`Team policy (${source}): **${evaluation.verdict}**${reasons}.`);
+  }
+  const rule = view.policy === undefined
+    ? "Exit codes: 0 complete, 1 findings, 2 error, 3 source changed, 4 incomplete, which is never a pass. Only 0 passes."
+    : "Exit codes: 0 complete, 1 findings, 2 error, 3 source changed, 4 incomplete, never enough for a required check. A finding, error, or source change in any check always fails; every required check must be 0.";
+  return { conclusion: capped ? "action_required" : reported, capped, label: capped ? CAPPED_LABEL : plain, notes, rule };
 }
 
 /**
@@ -249,21 +320,20 @@ export function checkRunFromEvidenceV1(evidence: PrEvidenceV1, context: PublishC
     throw new Error("the evidence describes a different commit than the pull request head");
   }
   const located = evidence.findings.filter((finding) => finding.path !== null && finding.start_line !== null);
-  const reported = CONCLUSION_BY_STATE[evidence.overall.state];
-  const capped = !context.evidence_trusted && reported === "success";
+  const verdict = verdictViewV1(evidence, context);
   return {
     name: context.evidence_trusted ? CHECK_RUN_NAME : UNTRUSTED_CHECK_RUN_NAME,
     head_sha: context.trusted_head_sha,
     details_url: context.details_url,
     status: "completed",
-    conclusion: capped ? "action_required" : reported,
+    conclusion: verdict.conclusion,
     output: {
-      title: capped ? "Ascout: needs a maintainer: this evidence came from pull request code that is not trusted to vouch for a pass" : `Ascout: ${STATE_LABEL[evidence.overall.state]}`,
+      title: `Ascout: ${verdict.label}`,
       summary: [
-        ...(capped ? ["**This pull request's own code produced this evidence, and its author is not on the trusted list, so a pass cannot be trusted.** A maintainer must verify it.", ""] : []),
-        summaryTable(evidence),
+        ...verdict.notes.flatMap((note) => [note, ""]),
+        summaryTable(evidence, context.policy?.required_checks),
         "",
-        `${evidence.findings.length} finding(s)${evidence.findings_truncated ? ", more not shown" : ""}. Exit codes: 0 complete, 1 findings, 2 error, 3 source changed, 4 incomplete. Only 0 passes.`,
+        `${evidence.findings.length} finding(s)${evidence.findings_truncated ? ", more not shown" : ""}. ${verdict.rule}`,
         "AI review, where configured, is advisory and never makes this check pass.",
       ].join("\n"),
       annotations: located.map((finding) => ({
@@ -278,18 +348,23 @@ export function checkRunFromEvidenceV1(evidence: PrEvidenceV1, context: PublishC
   };
 }
 
-/** One comment per PR, found again by its marker and updated in place, so it never piles up or goes stale. */
-export function summaryCommentV1(evidence: PrEvidenceV1): string {
+/**
+ * One comment per PR, found again by its marker and updated in place, so it never piles up or goes
+ * stale. It says exactly what the check run says, including the cap on untrusted evidence.
+ */
+export function summaryCommentV1(evidence: PrEvidenceV1, view: Pick<PublishContextV1, "evidence_trusted" | "policy">): string {
   const unlocated = evidence.findings.filter((finding) => finding.path === null || finding.start_line === null);
+  const verdict = verdictViewV1(evidence, view);
   return [
     SUMMARY_COMMENT_MARKER,
-    `### Ascout verification: ${STATE_LABEL[evidence.overall.state]}`,
+    `### Ascout verification: ${verdict.label}`,
     "",
     `Commit \`${evidence.head_sha.slice(0, 12)}\` · Ascout ${neutralizeMarkdownV1(evidence.ascout_version, 32)}`,
     "",
-    summaryTable(evidence),
+    ...verdict.notes.flatMap((note) => [note, ""]),
+    summaryTable(evidence, view.policy?.required_checks),
     "",
     ...(unlocated.length > 0 ? ["**Findings without a line:**", ...unlocated.slice(0, 10).map((finding) => `- ${finding.check}: ${neutralizeMarkdownV1(finding.title, 200)}`), ""] : []),
-    "Located findings are annotations on this commit's Ascout check run. Exit 4 means required work did not run, which is never a pass.",
+    `Located findings are annotations on this commit's Ascout check run. ${verdict.rule}`,
   ].join("\n");
 }

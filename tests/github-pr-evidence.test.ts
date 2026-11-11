@@ -105,7 +105,7 @@ describe("rendering untrusted text", () => {
   });
 
   it("keeps one marked summary comment that says exit 4 is never a pass", () => {
-    const comment = summaryCommentV1(bundle([c("review", 4), c("test", 4)], [f({ path: null, start_line: null, end_line: null, title: "@admin <b>x</b>" })]));
+    const comment = summaryCommentV1(bundle([c("review", 4), c("test", 4)], [f({ path: null, start_line: null, end_line: null, title: "@admin <b>x</b>" })]), { evidence_trusted: true });
     expect(comment.split(SUMMARY_COMMENT_MARKER)).toHaveLength(2);
     expect(comment).toContain("incomplete: required work did not run");
     expect(comment).toContain("never a pass");

@@ -1,7 +1,8 @@
 import { createServer, type Server } from "node:http";
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { AddressInfo } from "node:net";
 
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -17,6 +18,16 @@ const check = (id: PrCheckV1["id"], exit: PrCheckV1["exit_code"]): PrCheckV1 => 
 function writeBundle(name: string, exit: PrCheckV1["exit_code"], headSha = HEAD): string {
   const path = join(scratch, name);
   writeFileSync(path, JSON.stringify(buildPrEvidenceV1({ ascout_version: "0.2.0", head_sha: headSha, checks: [check("review", exit), check("security", exit), check("test", exit)], findings: [] })));
+  return path;
+}
+function writeMixed(name: string, review: PrCheckV1["exit_code"], security: PrCheckV1["exit_code"], test: PrCheckV1["exit_code"]): string {
+  const path = join(scratch, name);
+  writeFileSync(path, JSON.stringify(buildPrEvidenceV1({ ascout_version: "0.2.0", head_sha: HEAD, checks: [check("review", review), check("security", security), check("test", test)], findings: [] })));
+  return path;
+}
+function writePolicy(name: string, text: string): string {
+  const path = join(scratch, name);
+  writeFileSync(path, text);
   return path;
 }
 
@@ -196,5 +207,122 @@ describe("publishing PR evidence", () => {
     expect(isTrustedActorV1("Maintainer", ["maintainer"])).toBe(true);
     expect(isTrustedActorV1("renovate[bot]", ["renovate[bot]"])).toBe(false);
     expect(isTrustedActorV1("", ["x"])).toBe(false);
+  });
+});
+
+describe("publishing under a team policy", () => {
+  const testOnly = JSON.stringify({ version: 1, required_checks: ["test"] });
+
+  it("passes a trusted PR when only the policy's required check completed", async () => {
+    reset();
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p1.json", 4, 4, 0), policyPath: writePolicy("p1-policy.json", testOnly) }));
+    expect(outcome).toMatchObject({ kind: "published", conclusion: "success" });
+    expect((checkRunBody().output as { summary: string }).summary).toContain("| test | yes | complete");
+    expect(state.comments[0]!.body).toContain("passed the team policy");
+  });
+
+  it("requires every check when the policy file is missing", async () => {
+    reset();
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p2.json", 4, 4, 0), policyPath: join(scratch, "no-such-policy.json") }));
+    expect(outcome).toMatchObject({ kind: "published", conclusion: "action_required" });
+  });
+
+  it("still caps a policy pass from an untrusted author", async () => {
+    reset({ author: "contributor" });
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p3.json", 4, 4, 0), policyPath: writePolicy("p3-policy.json", testOnly) }));
+    expect(outcome).toMatchObject({ kind: "published", conclusion: "action_required" });
+    expect(checkRunBody().name).toBe("Ascout verification (untrusted)");
+  });
+
+  it.each([
+    ["invalid JSON", "{"],
+    ["an unknown key", JSON.stringify({ version: 1, required_checks: ["test"], skip: true })],
+    ["no required checks", JSON.stringify({ version: 1, required_checks: [] })],
+  ])("refuses to publish, with no network at all, when the policy has %s", async (_label, text) => {
+    reset();
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p4.json", 0, 0, 0), policyPath: writePolicy("p4-policy.json", text) }));
+    expect(outcome).toMatchObject({ kind: "refused", reason: expect.stringContaining("policy") });
+    expect(state.requests).toEqual([]);
+  });
+
+  it("the CLI reads the policy from its own working directory, the trusted default-branch checkout", async () => {
+    const outDir = join(resolve(__dirname, ".."), "node_modules", ".cache", "ascout-policy-cli");
+    execFileSync(process.execPath, [join(resolve(__dirname, ".."), "node_modules", "typescript", "bin", "tsc"), "-p", join(resolve(__dirname, ".."), "tsconfig.json"), "--outDir", outDir], { stdio: "pipe" });
+    const checkout = join(scratch, "checkout");
+    mkdirSync(join(checkout, ".github"), { recursive: true });
+    const env = {
+      ...process.env,
+      GITHUB_REPOSITORY: "o/r", ASCOUT_PR_HEAD_SHA: HEAD, ASCOUT_PR_HEAD_REPOSITORY: "o/r", ASCOUT_PR_HEAD_BRANCH: "feature",
+      ASCOUT_PR_DETAILS_URL: "https://github.com/o/r/actions/runs/1", GITHUB_TOKEN: "test-token", GITHUB_API_URL: origin,
+      ASCOUT_PR_TRIGGERING_ACTOR: "maintainer", ASCOUT_PR_TRUSTED_ACTORS: "maintainer", ASCOUT_PR_REQUIRED_BASE: "main", ASCOUT_PR_NUMBER: "7",
+    };
+    const cli = (bundle: string) => new Promise<{ code: number | null; stdout: string }>((done) => {
+      const child = spawn(process.execPath, [join(outDir, "cli.js"), "pr-publish", bundle], { cwd: checkout, env });
+      let stdout = "";
+      child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString("utf8"); });
+      child.on("close", (code) => done({ code, stdout }));
+    });
+
+    reset();
+    writeFileSync(join(checkout, ".github", "ascout-policy.json"), JSON.stringify({ version: 1, required_checks: ["test"] }));
+    const passed = await cli(writeMixed("cli1.json", 4, 4, 0));
+    expect(passed.code).toBe(0);
+    expect(JSON.parse(passed.stdout)).toMatchObject({ kind: "published", conclusion: "success" });
+
+    reset();
+    writeFileSync(join(checkout, ".github", "ascout-policy.json"), "{ not json");
+    const refused = await cli(writeMixed("cli2.json", 0, 0, 0));
+    expect(refused.code).toBe(2);
+    expect(JSON.parse(refused.stdout)).toMatchObject({ kind: "refused", reason: expect.stringContaining("policy") });
+    expect(state.requests).toEqual([]);
+  }, 300_000);
+
+  it("refuses when the policy path is not a regular file", async () => {
+    reset();
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p5.json", 0, 0, 0), policyPath: scratch }));
+    expect(outcome).toMatchObject({ kind: "refused", reason: "policy path is not a regular file" });
+    expect(state.requests).toEqual([]);
+  });
+
+  it("refuses, rather than falling back to the default, when the policy path fails for any reason but absence", async () => {
+    reset();
+    // A NUL byte makes the file system call throw on every platform, with a code other than ENOENT.
+    const unusable = join(scratch, `policy${String.fromCharCode(0)}.json`);
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p10.json", 0, 0, 0), policyPath: unusable }));
+    expect(outcome).toMatchObject({ kind: "refused", reason: "policy file could not be read" });
+    expect(state.requests).toEqual([]);
+  });
+
+  it("refuses a policy that is a symbolic link, even to a valid policy", async (context) => {
+    reset();
+    const link = join(scratch, "linked-policy.json");
+    try {
+      symlinkSync(writePolicy("p6-target.json", testOnly), link, "file");
+    } catch {
+      context.skip(); // creating a symlink needs a privilege Windows may not grant
+    }
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p6.json", 4, 4, 0), policyPath: link }));
+    expect(outcome).toMatchObject({ kind: "refused", reason: "policy path is not a regular file" });
+    expect(state.requests).toEqual([]);
+  });
+
+  it("refuses an oversized policy before reading it, with no network at all", async () => {
+    reset();
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p7.json", 0, 0, 0), policyPath: writePolicy("p7-policy.json", testOnly + " ".repeat(17_000)) }));
+    expect(outcome).toMatchObject({ kind: "refused", reason: "policy file is too large" });
+    expect(state.requests).toEqual([]);
+  });
+
+  it("accepts a policy saved with a byte-order mark", async () => {
+    reset();
+    const outcome = await publishPrEvidenceV1(input({ bundlePath: writeMixed("p8.json", 4, 4, 0), policyPath: writePolicy("p8-policy.json", String.fromCharCode(0xfeff) + testOnly) }));
+    expect(outcome).toMatchObject({ kind: "published", conclusion: "success" });
+  });
+
+  it("posts a summary comment that agrees with a capped check run", async () => {
+    reset({ author: "contributor" });
+    await publishPrEvidenceV1(input({ bundlePath: writeMixed("p9.json", 4, 4, 0), policyPath: writePolicy("p9-policy.json", testOnly) }));
+    expect(state.comments[0]!.body).toContain("needs a maintainer");
+    expect(state.comments[0]!.body).not.toContain("passed");
   });
 });
