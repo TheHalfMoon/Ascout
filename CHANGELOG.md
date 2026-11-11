@@ -12,6 +12,11 @@ On `main`, not in any release.
   `docs/GITHUB_INTEGRATION.md`.
 - Per-repository team policy for the PR check, `.github/ascout-policy.json` (#719).
 - The security NOT_RUN reason no longer shows an internal phase label (#720).
+- Local AI review (E10a, #723): a provider interface. Also hardening: the config location comes from
+  the OS account, proxy settings are ignored, untracked and secret-named files are never sent, the
+  model's reply is redacted, and an explicit port is required.
+- Local AI review (E10b, #724): `"provider": "openai-compatible"` for loopback servers that speak the
+  OpenAI-compatible chat API.
 
 ## 0.2.0 (2026-11-10)
 

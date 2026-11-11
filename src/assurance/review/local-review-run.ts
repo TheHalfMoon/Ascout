@@ -18,9 +18,17 @@ import {
 import { validateObservationLocationV1, type LocationValidationV1 } from "./location-validator.js";
 import type { RawReviewObservationV1 } from "./raw-observation.js";
 import { currentReviewProviderPolicyV1, decideReviewProviderV1 } from "./review-provider-decision.js";
-import { ollamaProviderV1, type ReviewPayloadV1, type ReviewProviderV2 } from "./review-provider.js";
+import { providerForConfigV1, type ReviewPayloadV1, type ReviewProviderV2 } from "./review-provider.js";
 
 export const LOCAL_REVIEW_ENGINE_ID = "engine:review-ollama" as const;
+export const OPENAI_COMPATIBLE_REVIEW_ENGINE_ID = "engine:review-openai-compatible" as const;
+
+/** The engine a report names: the provider the config chose, or Ollama when nothing is configured. */
+function engineIdentityV1(config: LocalReviewConfigResultV1): { engine_id: string; binary_name: string } {
+  return config.state === "loaded" && config.config.provider === "openai-compatible"
+    ? { engine_id: OPENAI_COMPATIBLE_REVIEW_ENGINE_ID, binary_name: "openai-compatible" }
+    : { engine_id: LOCAL_REVIEW_ENGINE_ID, binary_name: "ollama" };
+}
 export const LOCAL_REVIEW_PROFILE_ID = "profile:local-review" as const;
 export const LOCAL_REVIEW_CAPSULE_ID = "capsule:local-review" as const;
 const GROUP_ID = "group:working-tree";
@@ -191,8 +199,7 @@ function notRun(
     timed_out: status === "TIMEOUT",
     reasons: Object.freeze([...reasons]),
     execution_identity: Object.freeze({
-      engine_id: LOCAL_REVIEW_ENGINE_ID,
-      binary_name: "ollama",
+      ...engineIdentityV1(input.config),
       observed_version: observedVersion,
       resolved_path: "loopback",
       profile_id: LOCAL_REVIEW_PROFILE_ID,
@@ -227,7 +234,7 @@ export async function runLocalReviewV1(input: LocalReviewRunInputV1): Promise<Lo
   if (payload.reviewed_files.length === 0) {
     return notRun(input, "NOT_QUALIFIED", ["no changed file has text lines the local model can review"]);
   }
-  const provider = input.provider ?? ollamaProviderV1(config.config, ...(input.call === undefined ? [] : [input.call]));
+  const provider = input.provider ?? providerForConfigV1(config.config, input.call);
   // The one egress gate: nothing in E10a may leave loopback. Remote providers wait for E10c.
   if (provider.egress !== "NONE") {
     return notRun(input, "REFUSED", ["the review provider is not on loopback, and sending source off this machine is not allowed"]);
@@ -242,8 +249,7 @@ export async function runLocalReviewV1(input: LocalReviewRunInputV1): Promise<Lo
     return notRun(input, status, [reply.reason]);
   }
   const binding = {
-    engine_id: LOCAL_REVIEW_ENGINE_ID,
-    binary_name: "ollama",
+    ...engineIdentityV1(config),
     observed_version: reply.version,
     profile_id: LOCAL_REVIEW_PROFILE_ID,
     capsule_id: LOCAL_REVIEW_CAPSULE_ID,
