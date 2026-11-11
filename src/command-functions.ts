@@ -108,7 +108,7 @@ export interface ReviewOptionsV1 {
   readonly localModel?: boolean;
   readonly signal?: AbortSignal;
   /** Tests only: where review-provider.json lives. The CLI and MCP never set it. */
-  readonly configHome?: string;
+  readonly configHome?: string | undefined;
 }
 
 /** `ascout review`. Refuses an unsupported repository, as the CLI always has. */
@@ -131,7 +131,7 @@ export async function computeReviewV1(
       const result = await runLocalReviewV1({
         target_id: sourceState.repository_id,
         head_sha: sourceState.head_sha,
-        config: readLocalReviewConfigV1(repositoryRoot, options.configHome === undefined ? {} : { configHome: options.configHome }),
+        config: readLocalReviewConfigV1(repositoryRoot, { configHome: options.configHome }),
         changed_files: comparison.changed_files,
         changes,
         readText: (path, maxBytes) => readContainedWorktreeText(repositoryRoot, path, maxBytes),

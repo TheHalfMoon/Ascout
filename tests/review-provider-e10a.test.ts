@@ -10,7 +10,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import type { GitChangedFile } from "../src/git.js";
 import { redactExactValues, selectedSecretValues } from "../src/redact.js";
-import { callLocalReviewModelV1, localReviewConfigPath, readLocalReviewConfigV1, type LocalReviewConfigResultV1 } from "../src/assurance/review/local-review-provider.js";
+import { callLocalReviewModelV1, configPathForHomeV1, configPermissionProblemV1, localReviewConfigPath, readLocalReviewConfigV1, type LocalReviewConfigResultV1 } from "../src/assurance/review/local-review-provider.js";
 import { buildLocalReviewPayloadV1, isNeverSentPathV1, runLocalReviewV1 } from "../src/assurance/review/local-review-run.js";
 import { egressForEndpointV1, ollamaProviderV1, type ReviewProviderV2 } from "../src/assurance/review/review-provider.js";
 
@@ -54,6 +54,22 @@ describe("the config location comes from the account, never the environment", ()
     expect(expected).toBe(process.platform === "win32"
       ? join(userInfo().homedir, "AppData", "Roaming", "ascout", "review-provider.json")
       : join(userInfo().homedir, ".config", "ascout", "review-provider.json"));
+  });
+
+  it("places the config under the account's home on each platform", () => {
+    expect(configPathForHomeV1("/home/me", "linux")).toBe(join("/home/me", ".config", "ascout", "review-provider.json"));
+    expect(configPathForHomeV1("/Users/me", "darwin")).toBe(join("/Users/me", ".config", "ascout", "review-provider.json"));
+    expect(configPathForHomeV1("C:/Users/me", "win32")).toBe(join("C:/Users/me", "AppData", "Roaming", "ascout", "review-provider.json"));
+  });
+
+  it("refuses a config another account owns or can write, except where ACLs are not checked", () => {
+    const mine = () => 1000;
+    expect(configPermissionProblemV1("linux", { uid: 1000, mode: 0o100600 }, 0o40700, mine)).toBeNull();
+    expect(configPermissionProblemV1("linux", { uid: 0, mode: 0o100600 }, 0o40700, mine)).toContain("not owned by this account");
+    expect(configPermissionProblemV1("darwin", { uid: 1000, mode: 0o100620 }, 0o40700, mine)).toContain("writable by other users");
+    expect(configPermissionProblemV1("linux", { uid: 1000, mode: 0o100602 }, 0o40700, mine)).toContain("writable by other users");
+    expect(configPermissionProblemV1("linux", { uid: 1000, mode: 0o100600 }, 0o40777, mine)).toContain("writable by other users");
+    expect(configPermissionProblemV1("win32", { uid: 0, mode: 0o100666 }, 0o40777, () => { throw new Error("no uid on Windows"); })).toBeNull();
   });
 
   it("treats an account with no home directory as not configured, so nothing runs", () => {
@@ -121,6 +137,44 @@ describe("the provider interface and its egress gate", () => {
       expect(egressForEndpointV1(endpoint)).toBe("REMOTE");
     }
     expect(ollamaProviderV1(CONFIG).disclosure()).toEqual({ provider: "ollama", endpoint_host: "127.0.0.1:11434", model: "qwen2.5-coder:7b", egress: "NONE" });
+    expect(ollamaProviderV1({ ...CONFIG, endpoint: "https://api.example.com:8443" }).disclosure()).toMatchObject({ endpoint_host: "api.example.com:8443", egress: "REMOTE" });
+    expect(ollamaProviderV1({ ...CONFIG, endpoint: "not a url" }).disclosure()).toMatchObject({ endpoint_host: "unparsed", egress: "REMOTE" });
+  });
+
+  it("refuses an endpoint without an explicit port", () => {
+    expect(egressForEndpointV1("http://127.0.0.1")).toBe("REMOTE");
+    expect(egressForEndpointV1("http://127.0.0.1/")).toBe("REMOTE");
+  });
+
+  it("passes the caller's cancel signal through to the model call", async () => {
+    const seen: (AbortSignal | undefined)[] = [];
+    const provider = ollamaProviderV1(CONFIG, async (call) => { seen.push(call.signal); return { ok: false, reason: "x" }; });
+    const controller = new AbortController();
+    await provider.review({ text: "x", reviewed_files: [], line_counts: {} }, { timeoutMs: 1000, maxResponseBytes: 1000 }, controller.signal);
+    await provider.review({ text: "x", reviewed_files: [], line_counts: {} }, { timeoutMs: 1000, maxResponseBytes: 1000 });
+    expect(seen).toEqual([controller.signal, undefined]);
+  });
+
+  it("reports a review cancelled before it started, and an oversized or odd server version as unknown", async () => {
+    let version = "x".repeat(5000);
+    const server = createServer((request, response) => {
+      request.resume();
+      request.on("end", () => response.end(request.url === "/api/version" ? JSON.stringify({ version }) : JSON.stringify({ message: { content: '{"findings":[]}' } })));
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    const endpoint = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    try {
+      const call = { endpoint, model: "m", diff: "x", timeoutMs: 20_000, maxResponseBytes: 65_536 };
+      expect(await callLocalReviewModelV1({ ...call, signal: AbortSignal.abort() })).toEqual({ ok: false, reason: "the review was cancelled" });
+      expect(await callLocalReviewModelV1(call)).toMatchObject({ ok: true, version: "unknown" });
+      version = "1.0 <script>";
+      expect(await callLocalReviewModelV1(call)).toMatchObject({ ok: true, version: "unknown" });
+      version = "0.12.3";
+      expect(await callLocalReviewModelV1(call)).toMatchObject({ ok: true, version: "0.12.3" });
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((done) => server.close(() => done()));
+    }
   });
 
   it("refuses any provider that would leave loopback, and never calls it", async () => {

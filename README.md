@@ -308,7 +308,7 @@ All commands use the same meanings under Constitution Amendment A07:
 
 **`ascout review --local-model`.** Reviews the working-tree changes with a code model served by [Ollama](https://ollama.com) on your own machine. You authorize it in `review-provider.json` in your account's config directory: `AppData\Roaming\ascout` under your home folder on Windows, `~/.config/ascout` elsewhere. The location comes from your operating-system account, and no environment variable (`HOME`, `XDG_CONFIG_HOME`, `APPDATA`, `ASCOUT_CONFIG_HOME`) can move it. A config inside the repository, or one other users can write, is refused.
 
-Ascout connects only to `http://127.0.0.1` or `http://[::1]` and ignores proxy settings. What that local server does with the data is up to you: a local gateway or tunnel could forward it elsewhere.
+Ascout connects only to `http://127.0.0.1:<port>` or `http://[::1]:<port>`, with an explicit port, and ignores proxy settings. What that local server does with the data is up to you: a local gateway or tunnel could forward it elsewhere.
 
 The model never sees these files, which stay unreviewed:
 - untracked files;

@@ -40,9 +40,33 @@ export interface LocalReviewConfigLocationV1 {
    * Tests only: the directory holding review-provider.json. The CLI and MCP never set it, and no
    * environment variable can, so a repository's scripts can't point Ascout at a config they wrote.
    */
-  readonly configHome?: string;
+  readonly configHome?: string | undefined;
   /** Tests only: stands in for the account's home-directory lookup. */
   readonly accountHome?: () => string;
+}
+
+/** Where review-provider.json lives under an account's home directory on a given platform. */
+export function configPathForHomeV1(home: string, platform: NodeJS.Platform): string {
+  return platform === "win32"
+    ? join(home, "AppData", "Roaming", "ascout", "review-provider.json")
+    : join(home, ".config", "ascout", "review-provider.json");
+}
+
+/**
+ * Why a config's owner or permissions make it untrustworthy, or null if they don't. On POSIX the file
+ * must belong to this account, and neither it nor its folder may be writable by others. Windows ACLs
+ * are not checked; the file sits in the account's own profile.
+ */
+export function configPermissionProblemV1(
+  platform: NodeJS.Platform,
+  file: { readonly uid: number; readonly mode: number },
+  folderMode: number,
+  accountUid: () => number,
+): string | null {
+  if (platform === "win32") return null;
+  if (file.uid !== accountUid()) return "the review-provider config is not owned by this account";
+  if ((file.mode & 0o022) !== 0 || (folderMode & 0o022) !== 0) return "the review-provider config or its folder is writable by other users";
+  return null;
 }
 
 /**
@@ -58,9 +82,7 @@ export function localReviewConfigPath(location: LocalReviewConfigLocationV1 = {}
     return null;
   }
   if (home === "") return null;
-  return process.platform === "win32"
-    ? join(home, "AppData", "Roaming", "ascout", "review-provider.json")
-    : join(home, ".config", "ascout", "review-provider.json");
+  return configPathForHomeV1(home, process.platform);
 }
 
 function isInside(root: string, candidate: string): boolean {
@@ -80,7 +102,8 @@ export function isLoopbackEndpoint(endpoint: string): boolean {
     (url.hostname === "127.0.0.1" || url.hostname === "[::1]") &&
     url.username === "" && url.password === "" &&
     (url.pathname === "/" || url.pathname === "") && url.search === "" && url.hash === "" &&
-    url.port !== "0";
+    // An explicit, nonzero port: model servers never listen on 80, and 0 means "any".
+    url.port !== "" && url.port !== "0";
 }
 
 /**
@@ -98,16 +121,8 @@ export function readLocalReviewConfigV1(repositoryRoot: string, location: LocalR
       return invalid("the review-provider config lies inside the repository under review");
     }
     // Defense in depth: another account must not be able to rewrite who reviews this user's code.
-    // Windows ACLs are not checked; the file sits in the account's own profile.
-    if (process.platform !== "win32") {
-      const file = statSync(path);
-      if (typeof process.getuid === "function" && file.uid !== process.getuid()) {
-        return invalid("the review-provider config is not owned by this account");
-      }
-      if ((file.mode & 0o022) !== 0 || (statSync(dirname(path)).mode & 0o022) !== 0) {
-        return invalid("the review-provider config or its folder is writable by other users");
-      }
-    }
+    const problem = configPermissionProblemV1(process.platform, statSync(path), statSync(dirname(path)).mode, () => (process.getuid as () => number)());
+    if (problem !== null) return invalid(problem);
   } catch {
     return invalid("the review-provider config path could not be resolved");
   }
@@ -211,7 +226,7 @@ function loopbackExchange(url: URL, method: "GET" | "POST", body: string | undef
     const outgoing = request({
       agent: new Agent({ keepAlive: false }),
       host: url.hostname.replace(/^\[|\]$/gu, ""),
-      port: url.port === "" ? 80 : Number(url.port),
+      port: Number(url.port),
       path: url.pathname,
       method,
       signal,
@@ -223,12 +238,12 @@ function loopbackExchange(url: URL, method: "GET" | "POST", body: string | undef
         total += chunk.byteLength;
         if (total > maxBytes) {
           response.destroy();
-          resolvePromise({ status: response.statusCode ?? 0, text: null });
+          resolvePromise({ status: Number(response.statusCode), text: null });
           return;
         }
         chunks.push(chunk);
       });
-      response.on("end", () => resolvePromise({ status: response.statusCode ?? 0, text: Buffer.concat(chunks).toString("utf8") }));
+      response.on("end", () => resolvePromise({ status: Number(response.statusCode), text: Buffer.concat(chunks).toString("utf8") }));
       response.on("error", reject);
     });
     outgoing.on("error", reject);

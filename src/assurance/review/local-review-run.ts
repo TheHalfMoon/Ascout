@@ -48,9 +48,8 @@ const NEVER_SENT_FOLDER = /^(?:\.ssh|\.aws|\.gnupg|credentials|secrets)$/iu;
 
 /** True for a path whose file name, or any folder on the way to it, must never reach a model. */
 export function isNeverSentPathV1(path: string): boolean {
-  const segments = path.split("/");
-  const name = segments.pop() ?? "";
-  return NEVER_SENT.test(name) || segments.some((folder) => NEVER_SENT_FOLDER.test(folder));
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  return NEVER_SENT.test(name) || path.split("/").slice(0, -1).some((folder) => NEVER_SENT_FOLDER.test(folder));
 }
 
 function mergeWindows(ranges: readonly (readonly [number, number])[], context: number, lineCount: number): [number, number][] {

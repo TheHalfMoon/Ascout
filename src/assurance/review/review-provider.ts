@@ -57,7 +57,7 @@ export function ollamaProviderV1(
     cost: "OPERATOR_LOCAL" as const,
     disclosure: () => Object.freeze({
       provider: "ollama",
-      endpoint_host: egress === "NONE" ? new URL(config.endpoint).host : "unparsed",
+      endpoint_host: URL.canParse(config.endpoint) ? new URL(config.endpoint).host : "unparsed",
       model: config.model,
       egress,
     }),
