@@ -28,7 +28,7 @@ Ascout v0.2.0 is released on GitHub: https://github.com/TheHalfMoon/Ascout/relea
 | Per-repository team policy, `.github/ascout-policy.json` (#719) | **On `main`, not in a release.** It is read only from the default branch, and an invalid policy fails closed. A finding, error or source change in any check always fails. |
 | Ascout identity guard on every CLI and MCP output, including no internal `UA-P` labels (#715, #720) | **On `main`, not in a release.** |
 | Tamper-proof check name through a dedicated GitHub App | **Proposed, not built.** Today a PR's own workflow can create a check run with the same name. |
-| Bring-your-own-AI provider interface (customer-supplied model; Ascout pays for no inference and sends no code without explicit opt-in) | **Proposed, not built.** Only the loopback Ollama review exists (E6). |
+| Bring-your-own-AI provider interface (customer-supplied model; Ascout pays for no inference and sends no code without explicit opt-in) | **Designed, not built.** Only the loopback Ollama review exists (E6). The design (`specs/017-unified-assurance/E10_BYOAI_PROVIDER_DESIGN.md`, revision 3) splits the work into packets:<br>- E10a: the provider interface, plus fixes for gaps found in E6.<br>- E10b: local servers that speak the OpenAI-compatible API, loopback only.<br>- E10c (remote providers), E10d (delegated review) and E10f (AI review in PRs): each waits for a founder decision. |
 | Wider MCP tools | **Proposed, not built.** Anything that runs repository code would need explicit permission, and arbitrary command execution is out of scope. |
 | Paid Teams, Business and Enterprise offerings | **Proposed, not built.** There is no billing, no payment processor, no contracts and no commercial terms, and none may start without separate founder approval. The core stays free under Apache-2.0, with no account, telemetry or cloud requirement. |
 | T1 isolated execution | **Blocked** on FD-4 (see E7). |
@@ -44,6 +44,7 @@ A whole-project security review found no critical issues. All high and medium fi
 - Repository settings: private vulnerability reporting and a `main` ruleset (PRs, linear history, the 13 required checks, no force push or deletion) are on as of 2026-11-10. Dependabot alerts are still off.
 - Human R1 of the reconciled adoption packet (#653), and optionally of the E8 packets (#703, #707–#709), which merged on the founder's go-ahead without a line-level R1.
 - Disposition of the older open planning PRs (#577–#635).
+- BYOAI (E10 design): whether to allow remote egress (E10c), delegated review (E10d), and AI review in PRs (E10f), and whether to rename `authorized_by_founder` to `operator_authorized`.
 - GitHub integration: whether to set the repository variable `ASCOUT_PR_TRUSTED_ACTORS`. It is empty, so no PR evidence can turn the Ascout check green. A related choice is whether to add a team policy for this repository; without one, every check is required, and review and security report incomplete (exit 4) here.
 
 `ROADMAP.md` is the closed record of the REA engineering maintenance run (spec 018) and is kept as history.
