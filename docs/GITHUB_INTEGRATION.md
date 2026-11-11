@@ -100,7 +100,8 @@ trust itself, from the trusted event:
   never trusted.
 - **The check name is not exclusive.** A job a PR adds to its own workflow can create a check run
   with the same name through the GitHub Actions app. Hard, tamper-proof gating needs a dedicated
-  GitHub App, which is planned and not built.
+  GitHub App, which is designed (`specs/017-unified-assurance/C1_GITHUB_APP_GATE_DESIGN.md`) and not
+  built.
 - **Several open PRs from one branch are ambiguous**, so the publisher annotates none of them.
 - **Honest collection can't be green under the default policy.** Review without a model and
   Gitleaks on a clean scan both exit 4. A repository that wants a pass on tests alone has to say so in
