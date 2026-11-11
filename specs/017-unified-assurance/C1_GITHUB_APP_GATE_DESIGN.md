@@ -2,9 +2,8 @@
 
 **Status:** design, revision 2, for review. It authorizes no implementation.
 
-- Implementation waits for **founder decision 3** in `docs/PAID_OFFERING_DESIGN.md`: does C1 live
-  in the free core or in a separate paid package? The design is the same either way; only where the
-  code lives changes.
+- **Founder decision 3 (2026-11-12): C1 lives in the free Apache-2.0 core.** C1a, the code, is
+  under way.
 - Registering an App for this repository is an account action the founder takes.
 - Model reviews of this document are advisory and are not human R1.
 
@@ -231,7 +230,7 @@ one of the two is a configuration error: refuse with exit 2 and post nothing.
 
 ## Open decisions for the founder
 
-1. Decision 3 from the paid-offering design: does C1 live in the free core or in a paid package?
+1. ~~Decision 3: free core or paid package?~~ Decided 2026-11-12: free core.
 2. Whether to register an App for this repository and pin its check, after C1c's proof.
 3. Whether to require environment reviewers for the publish job, given that it runs on every PR.
 

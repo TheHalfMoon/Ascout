@@ -45,6 +45,8 @@ export interface PublishInputV1 {
    * file means every check is required; an unreadable or invalid one refuses to publish.
    */
   readonly policyPath?: string;
+  /** C1: the gate pin status, when publishing as a customer-registered GitHub App. */
+  readonly gatePin?: "pinned" | "not_pinned" | "unknown";
   readonly fetch?: typeof fetch;
 }
 
@@ -162,6 +164,7 @@ export async function publishPrEvidenceV1(input: PublishInputV1): Promise<Publis
       && isTrustedActorV1(pr.user?.login ?? "", input.trustedActors),
     details_url: detailsUrl.toString(),
     policy,
+    ...(input.gatePin === undefined ? {} : { gate_pin: input.gatePin }),
   };
   if (!evidenceMatchesHeadV1(evidence, context)) return { kind: "refused", reason: "the evidence describes a different commit than the pull request head" };
 

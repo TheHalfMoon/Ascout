@@ -78,7 +78,7 @@ that needs Ascout to hold customer source, keys, or write tokens.
 | | **Teams** | **Business** | **Enterprise** |
 |---|---|---|---|
 | **Free core** (everything above) | Yes | Yes | Yes |
-| **C1, customer-registered GitHub App** | Yes (or free; decision 3) | Yes | Yes |
+| **C1, customer-registered GitHub App** | Free core (decision 3) | Free core | Free core |
 | **C2, organization policy, signed exceptions** | One organization | Many repositories | Multiple organizations, delegated policy owners |
 | **C3, evidence archive** | None | Yes | Yes, plus custom retention |
 | **C4, cross-repository view** | None | Yes | Yes |
@@ -159,7 +159,7 @@ capability table are met.
 1. Approve the principles as binding for any paid offer.
 2. Approve "What stays free" as a public commitment, and where the free line sits (single repository
    versus organization).
-3. Decide whether C1 goes in the free core or in all paid tiers.
+3. ~~Decide whether C1 goes in the free core or in all paid tiers.~~ **Decided 2026-11-12: free core.**
 4. Choose the pricing model, and when to set numbers.
 5. Choose the licensing boundary (option 1, 2, or 3), with legal review.
 6. Confirm the names: "Ascout" in commerce, and the tier names.
