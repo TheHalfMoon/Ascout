@@ -1,4 +1,4 @@
-Last updated: 2026-11-10 Asia/Riyadh · Branch: main
+Last updated: 2026-11-11 Asia/Riyadh · Branch: main
 
 ## Where Ascout stands
 
@@ -19,6 +19,20 @@ Ascout v0.2.0 is released on GitHub: https://github.com/TheHalfMoon/Ascout/relea
 | E8 optional MCP and end-to-end | Done. `ascout mcp` is a stdio MCP server with no socket and no options, offering four read-only tools (review without a model, security, doctor, test plan). It does not expose `check`, `test`, `init`, or the local model. Every result carries the CLI's JSON report unchanged and an `assurance` field, where a plan is never COMPLETE. Packets: design #703, command functions #707, server and M-1..M-15 plus E2E-1 #708, real Gitleaks over MCP on 3 OSes #709. The founder authorized proceeding on 2026-11-10; no line-level human R1 is recorded. |
 | E9 distribution | Released v0.2.0 on GitHub only (#712, run 42874746620). The tarball is bit-identical on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24, and qualified on each. A build-provenance attestation (SLSA v1) is verified. The founder waived both human reviews; neither was performed. |
 
+### Capability ledger (2026-11-11)
+
+| Capability | State |
+| --- | --- |
+| CLI `init`, `doctor`, `check`, `review`, `test`, `security`, `mcp` | **Shipping** in v0.2.0 (GitHub Release only, not npm). |
+| GitHub PR integration: `ascout pr-evidence`, `ascout pr-publish`, collect and publish workflows (#716–#718) | **On `main`, not in a release.** It runs on this repository's own PRs. It is customer-run on the customer's runners, and Ascout operates no service. PR code runs only in the read-only collect job, and the privileged publish job runs default-branch code only. |
+| Per-repository team policy, `.github/ascout-policy.json` (#719) | **On `main`, not in a release.** It is read only from the default branch, and an invalid policy fails closed. A finding, error or source change in any check always fails. |
+| Ascout identity guard on every CLI and MCP output, including no internal `UA-P` labels (#715, #720) | **On `main`, not in a release.** |
+| Tamper-proof check name through a dedicated GitHub App | **Proposed, not built.** Today a PR's own workflow can create a check run with the same name. |
+| Bring-your-own-AI provider interface (customer-supplied model; Ascout pays for no inference and sends no code without explicit opt-in) | **Proposed, not built.** Only the loopback Ollama review exists (E6). |
+| Wider MCP tools | **Proposed, not built.** Anything that runs repository code would need explicit permission, and arbitrary command execution is out of scope. |
+| Paid Teams, Business and Enterprise offerings | **Proposed, not built.** There is no billing, no payment processor, no contracts and no commercial terms, and none may start without separate founder approval. The core stays free under Apache-2.0, with no account, telemetry or cloud requirement. |
+| T1 isolated execution | **Blocked** on FD-4 (see E7). |
+
 ### Security review (2026-11-08)
 
 A whole-project security review found no critical issues. All high and medium findings and most low findings are fixed (PRs #667–#696); one is documented as a known limit (README, "Limits of the source fingerprint"). Two items remain: statement-level coverage, which needs a receipt version change, and repository settings (a `main` ruleset and Dependabot alerts), which are the owner's to change.
@@ -30,5 +44,6 @@ A whole-project security review found no critical issues. All high and medium fi
 - Repository settings: private vulnerability reporting and a `main` ruleset (PRs, linear history, the 13 required checks, no force push or deletion) are on as of 2026-11-10. Dependabot alerts are still off.
 - Human R1 of the reconciled adoption packet (#653), and optionally of the E8 packets (#703, #707–#709), which merged on the founder's go-ahead without a line-level R1.
 - Disposition of the older open planning PRs (#577–#635).
+- GitHub integration: whether to set the repository variable `ASCOUT_PR_TRUSTED_ACTORS`. It is empty, so no PR evidence can turn the Ascout check green. A related choice is whether to add a team policy for this repository; without one, every check is required, and review and security report incomplete (exit 4) here.
 
 `ROADMAP.md` is the closed record of the REA engineering maintenance run (spec 018) and is kept as history.
