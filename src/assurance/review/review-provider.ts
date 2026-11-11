@@ -1,5 +1,6 @@
 import {
   callLocalReviewModelV1,
+  callOpenAICompatibleModelV1,
   isLoopbackEndpoint,
   type LocalReviewCallResultV1,
   type LocalReviewCallV1,
@@ -45,18 +46,32 @@ export function egressForEndpointV1(endpoint: string): ReviewEgressV1 {
   return isLoopbackEndpoint(endpoint) ? "NONE" : "REMOTE";
 }
 
+type ModelCallV1 = (call: LocalReviewCallV1) => Promise<LocalReviewCallResultV1>;
+
 /** The Ollama provider. The call is injectable for tests; it defaults to the loopback-only client. */
-export function ollamaProviderV1(
-  config: LocalReviewProviderConfigV1,
-  call: (call: LocalReviewCallV1) => Promise<LocalReviewCallResultV1> = callLocalReviewModelV1,
-): ReviewProviderV2 {
+export function ollamaProviderV1(config: LocalReviewProviderConfigV1, call: ModelCallV1 = callLocalReviewModelV1): ReviewProviderV2 {
+  return loopbackProviderV1("ollama", config, call);
+}
+
+/** E10b: a loopback server that speaks the OpenAI-compatible chat API. Same rules as Ollama. */
+export function openAICompatibleProviderV1(config: LocalReviewProviderConfigV1, call: ModelCallV1 = callOpenAICompatibleModelV1): ReviewProviderV2 {
+  return loopbackProviderV1("openai-compatible", config, call);
+}
+
+/** The provider a config names. The call is injectable for tests only. */
+export function providerForConfigV1(config: LocalReviewProviderConfigV1, call?: ModelCallV1): ReviewProviderV2 {
+  const make = config.provider === "openai-compatible" ? openAICompatibleProviderV1 : ollamaProviderV1;
+  return call === undefined ? make(config) : make(config, call);
+}
+
+function loopbackProviderV1(id: string, config: LocalReviewProviderConfigV1, call: ModelCallV1): ReviewProviderV2 {
   const egress = egressForEndpointV1(config.endpoint);
   const provider: ReviewProviderV2 = {
-    id: "ollama",
+    id,
     egress,
     cost: "OPERATOR_LOCAL" as const,
     disclosure: () => Object.freeze({
-      provider: "ollama",
+      provider: id,
       endpoint_host: URL.canParse(config.endpoint) ? new URL(config.endpoint).host : "unparsed",
       model: config.model,
       egress,

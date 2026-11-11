@@ -14,17 +14,22 @@ import {
 import type { ReviewProviderCandidateV1 } from "./review-provider-decision.js";
 
 /**
- * A local review provider: a model served by Ollama on this machine's loopback interface. Its
+ * A local review provider: a model served on this machine's loopback interface, by Ollama or by a
+ * server that speaks the OpenAI-compatible chat API (E10b). Its
  * authorization comes from a config file in the user's own config directory, never from the
  * repository under review, and its output is advisory and untrusted.
  */
 export interface LocalReviewProviderConfigV1 {
-  readonly provider: "ollama";
+  readonly provider: LocalReviewProviderIdV1;
   readonly endpoint: string;
   readonly model: string;
   readonly model_family: string;
   readonly authorized_by_founder: boolean;
 }
+
+/** The local servers Ascout can talk to. Both are loopback only; neither is ever a remote service. */
+export const LOCAL_REVIEW_PROVIDER_IDS = ["ollama", "openai-compatible"] as const;
+export type LocalReviewProviderIdV1 = (typeof LOCAL_REVIEW_PROVIDER_IDS)[number];
 
 export type LocalReviewConfigResultV1 =
   | { readonly state: "absent"; readonly path: string }
@@ -140,7 +145,8 @@ export function readLocalReviewConfigV1(repositoryRoot: string, location: LocalR
     return invalid(`the review-provider config must have exactly these keys: ${CONFIG_KEYS.join(", ")}`);
   }
   if (record.version !== 1) return invalid("unsupported review-provider config version");
-  if (record.provider !== "ollama") return invalid("the only supported provider is ollama");
+  const provider = LOCAL_REVIEW_PROVIDER_IDS.find((id) => id === record.provider);
+  if (provider === undefined) return invalid(`the provider must be one of: ${LOCAL_REVIEW_PROVIDER_IDS.join(", ")}`);
   if (typeof record.endpoint !== "string" || !isLoopbackEndpoint(record.endpoint)) {
     return invalid("the endpoint must be http://127.0.0.1:<port> or http://[::1]:<port>");
   }
@@ -151,7 +157,7 @@ export function readLocalReviewConfigV1(repositoryRoot: string, location: LocalR
     state: "loaded",
     path,
     config: {
-      provider: "ollama",
+      provider,
       endpoint: record.endpoint,
       model: record.model,
       model_family: record.model_family,
@@ -163,7 +169,7 @@ export function readLocalReviewConfigV1(repositoryRoot: string, location: LocalR
 /** The provider description the review-provider decision checks. Local loopback, free, no credential. */
 export function localReviewCandidateV1(config: LocalReviewProviderConfigV1): ReviewProviderCandidateV1 {
   return {
-    provider_identity: `provider:ollama-${config.model.replace(/[^A-Za-z0-9._-]/gu, "-")}`.slice(0, 128),
+    provider_identity: `provider:${config.provider}-${config.model.replace(/[^A-Za-z0-9._-]/gu, "-")}`.slice(0, 128),
     model_family: config.model_family,
     authorized_by_founder: config.authorized_by_founder,
     metadata: {
@@ -188,7 +194,23 @@ const REVIEW_INSTRUCTIONS = [
   'severity is one of "info", "minor", "major", "critical". Use {"findings":[]} when there is nothing to report.',
 ].join("\n");
 
-/** The chat request for one diff. The diff goes in its own message, fenced as data. */
+/** The two chat messages for one review: instructions, then the change in its own message, fenced as data. */
+function reviewMessagesV1(diff: string): readonly { role: "system" | "user"; content: string }[] {
+  return [
+    { role: "system", content: REVIEW_INSTRUCTIONS },
+    { role: "user", content: `Change to review (numbered excerpts of the changed files):\n<diff>\n${diff}\n</diff>` },
+  ];
+}
+
+/**
+ * The request for a server that speaks the OpenAI-compatible chat API (llama.cpp server, LM Studio,
+ * vLLM, and others) on loopback. No response_format: servers differ in what they accept.
+ */
+export function buildOpenAICompatibleRequestV1(model: string, diff: string): unknown {
+  return { model, stream: false, temperature: 0, messages: reviewMessagesV1(diff) };
+}
+
+/** The Ollama chat request for one diff. */
 export function buildReviewRequestV1(model: string, diff: string): unknown {
   return {
     model,
@@ -196,8 +218,7 @@ export function buildReviewRequestV1(model: string, diff: string): unknown {
     format: "json",
     options: { temperature: 0 },
     messages: [
-      { role: "system", content: REVIEW_INSTRUCTIONS },
-      { role: "user", content: `Change to review (unified diff):\n<diff>\n${diff}\n</diff>` },
+      ...reviewMessagesV1(diff),
     ],
   };
 }
@@ -280,6 +301,46 @@ export async function callLocalReviewModelV1(call: LocalReviewCallV1): Promise<L
     const content = envelope?.message?.content;
     if (typeof content !== "string") return { ok: false, reason: "the model response had no message content" };
     return { ok: true, version: /^[A-Za-z0-9._+-]{1,64}$/u.test(version) ? version : "unknown", content };
+  } catch {
+    return { ok: false, reason: timeout.aborted ? "the model did not answer in time" : call.signal?.aborted === true ? "the review was cancelled" : "the model server could not be reached" };
+  }
+}
+
+/**
+ * Many local models wrap JSON in a Markdown code fence. Removes exactly one surrounding fence tagged
+ * json or untagged; anything else is returned unchanged and is parsed (and refused) as it is.
+ */
+export function unwrapJsonFenceV1(content: string): string {
+  const trimmed = content.trim();
+  const firstBreak = trimmed.indexOf("\n");
+  if (!trimmed.startsWith("```") || !trimmed.endsWith("```") || firstBreak === -1 || trimmed.length < firstBreak + 4) return content;
+  const tag = trimmed.slice(3, firstBreak).trim().toLowerCase();
+  if (tag !== "" && tag !== "json") return content;
+  return trimmed.slice(firstBreak + 1, -3).trim();
+}
+
+/**
+ * Sends one diff to a loopback server that speaks the OpenAI-compatible chat API, at
+ * <endpoint>/v1/chat/completions. The same rules as Ollama: loopback only, no redirect, no proxy,
+ * bounded wait and size. Such servers report no version, so the version is "unknown".
+ */
+export async function callOpenAICompatibleModelV1(call: LocalReviewCallV1): Promise<LocalReviewCallResultV1> {
+  if (!isLoopbackEndpoint(call.endpoint)) return { ok: false, reason: "endpoint is not loopback" };
+  const timeout = AbortSignal.timeout(call.timeoutMs);
+  const signal = call.signal === undefined ? timeout : AbortSignal.any([timeout, call.signal]);
+  try {
+    const response = await loopbackExchange(new URL("/v1/chat/completions", call.endpoint), "POST", JSON.stringify(buildOpenAICompatibleRequestV1(call.model, call.diff)), signal, call.maxResponseBytes);
+    if (response.status < 200 || response.status > 299) return { ok: false, reason: `the model server answered HTTP ${response.status}` };
+    if (response.text === null) return { ok: false, reason: "the model response exceeded its size limit" };
+    let envelope: { choices?: { message?: { content?: unknown } }[] } | null;
+    try {
+      envelope = JSON.parse(response.text) as typeof envelope;
+    } catch {
+      return { ok: false, reason: "the model server's reply was not JSON" };
+    }
+    const content = Array.isArray(envelope?.choices) ? envelope.choices[0]?.message?.content : undefined;
+    if (typeof content !== "string") return { ok: false, reason: "the model response had no message content" };
+    return { ok: true, version: "unknown", content: unwrapJsonFenceV1(content) };
   } catch {
     return { ok: false, reason: timeout.aborted ? "the model did not answer in time" : call.signal?.aborted === true ? "the review was cancelled" : "the model server could not be reached" };
   }

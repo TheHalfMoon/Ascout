@@ -152,6 +152,21 @@ Many local servers speak the OpenAI `/v1/chat/completions` format. E10b adds an 
 provider with exactly the same loopback rule as Ollama. Ascout makes no non-loopback connection, and
 nothing is paid. No new decision is needed.
 
+### As built (E10b)
+
+- **Config:** version 1 accepts `"provider": "openai-compatible"` alongside `"ollama"`. Anything else
+  is refused, and the same loopback endpoint rule applies, with an explicit port.
+- **Request:** one `POST <endpoint>/v1/chat/completions` with `model`, `stream: false`,
+  `temperature: 0`, and the same two messages as Ollama, so the change is fenced as data. It sends no
+  `response_format`, because servers differ in what they accept.
+- **Reply:** `choices[0].message.content` is used as the reply. One surrounding Markdown fence tagged
+  `json`, or untagged, is removed. Any other shape is refused as malformed, exit 4. The server
+  reports no version, so the version is `unknown`.
+- **Reports** name the engine `engine:review-openai-compatible` and the provider identity
+  `provider:openai-compatible-<model>`.
+- **Same truth rules as Ollama:** findings on changed lines exit 1, silence exits 4, and nothing
+  exits 0.
+
 ## Remote providers (E10c, needs a founder decision)
 
 Sending source to a third party is the one action BYOAI adds that can't be undone. It changes three
