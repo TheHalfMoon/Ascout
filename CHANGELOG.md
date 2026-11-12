@@ -3,9 +3,26 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
-## Unreleased
+## 0.3.0 (release candidate, not published)
 
-On `main`, not in any release.
+Not released. Publication, tagging, and build-provenance attestation wait for the founder's explicit
+authorization. When published, it ships as GitHub Releases only, not on npm. Changes on `main` since
+`v0.2.0`:
+
+### Breaking: local AI review (`--local-model`)
+
+- **Config location.** `review-provider.json` is now found from the operating-system account only.
+  `HOME`, `XDG_CONFIG_HOME`, `APPDATA`, and `ASCOUT_CONFIG_HOME` no longer move it. Windows uses
+  `AppData\Roaming\ascout` under the home folder; elsewhere it is `~/.config/ascout`. A config kept
+  somewhere else must be moved there.
+- **Endpoint.** The endpoint must name an explicit, nonzero port, for example
+  `http://127.0.0.1:11434`.
+- **Ownership (POSIX).** A config owned by another account, or one that is writable by others, or
+  whose folder is, is refused.
+- **What isn't sent.** Untracked files and secret-named files are no longer sent to the model, so
+  they stay unreviewed.
+
+### Changes
 
 - GitHub PR integration, run by the customer on the customer's own runners: `ascout pr-evidence`,
   `ascout pr-publish`, and the collect and publish workflows (#716–#718). See
