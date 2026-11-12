@@ -22,7 +22,7 @@ function run(root: string, file: string, argv: readonly string[]): void {
 }
 
 /** related: what the narrowed pass does; full: what the full pass does. */
-type PassBehavior = "nothing" | "valid" | "malformed" | "fail-nothing";
+type PassBehavior = "nothing" | "valid" | "malformed" | "fail-nothing" | "fail" | "hidden-failure" | "json-no-lcov";
 
 function fixture(related: PassBehavior, full: PassBehavior): string {
   const root = mkdtempSync(join(tmpdir(), "ascout-empty-related-"));
@@ -48,10 +48,16 @@ if (behavior === "fail-nothing") { process.stdout.write("boom\\n"); process.exit
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.mkdirSync(coverageDirectory, { recursive: true });
 if (behavior === "malformed") { fs.writeFileSync(outputPath, "{not json"); process.exit(0); }
-fs.writeFileSync(outputPath, JSON.stringify({ testResults: [{ name: "full.test.js" }] }));
+const failing = behavior === "fail" || behavior === "hidden-failure";
+const result = failing
+  ? { success: false, numFailedTests: 1, numFailedTestSuites: 1, testResults: [{ name: "full.test.js", status: "failed", assertionResults: [{ fullName: "release works", status: "failed" }] }] }
+  : { testResults: [{ name: "full.test.js" }] };
+fs.writeFileSync(outputPath, JSON.stringify(result));
+if (behavior === "json-no-lcov") process.exit(0);
 const lcov = ["src/a.js", "scripts/release.mjs"].map((source) => "SF:" + source + "\\nDA:1,1\\nend_of_record\\n").join("");
 fs.writeFileSync(path.join(coverageDirectory, "lcov.info"), lcov);
 process.stdout.write("full\\n");
+process.exit(behavior === "fail" ? 1 : 0);
 `,
   );
   writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
@@ -86,15 +92,20 @@ describe("check: a narrowed Vitest pass that selects no test", () => {
     const { receipt, test } = await check("nothing", "valid");
     expect(test.status).toBe("PASS");
     expect(test.reason_code).toBeNull();
+    expect(test.exit_code).toBe(0);
     expect(receipt.selection.widened).toBe(true);
     expect(receipt.selection.widen_triggers).toEqual([POST_RUN_EXERCISE_GAP_TRIGGER]);
     expect(receipt.selection.passes.map((pass) => pass.mode)).toEqual(["native_related", "full"]);
-    expect(receipt.summary.exit_code).not.toBe(2);
+    // The empty narrowed pass stays on record: its captured output is among the task's evidence.
+    expect(test.evidence_ids.length).toBeGreaterThan(2);
+    expect([0, 4]).toContain(receipt.summary.exit_code);
   });
 
   it("stays ERROR when the full pass also leaves no evidence", async () => {
     const { receipt, test } = await check("nothing", "nothing");
     expect(test).toMatchObject({ status: "ERROR", reason_code: "vitest_evidence_invalid" });
+    // The widening did run; its full pass also had no evidence.
+    expect(receipt.selection.passes.map((pass) => pass.mode)).toEqual(["native_related", "full"]);
     expect(receipt.summary.exit_code).toBe(2);
   });
 
@@ -107,6 +118,25 @@ describe("check: a narrowed Vitest pass that selects no test", () => {
   it("never widens when the narrowed pass exits non-zero without evidence", async () => {
     const { receipt, test } = await check("fail-nothing", "valid");
     expect(test.status).toBe("ERROR");
+    expect(receipt.selection.passes).toHaveLength(1);
+  });
+
+  it("reports a failing full pass as FAIL, exit 1", async () => {
+    const { receipt, test } = await check("nothing", "fail");
+    expect(["FAIL", "FLAKY"]).toContain(test.status);
+    expect(receipt.selection.passes.map((pass) => pass.mode)).toEqual(["native_related", "full"]);
+    expect(receipt.summary.exit_code).toBe(1);
+  });
+
+  it("keeps the hidden-failure rule on the full pass: exit 0 with a recorded failure is ERROR", async () => {
+    const { receipt, test } = await check("nothing", "hidden-failure");
+    expect(test).toMatchObject({ status: "ERROR", reason_code: "test_exit_contradicts_results" });
+    expect(receipt.summary.exit_code).toBe(2);
+  });
+
+  it("never widens when the machine result is present but LCOV is missing", async () => {
+    const { receipt, test } = await check("json-no-lcov", "valid");
+    expect(test).toMatchObject({ status: "ERROR", reason_code: "vitest_evidence_invalid" });
     expect(receipt.selection.passes).toHaveLength(1);
   });
 });
