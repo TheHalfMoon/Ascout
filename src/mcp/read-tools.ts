@@ -131,7 +131,7 @@ function lastCheck(fields: Partial<LastCheckToolReportV1> & Pick<LastCheckToolRe
  * A regular file (never a link) no larger than maxBytes whose real path stays inside root, or null.
  * The containment check also catches a folder on the way being swapped for a link mid-read.
  */
-function readRegularFile(root: string, path: string, maxBytes: number): string | null {
+export function readContainedRegularFileV1(root: string, path: string, maxBytes: number): string | null {
   try {
     const stat = lstatSync(path);
     if (!stat.isFile() || stat.size > maxBytes) return null;
@@ -153,7 +153,7 @@ function isRealDirectory(path: string): boolean | null {
 
 /** Completed by the CLI's own manifest rules, for this run id, with no .active marker. */
 function isCompletedRun(root: string, runPath: string, runId: string): boolean {
-  const text = readRegularFile(root, join(runPath, "manifest.json"), MAX_MANIFEST_BYTES);
+  const text = readContainedRegularFileV1(root, join(runPath, "manifest.json"), MAX_MANIFEST_BYTES);
   const manifest = text === null ? null : parseManifest(text);
   if (manifest === null || manifest.state !== "completed" || manifest.run_id !== runId) return false;
   try {
@@ -166,6 +166,26 @@ function isCompletedRun(root: string, runPath: string, runId: string): boolean {
 
 function sameState(a: SourceStateV1, b: SourceStateV1): boolean {
   return a.repository_id === b.repository_id && a.head_sha === b.head_sha && a.tree_digest === b.tree_digest;
+}
+
+/**
+ * Whether a receipt's recorded source state equals the working tree now. True only for a stable run
+ * whose recorded start and end are equal and equal to now; unknown when now can't be read.
+ */
+export function recordedStateMatchesNowV1(
+  receipt: Pick<ReceiptV1, "stability" | "source">,
+  now: () => SourceStateV1,
+): { readonly matches: RecordedStateMatchV1; readonly why: string } {
+  const { start, end } = receipt.source;
+  if (receipt.stability !== "stable" || end === null || !sameState(start, end)) {
+    return { matches: false, why: "the recorded run was not stable, or its start and end states differ" };
+  }
+  try {
+    const matches = sameState(end, now());
+    return { matches, why: matches ? "the recorded state equals the working tree now" : "the working tree has changed since the recorded run" };
+  } catch {
+    return { matches: "unknown", why: "the current state could not be read with hardened Git" };
+  }
 }
 
 /** `ascout_last_check`: what the newest completed check run recorded, never verified. */
@@ -198,7 +218,7 @@ export function computeLastCheckToolV1(root: string, now: () => SourceStateV1 = 
 
   const invalid = (layer: NonNullable<LastCheckToolReportV1["invalid_layer"]>, count: number) =>
     lastCheck({ state: "invalid", run_id: runId, invalid_layer: layer, invalid_issue_count: count });
-  const text = readRegularFile(root, join(root, ".ascout", "runs", runId, "receipt.json"), MAX_RECEIPT_BYTES);
+  const text = readContainedRegularFileV1(root, join(root, ".ascout", "runs", runId, "receipt.json"), MAX_RECEIPT_BYTES);
   if (text === null) return invalid("file", 1);
   let value: unknown;
   try {
@@ -213,21 +233,7 @@ export function computeLastCheckToolV1(root: string, now: () => SourceStateV1 = 
   if (!semantics.valid) return invalid("semantics", semantics.issues.length);
   if (receipt.run.run_id !== runId) return invalid("binding", 1);
 
-  let matches: RecordedStateMatchV1;
-  let why: string;
-  const { start, end } = receipt.source;
-  if (receipt.stability !== "stable" || end === null || !sameState(start, end)) {
-    matches = false;
-    why = "the recorded run was not stable, or its start and end states differ";
-  } else {
-    try {
-      matches = sameState(end, now());
-      why = matches ? "the recorded state equals the working tree now" : "the working tree has changed since the recorded run";
-    } catch {
-      matches = "unknown";
-      why = "the current state could not be read with hardened Git";
-    }
-  }
+  const { matches, why } = recordedStateMatchesNowV1(receipt, now);
   return lastCheck({
     state: "found",
     run_id: runId,

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 
@@ -39,7 +39,8 @@ vi.mock("node:child_process", async (importOriginal) => {
 
 import { runCheck } from "../src/check.js";
 import { assuranceForV1, serveMcpV1 } from "../src/mcp/server.js";
-import { MAX_RUN_ENTRIES, computeLastCheckToolV1, computePolicyToolV1, type LastCheckToolReportV1 } from "../src/mcp/read-tools.js";
+import { MAX_RUN_ENTRIES, computeLastCheckToolV1, computePolicyToolV1, readContainedRegularFileV1, recordedStateMatchesNowV1, type LastCheckToolReportV1 } from "../src/mcp/read-tools.js";
+import type { SourceStateV1 } from "../src/receipt/model.js";
 
 // E11a (specs/017-unified-assurance/E11_SAFE_MCP_EXPANSION_DESIGN.md): two read-only MCP tools.
 const NL = String.fromCharCode(10);
@@ -370,5 +371,54 @@ describe("the two tools over MCP", () => {
     expect(refused.error !== undefined || refused.result?.isError === true).toBe(true);
     input.end();
     expect(await done).toBe(0);
+  });
+});
+
+describe("the pieces that real runs rarely reach", () => {
+  const state = (overrides: Partial<SourceStateV1> = {}): SourceStateV1 => ({
+    repository_id: "repo:x", repository_id_kind: "local_only", portable: false, head_sha: "a".repeat(40), detached: false, shallow: false,
+    tree_digest_version: 1, tree_digest: "b".repeat(64), tracked_index_entry_count: 1, unstaged_changed_count: 0, included_untracked_count: 0, ...overrides,
+  });
+
+  it("is true only for a stable run whose recorded start, end, and now all match", () => {
+    const now = () => state();
+    expect(recordedStateMatchesNowV1({ stability: "stable", source: { start: state(), end: state() } }, now).matches).toBe(true);
+    expect(recordedStateMatchesNowV1({ stability: "tree_drifted", source: { start: state(), end: state() } }, now).matches).toBe(false);
+    expect(recordedStateMatchesNowV1({ stability: "unknown", source: { start: state(), end: null } }, now).matches).toBe(false);
+    expect(recordedStateMatchesNowV1({ stability: "stable", source: { start: state(), end: null } }, now).matches).toBe(false);
+    expect(recordedStateMatchesNowV1({ stability: "stable", source: { start: state({ tree_digest: "c".repeat(64) }), end: state() } }, now).matches).toBe(false);
+    expect(recordedStateMatchesNowV1({ stability: "stable", source: { start: state(), end: state() } }, () => state({ repository_id: "repo:other" })).matches).toBe(false);
+    expect(recordedStateMatchesNowV1({ stability: "stable", source: { start: state(), end: state() } }, () => { throw new Error("no git"); }).matches).toBe("unknown");
+  });
+
+  it("reads a file only when it stays inside the root", () => {
+    const root = join(scratch, "contained-root");
+    mkdirSync(root, { recursive: true });
+    writeFileSync(join(root, "inside.json"), "{}");
+    const outside = join(scratch, "outside.json");
+    writeFileSync(outside, "{}");
+    expect(readContainedRegularFileV1(root, join(root, "inside.json"), 100)).toBe("{}");
+    expect(readContainedRegularFileV1(root, outside, 100)).toBeNull();
+    expect(readContainedRegularFileV1(root, join(root, "inside.json"), 1)).toBeNull();
+    expect(readContainedRegularFileV1(root, join(root, "missing.json"), 100)).toBeNull();
+  });
+
+  it.skipIf(process.platform === "win32")("calls a policy file that is a dangling link unresolvable", () => {
+    const repo = makeRepo("policy-dangling");
+    mkdirSync(join(repo, ".github"));
+    symlinkSync(join(scratch, "does-not-exist.json"), join(repo, ".github", "ascout-policy.json"));
+    expect((computePolicyToolV1(repo) as { report: { state: string; reason: string } }).report).toMatchObject({ state: "invalid", reason: "the policy file could not be resolved" });
+  });
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)("refuses a runs folder it can't read", () => {
+    const repo = makeRepo("runs-unreadable");
+    const runs = join(repo, ".ascout", "runs");
+    mkdirSync(runs, { recursive: true });
+    chmodSync(runs, 0o000);
+    try {
+      expect((computeLastCheckToolV1(repo) as { report: LastCheckToolReportV1 }).report).toMatchObject({ state: "refused", reason: "the run directory could not be read" });
+    } finally {
+      chmodSync(runs, 0o700);
+    }
   });
 });
