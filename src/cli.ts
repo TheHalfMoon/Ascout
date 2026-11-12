@@ -35,7 +35,7 @@ import {
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
 import { serveMcpV1 } from "./mcp/server.js";
 import { collectPrEvidenceV1 } from "./github/collect.js";
-import { runPrPublishFromEnvV1 } from "./github/publish-cli.js";
+import { runPrPublishMainV1 } from "./github/publish-run.js";
 import {
   computeDoctorV1,
   computeReviewV1,
@@ -528,13 +528,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     }
     if (invocation.command === "pr-publish") {
       // Privileged GitHub publish step; the same dependency-free function the C1 App-mode job runs.
-      return await runPrPublishFromEnvV1({
-        bundlePath: invocation.bundlePath!,
-        env: process.env,
-        cwd: process.cwd(),
-        stdout: (line) => process.stdout.write(line + String.fromCharCode(10)),
-        stderr: (line) => process.stderr.write(line + String.fromCharCode(10)),
-      });
+      return await runPrPublishMainV1([invocation.bundlePath!], { env: process.env, cwd: process.cwd(), out: process.stdout, err: process.stderr });
     }
     if (invocation.command === "pr-evidence") {
       // The PR evidence bundle for the GitHub integration, as JSON on stdout. Runs the repository's

@@ -6,11 +6,14 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { APP_TOKEN_PERMISSIONS, mintInstallationTokenV1, readGatePinV1, signAppJwtV1 } from "../src/github/app-auth.js";
 import { buildPrEvidenceV1, checkRunFromEvidenceV1, stateForExitCode, summaryCommentV1, type PrCheckV1 } from "../src/github/pr-evidence.js";
-import { runPrPublishFromEnvV1 } from "../src/github/publish-cli.js";
+import { runPrPublishFromEnvV1, runPrPublishMainV1 } from "../src/github/publish-run.js";
+import { preparePublishV1 } from "../src/github/publish.js";
+import { revokeInstallationTokenV1 } from "../src/github/app-auth.js";
+import { runCli } from "../src/cli.js";
 
 // C1a (specs/017-unified-assurance/C1_GITHUB_APP_GATE_DESIGN.md): publish the Ascout check as a
 // customer-registered GitHub App, from an entry point that imports only Node built-ins.
@@ -49,6 +52,9 @@ describe("the App JWT", () => {
 interface FakeState {
   appId: number;
   installStatus: number;
+  installRaw: string | null;
+  prHead: string;
+  prState: string;
   slug: unknown;
   tokenStatus: number;
   tokenBody: unknown;
@@ -74,6 +80,9 @@ const reset = (overrides: Partial<FakeState> = {}) => {
     rules: [{ type: "required_status_checks", parameters: { required_status_checks: [{ context: "Ascout verification", integration_id: APP_ID }] } }],
     rulesLink: "",
     checkRunStatus: 201,
+    installRaw: null,
+    prHead: HEAD,
+    prState: "open",
     comments: [],
     requests: [],
     ...overrides,
@@ -89,7 +98,10 @@ beforeAll(async () => {
       const path = new URL(request.url!, "http://x").pathname;
       state.requests.push({ method: request.method!, path, auth: String(request.headers.authorization ?? ""), body: raw === "" ? null : JSON.parse(raw) });
       const send = (status: number, value: unknown) => { response.statusCode = status; response.end(JSON.stringify(value)); };
-      if (path === "/repos/o/r/installation") return send(state.installStatus, { id: 77, app_id: state.appId, app_slug: state.slug });
+      if (path === "/repos/o/r/installation") {
+        if (state.installRaw !== null) { response.statusCode = 200; return response.end(state.installRaw); }
+        return send(state.installStatus, { id: 77, app_id: state.appId, app_slug: state.slug });
+      }
       if (path === "/app/installations/77/access_tokens") return send(state.tokenStatus, state.tokenBody);
       if (path === "/repos/o/r/rules/branches/main" || path === "/repos/o/r/rules/branches/release/x") {
         if (state.rulesLink !== "") response.setHeader("link", state.rulesLink);
@@ -97,7 +109,9 @@ beforeAll(async () => {
       }
       if (request.method === "DELETE" && path === "/installation/token") { response.statusCode = 204; return response.end(); }
       if (path === "/repos/o/r/check-runs" && state.checkRunStatus !== 201) return send(state.checkRunStatus, {});
-      if (path === "/repos/o/r/pulls/7") return send(200, { number: 7, state: "open", user: { login: "maintainer" }, base: { ref: "main" }, head: { sha: HEAD, repo: { full_name: "o/r" } } });
+      const pr = { number: 7, state: state.prState, user: { login: "maintainer" }, base: { ref: "main" }, head: { sha: state.prHead, repo: { full_name: "o/r" } } };
+      if (path === "/repos/o/r/pulls/7") return send(200, pr);
+      if (path === "/repos/o/r/pulls") return send(200, state.prState === "open" ? [pr] : []);
       if (path === "/repos/o/r/check-runs") return send(201, { id: 99 });
       if (request.method === "GET" && path === "/repos/o/r/issues/7/comments") return send(200, state.comments);
       if (request.method === "POST" && path === "/repos/o/r/issues/7/comments") {
@@ -410,7 +424,131 @@ describe("the publish entry point installs nothing", () => {
     };
     visit(root);
     // Exactly these modules; a new import anywhere in the graph must be looked at, not slip in.
-    expect([...seen].map((file) => basename(file)).sort()).toEqual(["app-auth.ts", "policy.ts", "pr-evidence.ts", "publish-cli.ts", "publish.ts"]);
+    expect([...seen].map((file) => basename(file)).sort()).toEqual(["app-auth.ts", "policy.ts", "pr-evidence.ts", "publish-cli.ts", "publish-run.ts", "publish.ts"]);
     expect([...external].filter((specifier) => !specifier.startsWith("node:"))).toEqual([]);
+  });
+});
+
+describe("every exit and refusal of the publish step", () => {
+  const bundlePath = join(scratch, "bundle-exits.json");
+  writeFileSync(bundlePath, JSON.stringify(bundle(0)));
+  const env = () => ({
+    GITHUB_REPOSITORY: "o/r", ASCOUT_PR_HEAD_SHA: HEAD, ASCOUT_PR_HEAD_REPOSITORY: "o/r", ASCOUT_PR_HEAD_BRANCH: "feature",
+    ASCOUT_PR_DETAILS_URL: "https://github.com/o/r/actions/runs/1", GITHUB_API_URL: origin, ASCOUT_PR_REQUIRED_BASE: "main",
+    ASCOUT_PR_TRIGGERING_ACTOR: "maintainer", ASCOUT_PR_TRUSTED_ACTORS: "maintainer",
+    ASCOUT_APP_ID: String(APP_ID), ASCOUT_APP_CLIENT_ID: CLIENT_ID, ASCOUT_APP_PRIVATE_KEY: PEM,
+  });
+  const run = async (overrides: Record<string, string> = {}) => {
+    const out: string[] = [];
+    const code = await runPrPublishFromEnvV1({ bundlePath, env: { ...env(), ...overrides }, cwd: scratch, stdout: (line) => out.push(line), stderr: () => undefined });
+    return { code, last: JSON.parse(out[out.length - 1]!) as { kind: string } };
+  };
+
+  it("finds the PR by its branch when the event gives no PR number", async () => {
+    reset();
+    expect(await run()).toMatchObject({ code: 0, last: { kind: "published" } });
+    expect(state.requests.some((r) => r.path === "/repos/o/r/pulls")).toBe(true);
+  });
+
+  it("exits 3 when the PR head moved after collection, and still revokes the token", async () => {
+    reset({ prHead: "c".repeat(40) });
+    expect(await run({ ASCOUT_PR_NUMBER: "7" })).toMatchObject({ code: 3, last: { kind: "stale" } });
+    expect(state.requests.some((r) => r.method === "DELETE")).toBe(true);
+  });
+
+  it("exits 2 when there is no open PR to publish to", async () => {
+    reset({ prState: "closed" });
+    expect(await run()).toMatchObject({ code: 2, last: { kind: "refused" } });
+  });
+
+  it("uses the default API origin and bot login when none is given", async () => {
+    reset();
+    const out: string[] = [];
+    const code = await runPrPublishFromEnvV1({ bundlePath, env: { ...env(), ASCOUT_APP_ID: "", ASCOUT_APP_CLIENT_ID: "", ASCOUT_APP_PRIVATE_KEY: "", GITHUB_API_URL: "", GITHUB_TOKEN: "t", ASCOUT_PR_HEAD_SHA: "nope" }, cwd: scratch, stdout: (line) => out.push(line), stderr: () => undefined });
+    // A bad head SHA is refused before any request, so the default https://api.github.com is never called.
+    expect(code).toBe(2);
+    expect(JSON.parse(out[out.length - 1]!)).toEqual({ kind: "refused", reason: "invalid head sha" });
+  });
+});
+
+describe("the program wrappers", () => {
+  const sink = () => { const lines: string[] = []; return { lines, stream: { write: (text: string) => lines.push(text) } }; };
+
+  it("needs exactly one argument", async () => {
+    for (const argv of [[], ["a", "b"]]) {
+      const err = sink();
+      expect(await runPrPublishMainV1(argv, { env: {}, cwd: scratch, out: sink().stream, err: err.stream })).toBe(2);
+      expect(err.lines.join("")).toContain("usage: node publish-cli.js <bundle>");
+    }
+  });
+
+  it("publishes through the main wrapper, one line per write", async () => {
+    reset();
+    const bundlePath = join(scratch, "bundle-main.json");
+    writeFileSync(bundlePath, JSON.stringify(bundle(0)));
+    const out = sink();
+    const code = await runPrPublishMainV1([bundlePath], {
+      env: { GITHUB_REPOSITORY: "o/r", ASCOUT_PR_HEAD_SHA: HEAD, ASCOUT_PR_HEAD_REPOSITORY: "o/r", ASCOUT_PR_HEAD_BRANCH: "feature",
+        ASCOUT_PR_DETAILS_URL: "https://github.com/o/r/actions/runs/1", GITHUB_API_URL: origin, ASCOUT_PR_REQUIRED_BASE: "main", ASCOUT_PR_NUMBER: "7", GITHUB_TOKEN: "t" },
+      cwd: scratch, out: out.stream, err: sink().stream,
+    });
+    expect(code).toBe(0);
+    expect(out.lines.every((line) => line.endsWith(String.fromCharCode(10)))).toBe(true);
+  });
+
+  it("the entry module runs on import and sets the exit code", async () => {
+    const argv = process.argv;
+    const exitCode = process.exitCode;
+    const write = process.stderr.write;
+    const captured: string[] = [];
+    process.argv = [argv[0]!, "publish-cli.js"];
+    process.stderr.write = ((text: string) => { captured.push(String(text)); return true; }) as typeof process.stderr.write;
+    try {
+      await import("../src/github/publish-cli.js");
+      expect(process.exitCode).toBe(2);
+      expect(captured.join("")).toContain("usage: node publish-cli.js <bundle>");
+    } finally {
+      process.argv = argv;
+      process.stderr.write = write;
+      process.exitCode = exitCode;
+    }
+  });
+
+  it("ascout pr-publish goes through the same wrapper", async () => {
+    vi.stubEnv("GITHUB_REPOSITORY", "");
+    const write = process.stderr.write;
+    const captured: string[] = [];
+    process.stderr.write = ((text: string) => { captured.push(String(text)); return true; }) as typeof process.stderr.write;
+    try {
+      expect(await runCli(["pr-publish", join(scratch, "bundle-main.json")])).toBe(2);
+      expect(captured.join("")).toContain("GITHUB_REPOSITORY");
+    } finally {
+      process.stderr.write = write;
+      vi.unstubAllEnvs();
+    }
+  });
+});
+
+describe("hostile or broken API replies and local inputs", () => {
+  it("calls an oversized or unparseable installation reply malformed", async () => {
+    for (const raw of ["x".repeat(1024 * 1024 + 10), "{not json"]) {
+      reset({ installRaw: raw });
+      expect(await mintInstallationTokenV1({ apiOrigin: origin, repository: "o/r", credentials: { appId: APP_ID, clientId: CLIENT_ID, privateKeyPem: PEM }, mask: () => undefined })).toEqual({ ok: false, reason: "the App installation response was malformed" });
+    }
+  });
+
+  it("reports whether revoking worked, and never throws", async () => {
+    reset();
+    expect(await revokeInstallationTokenV1({ apiOrigin: origin, token: INSTALL_TOKEN })).toBe(true);
+    expect(await revokeInstallationTokenV1({ apiOrigin: "http://127.0.0.1:1", token: INSTALL_TOKEN })).toBe(false);
+  });
+
+  it("refuses a control character in the head branch, an oversized bundle, and an unreadable bundle", () => {
+    const base = { repository: "o/r", headRepository: "o/r", headSha: HEAD, headBranch: "feature", detailsUrl: "https://github.com/o/r/actions/runs/1", bundlePath: join(scratch, "bundle-exits.json") };
+    expect(preparePublishV1({ ...base, headBranch: "a" + String.fromCharCode(1) })).toEqual({ ok: false, reason: "invalid head branch" });
+    const big = join(scratch, "big.json");
+    writeFileSync(big, "x".repeat(2 * 1024 * 1024));
+    expect(preparePublishV1({ ...base, bundlePath: big })).toEqual({ ok: false, reason: "bundle is larger than its limit" });
+    expect(preparePublishV1({ ...base, bundlePath: join(scratch, "missing.json") })).toEqual({ ok: false, reason: "bundle could not be read" });
   });
 });
