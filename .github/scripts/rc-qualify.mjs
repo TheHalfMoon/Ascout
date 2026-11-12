@@ -75,7 +75,15 @@ check("test --plan: exit 0, a non-assurance plan", plan.status === 0 && plan.std
 
 const mcp = run(shim, ["mcp"], { cwd: repo, input: `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" })}\n` });
 const tools = json(mcp.stdout.split("\n")[0] ?? "")?.result?.tools?.map((tool) => tool.name) ?? [];
-check("mcp: four read-only tools, exit 0 when stdin closes", mcp.status === 0 && tools.length === 4 && !tools.some((name) => /check|init/u.test(name)), { status: mcp.status, tools, stderr: mcp.stderr });
+// Exactly these read-only tools (E8, amended by E11a). Nothing that runs `check`, `test`, or `init`.
+const MCP_TOOLS = ["ascout_review", "ascout_security", "ascout_doctor", "ascout_test_plan", "ascout_policy", "ascout_last_check"];
+check("mcp: exactly the six read-only tools, exit 0 when stdin closes", mcp.status === 0 && JSON.stringify(tools) === JSON.stringify(MCP_TOOLS), { status: mcp.status, tools, stderr: mcp.stderr });
+
+// C1: the dependency-free publish entry point runs straight from the installed package, with no
+// other packages, and refuses missing configuration with exit 2 before any network call.
+const publishCli = join(packageDir, "dist", "github", "publish-cli.js");
+const publish = run(process.execPath, [publishCli, "bundle.json"], { cwd: outside, shell: false, env: { PATH: process.env.PATH ?? "", SystemRoot: process.env.SystemRoot ?? "" } });
+check("publish-cli: runs from the package and refuses missing configuration with exit 2", existsSync(publishCli) && publish.status === 2 && publish.stderr.includes("GITHUB_REPOSITORY"), { status: publish.status, stderr: publish.stderr.slice(0, 300) });
 
 const uninstall = run("npm", ["uninstall", "--global", "--prefix", prefix, "@thehalfmoon/ascout"]);
 const leftovers = existsSync(prefix) ? readdirSync(windows ? prefix : join(prefix, "bin")).filter((name) => name.toLowerCase().startsWith("ascout")) : [];
