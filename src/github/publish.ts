@@ -120,6 +120,8 @@ export function preparePublishV1(input: Pick<PublishInputV1, "repository" | "hea
 
   let text: string;
   try {
+    // The bundle comes from an untrusted run: never follow a symbolic link or read a device.
+    if (!lstatSync(input.bundlePath).isFile()) return { ok: false, reason: "bundle is not a regular file" };
     const raw = readFileSync(input.bundlePath);
     if (raw.byteLength > PR_EVIDENCE_MAX_BYTES) return { ok: false, reason: "bundle is larger than its limit" };
     text = raw.toString("utf8");

@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { generateKeyPairSync, verify } from "node:crypto";
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -554,5 +554,17 @@ describe("hostile or broken API replies and local inputs", () => {
     writeFileSync(big, "x".repeat(2 * 1024 * 1024));
     expect(preparePublishV1({ ...base, bundlePath: big })).toEqual({ ok: false, reason: "bundle is larger than its limit" });
     expect(preparePublishV1({ ...base, bundlePath: join(scratch, "missing.json") })).toEqual({ ok: false, reason: "bundle could not be read" });
+    expect(preparePublishV1({ ...base, bundlePath: scratch })).toEqual({ ok: false, reason: "bundle is not a regular file" });
+  });
+
+  it("refuses a bundle that is a symbolic link, even to a valid bundle", (context) => {
+    const base = { repository: "o/r", headRepository: "o/r", headSha: HEAD, headBranch: "feature", detailsUrl: "https://github.com/o/r/actions/runs/1" };
+    const link = join(scratch, "bundle-link.json");
+    try {
+      symlinkSync(join(scratch, "bundle-exits.json"), link, "file");
+    } catch {
+      context.skip(); // creating a symlink needs a privilege Windows may not grant
+    }
+    expect(preparePublishV1({ ...base, bundlePath: link })).toEqual({ ok: false, reason: "bundle is not a regular file" });
   });
 });

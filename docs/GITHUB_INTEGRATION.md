@@ -93,44 +93,66 @@ Setup:
 1. **Create one GitHub App per trust boundary,** meaning per repository, or per group of
    repositories that share the same admins. Anyone who holds the App's key can post the check on
    every repository the App is installed on.
-   - Repository permissions: **Checks: read and write**, **Pull requests: read and write**,
-     **Metadata: read**. Nothing else.
+   - Repository permissions:
+     - **Checks:** read and write;
+     - **Pull requests:** read and write;
+     - **Commit statuses:** read and write. GitHub's docs require this for an app chosen as a
+       check's expected source, and C1c will confirm it;
+     - **Metadata:** read.
+
+     Nothing else.
    - Webhook off.
    - Installable only on your account.
-   - Then install it on the repository.
-   - GitHub's docs say an expected-source app needs `statuses:write`. If GitHub won't let you pick
-     your App as the source in step 5, also grant **Commit statuses: read and write**.
+   - Then install the App on the repository.
 2. **Create the environment `ascout-publish`.** Under deployment branches, choose **Selected branches
    and tags** and allow exactly your default branch's name. Don't choose "Protected branches only":
    with no protection rules, that lets every branch in.
    - Add the secrets `ASCOUT_APP_ID`, `ASCOUT_APP_CLIENT_ID`, and `ASCOUT_APP_PRIVATE_KEY` to that
      environment.
    - Never add them as repository or organization secrets. Those reach same-repository PR runs.
-3. **Replace `ascout-pr-publish.yml` with the template** `docs/examples/ascout-pr-publish-app.yml`.
-   Set `ASCOUT_VERSION` and `ASCOUT_SHA256` to a reviewed release; the digest is in the release's
-   `SHA256SUMS`.
-   - The template's publish job installs and builds nothing. It runs the release's dependency-free
-     `dist/github/publish-cli.js` after checking its digest.
-   - Keep it that way, and let no other workflow name `ascout-publish`. This repository's
-     `tests/github-workflow-lint.test.ts` enforces exactly these rules; copy it if you change the
-     template.
+3. **Replace `ascout-pr-publish.yml` with the template** `docs/examples/ascout-pr-publish-app.yml`,
+   keeping its file name. Set `ASCOUT_VERSION` and `ASCOUT_SHA256` to a reviewed release; the digest
+   is in the release's `SHA256SUMS`.
+   - **How the template works.** The publish job installs and builds nothing. It downloads the
+     untrusted evidence first, then checks the release's SHA-256, then runs the release's
+     dependency-free `dist/github/publish-cli.js`. Node and the pinned official actions are not
+     covered by that check.
+   - **What the lint checks.** `tests/github-workflow-lint.test.ts` checks these rules here, and
+     fails closed on any other way of writing them. It only recognizes the file names
+     `ascout-pr-publish.yml` and `ascout-pr-publish-app.yml`, so copy and adapt it if you rename
+     the file.
+   - **Keep it this way:** no package manager in that job, and no other workflow that names the
+     environment or the App secrets.
 4. **Don't capture the publish step's standard output.** The step masks the short-lived tokens it
    creates by writing `::add-mask::` commands there, so it must reach the runner directly.
-5. **In your default branch's ruleset,** require the **Ascout verification** check and choose your App
-   as its source.
-6. **Open a test PR.** The check's summary should say "Gate: pinned in a ruleset to this GitHub App".
-   "Not pinned" means step 5 is missing. "Unknown" means the rules couldn't be read.
+5. **Open a test PR first.** GitHub only lets you pick an App as a check's source once it "has
+   recently submitted a check run". The first summary will say "Gate: **not pinned** in any
+   ruleset", which is correct at this point.
+6. **Then, in your default branch's ruleset,** require the **Ascout verification** check and choose
+   your App as its source.
+7. **Push to the test PR again.** The summary should now say "Gate: pinned in a ruleset to this
+   GitHub App". "Unknown" means the rules couldn't be read.
 
 What App mode does:
-- It validates the bundle and the policy **before** creating any credential.
-- It mints an installation token limited to this repository and those permissions, then revokes it
-  when publishing ends.
+- It validates the bundle and the policy **before** creating any credential, and it refuses a
+  bundle that is a symbolic link or not a regular file.
+- It mints an installation token limited to this repository and its publishing permissions. When
+  publishing ends, it tries to revoke the token; a failed revoke leaves the token valid for at most
+  an hour.
 - It refuses an installation that belongs to a different App.
 
 Limits:
-- On **private repositories**, environment secrets and deployment-branch rules need a paid GitHub
-  plan.
+- **Private repositories** need a paid GitHub plan. Environment secrets, deployment-branch rules,
+  and rulesets on private repositories all need GitHub Team or Enterprise; check GitHub's current
+  plan table.
 - **Merge queues** aren't supported: the check is never posted on `merge_group` commits.
+- **The check's "Re-run" button does nothing,** because the App has no webhook. Re-run the workflow
+  instead.
+- **Re-running an old publish run** uses the release that run was pinned to, which may be older.
+  Keep the pin current.
+- **Any write user can block a merge.** GitHub requires a check and a commit status with the same
+  name to both pass, so a failing status named **Ascout verification** blocks the PR. That is a
+  denial of service, not a bypass.
 - **Admins of the gated repository** can change the ruleset or the environment, so App mode doesn't
   protect against them.
 - **If the key leaks,** revoke it and generate a new one in the App's settings.

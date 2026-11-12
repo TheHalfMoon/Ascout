@@ -3,25 +3,27 @@ import { basename, join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-// C1b (specs/017-unified-assurance/C1_GITHUB_APP_GATE_DESIGN.md, section 2 and 3): rules for any
-// workflow that can hold the GitHub App key. They are checked on this repository's workflows and on
-// the template customers copy.
+// C1b (specs/017-unified-assurance/C1_GITHUB_APP_GATE_DESIGN.md, sections 2 and 3): rules for any
+// workflow that can hold the GitHub App key, checked on this repository's workflows and on the
+// template customers copy. The lint is deliberately strict and fails closed: a file that mentions
+// the key environment or the App secrets in *any* form must use the exact shapes below, or fail.
 const ROOT = resolve(__dirname, "..");
 const NL = String.fromCharCode(10);
 const KEY_FILES = new Set(["ascout-pr-publish.yml", "ascout-pr-publish-app.yml"]);
 const ALLOWED_ACTIONS = new Set(["actions/checkout", "actions/setup-node", "actions/download-artifact"]);
+const PUBLISH_LINE = 'node "$RUNNER_TEMP/package/dist/github/publish-cli.js" "$RUNNER_TEMP/evidence/ascout-pr-evidence.json"';
 
 function workflowFiles(): string[] {
   const dirs = [join(ROOT, ".github", "workflows"), join(ROOT, "docs", "examples")];
   return dirs.flatMap((dir) => readdirSync(dir).filter((name) => /\.ya?ml$/u.test(name)).map((name) => join(dir, name)));
 }
 
-/** True for a workflow that can receive the App key. */
+/** Any mention, in any form, of the key environment or the App secrets. */
 function holdsAppKey(text: string): boolean {
-  return /environment:\s*['"]?ascout-publish\b/u.test(text) || /secrets\.ASCOUT_APP_/u.test(text);
+  return /ascout-publish\b/u.test(text) || /ASCOUT_APP_/u.test(text);
 }
 
-/** The text of every `run:` script, inline or block. */
+/** The text of every `run:` script, inline or block, whatever the block header's suffix. */
 function runScripts(text: string): string[] {
   const lines = text.split(NL);
   const scripts: string[] = [];
@@ -30,7 +32,7 @@ function runScripts(text: string): string[] {
     if (match === null) continue;
     const indent = (match[1] as string).length;
     const rest = match[2] as string;
-    if (rest !== "|" && rest !== ">" && rest !== "|-" && rest !== ">-") {
+    if (!/^[|>][+-]?[0-9]?\s*(?:#.*)?$/u.test(rest)) {
       scripts.push(rest);
       continue;
     }
@@ -43,18 +45,21 @@ function runScripts(text: string): string[] {
       }
       body.push(line);
     }
-    scripts.push(body.join(NL));
+    scripts.push(body.join(NL).trim());
   }
   return scripts;
 }
 
-/** The event names under the top-level `on:` key. */
-function triggers(text: string): string[] {
+/**
+ * The event names under a top-level `on:` written as a block. Any other way of writing `on`
+ * (flow list, scalar, quoted key) returns null, which the key rules treat as a failure.
+ */
+function blockTriggers(text: string): string[] | null {
   const lines = text.split(NL);
-  const start = lines.findIndex((line) => /^on:\s*$/u.test(line));
-  if (start === -1) return [];
+  const keys = lines.filter((line) => /^["']?on["']?\s*:/u.test(line));
+  if (keys.length !== 1 || !/^on:\s*$/u.test(keys[0] as string)) return null;
   const names: string[] = [];
-  for (const line of lines.slice(start + 1)) {
+  for (const line of lines.slice(lines.indexOf(keys[0] as string) + 1)) {
     if (/^\S/u.test(line)) break;
     const match = /^ {2}([a-z_]+):/u.exec(line);
     if (match !== null) names.push(match[1] as string);
@@ -62,10 +67,32 @@ function triggers(text: string): string[] {
   return names;
 }
 
+/** The lines of the step that uses `action`, from its list item to the next step. */
+function stepText(text: string, action: string): string {
+  const lines = text.split(NL);
+  const at = lines.findIndex((line) => line.includes(`uses: ${action}@`));
+  if (at === -1) return "";
+  let start = at;
+  while (start > 0 && !/^\s*-\s/u.test(lines[start] as string)) start -= 1;
+  const indent = (lines[start] as string).search(/-/u);
+  let end = start + 1;
+  while (end < lines.length && !((lines[end] as string).search(/\S/u) <= indent && (lines[end] as string).trim() !== "")) end += 1;
+  return lines.slice(start, end).join(NL);
+}
+
+describe("every workflow", () => {
+  for (const file of workflowFiles()) {
+    const text = readFileSync(file, "utf8");
+    it(`${basename(file)}: never uses pull_request_target, toJSON(secrets), or secrets: inherit`, () => {
+      expect(text).not.toMatch(/pull_request_target|toJSON\(\s*secrets\s*\)|secrets:\s*inherit/u);
+    });
+  }
+});
+
 describe("workflows that can hold the GitHub App key", () => {
   const files = workflowFiles();
 
-  it("the template exists and is the only App-key workflow besides the publish workflow", () => {
+  it("the template exists, and only the publish workflows may mention the key", () => {
     const holders = files.filter((file) => holdsAppKey(readFileSync(file, "utf8"))).map((file) => basename(file));
     expect(holders).toContain("ascout-pr-publish-app.yml");
     for (const name of holders) expect(KEY_FILES.has(name)).toBe(true);
@@ -76,11 +103,16 @@ describe("workflows that can hold the GitHub App key", () => {
     if (!holdsAppKey(text)) continue;
     const name = basename(file);
 
-    it(`${name}: installs and builds nothing`, () => {
-      for (const script of runScripts(text)) expect(script).not.toMatch(/\b(?:npm|npx|yarn|pnpm|bun)\b/u);
+    it(`${name}: names the environment exactly once, as a plain value`, () => {
+      expect(text.match(/ascout-publish\b/gu)?.length).toBe(1);
+      expect(text).toMatch(/^ {4}environment: ascout-publish$/mu);
     });
 
-    it(`${name}: uses only pinned official actions`, () => {
+    it(`${name}: installs and builds nothing`, () => {
+      for (const script of runScripts(text)) expect(script).not.toMatch(/\b(?:npm|npx|yarn|pnpm|bun|corepack)\b/u);
+    });
+
+    it(`${name}: uses only pinned official actions, and checkout can't fetch other code`, () => {
       const uses = [...text.matchAll(/uses:\s*([^\s#]+)/gu)].map((match) => match[1] as string);
       expect(uses.length).toBeGreaterThan(0);
       for (const ref of uses) {
@@ -88,35 +120,45 @@ describe("workflows that can hold the GitHub App key", () => {
         expect(ALLOWED_ACTIONS.has(action)).toBe(true);
         expect(version).toMatch(/^[0-9a-f]{40}$/u);
       }
+      expect(stepText(text, "actions/checkout")).not.toMatch(/^\s+(?:ref|repository|lfs|token|ssh-key|submodules|path|fetch-depth):/mu);
     });
 
     it(`${name}: runs only on workflow_run, so the default branch's copy always runs`, () => {
-      expect(triggers(text)).toEqual(["workflow_run"]);
+      expect(blockTriggers(text)).toEqual(["workflow_run"]);
     });
 
     it(`${name}: passes event values through env, never into a script`, () => {
       for (const script of runScripts(text)) expect(script).not.toContain("${{");
+      expect(text).not.toMatch(/^\s+(?:shell|working-directory):.*\$\{\{/mu);
     });
 
-    it(`${name}: names the ascout-publish environment and verifies what it runs`, () => {
-      expect(text).toMatch(/^\s+environment:\s*ascout-publish\s*$/mu);
-      expect(text).toContain("sha256sum --check --strict");
-      expect(text).toContain("dist/github/publish-cli.js");
+    it(`${name}: downloads the untrusted bundle first, then verifies, then runs the verified file`, () => {
+      const scripts = runScripts(text);
+      const verify = scripts.findIndex((script) => script.includes("sha256sum --check --strict"));
+      expect(verify).toBeGreaterThanOrEqual(0);
+      expect(scripts.filter((script) => script === PUBLISH_LINE)).toHaveLength(1);
+      expect(scripts.indexOf(PUBLISH_LINE)).toBeGreaterThan(verify);
+      expect(text.indexOf("actions/download-artifact")).toBeLessThan(text.indexOf("sha256sum --check --strict"));
     });
   }
-
-  it("no workflow uses pull_request_target", () => {
-    for (const file of files) expect(triggers(readFileSync(file, "utf8"))).not.toContain("pull_request_target");
-  });
 });
 
 describe("the lint itself", () => {
-  it("finds inline and block scripts, and the top-level triggers", () => {
-    const sample = ["on:", "  workflow_run:", "    workflows: [x]", "jobs:", "  a:", "    steps:", "      - run: npm ci", "      - name: b", "        run: |", "          echo ${{ github.x }}", "          node y", "      - name: c"].join(NL);
-    expect(triggers(sample)).toEqual(["workflow_run"]);
-    expect(runScripts(sample)).toEqual(["npm ci", ["          echo ${{ github.x }}", "          node y"].join(NL)]);
+  it("reads inline and block scripts with any header, and only block-form triggers", () => {
+    const sample = ["on:", "  workflow_run:", "    workflows: [x]", "jobs:", "  a:", "    steps:", "      - run: npm ci", "      - name: b", "        run: |+ # keep", "          echo ${{ github.x }}", "          node y", "      - name: c"].join(NL);
+    expect(blockTriggers(sample)).toEqual(["workflow_run"]);
+    expect(runScripts(sample)).toEqual(["npm ci", ["echo ${{ github.x }}", "          node y"].join(NL)]);
+    expect(blockTriggers("on: [push, pull_request_target]")).toBeNull();
+    expect(blockTriggers('"on":' + NL + "  push:")).toBeNull();
+    expect(blockTriggers("on: workflow_run")).toBeNull();
+  });
+
+  it("treats any mention of the environment or App secrets as holding the key", () => {
     expect(holdsAppKey("environment: ascout-publish")).toBe(true);
+    expect(holdsAppKey(["environment:", "  name: ascout-publish"].join(NL))).toBe(true);
+    expect(holdsAppKey("environment: { name: ascout-publish }")).toBe(true);
     expect(holdsAppKey("x: ${{ secrets.ASCOUT_APP_PRIVATE_KEY }}")).toBe(true);
+    expect(holdsAppKey("uses: ./.github/workflows/ascout-pr-publish.yml")).toBe(false);
     expect(holdsAppKey("environment: release-attest")).toBe(false);
   });
 

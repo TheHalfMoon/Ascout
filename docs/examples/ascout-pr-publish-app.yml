@@ -3,13 +3,15 @@
 # docs/GITHUB_INTEGRATION.md. Design: specs/017-unified-assurance/C1_GITHUB_APP_GATE_DESIGN.md.
 #
 # Why this job is shaped like this:
-# - It holds the App's private key, so it installs nothing and builds nothing: no npm, no
-#   third-party actions. It runs Ascout's dependency-free entry point from a pinned release whose
-#   SHA-256 is checked before anything runs.
-# - The key comes from the `ascout-publish` environment, which must allow exactly your default
-#   branch ("Selected branches and tags"). This must be the only workflow that names it.
+# - It holds the App's private key, so it installs nothing and builds nothing: no package manager,
+#   no third-party actions. It runs Ascout's dependency-free entry point from a pinned release,
+#   after checking that release's SHA-256. (Node itself and the pinned official actions are not
+#   covered by that check.)
+# - The key comes from the environment named on the `environment:` line below, which must allow
+#   exactly your default branch ("Selected branches and tags"). This must be the only workflow that
+#   names that environment or the App secrets.
 # - It runs on workflow_run, so it is always your default branch's copy of this file.
-# - The evidence bundle from the collect job is untrusted data: downloaded, validated, never run.
+# - The evidence bundle from the collect job is untrusted data: downloaded first, validated, never run.
 # - The publish step's standard output must reach the runner directly (no capture, pipe, or
 #   redirect): that is where the ::add-mask:: commands for the JWT and installation token go.
 name: Ascout PR Publish
@@ -33,7 +35,13 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: Check out the default branch's .github folder (for the team policy only)
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ascout-pr-evidence
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/evidence
+      - name: Check out the default branch (the team policy is read from .github)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
@@ -54,12 +62,6 @@ jobs:
           echo "${ASCOUT_SHA256}  $RUNNER_TEMP/ascout.tgz" | sha256sum --check --strict -
           tar -xzf "$RUNNER_TEMP/ascout.tgz" -C "$RUNNER_TEMP"
           test -f "$RUNNER_TEMP/package/dist/github/publish-cli.js"
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ascout-pr-evidence
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ github.token }}
-          path: ${{ runner.temp }}/evidence
       - name: Publish the Check Run and summary comment as the GitHub App
         env:
           ASCOUT_APP_ID: ${{ secrets.ASCOUT_APP_ID }}
