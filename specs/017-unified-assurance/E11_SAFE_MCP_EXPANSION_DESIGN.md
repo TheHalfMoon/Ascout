@@ -165,8 +165,8 @@ If it doesn't, running repository code stays CLI-only until T1.
   - a valid file reports exactly the publisher's normalized list;
   - a BOM is accepted.
 - **`ascout_last_check`:**
-  - each of these reports "none": no `.ascout`, a link in place of `.ascout` or `runs`, or only
-    non-matching directory names;
+  - each of these reports "none": no `.ascout`, no `runs`, or only non-matching directory names;
+  - a link in place of `.ascout` or `runs` is refused;
   - an active run is skipped;
   - the newest completed run is chosen;
   - each of these is refused: a `receipt.json` that is a link or oversized, a `run_id` that differs

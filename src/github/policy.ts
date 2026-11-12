@@ -42,8 +42,9 @@ export function parsePrPolicyV1(text: string): PolicyParseResultV1 {
   if (!Array.isArray(required) || required.length === 0) return { ok: false, reason: "required_checks must list at least one check" };
   const seen = new Set<string>();
   for (const id of required) {
-    if (!CHECK_IDS.includes(id as CheckId)) return { ok: false, reason: `unknown check in required_checks: ${String(id).slice(0, 40)}` };
-    if (seen.has(id as string)) return { ok: false, reason: `duplicate check in required_checks: ${String(id)}` };
+    // Fixed messages only: a policy's own text never reaches an output (E11a, and the publisher's logs).
+    if (!CHECK_IDS.includes(id as CheckId)) return { ok: false, reason: "required_checks names an unknown check" };
+    if (seen.has(id as string)) return { ok: false, reason: "required_checks names a check twice" };
     seen.add(id as string);
   }
   return { ok: true, policy: { version: 1, required_checks: [...CHECK_IDS].filter((id) => seen.has(id)), source: "file" } };

@@ -1,4 +1,4 @@
-import { lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { lstatSync, opendirSync, readFileSync, realpathSync } from "node:fs";
 import { join, relative, isAbsolute, sep } from "node:path";
 
 import { composeSourceState } from "../check.js";
@@ -7,6 +7,7 @@ import { DEFAULT_POLICY_PATH } from "../github/policy.js";
 import { loadPrPolicyV1 } from "../github/publish.js";
 import { validateReceiptJsonSchema } from "../receipt/json.js";
 import { validateReceiptSemantics, type ReceiptV1, type SourceStateV1 } from "../receipt/model.js";
+import { parseManifest } from "../run.js";
 
 /**
  * E11a (specs/017-unified-assurance/E11_SAFE_MCP_EXPANSION_DESIGN.md): two read-only MCP tools.
@@ -126,11 +127,15 @@ function lastCheck(fields: Partial<LastCheckToolReportV1> & Pick<LastCheckToolRe
   };
 }
 
-/** A regular file (never a link) no larger than maxBytes, or null. */
-function readRegularFile(path: string, maxBytes: number): string | null {
+/**
+ * A regular file (never a link) no larger than maxBytes whose real path stays inside root, or null.
+ * The containment check also catches a folder on the way being swapped for a link mid-read.
+ */
+function readRegularFile(root: string, path: string, maxBytes: number): string | null {
   try {
     const stat = lstatSync(path);
     if (!stat.isFile() || stat.size > maxBytes) return null;
+    if (!isInside(realpathSync.native(root), realpathSync.native(path))) return null;
     return readFileSync(path, "utf8");
   } catch {
     return null;
@@ -146,15 +151,11 @@ function isRealDirectory(path: string): boolean | null {
   }
 }
 
-/** Completed per the run directory's own rules: manifest says completed, and no .active marker. */
-function isCompletedRun(runPath: string): boolean {
-  const manifest = readRegularFile(join(runPath, "manifest.json"), MAX_MANIFEST_BYTES);
-  if (manifest === null) return false;
-  try {
-    if ((JSON.parse(manifest) as { state?: unknown }).state !== "completed") return false;
-  } catch {
-    return false;
-  }
+/** Completed by the CLI's own manifest rules, for this run id, with no .active marker. */
+function isCompletedRun(root: string, runPath: string, runId: string): boolean {
+  const text = readRegularFile(root, join(runPath, "manifest.json"), MAX_MANIFEST_BYTES);
+  const manifest = text === null ? null : parseManifest(text);
+  if (manifest === null || manifest.state !== "completed" || manifest.run_id !== runId) return false;
   try {
     lstatSync(join(runPath, ".active"));
     return false;
@@ -174,24 +175,30 @@ export function computeLastCheckToolV1(root: string, now: () => SourceStateV1 = 
   if (ascout === null || runs === null) return lastCheck({ state: "none", reason: "no check has been recorded here" });
   if (!ascout || !runs) return lastCheck({ state: "refused", reason: "the run directory is not a real directory" });
 
-  let entries: import("node:fs").Dirent[];
+  // Read at most MAX_RUN_ENTRIES + 1 entries, so a huge directory can't stall the server.
+  const names: string[] = [];
+  let seen = 0;
   try {
-    entries = readdirSync(join(root, ".ascout", "runs"), { withFileTypes: true });
+    const dir = opendirSync(join(root, ".ascout", "runs"));
+    try {
+      for (let entry = dir.readSync(); entry !== null; entry = dir.readSync()) {
+        seen += 1;
+        if (seen > MAX_RUN_ENTRIES) break;
+        if (entry.isDirectory() && RUN_ID_PATTERN.test(entry.name)) names.push(entry.name);
+      }
+    } finally {
+      dir.closeSync();
+    }
   } catch {
     return lastCheck({ state: "refused", reason: "the run directory could not be read" });
   }
-  if (entries.length > MAX_RUN_ENTRIES) return lastCheck({ state: "refused", reason: "the run directory has too many entries" });
-  const candidates = entries
-    .filter((entry) => entry.isDirectory() && RUN_ID_PATTERN.test(entry.name))
-    .map((entry) => entry.name)
-    .sort()
-    .reverse();
-  const runId = candidates.find((name) => isCompletedRun(join(root, ".ascout", "runs", name)));
+  if (seen > MAX_RUN_ENTRIES) return lastCheck({ state: "refused", reason: "the run directory has too many entries" });
+  const runId = names.sort().reverse().find((name) => isCompletedRun(root, join(root, ".ascout", "runs", name), name));
   if (runId === undefined) return lastCheck({ state: "none", reason: "no completed check run has been recorded here" });
 
   const invalid = (layer: NonNullable<LastCheckToolReportV1["invalid_layer"]>, count: number) =>
     lastCheck({ state: "invalid", run_id: runId, invalid_layer: layer, invalid_issue_count: count });
-  const text = readRegularFile(join(root, ".ascout", "runs", runId, "receipt.json"), MAX_RECEIPT_BYTES);
+  const text = readRegularFile(root, join(root, ".ascout", "runs", runId, "receipt.json"), MAX_RECEIPT_BYTES);
   if (text === null) return invalid("file", 1);
   let value: unknown;
   try {
