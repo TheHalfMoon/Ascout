@@ -11,7 +11,8 @@ const ROOT = resolve(__dirname, "..");
 const NL = String.fromCharCode(10);
 const KEY_FILES = new Set(["ascout-pr-publish.yml", "ascout-pr-publish-app.yml"]);
 const ALLOWED_ACTIONS = new Set(["actions/checkout", "actions/setup-node", "actions/download-artifact"]);
-const PUBLISH_LINE = 'node "$RUNNER_TEMP/package/dist/github/publish-cli.js" "$RUNNER_TEMP/evidence/ascout-pr-evidence.json"';
+const VERIFY_LINE = 'echo "${ASCOUT_SHA256}  $RUNNER_TEMP/ascout.tgz" | sha256sum --check --strict -';
+const PUBLISH_LINE ='node "$RUNNER_TEMP/package/dist/github/publish-cli.js" "$RUNNER_TEMP/evidence/ascout-pr-evidence.json"';
 
 function workflowFiles(): string[] {
   const dirs = [join(ROOT, ".github", "workflows"), join(ROOT, "docs", "examples")];
@@ -45,7 +46,8 @@ function runScripts(text: string): string[] {
       }
       body.push(line);
     }
-    scripts.push(body.join(NL).trim());
+    // Comment lines are not script: a check must never be satisfied by a comment.
+    scripts.push(body.map((line) => line.trim()).filter((line) => line !== "" && !line.startsWith("#")).join(NL));
   }
   return scripts;
 }
@@ -134,11 +136,16 @@ describe("workflows that can hold the GitHub App key", () => {
 
     it(`${name}: downloads the untrusted bundle first, then verifies, then runs the verified file`, () => {
       const scripts = runScripts(text);
-      const verify = scripts.findIndex((script) => script.includes("sha256sum --check --strict"));
+      const verify = scripts.findIndex((script) => {
+        const lines = script.split(NL);
+        return lines[0] === "set -euo pipefail" && lines.includes(VERIFY_LINE);
+      });
       expect(verify).toBeGreaterThanOrEqual(0);
       expect(scripts.filter((script) => script === PUBLISH_LINE)).toHaveLength(1);
       expect(scripts.indexOf(PUBLISH_LINE)).toBeGreaterThan(verify);
-      expect(text.indexOf("actions/download-artifact")).toBeLessThan(text.indexOf("sha256sum --check --strict"));
+      const download = text.indexOf("uses: actions/download-artifact@");
+      expect(download).toBeGreaterThanOrEqual(0);
+      expect(download).toBeLessThan(text.indexOf(VERIFY_LINE));
     });
   }
 });
@@ -147,7 +154,8 @@ describe("the lint itself", () => {
   it("reads inline and block scripts with any header, and only block-form triggers", () => {
     const sample = ["on:", "  workflow_run:", "    workflows: [x]", "jobs:", "  a:", "    steps:", "      - run: npm ci", "      - name: b", "        run: |+ # keep", "          echo ${{ github.x }}", "          node y", "      - name: c"].join(NL);
     expect(blockTriggers(sample)).toEqual(["workflow_run"]);
-    expect(runScripts(sample)).toEqual(["npm ci", ["echo ${{ github.x }}", "          node y"].join(NL)]);
+    expect(runScripts(sample)).toEqual(["npm ci", ["echo ${{ github.x }}", "node y"].join(NL)]);
+    expect(runScripts(["      run: |", "        # sha256sum --check --strict", "        echo hi"].join(NL))).toEqual(["echo hi"]);
     expect(blockTriggers("on: [push, pull_request_target]")).toBeNull();
     expect(blockTriggers('"on":' + NL + "  push:")).toBeNull();
     expect(blockTriggers("on: workflow_run")).toBeNull();
