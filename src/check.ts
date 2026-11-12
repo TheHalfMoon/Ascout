@@ -1380,6 +1380,60 @@ function combineTestPasses(first: ExecutedTestTask, second: ExecutedTestTask): E
   };
 }
 
+/**
+ * The full pass for a narrowed pass that selected no test, or null when no changed production source
+ * calls for one (for example only declaration files changed) or the full pass can't be planned.
+ */
+export function emptyRelatedWideningPlanV1(
+  changedFiles: readonly GitChangedFile[],
+  planFull: (changedFiles: readonly GitChangedFile[]) => VitestTaskPlan,
+): PlannedVitestTask | null {
+  const widening = decidePostRunWidening(changedFiles, "native_related", []);
+  if (!widening.widened) return null;
+  const plan = planFull(postRunPlanningChangedFiles(changedFiles, widening));
+  return plan.state === "planned" ? plan : null;
+}
+
+/** True only when the Vitest machine-result file is absent; anything present, valid or not, is not. */
+export function vitestMachineResultAbsent(runId: string, runPath: string, plan: Pick<PlannedVitestTask, "machineResultPath">): boolean {
+  if (plan.machineResultPath === null) return false;
+  try {
+    lstatSync(join(runPath, runRelativeArtifactPath(runId, plan.machineResultPath)));
+    return false;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT";
+  }
+}
+
+/**
+ * The full pass replaces a narrowed pass that selected no test. The task's result is the full
+ * pass's alone; the empty pass stays on record through its evidence, artifacts, and counts.
+ */
+function replaceEmptyRelatedPass(first: ExecutedTestTask, second: ExecutedTestTask): ExecutedTestTask {
+  const startedAt = first.task.started_at!;
+  const finishedAt = second.task.finished_at!;
+  return {
+    ...second,
+    task: {
+      ...second.task,
+      started_at: startedAt,
+      finished_at: finishedAt,
+      duration_ms: Date.parse(finishedAt) - Date.parse(startedAt),
+      observations: {
+        runs: first.task.observations.runs + second.task.observations.runs,
+        failures: first.task.observations.failures + second.task.observations.failures,
+      },
+      evidence_ids: [...first.task.evidence_ids, ...second.task.evidence_ids],
+      artifact_refs: [...first.task.artifact_refs, ...second.task.artifact_refs],
+      output_truncated: first.task.output_truncated || second.task.output_truncated,
+    },
+    evidence: [...first.evidence, ...second.evidence],
+    artifacts: [...first.artifacts, ...second.artifacts],
+    selectedTestCounts: [...first.selectedTestCounts, ...second.selectedTestCounts],
+    machineResults: [...first.machineResults, ...second.machineResults],
+  };
+}
+
 interface TargetedObservationExecution {
   readonly observation: TestAssertionObservation | null;
   readonly evidence: readonly EvidenceV1[];
@@ -1858,6 +1912,46 @@ async function runCheckWithinCancellation(
                   taskTimeoutMs(config, task),
                 );
           let finalExecuted = firstExecuted;
+
+          // A narrowed Vitest pass that finds no related test exits 0 and writes no machine result.
+          // That is a selection that observed nothing, not altered evidence, so it gets the one
+          // full pass that a coverage-relation gap gets, and the task is judged on that pass. A full
+          // pass without evidence is still ERROR, and malformed evidence never widens.
+          if (
+            firstExecuted.task.status === "ERROR" &&
+            firstExecuted.task.reason_code === "vitest_evidence_invalid" &&
+            firstExecuted.task.exit_code === 0 &&
+            testPlan.state === "planned" &&
+            testPlan.selectionMode === "native_related" &&
+            !(discovery.jsTestRunner.state === "resolved" && discovery.jsTestRunner.value === "jest") &&
+            vitestMachineResultAbsent(runId, runDir.run_path, testPlan as PlannedVitestTask)
+          ) {
+            const widerPlan = emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planVitestTask({
+              repositoryRoot: root,
+              runId,
+              config,
+              discovery,
+              files,
+              changedFiles,
+              selectionMode: "full",
+              artifactPassOrdinal: 2,
+            }));
+            if (widerPlan !== null) {
+              const secondExecuted = await executeVitestTask(
+                root,
+                runId,
+                runDir.run_path,
+                runDir.raw_path,
+                widerPlan,
+                decision,
+                secrets,
+                taskTimeoutMs(config, task),
+                2,
+              );
+              finalExecuted = replaceEmptyRelatedPass(firstExecuted, secondExecuted);
+              selection = withPostRunWideningPass(selection, widerPlan.workingDirectory);
+            }
+          }
 
           if (
             (firstExecuted.task.status === "PASS" || firstExecuted.task.status === "FAIL") &&
