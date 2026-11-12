@@ -5,7 +5,8 @@ import { spawnSync } from "node:child_process";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { runCheck } from "../src/check.js";
+import { emptyRelatedWideningPlanV1, runCheck, vitestMachineResultAbsent } from "../src/check.js";
+import type { GitChangedFile } from "../src/git.js";
 import { validateReceiptSemantics } from "../src/receipt/model.js";
 import { POST_RUN_EXERCISE_GAP_TRIGGER } from "../src/selection.js";
 import { writeNodeCommandShim } from "./helpers/native-command-shim.js";
@@ -24,7 +25,7 @@ function run(root: string, file: string, argv: readonly string[]): void {
 /** related: what the narrowed pass does; full: what the full pass does. */
 type PassBehavior = "nothing" | "valid" | "malformed" | "fail-nothing" | "fail" | "hidden-failure" | "json-no-lcov";
 
-function fixture(related: PassBehavior, full: PassBehavior): string {
+function fixture(related: PassBehavior, full: PassBehavior, changed: "script" | "declaration" = "script"): string {
   const root = mkdtempSync(join(tmpdir(), "ascout-empty-related-"));
   mkdirSync(join(root, "src"), { recursive: true });
   mkdirSync(join(root, "scripts"), { recursive: true });
@@ -65,19 +66,21 @@ process.exit(behavior === "fail" ? 1 : 0);
   writeFileSync(join(root, "vitest.config.mjs"), "export default { test: { globals: true } };\n");
   writeFileSync(join(root, "src", "a.js"), "export const a = 1;\n");
   writeFileSync(join(root, "scripts", "release.mjs"), "export const version = 1;\n");
+  writeFileSync(join(root, "src", "types.d.ts"), "export type A = 1;\n");
   run(root, "git", ["init", "-q"]);
   run(root, "git", ["config", "user.name", "Ascout Empty Related Fixture"]);
   run(root, "git", ["config", "user.email", "empty-related@example.invalid"]);
   run(root, "git", ["config", "commit.gpgsign", "false"]);
   run(root, "git", ["add", "."]);
   run(root, "git", ["commit", "-qm", "baseline"]);
-  // Only the script changes: no test relates to it.
-  writeFileSync(join(root, "scripts", "release.mjs"), "export const version = 2;\n");
+  // Only one file changes, and no test relates to it.
+  if (changed === "script") writeFileSync(join(root, "scripts", "release.mjs"), "export const version = 2;\n");
+  else writeFileSync(join(root, "src", "types.d.ts"), "export type A = 2;\n");
   return root;
 }
 
-async function check(related: PassBehavior, full: PassBehavior) {
-  const root = fixture(related, full);
+async function check(related: PassBehavior, full: PassBehavior, changed: "script" | "declaration" = "script") {
+  const root = fixture(related, full, changed);
   try {
     const { receipt } = await runCheck(root);
     expect(validateReceiptSemantics(receipt).valid).toBe(true);
@@ -138,5 +141,29 @@ describe("check: a narrowed Vitest pass that selects no test", () => {
     const { receipt, test } = await check("json-no-lcov", "valid");
     expect(test).toMatchObject({ status: "ERROR", reason_code: "vitest_evidence_invalid" });
     expect(receipt.selection.passes).toHaveLength(1);
+  });
+
+  it("does not widen when only a declaration file changed, and fails safe as ERROR", async () => {
+    const { receipt, test } = await check("nothing", "valid", "declaration");
+    expect(test).toMatchObject({ status: "ERROR", reason_code: "vitest_evidence_invalid" });
+    expect(receipt.selection.passes).toHaveLength(1);
+  });
+});
+
+describe("the empty-related widening helpers", () => {
+  const changed = (path: string): GitChangedFile => ({ path, change_kind: "modified", line_semantics: "text", changed_new_line_ranges: [[1, 1]] }) as unknown as GitChangedFile;
+
+  it("plans no full pass without a changed production source, or when the full pass can't be planned", () => {
+    const planned = { state: "planned" } as never;
+    const notRun = { state: "not_run" } as never;
+    expect(emptyRelatedWideningPlanV1([changed("src/types.d.ts")], () => planned)).toBeNull();
+    expect(emptyRelatedWideningPlanV1([changed("scripts/release.mjs")], () => notRun)).toBeNull();
+    const seen: string[][] = [];
+    expect(emptyRelatedWideningPlanV1([changed("scripts/release.mjs")], (files) => { seen.push(files.map((file) => file.path)); return planned; })).toBe(planned);
+    expect(seen).toEqual([["scripts/release.mjs"]]);
+  });
+
+  it("never calls a machine result absent when the plan has no machine-result path", () => {
+    expect(vitestMachineResultAbsent("001-abc", tmpdir(), { machineResultPath: null })).toBe(false);
   });
 });

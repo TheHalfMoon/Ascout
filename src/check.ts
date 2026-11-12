@@ -1380,8 +1380,22 @@ function combineTestPasses(first: ExecutedTestTask, second: ExecutedTestTask): E
   };
 }
 
+/**
+ * The full pass for a narrowed pass that selected no test, or null when no changed production source
+ * calls for one (for example only declaration files changed) or the full pass can't be planned.
+ */
+export function emptyRelatedWideningPlanV1(
+  changedFiles: readonly GitChangedFile[],
+  planFull: (changedFiles: readonly GitChangedFile[]) => VitestTaskPlan,
+): PlannedVitestTask | null {
+  const widening = decidePostRunWidening(changedFiles, "native_related", []);
+  if (!widening.widened) return null;
+  const plan = planFull(postRunPlanningChangedFiles(changedFiles, widening));
+  return plan.state === "planned" ? plan : null;
+}
+
 /** True only when the Vitest machine-result file is absent; anything present, valid or not, is not. */
-function vitestMachineResultAbsent(runId: string, runPath: string, plan: PlannedVitestTask): boolean {
+export function vitestMachineResultAbsent(runId: string, runPath: string, plan: Pick<PlannedVitestTask, "machineResultPath">): boolean {
   if (plan.machineResultPath === null) return false;
   try {
     lstatSync(join(runPath, runRelativeArtifactPath(runId, plan.machineResultPath)));
@@ -1912,33 +1926,30 @@ async function runCheckWithinCancellation(
             !(discovery.jsTestRunner.state === "resolved" && discovery.jsTestRunner.value === "jest") &&
             vitestMachineResultAbsent(runId, runDir.run_path, testPlan as PlannedVitestTask)
           ) {
-            const emptyRelatedWidening = decidePostRunWidening(gitComparison.changed_files, "native_related", []);
-            if (emptyRelatedWidening.widened) {
-              const widerPlan = planVitestTask({
-                repositoryRoot: root,
+            const widerPlan = emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planVitestTask({
+              repositoryRoot: root,
+              runId,
+              config,
+              discovery,
+              files,
+              changedFiles,
+              selectionMode: "full",
+              artifactPassOrdinal: 2,
+            }));
+            if (widerPlan !== null) {
+              const secondExecuted = await executeVitestTask(
+                root,
                 runId,
-                config,
-                discovery,
-                files,
-                changedFiles: postRunPlanningChangedFiles(gitComparison.changed_files, emptyRelatedWidening),
-                selectionMode: "full",
-                artifactPassOrdinal: 2,
-              });
-              if (widerPlan.state === "planned") {
-                const secondExecuted = await executeVitestTask(
-                  root,
-                  runId,
-                  runDir.run_path,
-                  runDir.raw_path,
-                  widerPlan,
-                  decision,
-                  secrets,
-                  taskTimeoutMs(config, task),
-                  2,
-                );
-                finalExecuted = replaceEmptyRelatedPass(firstExecuted, secondExecuted);
-                selection = withPostRunWideningPass(selection, widerPlan.workingDirectory);
-              }
+                runDir.run_path,
+                runDir.raw_path,
+                widerPlan,
+                decision,
+                secrets,
+                taskTimeoutMs(config, task),
+                2,
+              );
+              finalExecuted = replaceEmptyRelatedPass(firstExecuted, secondExecuted);
+              selection = withPostRunWideningPass(selection, widerPlan.workingDirectory);
             }
           }
 
