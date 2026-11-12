@@ -62,14 +62,14 @@ let repo: string;
 beforeAll(() => { repo = makeRepo("repo"); });
 
 describe("MCP protocol and bounds", () => {
-  it("M-15: lists exactly four tools, each with an empty, closed input schema", async () => {
+  it("M-15 (amended by E11a): lists exactly six tools, each with an empty, closed input schema", async () => {
     const s = session(repo);
     s.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } } });
     s.send({ jsonrpc: "2.0", method: "notifications/initialized" });
     s.send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
     const [init, list] = await s.waitFor(2);
     expect(init!.result).toMatchObject({ protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "ascout" } });
-    expect(list!.result.tools.map((tool: { name: string }) => tool.name)).toEqual(["ascout_review", "ascout_security", "ascout_doctor", "ascout_test_plan"]);
+    expect(list!.result.tools.map((tool: { name: string }) => tool.name)).toEqual(["ascout_review", "ascout_security", "ascout_doctor", "ascout_test_plan", "ascout_policy", "ascout_last_check"]);
     for (const tool of list!.result.tools) expect(tool.inputSchema).toEqual({ type: "object", properties: {}, additionalProperties: false });
     s.input.end();
     expect(await s.done).toBe(0);

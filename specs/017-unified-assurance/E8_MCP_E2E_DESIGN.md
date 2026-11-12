@@ -82,6 +82,10 @@ person's.** So v1 accepts no opt-in flags at all:
 | `ascout_security` | `ascout security --format json` | No; pinned Gitleaks reads files |
 | `ascout_doctor` | `ascout doctor --format json` (from part zero) | No |
 | `ascout_test_plan` | `ascout test --plan --format json`, default profile | No; it reads no repository |
+| `ascout_policy` (E11a) | none; the team policy as the publisher's loader reads it | No; it reads one file |
+| `ascout_last_check` (E11a) | none; the newest completed check receipt, as recorded | No; hardened Git and file reads only |
+
+**Amended by E11a** (`E11_SAFE_MCP_EXPANSION_DESIGN.md`): two read-only tools were added, and M-15 now checks six tools. Both have assurance `NONE`. "Runs repository code" keeps its meaning above: hardened Git reads are allowed, as for `ascout_review`.
 
 `ascout_test_plan` always uses the default profile, because tools take no arguments.
 

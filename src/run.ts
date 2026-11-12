@@ -124,7 +124,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function parseManifest(text: string): RunManifestV1 | null {
+/** The CLI's own manifest rules: version, run id, state, and canonical timestamps. */
+export function parseManifest(text: string): RunManifestV1 | null {
   let value: unknown;
   try {
     value = JSON.parse(text) as unknown;
