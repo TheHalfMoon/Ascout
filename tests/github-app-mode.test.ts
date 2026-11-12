@@ -122,6 +122,10 @@ beforeAll(async () => {
       return send(404, {});
     });
   });
+  // A test below compiles the project synchronously, blocking the event loop for many seconds. With
+  // Node's 5-second default, the server would close idle keep-alive sockets meanwhile, and the next
+  // fetch could reuse a dead pooled socket and fail. Keep idle sockets longer than any compile.
+  server.keepAliveTimeout = 10 * 60 * 1000;
   await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
   origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
