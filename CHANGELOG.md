@@ -41,6 +41,8 @@ authorization. When published, it ships as GitHub Releases only, not on npm. Cha
 - MCP (E11a): two read-only tools. `ascout_policy` reports the team policy in the working tree.
   `ascout_last_check` reports what the newest completed check run recorded, and whether its
   recorded source state equals the working tree. Both have assurance `NONE`.
+- `check`: a narrowed Vitest pass that selects no test (for example, when only a release script
+  changed) now widens to one full pass, instead of reporting an integrity error (#734, #735).
 
 ## 0.2.0 (2026-11-10)
 
