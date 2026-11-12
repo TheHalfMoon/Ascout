@@ -1,4 +1,4 @@
-Last updated: 2026-11-12 Asia/Riyadh · Branch: main
+Last updated: 2026-11-13 Asia/Riyadh · Branch: main
 
 ## Where Ascout stands
 
@@ -60,7 +60,13 @@ Everything in the directive that needed no founder decision is merged into `main
 
 ### Open decisions for the founder
 
-- **A release.** Everything above is on `main` but not in a release. v0.2.0 has none of the PR integration, team policy, App mode, E10, or E11. Publishing a release needs the founder's explicit authorization. C1's App-mode template also needs a release that contains `dist/github/publish-cli.js`.
+- **A release: 0.3.0 is qualified and waiting for authorization.**
+  - The version bump and changelog are in #732.
+  - The release-candidate run [43318009810](https://github.com/TheHalfMoon/Ascout/actions/runs/43318009810), on `main` at `81d5c3d` with `attest: false`, built and qualified `thehalfmoon-ascout-0.3.0.tgz`. It is bit-identical on Linux x64, macOS arm64, and Windows x64 with Node 22 and 24.
+  - SHA-256: `571f33acebc601d4ddf54cc139de789532f0fab88f57dbfeef053cc3e311708d`.
+  - Qualification includes the six MCP tools, and the dependency-free `dist/github/publish-cli.js` that C1's template needs.
+  - Getting it to qualify fixed two bugs: the release script expected four MCP tools (#733), and `check` reported an error when a narrowed test pass selected no test (#734, #735).
+  - Publishing (tag, build-provenance attestation, GitHub Release; no npm) needs the founder's explicit authorization.
 
 - FD-4 for E7 containment.
 - FD-8 for the historical plan PR #651, and ratification of #653.
