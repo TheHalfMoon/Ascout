@@ -17,6 +17,10 @@ On `main`, not in any release.
   model's reply is redacted, and an explicit port is required.
 - Local AI review (E10b, #724): `"provider": "openai-compatible"` for loopback servers that speak the
   OpenAI-compatible chat API.
+- GitHub App mode for the PR check (C1, #728 and C1b). `pr-publish` can post the Ascout check as
+  your own GitHub App, so a ruleset can require it from that App alone. It ships with a
+  dependency-free entry point, `dist/github/publish-cli.js`, a hardened workflow template, and a
+  setup guide. It is not yet proven live.
 
 ## 0.2.0 (2026-11-10)
 

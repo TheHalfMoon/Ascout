@@ -243,6 +243,37 @@ Setting only some of them is a configuration error: refuse with exit 2 and post 
 2. Whether to register an App for this repository and pin its check, after C1c's proof.
 3. Whether to require environment reviewers for the publish job, given that it runs on every PR.
 
+## As built
+
+- **C1a (#728):**
+  - App mode lives in `src/github/app-auth.ts` and `src/github/publish-run.ts`.
+  - The entry point is `src/github/publish-cli.ts`, built to `dist/github/publish-cli.js`. It always
+    runs; there is no entry detection.
+  - `ascout pr-publish` calls the same code.
+  - Ascout's own PR check reports every changed line and branch exercised.
+- **C1b:**
+  - The template is `docs/examples/ascout-pr-publish-app.yml`. It runs a pinned, digest-checked
+    release.
+  - The lint is `tests/github-workflow-lint.test.ts`. It fails closed: any mention of the key
+    environment or the App secrets makes a file a key holder. A key holder must:
+    - be one of the two publish file names;
+    - name the environment once, as a plain value;
+    - use no package manager;
+    - use only pinned `actions/checkout`, `setup-node`, and `download-artifact`, with checkout
+      unable to fetch other code;
+    - trigger on block-form `workflow_run` only;
+    - keep `${{ }}` out of scripts, `shell:`, and `working-directory:`;
+    - download the untrusted bundle before verifying the release, and run exactly the verified
+      file.
+
+    No workflow may use `pull_request_target`, `toJSON(secrets)`, or `secrets: inherit`.
+  - The bundle reader refuses symbolic links and anything that isn't a regular file.
+  - The setup guide is in `docs/GITHUB_INTEGRATION.md`, under "GitHub App mode".
+  - A packed release tarball runs `package/dist/github/publish-cli.js` with no `node_modules`
+    (checked by hand).
+- **C1c: not done.** It needs a test App the founder registers. The template also needs a release that
+  includes `publish-cli.js`.
+
 ## Review record
 
 - **Revision 1:** independent AI review (subagent). It confirmed the core mechanism against GitHub's

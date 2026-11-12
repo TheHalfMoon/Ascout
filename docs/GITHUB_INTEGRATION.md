@@ -77,6 +77,86 @@ A repository can choose which checks a pull request must complete, in
 | A required check incomplete: required work did not run (exit 4) | `action_required` | No. `neutral` is never used, because branch protection treats it as passing. |
 | Untrusted evidence that would pass: a fork, an author or actor not on the allowlist, a bot, or another base | `action_required`, under "Ascout verification (untrusted)" | No |
 
+## GitHub App mode: an exclusive check (C1)
+
+**Status: the code is on `main`, but not in a release, and not yet proven live.** No released version
+contains it yet. App mode stays unproven until C1c: a live test on a repository whose App the founder
+registers. Until then, don't rely on it as your only gate.
+
+By default the check is posted with the workflow's `GITHUB_TOKEN`, which belongs to the GitHub
+Actions app. Any workflow a PR adds can use that same app to post a check of the same name. In App
+mode, the check is posted as **your own GitHub App**, and your branch ruleset requires the check from
+that App. A same-named check from anywhere else then can't satisfy the rule.
+
+Setup:
+
+1. **Create one GitHub App per trust boundary,** meaning per repository, or per group of
+   repositories that share the same admins. Anyone who holds the App's key can post the check on
+   every repository the App is installed on.
+   - Repository permissions:
+     - **Checks:** read and write;
+     - **Pull requests:** read and write;
+     - **Commit statuses:** read and write. GitHub's docs require this for an app chosen as a
+       check's expected source, and C1c will confirm it;
+     - **Metadata:** read.
+
+     Nothing else.
+   - Webhook off.
+   - Installable only on your account.
+   - Then install the App on the repository.
+2. **Create the environment `ascout-publish`.** Under deployment branches, choose **Selected branches
+   and tags** and allow exactly your default branch's name. Don't choose "Protected branches only":
+   with no protection rules, that lets every branch in.
+   - Add the secrets `ASCOUT_APP_ID`, `ASCOUT_APP_CLIENT_ID`, and `ASCOUT_APP_PRIVATE_KEY` to that
+     environment.
+   - Never add them as repository or organization secrets. Those reach same-repository PR runs.
+3. **Replace `ascout-pr-publish.yml` with the template** `docs/examples/ascout-pr-publish-app.yml`,
+   keeping its file name. Set `ASCOUT_VERSION` and `ASCOUT_SHA256` to a reviewed release; the digest
+   is in the release's `SHA256SUMS`.
+   - **How the template works.** The publish job installs and builds nothing. It downloads the
+     untrusted evidence first, then checks the release's SHA-256, then runs the release's
+     dependency-free `dist/github/publish-cli.js`. Node and the pinned official actions are not
+     covered by that check.
+   - **What the lint checks.** `tests/github-workflow-lint.test.ts` checks these rules here, and
+     fails closed on any other way of writing them. It only recognizes the file names
+     `ascout-pr-publish.yml` and `ascout-pr-publish-app.yml`, so copy and adapt it if you rename
+     the file.
+   - **Keep it this way:** no package manager in that job, and no other workflow that names the
+     environment or the App secrets.
+4. **Don't capture the publish step's standard output.** The step masks the short-lived tokens it
+   creates by writing `::add-mask::` commands there, so it must reach the runner directly.
+5. **Open a test PR first.** GitHub only lets you pick an App as a check's source once it "has
+   recently submitted a check run". The first summary will say "Gate: **not pinned** in any
+   ruleset", which is correct at this point.
+6. **Then, in your default branch's ruleset,** require the **Ascout verification** check and choose
+   your App as its source.
+7. **Push to the test PR again.** The summary should now say "Gate: pinned in a ruleset to this
+   GitHub App". "Unknown" means the rules couldn't be read.
+
+What App mode does:
+- It validates the bundle and the policy **before** creating any credential, and it refuses a
+  bundle that is a symbolic link or not a regular file.
+- It mints an installation token limited to this repository and its publishing permissions. When
+  publishing ends, it tries to revoke the token; a failed revoke leaves the token valid for at most
+  an hour.
+- It refuses an installation that belongs to a different App.
+
+Limits:
+- **Private repositories** need a paid GitHub plan. Environment secrets, deployment-branch rules,
+  and rulesets on private repositories all need GitHub Team or Enterprise; check GitHub's current
+  plan table.
+- **Merge queues** aren't supported: the check is never posted on `merge_group` commits.
+- **The check's "Re-run" button does nothing,** because the App has no webhook. Re-run the workflow
+  instead.
+- **Re-running an old publish run** uses the release that run was pinned to, which may be older.
+  Keep the pin current.
+- **Any write user can block a merge.** GitHub requires a check and a commit status with the same
+  name to both pass, so a failing status named **Ascout verification** blocks the PR. That is a
+  denial of service, not a bypass.
+- **Admins of the gated repository** can change the ruleset or the environment, so App mode doesn't
+  protect against them.
+- **If the key leaks,** revoke it and generate a new one in the App's settings.
+
 ## Security model and known limits
 
 **Collection runs pull request code**: the repository's tests, and in this repository the Ascout
@@ -99,9 +179,8 @@ trust itself, from the trusted event:
   in a maintainer's PR runs during collection like any other code. Dependabot and other bots are
   never trusted.
 - **The check name is not exclusive.** A job a PR adds to its own workflow can create a check run
-  with the same name through the GitHub Actions app. Hard, tamper-proof gating needs a dedicated
-  GitHub App, which is designed (`specs/017-unified-assurance/C1_GITHUB_APP_GATE_DESIGN.md`) and not
-  built.
+  with the same name through the GitHub Actions app. GitHub App mode (above) closes this. It is on
+  `main` but not in a release, and it waits for a live proof.
 - **Several open PRs from one branch are ambiguous**, so the publisher annotates none of them.
 - **Honest collection can't be green under the default policy.** Review without a model and
   Gitleaks on a clean scan both exit 4. A repository that wants a pass on tests alone has to say so in
