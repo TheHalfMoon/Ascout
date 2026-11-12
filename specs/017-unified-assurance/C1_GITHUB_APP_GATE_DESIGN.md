@@ -243,6 +243,27 @@ Setting only some of them is a configuration error: refuse with exit 2 and post 
 2. Whether to register an App for this repository and pin its check, after C1c's proof.
 3. Whether to require environment reviewers for the publish job, given that it runs on every PR.
 
+## As built
+
+- **C1a (#728):**
+  - App mode lives in `src/github/app-auth.ts` and `src/github/publish-run.ts`.
+  - The entry point is `src/github/publish-cli.ts`, built to `dist/github/publish-cli.js`. It always
+    runs; there is no entry detection.
+  - `ascout pr-publish` calls the same code.
+  - Ascout's own PR check reports every changed line and branch exercised.
+- **C1b:**
+  - The template is `docs/examples/ascout-pr-publish-app.yml`. It runs a pinned, digest-checked
+    release.
+  - The lint is `tests/github-workflow-lint.test.ts`. Only the publish workflows may hold the key. A
+    key-bearing workflow uses no package manager, only pinned `actions/checkout`, `setup-node`, and
+    `download-artifact`, `workflow_run` alone as its trigger, and no `${{ }}` inside a script. No
+    workflow uses `pull_request_target`.
+  - The setup guide is in `docs/GITHUB_INTEGRATION.md`, under "GitHub App mode".
+  - A packed release tarball runs `package/dist/github/publish-cli.js` with no `node_modules`
+    (checked by hand).
+- **C1c: not done.** It needs a test App the founder registers. The template also needs a release that
+  includes `publish-cli.js`.
+
 ## Review record
 
 - **Revision 1:** independent AI review (subagent). It confirmed the core mechanism against GitHub's
