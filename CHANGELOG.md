@@ -21,6 +21,9 @@ On `main`, not in any release.
   your own GitHub App, so a ruleset can require it from that App alone. It ships with a
   dependency-free entry point, `dist/github/publish-cli.js`, a hardened workflow template, and a
   setup guide. It is not yet proven live.
+- MCP (E11a): two read-only tools. `ascout_policy` reports the team policy in the working tree.
+  `ascout_last_check` reports what the newest completed check run recorded, and whether its
+  recorded source state equals the working tree. Both have assurance `NONE`.
 
 ## 0.2.0 (2026-11-10)
 

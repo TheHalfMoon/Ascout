@@ -8,12 +8,14 @@ import {
   type CommandResultV1,
 } from "../command-functions.js";
 import { TEST_PLAN_DEFAULT_PROFILE } from "../assurance/test/test-plan-command.js";
+import { computeLastCheckToolV1, computePolicyToolV1 } from "./read-tools.js";
 
 /**
  * E8 part one: a local MCP server on stdio (specs/017-unified-assurance/E8_MCP_E2E_DESIGN.md).
  * Newline-framed JSON-RPC 2.0, a hand-written subset, with no socket or listener. The repository
  * root and the Gitleaks path are fixed when the server starts. Tools take no arguments, run one at
- * a time, and none runs repository code. Only framed messages go to `output`; logs go to `log`.
+ * a time, and none runs repository code. E11a added two read-only tools (ascout_policy and
+ * ascout_last_check). Only framed messages go to `output`; logs go to `log`.
  */
 /** Kept equal to package.json "version" by tests/mcp-server.test.ts. */
 export const ASCOUT_PACKAGE_VERSION = "0.2.0";
@@ -27,6 +29,8 @@ export const MCP_TOOL_LIMITS_MS = Object.freeze({
   ascout_doctor: 60_000,
   ascout_review: 120_000,
   ascout_security: 600_000,
+  ascout_policy: 5_000,
+  ascout_last_check: 60_000,
 });
 type ToolName = keyof typeof MCP_TOOL_LIMITS_MS;
 
@@ -36,13 +40,16 @@ const TOOLS: readonly { name: ToolName; description: string }[] = [
   { name: "ascout_security", description: "Ascout security. Runs the pinned Gitleaks only if the server was started with ASCOUT_GITLEAKS_PATH set." },
   { name: "ascout_doctor", description: "Ascout doctor: a diagnostic of the repository and discovered project. Runs no task." },
   { name: "ascout_test_plan", description: "Ascout test plan for the default profile. A plan, not a result: it runs nothing." },
+  { name: "ascout_policy", description: "Ascout team policy as it stands in this working tree (.github/ascout-policy.json). Configuration, not verification: the publisher reads the default branch's copy." },
+  { name: "ascout_last_check", description: "What the newest completed `ascout check` run recorded, and whether its recorded source state equals the working tree now. A record on disk, never re-verified: assurance is always NONE." },
 ];
 
 export type McpAssuranceV1 = "INCOMPLETE" | "FINDINGS" | "DRIFT" | "COMPLETE" | "NONE";
 
 /** The only summary an agent should act on. A plan or a diagnostic is never COMPLETE. */
 export function assuranceForV1(tool: ToolName, exitCode: number): McpAssuranceV1 {
-  if (tool === "ascout_test_plan" || tool === "ascout_doctor") return "NONE";
+  // A plan, a diagnostic, configuration, or a record on disk is never verification.
+  if (tool === "ascout_test_plan" || tool === "ascout_doctor" || tool === "ascout_policy" || tool === "ascout_last_check") return "NONE";
   if (exitCode === 1) return "FINDINGS";
   if (exitCode === 3) return "DRIFT";
   if (exitCode === 0) return "COMPLETE";
@@ -91,6 +98,8 @@ export function serveMcpV1(options: McpServerOptionsV1): Promise<number> {
           result.kind === "report" ? { ...result, report: result.report.report } : result);
       case "ascout_doctor": return Promise.resolve(computeDoctorV1(options.root));
       case "ascout_test_plan": return Promise.resolve(computeTestPlanV1(TEST_PLAN_DEFAULT_PROFILE));
+      case "ascout_policy": return Promise.resolve(computePolicyToolV1(options.root));
+      case "ascout_last_check": return Promise.resolve(computeLastCheckToolV1(options.root));
     }
   };
   const runTool = options.runTool ?? defaultRunTool;
