@@ -14,6 +14,11 @@ const ALLOWED_ACTIONS = new Set(["actions/checkout", "actions/setup-node", "acti
 const VERIFY_LINE = 'echo "${ASCOUT_SHA256}  $RUNNER_TEMP/ascout.tgz" | sha256sum --check --strict -';
 const PUBLISH_LINE ='node "$RUNNER_TEMP/package/dist/github/publish-cli.js" "$RUNNER_TEMP/evidence/ascout-pr-evidence.json"';
 
+/** A workflow's text with line endings normalized, so a CRLF checkout (Windows) reads the same. */
+function readWorkflow(file: string): string {
+  return readFileSync(file, "utf8").split(String.fromCharCode(13) + NL).join(NL);
+}
+
 function workflowFiles(): string[] {
   const dirs = [join(ROOT, ".github", "workflows"), join(ROOT, "docs", "examples")];
   return dirs.flatMap((dir) => readdirSync(dir).filter((name) => /\.ya?ml$/u.test(name)).map((name) => join(dir, name)));
@@ -84,7 +89,7 @@ function stepText(text: string, action: string): string {
 
 describe("every workflow", () => {
   for (const file of workflowFiles()) {
-    const text = readFileSync(file, "utf8");
+    const text = readWorkflow(file);
     it(`${basename(file)}: never uses pull_request_target, toJSON(secrets), or secrets: inherit`, () => {
       expect(text).not.toMatch(/pull_request_target|toJSON\(\s*secrets\s*\)|secrets:\s*inherit/u);
     });
@@ -95,13 +100,13 @@ describe("workflows that can hold the GitHub App key", () => {
   const files = workflowFiles();
 
   it("the template exists, and only the publish workflows may mention the key", () => {
-    const holders = files.filter((file) => holdsAppKey(readFileSync(file, "utf8"))).map((file) => basename(file));
+    const holders = files.filter((file) => holdsAppKey(readWorkflow(file))).map((file) => basename(file));
     expect(holders).toContain("ascout-pr-publish-app.yml");
     for (const name of holders) expect(KEY_FILES.has(name)).toBe(true);
   });
 
   for (const file of files) {
-    const text = readFileSync(file, "utf8");
+    const text = readWorkflow(file);
     if (!holdsAppKey(text)) continue;
     const name = basename(file);
 
