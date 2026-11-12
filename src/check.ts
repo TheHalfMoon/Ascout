@@ -1394,16 +1394,26 @@ export function emptyRelatedWideningPlanV1(
   return plan.state === "planned" ? plan : null;
 }
 
-/** True only when the Vitest machine-result file is absent; anything present, valid or not, is not. */
-export function vitestMachineResultAbsent(runId: string, runPath: string, plan: Pick<PlannedVitestTask, "machineResultPath">): boolean {
+/**
+ * True when the narrowed Vitest pass selected no test: its machine result is absent, or it is a
+ * regular file of bounded size whose total test count is exactly 0. Real Vitest writes a zero-test
+ * result and an empty LCOV file; anything else (malformed, oversized, any test counted) is false.
+ */
+export function vitestSelectedNoTest(runId: string, runPath: string, plan: Pick<PlannedVitestTask, "machineResultPath">): boolean {
   if (plan.machineResultPath === null) return false;
+  let text: string;
   try {
-    lstatSync(join(runPath, runRelativeArtifactPath(runId, plan.machineResultPath)));
-    return false;
+    const path = join(runPath, runRelativeArtifactPath(runId, plan.machineResultPath));
+    const stat = lstatSync(path);
+    if (!stat.isFile() || stat.size > VITEST_ZERO_RESULT_MAX_BYTES) return false;
+    text = readFileSync(path, "utf8");
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === "ENOENT";
   }
+  return observedSelectedTestCount(text) === 0;
 }
+
+const VITEST_ZERO_RESULT_MAX_BYTES = 1024 * 1024;
 
 /**
  * The full pass replaces a narrowed pass that selected no test. The task's result is the full
@@ -1913,7 +1923,8 @@ async function runCheckWithinCancellation(
                 );
           let finalExecuted = firstExecuted;
 
-          // A narrowed Vitest pass that finds no related test exits 0 and writes no machine result.
+          // A narrowed Vitest pass that finds no related test exits 0 with a zero-test machine result
+          // and an empty LCOV file (or, for some setups, no machine result at all).
           // That is a selection that observed nothing, not altered evidence, so it gets the one
           // full pass that a coverage-relation gap gets, and the task is judged on that pass. A full
           // pass without evidence is still ERROR, and malformed evidence never widens.
@@ -1924,7 +1935,7 @@ async function runCheckWithinCancellation(
             testPlan.state === "planned" &&
             testPlan.selectionMode === "native_related" &&
             !(discovery.jsTestRunner.state === "resolved" && discovery.jsTestRunner.value === "jest") &&
-            vitestMachineResultAbsent(runId, runDir.run_path, testPlan as PlannedVitestTask)
+            vitestSelectedNoTest(runId, runDir.run_path, testPlan as PlannedVitestTask)
           ) {
             const widerPlan = emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planVitestTask({
               repositoryRoot: root,
