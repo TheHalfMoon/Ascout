@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { emptyRelatedWideningPlanV1, runCheck, vitestMachineResultAbsent } from "../src/check.js";
+import { emptyRelatedWideningPlanV1, runCheck, vitestSelectedNoTest } from "../src/check.js";
 import type { GitChangedFile } from "../src/git.js";
 import { validateReceiptSemantics } from "../src/receipt/model.js";
 import { POST_RUN_EXERCISE_GAP_TRIGGER } from "../src/selection.js";
@@ -23,7 +23,7 @@ function run(root: string, file: string, argv: readonly string[]): void {
 }
 
 /** related: what the narrowed pass does; full: what the full pass does. */
-type PassBehavior = "nothing" | "valid" | "malformed" | "fail-nothing" | "fail" | "hidden-failure" | "json-no-lcov";
+type PassBehavior = "nothing" | "zero" | "zero-but-counted" | "valid" | "malformed" | "fail-nothing" | "fail" | "hidden-failure" | "json-no-lcov";
 
 function fixture(related: PassBehavior, full: PassBehavior, changed: "script" | "declaration" = "script"): string {
   const root = mkdtempSync(join(tmpdir(), "ascout-empty-related-"));
@@ -48,6 +48,10 @@ if (behavior === "nothing") { process.stdout.write("No test files found, exiting
 if (behavior === "fail-nothing") { process.stdout.write("boom\\n"); process.exit(1); }
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.mkdirSync(coverageDirectory, { recursive: true });
+// What real Vitest writes when related selection finds no test: a zero-test result and an empty LCOV.
+if (behavior === "zero") { fs.writeFileSync(outputPath, JSON.stringify({ numTotalTestSuites: 0, numTotalTests: 0, success: true, testResults: [] })); fs.writeFileSync(path.join(coverageDirectory, "lcov.info"), ""); process.exit(0); }
+// A result claiming tests ran, with empty coverage: not an empty selection, so no widening.
+if (behavior === "zero-but-counted") { fs.writeFileSync(outputPath, JSON.stringify({ numTotalTests: 3, success: true, testResults: [] })); fs.writeFileSync(path.join(coverageDirectory, "lcov.info"), ""); process.exit(0); }
 if (behavior === "malformed") { fs.writeFileSync(outputPath, "{not json"); process.exit(0); }
 const failing = behavior === "fail" || behavior === "hidden-failure";
 const result = failing
@@ -91,6 +95,19 @@ async function check(related: PassBehavior, full: PassBehavior, changed: "script
 }
 
 describe("check: a narrowed Vitest pass that selects no test", () => {
+  it("widens what real Vitest writes for an empty selection: a zero-test result and empty LCOV", async () => {
+    const { receipt, test } = await check("zero", "valid");
+    expect(test).toMatchObject({ status: "PASS", reason_code: null, exit_code: 0 });
+    expect(receipt.selection.passes.map((pass) => pass.mode)).toEqual(["native_related", "full"]);
+    expect(receipt.selection.widen_triggers).toEqual([POST_RUN_EXERCISE_GAP_TRIGGER]);
+  });
+
+  it("never widens a result that counts tests, even with empty coverage", async () => {
+    const { receipt, test } = await check("zero-but-counted", "valid");
+    expect(test).toMatchObject({ status: "ERROR", reason_code: "vitest_evidence_invalid" });
+    expect(receipt.selection.passes).toHaveLength(1);
+  });
+
   it("widens to one full pass, and judges the test task on that pass", async () => {
     const { receipt, test } = await check("nothing", "valid");
     expect(test.status).toBe("PASS");
@@ -163,7 +180,29 @@ describe("the empty-related widening helpers", () => {
     expect(seen).toEqual([["scripts/release.mjs"]]);
   });
 
+  it("reads only a bounded regular file, and calls only an absent or zero-test result empty", () => {
+    const runId = "001794514710406-cb9579b26cab";
+    const runPath = mkdtempSync(join(tmpdir(), "ascout-zero-result-"));
+    const plan = { machineResultPath: `.ascout/runs/${runId}/raw/test/vitest-results.json` };
+    const file = join(runPath, "raw", "test", "vitest-results.json");
+    try {
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(true); // absent
+      mkdirSync(file, { recursive: true });
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(false); // a directory, not a file
+      rmSync(file, { recursive: true });
+      writeFileSync(file, JSON.stringify({ numTotalTests: 0, pad: "x".repeat(1024 * 1024) }));
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(false); // oversized
+      writeFileSync(file, JSON.stringify({ numTotalTests: 0, testResults: [] }));
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(true);
+      writeFileSync(file, JSON.stringify({ numTotalTests: 2, testResults: [] }));
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(false);
+      expect(vitestSelectedNoTest(runId, runPath, { machineResultPath: "elsewhere/vitest-results.json" })).toBe(false);
+    } finally {
+      rmSync(runPath, { recursive: true, force: true });
+    }
+  });
+
   it("never calls a machine result absent when the plan has no machine-result path", () => {
-    expect(vitestMachineResultAbsent("001-abc", tmpdir(), { machineResultPath: null })).toBe(false);
+    expect(vitestSelectedNoTest("001-abc", tmpdir(), { machineResultPath: null })).toBe(false);
   });
 });
