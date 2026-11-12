@@ -1,4 +1,4 @@
-Last updated: 2026-11-11 Asia/Riyadh · Branch: main
+Last updated: 2026-11-12 Asia/Riyadh · Branch: main
 
 ## Where Ascout stands
 
@@ -37,7 +37,30 @@ Ascout v0.2.0 is released on GitHub: https://github.com/TheHalfMoon/Ascout/relea
 
 A whole-project security review found no critical issues. All high and medium findings and most low findings are fixed (PRs #667–#696); one is documented as a known limit (README, "Limits of the source fingerprint"). Two items remain: statement-level coverage, which needs a receipt version change, and repository settings (a `main` ruleset and Dependabot alerts), which are the owner's to change.
 
+### Community-first program (directive of 2026-11-10): status 2026-11-12
+
+Everything in the directive that needed no founder decision is merged into `main` after exact-head CI. None of it is in a release yet.
+
+- **Done:**
+  - #714 merged;
+  - the branding audit and the identity guard (#715, #720);
+  - the customer-run GitHub PR integration (#716–#718);
+  - team policy (#719);
+  - BYOAI design (#722), E10a local-review hardening (#723), and E10b OpenAI-compatible local providers (#724);
+  - competitor research (#725);
+  - the paid-offering design proposal (#726);
+  - the C1 GitHub App gate: design (#727), App mode (#728), and the hardened template, lint, and guide (#729);
+  - safe MCP expansion: design and two read-only tools (#730).
+- **How each one was checked:**
+  - positive and negative tests, and deliberate breaks;
+  - an independent AI review, which is advisory and never human R1;
+  - 14/14 exact-head CI;
+  - for code, Ascout's own PR check reporting every changed line and branch exercised.
+- **Waiting on the founder:** see below. No release, npm publication, billing, or hosted service was created.
+
 ### Open decisions for the founder
+
+- **A release.** Everything above is on `main` but not in a release. v0.2.0 has none of the PR integration, team policy, App mode, E10, or E11. Publishing a release needs the founder's explicit authorization. C1's App-mode template also needs a release that contains `dist/github/publish-cli.js`.
 
 - FD-4 for E7 containment.
 - FD-8 for the historical plan PR #651, and ratification of #653.
@@ -45,8 +68,8 @@ A whole-project security review found no critical issues. All high and medium fi
 - Human R1 of the reconciled adoption packet (#653), and optionally of the E8 packets (#703, #707–#709), which merged on the founder's go-ahead without a line-level R1.
 - Disposition of the older open planning PRs (#577–#635).
 - MCP (E11b): whether host-mediated consent through MCP elicitation counts as "a person, per invocation" for running repository code under FD-4. If not, running code stays CLI-only until T1.
-- C1 GitHub App gate: to finish C1c, register a test GitHub App and repository for the live proof. Separately, authorize a release that contains `dist/github/publish-cli.js`, which the App-mode template needs.
-- Paid offering (`docs/PAID_OFFERING_DESIGN.md`): the principles, what stays free, where C1 belongs, the pricing model, the licensing boundary, names, and maintenance ownership. A payment processor is a separate, later decision.
+- C1 GitHub App gate: to finish C1c, register a test GitHub App and repository for the live proof, following the guide in `docs/GITHUB_INTEGRATION.md`. App mode must not be described as available until then.
+- Paid offering (`docs/PAID_OFFERING_DESIGN.md`): the principles, what stays free, the pricing model, the licensing boundary, names, and maintenance ownership. Decision 3 is made: C1 is free core. A payment processor is a separate, later decision.
 - BYOAI (E10 design): whether to allow remote egress (E10c), delegated review (E10d), and AI review in PRs (E10f), and whether to rename `authorized_by_founder` to `operator_authorized`.
 - GitHub integration: whether to set the repository variable `ASCOUT_PR_TRUSTED_ACTORS`. It is empty, so no PR evidence can turn the Ascout check green. A related choice is whether to add a team policy for this repository; without one, every check is required, and review and security report incomplete (exit 4) here.
 
