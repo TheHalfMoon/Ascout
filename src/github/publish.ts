@@ -7,6 +7,7 @@ import {
   isOwnSummaryCommentV1,
   summaryCommentV1,
   validatePrEvidenceV1,
+  type PrEvidenceV1,
   type PublishContextV1,
 } from "./pr-evidence.js";
 import { DEFAULT_PR_POLICY, POLICY_MAX_BYTES, parsePrPolicyV1, type PrPolicyV1 } from "./policy.js";
@@ -45,6 +46,8 @@ export interface PublishInputV1 {
    * file means every check is required; an unreadable or invalid one refuses to publish.
    */
   readonly policyPath?: string;
+  /** C1: the gate pin status, when publishing as a customer-registered GitHub App. */
+  readonly gatePin?: "pinned" | "not_pinned" | "unknown";
   readonly fetch?: typeof fetch;
 }
 
@@ -94,27 +97,46 @@ export function isTrustedActorV1(login: string, trusted: readonly string[]): boo
   return trusted.some((name) => name.toLowerCase() === login.toLowerCase());
 }
 
-export async function publishPrEvidenceV1(input: PublishInputV1): Promise<PublishOutcomeV1> {
-  if (!REPO.test(input.repository) || !REPO.test(input.headRepository)) return { kind: "refused", reason: "invalid repository name" };
-  if (!SHA.test(input.headSha)) return { kind: "refused", reason: "invalid head sha" };
-  if (input.headBranch.length === 0 || input.headBranch.length > 255 || /[\u0000-\u001f]/u.test(input.headBranch)) return { kind: "refused", reason: "invalid head branch" };
+export type PreparedPublishV1 =
+  | {
+      readonly ok: true;
+      readonly evidence: PrEvidenceV1;
+      readonly policy: { readonly required_checks: PrPolicyV1["required_checks"]; readonly source: PrPolicyV1["source"] };
+      readonly detailsUrl: URL;
+    }
+  | { readonly ok: false; readonly reason: string };
+
+/**
+ * Every check that needs no network: names, the head commit, the bundle, and the policy. The App
+ * path runs it before minting a token, so a bad input never costs a credential.
+ */
+export function preparePublishV1(input: Pick<PublishInputV1, "repository" | "headRepository" | "headSha" | "headBranch" | "detailsUrl" | "bundlePath" | "policyPath">): PreparedPublishV1 {
+  if (!REPO.test(input.repository) || !REPO.test(input.headRepository)) return { ok: false, reason: "invalid repository name" };
+  if (!SHA.test(input.headSha)) return { ok: false, reason: "invalid head sha" };
+  if (input.headBranch.length === 0 || input.headBranch.length > 255 || [...input.headBranch].some((char) => char.charCodeAt(0) < 0x20)) return { ok: false, reason: "invalid head branch" };
+  if (!URL.canParse(input.detailsUrl)) return { ok: false, reason: "details URL is not a URL" };
   const detailsUrl = new URL(input.detailsUrl);
-  if (detailsUrl.protocol !== "https:") return { kind: "refused", reason: "details URL must use https" };
+  if (detailsUrl.protocol !== "https:") return { ok: false, reason: "details URL must use https" };
 
   let text: string;
   try {
     const raw = readFileSync(input.bundlePath);
-    if (raw.byteLength > PR_EVIDENCE_MAX_BYTES) return { kind: "refused", reason: "bundle is larger than its limit" };
+    if (raw.byteLength > PR_EVIDENCE_MAX_BYTES) return { ok: false, reason: "bundle is larger than its limit" };
     text = raw.toString("utf8");
   } catch {
-    return { kind: "refused", reason: "bundle could not be read" };
+    return { ok: false, reason: "bundle could not be read" };
   }
   const validated = validatePrEvidenceV1(text);
-  if (!validated.ok) return { kind: "refused", reason: `bundle rejected: ${validated.reason}` };
-  const evidence = validated.evidence;
+  if (!validated.ok) return { ok: false, reason: `bundle rejected: ${validated.reason}` };
   const loaded = loadPrPolicyV1(input.policyPath);
-  if (!loaded.ok) return { kind: "refused", reason: loaded.reason };
-  const policy = { required_checks: loaded.policy.required_checks, source: loaded.policy.source };
+  if (!loaded.ok) return { ok: false, reason: loaded.reason };
+  return { ok: true, evidence: validated.evidence, policy: { required_checks: loaded.policy.required_checks, source: loaded.policy.source }, detailsUrl };
+}
+
+export async function publishPrEvidenceV1(input: PublishInputV1): Promise<PublishOutcomeV1> {
+  const prepared = preparePublishV1(input);
+  if (!prepared.ok) return { kind: "refused", reason: prepared.reason };
+  const { evidence, policy, detailsUrl } = prepared;
 
   const origin = apiOriginV1(input.apiUrl);
   const doFetch = input.fetch ?? fetch;
@@ -162,6 +184,7 @@ export async function publishPrEvidenceV1(input: PublishInputV1): Promise<Publis
       && isTrustedActorV1(pr.user?.login ?? "", input.trustedActors),
     details_url: detailsUrl.toString(),
     policy,
+    ...(input.gatePin === undefined ? {} : { gate_pin: input.gatePin }),
   };
   if (!evidenceMatchesHeadV1(evidence, context)) return { kind: "refused", reason: "the evidence describes a different commit than the pull request head" };
 

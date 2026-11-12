@@ -2,9 +2,8 @@
 
 **Status:** design, revision 2, for review. It authorizes no implementation.
 
-- Implementation waits for **founder decision 3** in `docs/PAID_OFFERING_DESIGN.md`: does C1 live
-  in the free core or in a separate paid package? The design is the same either way; only where the
-  code lives changes.
+- **Founder decision 3 (2026-11-12): C1 lives in the free Apache-2.0 core.** C1a, the code, is
+  under way.
 - Registering an App for this repository is an account action the founder takes.
 - Model reviews of this document are advisory and are not human R1.
 
@@ -123,8 +122,10 @@ C1 splits the work:
 
 ### 4. Minting the token
 
-App mode turns on when both `ASCOUT_APP_CLIENT_ID` and `ASCOUT_APP_PRIVATE_KEY` are set. They are
-set only in the environment-bound job.
+App mode turns on when all three of `ASCOUT_APP_ID`, `ASCOUT_APP_CLIENT_ID`, and
+`ASCOUT_APP_PRIVATE_KEY` are set. They are set only in the environment-bound job. Before minting
+anything, the publisher validates the bundle, the policy, and the event values, so a bad input never
+costs a credential.
 
 1. **Sign a JWT** (RS256) with `node:crypto`:
    - `iss` is the App's client ID, which GitHub prefers;
@@ -138,15 +139,22 @@ set only in the environment-bound job.
    hour and reaches only this repository.
 4. **Mask before use.** Emit `::add-mask::` for the JWT and the installation token as soon as they
    exist; GitHub masks only the stored secret itself. Never log request headers, even with
-   `ACTIONS_STEP_DEBUG` on. The key, JWT, and token join the run's redaction set, and every error
-   names the step that failed, never a value.
+   `ACTIONS_STEP_DEBUG` on. Every error names the step that failed, never a value. The mask lines go
+   to standard output, where the runner reads workflow commands, so **the publish step's standard
+   output must go straight to the runner**: never captured, redirected, or piped. A token that isn't
+   token-shaped (for example, one containing a newline) is refused, so it can't inject a workflow
+   command.
 5. **Publish exactly as today, with that token.** The bot login used to find Ascout's summary comment
-   becomes `<app-slug>[bot]`.
+   becomes `<app-slug>[bot]`. An API failure is a refusal (exit 2), never a crash.
+6. **Revoke the token** (`DELETE /installation/token`) once publishing finishes, whether it succeeded
+   or not. This is best effort; a failed revoke changes nothing about the result.
 
 ### 5. Reporting whether the pin is in place
 
 In App mode, the publisher reads the default branch's effective **ruleset** rules with
-`GET /repos/{owner}/{repo}/rules/branches/{branch}`, which needs only Metadata read. The summary then
+`GET /repos/{owner}/{repo}/rules/branches/{branch}` (100 per page, each branch path segment encoded on
+its own), which needs only Metadata read. That endpoint returns only active rules, not rules in evaluate
+mode. If a later page exists and the first page has no match, the answer is "unknown". The summary then
 says one of:
 
 - **"Pinned in a ruleset to this App"**, when a rule requires **Ascout verification** from this App's
@@ -160,8 +168,8 @@ This is a warning, never a failure, and never a false "pinned".
 
 ### 6. Without an App
 
-With neither variable set, nothing changes: the current publish job with `GITHUB_TOKEN`. Setting only
-one of the two is a configuration error: refuse with exit 2 and post nothing.
+With none of the three variables set, nothing changes: the current publish job with `GITHUB_TOKEN`.
+Setting only some of them is a configuration error: refuse with exit 2 and post nothing.
 
 ## Threats and how C1 answers them
 
@@ -231,7 +239,7 @@ one of the two is a configuration error: refuse with exit 2 and post nothing.
 
 ## Open decisions for the founder
 
-1. Decision 3 from the paid-offering design: does C1 live in the free core or in a paid package?
+1. ~~Decision 3: free core or paid package?~~ Decided 2026-11-12: free core.
 2. Whether to register an App for this repository and pin its check, after C1c's proof.
 3. Whether to require environment reviewers for the publish job, given that it runs on every PR.
 

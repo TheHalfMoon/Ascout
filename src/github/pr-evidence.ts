@@ -202,7 +202,18 @@ export interface PublishContextV1 {
     readonly required_checks: readonly CheckId[];
     readonly source: "default" | "file";
   };
+  /**
+   * C1: when published as a customer-registered GitHub App, whether the default branch's rulesets
+   * require this check from that App. Absent when publishing with GITHUB_TOKEN.
+   */
+  readonly gate_pin?: "pinned" | "not_pinned" | "unknown";
 }
+
+const GATE_PIN_NOTE = {
+  pinned: "Gate: pinned in a ruleset to this GitHub App, so a same-named check from any other source does not satisfy it. Bypass actors and classic branch protection were not checked.",
+  not_pinned: "Gate: **not pinned in any ruleset** to this GitHub App. A check with the same name from another source may satisfy branch protection.",
+  unknown: "Gate: whether a ruleset pins this check to this GitHub App could not be read.",
+} as const;
 
 export type PolicyVerdictV1 = "PASS" | "FAIL" | "INCOMPLETE";
 
@@ -290,7 +301,7 @@ interface VerdictViewV1 {
 
 const CAPPED_LABEL = "needs a maintainer: this evidence came from pull request code that is not trusted to vouch for a pass";
 
-function verdictViewV1(evidence: PrEvidenceV1, view: Pick<PublishContextV1, "evidence_trusted" | "policy">): VerdictViewV1 {
+function verdictViewV1(evidence: PrEvidenceV1, view: Pick<PublishContextV1, "evidence_trusted" | "policy" | "gate_pin">): VerdictViewV1 {
   // With a policy, only required checks must complete; without one, every check must.
   const evaluation = view.policy === undefined ? undefined : evaluateRequiredChecksV1(evidence, view.policy.required_checks);
   const reported = evaluation === undefined ? CONCLUSION_BY_STATE[evidence.overall.state] : CONCLUSION_BY_VERDICT[evaluation.verdict];
@@ -304,6 +315,7 @@ function verdictViewV1(evidence: PrEvidenceV1, view: Pick<PublishContextV1, "evi
     const reasons = evaluation.reasons.length > 0 ? ` (${evaluation.reasons.map((reason) => neutralizeMarkdownV1(reason, 120)).join("; ")})` : "";
     notes.push(`Team policy (${source}): **${evaluation.verdict}**${reasons}.`);
   }
+  if (view.gate_pin !== undefined) notes.push(GATE_PIN_NOTE[view.gate_pin]);
   const rule = view.policy === undefined
     ? "Exit codes: 0 complete, 1 findings, 2 error, 3 source changed, 4 incomplete, which is never a pass. Only 0 passes."
     : "Exit codes: 0 complete, 1 findings, 2 error, 3 source changed, 4 incomplete, never enough for a required check. A finding, error, or source change in any check always fails; every required check must be 0.";
@@ -352,7 +364,7 @@ export function checkRunFromEvidenceV1(evidence: PrEvidenceV1, context: PublishC
  * One comment per PR, found again by its marker and updated in place, so it never piles up or goes
  * stale. It says exactly what the check run says, including the cap on untrusted evidence.
  */
-export function summaryCommentV1(evidence: PrEvidenceV1, view: Pick<PublishContextV1, "evidence_trusted" | "policy">): string {
+export function summaryCommentV1(evidence: PrEvidenceV1, view: Pick<PublishContextV1, "evidence_trusted" | "policy" | "gate_pin">): string {
   const unlocated = evidence.findings.filter((finding) => finding.path === null || finding.start_line === null);
   const verdict = verdictViewV1(evidence, view);
   return [

@@ -35,8 +35,7 @@ import {
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
 import { serveMcpV1 } from "./mcp/server.js";
 import { collectPrEvidenceV1 } from "./github/collect.js";
-import { publishPrEvidenceV1 } from "./github/publish.js";
-import { DEFAULT_POLICY_PATH } from "./github/policy.js";
+import { runPrPublishMainV1 } from "./github/publish-run.js";
 import {
   computeDoctorV1,
   computeReviewV1,
@@ -528,34 +527,8 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       return outcome.receipt.summary.exit_code;
     }
     if (invocation.command === "pr-publish") {
-      // Privileged GitHub publish step. Every location comes from the trusted workflow event, set
-      // in the environment by the workflow; the bundle is untrusted and validated.
-      const env = process.env;
-      const required = (name: string): string => {
-        const value = env[name];
-        if (value === undefined || value === "") throw new Error(`${name} is not set`);
-        return value;
-      };
-      const outcome = await publishPrEvidenceV1({
-        bundlePath: invocation.bundlePath!,
-        repository: required("GITHUB_REPOSITORY"),
-        headSha: required("ASCOUT_PR_HEAD_SHA"),
-        headRepository: required("ASCOUT_PR_HEAD_REPOSITORY"),
-        headBranch: required("ASCOUT_PR_HEAD_BRANCH"),
-        detailsUrl: required("ASCOUT_PR_DETAILS_URL"),
-        token: required("GITHUB_TOKEN"),
-        apiUrl: env.GITHUB_API_URL || "https://api.github.com",
-        botLogin: env.ASCOUT_PR_BOT_LOGIN || "github-actions[bot]",
-        triggeringActor: env.ASCOUT_PR_TRIGGERING_ACTOR ?? "",
-        trustedActors: (env.ASCOUT_PR_TRUSTED_ACTORS ?? "").split(",").map((name) => name.trim()).filter((name) => name !== ""),
-        requiredBase: required("ASCOUT_PR_REQUIRED_BASE"),
-        ...(/^[1-9][0-9]{0,9}$/u.test(env.ASCOUT_PR_NUMBER ?? "") ? { prNumber: Number(env.ASCOUT_PR_NUMBER) } : {}),
-        // The policy comes from the publisher's own default-branch checkout, never from the PR.
-        policyPath: resolve(process.cwd(), DEFAULT_POLICY_PATH),
-      });
-      process.stdout.write(`${JSON.stringify(outcome)}
-`);
-      return outcome.kind === "published" ? 0 : outcome.kind === "stale" ? 3 : OPERATIONAL_ERROR_EXIT_CODE;
+      // Privileged GitHub publish step; the same dependency-free function the C1 App-mode job runs.
+      return await runPrPublishMainV1([invocation.bundlePath!], { env: process.env, cwd: process.cwd(), out: process.stdout, err: process.stderr });
     }
     if (invocation.command === "pr-evidence") {
       // The PR evidence bundle for the GitHub integration, as JSON on stdout. Runs the repository's
