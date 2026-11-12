@@ -180,6 +180,28 @@ describe("the empty-related widening helpers", () => {
     expect(seen).toEqual([["scripts/release.mjs"]]);
   });
 
+  it("reads only a bounded regular file, and calls only an absent or zero-test result empty", () => {
+    const runId = "001794514710406-cb9579b26cab";
+    const runPath = mkdtempSync(join(tmpdir(), "ascout-zero-result-"));
+    const plan = { machineResultPath: `.ascout/runs/${runId}/raw/test/vitest-results.json` };
+    const file = join(runPath, "raw", "test", "vitest-results.json");
+    try {
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(true); // absent
+      mkdirSync(file, { recursive: true });
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(false); // a directory, not a file
+      rmSync(file, { recursive: true });
+      writeFileSync(file, JSON.stringify({ numTotalTests: 0, pad: "x".repeat(1024 * 1024) }));
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(false); // oversized
+      writeFileSync(file, JSON.stringify({ numTotalTests: 0, testResults: [] }));
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(true);
+      writeFileSync(file, JSON.stringify({ numTotalTests: 2, testResults: [] }));
+      expect(vitestSelectedNoTest(runId, runPath, plan)).toBe(false);
+      expect(vitestSelectedNoTest(runId, runPath, { machineResultPath: "elsewhere/vitest-results.json" })).toBe(false);
+    } finally {
+      rmSync(runPath, { recursive: true, force: true });
+    }
+  });
+
   it("never calls a machine result absent when the plan has no machine-result path", () => {
     expect(vitestSelectedNoTest("001-abc", tmpdir(), { machineResultPath: null })).toBe(false);
   });
