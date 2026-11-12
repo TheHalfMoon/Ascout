@@ -23,6 +23,11 @@ export interface AppCredentialsV1 {
 export const APP_TOKEN_PERMISSIONS = Object.freeze({ checks: "write", pull_requests: "write", metadata: "read" });
 
 const MAX_RESPONSE_BYTES = 1024 * 1024;
+/**
+ * An installation token as GitHub issues it, including the longer ghs_<app>_<jwt> format. Anything
+ * else, such as a value with a newline that could inject a workflow command, is refused.
+ */
+const TOKEN_SHAPE = /^[A-Za-z0-9_.-]{1,4096}$/u;
 
 function base64url(value: Buffer | string): string {
   return Buffer.from(value).toString("base64url");
@@ -52,7 +57,7 @@ export interface MintInstallationTokenInputV1 {
   readonly nowSeconds?: number;
 }
 
-async function requestJson(doFetch: typeof fetch, method: string, url: string, bearer: string, body?: unknown): Promise<{ status: number; json: unknown }> {
+async function requestJson(doFetch: typeof fetch, method: string, url: string, bearer: string, body?: unknown): Promise<{ status: number; json: unknown; morePages: boolean }> {
   const response = await doFetch(url, {
     method,
     redirect: "error",
@@ -66,14 +71,15 @@ async function requestJson(doFetch: typeof fetch, method: string, url: string, b
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   const text = await response.text();
-  if (Buffer.byteLength(text) > MAX_RESPONSE_BYTES) return { status: response.status, json: null };
+  const morePages = /rel="next"/u.test(response.headers.get("link") ?? "");
+  if (Buffer.byteLength(text) > MAX_RESPONSE_BYTES) return { status: response.status, json: null, morePages };
   let json: unknown = null;
   try {
     json = text === "" ? null : JSON.parse(text);
   } catch {
     json = null;
   }
-  return { status: response.status, json };
+  return { status: response.status, json, morePages };
 }
 
 /**
@@ -94,10 +100,10 @@ export async function mintInstallationTokenV1(input: MintInstallationTokenInputV
     const installation = await requestJson(doFetch, "GET", `${input.apiOrigin}/repos/${input.repository}/installation`, jwt);
     if (installation.status !== 200) return { ok: false, reason: `finding the App installation failed: HTTP ${installation.status}` };
     const found = installation.json as { id?: unknown; app_id?: unknown; app_slug?: unknown } | null;
-    if (found?.app_id !== input.credentials.appId) return { ok: false, reason: "the installation on this repository belongs to a different App" };
-    if (!Number.isSafeInteger(found.id) || typeof found.app_slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,99}$/u.test(found.app_slug)) {
+    if (found === null || typeof found !== "object" || !Number.isSafeInteger(found.id) || typeof found.app_slug !== "string" || !/^[a-z0-9][a-z0-9-]{0,99}$/u.test(found.app_slug)) {
       return { ok: false, reason: "the App installation response was malformed" };
     }
+    if (found.app_id !== input.credentials.appId) return { ok: false, reason: "the installation on this repository belongs to a different App" };
     const created = await requestJson(doFetch, "POST", `${input.apiOrigin}/app/installations/${String(found.id)}/access_tokens`, jwt, {
       repositories: [name],
       permissions: APP_TOKEN_PERMISSIONS,
@@ -105,7 +111,7 @@ export async function mintInstallationTokenV1(input: MintInstallationTokenInputV
     if (created.status !== 201) return { ok: false, reason: `creating the installation token failed: HTTP ${created.status}` };
     const token = (created.json as { token?: unknown; expires_at?: unknown } | null)?.token;
     const expiresAt = (created.json as { expires_at?: unknown } | null)?.expires_at;
-    if (typeof token !== "string" || token === "" || typeof expiresAt !== "string") return { ok: false, reason: "the installation token response was malformed" };
+    if (typeof token !== "string" || !TOKEN_SHAPE.test(token) || typeof expiresAt !== "string") return { ok: false, reason: "the installation token response was malformed" };
     input.mask(token);
     return { ok: true, token, botLogin: `${found.app_slug}[bot]`, expiresAt };
   } catch {
@@ -122,7 +128,9 @@ export type GatePinV1 = "pinned" | "not_pinned" | "unknown";
  */
 export async function readGatePinV1(input: { apiOrigin: string; repository: string; branch: string; token: string; appId: number; fetch?: typeof fetch }): Promise<GatePinV1> {
   try {
-    const rules = await requestJson(input.fetch ?? fetch, "GET", `${input.apiOrigin}/repos/${input.repository}/rules/branches/${encodeURIComponent(input.branch)}`, input.token);
+    // Each path segment is encoded on its own, so a branch like release/x stays release/x.
+    const branch = input.branch.split("/").map(encodeURIComponent).join("/");
+    const rules = await requestJson(input.fetch ?? fetch, "GET", `${input.apiOrigin}/repos/${input.repository}/rules/branches/${branch}?per_page=100`, input.token);
     if (rules.status !== 200 || !Array.isArray(rules.json)) return "unknown";
     const pinned = (rules.json as { type?: unknown; parameters?: { required_status_checks?: unknown } }[]).some((rule) =>
       rule?.type === "required_status_checks" &&
@@ -130,8 +138,21 @@ export async function readGatePinV1(input: { apiOrigin: string; repository: stri
       (rule.parameters.required_status_checks as { context?: unknown; integration_id?: unknown }[]).some(
         (check) => check?.context === CHECK_RUN_NAME && check.integration_id === input.appId,
       ));
-    return pinned ? "pinned" : "not_pinned";
+    // A matching rule may sit on a later page; without reading it, "not pinned" can't be claimed.
+    return pinned ? "pinned" : rules.morePages ? "unknown" : "not_pinned";
   } catch {
     return "unknown";
+  }
+}
+
+/**
+ * Revokes an installation token once publishing is done, so it can't be used for the rest of its
+ * hour. Best effort: a failure changes nothing about the published result.
+ */
+export async function revokeInstallationTokenV1(input: { apiOrigin: string; token: string; fetch?: typeof fetch }): Promise<boolean> {
+  try {
+    return (await requestJson(input.fetch ?? fetch, "DELETE", `${input.apiOrigin}/installation/token`, input.token)).status === 204;
+  } catch {
+    return false;
   }
 }

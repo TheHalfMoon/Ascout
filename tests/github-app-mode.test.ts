@@ -1,3 +1,4 @@
+import { execFileSync, spawnSync } from "node:child_process";
 import { generateKeyPairSync, verify } from "node:crypto";
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
@@ -53,6 +54,8 @@ interface FakeState {
   tokenBody: unknown;
   rulesStatus: number;
   rules: unknown;
+  rulesLink: string;
+  checkRunStatus: number;
   comments: { id: number; user: { login: string }; body: string }[];
   requests: { method: string; path: string; auth: string; body: unknown }[];
 }
@@ -69,6 +72,8 @@ const reset = (overrides: Partial<FakeState> = {}) => {
     tokenBody: { token: INSTALL_TOKEN, expires_at: "2026-11-12T12:00:00Z" },
     rulesStatus: 200,
     rules: [{ type: "required_status_checks", parameters: { required_status_checks: [{ context: "Ascout verification", integration_id: APP_ID }] } }],
+    rulesLink: "",
+    checkRunStatus: 201,
     comments: [],
     requests: [],
     ...overrides,
@@ -86,7 +91,12 @@ beforeAll(async () => {
       const send = (status: number, value: unknown) => { response.statusCode = status; response.end(JSON.stringify(value)); };
       if (path === "/repos/o/r/installation") return send(state.installStatus, { id: 77, app_id: state.appId, app_slug: state.slug });
       if (path === "/app/installations/77/access_tokens") return send(state.tokenStatus, state.tokenBody);
-      if (path === "/repos/o/r/rules/branches/main") return send(state.rulesStatus, state.rules);
+      if (path === "/repos/o/r/rules/branches/main" || path === "/repos/o/r/rules/branches/release/x") {
+        if (state.rulesLink !== "") response.setHeader("link", state.rulesLink);
+        return send(state.rulesStatus, state.rules);
+      }
+      if (request.method === "DELETE" && path === "/installation/token") { response.statusCode = 204; return response.end(); }
+      if (path === "/repos/o/r/check-runs" && state.checkRunStatus !== 201) return send(state.checkRunStatus, {});
       if (path === "/repos/o/r/pulls/7") return send(200, { number: 7, state: "open", user: { login: "maintainer" }, base: { ref: "main" }, head: { sha: HEAD, repo: { full_name: "o/r" } } });
       if (path === "/repos/o/r/check-runs") return send(201, { id: 99 });
       if (request.method === "GET" && path === "/repos/o/r/issues/7/comments") return send(200, state.comments);
@@ -141,6 +151,22 @@ describe("minting an installation token", () => {
     expect(JSON.stringify(result)).not.toContain(PEM.slice(40, 80));
   });
 
+  it("refuses a token that isn't token-shaped, such as one that would inject a workflow command", async () => {
+    reset({ tokenBody: { token: "ghs_x" + String.fromCharCode(10) + "::warning::injected", expires_at: "x" } });
+    expect(await mint()).toEqual({ ok: false, reason: "the installation token response was malformed" });
+  });
+
+  it("accepts GitHub's longer token format", async () => {
+    const longToken = `ghs_${APP_ID}_${"a".repeat(30)}.${"b".repeat(60)}.${"c-_".repeat(20)}`;
+    reset({ tokenBody: { token: longToken, expires_at: "x" } });
+    expect(await mint()).toMatchObject({ ok: true, token: longToken });
+  });
+
+  it("calls an empty installation response malformed, not a different App", async () => {
+    reset({ slug: null, appId: APP_ID });
+    expect(await mint()).toEqual({ ok: false, reason: "the App installation response was malformed" });
+  });
+
   it("refuses an unusable private key before any request", async () => {
     reset();
     const result = await mintInstallationTokenV1({ apiOrigin: origin, repository: "o/r", credentials: { ...credentials, privateKeyPem: "not a key" }, mask: () => undefined });
@@ -184,6 +210,26 @@ describe("reading whether the gate is pinned", () => {
   ])("is unknown on %s, never pinned", async (_label, overrides) => {
     reset(overrides as Partial<FakeState>);
     expect(await pin()).toBe("unknown");
+  });
+
+  it("finds the pin in any of several rulesets", async () => {
+    reset({ rules: [
+      { type: "required_status_checks", parameters: { required_status_checks: [{ context: "build", integration_id: 15368 }] } },
+      { type: "required_status_checks", parameters: { required_status_checks: [{ context: "Ascout verification", integration_id: APP_ID }] } },
+    ] });
+    expect(await pin()).toBe("pinned");
+  });
+
+  it("is unknown, not 'not pinned', when more rules sit on a later page", async () => {
+    reset({ rules: [{ type: "pull_request" }], rulesLink: '<https://api.github.com/x?page=2>; rel="next"' });
+    expect(await pin()).toBe("unknown");
+    expect(state.requests[0]!.path).toBe("/repos/o/r/rules/branches/main");
+  });
+
+  it("keeps a slashed branch name as path segments", async () => {
+    reset();
+    expect(await readGatePinV1({ apiOrigin: origin, repository: "o/r", branch: "release/x", token: INSTALL_TOKEN, appId: APP_ID })).toBe("pinned");
+    expect(state.requests[0]!.path).toBe("/repos/o/r/rules/branches/release/x");
   });
 
   it("is unknown when the API can't be reached", async () => {
@@ -233,6 +279,48 @@ describe("ascout pr-publish in App mode", () => {
     expect(state.comments).toHaveLength(1);
     // The private key never reaches any output.
     expect([...out, ...err].join(" ")).not.toContain(PEM.slice(40, 80));
+  });
+
+  it("shows the JWT and the token only in mask lines, never any line of the key, and revokes the token", async () => {
+    reset();
+    const { out, err } = await publish(appEnv());
+    const jwt = state.requests[0]!.auth.replace(/^Bearer /u, "");
+    const plain = [...out.filter((line) => !line.startsWith("::add-mask::")), ...err].join(String.fromCharCode(10));
+    expect(plain).not.toContain(jwt);
+    expect(plain).not.toContain(INSTALL_TOKEN);
+    for (const line of PEM.split(String.fromCharCode(10)).filter((l) => l.length > 20 && !l.startsWith("-----"))) {
+      expect([...out, ...err].join(" ")).not.toContain(line);
+    }
+    const last = state.requests[state.requests.length - 1]!;
+    expect(`${last.method} ${last.path} ${last.auth}`).toBe(`DELETE /installation/token Bearer ${INSTALL_TOKEN}`);
+  });
+
+  it("validates the bundle before minting, so a bad input never costs a credential", async () => {
+    reset();
+    const bad = join(scratch, "bad.json");
+    writeFileSync(bad, "{not json");
+    const out: string[] = [];
+    const code = await runPrPublishFromEnvV1({ bundlePath: bad, env: appEnv(), cwd: scratch, stdout: (line) => out.push(line), stderr: () => undefined });
+    expect(code).toBe(2);
+    expect(out.some((line) => line.startsWith("::add-mask::"))).toBe(false);
+    expect(state.requests).toEqual([]);
+  });
+
+  it("refuses a malformed details URL instead of crashing", async () => {
+    reset();
+    const { code, out } = await publish({ ...appEnv(), ASCOUT_PR_DETAILS_URL: "not a url" });
+    expect(code).toBe(2);
+    expect(JSON.parse(out[out.length - 1]!)).toEqual({ kind: "refused", reason: "details URL is not a URL" });
+    expect(state.requests).toEqual([]);
+  });
+
+  it("turns an API failure after minting into exit 2, and still revokes the token", async () => {
+    reset({ checkRunStatus: 500 });
+    const { code, out, err } = await publish(appEnv());
+    expect(code).toBe(2);
+    expect(JSON.parse(out[out.length - 1]!)).toMatchObject({ kind: "refused", reason: expect.stringContaining("HTTP 500") });
+    expect(err.join(" ")).not.toContain(INSTALL_TOKEN);
+    expect(state.requests.some((r) => r.method === "DELETE" && r.path === "/installation/token")).toBe(true);
   });
 
   it("finds the App's own summary comment again, so it updates instead of adding another", async () => {
@@ -290,6 +378,18 @@ describe("ascout pr-publish in App mode", () => {
   });
 });
 
+describe("the built entry point", () => {
+  it("runs as a program whether invoked with or without .js, and refuses missing configuration with exit 2", () => {
+    const outDir = join(resolve(__dirname, ".."), "node_modules", ".cache", "ascout-c1a");
+    execFileSync(process.execPath, [join(resolve(__dirname, ".."), "node_modules", "typescript", "bin", "tsc"), "-p", join(resolve(__dirname, ".."), "tsconfig.json"), "--outDir", outDir], { stdio: "pipe" });
+    for (const entry of [join(outDir, "github", "publish-cli.js"), join(outDir, "github", "publish-cli")]) {
+      const result = spawnSync(process.execPath, [entry, "bundle.json"], { encoding: "utf8", env: { PATH: process.env.PATH ?? "", SystemRoot: process.env.SystemRoot ?? "" } });
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain("GITHUB_REPOSITORY");
+    }
+  }, 300_000);
+});
+
 describe("the publish entry point installs nothing", () => {
   it("imports only Node built-ins and Ascout's own GitHub modules", () => {
     const root = resolve(__dirname, "..", "src", "github", "publish-cli.ts");
@@ -299,7 +399,10 @@ describe("the publish entry point installs nothing", () => {
       if (seen.has(file)) return;
       seen.add(file);
       const source = readFileSync(file, "utf8");
-      for (const match of source.matchAll(/^\s*(?:import|export)\s[^;]*?from\s+"([^"]+)"/gmu)) {
+      // Static `from`, bare side-effect imports, dynamic import(), and require(), in either quote style.
+      const forms = [/\bfrom\s+["']([^"']+)["']/gu, /\bimport\s+["']([^"']+)["']/gu, /\bimport\s*\(\s*["']([^"']+)["']/gu, /\brequire\s*\(\s*["']([^"']+)["']/gu];
+      expect(source).not.toMatch(/createRequire|\bimport\s*\(\s*[^"'\s]/u);
+      for (const match of forms.flatMap((form) => [...source.matchAll(form)])) {
         const specifier = match[1]!;
         if (specifier.startsWith(".")) visit(resolve(dirname(file), specifier.replace(/\.js$/u, ".ts")));
         else external.add(specifier);
