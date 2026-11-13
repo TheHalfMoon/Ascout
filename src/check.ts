@@ -1415,6 +1415,9 @@ export function vitestSelectedNoTest(runId: string, runPath: string, plan: Pick<
 
 const VITEST_ZERO_RESULT_MAX_BYTES = 1024 * 1024;
 
+export const EMPTY_SELECTION_NOT_WIDENED_TEXT =
+  "The narrowed test pass selected no test, and no full pass ran: no changed production source calls for one, or it could not be planned. Nothing verified this change.";
+
 /**
  * True when the narrowed Jest pass selected no test. With --passWithNoTests, real Jest exits 0 and
  * writes a machine result with zero tests, zero suites, no failed or crashed suite, and no suite
@@ -1988,6 +1991,10 @@ async function runCheckWithinCancellation(
                 : await executeVitestTask(root, runId, runDir.run_path, runDir.raw_path, widerPlan as PlannedVitestTask, decision, secrets, timeoutMs, 2);
               finalExecuted = replaceEmptyRelatedPass(firstExecuted, secondExecuted);
               selection = withPostRunWideningPass(selection, widerPlan.workingDirectory);
+            } else {
+              // The runner's evidence was valid; it observed no test. Say so, rather than calling it
+              // missing evidence. The task stays ERROR: nothing verified the change.
+              finalExecuted = { ...firstExecuted, task: { ...firstExecuted.task, reason_text: EMPTY_SELECTION_NOT_WIDENED_TEXT } };
             }
           }
 
