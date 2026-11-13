@@ -472,6 +472,30 @@ describe("A07 operational errors through the compiled CLI", { timeout: CASE_TIME
     expect(cli(temporaryDirectory("ascout-a07-init-"), ["init"]).status).toBe(0);
   });
 
+  it("init says what it changed, and nothing changes on a second run", () => {
+    const root = repository();
+    const first = cli(root, ["init"]);
+    expect(first.status).toBe(0);
+    expect(first.stderr).toContain("created ascout.config.json; added .ascout/ to .gitignore");
+    const config = readFileSync(join(root, "ascout.config.json"), "utf8");
+    const ignore = readFileSync(join(root, ".gitignore"), "utf8");
+    const second = cli(root, ["init"]);
+    expect(second.status).toBe(0);
+    expect(second.stderr).toContain("kept the existing ascout.config.json; .ascout/ was already in .gitignore");
+    expect(readFileSync(join(root, "ascout.config.json"), "utf8")).toBe(config);
+    expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe(ignore);
+  });
+
+  it("init refuses a repository subdirectory and writes nothing there", () => {
+    const root = repository();
+    mkdirSync(join(root, "sub"), { recursive: true });
+    const result = cli(join(root, "sub"), ["init"]);
+    expectOperationalError(result);
+    expect(result.stderr).toContain("run ascout init from the repository root");
+    expect(existsSync(join(root, "sub", "ascout.config.json"))).toBe(false);
+    expect(existsSync(join(root, "sub", ".gitignore"))).toBe(false);
+  });
+
   it.skipIf(!POSIX)("exits 2 from a deleted working directory, while test and security keep their exits", () => {
     for (const [args, expected] of [
       [["init"], 2],

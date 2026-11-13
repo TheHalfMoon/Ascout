@@ -382,10 +382,16 @@ function requireAbsentOrRegularFile(path: string, name: string): void {
 async function runInit(): Promise<number> {
   try {
     const root = process.cwd();
+    // check reads the config only at the repository root, so a config written in a subdirectory
+    // would be silently ignored. Outside any repository, init is still allowed (before git init).
+    if (looksInsideGitWorkTreeV1(root) && readRepositoryPrefix(root) !== "") {
+      throw new Error("run ascout init from the repository root; check never reads a config in a subdirectory");
+    }
 
     const configPath = join(root, "ascout.config.json");
     requireAbsentOrRegularFile(configPath, "ascout.config.json");
-    if (!existsSync(configPath)) {
+    const configCreated = !existsSync(configPath);
+    if (configCreated) {
       // "wx" fails on anything already there, including a link created since the check.
       writeFileSync(configPath, JSON.stringify({ version: 1 }, null, 2), { flag: "wx" });
     }
@@ -398,7 +404,8 @@ async function runInit(): Promise<number> {
       gitignoreContent = readFileSync(gitignorePath, "utf8");
     }
     const lines = gitignoreContent.split(/\r?\n/);
-    if (!lines.some((line) => line.trim() === gitignoreEntry)) {
+    const ignoreAdded = !lines.some((line) => line.trim() === gitignoreEntry);
+    if (ignoreAdded) {
       const newContent = gitignoreContent.endsWith("\n")
         ? gitignoreContent + gitignoreEntry
         : gitignoreContent
@@ -407,7 +414,7 @@ async function runInit(): Promise<number> {
       writeFileSync(gitignorePath, newContent);
     }
 
-    console.error("ascout init: created ascout.config.json and ensured .ascout/ is ignored.");
+    console.error(`ascout init: ${configCreated ? "created" : "kept the existing"} ascout.config.json; ${ignoreAdded ? "added .ascout/ to" : ".ascout/ was already in"} .gitignore.`);
     return 0;
   } catch (error) {
     reportOperationalError(`ascout init failed: ${describeOperationalError(error)}`);
