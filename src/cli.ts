@@ -173,11 +173,11 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       const token = rest[index]!;
       if (token === "--skip-tests" && !skipTests) {
         skipTests = true;
-      } else if (token === "--pr-head" && prHead === undefined && /^[0-9a-f]{40}$/u.test(rest[index + 1] ?? "")) {
+      } else if (token === "--pr-head" && prHead === undefined && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(rest[index + 1] ?? "")) {
         prHead = rest[index + 1]!;
         index += 1;
       } else {
-        throw new CliUsageError("ascout pr-evidence accepts --skip-tests and --pr-head <40-hex sha>.");
+        throw new CliUsageError("ascout pr-evidence accepts --skip-tests and --pr-head <sha>, a lowercase 40- or 64-hex commit ID.");
       }
     }
     return { command: "pr-evidence", allowChangedCommandSurface: false, ...(skipTests ? { skipTests: true as const } : {}), ...(prHead === undefined ? {} : { prHead }) };
