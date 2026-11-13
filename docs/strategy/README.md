@@ -107,3 +107,7 @@ UA_ROADMAP_RECONCILIATION = DEFINED
 FINAL_ECONOMICS_QUALIFICATION = DEFINED
 IMPLEMENTATION_AUTHORITY_FROM_THIS_PACKAGE = NO
 ```
+
+## Ascout V2 — main-rooted review proposal (2026-11-06)
+
+[Read the bounded Ascout V2 adoption packet](./ascout-v2-adoption/README.md). This is a **docs-only, non-authoritative** implementation blueprint anchored to canonical `main@ecada2b`; it does **not** approve new features, constitutional changes, donor imports, security exceptions or release. The older stacked V2 plan under PRs #578/#597/#651 must not be merged as a source snapshot because it is not based on current main. Founder FD decisions and independent R1 review remain required.
