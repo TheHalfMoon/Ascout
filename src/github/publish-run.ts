@@ -13,6 +13,8 @@ import { apiOriginV1, preparePublishV1, publishPrEvidenceV1, type PublishInputV1
  * Every location comes from the trusted workflow event, passed through the environment; the bundle
  * is untrusted and validated. App mode needs ASCOUT_APP_ID, ASCOUT_APP_CLIENT_ID, and
  * ASCOUT_APP_PRIVATE_KEY together; any other mix is a configuration error and nothing is posted.
+ * ASCOUT_PUBLISH_MODE=app requires App mode, so missing App secrets never fall back to the
+ * workflow token; ASCOUT_PUBLISH_MODE=token requires the workflow token and no App secrets.
  */
 
 export interface PrPublishRunV1 {
@@ -38,7 +40,20 @@ export async function runPrPublishFromEnvV1(run: PrPublishRunV1): Promise<number
     run.stderr(`ascout pr-publish: ${missing.join(", ")} not set`);
     return CONFIGURATION_ERROR;
   }
+  const mode = read("ASCOUT_PUBLISH_MODE");
+  if (mode !== "" && mode !== "app" && mode !== "token") {
+    run.stderr("ascout pr-publish: ASCOUT_PUBLISH_MODE must be app or token");
+    return CONFIGURATION_ERROR;
+  }
   const appSet = APP_VARIABLES.filter((name) => read(name) !== "");
+  if (mode === "app" && appSet.length === 0) {
+    run.stderr(`ascout pr-publish: ASCOUT_PUBLISH_MODE is app, but none of ${APP_VARIABLES.join(", ")} is set; nothing is posted with the workflow token`);
+    return CONFIGURATION_ERROR;
+  }
+  if (mode === "token" && appSet.length !== 0) {
+    run.stderr(`ascout pr-publish: ASCOUT_PUBLISH_MODE is token, but ${appSet.join(", ")} set`);
+    return CONFIGURATION_ERROR;
+  }
   if (appSet.length !== 0 && appSet.length !== APP_VARIABLES.length) {
     run.stderr(`ascout pr-publish: GitHub App mode needs all of ${APP_VARIABLES.join(", ")}; only ${appSet.join(", ")} set`);
     return CONFIGURATION_ERROR;

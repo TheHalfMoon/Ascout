@@ -1,8 +1,8 @@
-# Ascout GitHub integration (in development)
+# Ascout GitHub integration
 
 **Status:** the collector (`ascout pr-evidence`), the publisher (`ascout pr-publish`), and two workflows
-are on `main`, and this repository runs them on its own pull requests. **None of it is in a release
-yet:** v0.2.0 doesn't include these commands.
+ship in v0.3.0, and this repository runs them on its own pull requests. v0.2.0 and earlier don't
+include these commands.
 
 ## Design
 
@@ -34,9 +34,9 @@ Copy two workflow files from this repository into `.github/workflows/` in yours:
   downloads the bundle and runs `ascout pr-publish`, which posts the **Ascout verification** Check
   Run and one summary comment.
 
-This repository builds Ascout from source in both jobs. A consuming repository would install the
-released tarball instead, once a release includes these commands. Runner minutes are yours, and
-Ascout runs no service.
+This repository builds Ascout from source in both jobs. A consuming repository installs the
+released tarball instead, from v0.3.0 on, after checking its SHA-256 from the release's
+`SHA256SUMS`. Runner minutes are yours, and Ascout runs no service.
 
 ## Team policy
 
@@ -79,9 +79,8 @@ A repository can choose which checks a pull request must complete, in
 
 ## GitHub App mode: an exclusive check (C1)
 
-**Status: the code is on `main`, but not in a release, and not yet proven live.** No released version
-contains it yet. App mode stays unproven until C1c: a live test on a repository whose App the founder
-registers. Until then, don't rely on it as your only gate.
+**Status: in v0.3.0, but not yet proven live.** App mode stays unproven until C1c: a live test on a
+repository whose App the founder registers. Until then, don't rely on it as your only gate.
 
 By default the check is posted with the workflow's `GITHUB_TOKEN`, which belongs to the GitHub
 Actions app. Any workflow a PR adds can use that same app to post a check of the same name. In App
@@ -123,14 +122,18 @@ Setup:
      the file.
    - **Keep it this way:** no package manager in that job, and no other workflow that names the
      environment or the App secrets.
-4. **Don't capture the publish step's standard output.** The step masks the short-lived tokens it
+4. **Keep `ASCOUT_PUBLISH_MODE: app` in the publish step.** With it, missing or empty App secrets fail
+   the job with exit 2; without it, Ascout would fall back to the workflow token if one were passed,
+   which posts the check as GitHub Actions, the source App mode exists to exclude. The lint requires
+   it wherever the App secrets are passed. Ascout releases before this setting existed ignore it.
+5. **Don't capture the publish step's standard output.** The step masks the short-lived tokens it
    creates by writing `::add-mask::` commands there, so it must reach the runner directly.
-5. **Open a test PR first.** GitHub only lets you pick an App as a check's source once it "has
+6. **Open a test PR first.** GitHub only lets you pick an App as a check's source once it "has
    recently submitted a check run". The first summary will say "Gate: **not pinned** in any
    ruleset", which is correct at this point.
-6. **Then, in your default branch's ruleset,** require the **Ascout verification** check and choose
+7. **Then, in your default branch's ruleset,** require the **Ascout verification** check and choose
    your App as its source.
-7. **Push to the test PR again.** The summary should now say "Gate: pinned in a ruleset to this
+8. **Push to the test PR again.** The summary should now say "Gate: pinned in a ruleset to this
    GitHub App". "Unknown" means the rules couldn't be read.
 
 What App mode does:
@@ -179,8 +182,8 @@ trust itself, from the trusted event:
   in a maintainer's PR runs during collection like any other code. Dependabot and other bots are
   never trusted.
 - **The check name is not exclusive.** A job a PR adds to its own workflow can create a check run
-  with the same name through the GitHub Actions app. GitHub App mode (above) closes this. It is on
-  `main` but not in a release, and it waits for a live proof.
+  with the same name through the GitHub Actions app. GitHub App mode (above) closes this. It ships
+  in v0.3.0, and it waits for a live proof.
 - **Several open PRs from one branch are ambiguous**, so the publisher annotates none of them.
 - **Honest collection can't be green under the default policy.** Review without a model and
   Gitleaks on a clean scan both exit 4. A repository that wants a pass on tests alone has to say so in

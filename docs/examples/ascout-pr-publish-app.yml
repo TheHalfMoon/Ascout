@@ -64,6 +64,8 @@ jobs:
           test -f "$RUNNER_TEMP/package/dist/github/publish-cli.js"
       - name: Publish the Check Run and summary comment as the GitHub App
         env:
+          # Never fall back to the workflow token: missing App secrets fail the job.
+          ASCOUT_PUBLISH_MODE: app
           ASCOUT_APP_ID: ${{ secrets.ASCOUT_APP_ID }}
           ASCOUT_APP_CLIENT_ID: ${{ secrets.ASCOUT_APP_CLIENT_ID }}
           ASCOUT_APP_PRIVATE_KEY: ${{ secrets.ASCOUT_APP_PRIVATE_KEY }}

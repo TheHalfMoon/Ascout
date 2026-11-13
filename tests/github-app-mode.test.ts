@@ -374,6 +374,10 @@ describe("ascout pr-publish in App mode", () => {
   it.each([
     ["a non-numeric App ID", { ...appEnv(), ASCOUT_APP_ID: "acme" }, "must be the App's numeric ID"],
     ["no token and no App", baseEnv(), "GITHUB_TOKEN not set"],
+    ["App mode required with no App secrets, even with a token", { ...baseEnv(), GITHUB_TOKEN: "t", ASCOUT_PUBLISH_MODE: "app" }, "ASCOUT_PUBLISH_MODE is app, but none of ASCOUT_APP_ID, ASCOUT_APP_CLIENT_ID, ASCOUT_APP_PRIVATE_KEY is set"],
+    ["App mode required with only part of the App secrets", { ...baseEnv(), ASCOUT_PUBLISH_MODE: "app", ASCOUT_APP_ID: String(APP_ID) }, "GitHub App mode needs all of"],
+    ["token mode required with App secrets", { ...appEnv(), GITHUB_TOKEN: "t", ASCOUT_PUBLISH_MODE: "token" }, "ASCOUT_PUBLISH_MODE is token, but ASCOUT_APP_ID, ASCOUT_APP_CLIENT_ID, ASCOUT_APP_PRIVATE_KEY set"],
+    ["an unknown publish mode", { ...appEnv(), ASCOUT_PUBLISH_MODE: "App" }, "ASCOUT_PUBLISH_MODE must be app or token"],
     ["a missing event value", { ...appEnv(), ASCOUT_PR_HEAD_SHA: "" }, "ASCOUT_PR_HEAD_SHA not set"],
     ["a non-https API", { ...appEnv(), GITHUB_API_URL: "http://api.example.com" }, "must use https"],
   ])("refuses %s, with no network at all", async (_label, env, message) => {
@@ -382,6 +386,23 @@ describe("ascout pr-publish in App mode", () => {
     expect(code).toBe(2);
     expect(err.join(" ")).toContain(message);
     expect(state.requests).toEqual([]);
+  });
+
+  it("publishes as the App when App mode is required and the App is configured, ignoring a workflow token", async () => {
+    reset();
+    const { code, out } = await publish({ ...appEnv(), ASCOUT_PUBLISH_MODE: "app", GITHUB_TOKEN: "plain-token" });
+    expect(code).toBe(0);
+    const checkRun = state.requests.find((r) => r.path === "/repos/o/r/check-runs")!;
+    expect(checkRun.auth).toBe(`Bearer ${INSTALL_TOKEN}`);
+    expect(state.requests.some((r) => r.auth === "Bearer plain-token")).toBe(false);
+    expect(JSON.parse(out[out.length - 1]!)).toMatchObject({ kind: "published", conclusion: "success" });
+  });
+
+  it("publishes with GITHUB_TOKEN when token mode is required", async () => {
+    reset();
+    const { code } = await publish({ ...baseEnv(), GITHUB_TOKEN: "plain-token", ASCOUT_PUBLISH_MODE: "token" });
+    expect(code).toBe(0);
+    expect(state.requests.find((r) => r.path === "/repos/o/r/check-runs")!.auth).toBe("Bearer plain-token");
   });
 
   it("without an App, publishes with GITHUB_TOKEN as before and says nothing about a gate", async () => {
