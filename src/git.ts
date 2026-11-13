@@ -649,6 +649,7 @@ function runGitTreeMetadata(
   repositoryRoot: string,
   argv: readonly string[],
   stdin?: Buffer,
+  timeoutMs: number = GIT_METADATA_TIMEOUT_MS,
 ): GitBufferCommandResult {
   const git = trustedGitExecutable(repositoryRoot);
   if (git === null) {
@@ -659,7 +660,7 @@ function runGitTreeMetadata(
     encoding: null,
     env: hardenedGitEnv(),
     shell: false,
-    timeout: GIT_METADATA_TIMEOUT_MS,
+    timeout: timeoutMs,
     maxBuffer: stdin === undefined ? GIT_TREE_METADATA_MAX_BUFFER_BYTES : GIT_ATTRIBUTE_QUERY_MAX_BUFFER_BYTES,
     ...(stdin === undefined ? {} : { input: stdin }),
     windowsHide: true,
@@ -930,13 +931,56 @@ function worktreeGitObjectId(
   return oid;
 }
 
+/**
+ * Hash many modified regular files in one `git hash-object --stdin-paths` process. Each
+ * repository-relative path is both the file read and the attribute path, as in the single-file
+ * `--path=<path>` form, and filter attributes were already refused for every indexed path. Each path
+ * still passes the containment check first. Paths the line protocol can't carry verbatim (CR or LF,
+ * or a leading quote that Git would C-unquote) are left to the single-file call. The output must hold
+ * exactly one valid object ID per path, or the digest fails closed.
+ *
+ * The batch keeps the time budget the single-file calls had: one metadata timeout per file. Git
+ * opens each path itself, so an intermediate directory swapped for a link between the containment
+ * check and Git's read could redirect it; only an equal-or-not result leaves, and the second
+ * observation would see the swap and refuse the digest.
+ */
+function batchWorktreeGitObjectIds(
+  repositoryRoot: string,
+  candidates: readonly { readonly path: string; readonly oldOid: string }[],
+): ReadonlyMap<string, string> {
+  const batch = candidates.filter(({ path }) => !/[\r\n]/u.test(path) && !path.startsWith("\""));
+  const oids = new Map<string, string>();
+  if (batch.length === 0) return oids;
+  for (const { path } of batch) containedRegularFilePath(repositoryRoot, path);
+  const output = decodeUtf8(requireSuccessfulGitBuffer(
+    runGitTreeMetadata(
+      repositoryRoot,
+      ["hash-object", "--stdin-paths"],
+      Buffer.from(batch.map(({ path }) => `${path}\n`).join(""), "utf8"),
+      GIT_METADATA_TIMEOUT_MS * batch.length,
+    ),
+    "unable to compute Git worktree object IDs",
+  ), "git hash-object output").split("\n");
+  if (output.length !== batch.length + 1 || output[batch.length] !== "") {
+    throw new GitIdentityError("git_metadata_error", "Git returned an unexpected number of worktree object IDs");
+  }
+  batch.forEach(({ path, oldOid }, index) => {
+    const oid = output[index]!;
+    if (!FULL_GIT_OBJECT_ID.test(oid) || oid.length !== oldOid.length) {
+      throw new GitIdentityError("git_metadata_error", `Git returned an invalid worktree object ID for ${path}`);
+    }
+    oids.set(path, oid);
+  });
+  return oids;
+}
+
 function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDigestUnstagedEntry[] {
   const records = splitNullTerminated(buffer, "git diff-files --raw output");
   if (records.length % 2 !== 0) {
     throw new GitIdentityError("git_metadata_error", "Git returned an incomplete unstaged diff record");
   }
 
-  const entries: TreeDigestUnstagedEntry[] = [];
+  const parsed: { path: string; status: string; oldMode: string; newMode: string; oldOid: string }[] = [];
   for (let index = 0; index < records.length; index += 2) {
     const metadataRecord = records[index];
     const pathRecord = records[index + 1];
@@ -965,20 +1009,32 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
         `tree digest does not support unmerged tracked state at ${path}`,
       );
     }
-    if (status === "D") {
-      entries.push({ path, state: "deleted" });
-      continue;
-    }
-    if (status !== "M" && status !== "T") {
+    if (status !== "D" && status !== "M" && status !== "T") {
       throw new GitIdentityError(
         "git_metadata_error",
         `unsupported unstaged Git status for tree digest at ${path}: ${status}`,
       );
     }
+    parsed.push({ path, status, oldMode, newMode, oldOid });
+  }
+
+  // Every record is validated first; then all regular-file hash candidates go to one Git process.
+  const batchedOids = batchWorktreeGitObjectIds(
+    repositoryRoot,
+    parsed.filter((entry) => entry.status === "M" && entry.oldMode === entry.newMode &&
+      worktreeTypeFromMode(entry.newMode, entry.path) !== "symlink"),
+  );
+
+  const entries: TreeDigestUnstagedEntry[] = [];
+  for (const { path, status, oldMode, newMode, oldOid } of parsed) {
+    if (status === "D") {
+      entries.push({ path, state: "deleted" });
+      continue;
+    }
 
     const type = worktreeTypeFromMode(newMode, path);
     if (status === "M" && oldMode === newMode) {
-      const currentOid = worktreeGitObjectId(repositoryRoot, path, type, oldOid);
+      const currentOid = batchedOids.get(path) ?? worktreeGitObjectId(repositoryRoot, path, type, oldOid);
       if (currentOid === oldOid) continue;
     }
 
