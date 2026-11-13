@@ -17,6 +17,13 @@ import { redactExactValues, selectedSecretValues } from "./redact.js";
 import { readLocalReviewConfigV1 } from "./assurance/review/local-review-provider.js";
 import { runLocalReviewV1 } from "./assurance/review/local-review-run.js";
 import {
+  buildDelegatedTaskV1,
+  exportDelegatedTaskV1,
+  ingestDelegatedFindingsV1,
+  type DelegatedIngestResultV1,
+  type DelegatedSourceV1,
+} from "./assurance/review/delegated-review.js";
+import {
   buildEmptyReviewScopeV1,
   buildReviewAbsenceReportV1,
   buildReviewCommandReportV1,
@@ -160,6 +167,100 @@ export async function computeReviewV1(
       changes,
     );
     return report(commandReport, commandReport.exit_code);
+  } catch (error) {
+    return failure(redactLocalPathFromError(error, repositoryRoot));
+  }
+}
+
+export interface DelegatedExportReportV1 {
+  readonly kind: "review_task_export";
+  readonly assurance: "NONE";
+  readonly outcome: "TASK_EXPORTED" | "NOTHING_TO_REVIEW";
+  readonly exit_code: 0 | 4;
+  readonly reason_text: string;
+  readonly task_sha256: string | null;
+  readonly reviewed_files: readonly string[];
+}
+
+/** The source a delegated task is built from, read the same way review reads it, with drift checked. */
+function delegatedSourceV1(repositoryRoot: string):
+  | { readonly kind: "source"; readonly source: DelegatedSourceV1; readonly changes: ReviewChangeV1[]; readonly target_id: string }
+  | { readonly kind: "drift"; readonly report: ReturnType<typeof buildReviewDriftReportV1> } {
+  refuseUnsupportedRepository(repositoryRoot);
+  const sourceState = composeSourceState(repositoryRoot);
+  const comparison = readWorkingTreeComparison(repositoryRoot, sourceState.head_sha);
+  const changes = collectReviewChanges(repositoryRoot, sourceState.head_sha, comparison.changed_files);
+  const endState = composeSourceState(repositoryRoot);
+  if (endState.head_sha !== sourceState.head_sha || endState.tree_digest !== sourceState.tree_digest) {
+    return { kind: "drift", report: buildReviewDriftReportV1(sourceState.repository_id, sourceState, endState) };
+  }
+  const secrets = selectedSecretValues(process.env, { recognized_names: [], configured_names: [], minimum_value_bytes: 8 });
+  return {
+    kind: "source",
+    target_id: sourceState.repository_id,
+    changes,
+    source: {
+      repository_id: sourceState.repository_id,
+      head_sha: sourceState.head_sha,
+      tree_digest: sourceState.tree_digest,
+      changed_files: comparison.changed_files,
+      readText: (path, maxBytes) => readContainedWorktreeText(repositoryRoot, path, maxBytes),
+      redact: (text) => redactExactValues(text, secrets),
+    },
+  };
+}
+
+/**
+ * `ascout review --export-task <path>` (E10d): writes the review task for the operator's own agent to
+ * a new owner-only file outside the repository. Nothing is reviewed yet, so this is a non-assurance
+ * operation: exit 0 when a task was written, 4 when no changed file has text lines to review.
+ */
+export function computeDelegatedExportV1(repositoryRoot: string, path: string): CommandResultV1<DelegatedExportReportV1 | ReturnType<typeof buildReviewDriftReportV1>> {
+  try {
+    const read = delegatedSourceV1(repositoryRoot);
+    if (read.kind === "drift") return report(read.report, read.report.exit_code);
+    const task = buildDelegatedTaskV1(read.source);
+    if (task === null) {
+      const none: DelegatedExportReportV1 = { kind: "review_task_export", assurance: "NONE", outcome: "NOTHING_TO_REVIEW", exit_code: 4, reason_text: "No changed file has text lines to review, so no task was written.", task_sha256: null, reviewed_files: [] };
+      return report(none, 4);
+    }
+    exportDelegatedTaskV1(repositoryRoot, path, task);
+    const exported: DelegatedExportReportV1 = {
+      kind: "review_task_export",
+      assurance: "NONE",
+      outcome: "TASK_EXPORTED",
+      exit_code: 0,
+      reason_text: "The review task was written for your own agent. Nothing has been reviewed yet; ingest its findings with ascout review --ingest. Like review, it covers working-tree and index changes only, not committed changes or ignored files. On Windows the file is not restricted to its owner, so keep it out of shared folders.",
+      task_sha256: task.task_sha256,
+      reviewed_files: task.reviewed_files,
+    };
+    return report(exported, 0);
+  } catch (error) {
+    return failure(redactLocalPathFromError(error, repositoryRoot));
+  }
+}
+
+/**
+ * `ascout review --ingest <path>` (E10d): checks a findings file from the operator's agent against
+ * the task the current source defines. Findings on changed lines exit 1, otherwise 4; source drift
+ * since export exits 3; a file for another task, or any malformed file, exits 2.
+ */
+export function computeDelegatedIngestV1(repositoryRoot: string, path: string): CommandResultV1<Extract<DelegatedIngestResultV1, { kind: "review" }>["report"] | ReturnType<typeof buildReviewDriftReportV1>> {
+  try {
+    const read = delegatedSourceV1(repositoryRoot);
+    if (read.kind === "drift") return report(read.report, read.report.exit_code);
+    const result = ingestDelegatedFindingsV1({ repositoryRoot, path, source: read.source, target_id: read.target_id, changes: read.changes });
+    if (result.kind === "error") return failure(redactLocalPathFromError(result.message, repositoryRoot));
+    if (result.kind === "drift") {
+      const drift = buildReviewDriftReportV1(
+        read.target_id,
+        result.exported,
+        { head_sha: read.source.head_sha, tree_digest: read.source.tree_digest },
+        "The source changed since this review task was exported, so the findings answer a different source.",
+      );
+      return report(drift, drift.exit_code);
+    }
+    return report(result.report, result.report.exit_code);
   } catch (error) {
     return failure(redactLocalPathFromError(error, repositoryRoot));
   }

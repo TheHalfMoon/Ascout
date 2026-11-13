@@ -167,7 +167,7 @@ nothing is paid. No new decision is needed.
 - **Same truth rules as Ollama:** findings on changed lines exit 1, silence exits 4, and nothing
   exits 0.
 
-## Remote providers (E10c, needs a founder decision)
+## Remote providers (E10c, approved 2026-11-13)
 
 Sending source to a third party is the one action BYOAI adds that can't be undone. It changes three
 parts of the E6B policy, not one:
@@ -256,7 +256,7 @@ Neither key alone does anything, and neither may come from the repository or its
 - **Cost bound.** One request, with `max_output_tokens` enforced and no retries. The operator's
   account is billed; Ascout's never is.
 
-## Delegated review (E10d, needs a founder decision)
+## Delegated review (E10d, approved 2026-11-13)
 
 Many teams already run an AI agent that can see their code. Ascout can hand it the review task, then
 check what comes back. Ascout makes no network call in this mode.
@@ -292,7 +292,47 @@ such, and never as `INDEPENDENT_MODEL`.
 This is also the safe route to AI help over MCP later: an agent could request the task and submit
 findings without Ascout calling any model.
 
-## AI review in pull requests (E10f, needs a founder decision)
+### As built (E10d)
+
+- **Commands:** `ascout review --export-task <path>` and `ascout review --ingest <findings.json>`, each
+  exclusive with the other and with `--local-model`. The code is in
+  `src/assurance/review/delegated-review.ts`; it imports no network module.
+- **Export:**
+  - The task holds the instructions, the numbered payload (built by the same code as the local
+    review, so untracked and secret-named files are left out and selected secret values removed),
+    the changed lines, and `task_sha256`. That digest covers the HEAD commit, the tree fingerprint,
+    the file list, and the payload.
+  - It is written with `wx` and mode 0600, so an existing file is never overwritten. On Windows,
+    0600 doesn't apply and the file takes its folder's permissions; the report says to keep it out
+    of shared folders.
+  - Exit 0 with assurance `NONE` when a task is written, exit 4 when nothing has text lines to
+    review.
+  - Each export is recorded under `.ascout/review-tasks/`, which the fingerprint leaves out. The
+    record is written to a new file and renamed into place, so a link planted there is replaced,
+    never written through.
+- **Outside the repository** means the real path of the nearest existing ancestor climbs out of the
+  repository's real path (`..` followed by a separator), compared without case on Windows and macOS.
+  A folder named `..cache` is inside.
+- **Ingest:**
+  - The file is read through a descriptor bound to the checked file (BigInt device and inode) and
+    capped at 1 MiB even if it grows.
+  - Strict keys, at most 200 findings, model and family names limited to
+    `[A-Za-z0-9._:/@+-]`, and every finding path a plain repository-relative path among the exported
+    files. Any problem refuses the whole file, exit 2.
+  - The digest is recomputed from the current source. A match is reported under the truth rules: exit
+    1 with findings on changed lines, otherwise 4. A mismatch is source drift (exit 3) when the
+    repository recorded exporting that task from a different source, and a different task (exit 2)
+    otherwise.
+  - The repository can write that record, so it can only move a result between 2 and 3. Both are
+    non-pass, and neither accepts findings. A record that isn't well formed is ignored.
+- **Known limit:** the payload is redacted with the current environment's secret values before
+  hashing. If a selected secret appears on a changed line and the export and ingest shells have
+  different environments, ingest exits 2.
+- **Reports** carry `advisory: true`, `satisfies_human_r1: false`, independence
+  `ASSERTED_UNVERIFIED`, and `delegated: { task_sha256, model_identity: "asserted_unverified",
+  network: "none" }`.
+
+## AI review in pull requests (E10f, approved as optional 2026-11-13)
 
 No model runs in PRs today. The collect job runs PR code. In this repository it even builds Ascout
 from the PR. So **a model credential must never be present in the collect job**. Anything the
@@ -389,16 +429,23 @@ These rules are invariants, and each one needs a test.
 | E10f | AI review in PRs as a separate trusted job, with an `ai-review` check id | **Founder decision** first |
 | E10e | Docs: README "Bring your own AI", what loopback does and doesn't guarantee, cost honesty, CI guidance | With each packet |
 
-## Open decisions for the founder
+## Founder decisions (2026-11-13)
 
-1. Allow remote egress at all (E10c)? This means relaxing E6B's egress, credential, and paid-provider
-   blocks for operator-paid providers, behind the two keys and the payload scan.
-2. Build delegated review (E10d)?
-3. Build AI review in PRs (E10f), and add the `ai-review` check id?
-4. Rename `authorized_by_founder` to `operator_authorized` in config version 2? The person who owns
-   the machine authorizes, not the Ascout founder. Version 1 keeps working.
-5. Which remote API shape to support first? The proposal is OpenAI-compatible only, because one
-   adapter covers many providers.
+1. **E10c remote providers: approved for implementation.** Disabled by default, with per-repository
+   configuration, per-run human confirmation, payload secret scanning, strict destination checks,
+   and operator-owned credentials. Ascout never pays for inference or sends source silently, and all
+   AI findings stay advisory.
+2. **E10d delegated review: approved,** with no network transmission. Delegated AI review never
+   counts as human review.
+3. **E10f AI review in PRs: approved as optional,** disabled by default. Provider credentials never
+   reach untrusted PR code, and AI review never overrides deterministic verification or turns an
+   incomplete receipt into a pass.
+
+## Engineering defaults (reversible)
+
+- Config version 2 uses `operator_authorized`: the person who owns the machine authorizes, not the
+  Ascout founder. Version 1 keeps `authorized_by_founder` and keeps working.
+- The first remote API shape is OpenAI-compatible only, because one adapter covers many providers.
 
 ## Review record
 

@@ -38,7 +38,7 @@ const EXPECTED_USAGE = [
   "  ascout init",
   "  ascout doctor [--format json|terminal]",
   "  ascout check [--allow-changed-command-surface] [--format json|agent]",
-  "  ascout review [--local-model] [--format json|terminal]",
+  "  ascout review [--local-model | --export-task <path> | --ingest <findings.json>] [--format json|terminal]",
   "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
   "  ascout pr-evidence [--skip-tests] [--pr-head <sha>]",
   "  ascout pr-publish <bundle>",

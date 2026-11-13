@@ -208,7 +208,7 @@ describe("UA-P05-T09 additive test command", { timeout: 60_000 }, () => {
       allowChangedCommandSurface: false,
     });
     expect(usageText()).toContain("ascout check [--allow-changed-command-surface] [--format json|agent]");
-    expect(usageText()).toContain("ascout review [--local-model] [--format json|terminal]");
+    expect(usageText()).toContain("ascout review [--local-model | --export-task <path> | --ingest <findings.json>] [--format json|terminal]");
     expect(usageText()).not.toContain("ascout publish");
     expect(usageText()).not.toContain("ascout workflow");
     expect(() => parseCliArgs(["publish"])).toThrow(CliUsageError);
