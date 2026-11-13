@@ -256,6 +256,55 @@ Neither key alone does anything, and neither may come from the repository or its
 - **Cost bound.** One request, with `max_output_tokens` enforced and no retries. The operator's
   account is billed; Ascout's never is.
 
+### As built (E10c)
+
+- **Command:** `ascout review --remote-model [--dry-run]`. Off by default; with no remote config it
+  reports not run (exit 4) and makes no connection. The code is
+  `src/assurance/review/remote-review.ts`, the only module that may open a non-loopback connection.
+- **First key:** `review-remote.json`, version 2, in the same account-derived folder as
+  `review-provider.json`, so version 1 is untouched.
+  - The config is refused inside the repository and, on POSIX, when it isn't the account's own or
+    is writable by others.
+  - Strict keys. `provider` is `openai-compatible`. `allow_remote_egress` and `operator_authorized`
+    must both be `true`.
+  - `credential_env` names the variable holding the key; the key itself is never in the config.
+  - `repositories` lists absolute paths, compared by exact real path and case-folded on Windows and
+    macOS.
+  - `limits` (payload at most 120 KiB, output 1 to 32000 tokens) and an optional `exclude` list of
+    repository-relative prefixes that only add to the built-in exclusions.
+- **Endpoint:** HTTPS to a DNS name. Refused: user info, a query, a fragment, a trailing dot, an IP
+  literal, `localhost`, and single-label names. Internationalized names are compared in punycode.
+  Requests go to `<endpoint path>/chat/completions`.
+- **Gates, in order, before anything is sent:**
+  1. config and both flags;
+  2. this repository listed;
+  3. the credential variable set;
+  4. a non-empty payload (same builder as local review, plus the operator's exclusions);
+  5. a clean Gitleaks scan of the exact payload, run on a copy in a new temporary repository with
+     `gitleaks:allow` removed and no `.gitleaksignore`. Any hit refuses the send and names the file;
+     no Gitleaks also refuses it;
+  6. DNS resolved once, and every answer must be public unicast;
+  7. the host typed by a person at the controlling terminal (`/dev/tty`, or `CONIN$`/`CONOUT$` on
+     Windows; never standard input). The last host confirmed for the repository is kept in the
+     operator's config folder and shown when it changes.
+- **Transport:** Node's `https` with its own agent, so proxy variables don't apply. The resolved
+  address is pinned through `lookup`, and the TLS name stays the host. One request, no redirects
+  (a 3xx is a refusal), a 5-minute timeout, and a reply capped at 1 MiB. `max_tokens` comes from the
+  config. The credential is sent as a bearer token and removed from everything reported, including a
+  reply that echoes it.
+- **`--dry-run`** prints the disclosure and the exact payload, exits 4, and resolves, scans,
+  confirms, and sends nothing.
+- **Reports:** the same truth rules as local review (findings on changed lines exit 1, everything
+  else 4, never 0), with `advisory: true`, `satisfies_human_r1: false`, and
+  `remote: { egress: "REMOTE", host, payload_sha256, cost: "OPERATOR_ACCOUNT", node_extra_ca_certs }`.
+- **Known limits:**
+  - The Gitleaks scan is best effort, as above.
+  - The terminal confirmation proves intent, not identity: a script that drives a pseudo-terminal
+    can type the host. That is why the first key must be out of the repository's reach.
+  - Windows ACLs on the config aren't checked.
+  - A host whose DNS answer changes between resolution and connection is still pinned to the checked
+    address.
+
 ## Delegated review (E10d, approved 2026-11-13)
 
 Many teams already run an AI agent that can see their code. Ascout can hand it the review task, then

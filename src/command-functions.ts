@@ -16,6 +16,9 @@ import {
 import { redactExactValues, selectedSecretValues } from "./redact.js";
 import { readLocalReviewConfigV1 } from "./assurance/review/local-review-provider.js";
 import { runLocalReviewV1 } from "./assurance/review/local-review-run.js";
+import { readRemoteReviewConfigV2, runRemoteReviewV1, REMOTE_REVIEW_ENGINE_ID, type RemoteDisclosureV1 } from "./assurance/review/remote-review.js";
+import { buildModelNotRunReportV1 } from "./assurance/review/local-review-run.js";
+import { configuredGitleaksPathV1 } from "./assurance/security/security-gitleaks.js";
 import {
   buildDelegatedTaskV1,
   exportDelegatedTaskV1,
@@ -258,6 +261,86 @@ export function computeDelegatedIngestV1(repositoryRoot: string, path: string): 
         { head_sha: read.source.head_sha, tree_digest: read.source.tree_digest },
         "The source changed since this review task was exported, so the findings answer a different source.",
       );
+      return report(drift, drift.exit_code);
+    }
+    return report(result.report, result.report.exit_code);
+  } catch (error) {
+    return failure(redactLocalPathFromError(error, repositoryRoot));
+  }
+}
+
+export interface RemoteDryRunReportV1 {
+  readonly kind: "remote_review_dry_run";
+  readonly assurance: "NONE";
+  readonly exit_code: 4;
+  readonly reason_text: string;
+  readonly disclosure: RemoteDisclosureV1;
+  readonly payload: string;
+}
+
+export interface RemoteReviewOptionsV1 {
+  readonly dryRun: boolean;
+  readonly signal?: AbortSignal;
+  /** Tests only: where review-remote.json lives. The CLI never sets it. */
+  readonly configHome?: string | undefined;
+}
+
+/**
+ * `ascout review --remote-model [--dry-run]` (E10c): an operator-paid model on a third-party API, off
+ * by default. Every refusal before sending leaves the change unreviewed (exit 4); `--dry-run` shows
+ * what would be sent and sends nothing (exit 4). Findings exit 1; nothing ever exits 0.
+ */
+export async function computeRemoteReviewV1(repositoryRoot: string, options: RemoteReviewOptionsV1): Promise<CommandResultV1<unknown>> {
+  try {
+    const read = delegatedSourceV1(repositoryRoot);
+    if (read.kind === "drift") return report(read.report, read.report.exit_code);
+    if (read.changes.length === 0) {
+      const empty = buildReviewCommandReportV1(buildEmptyReviewScopeV1(read.target_id, read.source.head_sha), []);
+      return report(empty, empty.exit_code);
+    }
+    const result = await runRemoteReviewV1({
+      repositoryRoot,
+      target_id: read.target_id,
+      head_sha: read.source.head_sha,
+      config: readRemoteReviewConfigV2(repositoryRoot, { configHome: options.configHome }),
+      changed_files: read.source.changed_files,
+      changes: read.changes,
+      readText: read.source.readText,
+      redact: read.source.redact,
+      gitleaksPath: configuredGitleaksPathV1(),
+      dryRun: options.dryRun,
+      env: process.env,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+    });
+    if (result.kind === "error") return failure(result.message);
+    if (result.kind === "dry_run") {
+      const dry: RemoteDryRunReportV1 = {
+        kind: "remote_review_dry_run",
+        assurance: "NONE",
+        exit_code: 4,
+        reason_text: "Dry run: this is what would be sent. Nothing was sent, scanned, or reviewed.",
+        disclosure: result.disclosure,
+        payload: result.payload,
+      };
+      return report(dry, 4);
+    }
+    if (result.kind === "not_run") {
+      const notRun = buildModelNotRunReportV1({
+        target_id: read.target_id,
+        head_sha: read.source.head_sha,
+        changes: read.changes,
+        status: "REFUSED",
+        reasons: [result.reason],
+        engine_id: REMOTE_REVIEW_ENGINE_ID,
+        binary_name: "remote",
+        resolved_path: result.disclosure?.host ?? "none",
+      });
+      return report(notRun, notRun.exit_code);
+    }
+    // A model can take minutes; a source that changed meanwhile was not the source reviewed.
+    const after = composeSourceState(repositoryRoot);
+    if (after.head_sha !== read.source.head_sha || after.tree_digest !== read.source.tree_digest) {
+      const drift = buildReviewDriftReportV1(read.target_id, { head_sha: read.source.head_sha, tree_digest: read.source.tree_digest }, after);
       return report(drift, drift.exit_code);
     }
     return report(result.report, result.report.exit_code);

@@ -33,6 +33,7 @@ import {
   renderTestPlanJsonV1,
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
+import { escapeTerminalText } from "./terminal-text.js";
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
 import { ASCOUT_PACKAGE_VERSION, serveMcpV1 } from "./mcp/server.js";
 import { collectPrEvidenceV1 } from "./github/collect.js";
@@ -41,6 +42,7 @@ import {
   computeDoctorV1,
   computeDelegatedExportV1,
   computeDelegatedIngestV1,
+  computeRemoteReviewV1,
   computeReviewV1,
   computeSecurityV1,
   computeTestPlanV1,
@@ -77,6 +79,8 @@ const PLAN_FLAG = "--plan";
 const LOCAL_MODEL_FLAG = "--local-model";
 const EXPORT_TASK_FLAG = "--export-task";
 const INGEST_FLAG = "--ingest";
+const REMOTE_MODEL_FLAG = "--remote-model";
+const DRY_RUN_FLAG = "--dry-run";
 const CHECK_FORMATS = ["json", "agent"] as const;
 const REVIEW_FORMATS = ["json", "terminal"] as const;
 const TEST_FORMATS = ["json", "terminal"] as const;
@@ -103,6 +107,8 @@ export interface CliInvocation {
   localModel?: true;
   exportTaskPath?: string;
   ingestPath?: string;
+  remoteModel?: true;
+  dryRun?: true;
   skipTests?: true;
   bundlePath?: string;
   prHead?: string;
@@ -167,6 +173,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   let localModel = false;
   let exportTaskPath: string | undefined;
   let ingestPath: string | undefined;
+  let remoteModel = false;
+  let dryRun = false;
 
   if (commandToken === "pr-publish") {
     if (rest.length !== 1 || rest[0]!.startsWith("-")) {
@@ -318,6 +326,20 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       continue;
     }
 
+    if (token === REMOTE_MODEL_FLAG || token === DRY_RUN_FLAG) {
+      if (commandToken !== "review") {
+        throw new CliUsageError(`${token} is valid only with the review command.`);
+      }
+      if (token === REMOTE_MODEL_FLAG) {
+        if (remoteModel) throw new CliUsageError(`${REMOTE_MODEL_FLAG} may be supplied only once.`);
+        remoteModel = true;
+      } else {
+        if (dryRun) throw new CliUsageError(`${DRY_RUN_FLAG} may be supplied only once.`);
+        dryRun = true;
+      }
+      continue;
+    }
+
     if (token === EXPORT_TASK_FLAG || token === INGEST_FLAG) {
       if (commandToken !== "review") {
         throw new CliUsageError(`${token} is valid only with the review command.`);
@@ -351,8 +373,11 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     throw new CliUsageError(`Unknown argument for ${commandToken}: ${token}`);
   }
 
-  if ([localModel, exportTaskPath !== undefined, ingestPath !== undefined].filter(Boolean).length > 1) {
-    throw new CliUsageError(`${LOCAL_MODEL_FLAG}, ${EXPORT_TASK_FLAG}, and ${INGEST_FLAG} can't be combined.`);
+  if ([localModel, remoteModel, exportTaskPath !== undefined, ingestPath !== undefined].filter(Boolean).length > 1) {
+    throw new CliUsageError(`${LOCAL_MODEL_FLAG}, ${REMOTE_MODEL_FLAG}, ${EXPORT_TASK_FLAG}, and ${INGEST_FLAG} can't be combined.`);
+  }
+  if (dryRun && !remoteModel) {
+    throw new CliUsageError(`${DRY_RUN_FLAG} is valid only with ${REMOTE_MODEL_FLAG}.`);
   }
 
   return {
@@ -364,6 +389,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     ...(localModel ? { localModel: true as const } : {}),
     ...(exportTaskPath === undefined ? {} : { exportTaskPath }),
     ...(ingestPath === undefined ? {} : { ingestPath }),
+    ...(remoteModel ? { remoteModel: true as const } : {}),
+    ...(dryRun ? { dryRun: true as const } : {}),
   };
 }
 
@@ -373,7 +400,7 @@ export function usageText(): string {
     "  ascout init",
     `  ascout doctor [${FORMAT_FLAG} json|terminal]`,
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
-    `  ascout review [${LOCAL_MODEL_FLAG} | ${EXPORT_TASK_FLAG} <path> | ${INGEST_FLAG} <findings.json>] [${FORMAT_FLAG} json|terminal]`,
+    `  ascout review [${LOCAL_MODEL_FLAG} | ${REMOTE_MODEL_FLAG} [${DRY_RUN_FLAG}] | ${EXPORT_TASK_FLAG} <path> | ${INGEST_FLAG} <findings.json>] [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
     "  ascout pr-evidence [--skip-tests] [--pr-head <sha>]",
     "  ascout pr-publish <bundle>",
@@ -540,6 +567,27 @@ export function runDelegatedExport(repositoryRoot: string, path: string, format:
   return result.exit_code;
 }
 
+/** `ascout review --remote-model [--dry-run]` (E10c): an operator-paid remote model, off by default. */
+export async function runRemoteReview(repositoryRoot: string, dryRun: boolean, format: ReviewFormat | undefined, testConfigHome?: string): Promise<number> {
+  const result = await withRunCancellation((signal) => computeRemoteReviewV1(repositoryRoot, { dryRun, signal, ...(testConfigHome === undefined ? {} : { configHome: testConfigHome }) }));
+  if (result.kind === "error") {
+    reportOperationalError(result.message);
+    return result.exit_code;
+  }
+  const value = result.report as { kind?: string };
+  if (value.kind === "remote_review_dry_run") {
+    if (format === "json") {
+      process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+    } else {
+      const dry = value as unknown as { reason_text: string; disclosure: Record<string, unknown>; payload: string };
+      console.error([`=== Ascout remote review (DRY RUN) ===`, dry.reason_text, ...Object.entries(dry.disclosure).map(([key, entry]) => `${key}: ${String(entry)}`), "--- payload ---", escapeTerminalText(dry.payload)].join("\n"));
+    }
+    return result.exit_code;
+  }
+  writeReviewReport(result.report as Parameters<typeof writeReviewReport>[0], format ?? "terminal");
+  return result.exit_code;
+}
+
 /** `ascout review --ingest <findings.json>` (E10d): checks the agent's findings against the current task. */
 export function runDelegatedIngest(repositoryRoot: string, path: string, format: ReviewFormat | undefined): number {
   const result = computeDelegatedIngestV1(repositoryRoot, path);
@@ -693,6 +741,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       const reviewFormat = invocation.format as ReviewFormat | undefined;
       if (invocation.exportTaskPath !== undefined) return runDelegatedExport(process.cwd(), invocation.exportTaskPath, reviewFormat);
       if (invocation.ingestPath !== undefined) return runDelegatedIngest(process.cwd(), invocation.ingestPath, reviewFormat);
+      if (invocation.remoteModel === true) return await runRemoteReview(process.cwd(), invocation.dryRun === true, reviewFormat);
       return await runReview(process.cwd(), reviewFormat, invocation.localModel === true);
     }
     if (invocation.command === "test") {

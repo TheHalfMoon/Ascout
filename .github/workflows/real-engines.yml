@@ -45,7 +45,7 @@ jobs:
         env:
           ASCOUT_REQUIRE_REAL_GITLEAKS: "1"
           TMPDIR: ${{ runner.temp }}
-        run: npx vitest run tests/assurance-gitleaks-real.test.ts
+        run: npx vitest run tests/assurance-gitleaks-real.test.ts tests/review-remote-e10c-io.test.ts
       - name: Archive version, help, and identity captures
         if: ${{ always() && env.ASCOUT_GITLEAKS_CAPTURES != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
