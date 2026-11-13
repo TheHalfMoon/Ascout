@@ -384,8 +384,13 @@ async function runInit(): Promise<number> {
     const root = process.cwd();
     // check reads the config only at the repository root, so a config written in a subdirectory
     // would be silently ignored. Outside any repository, init is still allowed (before git init).
-    if (looksInsideGitWorkTreeV1(root) && readRepositoryPrefix(root) !== "") {
-      throw new Error("run ascout init from the repository root; check never reads a config in a subdirectory");
+    const prefix = looksInsideGitWorkTreeV1(root) ? readRepositoryPrefix(root) : "";
+    if (prefix !== "") {
+      // Name the folder by its place in the repository, never by an absolute local path. The
+      // enclosing repository may be a home folder under version control, so offer git init too.
+      throw new Error(
+        `this folder is ${JSON.stringify(prefix.replace(/\/$/u, ""))} inside a Git repository, and check reads a config only at a repository root. Run ascout init at that repository's root, or, if this folder is its own project, run git init here first.`,
+      );
     }
 
     const configPath = join(root, "ascout.config.json");

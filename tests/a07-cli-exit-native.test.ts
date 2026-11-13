@@ -491,7 +491,8 @@ describe("A07 operational errors through the compiled CLI", { timeout: CASE_TIME
     mkdirSync(join(root, "sub"), { recursive: true });
     const result = cli(join(root, "sub"), ["init"]);
     expectOperationalError(result);
-    expect(result.stderr).toContain("run ascout init from the repository root");
+    expect(result.stderr).toContain('this folder is "sub" inside a Git repository');
+    expect(result.stderr).toContain("run git init here first");
     expect(existsSync(join(root, "sub", "ascout.config.json"))).toBe(false);
     expect(existsSync(join(root, "sub", ".gitignore"))).toBe(false);
   });
