@@ -281,13 +281,20 @@ Neither key alone does anything, and neither may come from the repository or its
   3. the credential variable set;
   4. a non-empty payload (same builder as local review, plus the operator's exclusions);
   5. a clean Gitleaks scan of the exact payload, run on a copy in a new temporary repository with
-     `gitleaks:allow` removed and no `.gitleaksignore`. Any hit refuses the send and names the file;
-     no Gitleaks also refuses it;
+     `gitleaks:allow` removed and no `.gitleaksignore`. Each file keeps its own name, so rules that key
+     on a file name still apply, and the copy is committed with the same trusted Git lookup the rest
+     of Ascout uses.
+     - Any hit refuses the send and names the file.
+     - Clean has exactly one shape: Gitleaks ran to the end, wrote its report, and found nothing
+       (`COVERAGE_UNPROVEN`). Every other result refuses, including output over the cap,
+       cancellation, or a missing Gitleaks;
   6. DNS resolved once, and every answer must be public unicast;
   7. the host typed by a person at the controlling terminal (`/dev/tty`, or `CONIN$`/`CONOUT$` on
      Windows; never standard input). The last host confirmed for the repository is kept in the
      operator's config folder and shown when it changes.
-- **Transport:** Node's `https` with its own agent, so proxy variables don't apply. The resolved
+- **Transport:** Node's `https` with its own agent, so proxy variables don't apply. Certificate checks
+  are set explicitly, so `NODE_TLS_REJECT_UNAUTHORIZED` can't turn them off. Besides the idle timeout,
+  an overall deadline applies. The resolved
   address is pinned through `lookup`, and the TLS name stays the host. One request, no redirects
   (a 3xx is a refusal), a 5-minute timeout, and a reply capped at 1 MiB. `max_tokens` comes from the
   config. The credential is sent as a bearer token and removed from everything reported, including a
@@ -297,6 +304,12 @@ Neither key alone does anything, and neither may come from the repository or its
 - **Reports:** the same truth rules as local review (findings on changed lines exit 1, everything
   else 4, never 0), with `advisory: true`, `satisfies_human_r1: false`, and
   `remote: { egress: "REMOTE", host, payload_sha256, cost: "OPERATOR_ACCOUNT", node_extra_ca_certs }`.
+- **Review record:** an independent AI security review found a high-severity defect: a payload with
+  thousands of secrets overflowed Gitleaks' output cap and was reported clean. It also found a
+  transport that couldn't connect on Node 20 and later (its `lookup` didn't answer `all: true`),
+  rules lost by renamed scan files, and missing 6to4, Teredo, and documentation ranges. All are fixed
+  with regression tests, and the first two are verified against the real Gitleaks and a loopback TLS
+  server.
 - **Known limits:**
   - The Gitleaks scan is best effort, as above.
   - The terminal confirmation proves intent, not identity: a script that drives a pseudo-terminal

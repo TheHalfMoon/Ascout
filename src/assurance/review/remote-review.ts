@@ -5,10 +5,10 @@ import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, 
 import { Agent, request } from "node:https";
 import { isIP } from "node:net";
 import { tmpdir, userInfo } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isatty } from "node:tty";
 
-import type { GitChangedFile } from "../../git.js";
+import { trustedGitExecutable, type GitChangedFile } from "../../git.js";
 import { runSecurityGitleaksV1 } from "../security/security-gitleaks.js";
 import {
   REVIEW_INSTRUCTIONS,
@@ -112,7 +112,12 @@ export function isPublicAddressV1(address: string): boolean {
     if (a === 100 && b >= 64 && b <= 127) return false; // shared address space (CGNAT)
     if (a === 169 && b === 254) return false; // link-local, including cloud metadata
     if (a === 172 && b >= 16 && b <= 31) return false;
-    if (a === 192 && (b === 168 || b === 0)) return false; // private, and IETF protocol assignments
+    if (a === 192 && b === 168) return false;
+    const c = Number(address.split(".")[2]);
+    if (a === 192 && b === 0 && (c === 0 || c === 2)) return false; // IETF protocol assignments, documentation
+    if (a === 192 && b === 88 && c === 99) return false; // deprecated 6to4 relay
+    if (a === 198 && b === 51 && c === 100) return false; // documentation
+    if (a === 203 && b === 0 && c === 113) return false; // documentation
     if (a === 198 && (b === 18 || b === 19)) return false; // benchmarking
     return true;
   }
@@ -120,15 +125,35 @@ export function isPublicAddressV1(address: string): boolean {
     const lower = address.toLowerCase();
     const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/u.exec(lower);
     if (mapped !== null) return isPublicAddressV1(mapped[1]!);
-    if (lower === "::" || lower === "::1") return false;
-    const first = parseInt(lower.split(":")[0] || "0", 16);
-    if ((first & 0xfe00) === 0xfc00) return false; // unique local
-    if ((first & 0xffc0) === 0xfe80) return false; // link-local
-    if ((first & 0xff00) === 0xff00) return false; // multicast
-    if (lower.startsWith("64:ff9b:") || lower.startsWith("2001:db8:") || lower.startsWith("::ffff:")) return false;
-    return (first & 0xe000) === 0x2000; // global unicast 2000::/3
+    const words = expandIPv6(lower);
+    if (words === null) return false;
+    const [w0, w1] = words as [number, number];
+    if (words.every((word) => word === 0)) return false; // unspecified
+    if (words.slice(0, 7).every((word) => word === 0) && words[7] === 1) return false; // loopback
+    if (words.slice(0, 5).every((word) => word === 0) && (words[5] === 0 || words[5] === 0xffff)) return false; // IPv4-compatible and -mapped
+    if ((w0 & 0xfe00) === 0xfc00) return false; // unique local
+    if ((w0 & 0xffc0) === 0xfe80) return false; // link-local
+    if ((w0 & 0xff00) === 0xff00) return false; // multicast
+    if (w0 === 0x0064 && w1 === 0xff9b) return false; // NAT64
+    if (w0 === 0x2002) return false; // 6to4, which can embed a private IPv4 address
+    if (w0 === 0x2001 && w1 === 0x0000) return false; // Teredo
+    if (w0 === 0x2001 && (w1 & 0xfff0) === 0x0010) return false; // ORCHIDv2
+    if (w0 === 0x2001 && w1 === 0x0db8) return false; // documentation
+    if ((w0 & 0xfff0) === 0x3ff0) return false; // documentation, 3fff::/20
+    return (w0 & 0xe000) === 0x2000; // global unicast 2000::/3
   }
   return false;
+}
+
+/** The eight 16-bit words of an IPv6 address, or null if it isn't one. */
+function expandIPv6(address: string): number[] | null {
+  const halves = address.split("::");
+  if (halves.length > 2) return null;
+  const parse = (part: string): number[] => (part === "" ? [] : part.split(":").map((word) => parseInt(word, 16)));
+  const head = parse(halves[0] ?? "");
+  const tail = halves.length === 2 ? parse(halves[1] ?? "") : [];
+  const words = halves.length === 2 ? [...head, ...new Array<number>(8 - head.length - tail.length).fill(0), ...tail] : head;
+  return words.length === 8 && words.every((word) => Number.isInteger(word) && word >= 0 && word <= 0xffff) ? words : null;
 }
 
 /** The remote config's path: next to review-provider.json, derived from the account, never from the environment. */
@@ -330,18 +355,25 @@ export type PayloadScanV1 =
  * repository: the repository's .gitleaksignore and settings never apply, and inline gitleaks:allow
  * markers are removed first. Each file's section is scanned as its own file so a hit names it.
  */
-export async function scanRemotePayloadV1(sections: readonly { readonly path: string; readonly text: string }[], gitleaksPath: string | null, signal?: AbortSignal): Promise<PayloadScanV1> {
+export async function scanRemotePayloadV1(sections: readonly { readonly path: string; readonly text: string }[], gitleaksPath: string | null, signal?: AbortSignal, repositoryRoot: string = process.cwd()): Promise<PayloadScanV1> {
   if (gitleaksPath === null) return { kind: "unavailable", reason: "Gitleaks is not configured (ASCOUT_GITLEAKS_PATH), and remote review never sends an unscanned payload" };
+  // The same Git lookup the rest of Ascout uses: never a PATH entry inside the reviewed repository.
+  const gitExecutable = trustedGitExecutable(repositoryRoot);
+  if (gitExecutable === null) return { kind: "unavailable", reason: "no trusted Git was found for the payload secret scan" };
   const workspace = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-remote-scan-")));
   try {
     const names = new Map<string, string>();
     sections.forEach(({ path, text }, index) => {
-      const name = `section-${String(index + 1).padStart(4, "0")}.txt`;
-      names.set(name, path);
-      writeFileSync(join(workspace, name), text.replace(/gitleaks:allow/giu, "gitleaks:removed"));
+      // Each section keeps its file's own name in its own folder, so rules that key on a file name
+      // or extension (Terraform, Kubernetes YAML, and others) still apply.
+      const folder = `section-${String(index + 1).padStart(4, "0")}`;
+      const name = basename(path).replace(/[^A-Za-z0-9._-]/gu, "_") || "file";
+      names.set(`${folder}/${name}`, path);
+      mkdirSync(join(workspace, folder));
+      writeFileSync(join(workspace, folder, name), text.replace(/gitleaks:allow/giu, "gitleaks:removed"));
     });
     const git = (args: readonly string[]): void => {
-      execFileSync("git", ["-c", "core.hooksPath=", "-c", "commit.gpgSign=false", "-c", "user.name=ascout", "-c", "user.email=ascout@invalid", ...args], { cwd: workspace, windowsHide: true, stdio: "ignore", env: { PATH: process.env.PATH ?? "", SystemRoot: process.env.SystemRoot ?? "", GIT_CONFIG_NOSYSTEM: "1", HOME: workspace } });
+      execFileSync(gitExecutable, ["-c", "core.hooksPath=", "-c", "commit.gpgSign=false", "-c", "user.name=ascout", "-c", "user.email=ascout@invalid", ...args], { cwd: workspace, windowsHide: true, stdio: "ignore", env: { PATH: process.env.PATH ?? "", SystemRoot: process.env.SystemRoot ?? "", GIT_CONFIG_NOSYSTEM: "1", HOME: workspace } });
     };
     git(["init", "-q"]);
     git(["add", "--all"]);
@@ -351,7 +383,12 @@ export async function scanRemotePayloadV1(sections: readonly { readonly path: st
       return { kind: "unavailable", reason: "the payload secret scan did not run, and remote review never sends an unscanned payload" };
     }
     if (outcome.report.findings.length > 0) {
-      return { kind: "hits", files: [...new Set(outcome.report.findings.map((finding) => names.get(finding.path ?? "") ?? "(unknown)"))].sort() };
+      return { kind: "hits", files: [...new Set(outcome.report.findings.map((finding) => names.get((finding.path ?? "").replaceAll("\\", "/")) ?? "(unknown)"))].sort() };
+    }
+    // Clean has exactly one shape: Gitleaks ran to the end, wrote its report, and found nothing.
+    // Every other result, such as output over the cap, cancellation, or a stray process, refuses.
+    if (outcome.report.reason_code !== "COVERAGE_UNPROVEN") {
+      return { kind: "unavailable", reason: `the payload secret scan did not complete (${outcome.report.reason_code}), and remote review never sends an unscanned payload` };
     }
     return { kind: "clean" };
   } catch {
@@ -390,10 +427,17 @@ export const httpsTransportV1: RemoteTransportV1 = (exchange) => new Promise((re
     method: "POST",
     agent,
     headers: exchange.headers,
-    // The address was resolved and checked once; the connection uses exactly that address.
-    lookup: (_host, _options, callback) => {
-      (callback as (error: Error | null, address: string, family: number) => void)(null, exchange.address, exchange.family);
+    // The address was resolved and checked once; the connection uses exactly that address. Node asks
+    // for every address (all: true) when it may try several families, so both forms are answered.
+    lookup: (_host, options, callback) => {
+      if ((options as { all?: boolean }).all === true) {
+        (callback as (error: Error | null, addresses: { address: string; family: number }[]) => void)(null, [{ address: exchange.address, family: exchange.family }]);
+      } else {
+        (callback as (error: Error | null, address: string, family: number) => void)(null, exchange.address, exchange.family);
+      }
     },
+    // Explicit, so NODE_TLS_REJECT_UNAUTHORIZED in the environment can't turn certificate checks off.
+    rejectUnauthorized: true,
     timeout: exchange.timeoutMs,
     signal: exchange.signal,
   }, (response) => {
@@ -412,6 +456,13 @@ export const httpsTransportV1: RemoteTransportV1 = (exchange) => new Promise((re
     response.on("error", () => resolvePromise({ status: 0, text: null }));
   });
   req.on("timeout", () => req.destroy(new Error("timeout")));
+  // An overall deadline too: a server trickling bytes would otherwise keep resetting the idle timeout.
+  const deadline = setTimeout(() => {
+    req.destroy(new Error("deadline"));
+    resolvePromise({ status: 0, text: null });
+  }, exchange.timeoutMs);
+  deadline.unref();
+  req.on("close", () => clearTimeout(deadline));
   req.on("error", () => resolvePromise({ status: 0, text: null }));
   req.end(exchange.body);
 });
@@ -478,7 +529,11 @@ export async function runRemoteReviewV1(input: RemoteReviewInputV1): Promise<Rem
   // The credential joins the redaction set before anything can echo it.
   const redact = (text: string): string => input.redact(text).split(credential).join("[REDACTED]");
 
-  const excluded = (path: string): boolean => isNeverSentPathV1(path) || settings.exclude.some((prefix) => path === prefix || path.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`));
+  const excludes = settings.exclude.map((prefix) => samePathKey(prefix.replaceAll("\\", "/").replace(/\/+$/u, "")));
+  const excluded = (path: string): boolean => {
+    const key = samePathKey(path);
+    return isNeverSentPathV1(path) || excludes.some((prefix) => key === prefix || key.startsWith(`${prefix}/`));
+  };
   const payload = buildLocalReviewPayloadV1(
     input.changed_files.filter((file) => !excluded(file.path)),
     input.readText,
@@ -499,7 +554,7 @@ export async function runRemoteReviewV1(input: RemoteReviewInputV1): Promise<Rem
   };
   if (input.dryRun) return { kind: "dry_run", disclosure, payload: payload.text };
 
-  const scan = await (input.scan ?? ((sections) => scanRemotePayloadV1(sections, input.gitleaksPath, input.signal)))(payloadSections(payload.text, payload.reviewed_files));
+  const scan = await (input.scan ?? ((sections) => scanRemotePayloadV1(sections, input.gitleaksPath, input.signal, input.repositoryRoot)))(payloadSections(payload.text, payload.reviewed_files));
   if (scan.kind === "unavailable") return { kind: "not_run", reason: scan.reason, disclosure };
   if (scan.kind === "hits") return { kind: "not_run", reason: `the payload secret scan found possible secrets in ${scan.files.join(", ")}, so nothing was sent`, disclosure };
 

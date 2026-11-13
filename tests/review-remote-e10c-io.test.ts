@@ -107,6 +107,20 @@ describe("the payload secret scan", () => {
     expect(result).toEqual({ kind: "hits", files: ["src/settings.ts"] });
     expect(await scanRemotePayloadV1([{ path: "src/clean.ts", text: "export const a = 1;\n" }], GITLEAKS!)).toEqual({ kind: "clean" });
   });
+
+  it.runIf(GITLEAKS !== undefined && GITLEAKS !== "")("keeps each file's name, so rules that key on it still apply", async () => {
+    const result = await scanRemotePayloadV1([{ path: "infra/main.tf", text: 'administrator_login_password = "Pa55w0rdPa55w0rd"\n' }], GITLEAKS!);
+    expect(result).toEqual({ kind: "hits", files: ["infra/main.tf"] });
+  });
+
+  it.runIf(GITLEAKS !== undefined && GITLEAKS !== "")("refuses, never calls clean, when Gitleaks' report is too large to read", async () => {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    const line = () => `t = "${["gh", "p_"].join("")}${[...randomBytes(36)].map((byte) => alphabet[byte % alphabet.length]).join("")}"`;
+    const text = Array.from({ length: 2800 }, line).join("\n");
+    const result = await scanRemotePayloadV1([{ path: "dump.txt", text }], GITLEAKS!);
+    expect(result.kind === "hits" || result.kind === "unavailable").toBe(true);
+    expect(result.kind).not.toBe("clean");
+  });
 });
 
 describe("ascout review --remote-model through the CLI", () => {
