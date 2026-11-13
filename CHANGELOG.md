@@ -3,6 +3,13 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
+## Unreleased
+
+- `check` with Jest: a narrowed Jest pass that selects no test (for example, when only a release
+  script changed) now widens to one full pass, instead of exiting 2 with an integrity error. The
+  narrowed pass runs with `--passWithNoTests`; the full pass never does, so a project with no test
+  at all still fails. This fixes the known limitation in the v0.3.0 release notes.
+
 ## 0.3.0 (2026-11-13)
 
 Released on GitHub only, not on npm: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.0.
@@ -42,9 +49,6 @@ Changes since `v0.2.0`:
   recorded source state equals the working tree. Both have assurance `NONE`.
 - `check`: a narrowed Vitest pass that selects no test (for example, when only a release script
   changed) now widens to one full pass, instead of reporting an integrity error (#734, #735).
-- `check`: the same holds for Jest. The narrowed Jest pass now runs with `--passWithNoTests`, so an
-  empty selection leaves a zero-test result that widens to one full pass. The full pass never
-  gets that flag, so a project with no test at all still fails.
 
 ## 0.2.0 (2026-11-10)
 
