@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { closeSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { closeSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import type { GitChangedFile } from "../../git.js";
@@ -26,6 +27,8 @@ export const DELEGATED_REVIEW_ENGINE_ID = "engine:review-delegated" as const;
 export const DELEGATED_LIMITS = Object.freeze({ max_findings_bytes: 1024 * 1024, max_findings: 200 });
 
 const SHA256 = /^[0-9a-f]{64}$/u;
+const COMMIT = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u;
+const MODEL_NAME = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,99}$/u;
 const GROUP_ID = "group:working-tree";
 const FINDINGS_KEYS = new Set(["schema", "task_sha256", "model", "model_family", "findings"]);
 const FINDING_KEYS = new Set(["path", "start_line", "end_line", "severity", "category", "message"]);
@@ -114,7 +117,9 @@ export function assertOutsideRepositoryV1(repositoryRoot: string, path: string, 
   const real = rest.length === 0 ? existing : join(existing, ...rest);
   const root = realpathSync.native(repositoryRoot);
   const fromRoot = relative(samePathKey(root), samePathKey(real));
-  if (fromRoot === "" || (!fromRoot.startsWith("..") && !isAbsolute(fromRoot))) {
+  // Outside means the relative path climbs out: "..", or ".." followed by a separator. A folder
+  // that merely starts with two dots, such as "..cache", is still inside.
+  if (fromRoot === "" || (!/^\.\.(?:[\\/]|$)/u.test(fromRoot) && !isAbsolute(fromRoot))) {
     throw new Error(`the ${what} path must be outside the repository`);
   }
   return real;
@@ -125,13 +130,15 @@ function exportRecordPath(repositoryRoot: string, taskSha: string): string {
   return join(repositoryRoot, ".ascout", "review-tasks", `${taskSha}.json`);
 }
 
-function assertPlainDirectory(path: string): void {
+/** Creates the folder if absent, without following links, and confirms afterwards that it is a plain folder. */
+function plainDirectory(path: string): void {
   try {
-    const stat = lstatSync(path);
-    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error(`${path} is not a plain folder`);
+    mkdirSync(path);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
   }
+  const stat = lstatSync(path);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error("the .ascout review-task folder is not a plain folder");
 }
 
 /**
@@ -140,16 +147,20 @@ function assertPlainDirectory(path: string): void {
  */
 export function exportDelegatedTaskV1(repositoryRoot: string, path: string, task: DelegatedTaskV1): string {
   const target = assertOutsideRepositoryV1(repositoryRoot, path, "export");
-  const ascout = join(repositoryRoot, ".ascout");
-  const records = join(ascout, "review-tasks");
-  assertPlainDirectory(ascout);
-  assertPlainDirectory(records);
-  mkdirSync(records, { recursive: true });
+  const records = join(repositoryRoot, ".ascout", "review-tasks");
+  plainDirectory(join(repositoryRoot, ".ascout"));
+  plainDirectory(records);
   writeFileSync(target, `${JSON.stringify(task, null, 2)}\n`, { flag: "wx", mode: 0o600 });
-  writeFileSync(
-    exportRecordPath(repositoryRoot, task.task_sha256),
-    `${JSON.stringify({ task_sha256: task.task_sha256, head_sha: task.head_sha, tree_digest: task.tree_digest })}\n`,
-  );
+  // A new file renamed into place: the rename replaces whatever is at the record path, including a
+  // link the code under review planted there, instead of writing through it.
+  const temporary = join(records, `.record-${randomBytes(8).toString("hex")}`);
+  writeFileSync(temporary, `${JSON.stringify({ task_sha256: task.task_sha256, head_sha: task.head_sha, tree_digest: task.tree_digest })}\n`, { flag: "wx", mode: 0o600 });
+  try {
+    renameSync(temporary, exportRecordPath(repositoryRoot, task.task_sha256));
+  } catch (error) {
+    rmSync(temporary, { force: true });
+    throw error;
+  }
   return target;
 }
 
@@ -171,9 +182,6 @@ interface ParsedFindingsFileV1 {
   readonly findings: readonly Record<string, unknown>[];
 }
 
-function plainString(value: unknown, max: number): value is string {
-  return typeof value === "string" && value.length > 0 && value.length <= max && !/[\u0000-\u001f\u007f]/u.test(value);
-}
 
 /** A repository-relative path in the export's form: forward slashes, no "..", no root or drive. */
 function safeRelativePath(path: string): boolean {
@@ -194,7 +202,16 @@ export function readDelegatedFindingsV1(repositoryRoot: string, path: string): P
     if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino || opened.size > BigInt(DELEGATED_LIMITS.max_findings_bytes)) {
       throw new Error("the findings file changed while it was being read");
     }
-    text = readFileSync(descriptor, "utf8");
+    // Read at most one byte past the limit, so a file that grows after the check is still refused.
+    const buffer = Buffer.alloc(DELEGATED_LIMITS.max_findings_bytes + 1);
+    let length = 0;
+    for (;;) {
+      const read = readSync(descriptor, buffer, length, buffer.length - length, null);
+      if (read === 0) break;
+      length += read;
+      if (length > DELEGATED_LIMITS.max_findings_bytes) throw new Error("the findings file is larger than 1 MiB");
+    }
+    text = buffer.subarray(0, length).toString("utf8");
   } finally {
     closeSync(descriptor);
   }
@@ -211,7 +228,9 @@ export function readDelegatedFindingsV1(repositoryRoot: string, path: string): P
   }
   if (file.schema !== DELEGATED_FINDINGS_SCHEMA) throw new Error(`the findings file's schema must be ${DELEGATED_FINDINGS_SCHEMA}`);
   if (typeof file.task_sha256 !== "string" || !SHA256.test(file.task_sha256)) throw new Error("the findings file's task_sha256 is not a SHA-256");
-  if (!plainString(file.model, 100) || !plainString(file.model_family, 50)) throw new Error("the findings file must name its model and model_family");
+  if (typeof file.model !== "string" || !MODEL_NAME.test(file.model) || typeof file.model_family !== "string" || !MODEL_NAME.test(file.model_family)) {
+    throw new Error("the findings file must name its model and model_family with letters, digits, and . _ : / @ + - only");
+  }
   if (!Array.isArray(file.findings)) throw new Error("the findings file's findings must be a list");
   if (file.findings.length > DELEGATED_LIMITS.max_findings) throw new Error(`the findings file has more than ${DELEGATED_LIMITS.max_findings} findings`);
   for (const finding of file.findings as unknown[]) {
@@ -230,7 +249,10 @@ export function readDelegatedFindingsV1(repositoryRoot: string, path: string): P
 function readExportRecord(repositoryRoot: string, taskSha: string): { readonly tree_digest: string; readonly head_sha: string } | null {
   try {
     const record = JSON.parse(readFileSync(exportRecordPath(repositoryRoot, taskSha), "utf8")) as { tree_digest?: unknown; head_sha?: unknown };
-    return typeof record.tree_digest === "string" && typeof record.head_sha === "string" ? { tree_digest: record.tree_digest, head_sha: record.head_sha } : null;
+    // The repository can write this file, so only well-formed digests are believed, never free text.
+    return typeof record.tree_digest === "string" && SHA256.test(record.tree_digest) && typeof record.head_sha === "string" && COMMIT.test(record.head_sha)
+      ? { tree_digest: record.tree_digest, head_sha: record.head_sha }
+      : null;
   } catch {
     return null;
   }

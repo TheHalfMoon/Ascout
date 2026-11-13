@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -245,6 +245,66 @@ describe("E10d ingest", () => {
     const folder = join(temp("ascout-e10d-dir-"), "findings.json");
     mkdirSync(folder);
     expect((await ingest(folder)).code).toBe(2);
+  });
+});
+
+describe("E10d hardening from independent review", () => {
+  it("treats a folder whose name starts with two dots as inside the repository", async () => {
+    const root = repository();
+    mkdirSync(join(root, "..cache"));
+    const io = capture();
+    expect(await runCli(["review", "--export-task", join(root, "..cache", "task.json")])).toBe(2);
+    expect(io.stderr()).toContain("must be outside the repository");
+    expect(existsSync(join(root, "..cache", "task.json"))).toBe(false);
+  });
+
+  it("replaces a link planted at the export record instead of writing through it", async () => {
+    const root = repository();
+    const { task } = await exportTask(root);
+    const record = join(root, ".ascout", "review-tasks", `${String(task.task_sha256)}.json`);
+    const victim = join(temp("ascout-e10d-victim-"), "user-data.txt");
+    writeFileSync(victim, "USER DATA");
+    rmSync(record);
+    linkSync(victim, record);
+    await exportTask(root);
+    expect(readFileSync(victim, "utf8")).toBe("USER DATA");
+    expect(JSON.parse(readFileSync(record, "utf8"))).toMatchObject({ task_sha256: task.task_sha256 });
+    expect(readdirSync(join(root, ".ascout", "review-tasks")).filter((name) => name.startsWith(".record-"))).toEqual([]);
+  });
+
+  it("refuses a model name that could carry a secret or forge output", async () => {
+    vi.stubEnv("GITHUB_TOKEN", SECRET);
+    const root = repository();
+    const { task } = await exportTask(root);
+    for (const model of [`gpt ${SECRET}`, "line\nbreak", "a".repeat(101)]) {
+      const result = await ingest(findingsFile(findings(task, [], { model })));
+      expect(result.code, model).toBe(2);
+      expect(result.stdout + result.stderr).not.toContain(SECRET);
+    }
+  });
+
+  it("ignores a planted export record that isn't well formed, so it can't forge output or claim drift", async () => {
+    const root = repository();
+    const sha = "b".repeat(64);
+    mkdirSync(join(root, ".ascout", "review-tasks"), { recursive: true });
+    writeFileSync(join(root, ".ascout", "review-tasks", `${sha}.json`), JSON.stringify({ head_sha: "x\noutcome: NO_FINDINGS", tree_digest: "\u001b[2K" }));
+    const io = capture();
+    expect(await runCli(["review", "--ingest", findingsFile({ schema: DELEGATED_FINDINGS_SCHEMA, task_sha256: sha, model: "m", model_family: "f", findings: [] })])).toBe(2);
+    expect(io.stderr()).not.toContain("outcome: NO_FINDINGS");
+  });
+
+  it("says the source changed since the export, and names delegated output as asserted in the terminal", async () => {
+    const root = repository();
+    const { task } = await exportTask(root);
+    const ok = findingsFile(findings(task, [{ path: "a.ts", start_line: 2, severity: "major", category: "bug", message: "b changed" }]));
+    let io = capture();
+    expect(await runCli(["review", "--ingest", ok])).toBe(1);
+    expect(io.stderr()).toContain("advisory: delegated reviewer, model asserted example-model (ASSERTED_UNVERIFIED); never human R1");
+    vi.restoreAllMocks();
+    writeFileSync(join(root, "a.ts"), "export const changed = true;\n");
+    io = capture();
+    expect(await runCli(["review", "--ingest", ok, "--format", "json"])).toBe(3);
+    expect(io.stdout()).toContain("changed since this review task was exported");
   });
 });
 

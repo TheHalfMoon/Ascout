@@ -230,7 +230,7 @@ export function computeDelegatedExportV1(repositoryRoot: string, path: string): 
       assurance: "NONE",
       outcome: "TASK_EXPORTED",
       exit_code: 0,
-      reason_text: "The review task was written for your own agent. Nothing has been reviewed yet; ingest its findings with ascout review --ingest.",
+      reason_text: "The review task was written for your own agent. Nothing has been reviewed yet; ingest its findings with ascout review --ingest. Like review, it covers working-tree and index changes only, not committed changes or ignored files. On Windows the file is not restricted to its owner, so keep it out of shared folders.",
       task_sha256: task.task_sha256,
       reviewed_files: task.reviewed_files,
     };
@@ -252,7 +252,12 @@ export function computeDelegatedIngestV1(repositoryRoot: string, path: string): 
     const result = ingestDelegatedFindingsV1({ repositoryRoot, path, source: read.source, target_id: read.target_id, changes: read.changes });
     if (result.kind === "error") return failure(redactLocalPathFromError(result.message, repositoryRoot));
     if (result.kind === "drift") {
-      const drift = buildReviewDriftReportV1(read.target_id, result.exported, { head_sha: read.source.head_sha, tree_digest: read.source.tree_digest });
+      const drift = buildReviewDriftReportV1(
+        read.target_id,
+        result.exported,
+        { head_sha: read.source.head_sha, tree_digest: read.source.tree_digest },
+        "The source changed since this review task was exported, so the findings answer a different source.",
+      );
       return report(drift, drift.exit_code);
     }
     return report(result.report, result.report.exit_code);

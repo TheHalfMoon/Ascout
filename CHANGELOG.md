@@ -29,6 +29,10 @@ break compatibility, and each breaking change is listed under **Breaking**.
 - `init` refuses to run inside a `.git` directory, and updates `.gitignore` without reading or
   writing through a link swapped in after its check (descriptor read with exact file identity, then
   write and rename).
+- Delegated review (E10d): `ascout review --export-task <path>` writes the review task for your own AI
+  agent, and `ascout review --ingest <findings.json>` checks the findings it returns against the current
+  source. No network call; findings are advisory, and the model named in the file is asserted, not
+  verified.
 
 ## 0.3.0 (2026-11-13)
 

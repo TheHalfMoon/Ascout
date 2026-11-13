@@ -356,6 +356,7 @@ export function buildReviewDriftReportV1(
   target_id: string,
   start: ReviewSourceObservationV1,
   end: ReviewSourceObservationV1,
+  reason_text = "The source changed between the start and end of this read, so no scope is reported.",
 ): DriftReviewReportV1 {
   return Object.freeze({
     kind: "drift" as const,
@@ -364,7 +365,7 @@ export function buildReviewDriftReportV1(
     outcome: "SOURCE_DRIFT" as const,
     exit_code: REVIEW_SOURCE_DRIFT_EXIT_CODE,
     reason_code: "SOURCE_DRIFT" as const,
-    reason_text: "The source changed between the start and end of this read, so no scope is reported.",
+    reason_text,
     executed_count: 0 as const,
     start: Object.freeze({ head_sha: start.head_sha, tree_digest: start.tree_digest }),
     end: Object.freeze({ head_sha: end.head_sha, tree_digest: end.tree_digest }),
@@ -386,7 +387,8 @@ interface AdvisoryReviewFieldsV1 {
 
 // Model text is untrusted, so every piece of it is escaped before it reaches the terminal.
 function renderAdvisoryReview(report: AdvisoryReviewFieldsV1, lines: string[]): void {
-  lines.push(`advisory: local model ${escapeTerminalText(report.provider.model)} (${report.provider.independence}); never human R1`);
+  const reviewer = report.provider.independence === "ASSERTED_UNVERIFIED" ? "delegated reviewer, model asserted" : "local model";
+  lines.push(`advisory: ${reviewer} ${escapeTerminalText(report.provider.model)} (${report.provider.independence}); never human R1`);
   for (const record of report.records) {
     const { observation } = record;
     const where = observation.location_hint === null
@@ -413,8 +415,8 @@ export function renderReviewTerminalV1(report: ReviewReportV1): string {
   if (report.kind === "drift") {
     lines.push(`outcome: ${report.outcome}`);
     lines.push(`reason: ${report.reason_text}`);
-    lines.push(`start: head ${report.start.head_sha}, tree ${report.start.tree_digest}`);
-    lines.push(`end: head ${report.end.head_sha}, tree ${report.end.tree_digest}`);
+    lines.push(`start: head ${escapeTerminalText(report.start.head_sha)}, tree ${escapeTerminalText(report.start.tree_digest)}`);
+    lines.push(`end: head ${escapeTerminalText(report.end.head_sha)}, tree ${escapeTerminalText(report.end.tree_digest)}`);
     lines.push(`exit code: ${report.exit_code}`);
     return lines.join("\n") + "\n";
   }
