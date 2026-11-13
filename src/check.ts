@@ -1384,14 +1384,14 @@ function combineTestPasses(first: ExecutedTestTask, second: ExecutedTestTask): E
  * The full pass for a narrowed pass that selected no test, or null when no changed production source
  * calls for one (for example only declaration files changed) or the full pass can't be planned.
  */
-export function emptyRelatedWideningPlanV1(
+export function emptyRelatedWideningPlanV1<Plan extends VitestTaskPlan | JestTaskPlan>(
   changedFiles: readonly GitChangedFile[],
-  planFull: (changedFiles: readonly GitChangedFile[]) => VitestTaskPlan,
-): PlannedVitestTask | null {
+  planFull: (changedFiles: readonly GitChangedFile[]) => Plan,
+): Extract<Plan, { readonly state: "planned" }> | null {
   const widening = decidePostRunWidening(changedFiles, "native_related", []);
   if (!widening.widened) return null;
   const plan = planFull(postRunPlanningChangedFiles(changedFiles, widening));
-  return plan.state === "planned" ? plan : null;
+  return plan.state === "planned" ? plan as Extract<Plan, { readonly state: "planned" }> : null;
 }
 
 /**
@@ -1414,6 +1414,33 @@ export function vitestSelectedNoTest(runId: string, runPath: string, plan: Pick<
 }
 
 const VITEST_ZERO_RESULT_MAX_BYTES = 1024 * 1024;
+
+/**
+ * True when the narrowed Jest pass selected no test. With --passWithNoTests, real Jest exits 0 and
+ * writes a machine result with zero tests, zero suites, no failed or crashed suite, and no suite
+ * results, plus an empty LCOV file. Unlike Vitest, an absent result is false: Jest always writes
+ * one on that path. Anything malformed, oversized, or with any suite or test is false.
+ */
+export function jestSelectedNoTest(runId: string, runPath: string, plan: Pick<PlannedJestTask, "machineResultPath">): boolean {
+  if (plan.machineResultPath === null) return false;
+  let value: unknown;
+  try {
+    const path = join(runPath, runRelativeArtifactPath(runId, plan.machineResultPath));
+    const stat = lstatSync(path);
+    if (!stat.isFile() || stat.size > VITEST_ZERO_RESULT_MAX_BYTES) return false;
+    value = JSON.parse(readFileSync(path, "utf8")) as unknown;
+  } catch {
+    return false;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const result = value as Readonly<Record<string, unknown>>;
+  return result.numTotalTests === 0 &&
+    result.numTotalTestSuites === 0 &&
+    result.numFailedTestSuites === 0 &&
+    result.numRuntimeErrorTestSuites === 0 &&
+    Array.isArray(result.testResults) &&
+    result.testResults.length === 0;
+}
 
 /**
  * The full pass replaces a narrowed pass that selected no test. The task's result is the full
@@ -1923,42 +1950,42 @@ async function runCheckWithinCancellation(
                 );
           let finalExecuted = firstExecuted;
 
-          // A narrowed Vitest pass that finds no related test exits 0 with a zero-test machine result
-          // and an empty LCOV file (or, for some setups, no machine result at all).
-          // That is a selection that observed nothing, not altered evidence, so it gets the one
-          // full pass that a coverage-relation gap gets, and the task is judged on that pass. A full
-          // pass without evidence is still ERROR, and malformed evidence never widens.
+          // A narrowed pass that finds no related test observed nothing; that isn't altered evidence.
+          // Vitest exits 0 with a zero-test machine result and an empty LCOV file (or, for some
+          // setups, no machine result at all). Jest, run with --passWithNoTests, exits 0 with a
+          // zero-test machine result and an empty LCOV file. Either gets the one full pass that a
+          // coverage-relation gap gets, and the task is judged on that pass. A full pass without
+          // evidence is still ERROR, and malformed evidence or a real failure never widens.
+          const usesJest = discovery.jsTestRunner.state === "resolved" && discovery.jsTestRunner.value === "jest";
           if (
             firstExecuted.task.status === "ERROR" &&
-            firstExecuted.task.reason_code === "vitest_evidence_invalid" &&
-            firstExecuted.task.exit_code === 0 &&
             testPlan.state === "planned" &&
             testPlan.selectionMode === "native_related" &&
-            !(discovery.jsTestRunner.state === "resolved" && discovery.jsTestRunner.value === "jest") &&
-            vitestSelectedNoTest(runId, runDir.run_path, testPlan as PlannedVitestTask)
+            (usesJest
+              ? firstExecuted.task.reason_code === "jest_evidence_invalid" &&
+                firstExecuted.task.exit_code === 0 &&
+                jestSelectedNoTest(runId, runDir.run_path, testPlan as PlannedJestTask)
+              : firstExecuted.task.reason_code === "vitest_evidence_invalid" &&
+                firstExecuted.task.exit_code === 0 &&
+                vitestSelectedNoTest(runId, runDir.run_path, testPlan as PlannedVitestTask))
           ) {
-            const widerPlan = emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planVitestTask({
+            const fullPlanInput = {
               repositoryRoot: root,
               runId,
               config,
               discovery,
               files,
-              changedFiles,
-              selectionMode: "full",
-              artifactPassOrdinal: 2,
-            }));
+              selectionMode: "full" as const,
+              artifactPassOrdinal: 2 as const,
+            };
+            const timeoutMs = taskTimeoutMs(config, task);
+            const widerPlan = usesJest
+              ? emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planJestTask({ ...fullPlanInput, changedFiles }))
+              : emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planVitestTask({ ...fullPlanInput, changedFiles }));
             if (widerPlan !== null) {
-              const secondExecuted = await executeVitestTask(
-                root,
-                runId,
-                runDir.run_path,
-                runDir.raw_path,
-                widerPlan,
-                decision,
-                secrets,
-                taskTimeoutMs(config, task),
-                2,
-              );
+              const secondExecuted = usesJest
+                ? await executeJestTask(root, runId, runDir.run_path, runDir.raw_path, widerPlan as PlannedJestTask, decision, secrets, timeoutMs, 2)
+                : await executeVitestTask(root, runId, runDir.run_path, runDir.raw_path, widerPlan as PlannedVitestTask, decision, secrets, timeoutMs, 2);
               finalExecuted = replaceEmptyRelatedPass(firstExecuted, secondExecuted);
               selection = withPostRunWideningPass(selection, widerPlan.workingDirectory);
             }

@@ -76,7 +76,7 @@ describe("T052 Jest task planner", () => {
       expect(plan.selectionMode).toBe("native_related");
       expect(plan.selectedPaths).toEqual(["src/used.js"]);
       expect(plan.argv[0]).toBe(nativeJestPath());
-      expect(plan.argv.slice(1, 3)).toEqual(["--findRelatedTests", "src/used.js"]);
+      expect(plan.argv.slice(1, 4)).toEqual(["--findRelatedTests", "src/used.js", "--passWithNoTests"]);
       expect(plan.argv).toContain("--ci");
       expect(plan.argv).toContain("--json");
       expect(plan.argv).toContain("--outputFile=.ascout/runs/run-052/raw/test/jest-results.json");
@@ -87,6 +87,21 @@ describe("T052 Jest task planner", () => {
       expect(plan.argv).toContain("jest.config.cjs");
       expect(plan.machineResultPath).toBe(".ascout/runs/run-052/raw/test/jest-results.json");
       expect(plan.lcovPath).toBe(".ascout/runs/run-052/raw/test/coverage/lcov.info");
+
+      // The full pass never passes with no tests, so a project without a test still fails.
+      const full = planJestTask({
+        repositoryRoot: root,
+        runId: "run-052",
+        config: { version: 1 },
+        discovery: discoverProjectFromFiles(files),
+        files,
+        changedFiles: [changed("src/used.js")],
+        selectionMode: "full",
+      });
+      expect(full.state).toBe("planned");
+      if (full.state !== "planned") return;
+      expect(full.argv).not.toContain("--findRelatedTests");
+      expect(full.argv).not.toContain("--passWithNoTests");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

@@ -414,7 +414,13 @@ export function planJestTask(input: JestTaskPlanningInput): JestTaskPlan {
   const selectedArgs = selectionMode === "native_related"
     ? changedPaths.map((path) => positionalPathArg(relativeFromRoot(scopeRoot, path)))
     : [];
-  const selectionArgs = selectionMode === "native_related" ? ["--findRelatedTests", ...selectedArgs] : [];
+  // A narrowed pass that finds no related test must still finish normally: without
+  // --passWithNoTests, Jest exits 1 and may exit before writing its machine result. With it, Jest
+  // exits 0 with a zero-test result that `check` widens to a full pass. The full pass never gets it,
+  // so a project with no test at all still fails.
+  const selectionArgs = selectionMode === "native_related"
+    ? ["--findRelatedTests", ...selectedArgs, "--passWithNoTests"]
+    : [];
   const machineResultArg = relativeFromRoot(scopeRoot, machineResultPath);
   const coverageDirectoryArg = relativeFromRoot(scopeRoot, coverageDirectoryPath);
   const configArgs = configPath === null ? [] : ["--config", relativeFromRoot(scopeRoot, configPath)];
