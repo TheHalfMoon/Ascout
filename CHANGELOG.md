@@ -16,6 +16,8 @@ break compatibility, and each breaking change is listed under **Breaking**.
   instead of falling back to the workflow token; `token` requires the workflow token and no App
   secrets. The App-mode template sets `app`, and the workflow lint requires it wherever the App
   secrets are passed. Unset keeps the previous behaviour.
+- `pr-evidence --pr-head` accepts a 64-hex commit ID, so the collect workflow works in SHA-256
+  repositories; the bundle validator and the publisher already accepted one.
 
 ## 0.3.0 (2026-11-13)
 
