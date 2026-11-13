@@ -42,6 +42,9 @@ Changes since `v0.2.0`:
   recorded source state equals the working tree. Both have assurance `NONE`.
 - `check`: a narrowed Vitest pass that selects no test (for example, when only a release script
   changed) now widens to one full pass, instead of reporting an integrity error (#734, #735).
+- `check`: the same holds for Jest. The narrowed Jest pass now runs with `--passWithNoTests`, so an
+  empty selection leaves a zero-test result that widens to one full pass. The full pass never
+  gets that flag, so a project with no test at all still fails.
 
 ## 0.2.0 (2026-11-10)
 
