@@ -5,6 +5,10 @@ break compatibility, and each breaking change is listed under **Breaking**.
 
 ## Unreleased
 
+- FD-4 research: native capability probes (`src/assurance/containment/capability-probes.ts`) run in CI
+  on Linux, macOS and Windows. They prove that under T0, code Ascout runs can read and write outside
+  its workspace, reach loopback, and see environment secrets. The containment tier stays T0, and there
+  is no T1 claim. See `specs/017-unified-assurance/FD4_T1_ISOLATION_RESEARCH.md`.
 - `check` with Jest: a narrowed Jest pass that selects no test (for example, when only a release
   script changed) now widens to one full pass, instead of exiting 2 with an integrity error. The
   narrowed pass runs with `--passWithNoTests`; the full pass never does, so a project with no test
