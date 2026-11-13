@@ -13,7 +13,9 @@ jobs:
   project:
     name: project / ${{ matrix.os }} / node-${{ matrix.node }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # Windows runs one test worker and already takes 18-28 minutes on shared runners; 30 cancelled
+    # passing runs at the limit (2026-11-13: main, #755, #756). The limit only bounds a hang.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
