@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -59,7 +59,7 @@ function realJestFixture(tests: "passing" | "failing" | "none"): string {
 }
 
 /** related: what the narrowed pass does. The full pass always writes valid passing evidence. */
-type FakeRelated = "zero" | "zero-exit-1" | "counted";
+type FakeRelated = "zero" | "zero-exit-1" | "counted" | "suite-without-tests";
 
 function fakeJestFixture(related: FakeRelated): string {
   const root = mkdtempSync(join(tmpdir(), "ascout-jest-empty-related-fake-"));
@@ -81,7 +81,8 @@ function fakeJestFixture(related: FakeRelated): string {
     'if (process.argv.includes("--findRelatedTests")) {',
     `  const related = ${JSON.stringify(related)};`,
     `  const zero = ${JSON.stringify(zero)};`,
-    '  writeFileSync(output, JSON.stringify(related === "counted" ? { ...zero, numTotalTests: 2 } : zero));',
+    '  const result = related === "counted" ? { ...zero, numTotalTests: 2 } : related === "suite-without-tests" ? { ...zero, numTotalTestSuites: 1 } : zero;',
+    '  writeFileSync(output, JSON.stringify(result));',
     '  writeFileSync(coverageDir + "/lcov.info", "");',
     '  process.exit(related === "zero-exit-1" ? 1 : 0);',
     '}',
@@ -152,6 +153,12 @@ describe("check: guards on widening a narrowed Jest pass", () => {
     expect(test).toMatchObject({ status: "ERROR", reason_code: "jest_evidence_invalid", exit_code: 0 });
     expect(receipt.selection.passes).toHaveLength(1);
   });
+
+  it("never widens a result that counts a suite, even with zero tests", async () => {
+    const { receipt, test } = await check(fakeJestFixture("suite-without-tests"));
+    expect(test).toMatchObject({ status: "ERROR", reason_code: "jest_evidence_invalid", exit_code: 0 });
+    expect(receipt.selection.passes).toHaveLength(1);
+  });
 });
 
 describe("jestSelectedNoTest", () => {
@@ -178,6 +185,7 @@ describe("jestSelectedNoTest", () => {
         { numRuntimeErrorTestSuites: 1 },
         { testResults: [{ name: "a.test.js" }] },
         { testResults: {} },
+        { testResults: "" },
       ]) {
         writeFileSync(file, JSON.stringify({ ...zero, ...override }));
         expect(jestSelectedNoTest(runId, runPath, plan), JSON.stringify(override)).toBe(false);
@@ -189,6 +197,26 @@ describe("jestSelectedNoTest", () => {
         writeFileSync(file, text);
         expect(jestSelectedNoTest(runId, runPath, plan), text).toBe(false);
       }
+    } finally {
+      rmSync(runPath, { recursive: true, force: true });
+    }
+  });
+
+  it("is false for a symbolic link, even to a zero-test result", (context) => {
+    const runPath = mkdtempSync(join(tmpdir(), "ascout-jest-zero-link-"));
+    const plan = { machineResultPath: `.ascout/runs/${runId}/raw/test/jest-results.json` };
+    try {
+      mkdirSync(join(runPath, "raw", "test"), { recursive: true });
+      const target = join(runPath, "elsewhere.json");
+      writeFileSync(target, JSON.stringify(zero));
+      try {
+        symlinkSync(target, join(runPath, "raw", "test", "jest-results.json"), "file");
+      } catch (error) {
+        // Creating a symbolic link needs a privilege some Windows accounts lack.
+        if ((error as NodeJS.ErrnoException).code === "EPERM") return context.skip();
+        throw error;
+      }
+      expect(jestSelectedNoTest(runId, runPath, plan)).toBe(false);
     } finally {
       rmSync(runPath, { recursive: true, force: true });
     }
