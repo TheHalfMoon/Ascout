@@ -126,7 +126,7 @@ export function buildLocalReviewPayloadV1(
  * A finding counts only if it names a start line inside one of its file's changed line ranges.
  * Anything else, such as no line or an untouched line, can't be promoted.
  */
-function onChangedLines(
+export function findingOnChangedLinesV1(
   observation: RawReviewObservationV1,
   validation: LocationValidationV1,
   changedRanges: ReadonlyMap<string, readonly (readonly [number, number])[]>,
@@ -269,7 +269,7 @@ export async function runLocalReviewV1(input: LocalReviewRunInputV1): Promise<Lo
     capsule_id: LOCAL_REVIEW_CAPSULE_ID,
     groups: [{ group_id: GROUP_ID, files: input.changes.map((change) => change.path).sort() }],
     reviewed_files: payload.reviewed_files,
-    entries: parsed.observations.map((observation) => ({ observation, validation: onChangedLines(observation, validateObservationLocationV1(observation, context), changedRanges) })),
+    entries: parsed.observations.map((observation) => ({ observation, validation: findingOnChangedLinesV1(observation, validateObservationLocationV1(observation, context), changedRanges) })),
   });
   const outcome: LocalReviewOutcomeV1 = review.counts.promotable > 0 ? "FINDINGS" : review.counts.complete ? "NO_FINDINGS" : "INCOMPLETE";
   // A model's silence is advice, never a completed review, so it doesn't exit 0 (A07).

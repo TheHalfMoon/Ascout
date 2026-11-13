@@ -117,7 +117,7 @@ describe("UA-P06-T14 ascout security (decision B, with exits from Amendment A07)
       "  ascout init",
       "  ascout doctor [--format json|terminal]",
       "  ascout check [--allow-changed-command-surface] [--format json|agent]",
-      "  ascout review [--local-model] [--format json|terminal]",
+      "  ascout review [--local-model | --export-task <path> | --ingest <findings.json>] [--format json|terminal]",
       "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
     ]);
   });

@@ -39,6 +39,8 @@ import { collectPrEvidenceV1 } from "./github/collect.js";
 import { runPrPublishMainV1 } from "./github/publish-run.js";
 import {
   computeDoctorV1,
+  computeDelegatedExportV1,
+  computeDelegatedIngestV1,
   computeReviewV1,
   computeSecurityV1,
   computeTestPlanV1,
@@ -73,6 +75,8 @@ const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
 const PLAN_FLAG = "--plan";
 const LOCAL_MODEL_FLAG = "--local-model";
+const EXPORT_TASK_FLAG = "--export-task";
+const INGEST_FLAG = "--ingest";
 const CHECK_FORMATS = ["json", "agent"] as const;
 const REVIEW_FORMATS = ["json", "terminal"] as const;
 const TEST_FORMATS = ["json", "terminal"] as const;
@@ -97,6 +101,8 @@ export interface CliInvocation {
   profile?: TestProfile;
   plan?: true;
   localModel?: true;
+  exportTaskPath?: string;
+  ingestPath?: string;
   skipTests?: true;
   bundlePath?: string;
   prHead?: string;
@@ -159,6 +165,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   let profile: TestProfile | undefined;
   let plan = false;
   let localModel = false;
+  let exportTaskPath: string | undefined;
+  let ingestPath: string | undefined;
 
   if (commandToken === "pr-publish") {
     if (rest.length !== 1 || rest[0]!.startsWith("-")) {
@@ -310,6 +318,25 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       continue;
     }
 
+    if (token === EXPORT_TASK_FLAG || token === INGEST_FLAG) {
+      if (commandToken !== "review") {
+        throw new CliUsageError(`${token} is valid only with the review command.`);
+      }
+      const value = rest[index + 1];
+      if (value === undefined || value === "" || value.startsWith("--")) {
+        throw new CliUsageError(`${token} needs a file path.`);
+      }
+      if (token === EXPORT_TASK_FLAG) {
+        if (exportTaskPath !== undefined) throw new CliUsageError(`${EXPORT_TASK_FLAG} may be supplied only once.`);
+        exportTaskPath = value;
+      } else {
+        if (ingestPath !== undefined) throw new CliUsageError(`${INGEST_FLAG} may be supplied only once.`);
+        ingestPath = value;
+      }
+      index += 1;
+      continue;
+    }
+
     if (token === PLAN_FLAG) {
       if (commandToken !== "test") {
         throw new CliUsageError(`${PLAN_FLAG} is valid only with the test command.`);
@@ -324,6 +351,10 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     throw new CliUsageError(`Unknown argument for ${commandToken}: ${token}`);
   }
 
+  if ([localModel, exportTaskPath !== undefined, ingestPath !== undefined].filter(Boolean).length > 1) {
+    throw new CliUsageError(`${LOCAL_MODEL_FLAG}, ${EXPORT_TASK_FLAG}, and ${INGEST_FLAG} can't be combined.`);
+  }
+
   return {
     command: commandToken,
     allowChangedCommandSurface,
@@ -331,6 +362,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     ...(profile === undefined ? {} : { profile }),
     ...(plan ? { plan: true as const } : {}),
     ...(localModel ? { localModel: true as const } : {}),
+    ...(exportTaskPath === undefined ? {} : { exportTaskPath }),
+    ...(ingestPath === undefined ? {} : { ingestPath }),
   };
 }
 
@@ -340,7 +373,7 @@ export function usageText(): string {
     "  ascout init",
     `  ascout doctor [${FORMAT_FLAG} json|terminal]`,
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
-    `  ascout review [${LOCAL_MODEL_FLAG}] [${FORMAT_FLAG} json|terminal]`,
+    `  ascout review [${LOCAL_MODEL_FLAG} | ${EXPORT_TASK_FLAG} <path> | ${INGEST_FLAG} <findings.json>] [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
     "  ascout pr-evidence [--skip-tests] [--pr-head <sha>]",
     "  ascout pr-publish <bundle>",
@@ -480,6 +513,36 @@ export async function runReview(
   testConfigHome?: string,
 ): Promise<number> {
   const result = await computeReviewV1(repositoryRoot, { localModel, ...(testConfigHome === undefined ? {} : { configHome: testConfigHome }) });
+  if (result.kind === "error") {
+    reportOperationalError(result.message);
+    return result.exit_code;
+  }
+  writeReviewReport(result.report, format ?? "terminal");
+  return result.exit_code;
+}
+
+/** `ascout review --export-task <path>` (E10d): writes the task for the operator's own agent. */
+export function runDelegatedExport(repositoryRoot: string, path: string, format: ReviewFormat | undefined): number {
+  const result = computeDelegatedExportV1(repositoryRoot, path);
+  if (result.kind === "error") {
+    reportOperationalError(`ascout review --export-task failed: ${result.message}`);
+    return result.exit_code;
+  }
+  if (result.report.kind === "drift") {
+    writeReviewReport(result.report, format ?? "terminal");
+  } else if (format === "json") {
+    process.stdout.write(`${JSON.stringify(result.report, null, 2)}\n`);
+  } else {
+    const lines = [`=== Ascout review task (${result.report.outcome}) ===`, result.report.reason_text];
+    if (result.report.task_sha256 !== null) lines.push(`task_sha256: ${result.report.task_sha256}`, `files: ${result.report.reviewed_files.length}`);
+    console.error(lines.join("\n"));
+  }
+  return result.exit_code;
+}
+
+/** `ascout review --ingest <findings.json>` (E10d): checks the agent's findings against the current task. */
+export function runDelegatedIngest(repositoryRoot: string, path: string, format: ReviewFormat | undefined): number {
+  const result = computeDelegatedIngestV1(repositoryRoot, path);
   if (result.kind === "error") {
     reportOperationalError(result.message);
     return result.exit_code;
@@ -628,6 +691,8 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // parseCliArgs admits only json|terminal for the review command,
       // so this narrowing reflects parser-guaranteed input.
       const reviewFormat = invocation.format as ReviewFormat | undefined;
+      if (invocation.exportTaskPath !== undefined) return runDelegatedExport(process.cwd(), invocation.exportTaskPath, reviewFormat);
+      if (invocation.ingestPath !== undefined) return runDelegatedIngest(process.cwd(), invocation.ingestPath, reviewFormat);
       return await runReview(process.cwd(), reviewFormat, invocation.localModel === true);
     }
     if (invocation.command === "test") {
