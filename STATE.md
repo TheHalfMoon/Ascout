@@ -58,25 +58,26 @@ Everything in the directive that needed no founder decision is merged into `main
   - for code, Ascout's own PR check reporting every changed line and branch exercised.
 - **Waiting on the founder:** see below. v0.3.0 was published on GitHub on the founder's explicit authorization of 2026-11-13. No npm publication, billing, or hosted service was created.
 
-### Completion ledger (2026-11-13)
+### Completion ledger (2026-11-14)
 
 Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with Node 22 and 24) plus Ascout's own changed-code receipt, which must be COMPLETE with every changed line and branch exercised, for every code PR, unless noted. No human read any of these heads; AI review is not human R1.
 
 | Item | State | Evidence | Remaining blocker | Founder needed? | Next action |
 | --- | --- | --- | --- | --- | --- |
 | C1 App gate | App-pinned check-source forgery rejection proven live in test repo; v0.3.0 ships App mode | Proof PR #2 `BLOCKED` with forged GitHub Actions success, PR #1 `CLEAN` with App success; ruleset 27227819, publish runs 43495937215 and 43496649056; linked C1c live proof note | Alternative no-Commit-statuses permission comparison and human R1 remain untested; no new release authorized | App for this proof repo now registered and installed; production App choice remains founder-owned | Keep pinned test rule and perform optional permissions experiment separately |
-| E10 BYOAI | E10a, E10b shipping | #723, #724 | E10c/E10d/E10f are product decisions; remote transmission stays off | Yes | None without a decision |
-| E11 MCP | E11a shipping | #730 | E11b waits on FD-4 and a decision | Yes | None without a decision |
-| E7 containment | T0 stated; T1 blocked | E7A spec | FD-4, private host spec, human security review | Yes | None without FD-4 |
-| FD-8 / historical PRs | Dispositions recorded, nothing closed | #748, `HISTORICAL_PR_DISPOSITION_2026-11-13.md` | Closing #577–#635, FD-8, #653 R1 | Yes | Founder disposition |
+| E10 BYOAI | E10a, E10b, E10d shipping; E10c and E10f in review | #723, #724, #753 (delegated review: offline export and ingest, never human review); #755 (remote review, off by default, per-run confirmation, payload Gitleaks scan, operator-paid); E10f (AI review in PRs: advisory comment only, never a check) after #755 | Exact-head gates for #755 and E10f | No: approved 2026-11-13 with conditions | Merge #755, then E10f, when every gate passes |
+| E11 MCP | E11a shipping; E11b deferred | #730 | E11b (code execution through MCP) deferred by the founder on 2026-11-13; read-only MCP tools stay | No | None |
+| E7 containment | T0 stated and proven natively; T1 research started, **not claimed** | #756: capability probes on Linux, macOS, Windows show all four capabilities ALLOWED under T0; `FD4_T1_ISOLATION_RESEARCH.md` | Per-host T1 designs (private spec), native DENIED evidence, independent human security review | Human security review before any T1 claim | T1-ENV, then T1-FS on Linux |
+| FD-8 / historical PRs | Main-rooted; superseded PRs closed | Founder decision 2026-11-13. Closed with explanations, branches kept: #577–#588, #597, #599, #600, #603–#605, #607, #614, #635, #651 | #653 stays a draft until a genuine human R1; AI review never satisfies R1 | Yes: human R1 of #653 | — |
 | Salvaged #614 perf | Done | #746: 20 stat-dirty files start 2 `hash-object` processes instead of 40; fail-closed guards exercised | None | No | — |
 | CLI reliability | Done | #743 (SHA-256 `--pr-head`, checked in a real SHA-256 repository), #744 (`--help`, `--version`, truthful `init`) | None | No | — |
 | Install footprint | Done | #745 (`playwright` dev-only; receipt can't be COMPLETE for a `package.json` change, so merged on the 14 checks and local release qualification) | None | No | — |
 | Release qualification | Done | #745: `publish-cli.js` runs from a bare extracted tarball with no `node_modules`; Windows drive-letter defect found by review and fixed before merge | None | No | — |
 | Docs vs behaviour | Done | #742 (v0.3.0 status everywhere, `pr-evidence`/`pr-publish` section, POSIX-only config check) | None | No | — |
-| Dependencies | Production: 0 advisories (`npm audit --omit=dev`) | Dev-only: 11 low/moderate advisories in Jest 30's `glob`/`minimatch`/`deepmerge`; Jest 30.5.2 still depends on an affected `glob`, so no fix exists within Jest 30; Ascout runs Jest only as a fixture runner on trusted-local repositories | Dependabot alerts are off | Yes: enable Dependabot alerts | Revisit when Jest ships a fixed `glob` |
-| `ASCOUT_PR_TRUSTED_ACTORS` | Unset on this repository, so its own PR check is always "untrusted", capped at `action_required` | Every PR here | A maintainer allowlist | Yes | Set the repository variable if wanted |
-| Release | v0.3.0 published | Run 43338782772 | Further releases | Yes, each one | — |
+| Dependencies | Production: 0 advisories; Dependabot alerts on | #752 overrides `minimatch` under Jest's `glob` (alert #3 fixed). The development-only `deepmerge` alert (#1) has no fixed version (4.3.1 is the latest) and is documented | No upstream `deepmerge` fix | No | Revisit when one exists |
+| `ASCOUT_PR_TRUSTED_ACTORS` | Set to `TheHalfMoon` only (2026-11-13) | Repository variable | None | No | — |
+| Package scope | Audited; nothing removed | `PACKAGE_SCOPE_AUDIT_2026-11-14.md`: 98 modules no entry point reaches, all used by tests, one a documented deep import; none proven unused | Shipping only reachable modules would break deep imports | Yes, if that trade is wanted | — |
+| Release | v0.3.0 published; v0.3.1 candidate to be qualified, **not published** | Run 43338782772 | Founder authorization of the exact v0.3.1 candidate | Yes, each one | Qualify the candidate after E10c and E10f land |
 
 ### Open decisions for the founder
 
@@ -86,15 +87,16 @@ Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with 
   - The release notes disclose one known limitation: in a Jest repository, a change only outside the test graph makes `check` exit 2. The fix is on `main` (#738), not in a release.
   - No human reviewed the release; the release notes say so.
 
-- FD-4 for E7 containment.
-- FD-8 for the historical plan PR #651, and ratification of #653.
-- Repository settings: private vulnerability reporting and a `main` ruleset (PRs, linear history, the 13 required checks, no force push or deletion) are on as of 2026-11-10. Dependabot alerts are still off.
+- FD-4 was decided on 2026-11-13: research and implementation, not certification. Any T1 claim needs native evidence and an independent human security review.
+- FD-8 was decided on 2026-11-13: main-rooted; #651 and the superseded PRs are closed. #653 still needs a genuine human R1.
+- Repository settings: private vulnerability reporting and a `main` ruleset (PRs, linear history, the 13 required checks, no force push or deletion) are on as of 2026-11-10. Dependabot alerts are on as of 2026-11-13.
 - Human R1 of the reconciled adoption packet (#653), and optionally of the E8 packets (#703, #707–#709), which merged on the founder's go-ahead without a line-level R1.
-- Disposition of the older open planning PRs (#577–#635). A proposed disposition for every open historical PR, with evidence, is in `specs/017-unified-assurance/HISTORICAL_PR_DISPOSITION_2026-11-13.md`; only #614's hash-object batch needs no founder decision.
-- MCP (E11b): whether host-mediated consent through MCP elicitation counts as "a person, per invocation" for running repository code under FD-4. If not, running code stays CLI-only until T1.
+- MCP (E11b) is deferred (2026-11-13); running repository code stays CLI-only.
 - C1 GitHub App gate: the dedicated test App was registered and installed, three `ascout-publish` environment secrets were confirmed by name, and the pinned-source forgery rejection was proven on 2026-11-13. The optional comparison without Commit statuses permission and the decision to register an App for Ascout itself remain open. Evidence: `specs/017-unified-assurance/C1C_LIVE_APP_GATE_PROOF_2026-11-13.md`.
 - Paid offering (`docs/PAID_OFFERING_DESIGN.md`): the principles, what stays free, the pricing model, the licensing boundary, names, and maintenance ownership. Decision 3 is made: C1 is free core. A payment processor is a separate, later decision.
-- BYOAI (E10 design): whether to allow remote egress (E10c), delegated review (E10d), and AI review in PRs (E10f), and whether to rename `authorized_by_founder` to `operator_authorized`.
-- GitHub integration: whether to set the repository variable `ASCOUT_PR_TRUSTED_ACTORS`. It is empty, so no PR evidence can turn the Ascout check green. A related choice is whether to add a team policy for this repository; without one, every check is required, and review and security report incomplete (exit 4) here.
+- BYOAI: E10c, E10d and E10f were approved on 2026-11-13 with conditions (off by default, operator-paid, advisory only). Still open: whether to rename `authorized_by_founder` to `operator_authorized`.
+- GitHub integration: `ASCOUT_PR_TRUSTED_ACTORS` is set to `TheHalfMoon`. Still open: whether to add a team policy for this repository; without one, every check is required, and review and security report incomplete (exit 4) here.
+- Package scope: whether to ship only the modules the entry points reach (see the audit). That would break any undocumented deep import.
+- v0.3.1: authorization to publish the exact qualified candidate, once it exists.
 
 `ROADMAP.md` is the closed record of the REA engineering maintenance run (spec 018) and is kept as history.
