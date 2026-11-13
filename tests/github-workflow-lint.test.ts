@@ -76,8 +76,13 @@ function blockTriggers(text: string): string[] | null {
 
 /** The lines of the step that uses `action`, from its list item to the next step. */
 function stepText(text: string, action: string): string {
+  return stepContaining(text, `uses: ${action}@`);
+}
+
+/** The whole step (from its "- " line to the next sibling) whose text contains `needle`. */
+function stepContaining(text: string, needle: string): string {
   const lines = text.split(NL);
-  const at = lines.findIndex((line) => line.includes(`uses: ${action}@`));
+  const at = lines.findIndex((line) => line.includes(needle));
   if (at === -1) return "";
   let start = at;
   while (start > 0 && !/^\s*-\s/u.test(lines[start] as string)) start -= 1;
@@ -85,6 +90,23 @@ function stepText(text: string, action: string): string {
   let end = start + 1;
   while (end < lines.length && !((lines[end] as string).search(/\S/u) <= indent && (lines[end] as string).trim() !== "")) end += 1;
   return lines.slice(start, end).join(NL);
+}
+
+/**
+ * App mode must be required in the very step that runs the publisher, in exactly one place, so
+ * nothing can quietly unset it: not a job-level value that a step overrides with "", not a quoted
+ * value, not a line in another step or inside a script, and not bracket-syntax secrets that skip a
+ * dotted-name check.
+ */
+function publishModeProblems(text: string): string[] {
+  if (!/ASCOUT_APP_(?:ID|CLIENT_ID|PRIVATE_KEY)\b/u.test(text)) return [];
+  const problems: string[] = [];
+  const modeLines = text.split(NL).filter((line) => line.includes("ASCOUT_PUBLISH_MODE"));
+  if (modeLines.length !== 1) problems.push(`ASCOUT_PUBLISH_MODE appears ${modeLines.length} times, not once`);
+  if (modeLines.length === 1 && !/^ +ASCOUT_PUBLISH_MODE: app$/u.test(modeLines[0] as string)) problems.push("ASCOUT_PUBLISH_MODE is not exactly app");
+  const publishStep = stepContaining(text, PUBLISH_LINE);
+  if (!/^ +ASCOUT_PUBLISH_MODE: app$/mu.test(publishStep)) problems.push("the publish step does not set ASCOUT_PUBLISH_MODE: app");
+  return problems;
 }
 
 describe("every workflow", () => {
@@ -110,9 +132,8 @@ describe("workflows that can hold the GitHub App key", () => {
     if (!holdsAppKey(text)) continue;
     const name = basename(file);
 
-    it(`${name}: requires App mode wherever it passes the App secrets`, () => {
-      if (!/secrets\.ASCOUT_APP_/u.test(text)) return;
-      expect(text).toMatch(/^ +ASCOUT_PUBLISH_MODE: app$/mu);
+    it(`${name}: requires App mode in the publish step wherever it passes the App secrets`, () => {
+      expect(publishModeProblems(text)).toEqual([]);
     });
 
     it(`${name}: names the environment exactly once, as a plain value`, () => {
@@ -184,5 +205,37 @@ describe("the lint itself", () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { files?: string[]; type?: string };
     expect(pkg.type).toBe("module");
     expect(pkg.files?.some((entry) => entry === "dist" || entry.startsWith("dist/"))).toBe(true);
+  });
+});
+
+describe("the App-mode lint rule", () => {
+  const publishStep = (envLines: readonly string[]) => [
+    "      - name: Publish",
+    "        env:",
+    ...envLines,
+    "          ASCOUT_APP_ID: ${{ secrets.ASCOUT_APP_ID }}",
+    "        shell: bash",
+    `        run: ${PUBLISH_LINE}`,
+  ];
+  const workflow = (lines: readonly string[]) => ["jobs:", "  publish:", "    steps:", ...lines].join(NL);
+
+  it("accepts the mode set once, as app, in the publish step", () => {
+    expect(publishModeProblems(workflow(publishStep(["          ASCOUT_PUBLISH_MODE: app"])))).toEqual([]);
+  });
+
+  it("ignores a workflow that passes no App secret", () => {
+    expect(publishModeProblems(workflow(["      - run: echo hi"]))).toEqual([]);
+  });
+
+  it.each([
+    ["no mode at all", workflow(publishStep([]))],
+    ["a quoted value", workflow(publishStep(['          ASCOUT_PUBLISH_MODE: "app"']))],
+    ["an empty value", workflow(publishStep(['          ASCOUT_PUBLISH_MODE: ""']))],
+    ["a job-level value a step overrides with empty", ["jobs:", "  publish:", "    env:", "      ASCOUT_PUBLISH_MODE: app", "    steps:", ...publishStep(['          ASCOUT_PUBLISH_MODE: ""'])].join(NL)],
+    ["only a job-level value", ["jobs:", "  publish:", "    env:", "      ASCOUT_PUBLISH_MODE: app", "    steps:", ...publishStep([])].join(NL)],
+    ["the line in another step", workflow(["      - name: Other", "        env:", "          ASCOUT_PUBLISH_MODE: app", "        run: echo hi", ...publishStep([])])],
+    ["bracket-syntax secrets with no mode", workflow(publishStep([]).map((line) => line.replace("secrets.ASCOUT_APP_ID", "secrets['ASCOUT_APP_ID']")))],
+  ])("refuses %s", (_label, text) => {
+    expect(publishModeProblems(text).length).toBeGreaterThan(0);
   });
 });
