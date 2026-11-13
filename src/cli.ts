@@ -33,7 +33,7 @@ import {
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
-import { serveMcpV1 } from "./mcp/server.js";
+import { ASCOUT_PACKAGE_VERSION, serveMcpV1 } from "./mcp/server.js";
 import { collectPrEvidenceV1 } from "./github/collect.js";
 import { runPrPublishMainV1 } from "./github/publish-run.js";
 import {
@@ -345,6 +345,7 @@ export function usageText(): string {
     "  ascout pr-publish <bundle>",
     `  ascout security [${FORMAT_FLAG} json|terminal]`,
     "  ascout mcp",
+    "  ascout --help | --version",
   ].join("\n");
 }
 
@@ -381,10 +382,21 @@ function requireAbsentOrRegularFile(path: string, name: string): void {
 async function runInit(): Promise<number> {
   try {
     const root = process.cwd();
+    // check reads the config only at the repository root, so a config written in a subdirectory
+    // would be silently ignored. Outside any repository, init is still allowed (before git init).
+    const prefix = looksInsideGitWorkTreeV1(root) ? readRepositoryPrefix(root) : "";
+    if (prefix !== "") {
+      // Name the folder by its place in the repository, never by an absolute local path. The
+      // enclosing repository may be a home folder under version control, so offer git init too.
+      throw new Error(
+        `this folder is ${JSON.stringify(prefix.replace(/\/$/u, ""))} inside a Git repository, and check reads a config only at a repository root. Run ascout init at that repository's root, or, if this folder is its own project, run git init here first.`,
+      );
+    }
 
     const configPath = join(root, "ascout.config.json");
     requireAbsentOrRegularFile(configPath, "ascout.config.json");
-    if (!existsSync(configPath)) {
+    const configCreated = !existsSync(configPath);
+    if (configCreated) {
       // "wx" fails on anything already there, including a link created since the check.
       writeFileSync(configPath, JSON.stringify({ version: 1 }, null, 2), { flag: "wx" });
     }
@@ -397,7 +409,8 @@ async function runInit(): Promise<number> {
       gitignoreContent = readFileSync(gitignorePath, "utf8");
     }
     const lines = gitignoreContent.split(/\r?\n/);
-    if (!lines.some((line) => line.trim() === gitignoreEntry)) {
+    const ignoreAdded = !lines.some((line) => line.trim() === gitignoreEntry);
+    if (ignoreAdded) {
       const newContent = gitignoreContent.endsWith("\n")
         ? gitignoreContent + gitignoreEntry
         : gitignoreContent
@@ -406,7 +419,7 @@ async function runInit(): Promise<number> {
       writeFileSync(gitignorePath, newContent);
     }
 
-    console.error("ascout init: created ascout.config.json and ensured .ascout/ is ignored.");
+    console.error(`ascout init: ${configCreated ? "created" : "kept the existing"} ascout.config.json; ${ignoreAdded ? "added .ascout/ to" : ".ascout/ was already in"} .gitignore.`);
     return 0;
   } catch (error) {
     reportOperationalError(`ascout init failed: ${describeOperationalError(error)}`);
@@ -506,6 +519,16 @@ export async function withRunCancellation<T>(run: (signal: AbortSignal) => Promi
 }
 
 export async function runCli(argv: readonly string[]): Promise<number> {
+  // Help and version are recognized only as the sole argument, so they never change what a
+  // command does. Both go to stdout and exit 0; a usage error still goes to stderr with exit 2.
+  if (argv.length === 1 && (argv[0] === "--help" || argv[0] === "-h" || argv[0] === "help")) {
+    process.stdout.write(`${usageText()}\n`);
+    return 0;
+  }
+  if (argv.length === 1 && argv[0] === "--version") {
+    process.stdout.write(`${ASCOUT_PACKAGE_VERSION}\n`);
+    return 0;
+  }
   try {
     const invocation = parseCliArgs(argv);
     if (invocation.command === "init") {

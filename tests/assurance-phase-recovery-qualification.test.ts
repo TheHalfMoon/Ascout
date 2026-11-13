@@ -44,6 +44,7 @@ const EXPECTED_USAGE = [
   "  ascout pr-publish <bundle>",
   "  ascout security [--format json|terminal]",
   "  ascout mcp",
+  "  ascout --help | --version",
 ].join("\n");
 
 describe("UA-P01-T18-R2 recovery phase closeout sentinel", () => {

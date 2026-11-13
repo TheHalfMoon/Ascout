@@ -261,6 +261,7 @@ describe("UA-P03-T15 exact-head phase qualification sentinel", () => {
         "  ascout pr-publish <bundle>",
         "  ascout security [--format json|terminal]",
         "  ascout mcp",
+        "  ascout --help | --version",
       ].join("\n"),
     );
     expect(parseCliArgs(["review"])).toEqual({
