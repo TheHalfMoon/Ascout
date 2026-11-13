@@ -235,6 +235,15 @@ describe("E10d ingest", () => {
     expect((await ingest(findingsFile(body))).code).toBe(2);
   });
 
+  it("refuses a well-formed findings file over 1 MiB, before trusting any of it", async () => {
+    const root = repository();
+    const { task } = await exportTask(root);
+    const big = findings(task, [{ path: "a.ts", start_line: 2, severity: "major", category: "bug", message: "x".repeat(1024 * 1024) }]);
+    const result = await ingest(findingsFile(big));
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain("larger than 1 MiB");
+  });
+
   it("refuses a findings file inside the repository, and one that isn't a regular file", async () => {
     const root = repository();
     const { task } = await exportTask(root);
