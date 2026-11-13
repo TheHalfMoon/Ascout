@@ -271,8 +271,25 @@ Setting only some of them is a configuration error: refuse with exit 2 and post 
   - The setup guide is in `docs/GITHUB_INTEGRATION.md`, under "GitHub App mode".
   - A packed release tarball runs `package/dist/github/publish-cli.js` with no `node_modules`.
     `.github/scripts/rc-qualify.mjs` checks this on every release-candidate lane.
-- **C1c: not done.** It needs a test App the founder registers. v0.3.0 includes `publish-cli.js`, so
-  the template can be pinned to it; the test repository `TheHalfMoon/ascout-c1c-proof` is set up that way.
+- **C1c: partly proven live (2026-11-13), on the public test repository
+  `TheHalfMoon/ascout-c1c-proof`.** Collect runs the released v0.3.0 (SHA-256 checked); publish is the
+  App-mode template pinned to v0.3.0, in the environment `ascout-publish` that allows only `main`.
+  - **Proven without an App:**
+    - A `pull_request` job, a `push` to a non-default branch, and a `workflow_dispatch` on that
+      branch that each name `ascout-publish` are all refused before any step runs: "is not allowed to
+      deploy to ascout-publish due to environment protection rules" (runs 43374002166, 43373989496,
+      43374270142).
+    - With no App secrets, publish downloads and verifies the evidence and the pinned release, then
+      exits 2 and posts nothing (run 43366998401).
+    - "Protected branches only" is unsafe with no protection rules: a push to a branch read the
+      secret of an environment set that way. The secret was a random canary, and only its SHA-256
+      prefix was printed and matched (run 43373989472).
+    - Without a ruleset pinned to the App, a PR-added workflow posts its own **Ascout verification**
+      success through GitHub Actions and the PR shows as mergeable (ascout-c1c-proof PR 2). This is
+      the gap C1 closes.
+  - **Still needs the App the founder registers:** the same forged check failing to satisfy a
+    ruleset pinned to the App; choosing the App as the check's source with and without Commit
+    statuses permission; and a real App-mode publish with the summary's "Gate: pinned" line.
 
 ## Review record
 
