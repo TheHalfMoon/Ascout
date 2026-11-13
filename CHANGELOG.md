@@ -12,6 +12,10 @@ break compatibility, and each breaking change is listed under **Breaking**.
 - `check`: when a narrowed pass selects no test and no full pass is called for (for example, only a
   `.d.ts` file changed), the task stays ERROR, and its reason now says that, instead of claiming the
   runner left no evidence.
+- `pr-publish`: `ASCOUT_PUBLISH_MODE=app` requires GitHub App mode, so missing App secrets fail
+  instead of falling back to the workflow token; `token` requires the workflow token and no App
+  secrets. The App-mode template sets `app`, and the workflow lint requires it wherever the App
+  secrets are passed. Unset keeps the previous behaviour.
 
 ## 0.3.0 (2026-11-13)
 

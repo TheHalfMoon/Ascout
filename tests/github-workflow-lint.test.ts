@@ -110,6 +110,11 @@ describe("workflows that can hold the GitHub App key", () => {
     if (!holdsAppKey(text)) continue;
     const name = basename(file);
 
+    it(`${name}: requires App mode wherever it passes the App secrets`, () => {
+      if (!/secrets\.ASCOUT_APP_/u.test(text)) return;
+      expect(text).toMatch(/^ +ASCOUT_PUBLISH_MODE: app$/mu);
+    });
+
     it(`${name}: names the environment exactly once, as a plain value`, () => {
       expect(text.match(/ascout-publish\b/gu)?.length).toBe(1);
       expect(text).toMatch(/^ {4}environment: ascout-publish$/mu);
