@@ -271,7 +271,7 @@ Setting only some of them is a configuration error: refuse with exit 2 and post 
   - The setup guide is in `docs/GITHUB_INTEGRATION.md`, under "GitHub App mode".
   - A packed release tarball runs `package/dist/github/publish-cli.js` with no `node_modules`.
     `.github/scripts/rc-qualify.mjs` checks this on every release-candidate lane.
-- **C1c: partly proven live (2026-11-13), on the public test repository
+- **C1c: pinned-source forgery rejection proven live (2026-11-13), on the public test repository
   `TheHalfMoon/ascout-c1c-proof`.** Collect runs the released v0.3.0 (SHA-256 checked); publish is the
   App-mode template pinned to v0.3.0, in the environment `ascout-publish` that allows only `main`.
   - **Proven without an App:**
@@ -287,9 +287,20 @@ Setting only some of them is a configuration error: refuse with exit 2 and post 
     - Without a ruleset pinned to the App, a PR-added workflow posts its own **Ascout verification**
       success through GitHub Actions and the PR shows as mergeable (ascout-c1c-proof PR 2). This is
       the gap C1 closes.
-  - **Still needs the App the founder registers:** the same forged check failing to satisfy a
-    ruleset pinned to the App; choosing the App as the check's source with and without Commit
-    statuses permission; and a real App-mode publish with the summary's "Gate: pinned" line.
+  - **Proven with the dedicated test App on 2026-11-13:** the App `ascout-c1c-proof-gate`
+    (ID `5749241`) was registered and installed only on the proof repository. Its actual
+    `Ascout verification` check on PR #1 was successful (publish run 43495937215). After active
+    ruleset 27227819 required that check from integration `5749241`, PR #2's successful
+    forged check (from GitHub Actions, App ID `15368`) changed from `mergeStateStatus=CLEAN`
+    to `BLOCKED`. PR #1 with the genuine App check stayed `CLEAN`. A second App-mode publish
+    run 43496649056 succeeded and explicitly reported "Gate: pinned in a ruleset to this
+    GitHub App". Evidence and exact SHAs:
+    [C1C_LIVE_APP_GATE_PROOF_2026-11-13.md](C1C_LIVE_APP_GATE_PROOF_2026-11-13.md).
+  - **Remaining C1c limitation:** the required-check App source was selected and exercised
+    **with** Commit statuses read/write permission. The comparison **without** that permission
+    was not run. No actual merge API attempt was made. Administrator bypasses, classic branch
+    protection, and human R1 were not verified. Registering an App for the Ascout production
+    repository remains a separate founder decision.
 
 ## Review record
 
