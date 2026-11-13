@@ -37,6 +37,9 @@ break compatibility, and each breaking change is listed under **Breaking**.
   on a third-party API, sent only with an account-level config that lists the repository, a credential
   by reference, a clean Gitleaks scan of the exact payload, public DNS answers, and the host typed at the
   terminal. Ascout never pays; findings are advisory.
+- AI review in pull requests (E10f), optional: `ascout pr-ai-review` and `ascout pr-ai-publish`, with the
+  template `docs/examples/ascout-pr-ai-review.yml`. One advisory comment per trusted maintainer's PR; the
+  model key and any write token never share a job, and no check run is created or changed.
 
 ## 0.3.0 (2026-11-13)
 

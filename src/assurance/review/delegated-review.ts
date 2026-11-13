@@ -183,31 +183,43 @@ function safeRelativePath(path: string): boolean {
 }
 
 /** Reads and strictly checks a findings file. Every problem refuses the whole file. */
-export function readDelegatedFindingsV1(repositoryRoot: string, path: string): ParsedFindingsFileV1 {
-  const target = assertOutsideRepositoryV1(repositoryRoot, path, "findings");
-  const before = lstatSync(target, { bigint: true });
-  if (!before.isFile()) throw new Error("the findings file is not a regular file");
-  if (before.size > BigInt(DELEGATED_LIMITS.max_findings_bytes)) throw new Error("the findings file is larger than 1 MiB");
-  const descriptor = openSync(target, "r");
-  let text: string;
+/**
+ * Reads a small file that something else wrote: only a regular file, bound to the checked file
+ * through its descriptor (device and inode, compared as BigInt), and never more than maxBytes, even
+ * if it grows after the checks. The label names the file in every refusal.
+ */
+function sizeText(bytes: number): string {
+  return `${bytes / 1_048_576} MiB`;
+}
+
+export function readBoundedRegularFileV1(path: string, maxBytes: number, label: string): string {
+  const before = lstatSync(path, { bigint: true });
+  if (!before.isFile()) throw new Error(`the ${label} is not a regular file`);
+  if (before.size > BigInt(maxBytes)) throw new Error(`the ${label} is larger than ${sizeText(maxBytes)}`);
+  const descriptor = openSync(path, "r");
   try {
     const opened = fstatSync(descriptor, { bigint: true });
-    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino || opened.size > BigInt(DELEGATED_LIMITS.max_findings_bytes)) {
-      throw new Error("the findings file changed while it was being read");
+    if (!opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino || opened.size > BigInt(maxBytes)) {
+      throw new Error(`the ${label} changed while it was being read`);
     }
     // Read at most one byte past the limit, so a file that grows after the check is still refused.
-    const buffer = Buffer.alloc(DELEGATED_LIMITS.max_findings_bytes + 1);
+    const buffer = Buffer.alloc(maxBytes + 1);
     let length = 0;
     for (;;) {
       const read = readSync(descriptor, buffer, length, buffer.length - length, null);
       if (read === 0) break;
       length += read;
-      if (length > DELEGATED_LIMITS.max_findings_bytes) throw new Error("the findings file is larger than 1 MiB");
+      if (length > maxBytes) throw new Error(`the ${label} is larger than ${sizeText(maxBytes)}`);
     }
-    text = buffer.subarray(0, length).toString("utf8");
+    return buffer.subarray(0, length).toString("utf8");
   } finally {
     closeSync(descriptor);
   }
+}
+
+export function readDelegatedFindingsV1(repositoryRoot: string, path: string): ParsedFindingsFileV1 {
+  const target = assertOutsideRepositoryV1(repositoryRoot, path, "findings");
+  const text = readBoundedRegularFileV1(target, DELEGATED_LIMITS.max_findings_bytes, "findings file");
   let value: unknown;
   try {
     value = JSON.parse(text) as unknown;

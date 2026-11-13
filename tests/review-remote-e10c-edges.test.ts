@@ -256,6 +256,23 @@ describe("remote review outcomes", () => {
     await runRemoteReviewV1(runInput(root, dir, { confirm: (d) => { seen.push(d.last_confirmed_host); return null; } }));
     expect(seen).toEqual([null]);
   });
+
+  it("reads no history without an operator config file, even one planted in the current folder", async () => {
+    const root = repository();
+    const loaded = readRemoteReviewConfigV2(root, { configHome: home(config(root)) });
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), "ascout-e10c-cwd-")));
+    const previous = process.cwd();
+    process.chdir(cwd);
+    try {
+      writeFileSync(join(cwd, "review-remote-history.json"), JSON.stringify({ [root]: "planted.example", [root.toLowerCase()]: "planted.example" }));
+      const seen: (string | null)[] = [];
+      await runRemoteReviewV1(runInput(root, cwd, { config: { ...loaded, path: "(workflow)" }, confirm: (d) => { seen.push(d.last_confirmed_host); return null; } }));
+      expect(seen).toEqual([null]);
+    } finally {
+      process.chdir(previous);
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("computeRemoteReviewV1 and the CLI", () => {
