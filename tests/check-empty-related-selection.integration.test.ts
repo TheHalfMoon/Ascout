@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { emptyRelatedWideningPlanV1, runCheck, vitestSelectedNoTest } from "../src/check.js";
+import { EMPTY_SELECTION_NOT_WIDENED_TEXT, emptyRelatedWideningPlanV1, runCheck, vitestSelectedNoTest } from "../src/check.js";
 import type { GitChangedFile } from "../src/git.js";
 import { validateReceiptSemantics } from "../src/receipt/model.js";
 import { POST_RUN_EXERCISE_GAP_TRIGGER } from "../src/selection.js";
@@ -132,6 +132,7 @@ describe("check: a narrowed Vitest pass that selects no test", () => {
   it("never widens on malformed evidence", async () => {
     const { receipt, test } = await check("malformed", "valid");
     expect(test).toMatchObject({ status: "ERROR", reason_code: "vitest_evidence_invalid" });
+    expect(test.reason_text).not.toBe(EMPTY_SELECTION_NOT_WIDENED_TEXT);
     expect(receipt.selection.passes).toHaveLength(1);
   });
 
@@ -162,7 +163,7 @@ describe("check: a narrowed Vitest pass that selects no test", () => {
 
   it("does not widen when only a declaration file changed, and fails safe as ERROR", async () => {
     const { receipt, test } = await check("nothing", "valid", "declaration");
-    expect(test).toMatchObject({ status: "ERROR", reason_code: "vitest_evidence_invalid" });
+    expect(test).toMatchObject({ status: "ERROR", reason_code: "vitest_evidence_invalid", reason_text: EMPTY_SELECTION_NOT_WIDENED_TEXT });
     expect(receipt.selection.passes).toHaveLength(1);
   });
 });

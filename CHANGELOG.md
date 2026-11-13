@@ -9,6 +9,9 @@ break compatibility, and each breaking change is listed under **Breaking**.
   script changed) now widens to one full pass, instead of exiting 2 with an integrity error. The
   narrowed pass runs with `--passWithNoTests`; the full pass never does, so a project with no test
   at all still fails. This fixes the known limitation in the v0.3.0 release notes.
+- `check`: when a narrowed pass selects no test and no full pass is called for (for example, only a
+  `.d.ts` file changed), the task stays ERROR, and its reason now says that, instead of claiming the
+  runner left no evidence.
 
 ## 0.3.0 (2026-11-13)
 
