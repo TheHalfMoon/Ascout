@@ -2,7 +2,7 @@ Last updated: 2026-11-13 Asia/Riyadh · Branch: main
 
 ## Where Ascout stands
 
-Ascout v0.2.0 is released on GitHub: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.2.0 (published 2026-11-10, tag `v0.2.0` at `0741873`, tarball SHA-256 `43bd9c2e52389500ae5bc38b3595ff47e2a916794bef2e383dabfb2632b2bc63`, with a verified GitHub build-provenance attestation). It is not on npm. `v0.1.0` (2026-09-12) is superseded.
+Ascout v0.3.0 is released on GitHub: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.0 (published 2026-11-13, tag `v0.3.0` at `d85b640`, tarball SHA-256 `571f33acebc601d4ddf54cc139de789532f0fab88f57dbfeef053cc3e311708d`, with a verified GitHub build-provenance attestation from run 43338782772). It is not on npm. `v0.2.0` (2026-11-10) and `v0.1.0` (2026-09-12) are superseded.
 
 ### Adoption plan (execution-first V0–V9)
 
@@ -17,19 +17,19 @@ Ascout v0.2.0 is released on GitHub: https://github.com/TheHalfMoon/Ascout/relea
 | E6 review | Advisory, opt-in. The founder authorized a local model on 2026-11-09. `ascout review --local-model` sends the changed lines only to Ollama on loopback (`qwen2.5-coder:7b` locally), never to a hosted service (#699, #700). Output is advisory and never human R1. Without the flag, or without the founder's config, review stays not run (exit 4). CI has no model and tests against a fake server. |
 | E7 containment | T0 stated, T1 blocked. Every `ascout test` report carries a T0 trusted-local record (no filesystem or network isolation), and no profile predicts isolated execution any more (#702). T1 is blocked on FD-4, the private host spec, native proof, and human security review. |
 | E8 optional MCP and end-to-end | Done. `ascout mcp` is a stdio MCP server with no socket and no options, offering four read-only tools (review without a model, security, doctor, test plan). It does not expose `check`, `test`, `init`, or the local model. Every result carries the CLI's JSON report unchanged and an `assurance` field, where a plan is never COMPLETE. Packets: design #703, command functions #707, server and M-1..M-15 plus E2E-1 #708, real Gitleaks over MCP on 3 OSes #709. The founder authorized proceeding on 2026-11-10; no line-level human R1 is recorded. |
-| E9 distribution | Released v0.2.0 on GitHub only (#712, run 42874746620). The tarball is bit-identical on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24, and qualified on each. A build-provenance attestation (SLSA v1) is verified. The founder waived both human reviews; neither was performed. |
+| E9 distribution | Released v0.3.0 on GitHub only (2026-11-13, run 43338782772, on the founder's explicit authorization), after v0.2.0 (#712, run 42874746620). Neither is on npm. The tarball is bit-identical on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24, and qualified on each. A build-provenance attestation (SLSA v1) is verified. The founder waived both human reviews; neither was performed. |
 
 ### Capability ledger (2026-11-11)
 
 | Capability | State |
 | --- | --- |
-| CLI `init`, `doctor`, `check`, `review`, `test`, `security`, `mcp` | **Shipping** in v0.2.0 (GitHub Release only, not npm). |
-| GitHub PR integration: `ascout pr-evidence`, `ascout pr-publish`, collect and publish workflows (#716–#718) | **On `main`, not in a release.** It runs on this repository's own PRs. It is customer-run on the customer's runners, and Ascout operates no service. PR code runs only in the read-only collect job, and the privileged publish job runs default-branch code only. |
-| Per-repository team policy, `.github/ascout-policy.json` (#719) | **On `main`, not in a release.** It is read only from the default branch, and an invalid policy fails closed. A finding, error or source change in any check always fails. |
-| Ascout identity guard on every CLI and MCP output, including no internal `UA-P` labels (#715, #720) | **On `main`, not in a release.** |
-| Tamper-proof check name through a dedicated GitHub App | **C1, free core (founder decision 2026-11-12). On `main`, not in a release, not proven live.**<br>- **C1a (#728):** App mode in `pr-publish` and the dependency-free entry point `dist/github/publish-cli.js`.<br>- **C1b:** the hardened App-mode workflow template (`docs/examples/ascout-pr-publish-app.yml`), its lint, and the setup guide in `docs/GITHUB_INTEGRATION.md`.<br>- **C1c, not done:** live proof on a test repository whose App the founder registers. The template also needs a release that contains `publish-cli.js`, which needs the founder's authorization. |
-| Bring-your-own-AI provider interface (customer-supplied model; Ascout pays for no inference and sends no code without explicit opt-in) | **Partly on `main`, not in a release.** Design: `specs/017-unified-assurance/E10_BYOAI_PROVIDER_DESIGN.md`.<br>- **E10a (#723), done:** the provider interface, plus fixes for gaps found in E6. The config location comes from the OS account, proxies are ignored, untracked and secret-named files are never sent, and the model's reply is redacted.<br>- **E10b (#724), done:** local servers that speak the OpenAI-compatible API, loopback only.<br>- **Not built:** E10c (remote providers), E10d (delegated review) and E10f (AI review in PRs). Each waits for a founder decision. |
-| Wider MCP tools | **Partly on `main`, not in a release.** Design: `specs/017-unified-assurance/E11_SAFE_MCP_EXPANSION_DESIGN.md`.<br>- **E11a, done:** two read-only tools, `ascout_policy` and `ascout_last_check`. Both have assurance `NONE` and run no repository code.<br>- **E11b, not built:** a run tool that would ask for confirmation through MCP elicitation, which is host-mediated consent rather than proof that a person approved. It waits for a founder decision and FD-4. |
+| CLI `init`, `doctor`, `check`, `review`, `test`, `security`, `mcp` | **Shipping** in v0.3.0 (GitHub Release only, not npm). |
+| GitHub PR integration: `ascout pr-evidence`, `ascout pr-publish`, collect and publish workflows (#716–#718) | **Shipping** in v0.3.0. It runs on this repository's own PRs. It is customer-run on the customer's runners, and Ascout operates no service. PR code runs only in the read-only collect job, and the privileged publish job runs default-branch code only. |
+| Per-repository team policy, `.github/ascout-policy.json` (#719) | **Shipping** in v0.3.0. It is read only from the default branch, and an invalid policy fails closed. A finding, error or source change in any check always fails. |
+| Ascout identity guard on every CLI and MCP output, including no internal `UA-P` labels (#715, #720) | **Shipping** in v0.3.0. |
+| Tamper-proof check name through a dedicated GitHub App | **C1, free core (founder decision 2026-11-12). Shipping in v0.3.0, not proven live.**<br>- **C1a (#728):** App mode in `pr-publish` and the dependency-free entry point `dist/github/publish-cli.js`.<br>- **C1b:** the hardened App-mode workflow template (`docs/examples/ascout-pr-publish-app.yml`), its lint, and the setup guide in `docs/GITHUB_INTEGRATION.md`.<br>- **C1c, not done:** live proof on a test repository whose App the founder registers. v0.3.0 contains `publish-cli.js`, so the template can now be pinned to that release. |
+| Bring-your-own-AI provider interface (customer-supplied model; Ascout pays for no inference and sends no code without explicit opt-in) | **Partly shipping in v0.3.0** (E10a and E10b). Design: `specs/017-unified-assurance/E10_BYOAI_PROVIDER_DESIGN.md`.<br>- **E10a (#723), done:** the provider interface, plus fixes for gaps found in E6. The config location comes from the OS account, proxies are ignored, untracked and secret-named files are never sent, and the model's reply is redacted.<br>- **E10b (#724), done:** local servers that speak the OpenAI-compatible API, loopback only.<br>- **Not built:** E10c (remote providers), E10d (delegated review) and E10f (AI review in PRs). Each waits for a founder decision. |
+| Wider MCP tools | **Partly shipping in v0.3.0** (E11a). Design: `specs/017-unified-assurance/E11_SAFE_MCP_EXPANSION_DESIGN.md`.<br>- **E11a, done:** two read-only tools, `ascout_policy` and `ascout_last_check`. Both have assurance `NONE` and run no repository code.<br>- **E11b, not built:** a run tool that would ask for confirmation through MCP elicitation, which is host-mediated consent rather than proof that a person approved. It waits for a founder decision and FD-4. |
 | Paid Teams, Business and Enterprise offerings | **Proposed, not built.** There is no billing, no payment processor, no contracts and no commercial terms, and none may start without separate founder approval. The core stays free under Apache-2.0, with no account, telemetry or cloud requirement.<br>Competitor research (CodeRabbit, cubic, Greptile) as input to that design: `docs/COMPETITOR_RESEARCH_2026-11-11.md`.<br>Design proposal (nothing priced, approved or built): `docs/PAID_OFFERING_DESIGN.md`. |
 | T1 isolated execution | **Blocked** on FD-4 (see E7). |
 
@@ -56,17 +56,15 @@ Everything in the directive that needed no founder decision is merged into `main
   - an independent AI review, which is advisory and never human R1;
   - 14/14 exact-head CI;
   - for code, Ascout's own PR check reporting every changed line and branch exercised.
-- **Waiting on the founder:** see below. No release, npm publication, billing, or hosted service was created.
+- **Waiting on the founder:** see below. v0.3.0 was published on GitHub on the founder's explicit authorization of 2026-11-13. No npm publication, billing, or hosted service was created.
 
 ### Open decisions for the founder
 
-- **A release: 0.3.0 is qualified and waiting for authorization.**
-  - The version bump and changelog are in #732.
-  - The release-candidate run [43318009810](https://github.com/TheHalfMoon/Ascout/actions/runs/43318009810), on `main` at `81d5c3d` with `attest: false`, built and qualified `thehalfmoon-ascout-0.3.0.tgz`. It is bit-identical on Linux x64, macOS arm64, and Windows x64 with Node 22 and 24.
-  - SHA-256: `571f33acebc601d4ddf54cc139de789532f0fab88f57dbfeef053cc3e311708d`.
-  - Qualification includes the six MCP tools, and the dependency-free `dist/github/publish-cli.js` that C1's template needs.
-  - Getting it to qualify fixed two bugs: the release script expected four MCP tools (#733), and `check` reported an error when a narrowed test pass selected no test (#734, #735).
-  - Publishing (tag, build-provenance attestation, GitHub Release; no npm) needs the founder's explicit authorization.
+- **v0.3.0 is published (2026-11-13), on the founder's explicit authorization.**
+  - The release-candidate run [43338782772](https://github.com/TheHalfMoon/Ascout/actions/runs/43338782772), on `main` at `d85b640` with `attest: true`, built and qualified the tarball on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24. The digest was identical on all six lanes, and equal to the earlier dry run at `81d5c3d`; only docs changed between the two.
+  - The `release-attest` deployment was approved through the founder's account on that instruction, after the digest was checked. The attestation verifies against the published download.
+  - The release notes disclose one known limitation: in a Jest repository, a change only outside the test graph makes `check` exit 2. The fix is not in v0.3.0.
+  - No human reviewed the release; the release notes say so.
 
 - FD-4 for E7 containment.
 - FD-8 for the historical plan PR #651, and ratification of #653.

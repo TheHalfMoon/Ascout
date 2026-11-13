@@ -3,11 +3,10 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
-## 0.3.0 (release candidate, not published)
+## 0.3.0 (2026-11-13)
 
-Not released. Publication, tagging, and build-provenance attestation wait for the founder's explicit
-authorization. When published, it ships as GitHub Releases only, not on npm. Changes on `main` since
-`v0.2.0`:
+Released on GitHub only, not on npm: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.0.
+Changes since `v0.2.0`:
 
 ### Breaking: local AI review (`--local-model`)
 
