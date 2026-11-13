@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -80,6 +80,26 @@ describe("ascout init, in process", () => {
     capture();
     expect(await runCli(["init"])).toBe(0);
     expect(existsSync(join(root, "ascout.config.json"))).toBe(true);
+  });
+
+  it("refuses to run inside a .git directory and writes nothing there", async () => {
+    const root = repository();
+    process.chdir(join(root, ".git"));
+    const io = capture();
+    expect(await runCli(["init"])).toBe(2);
+    expect(io.stderr()).toContain("inside a .git directory");
+    expect(existsSync(join(root, ".git", "ascout.config.json"))).toBe(false);
+    expect(existsSync(join(root, ".git", ".gitignore"))).toBe(false);
+  });
+
+  it("leaves no temporary file behind when it updates .gitignore", async () => {
+    const root = repository();
+    process.chdir(root);
+    writeFileSync(join(root, ".gitignore"), "dist\n");
+    capture();
+    expect(await runCli(["init"])).toBe(0);
+    expect(readFileSync(join(root, ".gitignore"), "utf8")).toBe("dist\n.ascout/");
+    expect(readdirSync(root).filter((name) => name.startsWith(".gitignore."))).toEqual([]);
   });
 
   it("refuses a repository subdirectory, naming its place, and writes nothing", async () => {
