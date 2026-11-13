@@ -119,7 +119,10 @@ ascout pr-evidence [--skip-tests] [--pr-head <sha>]
 ascout pr-publish <bundle>
 ascout security [--format json|terminal]
 ascout mcp
+ascout --help | --version
 ```
+
+`ascout --help` (also `-h` or `help`) prints this usage to stdout, and `ascout --version` prints the version; both exit `0`. Either only works as the sole argument.
 
 **Current command semantics (v0.3.0 and `main`; see `CHANGELOG.md`):** `ascout check` executes supported local verification tasks and produces an evidence receipt, and must run from the repository root. `ascout review` reports unreviewed working-tree and index changes; it does **not** run a code-review engine unless you opt in to a local model with `--local-model`, as described below, and it does not consider committed changes or ignored files. `ascout test` runs `check` for the `standard` (default), `deep`, and `release` profiles, so inside a repository it executes the same admitted verification commands as `ascout check` and returns its result. `deep` and `release` also require mutation, property-fuzz, browser, and other engines that do not run yet, so they exit `4` unless `check` found a failure or drift. `quick` has no qualified engine and runs nothing. `ascout security` runs no scanner unless you opt in to Gitleaks, as described below. Without an engine, these commands exit `4` because required verification did not run, and that exit status is never an assurance PASS. `ascout test --plan` renders a plan labeled `NON_ASSURANCE_PLAN` and exits `0`; that is not a test result.
 

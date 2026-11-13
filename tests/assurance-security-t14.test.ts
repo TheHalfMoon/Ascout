@@ -56,8 +56,9 @@ describe("UA-P06-T14 ascout security (decision B, with exits from Amendment A07)
     }
     const lines = usageText().split("\n");
     expect(lines.filter(line => line.includes("ascout security"))).toEqual(["  ascout security [--format json|terminal]"]);
-    expect(lines.at(-2)).toBe("  ascout security [--format json|terminal]");
-    expect(lines.at(-1)).toBe("  ascout mcp");
+    expect(lines.at(-3)).toBe("  ascout security [--format json|terminal]");
+    expect(lines.at(-2)).toBe("  ascout mcp");
+    expect(lines.at(-1)).toBe("  ascout --help | --version");
   });
 
   it("reports NOT_RUN on stderr and exits 4, never a pass (Amendment A07)", async () => {

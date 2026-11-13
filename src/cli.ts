@@ -33,7 +33,7 @@ import {
   TEST_PLAN_DEFAULT_PROFILE,
 } from "./assurance/test/test-plan-command.js";
 import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
-import { serveMcpV1 } from "./mcp/server.js";
+import { ASCOUT_PACKAGE_VERSION, serveMcpV1 } from "./mcp/server.js";
 import { collectPrEvidenceV1 } from "./github/collect.js";
 import { runPrPublishMainV1 } from "./github/publish-run.js";
 import {
@@ -345,6 +345,7 @@ export function usageText(): string {
     "  ascout pr-publish <bundle>",
     `  ascout security [${FORMAT_FLAG} json|terminal]`,
     "  ascout mcp",
+    "  ascout --help | --version",
   ].join("\n");
 }
 
@@ -506,6 +507,16 @@ export async function withRunCancellation<T>(run: (signal: AbortSignal) => Promi
 }
 
 export async function runCli(argv: readonly string[]): Promise<number> {
+  // Help and version are recognized only as the sole argument, so they never change what a
+  // command does. Both go to stdout and exit 0; a usage error still goes to stderr with exit 2.
+  if (argv.length === 1 && (argv[0] === "--help" || argv[0] === "-h" || argv[0] === "help")) {
+    process.stdout.write(`${usageText()}\n`);
+    return 0;
+  }
+  if (argv.length === 1 && argv[0] === "--version") {
+    process.stdout.write(`${ASCOUT_PACKAGE_VERSION}\n`);
+    return 0;
+  }
   try {
     const invocation = parseCliArgs(argv);
     if (invocation.command === "init") {

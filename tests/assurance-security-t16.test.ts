@@ -114,6 +114,7 @@ describe("UA-P06-T16 P6 qualification: section 11 hard-zero invariants", () => {
       "  ascout pr-publish <bundle>",
       "  ascout security [--format json|terminal]",
       "  ascout mcp",
+      "  ascout --help | --version",
     ]);
     for (const command of ["init", "doctor", "check", "review", "test", "security"] as const) {
       expect(parseCliArgs([command]).command).toBe(command);

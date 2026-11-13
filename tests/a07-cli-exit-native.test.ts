@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   unlinkSync,
@@ -441,6 +442,29 @@ describe("A07 operational errors through the compiled CLI", { timeout: CASE_TIME
     expect(result.stderr).toContain("must run from the repository root");
     expect(existsSync(join(root, ".ascout"))).toBe(false);
     expect(existsSync(join(root, "sub", ".ascout"))).toBe(false);
+  });
+
+  it("prints usage for --help, -h, and help, and the package version for --version, on stdout with exit 0", () => {
+    const cwd = temporaryDirectory("ascout-a07-help-");
+    for (const flag of ["--help", "-h", "help"]) {
+      const result = cli(cwd, [flag]);
+      expect(result.status, flag).toBe(0);
+      expect(result.stdout, flag).toContain("Usage:");
+      expect(result.stdout, flag).toContain("ascout --help | --version");
+      expect(result.stderr, flag).toBe("");
+    }
+    const version = cli(cwd, ["--version"]);
+    expect(version.status).toBe(0);
+    expect(version.stdout).toBe(`${(JSON.parse(readFileSync(resolve("package.json"), "utf8")) as { version: string }).version}\n`);
+  });
+
+  it("treats help and version as usage errors anywhere but the sole argument", () => {
+    const cwd = temporaryDirectory("ascout-a07-help-");
+    for (const args of [["--help", "check"], ["check", "--help"], ["--version", "x"], ["-v"], ["--HELP"]]) {
+      const result = cli(cwd, args);
+      expect(result.status, args.join(" ")).toBe(2);
+      expect(result.stdout, args.join(" ")).toBe("");
+    }
   });
 
   it("keeps doctor and init success at exit 0", () => {
