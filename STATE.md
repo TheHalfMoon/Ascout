@@ -70,7 +70,7 @@ Everything in the directive that needed no founder decision is merged into `main
 - FD-8 for the historical plan PR #651, and ratification of #653.
 - Repository settings: private vulnerability reporting and a `main` ruleset (PRs, linear history, the 13 required checks, no force push or deletion) are on as of 2026-11-10. Dependabot alerts are still off.
 - Human R1 of the reconciled adoption packet (#653), and optionally of the E8 packets (#703, #707–#709), which merged on the founder's go-ahead without a line-level R1.
-- Disposition of the older open planning PRs (#577–#635).
+- Disposition of the older open planning PRs (#577–#635). A proposed disposition for every open historical PR, with evidence, is in `specs/017-unified-assurance/HISTORICAL_PR_DISPOSITION_2026-11-13.md`; only #614's hash-object batch needs no founder decision.
 - MCP (E11b): whether host-mediated consent through MCP elicitation counts as "a person, per invocation" for running repository code under FD-4. If not, running code stays CLI-only until T1.
 - C1 GitHub App gate: to finish C1c, register a test GitHub App and repository for the live proof, following the guide in `docs/GITHUB_INTEGRATION.md`. App mode must not be described as available until then.
 - Paid offering (`docs/PAID_OFFERING_DESIGN.md`): the principles, what stays free, the pricing model, the licensing boundary, names, and maintenance ownership. Decision 3 is made: C1 is free core. A payment processor is a separate, later decision.
