@@ -269,8 +269,8 @@ Setting only some of them is a configuration error: refuse with exit 2 and post 
     No workflow may use `pull_request_target`, `toJSON(secrets)`, or `secrets: inherit`.
   - The bundle reader refuses symbolic links and anything that isn't a regular file.
   - The setup guide is in `docs/GITHUB_INTEGRATION.md`, under "GitHub App mode".
-  - A packed release tarball runs `package/dist/github/publish-cli.js` with no `node_modules`
-    (checked by hand).
+  - A packed release tarball runs `package/dist/github/publish-cli.js` with no `node_modules`.
+    `.github/scripts/rc-qualify.mjs` checks this on every release-candidate lane.
 - **C1c: not done.** It needs a test App the founder registers. v0.3.0 includes `publish-cli.js`, so
   the template can be pinned to it; the test repository `TheHalfMoon/ascout-c1c-proof` is set up that way.
 

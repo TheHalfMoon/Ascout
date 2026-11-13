@@ -3,7 +3,7 @@
 // Usage: node .github/scripts/rc-qualify.mjs <tarball> <result.json>
 // Exits 0 only if every check passes. Every check's outcome goes in <result.json>.
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -84,6 +84,19 @@ check("mcp: exactly the six read-only tools, exit 0 when stdin closes", mcp.stat
 const publishCli = join(packageDir, "dist", "github", "publish-cli.js");
 const publish = run(process.execPath, [publishCli, "bundle.json"], { cwd: outside, shell: false, env: { PATH: process.env.PATH ?? "", SystemRoot: process.env.SystemRoot ?? "" } });
 check("publish-cli: runs from the package and refuses missing configuration with exit 2", existsSync(publishCli) && publish.status === 2 && publish.stderr.includes("GITHUB_REPOSITORY"), { status: publish.status, stderr: publish.stderr.slice(0, 300) });
+
+// The App-mode template never installs: it extracts the tarball and runs the entry point with no
+// node_modules in or around the extracted package. Prove that exact shape. The tarball is copied into
+// the work folder and tar gets only relative names, because on Windows runners the workspace and the
+// temp folder sit on different drives, and Git's GNU tar reads "C:" as a remote host.
+const bare = join(root, "bare");
+mkdirSync(bare);
+copyFileSync(tarball, join(root, "candidate.tgz"));
+const extract = run("tar", ["-xzf", "candidate.tgz", "-C", "bare"], { cwd: root, shell: false });
+const barePublishCli = join(bare, "package", "dist", "github", "publish-cli.js");
+const bareNodeModules = [root, bare, join(bare, "package")].some((folder) => existsSync(join(folder, "node_modules")));
+const barePublish = run(process.execPath, [barePublishCli, "bundle.json"], { cwd: outside, shell: false, env: { PATH: process.env.PATH ?? "", SystemRoot: process.env.SystemRoot ?? "" } });
+check("publish-cli: runs from the bare extracted tarball with no node_modules in or around it, and refuses missing configuration with exit 2", extract.status === 0 && !bareNodeModules && barePublish.status === 2 && barePublish.stderr.includes("GITHUB_REPOSITORY"), { extract: extract.status, extractStderr: (extract.stderr ?? "").slice(0, 300), bareNodeModules, status: barePublish.status, stderr: (barePublish.stderr ?? "").slice(0, 300) });
 
 const uninstall = run("npm", ["uninstall", "--global", "--prefix", prefix, "@thehalfmoon/ascout"]);
 const leftovers = existsSync(prefix) ? readdirSync(windows ? prefix : join(prefix, "bin")).filter((name) => name.toLowerCase().startsWith("ascout")) : [];

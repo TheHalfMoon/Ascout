@@ -13,7 +13,7 @@ const repositoryRoot = resolve(__dirname, "..");
 const IS_WINDOWS = process.platform === "win32";
 const crossSpawn = createRequire(import.meta.url)("cross-spawn") as { sync: typeof spawnSync };
 const temporary: string[] = [];
-const RUNTIME_DEPENDENCIES = ["playwright", "playwright-core", "cross-spawn", "which", "isexe", "path-key", "shebang-command", "shebang-regex"];
+const RUNTIME_DEPENDENCIES = ["cross-spawn", "which", "isexe", "path-key", "shebang-command", "shebang-regex"];
 
 afterAll(() => {
   for (const directory of temporary) rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
