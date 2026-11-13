@@ -87,7 +87,7 @@ export const t0ProbeRunnerV1: ProbeRunnerV1 = async (script, task, env, cwd) => 
   // loopback listener could never see the probe's connection.
   const { execFile } = await import("node:child_process");
   return new Promise((resolveRun) => {
-    execFile(process.execPath, ["-e", script, JSON.stringify(task)], { cwd, env, encoding: "utf8", timeout: 20_000, windowsHide: true }, (_error, stdout) => resolveRun(stdout ?? ""));
+    execFile(process.execPath, ["-e", script, JSON.stringify(task)], { cwd, env, encoding: "utf8", timeout: 20_000, windowsHide: true }, (_error, stdout) => resolveRun(stdout));
   });
 };
 
