@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { randomBytes } from "node:crypto";
 import { closeSync, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import type { GitChangedFile } from "../../git.js";
 import { REVIEW_INSTRUCTIONS, parseReviewFindingsV1 } from "./local-review-provider.js";
@@ -90,33 +90,26 @@ export function buildDelegatedTaskV1(source: DelegatedSourceV1): DelegatedTaskV1
 }
 
 /** Path comparison follows the platform: Windows and macOS file systems ignore case. */
-function samePathKey(path: string): string {
-  return process.platform === "win32" || process.platform === "darwin" ? path.toLowerCase() : path;
+export function pathKeyForPlatformV1(path: string, platform: NodeJS.Platform): string {
+  return platform === "win32" || platform === "darwin" ? path.toLowerCase() : path;
 }
 
 /**
  * An export or findings path must be outside the repository: inside, it could change the source
- * fingerprint, be committed, or be written by the code under review. The nearest existing ancestor is
- * resolved, so a link inside the repository can't hide the real location.
+ * fingerprint, be committed, or be written by the code under review. Its folder must already exist
+ * and is resolved to its real path, so a link inside the repository can't hide the real location.
  */
-export function assertOutsideRepositoryV1(repositoryRoot: string, path: string, what: string): string {
+export function assertOutsideRepositoryV1(repositoryRoot: string, path: string, what: string, platform: NodeJS.Platform = process.platform): string {
   const absolute = resolve(path);
-  let existing = absolute;
-  const rest: string[] = [];
-  for (;;) {
-    try {
-      existing = realpathSync.native(existing);
-      break;
-    } catch {
-      const parent = dirname(existing);
-      if (parent === existing) throw new Error(`the ${what} path can't be resolved`);
-      rest.unshift(existing.slice(parent.length).replace(/^[\\/]/u, ""));
-      existing = parent;
-    }
+  let folder: string;
+  try {
+    folder = realpathSync.native(dirname(absolute));
+  } catch {
+    throw new Error(`the ${what} path's folder does not exist`);
   }
-  const real = rest.length === 0 ? existing : join(existing, ...rest);
+  const real = join(folder, basename(absolute));
   const root = realpathSync.native(repositoryRoot);
-  const fromRoot = relative(samePathKey(root), samePathKey(real));
+  const fromRoot = relative(pathKeyForPlatformV1(root, platform), pathKeyForPlatformV1(real, platform));
   // Outside means the relative path climbs out: "..", or ".." followed by a separator. A folder
   // that merely starts with two dots, such as "..cache", is still inside.
   if (fromRoot === "" || (!/^\.\.(?:[\\/]|$)/u.test(fromRoot) && !isAbsolute(fromRoot))) {

@@ -1,12 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, linkSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { parseCliArgs, runCli, usageText, CliUsageError } from "../src/cli.js";
-import { DELEGATED_FINDINGS_SCHEMA } from "../src/assurance/review/delegated-review.js";
+import { DELEGATED_FINDINGS_SCHEMA, assertOutsideRepositoryV1, pathKeyForPlatformV1 } from "../src/assurance/review/delegated-review.js";
 
 vi.setConfig({ testTimeout: 180_000 });
 
@@ -134,6 +134,7 @@ describe("E10d export", () => {
 
   it("refuses a path inside the repository and an existing file, writing nothing", async () => {
     const root = repository();
+    mkdirSync(join(root, "sub"));
     for (const path of [join(root, "task.json"), join(root, "sub", "task.json")]) {
       const io = capture();
       expect(await runCli(["review", "--export-task", path])).toBe(2);
@@ -314,6 +315,108 @@ describe("E10d hardening from independent review", () => {
     io = capture();
     expect(await runCli(["review", "--ingest", ok, "--format", "json"])).toBe(3);
     expect(io.stdout()).toContain("changed since this review task was exported");
+  });
+});
+
+describe("E10d edge paths", () => {
+  it("folds case only where the file system does", () => {
+    expect(pathKeyForPlatformV1("C:/Repo/A", "win32")).toBe("c:/repo/a");
+    expect(pathKeyForPlatformV1("/Users/Me/Repo", "darwin")).toBe("/users/me/repo");
+    expect(pathKeyForPlatformV1("/home/Me/Repo", "linux")).toBe("/home/Me/Repo");
+  });
+
+  it("refuses a case variant of the repository on a case-folding platform", () => {
+    const root = repository();
+    const variant = join(root.toUpperCase(), "task.json");
+    if (!existsSync(dirname(variant))) return;
+    expect(() => assertOutsideRepositoryV1(root, variant, "export", "darwin")).toThrow("must be outside the repository");
+  });
+
+  it("refuses an export whose folder doesn't exist", async () => {
+    repository();
+    const io = capture();
+    expect(await runCli(["review", "--export-task", join(temp("ascout-e10d-gone-"), "missing", "task.json")])).toBe(2);
+    expect(io.stderr()).toContain("folder does not exist");
+  });
+
+  it("refuses to record an export when .ascout isn't a plain folder", async () => {
+    const root = repository();
+    writeFileSync(join(root, ".ascout"), "not a folder");
+    const io = capture();
+    expect(await runCli(["review", "--export-task", join(temp("ascout-e10d-out-"), "task.json")])).toBe(2);
+    expect(io.stderr()).toContain("not a plain folder");
+  });
+
+  it.skipIf(process.platform === "win32" || process.getuid?.() === 0)("reports a folder it can't create as an error", async () => {
+    const root = repository();
+    chmodSync(root, 0o555);
+    try {
+      const io = capture();
+      expect(await runCli(["review", "--export-task", join(temp("ascout-e10d-out-"), "task.json")])).toBe(2);
+      expect(io.stderr()).toMatch(/EACCES|permission/u);
+    } finally {
+      chmodSync(root, 0o755);
+    }
+  });
+
+  it("leaves no temporary record behind when the record can't be renamed into place", async () => {
+    const root = repository();
+    const { task } = await exportTask(root);
+    const record = join(root, ".ascout", "review-tasks", `${String(task.task_sha256)}.json`);
+    rmSync(record);
+    mkdirSync(record);
+    writeFileSync(join(record, "keep"), "x");
+    capture();
+    expect(await runCli(["review", "--export-task", join(temp("ascout-e10d-out-"), "task.json")])).toBe(2);
+    expect(readdirSync(join(root, ".ascout", "review-tasks")).filter((name) => name.startsWith(".record-"))).toEqual([]);
+  });
+
+  it("reports NO_FINDINGS (still exit 4) when every changed file was reviewed and nothing was found", async () => {
+    const root = repository();
+    git(root, ["checkout", "--", "keep.env"]);
+    rmSync(join(root, "untracked.ts"));
+    const { task } = await exportTask(root);
+    const result = await ingest(findingsFile(findings(task, [])));
+    expect(result.code).toBe(4);
+    expect((JSON.parse(result.stdout) as { outcome: string }).outcome).toBe("NO_FINDINGS");
+  });
+
+  it("reports INCOMPLETE when part of the change couldn't be put in the task", async () => {
+    const root = repository();
+    git(root, ["add", "--all"]);
+    git(root, ["commit", "-q", "-m", "more"]);
+    writeFileSync(join(root, "big.ts"), "x".repeat(10));
+    git(root, ["add", "big.ts"]);
+    git(root, ["commit", "-q", "-m", "big"]);
+    writeFileSync(join(root, "a.ts"), "export const a = 100;\n");
+    writeFileSync(join(root, "big.ts"), `${"// filler line\n".repeat(80_000)}`);
+    const { task } = await exportTask(root);
+    expect(task.reviewed_files).toEqual(["a.ts"]);
+    const result = await ingest(findingsFile(findings(task, [])));
+    expect(result.code).toBe(4);
+    expect((JSON.parse(result.stdout) as { outcome: string }).outcome).toBe("INCOMPLETE");
+  });
+
+  it("tells drift from another task by the recorded HEAD as well as the tree", async () => {
+    const root = repository();
+    const { task } = await exportTask(root);
+    const records = join(root, ".ascout", "review-tasks");
+    const current = JSON.parse(readFileSync(join(records, `${String(task.task_sha256)}.json`), "utf8")) as { tree_digest: string; head_sha: string };
+    const otherHead = "c".repeat(40);
+    const planted = "d".repeat(64);
+    writeFileSync(join(records, `${planted}.json`), JSON.stringify({ task_sha256: planted, tree_digest: current.tree_digest, head_sha: otherHead }));
+    expect((await ingest(findingsFile({ schema: DELEGATED_FINDINGS_SCHEMA, task_sha256: planted, model: "m", model_family: "f", findings: [] }))).code).toBe(3);
+    const same = "e".repeat(64);
+    writeFileSync(join(records, `${same}.json`), JSON.stringify({ task_sha256: same, tree_digest: current.tree_digest, head_sha: current.head_sha }));
+    expect((await ingest(findingsFile({ schema: DELEGATED_FINDINGS_SCHEMA, task_sha256: same, model: "m", model_family: "f", findings: [] }))).code).toBe(2);
+  });
+
+  it("prints the task digest and file count in the terminal", async () => {
+    repository();
+    const io = capture();
+    expect(await runCli(["review", "--export-task", join(temp("ascout-e10d-out-"), "task.json")])).toBe(0);
+    expect(io.stderr()).toMatch(/task_sha256: [0-9a-f]{64}/u);
+    expect(io.stderr()).toContain("files: 1");
   });
 });
 
