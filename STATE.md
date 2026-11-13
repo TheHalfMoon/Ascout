@@ -63,7 +63,7 @@ Everything in the directive that needed no founder decision is merged into `main
 - **v0.3.0 is published (2026-11-13), on the founder's explicit authorization.**
   - The release-candidate run [43338782772](https://github.com/TheHalfMoon/Ascout/actions/runs/43338782772), on `main` at `d85b640` with `attest: true`, built and qualified the tarball on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24. The digest was identical on all six lanes, and equal to the earlier dry run at `81d5c3d`; only docs changed between the two.
   - The `release-attest` deployment was approved through the founder's account on that instruction, after the digest was checked. The attestation verifies against the published download.
-  - The release notes disclose one known limitation: in a Jest repository, a change only outside the test graph makes `check` exit 2. The fix is not in v0.3.0.
+  - The release notes disclose one known limitation: in a Jest repository, a change only outside the test graph makes `check` exit 2. The fix is on `main` (#738), not in a release.
   - No human reviewed the release; the release notes say so.
 
 - FD-4 for E7 containment.
