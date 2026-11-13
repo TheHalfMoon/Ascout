@@ -16,7 +16,14 @@ import {
 import { redactExactValues, selectedSecretValues } from "./redact.js";
 import { readLocalReviewConfigV1 } from "./assurance/review/local-review-provider.js";
 import { runLocalReviewV1 } from "./assurance/review/local-review-run.js";
-import { readRemoteReviewConfigV2, runRemoteReviewV1, REMOTE_REVIEW_ENGINE_ID, type RemoteDisclosureV1 } from "./assurance/review/remote-review.js";
+import {
+  defaultRemoteReviewDepsV1,
+  readRemoteReviewConfigV2,
+  runRemoteReviewV1,
+  REMOTE_REVIEW_ENGINE_ID,
+  type RemoteDisclosureV1,
+  type RemoteReviewInputV1,
+} from "./assurance/review/remote-review.js";
 import { buildModelNotRunReportV1 } from "./assurance/review/local-review-run.js";
 import { configuredGitleaksPathV1 } from "./assurance/security/security-gitleaks.js";
 import {
@@ -283,6 +290,8 @@ export interface RemoteReviewOptionsV1 {
   readonly signal?: AbortSignal;
   /** Tests only: where review-remote.json lives. The CLI never sets it. */
   readonly configHome?: string | undefined;
+  /** Tests only: replaces the terminal, the payload scan, DNS, and the network. The CLI never sets it. */
+  readonly deps?: Pick<RemoteReviewInputV1, "confirm" | "scan" | "resolve" | "transport">;
 }
 
 /**
@@ -311,6 +320,7 @@ export async function computeRemoteReviewV1(repositoryRoot: string, options: Rem
       dryRun: options.dryRun,
       env: process.env,
       ...(options.signal === undefined ? {} : { signal: options.signal }),
+      ...(options.deps ?? defaultRemoteReviewDepsV1(repositoryRoot, configuredGitleaksPathV1(), options.signal)),
     });
     if (result.kind === "error") return failure(result.message);
     if (result.kind === "dry_run") {

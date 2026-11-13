@@ -30,6 +30,7 @@ import {
   type LocalReviewOutcomeV1,
 } from "./local-review-run.js";
 import { validateObservationLocationV1 } from "./location-validator.js";
+import { pathKeyForPlatformV1 } from "./delegated-review.js";
 import { buildReviewReportV1, type ReviewChangeV1 } from "./review-command.js";
 
 /**
@@ -126,7 +127,6 @@ export function isPublicAddressV1(address: string): boolean {
     const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/u.exec(lower);
     if (mapped !== null) return isPublicAddressV1(mapped[1]!);
     const words = expandIPv6(lower);
-    if (words === null) return false;
     const [w0, w1] = words as [number, number];
     if (words.every((word) => word === 0)) return false; // unspecified
     if (words.slice(0, 7).every((word) => word === 0) && words[7] === 1) return false; // loopback
@@ -145,15 +145,21 @@ export function isPublicAddressV1(address: string): boolean {
   return false;
 }
 
-/** The eight 16-bit words of an IPv6 address, or null if it isn't one. */
-function expandIPv6(address: string): number[] | null {
-  const halves = address.split("::");
-  if (halves.length > 2) return null;
-  const parse = (part: string): number[] => (part === "" ? [] : part.split(":").map((word) => parseInt(word, 16)));
-  const head = parse(halves[0] ?? "");
-  const tail = halves.length === 2 ? parse(halves[1] ?? "") : [];
-  const words = halves.length === 2 ? [...head, ...new Array<number>(8 - head.length - tail.length).fill(0), ...tail] : head;
-  return words.length === 8 && words.every((word) => Number.isInteger(word) && word >= 0 && word <= 0xffff) ? words : null;
+/** The eight 16-bit words of an address Node's isIP already accepted as IPv6. */
+function expandIPv6(address: string): number[] {
+  let text = address;
+  // A trailing dotted IPv4 part (as in ::1.2.3.4) stands for the last two words.
+  const dotted = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/u.exec(text);
+  if (dotted !== null) {
+    const [p, q, r, t] = dotted.slice(1).map(Number) as [number, number, number, number];
+    text = `${text.slice(0, dotted.index)}${((p << 8) | q).toString(16)}:${((r << 8) | t).toString(16)}`;
+  }
+  const words = (part: string): number[] => (part === "" ? [] : part.split(":").map((word) => parseInt(word, 16)));
+  const gap = text.indexOf("::");
+  if (gap === -1) return words(text);
+  const head = words(text.slice(0, gap));
+  const tail = words(text.slice(gap + 2));
+  return [...head, ...new Array<number>(8 - head.length - tail.length).fill(0), ...tail];
 }
 
 /** The remote config's path: next to review-provider.json, derived from the account, never from the environment. */
@@ -170,7 +176,7 @@ export function remoteReviewConfigPath(location: LocalReviewConfigLocationV1 = {
 }
 
 function samePathKey(path: string): string {
-  return process.platform === "win32" || process.platform === "darwin" ? path.toLowerCase() : path;
+  return pathKeyForPlatformV1(path, process.platform);
 }
 
 function isInside(root: string, candidate: string): boolean {
@@ -184,13 +190,9 @@ export function readRemoteReviewConfigV2(repositoryRoot: string, location: Local
   if (path === null) return { state: "absent", path: "(no home directory for this account)" };
   if (!existsSync(path)) return { state: "absent", path };
   const invalid = (reason: string): RemoteReviewConfigResultV2 => ({ state: "invalid", path, reason });
-  try {
-    if (isInside(realpathSync.native(resolve(repositoryRoot)), realpathSync.native(path))) return invalid("the remote review config lies inside the repository under review");
-    const problem = configPermissionProblemV1(process.platform, statSync(path), statSync(dirname(path)).mode, () => (process.getuid as () => number)());
-    if (problem !== null) return invalid(problem.replace("review-provider", "remote review"));
-  } catch {
-    return invalid("the remote review config path could not be resolved");
-  }
+  if (isInside(realpathSync.native(resolve(repositoryRoot)), realpathSync.native(path))) return invalid("the remote review config lies inside the repository under review");
+  const problem = configPermissionProblemV1(process.platform, statSync(path), statSync(dirname(path)).mode, () => (process.getuid as () => number)());
+  if (problem !== null) return invalid(problem.replace("review-provider", "remote review"));
   let value: unknown;
   try {
     const raw = readFileSync(path);
@@ -267,47 +269,64 @@ export interface RemoteDisclosureV1 {
   readonly last_confirmed_host: string | null;
 }
 
+/** The controlling terminal's input and output on a platform: never standard input. */
+export function terminalPathsV1(platform: NodeJS.Platform): readonly [string, string] {
+  return platform === "win32" ? ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"] : ["/dev/tty", "/dev/tty"];
+}
+
+/** Shows the disclosure and reads one line: the host the person typed. */
+export function promptForHostV1(disclosure: RemoteDisclosureV1, read: (buffer: Buffer) => number, write: (text: string) => void): string {
+  const changed = disclosure.last_confirmed_host !== null && disclosure.last_confirmed_host !== disclosure.host
+    ? `\nThe host differs from the one last confirmed for this repository (${disclosure.last_confirmed_host}).`
+    : "";
+  write([
+    "",
+    "Ascout is about to send source code off this machine for an advisory AI review.",
+    `  host:     ${disclosure.host}`,
+    `  endpoint: ${disclosure.endpoint}`,
+    `  model:    ${disclosure.model}`,
+    `  files:    ${disclosure.files}`,
+    `  bytes:    ${disclosure.bytes}`,
+    `  sha256:   ${disclosure.payload_sha256}`,
+    "Your own account with the provider is billed; Ascout pays nothing." + changed,
+    "Type the host name to send, or anything else to cancel: ",
+  ].join("\n"));
+  const buffer = Buffer.alloc(512);
+  let line = "";
+  for (;;) {
+    const count = read(buffer);
+    if (count === 0) break;
+    line += buffer.subarray(0, count).toString("utf8");
+    if (line.includes("\n") || line.length >= 512) break;
+  }
+  return line.split(/\r?\n/u)[0]!.trim();
+}
+
+export interface TerminalDepsV1 {
+  readonly open: (path: string, flags: string) => number;
+  readonly isTerminal: (descriptor: number) => boolean;
+}
+
 /**
  * Asks the person at the controlling terminal to type the host. Reads /dev/tty (or CONIN$ on
  * Windows), never standard input, and refuses unless both reading and writing are a real terminal.
  * Returns what was typed, or null when there is no terminal.
  */
-export function confirmAtTerminalV1(disclosure: RemoteDisclosureV1): string | null {
-  const [inPath, outPath] = process.platform === "win32" ? ["\\\\.\\CONIN$", "\\\\.\\CONOUT$"] : ["/dev/tty", "/dev/tty"];
+export function confirmAtTerminalV1(disclosure: RemoteDisclosureV1, deps: TerminalDepsV1 = { open: openSync, isTerminal: isatty }): string | null {
+  const [inPath, outPath] = terminalPathsV1(process.platform);
   let input: number;
   let output: number;
   try {
-    input = openSync(inPath, "r");
-    output = openSync(outPath, "w");
+    input = deps.open(inPath, "r");
+    output = deps.open(outPath, "w");
   } catch {
     return null;
   }
   try {
-    if (!isatty(input) || !isatty(output)) return null;
-    const changed = disclosure.last_confirmed_host !== null && disclosure.last_confirmed_host !== disclosure.host
-      ? `\nThe host differs from the one last confirmed for this repository (${disclosure.last_confirmed_host}).`
-      : "";
-    writeSync(output, [
-      "",
-      "Ascout is about to send source code off this machine for an advisory AI review.",
-      `  host:     ${disclosure.host}`,
-      `  endpoint: ${disclosure.endpoint}`,
-      `  model:    ${disclosure.model}`,
-      `  files:    ${disclosure.files}`,
-      `  bytes:    ${disclosure.bytes}`,
-      `  sha256:   ${disclosure.payload_sha256}`,
-      "Your own account with the provider is billed; Ascout pays nothing." + changed,
-      "Type the host name to send, or anything else to cancel: ",
-    ].join("\n"));
-    const buffer = Buffer.alloc(512);
-    let line = "";
-    for (;;) {
-      const read = readSync(input, buffer, 0, buffer.length, null);
-      if (read === 0) break;
-      line += buffer.subarray(0, read).toString("utf8");
-      if (line.includes("\n") || line.length > 512) break;
-    }
-    return line.split(/\r?\n/u)[0]!.trim();
+    if (!deps.isTerminal(input) || !deps.isTerminal(output)) return null;
+    return promptForHostV1(disclosure, (buffer) => readSync(input, buffer, 0, buffer.length, null), (text) => {
+      writeSync(output, text);
+    });
   } finally {
     closeSync(input);
     closeSync(output);
@@ -372,18 +391,22 @@ export async function scanRemotePayloadV1(sections: readonly { readonly path: st
       mkdirSync(join(workspace, folder));
       writeFileSync(join(workspace, folder, name), text.replace(/gitleaks:allow/giu, "gitleaks:removed"));
     });
+    // Only PATH and (on Windows) SystemRoot carry over; no Git setting or identity from the caller does.
+    const gitEnv: NodeJS.ProcessEnv = { GIT_CONFIG_NOSYSTEM: "1", HOME: workspace };
+    for (const name of ["PATH", "SystemRoot"]) if (process.env[name] !== undefined) gitEnv[name] = process.env[name];
     const git = (args: readonly string[]): void => {
-      execFileSync(gitExecutable, ["-c", "core.hooksPath=", "-c", "commit.gpgSign=false", "-c", "user.name=ascout", "-c", "user.email=ascout@invalid", ...args], { cwd: workspace, windowsHide: true, stdio: "ignore", env: { PATH: process.env.PATH ?? "", SystemRoot: process.env.SystemRoot ?? "", GIT_CONFIG_NOSYSTEM: "1", HOME: workspace } });
+      execFileSync(gitExecutable, ["-c", "core.hooksPath=", "-c", "commit.gpgSign=false", "-c", "user.name=ascout", "-c", "user.email=ascout@invalid", ...args], { cwd: workspace, windowsHide: true, stdio: "ignore", env: gitEnv });
     };
     git(["init", "-q"]);
     git(["add", "--all"]);
     git(["commit", "-q", "-m", "payload"]);
-    const outcome = await runSecurityGitleaksV1(workspace, gitleaksPath, signal === undefined ? {} : { signal });
+    const outcome = await runSecurityGitleaksV1(workspace, gitleaksPath, { ...(signal === undefined ? {} : { signal }) });
     if (outcome.kind !== "report" || !outcome.report.engine.executed) {
       return { kind: "unavailable", reason: "the payload secret scan did not run, and remote review never sends an unscanned payload" };
     }
     if (outcome.report.findings.length > 0) {
-      return { kind: "hits", files: [...new Set(outcome.report.findings.map((finding) => names.get((finding.path ?? "").replaceAll("\\", "/")) ?? "(unknown)"))].sort() };
+      const hitNames = new Set(outcome.report.findings.map((finding) => String(finding.path).replaceAll("\\", "/")));
+      return { kind: "hits", files: [...new Set([...names].filter(([name]) => hitNames.has(name)).map(([, path]) => path))].sort() };
     }
     // Clean has exactly one shape: Gitleaks ran to the end, wrote its report, and found nothing.
     // Every other result, such as output over the cap, cancellation, or a stray process, refuses.
@@ -468,7 +491,17 @@ export const httpsTransportV1: RemoteTransportV1 = (exchange) => new Promise((re
 });
 
 export type RemoteResolverV1 = (hostname: string) => Promise<readonly { readonly address: string; readonly family: number }[]>;
-const dnsResolverV1: RemoteResolverV1 = (hostname) => lookup(hostname, { all: true, verbatim: true });
+export const dnsResolverV1: RemoteResolverV1 = (hostname) => lookup(hostname, { all: true, verbatim: true });
+
+/** The real terminal, payload scan, DNS, and network, as the CLI uses them. */
+export function defaultRemoteReviewDepsV1(repositoryRoot: string, gitleaksPath: string | null, signal?: AbortSignal): Pick<RemoteReviewInputV1, "confirm" | "scan" | "resolve" | "transport"> {
+  return {
+    confirm: (disclosure) => confirmAtTerminalV1(disclosure),
+    scan: (sections) => scanRemotePayloadV1(sections, gitleaksPath, signal, repositoryRoot),
+    resolve: dnsResolverV1,
+    transport: httpsTransportV1,
+  };
+}
 
 export type RemoteReviewResultV1 =
   | { readonly kind: "review"; readonly report: LocalReviewCommandReportV1 & { readonly remote: RemoteProvenanceV1 } }
@@ -497,17 +530,17 @@ export interface RemoteReviewInputV1 {
   readonly dryRun: boolean;
   readonly env: NodeJS.ProcessEnv;
   readonly signal?: AbortSignal;
-  /** Tests only: these replace the terminal, the payload scan, DNS, and the network. The CLI never sets them. */
-  readonly confirm?: (disclosure: RemoteDisclosureV1) => string | null;
-  readonly scan?: (sections: readonly { path: string; text: string }[]) => Promise<PayloadScanV1>;
-  readonly resolve?: RemoteResolverV1;
-  readonly transport?: RemoteTransportV1;
+  /** The terminal, the payload scan, DNS, and the network. The CLI passes the real ones; tests pass recorders. */
+  readonly confirm: (disclosure: RemoteDisclosureV1) => string | null;
+  readonly scan: (sections: readonly { path: string; text: string }[]) => Promise<PayloadScanV1>;
+  readonly resolve: RemoteResolverV1;
+  readonly transport: RemoteTransportV1;
 }
 
 /** Splits a payload into its per-file sections, so a scan hit can name the file. */
 function payloadSections(text: string, files: readonly string[]): { path: string; text: string }[] {
   const parts = text.split(/\n(?==== FILE: )/u);
-  return parts.map((part, index) => ({ path: files[index] ?? "(unknown)", text: part }));
+  return parts.map((part, index) => ({ path: files[index]!, text: part }));
 }
 
 /**
@@ -554,13 +587,13 @@ export async function runRemoteReviewV1(input: RemoteReviewInputV1): Promise<Rem
   };
   if (input.dryRun) return { kind: "dry_run", disclosure, payload: payload.text };
 
-  const scan = await (input.scan ?? ((sections) => scanRemotePayloadV1(sections, input.gitleaksPath, input.signal, input.repositoryRoot)))(payloadSections(payload.text, payload.reviewed_files));
+  const scan = await input.scan(payloadSections(payload.text, payload.reviewed_files));
   if (scan.kind === "unavailable") return { kind: "not_run", reason: scan.reason, disclosure };
   if (scan.kind === "hits") return { kind: "not_run", reason: `the payload secret scan found possible secrets in ${scan.files.join(", ")}, so nothing was sent`, disclosure };
 
   let addresses: readonly { address: string; family: number }[];
   try {
-    addresses = await (input.resolve ?? dnsResolverV1)(settings.endpoint.hostname);
+    addresses = await input.resolve(settings.endpoint.hostname);
   } catch {
     return { kind: "not_run", reason: "the remote host could not be resolved, so nothing was sent", disclosure };
   }
@@ -569,7 +602,7 @@ export async function runRemoteReviewV1(input: RemoteReviewInputV1): Promise<Rem
   }
   const pinned = addresses[0]!;
 
-  const typed = (input.confirm ?? confirmAtTerminalV1)(disclosure);
+  const typed = input.confirm(disclosure);
   if (typed === null) return { kind: "not_run", reason: "no terminal is available to confirm remote review, so nothing was sent", disclosure };
   if (typed.toLowerCase() !== settings.endpoint.hostname) return { kind: "not_run", reason: "the host was not confirmed, so nothing was sent", disclosure };
   recordConfirmedHost(configPath, input.repositoryRoot, settings.endpoint.hostname);
@@ -584,7 +617,7 @@ export async function runRemoteReviewV1(input: RemoteReviewInputV1): Promise<Rem
       { role: "user", content: `Change to review (numbered excerpts of the changed files):\n<diff>\n${payload.text}\n</diff>` },
     ],
   });
-  const reply = await (input.transport ?? httpsTransportV1)({
+  const reply = await input.transport({
     address: pinned.address,
     family: pinned.family === 6 ? 6 : 4,
     endpoint: settings.endpoint,

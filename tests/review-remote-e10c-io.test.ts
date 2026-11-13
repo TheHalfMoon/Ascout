@@ -12,6 +12,7 @@ vi.setConfig({ testTimeout: 180_000 });
 // confirmation, and the CLI. The transport is checked by recording the options it hands to Node's
 // https module, so no connection is ever made.
 const requests: { options: Record<string, any>; body: string }[] = [];
+let responseMode: "normal" | "big" | "no-status" | "big-no-status" = "normal";
 vi.mock("node:https", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:https")>();
   return {
@@ -23,9 +24,9 @@ vi.mock("node:https", async (importOriginal) => {
       req.end = (body: string) => {
         requests.push({ options, body });
         const response = new EventEmitter() as any;
-        response.statusCode = 200;
+        response.statusCode = responseMode === "no-status" || responseMode === "big-no-status" ? undefined : 200;
         onResponse(response);
-        response.emit("data", Buffer.from('{"choices":[]}'));
+        response.emit("data", Buffer.from(responseMode === "big" || responseMode === "big-no-status" ? "x".repeat(2048) : '{"choices":[]}'));
         response.emit("end");
       };
       return req;
@@ -74,6 +75,39 @@ describe("the HTTPS transport", () => {
     options.lookup("api.example.com", {}, (...args: unknown[]) => looked.push(args));
     expect(looked).toEqual([[null, "93.184.216.34", 4]]);
     expect(options.maxRedirects).toBeUndefined();
+  });
+});
+
+describe("the HTTPS transport's limits", () => {
+  const exchange = {
+    address: "93.184.216.34",
+    family: 4 as const,
+    endpoint: { url: "https://api.example.com/v1", hostname: "api.example.com", port: 443, path: "/v1" },
+    headers: {},
+    body: "{}",
+    timeoutMs: 1000,
+    maxBytes: 1024,
+    signal: new AbortController().signal,
+  };
+
+  it("stops reading and reports no reply when the response passes its size cap", async () => {
+    responseMode = "big";
+    try {
+      expect(await httpsTransportV1(exchange)).toEqual({ status: 200, text: null });
+    } finally {
+      responseMode = "normal";
+    }
+  });
+
+  it("reports status 0 when the response carries no status code", async () => {
+    try {
+      responseMode = "no-status";
+      expect(await httpsTransportV1(exchange)).toMatchObject({ status: 0 });
+      responseMode = "big-no-status";
+      expect(await httpsTransportV1(exchange)).toEqual({ status: 0, text: null });
+    } finally {
+      responseMode = "normal";
+    }
   });
 });
 
