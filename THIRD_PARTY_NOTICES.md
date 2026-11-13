@@ -7,9 +7,9 @@ This file records the exact direct third-party packages selected by Ascout and t
 
 ## Current manifest/lockfile reconciliation (2026-10-24)
 
-- Runtime direct dependencies: **2** — `cross-spawn@7.0.6` (MIT) and `playwright@1.63.0` (Apache-2.0).
-- Direct development dependencies: **6** — `@types/node`, `@vitest/coverage-v8`, `jest`, `typescript`, `vite`, `vitest` at the versions listed below.
-- The current eight direct dependencies are represented in the notice ledger below. `playwright-core@1.63.0` is a transitive package, not a third direct runtime dependency.
+- Runtime direct dependencies: **1** — `cross-spawn@7.0.6` (MIT). `playwright@1.63.0` (Apache-2.0) moved to development dependencies on 2026-11-13: no module reachable from the shipped entry points (`dist/cli.js`, `dist/github/publish-cli.js`) loads it, so installing the release no longer downloads it. It returns to runtime dependencies when a browser engine ships.
+- Direct development dependencies: **7** — `@types/node`, `@vitest/coverage-v8`, `jest`, `playwright`, `typescript`, `vite`, `vitest` at the versions listed below.
+- The current eight direct dependencies are represented in the notice ledger below. `playwright-core@1.63.0` is a transitive package of `playwright`, not a direct dependency.
 - The exact current npm graph and integrity records are committed in `package-lock.json`. This reconciliation does not imply a new npm release, a security audit, or any change to historical T086 evidence.
 - Task022 updates existing development pins to `vite@6.4.5`, `vitest@4.1.12` and `@vitest/coverage-v8@4.1.12`, their existing Vitest closure, and transitive `source-map-js@1.2.2` (BSD-3-Clause). The graph retains417 entries; all unrelated resolutions and runtime pins remain unchanged. Exact registry metadata binds the changed tarballs and integrity values below. Current qualification and provenance limitations are recorded separately; historical generation-time results remain scoped to their original graph.
 
