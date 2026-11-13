@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { realpathSync, existsSync, lstatSync, writeFileSync, readFileSync } from "node:fs";
+import { closeSync, fstatSync, openSync, readFileSync, realpathSync, existsSync, lstatSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { runCheck } from "./check.js";
@@ -379,9 +380,40 @@ function requireAbsentOrRegularFile(path: string, name: string): void {
   if (!stats.isFile()) throw new Error(`${name} is not a regular file; init does not write through links`);
 }
 
+/**
+ * Reads .gitignore through a descriptor and accepts it only if the opened file is the same regular
+ * file the link check saw, so a link swapped in between can't make init copy outside content into
+ * the repository. An absent file reads as empty.
+ */
+function readCheckedGitignore(path: string): string {
+  let before;
+  try {
+    // BigInt stats: Windows file IDs exceed 2^53, so number inodes could compare equal for two files.
+    before = lstatSync(path, { bigint: true });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
+    throw error;
+  }
+  const descriptor = openSync(path, "r");
+  try {
+    const opened = fstatSync(descriptor, { bigint: true });
+    if (!before.isFile() || !opened.isFile() || opened.dev !== before.dev || opened.ino !== before.ino) {
+      throw new Error(".gitignore changed while init was reading it; init does not write through links");
+    }
+    return readFileSync(descriptor, "utf8");
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
 async function runInit(): Promise<number> {
   try {
     const root = process.cwd();
+    // Inside a .git directory Git reports an empty prefix, so the check below would let init write
+    // its files into Git's own storage.
+    if (resolve(root).split(/[\\/]/u).some((segment) => segment.toLowerCase() === ".git")) {
+      throw new Error("this folder is inside a .git directory; run ascout init at the repository root");
+    }
     // check reads the config only at the repository root, so a config written in a subdirectory
     // would be silently ignored. Outside any repository, init is still allowed (before git init).
     const prefix = looksInsideGitWorkTreeV1(root) ? readRepositoryPrefix(root) : "";
@@ -404,10 +436,7 @@ async function runInit(): Promise<number> {
     const gitignorePath = join(root, ".gitignore");
     requireAbsentOrRegularFile(gitignorePath, ".gitignore");
     const gitignoreEntry = ".ascout/";
-    let gitignoreContent = "";
-    if (existsSync(gitignorePath)) {
-      gitignoreContent = readFileSync(gitignorePath, "utf8");
-    }
+    const gitignoreContent = readCheckedGitignore(gitignorePath);
     const lines = gitignoreContent.split(/\r?\n/);
     const ignoreAdded = !lines.some((line) => line.trim() === gitignoreEntry);
     if (ignoreAdded) {
@@ -416,7 +445,16 @@ async function runInit(): Promise<number> {
         : gitignoreContent
         ? gitignoreContent + "\n" + gitignoreEntry
         : gitignoreEntry;
-      writeFileSync(gitignorePath, newContent);
+      // Write a new file and rename it into place: a rename replaces whatever is at the path,
+      // including a link swapped in since the check, instead of writing through it.
+      const temporaryPath = join(root, `.gitignore.ascout-${randomBytes(6).toString("hex")}`);
+      writeFileSync(temporaryPath, newContent, { flag: "wx" });
+      try {
+        renameSync(temporaryPath, gitignorePath);
+      } catch (error) {
+        rmSync(temporaryPath, { force: true });
+        throw error;
+      }
     }
 
     console.error(`ascout init: ${configCreated ? "created" : "kept the existing"} ascout.config.json; ${ignoreAdded ? "added .ascout/ to" : ".ascout/ was already in"} .gitignore.`);

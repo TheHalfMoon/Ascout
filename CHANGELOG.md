@@ -26,6 +26,9 @@ break compatibility, and each breaking change is listed under **Breaking**.
   loads them, so `playwright` is now a development dependency. It returns when a browser engine ships.
 - Fingerprinting the working tree hashes every touched file in one `git hash-object` process per
   observation instead of one per file, keeping the per-file time budget (salvaged from #614).
+- `init` refuses to run inside a `.git` directory, and updates `.gitignore` without reading or
+  writing through a link swapped in after its check (descriptor read with exact file identity, then
+  write and rename).
 
 ## 0.3.0 (2026-11-13)
 
