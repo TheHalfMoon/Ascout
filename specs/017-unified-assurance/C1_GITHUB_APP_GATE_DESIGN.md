@@ -271,8 +271,8 @@ Setting only some of them is a configuration error: refuse with exit 2 and post 
   - The setup guide is in `docs/GITHUB_INTEGRATION.md`, under "GitHub App mode".
   - A packed release tarball runs `package/dist/github/publish-cli.js` with no `node_modules`
     (checked by hand).
-- **C1c: not done.** It needs a test App the founder registers. The template also needs a release that
-  includes `publish-cli.js`.
+- **C1c: not done.** It needs a test App the founder registers. v0.3.0 includes `publish-cli.js`, so
+  the template can be pinned to it; the test repository `TheHalfMoon/ascout-c1c-proof` is set up that way.
 
 ## Review record
 

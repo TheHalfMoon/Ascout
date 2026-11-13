@@ -16,7 +16,7 @@ Ascout v0.3.0 is released on GitHub: https://github.com/TheHalfMoon/Ascout/relea
 | E6 test | Done. `ascout test` runs `check`; deep and release profiles report the engines that don't run yet. |
 | E6 review | Advisory, opt-in. The founder authorized a local model on 2026-11-09. `ascout review --local-model` sends the changed lines only to Ollama on loopback (`qwen2.5-coder:7b` locally), never to a hosted service (#699, #700). Output is advisory and never human R1. Without the flag, or without the founder's config, review stays not run (exit 4). CI has no model and tests against a fake server. |
 | E7 containment | T0 stated, T1 blocked. Every `ascout test` report carries a T0 trusted-local record (no filesystem or network isolation), and no profile predicts isolated execution any more (#702). T1 is blocked on FD-4, the private host spec, native proof, and human security review. |
-| E8 optional MCP and end-to-end | Done. `ascout mcp` is a stdio MCP server with no socket and no options, offering four read-only tools (review without a model, security, doctor, test plan). It does not expose `check`, `test`, `init`, or the local model. Every result carries the CLI's JSON report unchanged and an `assurance` field, where a plan is never COMPLETE. Packets: design #703, command functions #707, server and M-1..M-15 plus E2E-1 #708, real Gitleaks over MCP on 3 OSes #709. The founder authorized proceeding on 2026-11-10; no line-level human R1 is recorded. |
+| E8 optional MCP and end-to-end | Done. `ascout mcp` is a stdio MCP server with no socket and no options, offering four read-only tools (review without a model, security, doctor, test plan); E11a added two more, six in v0.3.0. It does not expose `check`, `test`, `init`, or the local model. Every result carries the CLI's JSON report unchanged and an `assurance` field, where a plan is never COMPLETE. Packets: design #703, command functions #707, server and M-1..M-15 plus E2E-1 #708, real Gitleaks over MCP on 3 OSes #709. The founder authorized proceeding on 2026-11-10; no line-level human R1 is recorded. |
 | E9 distribution | Released v0.3.0 on GitHub only (2026-11-13, run 43338782772, on the founder's explicit authorization), after v0.2.0 (#712, run 42874746620). Neither is on npm. The tarball is bit-identical on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24, and qualified on each. A build-provenance attestation (SLSA v1) is verified. The founder waived both human reviews; neither was performed. |
 
 ### Capability ledger (2026-11-11)
@@ -39,7 +39,7 @@ A whole-project security review found no critical issues. All high and medium fi
 
 ### Community-first program (directive of 2026-11-10): status 2026-11-12
 
-Everything in the directive that needed no founder decision is merged into `main` after exact-head CI. None of it is in a release yet.
+Everything in the directive that needed no founder decision is merged into `main` after exact-head CI. It shipped in v0.3.0 (2026-11-13).
 
 - **Done:**
   - #714 merged;

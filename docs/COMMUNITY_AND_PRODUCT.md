@@ -3,7 +3,7 @@
 **Identity:** Ascout — **Free, Open Source, Community-Driven**.  
 **Promise:** *Verify everything AI ships. Know exactly what passed, failed, and was never checked.*
 
-This document distinguishes current product facts from planned business capabilities. Ascout v0.2.0 is a released **local CLI** with a limited read-only **stdio MCP** interface; it does not yet have a commercial team service or GitHub PR bot.
+This document distinguishes current product facts from planned business capabilities. Ascout v0.3.0 is a released **local CLI** with a limited read-only **stdio MCP** interface and customer-run GitHub PR workflows; it has no commercial team service and no PR bot that Ascout operates.
 
 ## Open-source commitment
 
@@ -15,12 +15,12 @@ This document distinguishes current product facts from planned business capabili
 
 ## Product surfaces
 
-| Surface | Current status (v0.2.0) | Direction |
+| Surface | Current status (v0.3.0) | Direction |
 | --- | --- | --- |
 | Local CLI | Released via GitHub Release tarball | Preserve as the reference execution and evidence surface |
-| Local MCP | Released; four read-only stdio tools | Extend only through explicit trust, consent, and authority review |
-| AI review | Local Ollama advisory review is opt-in through CLI | Support customer-authorized AI runtimes and APIs behind explicit privacy controls |
-| CI / GitHub | No complete released PR-review bot or GitHub Action offering yet | Customer-run verification, scoped PR comments/checks, reusable actions |
+| Local MCP | Released; six read-only stdio tools | Extend only through explicit trust, consent, and authority review |
+| AI review | Local advisory review (Ollama or an OpenAI-compatible server on loopback) is opt-in through CLI | Support customer-authorized AI runtimes and APIs behind explicit privacy controls |
+| CI / GitHub | Customer-run collect and publish workflows released in v0.3.0; the optional GitHub App gate is released but not yet proven live | Customer-run verification, scoped PR comments/checks, reusable actions |
 | Desktop GUI | Not released | Not a priority; CLI, MCP, and CI are the primary interfaces |
 | Team/Enterprise | Not released | Optional commercial organizational capabilities, separate from Core |
 
@@ -48,7 +48,7 @@ This is an **open-core / commercial add-on proposal**. Pricing, billing, license
 4. **Audit and compliance evidence:** versioned, exportable evidence with traceable source, model, rule, and tool provenance and retention controls.
 5. **Enterprise deployment and support:** customer-hosted management plane, identity integration, contractual support and SLAs as separately contracted services.
 
-These are **targets**, not claims that any of these features exist in v0.2.0. A GitHub Check Run must never be green if required checks were skipped, refused, unavailable, or timed out.
+These are **targets**, not claims that any of these features exist in v0.3.0. The free core already includes customer-run PR check runs for a single repository (v0.3.0); none of the coordination above is built. A GitHub Check Run must never be green if required checks were skipped, refused, unavailable, or timed out.
 
 ## Design and release principles
 
