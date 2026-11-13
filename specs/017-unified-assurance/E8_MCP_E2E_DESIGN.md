@@ -144,7 +144,7 @@ Every successful result is a single JSON text content block with this shape:
 | M-12 | A result over 4 MiB | An error, never a truncated report |
 | M-13 | Exit-2 messages | Local paths redacted |
 | M-14 | `ascout_test_plan` | `assurance: "NONE"`; never `COMPLETE` |
-| M-15 | `tools/list` | Every schema is empty with `additionalProperties:false`; exactly four tools |
+| M-15 | `tools/list` | Every schema is empty with `additionalProperties:false`; exactly four tools (six since E11a added `ascout_policy` and `ascout_last_check`) |
 
 ## End-to-end proof
 
