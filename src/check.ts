@@ -1979,23 +1979,15 @@ async function runCheckWithinCancellation(
               artifactPassOrdinal: 2 as const,
             };
             const timeoutMs = taskTimeoutMs(config, task);
-            let widened: { readonly executed: ExecutedTestTask; readonly workingDirectory: string | null } | null = null;
-            if (usesJest) {
-              const widerPlan = emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planJestTask({ ...fullPlanInput, changedFiles }));
-              if (widerPlan !== null) {
-                const executed = await executeJestTask(root, runId, runDir.run_path, runDir.raw_path, widerPlan, decision, secrets, timeoutMs, 2);
-                widened = { executed, workingDirectory: widerPlan.workingDirectory };
-              }
-            } else {
-              const widerPlan = emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planVitestTask({ ...fullPlanInput, changedFiles }));
-              if (widerPlan !== null) {
-                const executed = await executeVitestTask(root, runId, runDir.run_path, runDir.raw_path, widerPlan, decision, secrets, timeoutMs, 2);
-                widened = { executed, workingDirectory: widerPlan.workingDirectory };
-              }
-            }
-            if (widened !== null) {
-              finalExecuted = replaceEmptyRelatedPass(firstExecuted, widened.executed);
-              selection = withPostRunWideningPass(selection, widened.workingDirectory);
+            const widerPlan = usesJest
+              ? emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planJestTask({ ...fullPlanInput, changedFiles }))
+              : emptyRelatedWideningPlanV1(gitComparison.changed_files, (changedFiles) => planVitestTask({ ...fullPlanInput, changedFiles }));
+            if (widerPlan !== null) {
+              const secondExecuted = usesJest
+                ? await executeJestTask(root, runId, runDir.run_path, runDir.raw_path, widerPlan as PlannedJestTask, decision, secrets, timeoutMs, 2)
+                : await executeVitestTask(root, runId, runDir.run_path, runDir.raw_path, widerPlan as PlannedVitestTask, decision, secrets, timeoutMs, 2);
+              finalExecuted = replaceEmptyRelatedPass(firstExecuted, secondExecuted);
+              selection = withPostRunWideningPass(selection, widerPlan.workingDirectory);
             }
           }
 
