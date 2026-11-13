@@ -18,6 +18,14 @@ break compatibility, and each breaking change is listed under **Breaking**.
   secrets are passed. Unset keeps the previous behaviour.
 - `pr-evidence --pr-head` accepts a 64-hex commit ID, so the collect workflow works in SHA-256
   repositories; the bundle validator and the publisher already accepted one.
+- `ascout --help` (also `-h`, `help`) prints usage on stdout, and `ascout --version` prints the
+  version; both exit 0, and only as the sole argument.
+- `init` refuses a repository subdirectory (exit 2), where `check` would never read the config,
+  and says what it changed instead of always claiming it created the config.
+- Installing Ascout no longer downloads `playwright` and `playwright-core`: no shipped entry point
+  loads them, so `playwright` is now a development dependency. It returns when a browser engine ships.
+- Fingerprinting the working tree hashes every touched file in one `git hash-object` process per
+  observation instead of one per file, keeping the per-file time budget (salvaged from #614).
 
 ## 0.3.0 (2026-11-13)
 
