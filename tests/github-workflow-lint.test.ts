@@ -93,19 +93,52 @@ function stepContaining(text: string, needle: string): string {
 }
 
 /**
- * App mode must be required in the very step that runs the publisher, in exactly one place, so
- * nothing can quietly unset it: not a job-level value that a step overrides with "", not a quoted
- * value, not a line in another step or inside a script, and not bracket-syntax secrets that skip a
- * dotted-name check.
+ * App mode must be required in the very step that runs the publisher, as a plain key of that step's
+ * env mapping, in exactly one place, so nothing can quietly unset it: not a job-level value that a
+ * step overrides with "", not a quoted value, not a line in another step, inside a script, or inside a
+ * block scalar, not a second publish step, not bracket-syntax secrets, and not a bare carriage return
+ * that YAML reads as a line break but this line-based check would not.
  */
 function publishModeProblems(text: string): string[] {
   if (!/ASCOUT_APP_(?:ID|CLIENT_ID|PRIVATE_KEY)\b/u.test(text)) return [];
   const problems: string[] = [];
-  const modeLines = text.split(NL).filter((line) => line.includes("ASCOUT_PUBLISH_MODE"));
+  const lines = text.split(NL);
+  const indentOf = (line: string) => line.search(/\S/u);
+  if (text.includes(String.fromCharCode(13))) problems.push("a bare carriage return hides a line break");
+
+  // Exactly one line runs the publisher; any other mention must be the template's existence check.
+  const publishLines = lines.filter((line) => line.includes(PUBLISH_LINE));
+  if (publishLines.length !== 1) problems.push(`the publisher runs on ${publishLines.length} lines, not one`);
+  const otherMentions = lines.filter((line) => line.includes("publish-cli.js") && !line.includes(PUBLISH_LINE) &&
+    line.trim() !== 'test -f "$RUNNER_TEMP/package/dist/github/publish-cli.js"');
+  if (otherMentions.length > 0) problems.push("publish-cli.js is mentioned outside the publish and existence-check lines");
+
+  const modeLines = lines.filter((line) => line.includes("ASCOUT_PUBLISH_MODE"));
   if (modeLines.length !== 1) problems.push(`ASCOUT_PUBLISH_MODE appears ${modeLines.length} times, not once`);
-  if (modeLines.length === 1 && !/^ +ASCOUT_PUBLISH_MODE: app$/u.test(modeLines[0] as string)) problems.push("ASCOUT_PUBLISH_MODE is not exactly app");
+
+  // The App secrets belong to the publish step alone.
   const publishStep = stepContaining(text, PUBLISH_LINE);
-  if (!/^ +ASCOUT_PUBLISH_MODE: app$/mu.test(publishStep)) problems.push("the publish step does not set ASCOUT_PUBLISH_MODE: app");
+  const secretLines = lines.filter((line) => /ASCOUT_APP_(?:ID|CLIENT_ID|PRIVATE_KEY)\b/u.test(line));
+  if (secretLines.some((line) => !publishStep.split(NL).includes(line))) problems.push("an App secret is referenced outside the publish step");
+
+  // The mode must be a direct key of the publish step's env mapping, and that mapping must hold no
+  // block scalar that could carry a look-alike line.
+  const stepLines = publishStep.split(NL);
+  const envAt = stepLines.findIndex((line) => /^ +env:\s*$/u.test(line));
+  if (envAt === -1) {
+    problems.push("the publish step has no plain env mapping");
+  } else {
+    const envIndent = indentOf(stepLines[envAt] as string);
+    const block: string[] = [];
+    for (const line of stepLines.slice(envAt + 1)) {
+      if (line.trim() !== "" && indentOf(line) <= envIndent) break;
+      block.push(line);
+    }
+    if (block.some((line) => /:\s*[|>][-+0-9]*\s*(?:#.*)?$/u.test(line))) problems.push("the publish step's env holds a block scalar");
+    const keyIndent = envIndent + 2;
+    const directKeys = block.filter((line) => indentOf(line) === keyIndent && !line.trim().startsWith("#"));
+    if (!directKeys.includes(`${" ".repeat(keyIndent)}ASCOUT_PUBLISH_MODE: app`)) problems.push("the publish step's env does not set ASCOUT_PUBLISH_MODE: app");
+  }
   return problems;
 }
 
@@ -235,6 +268,12 @@ describe("the App-mode lint rule", () => {
     ["only a job-level value", ["jobs:", "  publish:", "    env:", "      ASCOUT_PUBLISH_MODE: app", "    steps:", ...publishStep([])].join(NL)],
     ["the line in another step", workflow(["      - name: Other", "        env:", "          ASCOUT_PUBLISH_MODE: app", "        run: echo hi", ...publishStep([])])],
     ["bracket-syntax secrets with no mode", workflow(publishStep([]).map((line) => line.replace("secrets.ASCOUT_APP_ID", "secrets['ASCOUT_APP_ID']")))],
+    ["the line inside a block scalar of the env", workflow(publishStep(["          NOTE: |", "            ASCOUT_PUBLISH_MODE: app"]))],
+    ["the line inside a folded scalar of the env", workflow(publishStep(["          NOTE: >-", "            ASCOUT_PUBLISH_MODE: app"]))],
+    ["a second publish step without the mode", workflow([...publishStep(["          ASCOUT_PUBLISH_MODE: app"]), ...publishStep([]).map((line) => line.replace(PUBLISH_LINE, `${PUBLISH_LINE} `))])],
+    ["an App secret in another step", workflow(["      - name: Other", "        env:", "          K: ${{ secrets.ASCOUT_APP_PRIVATE_KEY }}", "        run: echo hi", ...publishStep(["          ASCOUT_PUBLISH_MODE: app"])])],
+    ["a bare carriage return hiding a step boundary", workflow(["      - name: Other", "        env:", "          ASCOUT_PUBLISH_MODE: app", `        run: echo hi${String.fromCharCode(13)}      - name: Publish`, ...publishStep([]).slice(1)])],
+    ["the mode nested deeper than the env keys", workflow(publishStep(["          NESTED:", "            ASCOUT_PUBLISH_MODE: app"]))],
   ])("refuses %s", (_label, text) => {
     expect(publishModeProblems(text).length).toBeGreaterThan(0);
   });
