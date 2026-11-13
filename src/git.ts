@@ -649,6 +649,7 @@ function runGitTreeMetadata(
   repositoryRoot: string,
   argv: readonly string[],
   stdin?: Buffer,
+  timeoutMs: number = GIT_METADATA_TIMEOUT_MS,
 ): GitBufferCommandResult {
   const git = trustedGitExecutable(repositoryRoot);
   if (git === null) {
@@ -659,7 +660,7 @@ function runGitTreeMetadata(
     encoding: null,
     env: hardenedGitEnv(),
     shell: false,
-    timeout: GIT_METADATA_TIMEOUT_MS,
+    timeout: timeoutMs,
     maxBuffer: stdin === undefined ? GIT_TREE_METADATA_MAX_BUFFER_BYTES : GIT_ATTRIBUTE_QUERY_MAX_BUFFER_BYTES,
     ...(stdin === undefined ? {} : { input: stdin }),
     windowsHide: true,
@@ -937,6 +938,11 @@ function worktreeGitObjectId(
  * still passes the containment check first. Paths the line protocol can't carry verbatim (CR or LF,
  * or a leading quote that Git would C-unquote) are left to the single-file call. The output must hold
  * exactly one valid object ID per path, or the digest fails closed.
+ *
+ * The batch keeps the time budget the single-file calls had: one metadata timeout per file. Git
+ * opens each path itself, so an intermediate directory swapped for a link between the containment
+ * check and Git's read could redirect it; only an equal-or-not result leaves, and the second
+ * observation would see the swap and refuse the digest.
  */
 function batchWorktreeGitObjectIds(
   repositoryRoot: string,
@@ -951,6 +957,7 @@ function batchWorktreeGitObjectIds(
       repositoryRoot,
       ["hash-object", "--stdin-paths"],
       Buffer.from(batch.map(({ path }) => `${path}\n`).join(""), "utf8"),
+      GIT_METADATA_TIMEOUT_MS * batch.length,
     ),
     "unable to compute Git worktree object IDs",
   ), "git hash-object output").split("\n");

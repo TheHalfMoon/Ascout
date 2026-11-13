@@ -7,12 +7,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Counts the hash-object processes the tree digest starts, while every call still runs real Git.
 const hashObjectCalls: string[][] = [];
+const hashObjectTimeouts: (number | undefined)[] = [];
 vi.mock("node:child_process", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:child_process")>();
   return {
     ...actual,
     spawnSync: ((command: string, args: readonly string[], options: object) => {
-      if (Array.isArray(args) && args.includes("hash-object")) hashObjectCalls.push([...args]);
+      if (Array.isArray(args) && args.includes("hash-object")) {
+        hashObjectCalls.push([...args]);
+        hashObjectTimeouts.push((options as { timeout?: number }).timeout);
+      }
       return actual.spawnSync(command, args, options);
     }) as typeof actual.spawnSync,
   };
@@ -48,11 +52,14 @@ describe("tree digest hashing", () => {
     }
 
     hashObjectCalls.length = 0;
+    hashObjectTimeouts.length = 0;
     const digest = readTreeDigestV1(root);
     expect(digest.unstaged_changed_count).toBe(5);
     // The digest takes two complete observations and compares them. Before batching, each of the 20
     // stat-dirty files started its own hash-object process in each observation: 40 in all.
     expect(hashObjectCalls).toHaveLength(2);
     for (const call of hashObjectCalls) expect(call).toContain("--stdin-paths");
+    // The batch keeps the budget the single-file calls had: 10 seconds per file.
+    expect(hashObjectTimeouts).toEqual([200_000, 200_000]);
   }, 30_000);
 });
