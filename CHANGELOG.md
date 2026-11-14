@@ -5,6 +5,11 @@ break compatibility, and each breaking change is listed under **Breaking**.
 
 ## Unreleased
 
+- FD-4 phase T1-FS research on Linux: a bubblewrap filesystem sandbox
+  (`src/assurance/containment/linux-fs-sandbox.ts`). Linux CI runs the native capability probes inside
+  it and requires reading and writing a sibling path outside the workspace to be DENIED. No command
+  uses it yet; the
+  containment tier stays T0, and a Linux T1-FS claim still needs an independent human security review.
 - `check --clean-env [--pass-env NAME]...` (FD-4 phase T1-ENV): tasks no longer inherit the caller's
   environment, only an allowlist plus named variables and `CI=1`. This keeps secrets from tools that
   log or upload their environment. It is not protection from hostile code, which can still read

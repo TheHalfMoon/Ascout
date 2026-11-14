@@ -49,12 +49,24 @@ jobs:
         # Ubuntu 23.10+ AppArmor blocks the unprivileged user namespaces Chromium's sandbox needs;
         # the browser adapter launches with the sandbox on and does not fall back to --no-sandbox.
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Install bubblewrap for the Linux filesystem sandbox research (FD-4 T1-FS)
+        if: runner.os == 'Linux'
+        # The sandbox uses unprivileged user namespaces, which the AppArmor step above allows.
+        # It looks for bwrap only at these fixed paths, never on PATH.
+        run: |
+          if ! test -x /usr/bin/bwrap && ! test -x /bin/bwrap; then
+            sudo apt-get update -q
+            sudo apt-get install -y -q bubblewrap
+          fi
+          bwrap --version
       - name: Typecheck
         run: npm run typecheck
       - name: Test
         if: ${{ runner.os != 'Windows' }}
         env:
           TMPDIR: ${{ runner.temp }}
+          # On Linux the sandbox must start, so its native evidence can't silently skip.
+          ASCOUT_REQUIRE_LINUX_SANDBOX: ${{ runner.os == 'Linux' && '1' || '' }}
         run: npm test
       - name: Test (Windows bounded workers)
         if: ${{ runner.os == 'Windows' }}

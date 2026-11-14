@@ -85,6 +85,28 @@ its own it is not T1.
      and later work, not T1-ENV.
 3. **T1-FS first.** Filesystem isolation, one host at a time, starting with Linux. Read and write
    outside the workspace go to DENIED. Each host's design goes into the private host-specific spec.
+   - **Linux (research runner built):** `src/assurance/containment/linux-fs-sandbox.ts`.
+     - It uses bubblewrap, unprivileged, from a fixed system path only. The sandbox root starts
+       empty. Inside it are the system folders and the Node binary (read-only), a fresh `/tmp`, and
+       the workspace, the only host location a task can write. There are new PID, IPC and UTS
+       namespaces, and the sandbox stops when its parent does.
+     - It refuses a workspace that is, or contains, a protected location (`/`, `/tmp`, `/home`, the
+       home folder, `/proc`, `/dev`, and others), or that lies inside a kernel or system tree.
+     - It refuses, never falls back, when bubblewrap is missing or a self-test fails. The self-test
+       checks that a marker beside an empty workspace is invisible from inside.
+     - Linux CI installs bubblewrap and requires the native probes to show both filesystem
+       capabilities DENIED for a sibling path outside the workspace, with loopback and environment
+       still ALLOWED. Other escape classes are probed privately.
+     - **Not wired into any command yet**, and the tier stays T0.
+   - **Known limits:**
+     - `/etc` and the Node binary stay readable.
+     - The network is shared (T1-NET), and that includes local sockets.
+     - Bubblewrap's own process is visible inside the sandbox and holds the environment it was
+       started with, so it is started with exactly the task's environment.
+     - Kernel exploits are out of scope.
+
+     Technique-level probes and their results are in the private Linux host spec. A Linux T1-FS
+     claim still needs an independent human security review.
 4. **T1-NET.** Network isolation per host.
 5. **Review and claim.** When every probe is DENIED natively on a host, and an independent human
    security review accepts that host's design and evidence, the tier record may say T1 for that
