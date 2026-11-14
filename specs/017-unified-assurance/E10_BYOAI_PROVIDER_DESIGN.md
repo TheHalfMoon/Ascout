@@ -424,6 +424,32 @@ Two warnings for that design:
   policy can treat them as optional and the deterministic `review` result stays separate. That is a
   schema change.
 
+### As built (E10f)
+
+- **Commands:**
+  - `ascout pr-ai-review` (job 1) and `ascout pr-ai-publish <artifact>` (job 2), both driven by the
+    workflow's environment. The code is `src/github/pr-ai-review.ts`; the template is
+    `docs/examples/ascout-pr-ai-review.yml`.
+  - Exits follow A07. `pr-ai-review` exits 1 with findings, 4 for any other outcome, 3 when the head
+    moved, and 2 on errors. `pr-ai-publish` exits 0 once it has commented.
+- **Trust:** decided in job 1 from GitHub's API, with the publisher's rule. The PR is open, its head
+  is the event's commit, it comes from the same repository, it targets the default branch, and its
+  author and triggering actor are on the allowlist and are not bots. An untrusted PR gets a
+  NOT_RUN artifact, and nothing is sent.
+- **The checkout must be exactly the PR head** (`worktreeMatchesCommitV1`). It is reviewed under every
+  E10c rule, with the workflow's trust check standing in for the terminal confirmation.
+- **Artifact:** `ascout.pr-ai-review/v1`. Job 2 reads it through the same bounded,
+  identity-checked reader as delegated findings. It has strict keys, and its commit must equal the
+  trusted event's. Other rules: at most 200 findings, plain repository-relative paths, ordered lines,
+  known severities, and `advisory: true` with `satisfies_human_r1: false`.
+- **Comment:** one comment, marked, found again only when written by the bot. All model text is
+  neutralized: no HTML, mentions, links, or table breaks.
+- **Engineering choice (reversible): advisory comment only, no `ai-review` check id.** The design above
+  proposed a check id that a team policy could mark optional. The first version deliberately
+  posts no check and changes no bundle schema. AI review therefore can't affect any gate by
+  construction, which meets the founder's conditions without a policy setting. A check id can be
+  added later if teams ask for one.
+
 ## Truth rules (all providers)
 
 These rules are invariants, and each one needs a test.

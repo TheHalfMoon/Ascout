@@ -160,6 +160,52 @@ Limits:
   protect against them.
 - **If the key leaks,** revoke it and generate a new one in the App's settings.
 
+## AI review in pull requests (optional, advisory)
+
+Off unless you install it. `docs/examples/ascout-pr-ai-review.yml` is a separate workflow that runs
+after **Ascout PR Collect**. Its result is one PR comment marked advisory. It never creates or
+changes a check run, so it can't affect any gate, can't override the deterministic **Ascout
+verification** result, and can't turn an incomplete result into a pass.
+
+- **Two jobs, so the model key and any write token are never together.**
+  - Job `ai` has a read-only token and the model key. It reads the PR head as data and never
+    installs or runs it, then writes a findings artifact.
+  - Job `comment` can comment and has no key. It validates that artifact strictly (schema,
+    commit, sizes, paths, lines, and the advisory flags) and keeps one comment up to date.
+- **Untrusted PRs are never sent.** Job `ai` asks GitHub's API for the PR. Ascout sends nothing
+  unless all of these hold:
+  - the PR is a same-repository PR;
+  - it targets the default branch;
+  - its author and triggering actor are on `ASCOUT_PR_TRUSTED_ACTORS`;
+  - neither is a bot.
+
+  Anything else gets a NOT_RUN comment.
+- **Every remote-review rule applies.** HTTPS to a public host, a pinned address, no proxy, and a
+  clean Gitleaks scan of the exact payload. The workflow's trust check replaces the person typing
+  the host at a terminal; only maintainers can change that check, on the default branch.
+- **Setup:**
+  1. Create the environment `ascout-ai-review` and put the provider key in it as `ASCOUT_AI_API_KEY`.
+     Never use a repository or organization secret: those reach same-repository `pull_request` runs.
+  2. **Required:** restrict the environment's deployment branches to the default branch only
+     (**Deployment branches and tags** > **Selected branches**). Without that rule, anyone who can
+     push a branch can add a workflow that names the environment and reads the key. The trusted-actors
+     list decides only what Ascout sends; it can't protect the key. This workflow always runs on the
+     default branch, so the rule never blocks it. Adding required reviewers to the environment is a
+     further option.
+  3. Set repository variables `ASCOUT_AI_ENDPOINT` (HTTPS), `ASCOUT_AI_MODEL`, and
+     `ASCOUT_AI_MODEL_FAMILY`.
+  4. Pin the template's Ascout release and Gitleaks archive digests.
+- Your provider account is billed for each reviewed PR; Ascout pays for nothing.
+- **Known limits:**
+  - Trust is decided by the PR's author and the actor who triggered the run, not by who wrote each
+    commit. When an allowlisted maintainer reruns the workflow, commits that someone else pushed to
+    their PR are sent too. Review what is on a PR before you rerun it.
+  - The released package has no lockfile, so its few runtime dependencies are resolved within their
+    semver ranges at install time, in a step without the key; they are then loaded in the step that
+    has it.
+  - Model text in the comment is shown in code spans, so it can't form links, mentions, or HTML.
+    A very long review is cut to fit GitHub's comment limit, with a count of the findings not shown.
+
 ## Security model and known limits
 
 **Collection runs pull request code**: the repository's tests, and in this repository the Ascout

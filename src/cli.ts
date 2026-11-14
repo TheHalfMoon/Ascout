@@ -38,6 +38,7 @@ import { looksInsideGitWorkTreeV1 } from "./assurance/repository-presence.js";
 import { ASCOUT_PACKAGE_VERSION, serveMcpV1 } from "./mcp/server.js";
 import { collectPrEvidenceV1 } from "./github/collect.js";
 import { runPrPublishMainV1 } from "./github/publish-run.js";
+import { runPrAiPublishMainV1, runPrAiReviewMainV1 } from "./github/pr-ai-review.js";
 import {
   computeDoctorV1,
   computeDelegatedExportV1,
@@ -71,7 +72,7 @@ import {
 } from "./assurance/security/security-gitleaks.js";
 import type { TestProfile } from "./assurance/test/profile-policy.js";
 
-const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp", "pr-evidence", "pr-publish"] as const;
+const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp", "pr-evidence", "pr-publish", "pr-ai-review", "pr-ai-publish"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
@@ -176,6 +177,14 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   let remoteModel = false;
   let dryRun = false;
 
+  if (commandToken === "pr-ai-review") {
+    if (rest.length !== 0) throw new CliUsageError("ascout pr-ai-review takes no arguments; it reads the workflow's environment.");
+    return { command: "pr-ai-review", allowChangedCommandSurface: false };
+  }
+  if (commandToken === "pr-ai-publish") {
+    if (rest.length !== 1 || rest[0]!.startsWith("-")) throw new CliUsageError("ascout pr-ai-publish takes one argument: the AI review artifact path.");
+    return { command: "pr-ai-publish", allowChangedCommandSurface: false, bundlePath: rest[0]! };
+  }
   if (commandToken === "pr-publish") {
     if (rest.length !== 1 || rest[0]!.startsWith("-")) {
       throw new CliUsageError("ascout pr-publish takes one argument: the evidence bundle path.");
@@ -404,6 +413,8 @@ export function usageText(): string {
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
     "  ascout pr-evidence [--skip-tests] [--pr-head <sha>]",
     "  ascout pr-publish <bundle>",
+    "  ascout pr-ai-review",
+    "  ascout pr-ai-publish <artifact>",
     `  ascout security [${FORMAT_FLAG} json|terminal]`,
     "  ascout mcp",
     "  ascout --help | --version",
@@ -697,6 +708,13 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         console.error(outcome.terminalSummary);
       }
       return outcome.receipt.summary.exit_code;
+    }
+    if (invocation.command === "pr-ai-review" || invocation.command === "pr-ai-publish") {
+      // E10f: optional, advisory AI review in pull requests. Never changes a check run.
+      const io = { env: process.env, cwd: realpathSync.native(process.cwd()), out: (line: string) => process.stdout.write(`${line}\n`), err: (line: string) => reportOperationalError(line) };
+      return invocation.command === "pr-ai-review"
+        ? await runPrAiReviewMainV1([], io)
+        : await runPrAiPublishMainV1([invocation.bundlePath!], io);
     }
     if (invocation.command === "pr-publish") {
       // Privileged GitHub publish step; the same dependency-free function the C1 App-mode job runs.

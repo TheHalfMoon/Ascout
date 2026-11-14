@@ -1,0 +1,144 @@
+# Ascout AI review in pull requests (E10f): optional and advisory. A template: copy it to
+# .github/workflows/ in your repository only if you want it, after reading "AI review in pull
+# requests" in docs/GITHUB_INTEGRATION.md. Design: specs/017-unified-assurance/E10_BYOAI_PROVIDER_DESIGN.md.
+#
+# Why it is shaped like this:
+# - It runs on workflow_run, so it is always your default branch's copy of this file, never a PR's.
+# - Job "ai" holds the model key and a read-only token. It reads the PR head as data and never
+#   installs or runs it. Ascout sends nothing unless the PR is a same-repository PR to the default
+#   branch from an allowlisted maintainer (ASCOUT_PR_TRUSTED_ACTORS), and the exact payload passes a
+#   Gitleaks scan. Your provider account is billed; Ascout pays for nothing.
+# - Job "comment" can comment and holds no model key. It validates the artifact and keeps one
+#   advisory comment. Neither job creates or changes a check run, so AI review can't affect any gate.
+# - The model key lives only in the environment named below. Never add it as a repository or
+#   organization secret: those reach same-repository pull_request runs.
+# - REQUIRED: restrict that environment's deployment branches to your default branch only
+#   (Settings > Environments > ascout-ai-review > Deployment branches and tags > Selected branches).
+#   Without that rule, anyone who can push a branch can add a workflow that names the environment and
+#   reads the key; the trusted-actors list only decides what Ascout sends, it can't protect the key.
+#   This workflow always runs on the default branch, so the rule never blocks it.
+name: Ascout PR AI Review
+
+on:
+  workflow_run:
+    workflows: ["Ascout PR Collect"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  ai:
+    name: ascout ai review (advisory)
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.path == '.github/workflows/ascout-pr-collect.yml' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: ascout-ai-review
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out the pull request head as data
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - name: Download and verify the pinned Ascout release
+        env:
+          # Set both from the release you have reviewed; the digest is in the release's SHA256SUMS.
+          ASCOUT_VERSION: "REPLACE_WITH_VERSION"
+          ASCOUT_SHA256: "REPLACE_WITH_SHA256"
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/TheHalfMoon/Ascout/releases/download/v${ASCOUT_VERSION}/thehalfmoon-ascout-${ASCOUT_VERSION}.tgz"
+          curl --fail --silent --show-error --location --proto '=https' --output "$RUNNER_TEMP/ascout.tgz" "$url"
+          echo "${ASCOUT_SHA256}  $RUNNER_TEMP/ascout.tgz" | sha256sum --check --strict -
+          mkdir "$RUNNER_TEMP/ascout"
+          tar -xzf "$RUNNER_TEMP/ascout.tgz" -C "$RUNNER_TEMP/ascout"
+          cd "$RUNNER_TEMP/ascout/package" && npm install --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: Download and verify the pinned Gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.1"
+          # linux x64 archive digest from the Gitleaks 8.30.1 release's checksums file.
+          GITLEAKS_SHA256: "REPLACE_WITH_GITLEAKS_LINUX_X64_ARCHIVE_SHA256"
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location --proto '=https' --output "$RUNNER_TEMP/gitleaks.tgz" "$url"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/gitleaks.tgz" | sha256sum --check --strict -
+          mkdir "$RUNNER_TEMP/gitleaks"
+          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP/gitleaks" gitleaks
+      - name: Review the pull request's changes (advisory)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASCOUT_AI_API_KEY: ${{ secrets.ASCOUT_AI_API_KEY }}
+          ASCOUT_AI_ENDPOINT: ${{ vars.ASCOUT_AI_ENDPOINT }}
+          ASCOUT_AI_MODEL: ${{ vars.ASCOUT_AI_MODEL }}
+          ASCOUT_AI_MODEL_FAMILY: ${{ vars.ASCOUT_AI_MODEL_FAMILY }}
+          ASCOUT_AI_OUTPUT: ${{ runner.temp }}/ascout-ai-review.json
+          ASCOUT_GITLEAKS_PATH: ${{ runner.temp }}/gitleaks/gitleaks
+          ASCOUT_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          ASCOUT_PR_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          ASCOUT_PR_HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          ASCOUT_PR_REQUIRED_BASE: ${{ github.event.repository.default_branch }}
+          ASCOUT_PR_TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+          ASCOUT_PR_TRUSTED_ACTORS: ${{ vars.ASCOUT_PR_TRUSTED_ACTORS }}
+          BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=$(git merge-base "$BASE_SHA" "$ASCOUT_PR_HEAD_SHA")
+          git reset -q --soft "$base"
+          code=0
+          node "$RUNNER_TEMP/ascout/package/dist/cli.js" pr-ai-review || code=$?
+          echo "ascout pr-ai-review exited $code (1 findings, 4 nothing to report or not run, 3 stale, 2 error)"
+          test -s "$ASCOUT_AI_OUTPUT"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ascout-ai-review
+          path: ${{ runner.temp }}/ascout-ai-review.json
+          if-no-files-found: error
+          retention-days: 7
+
+  comment:
+    name: ascout ai review comment
+    needs: ai
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ascout-ai-review
+          path: ${{ runner.temp }}/ai
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - name: Download and verify the pinned Ascout release
+        env:
+          ASCOUT_VERSION: "REPLACE_WITH_VERSION"
+          ASCOUT_SHA256: "REPLACE_WITH_SHA256"
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/TheHalfMoon/Ascout/releases/download/v${ASCOUT_VERSION}/thehalfmoon-ascout-${ASCOUT_VERSION}.tgz"
+          curl --fail --silent --show-error --location --proto '=https' --output "$RUNNER_TEMP/ascout.tgz" "$url"
+          echo "${ASCOUT_SHA256}  $RUNNER_TEMP/ascout.tgz" | sha256sum --check --strict -
+          mkdir "$RUNNER_TEMP/ascout"
+          tar -xzf "$RUNNER_TEMP/ascout.tgz" -C "$RUNNER_TEMP/ascout"
+          cd "$RUNNER_TEMP/ascout/package" && npm install --omit=dev --ignore-scripts --no-audit --no-fund
+      - name: Post the advisory comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ASCOUT_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          ASCOUT_PR_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: node "$RUNNER_TEMP/ascout/package/dist/cli.js" pr-ai-publish "$RUNNER_TEMP/ai/ascout-ai-review.json"

@@ -339,6 +339,9 @@ function historyPath(configPath: string): string {
 }
 
 function lastConfirmedHost(configPath: string, repositoryRoot: string): string | null {
+  // No operator config file (the PR workflow): no history, so nothing is read from or written to the
+  // current folder, which there is the pull request's checkout.
+  if (!isAbsolute(configPath)) return null;
   try {
     const history = JSON.parse(readFileSync(historyPath(configPath), "utf8")) as Record<string, unknown>;
     const host = history[samePathKey(realpathSync.native(repositoryRoot))];
@@ -349,6 +352,7 @@ function lastConfirmedHost(configPath: string, repositoryRoot: string): string |
 }
 
 function recordConfirmedHost(configPath: string, repositoryRoot: string, host: string): void {
+  if (!isAbsolute(configPath)) return;
   try {
     let history: Record<string, unknown> = {};
     try {
