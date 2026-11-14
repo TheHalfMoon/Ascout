@@ -3,6 +3,14 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
+## Unreleased
+
+- `check --clean-env [--pass-env NAME]...` (FD-4 phase T1-ENV): tasks no longer inherit the caller's
+  environment, only an allowlist plus named variables and `CI=1`. This keeps secrets from tools that
+  log or upload their environment. It is not protection from hostile code, which can still read
+  Ascout's own environment from the operating system and credential files under the home folder.
+  Per invocation only, never from repository configuration, and `check` only. The tier stays T0.
+
 ## 0.3.1 (2026-11-14)
 
 Released on GitHub only, not on npm: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.1. Tarball SHA-256 `67b6273bd8c0dc5296aa7279f5e71cf31140c9aeb8e88ce1d2694a3f540cfea1`, with a

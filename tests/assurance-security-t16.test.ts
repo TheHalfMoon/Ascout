@@ -107,7 +107,7 @@ describe("UA-P06-T16 P6 qualification: section 11 hard-zero invariants", () => {
       "Usage:",
       "  ascout init",
       "  ascout doctor [--format json|terminal]",
-      "  ascout check [--allow-changed-command-surface] [--format json|agent]",
+      "  ascout check [--allow-changed-command-surface] [--clean-env [--pass-env NAME]...] [--format json|agent]",
       "  ascout review [--local-model | --remote-model [--dry-run] | --export-task <path> | --ingest <findings.json>] [--format json|terminal]",
       "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
       "  ascout pr-evidence [--skip-tests] [--pr-head <sha>]",

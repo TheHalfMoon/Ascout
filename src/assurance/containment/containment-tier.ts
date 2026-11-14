@@ -1,8 +1,9 @@
 /**
  * E7-CONTAIN, trusted-local T0 boundary. Ascout isolates nothing today: code it runs, whether a
  * `check` task or a brokered engine, can read, write, and connect to anything the user can. What
- * exists is lifetime control (process-tree teardown), output and time caps, and a sanitized
- * environment for brokered engines only. T1 needs native proof per OS and founder decision FD-4,
+ * exists is lifetime control (process-tree teardown), output and time caps, a sanitized
+ * environment for brokered engines, and, by opt-in, an allowlisted environment for `check` tasks
+ * (`--clean-env`, task-environment.ts). T1 needs native proof per OS and founder decision FD-4,
  * neither of which exists, so this module has no T1 value to report.
  */
 export const CONTAINMENT_SCHEMA_VERSION = 1 as const;

@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { testRunnerEnvironmentV1 } from "./assurance/containment/task-environment.js";
 import { createHash, randomBytes } from "node:crypto";
 import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -272,6 +273,19 @@ export interface CheckRunOptions {
    * and the receipt records them as cancelled.
    */
   readonly signal?: AbortSignal;
+  /**
+   * FD-4 T1-ENV: when set, every task runs with only this environment instead of the caller's
+   * (see allowlistedTaskEnvironmentV1). Like allowChangedCommandSurface, it comes from the command
+   * line only, never from configuration the repository controls.
+   */
+  readonly taskEnvironment?: NodeJS.ProcessEnv;
+}
+
+/** The current run's task environment, if the operator asked for an allowlisted one. */
+const runTaskEnvironment = new AsyncLocalStorage<NodeJS.ProcessEnv | undefined>();
+
+function testTaskEnvironment(): NodeJS.ProcessEnv {
+  return testRunnerEnvironmentV1(runTaskEnvironment.getStore(), process.env);
 }
 
 /** The current run's cancellation signal, reached by every task launch without threading it through. */
@@ -633,6 +647,7 @@ async function executePlannedTask(
   const startedMs = Date.now();
   const startedAt = new Date(startedMs).toISOString();
   const cancellation = runCancellation.getStore();
+  const taskEnv = options.env ?? runTaskEnvironment.getStore();
   const result = await runProcess({
     file: plan.argv[0]!,
     argv: plan.argv.slice(1),
@@ -641,7 +656,7 @@ async function executePlannedTask(
     // A descendant left running could rewrite this run's evidence after the runner exits.
     require_tree_exit: true,
     ...(cancellation === undefined ? {} : { signal: cancellation }),
-    ...(options.env === undefined ? {} : { env: options.env }),
+    ...(taskEnv === undefined ? {} : { env: taskEnv }),
     timeout_ms: timeoutMs,
     termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
     capture_cap_bytes: TASK_CAPTURE_CAP_BYTES,
@@ -1112,7 +1127,7 @@ async function executeVitestTask(
     { recursive: true },
   );
   const executionOptions: ExecutePlannedTaskOptions = {
-    env: { ...process.env, CI: "1" },
+    env: testTaskEnvironment(),
     toolName: "vitest",
     ...(plan.toolVersion === null ? {} : { toolVersion: plan.toolVersion }),
     captureFilePrefix: passOrdinal === 1 ? "test" : "test-pass-2",
@@ -1248,7 +1263,7 @@ async function executeJestTask(
     { recursive: true },
   );
   const executionOptions: ExecutePlannedTaskOptions = {
-    env: { ...process.env, CI: "1" },
+    env: testTaskEnvironment(),
     toolName: "jest",
     ...(plan.toolVersion === null ? {} : { toolVersion: plan.toolVersion }),
     captureFilePrefix: passOrdinal === 1 ? "test" : "test-pass-2",
@@ -1542,7 +1557,7 @@ async function executeTargetedTestObservation(
     secrets,
     timeoutMs,
     {
-      env: { ...process.env, CI: "1" },
+      env: testTaskEnvironment(),
       toolName: runner,
       ...(basePlan.toolVersion === null ? {} : { toolVersion: basePlan.toolVersion }),
       captureFilePrefix: `test-rerun-${rerunIndex}`,
@@ -1775,7 +1790,7 @@ export async function runCheck(
   repositoryRoot: string,
   options: CheckRunOptions = {},
 ): Promise<CheckOutcome> {
-  return runCancellation.run(options.signal, () => runCheckWithinCancellation(repositoryRoot, options));
+  return runCancellation.run(options.signal, () => runTaskEnvironment.run(options.taskEnvironment, () => runCheckWithinCancellation(repositoryRoot, options)));
 }
 
 async function runCheckWithinCancellation(
