@@ -3,7 +3,12 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
-## Unreleased
+## 0.3.1 (release candidate, not published)
+
+Not released. Publication, tagging, and build-provenance attestation wait for the founder's explicit
+authorization of this exact candidate. When published, it ships as GitHub Releases only, not on npm.
+Nothing here breaks compatibility. Every AI review path is off by default, advisory only, and never
+counts as human review. Changes on `main` since `v0.3.0`:
 
 - FD-4 research: native capability probes (`src/assurance/containment/capability-probes.ts`) run in CI
   on Linux, macOS and Windows. They prove that under T0, code Ascout runs can read and write outside
@@ -44,6 +49,9 @@ break compatibility, and each breaking change is listed under **Breaking**.
 - AI review in pull requests (E10f), optional: `ascout pr-ai-review` and `ascout pr-ai-publish`, with the
   template `docs/examples/ascout-pr-ai-review.yml`. One advisory comment per trusted maintainer's PR; the
   model key and any write token never share a job, and no check run is created or changed.
+- Development dependencies: `minimatch` under Jest's `glob` is overridden to a fixed version (Dependabot
+  alert #3). The remaining development-only `deepmerge` alert has no fixed release yet. Production
+  dependencies have no known advisories.
 
 ## 0.3.0 (2026-11-13)
 

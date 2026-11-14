@@ -18,7 +18,7 @@ import { computeLastCheckToolV1, computePolicyToolV1 } from "./read-tools.js";
  * ascout_last_check). Only framed messages go to `output`; logs go to `log`.
  */
 /** Kept equal to package.json "version" by tests/mcp-server.test.ts. */
-export const ASCOUT_PACKAGE_VERSION = "0.3.0";
+export const ASCOUT_PACKAGE_VERSION = "0.3.1";
 export const MCP_MAX_MESSAGE_BYTES = 64 * 1024;
 export const MCP_MAX_RESULT_BYTES = 4 * 1024 * 1024;
 export const MCP_PROTOCOL_VERSION = "2025-06-18";
