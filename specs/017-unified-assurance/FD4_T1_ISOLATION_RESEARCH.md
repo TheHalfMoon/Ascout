@@ -71,10 +71,18 @@ its own it is not T1.
 
 ## Phased plan
 
-1. **Probes (this change).** Generic capability probes, run natively in CI on all three operating
+1. **Probes (built, #756).** Generic capability probes, run natively in CI on all three operating
    systems. They assert T0's truth: everything is allowed.
-2. **T1-ENV.** An allowlisted environment for `check` tasks, behind an explicit opt-in. Its probe
-   goes to DENIED. No tier change: the record would name that one control, and the tier stays T0.
+2. **T1-ENV (built).** `ascout check --clean-env [--pass-env NAME]...` gives every `check` task an
+   allowlisted environment. It is an explicit per-invocation opt-in and is never read from repository
+   configuration (`src/assurance/containment/task-environment.ts`). Under it, the native probes show
+   `environment_secret` DENIED and the other three capabilities still ALLOWED, on every CI host. No
+   tier change: the tier stays T0.
+   - **Limit:** the probe measures *inheritance*. A same-user task can still recover the secret from
+     Ascout's own process (`/proc/<pid>/environ` on Linux, the process arguments on macOS, process
+     memory on Windows) and read credential files under the home folder. Removing those needs the
+     secrets out of Ascout's process before launch, or a different user or sandbox: that is T1-FS
+     and later work, not T1-ENV.
 3. **T1-FS first.** Filesystem isolation, one host at a time, starting with Linux. Read and write
    outside the workspace go to DENIED. Each host's design goes into the private host-specific spec.
 4. **T1-NET.** Network isolation per host.

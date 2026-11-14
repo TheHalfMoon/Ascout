@@ -22,6 +22,8 @@ export const CAPABILITY_PROBE_IDS = [
   "read_outside_workspace",
   "write_outside_workspace",
   "loopback_network",
+  // Inheritance only: whether a secret in the caller's environment reaches the task's own. A
+  // same-user task may still recover it from its parent process through the operating system.
   "environment_secret",
 ] as const;
 export type CapabilityProbeIdV1 = (typeof CAPABILITY_PROBE_IDS)[number];

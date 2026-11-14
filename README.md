@@ -112,7 +112,7 @@ The last command prints usage and exits with a usage error because a command is 
 ```text
 ascout init
 ascout doctor [--format json|terminal]
-ascout check [--allow-changed-command-surface] [--format json|agent]
+ascout check [--allow-changed-command-surface] [--clean-env [--pass-env NAME]...] [--format json|agent]
 ascout review [--local-model] [--format json|terminal]
 ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]
 ascout pr-evidence [--skip-tests] [--pr-head <sha>]
@@ -125,6 +125,8 @@ ascout --help | --version
 `ascout --help` (also `-h` or `help`) prints this usage to stdout, and `ascout --version` prints the version; both exit `0`. Either only works as the sole argument.
 
 **Current command semantics (v0.3.0 and `main`; see `CHANGELOG.md`):** `ascout check` executes supported local verification tasks and produces an evidence receipt, and must run from the repository root. `ascout review` reports unreviewed working-tree and index changes; it does **not** run a code-review engine unless you opt in to a local model with `--local-model`, as described below, and it does not consider committed changes or ignored files. `ascout test` runs `check` for the `standard` (default), `deep`, and `release` profiles, so inside a repository it executes the same admitted verification commands as `ascout check` and returns its result. `deep` and `release` also require mutation, property-fuzz, browser, and other engines that do not run yet, so they exit `4` unless `check` found a failure or drift. `quick` has no qualified engine and runs nothing. `ascout security` runs no scanner unless you opt in to Gitleaks, as described below. Without an engine, these commands exit `4` because required verification did not run, and that exit status is never an assurance PASS. `ascout test --plan` renders a plan labeled `NON_ASSURANCE_PLAN` and exits `0`; that is not a test result.
+
+**`check --clean-env`.** Every task runs with an allowlisted environment instead of inheriting yours. It keeps the search path, the home and temporary folders, the locale, and, on Windows, the system folders, and sets `CI=1`. Add `--pass-env NAME` for each variable your tests need, such as `--pass-env DATABASE_URL`. This keeps credentials and tokens away from tools that log, report or upload their environment. **It does not protect them from code that goes looking.** Ascout's own process still holds your environment, and a task running as you can read it from the operating system. Tasks can also read credential files in your home folder (such as `~/.npmrc` or `~/.aws/credentials`), write files, and reach the network with your full rights. So the containment tier stays **T0**, and Ascout is still only for code you trust. The option is per-invocation, is never read from repository configuration, and applies to `check` only; `test` and `pr-evidence` don't take it.
 
 When running directly from a source checkout rather than an installed release asset, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
 

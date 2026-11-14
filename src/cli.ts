@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { allowlistedTaskEnvironmentV1, PASS_ENV_NAME } from "./assurance/containment/task-environment.js";
 import { closeSync, fstatSync, openSync, readFileSync, realpathSync, existsSync, lstatSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
@@ -74,6 +75,8 @@ import type { TestProfile } from "./assurance/test/profile-policy.js";
 
 const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp", "pr-evidence", "pr-publish", "pr-ai-review", "pr-ai-publish"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
+const CLEAN_ENV_FLAG = "--clean-env";
+const PASS_ENV_FLAG = "--pass-env";
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
 const PLAN_FLAG = "--plan";
@@ -102,6 +105,8 @@ type EntryDisposition = "direct" | "not_direct" | "resolution_error";
 export interface CliInvocation {
   command: CliCommand;
   allowChangedCommandSurface: boolean;
+  cleanEnv?: true;
+  passEnv?: readonly string[];
   format?: CheckFormat | ReviewFormat | TestFormat | SecurityFormat;
   profile?: TestProfile;
   plan?: true;
@@ -168,6 +173,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   }
 
   let allowChangedCommandSurface = false;
+  let cleanEnv = false;
+  const passEnv: string[] = [];
   let format: CheckFormat | ReviewFormat | TestFormat | SecurityFormat | undefined;
   let profile: TestProfile | undefined;
   let plan = false;
@@ -236,6 +243,20 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
         throw new CliUsageError(`${ALLOW_CHANGED_COMMAND_SURFACE} may be supplied only once.`);
       }
       allowChangedCommandSurface = true;
+      continue;
+    }
+
+    if (token === CLEAN_ENV_FLAG || token === PASS_ENV_FLAG) {
+      if (commandToken !== "check") throw new CliUsageError(`${token} is valid only with the check command.`);
+      if (token === CLEAN_ENV_FLAG) {
+        if (cleanEnv) throw new CliUsageError(`${CLEAN_ENV_FLAG} may be supplied only once.`);
+        cleanEnv = true;
+        continue;
+      }
+      const name = rest[index + 1];
+      if (name === undefined || !PASS_ENV_NAME.test(name)) throw new CliUsageError(`${PASS_ENV_FLAG} requires an environment variable name.`);
+      passEnv.push(name);
+      index += 1;
       continue;
     }
 
@@ -388,10 +409,15 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   if (dryRun && !remoteModel) {
     throw new CliUsageError(`${DRY_RUN_FLAG} is valid only with ${REMOTE_MODEL_FLAG}.`);
   }
+  if (passEnv.length > 0 && !cleanEnv) {
+    throw new CliUsageError(`${PASS_ENV_FLAG} is valid only with ${CLEAN_ENV_FLAG}.`);
+  }
 
   return {
     command: commandToken,
     allowChangedCommandSurface,
+    ...(cleanEnv ? { cleanEnv: true as const } : {}),
+    ...(passEnv.length > 0 ? { passEnv } : {}),
     ...(format === undefined ? {} : { format }),
     ...(profile === undefined ? {} : { profile }),
     ...(plan ? { plan: true as const } : {}),
@@ -408,7 +434,7 @@ export function usageText(): string {
     "Usage:",
     "  ascout init",
     `  ascout doctor [${FORMAT_FLAG} json|terminal]`,
-    `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${FORMAT_FLAG} json|agent]`,
+    `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${CLEAN_ENV_FLAG} [${PASS_ENV_FLAG} NAME]...] [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${LOCAL_MODEL_FLAG} | ${REMOTE_MODEL_FLAG} [${DRY_RUN_FLAG}] | ${EXPORT_TASK_FLAG} <path> | ${INGEST_FLAG} <findings.json>] [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
     "  ascout pr-evidence [--skip-tests] [--pr-head <sha>]",
@@ -698,8 +724,13 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       refuseUnsupportedRepository(process.cwd());
       const outcome = await withRunCancellation((signal) => runCheck(process.cwd(), {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
+        ...(invocation.cleanEnv ? { taskEnvironment: allowlistedTaskEnvironmentV1(process.env, process.platform, invocation.passEnv) } : {}),
         signal,
       }));
+      if (invocation.cleanEnv) {
+        // Says what it is and isn't: one capability removed, and no isolation claimed.
+        console.error("Tasks ran without inheriting your environment (--clean-env). Containment is still T0: tasks run with your full rights, can read and write files (including credential files in your home folder), reach the network, and can still read Ascout's own environment from the operating system.");
+      }
       if (invocation.format === "json") {
         process.stdout.write(renderReceiptJson(outcome.receipt));
       } else if (invocation.format === "agent") {
