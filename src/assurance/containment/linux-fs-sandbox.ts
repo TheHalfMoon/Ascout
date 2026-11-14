@@ -10,8 +10,12 @@ import type { ProbeRunnerV1 } from "./capability-probes.js";
  * certification). A filesystem sandbox built with bubblewrap: the sandbox's root starts empty, and only
  * the system folders and the Node binary (read-only), a fresh /tmp, and the workspace (read-write)
  * exist inside it. The workspace is the only host location a task can write; /tmp and /dev/shm are
- * fresh and vanish with the sandbox. A new PID namespace hides other processes. The network is shared,
- * including local sockets: network isolation is a later phase.
+ * fresh and vanish with the sandbox. A new PID namespace hides other processes.
+ *
+ * Network (FD-4 phase T1-NET, research): shared by default, including the host's loopback services
+ * and local sockets. With `network: "none"`, the task gets its own empty network namespace (only its
+ * own loopback), so it reaches neither the host's loopback services and abstract sockets nor any
+ * other host.
  *
  * Nothing in Ascout runs tasks through this yet, and the containment tier stays T0
  * (containment-tier.ts). A T1 claim for Linux needs native evidence and an independent human security
@@ -92,11 +96,14 @@ export function workspaceRefusalV1(workspace: string, home: string): string | nu
   return null;
 }
 
+/** "shared": the host's network, including loopback and local sockets. "none": an empty namespace. */
+export type SandboxNetworkV1 = "shared" | "none";
+
 /**
  * The bubblewrap arguments for a sandbox whose only writable host location is `workspace`. Throws when
  * the workspace is refused (see workspaceRefusalV1) or the Node binary isn't an absolute path.
  */
-export function linuxFsSandboxArgsV1(workspace: string, nodeBinary: string | null, host: LinuxFsHostV1 = realLinuxFsHostV1): string[] {
+export function linuxFsSandboxArgsV1(workspace: string, nodeBinary: string | null, host: LinuxFsHostV1 = realLinuxFsHostV1, network: SandboxNetworkV1 = "shared"): string[] {
   const refusal = workspaceRefusalV1(workspace, host.home());
   if (refusal !== null) throw new Error(`${refusal}: ${JSON.stringify(workspace)}`);
   if (nodeBinary !== null && !posix.isAbsolute(nodeBinary)) throw new Error(`the Node binary must be an absolute path: ${JSON.stringify(nodeBinary)}`);
@@ -116,6 +123,7 @@ export function linuxFsSandboxArgsV1(workspace: string, nodeBinary: string | nul
     "--unshare-user-try", "--unshare-pid", "--unshare-ipc", "--unshare-uts", "--unshare-cgroup-try",
     "--die-with-parent", "--new-session",
   );
+  if (network === "none") args.push("--unshare-net");
   return args;
 }
 
@@ -141,7 +149,7 @@ const realDeps: LinuxFsSandboxDepsV1 = { platform: process.platform, host: realL
  * self-test that fails. The self-test checks isolation, not just startup: a marker beside its workspace
  * must be invisible from inside.
  */
-export async function linuxFsSandboxProbeRunnerV1(deps: LinuxFsSandboxDepsV1 = realDeps): Promise<{ runner: ProbeRunnerV1 } | { refused: string }> {
+export async function linuxFsSandboxProbeRunnerV1(deps: LinuxFsSandboxDepsV1 = realDeps, network: SandboxNetworkV1 = "shared"): Promise<{ runner: ProbeRunnerV1 } | { refused: string }> {
   if (deps.platform !== "linux") return { refused: "the bubblewrap sandbox is Linux only" };
   const bwrap = findBwrapV1(deps.host);
   if (bwrap === null) return { refused: `bubblewrap is not installed at ${BWRAP_LOCATIONS.join(" or ")}` };
@@ -150,7 +158,7 @@ export async function linuxFsSandboxProbeRunnerV1(deps: LinuxFsSandboxDepsV1 = r
   // bubblewrap itself starts with exactly the task's environment: its own process is visible inside
   // the sandbox, so anything it holds the task can read. Nothing is passed with --setenv.
   const runInside = (workspace: string, argv: readonly string[], env: NodeJS.ProcessEnv): Promise<string> =>
-    deps.exec(bwrap, [...linuxFsSandboxArgsV1(workspace, nodeBinary, deps.host), "--", execPath, ...argv], { cwd: workspace, env });
+    deps.exec(bwrap, [...linuxFsSandboxArgsV1(workspace, nodeBinary, deps.host, network), "--", execPath, ...argv], { cwd: workspace, env });
   const root = deps.host.realpath(deps.host.makeTempDir());
   let result: string;
   try {

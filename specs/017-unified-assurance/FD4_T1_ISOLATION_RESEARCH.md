@@ -108,6 +108,13 @@ its own it is not T1.
      Technique-level probes and their results are in the private Linux host spec. A Linux T1-FS
      claim still needs an independent human security review.
 4. **T1-NET.** Network isolation per host.
+   - **Linux (research option built):** the bubblewrap runner takes `network: "none"`, which gives
+     the task its own empty network namespace. It then reaches neither the host's loopback services
+     and local sockets nor any other host. The default stays shared.
+   - With it, plus the filesystem sandbox and an allowlisted environment, Linux CI requires **all
+     four** native capability probes DENIED (`all_denied: true`).
+   - That is research evidence, not a claim. The tier stays T0, and nothing in Ascout uses it yet.
+     A claim still needs the independent human security review in step 5.
 5. **Review and claim.** When every probe is DENIED natively on a host, and an independent human
    security review accepts that host's design and evidence, the tier record may say T1 for that
    host only. Until then it says T0.

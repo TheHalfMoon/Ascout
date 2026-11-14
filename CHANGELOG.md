@@ -5,6 +5,10 @@ break compatibility, and each breaking change is listed under **Breaking**.
 
 ## Unreleased
 
+- FD-4 phase T1-NET research on Linux: the bubblewrap runner's `network: "none"` option gives a task an
+  empty network namespace. With it, the filesystem sandbox and an allowlisted environment, Linux CI
+  requires all four native capability probes DENIED. Research evidence only: no command uses it, and
+  the containment tier stays T0.
 - FD-4 phase T1-FS research on Linux: a bubblewrap filesystem sandbox
   (`src/assurance/containment/linux-fs-sandbox.ts`). Linux CI runs the native capability probes inside
   it and requires reading and writing a sibling path outside the workspace to be DENIED. No command

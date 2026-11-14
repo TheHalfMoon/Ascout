@@ -3,7 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { CAPABILITY_PROBE_IDS, runCapabilityProbesV1 } from "../src/assurance/containment/capability-probes.js";
+import { CAPABILITY_PROBE_IDS, runCapabilityProbesV1, type ProbeRunnerV1 } from "../src/assurance/containment/capability-probes.js";
+import { allowlistedTaskEnvironmentV1 } from "../src/assurance/containment/task-environment.js";
 import { currentContainmentV1 } from "../src/assurance/containment/containment-tier.js";
 import {
   BWRAP_LOCATIONS,
@@ -120,6 +121,11 @@ describe("the sandbox arguments", () => {
     expect(args).not.toContain("--unshare-all");
   });
 
+  it("unshare the network only when asked: an empty namespace, never by default", () => {
+    expect(linuxFsSandboxArgsV1("/work/repo", null, MERGED_USR, "none").at(-1)).toBe("--unshare-net");
+    expect(linuxFsSandboxArgsV1("/work/repo", null, MERGED_USR, "shared")).not.toContain("--unshare-net");
+  });
+
   it("binds the Node binary and the workspace after the fresh /tmp, so neither is hidden under it", () => {
     const args = linuxFsSandboxArgsV1("/tmp/ws", "/tmp/node/bin/node", MERGED_USR);
     const tmpfs = args.indexOf("--tmpfs");
@@ -196,6 +202,15 @@ describe("the sandboxed probe runner", () => {
     expect(call.argv.join(" ")).toContain("--bind /work/ws /work/ws");
     expect(call.argv.join(" ")).toContain("--ro-bind /opt/node/bin/node /opt/node/bin/node");
     expect(call.argv).not.toContain("--setenv");
+    expect(call.argv).not.toContain("--unshare-net");
+  });
+
+  it("isolates the network for the self-test and the probe when asked", async () => {
+    calls.length = 0;
+    const made = await linuxFsSandboxProbeRunnerV1(deps(), "none");
+    if (!("runner" in made)) throw new Error("expected a runner");
+    await made.runner("script", { canaryPath: "/tmp/o/c", writePath: "/tmp/o/w", port: 1, envName: "X" }, {}, "/work/ws");
+    expect(calls.map((call) => call.argv.includes("--unshare-net"))).toEqual([true, true]);
   });
 });
 
@@ -240,5 +255,19 @@ describe.runIf(process.platform === "linux")("native capability probes inside th
     expect(report.results.map((result) => [result.id, result.verdict])).toEqual(CAPABILITY_PROBE_IDS.map((id) => [id, expected[id]]));
     expect(report.all_denied).toBe(false);
     expect(currentContainmentV1()).toMatchObject({ tier: "T0", filesystem_isolation: "NONE" });
+  }, 60_000);
+
+  it("with the network isolated and an allowlisted environment, deny all four capabilities; the tier still stays T0", async () => {
+    const made = await linuxFsSandboxProbeRunnerV1(undefined, "none");
+    if ("refused" in made) {
+      if (process.env.ASCOUT_REQUIRE_LINUX_SANDBOX === "1") throw new Error(`the sandbox is required here but refused: ${made.refused}`);
+      return;
+    }
+    const isolated: ProbeRunnerV1 = (script, task, env, cwd) => made.runner(script, task, allowlistedTaskEnvironmentV1(env, process.platform), cwd);
+    const report = await runCapabilityProbesV1("T1-FS+NET+ENV-linux-bwrap", isolated);
+    expect(report.results.map((result) => [result.id, result.verdict])).toEqual(CAPABILITY_PROBE_IDS.map((id) => [id, "DENIED"]));
+    expect(report.all_denied).toBe(true);
+    // Research evidence only: no T1 claim without an independent human security review.
+    expect(currentContainmentV1()).toMatchObject({ tier: "T0", filesystem_isolation: "NONE", network_isolation: "NONE" });
   }, 60_000);
 });
