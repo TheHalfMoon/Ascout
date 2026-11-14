@@ -182,26 +182,33 @@ export interface LocalReviewRunInputV1 {
   readonly signal?: AbortSignal;
 }
 
-function notRun(
-  input: LocalReviewRunInputV1,
-  status: ReviewExecutionStatusV1,
-  reasons: readonly string[],
-  observedVersion: string | null = null,
-): LocalReviewRunResultV1 {
+/** The report for a model review that didn't run: every change stays unreviewed, exit 4. */
+export function buildModelNotRunReportV1(input: {
+  readonly target_id: string;
+  readonly head_sha: string;
+  readonly changes: readonly ReviewChangeV1[];
+  readonly status: ReviewExecutionStatusV1;
+  readonly reasons: readonly string[];
+  readonly engine_id: string;
+  readonly binary_name: string;
+  readonly resolved_path: string;
+  readonly observed_version?: string | null;
+}): ReviewCommandReportV1 {
   const files = input.changes.map((change) => change.path).sort();
   const execution: ReviewExecutionResultV1 = {
     schema_version: 1,
-    status,
+    status: input.status,
     exit_code: null,
     raw_stdout: null,
     stderr_excerpt: null,
     duration_ms: null,
-    timed_out: status === "TIMEOUT",
-    reasons: Object.freeze([...reasons]),
+    timed_out: input.status === "TIMEOUT",
+    reasons: Object.freeze([...input.reasons]),
     execution_identity: Object.freeze({
-      ...engineIdentityV1(input.config),
-      observed_version: observedVersion,
-      resolved_path: "loopback",
+      engine_id: input.engine_id,
+      binary_name: input.binary_name,
+      observed_version: input.observed_version ?? null,
+      resolved_path: input.resolved_path,
       profile_id: LOCAL_REVIEW_PROFILE_ID,
       capsule_id: LOCAL_REVIEW_CAPSULE_ID,
       head_sha: input.head_sha,
@@ -209,7 +216,28 @@ function notRun(
     }),
   };
   const absence = buildReviewAbsenceReportV1(input.target_id, input.head_sha, execution, [{ group_id: GROUP_ID, files }]);
-  return { kind: "not_run", report: buildReviewCommandReportV1(absence, input.changes) };
+  return buildReviewCommandReportV1(absence, input.changes);
+}
+
+function notRun(
+  input: LocalReviewRunInputV1,
+  status: ReviewExecutionStatusV1,
+  reasons: readonly string[],
+  observedVersion: string | null = null,
+): LocalReviewRunResultV1 {
+  return {
+    kind: "not_run",
+    report: buildModelNotRunReportV1({
+      target_id: input.target_id,
+      head_sha: input.head_sha,
+      changes: input.changes,
+      status,
+      reasons,
+      ...engineIdentityV1(input.config),
+      resolved_path: "loopback",
+      observed_version: observedVersion,
+    }),
+  };
 }
 
 /**

@@ -255,7 +255,7 @@ describe("UA-P03-T15 exact-head phase qualification sentinel", () => {
         "  ascout init",
         "  ascout doctor [--format json|terminal]",
         "  ascout check [--allow-changed-command-surface] [--format json|agent]",
-        "  ascout review [--local-model | --export-task <path> | --ingest <findings.json>] [--format json|terminal]",
+        "  ascout review [--local-model | --remote-model [--dry-run] | --export-task <path> | --ingest <findings.json>] [--format json|terminal]",
         "  ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
         "  ascout pr-evidence [--skip-tests] [--pr-head <sha>]",
         "  ascout pr-publish <bundle>",

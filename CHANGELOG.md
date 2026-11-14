@@ -33,6 +33,10 @@ break compatibility, and each breaking change is listed under **Breaking**.
   agent, and `ascout review --ingest <findings.json>` checks the findings it returns against the current
   source. No network call; findings are advisory, and the model named in the file is asserted, not
   verified.
+- Remote review (E10c): `ascout review --remote-model [--dry-run]`, off by default. An operator-paid model
+  on a third-party API, sent only with an account-level config that lists the repository, a credential
+  by reference, a clean Gitleaks scan of the exact payload, public DNS answers, and the host typed at the
+  terminal. Ascout never pays; findings are advisory.
 
 ## 0.3.0 (2026-11-13)
 

@@ -322,6 +322,15 @@ The values of the token variables Ascout knows (`GITHUB_TOKEN`, `GH_TOKEN`, `NPM
 
 The review is **advisory**: a small local model misses problems and reports false ones, and its output never counts as human review. Findings it can place on the changed lines exit `1`. A finding on an untouched line, or with no line, does not count. If it reports nothing it can place, it exits `4`: a model's silence is advice, not a review, so the change still counts as unreviewed. A missing provider, a refused one, or a model that fails or times out also exits `4`. A malformed config exits `2`, and a source change during the review exits `3`. See [`E6D_LOCAL_REVIEW_WIRING_SPEC.md`](specs/017-unified-assurance/E6D_LOCAL_REVIEW_WIRING_SPEC.md).
 
+**`ascout review --remote-model [--dry-run]` (remote review, off by default).** Sends the changed lines to a model on a third-party API that you choose and pay for. Ascout never pays for inference, and never sends source silently. Nothing is sent unless all of these hold:
+- your own config, `review-remote.json`, sits next to `review-provider.json`, sets both `allow_remote_egress` and `operator_authorized` to `true`, and lists this repository's exact path;
+- the API key is in the environment variable the config names, never in the config or the repository;
+- the exact payload passes a Gitleaks scan (`ASCOUT_GITLEAKS_PATH`) that the repository can't weaken;
+- the host resolves only to public addresses;
+- you type the host name at the terminal when asked.
+
+The endpoint must be HTTPS to a host name. Untracked and secret-named files, and any prefix you exclude, are never sent. `--dry-run` shows exactly what would be sent and sends nothing. Findings are advisory and never human review. The secret scan is best effort: Gitleaks recognizes common secret patterns, not every secret.
+
 **`ascout review --export-task <path>` and `--ingest <findings.json>` (delegated review).** Ascout writes the review task for an AI agent you already run, and later checks the findings it returns. Ascout makes no network call in this mode.
 - **Export:** the task file must be outside the repository and new; Ascout won't overwrite a file. It is readable only by you on Linux and macOS; on Windows it takes its folder's permissions, so keep it out of shared folders. It contains the same changed lines a local model would see, so untracked and secret-named files are left out.
 - **Ingest:** the findings file must also be outside the repository. Ascout recomputes the task from the current source. Findings on changed lines exit `1`, anything else `4`. A source change since the export exits `3`, and a file for another task, or any malformed file, exits `2`.
