@@ -1,4 +1,4 @@
-Last updated: 2026-11-13 Asia/Riyadh · Branch: main
+Last updated: 2026-11-14 Asia/Riyadh · Branch: main
 
 ## Where Ascout stands
 
@@ -65,9 +65,9 @@ Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with 
 | Item | State | Evidence | Remaining blocker | Founder needed? | Next action |
 | --- | --- | --- | --- | --- | --- |
 | C1 App gate | App-pinned check-source forgery rejection proven live in test repo; v0.3.0 ships App mode | Proof PR #2 `BLOCKED` with forged GitHub Actions success, PR #1 `CLEAN` with App success; ruleset 27227819, publish runs 43495937215 and 43496649056; linked C1c live proof note | Alternative no-Commit-statuses permission comparison and human R1 remain untested; no new release authorized | App for this proof repo now registered and installed; production App choice remains founder-owned | Keep pinned test rule and perform optional permissions experiment separately |
-| E10 BYOAI | E10a, E10b, E10d shipping; E10c and E10f in review | #723, #724, #753 (delegated review: offline export and ingest, never human review); #755 (remote review, off by default, per-run confirmation, payload Gitleaks scan, operator-paid); E10f (AI review in PRs: advisory comment only, never a check) after #755 | Exact-head gates for #755 and E10f | No: approved 2026-11-13 with conditions | Merge #755, then E10f, when every gate passes |
+| E10 BYOAI | E10a–E10d and E10f on `main`; none released yet | #723, #724; #753 (delegated review: offline export and ingest, never human review); #755 (remote review: off by default, per-run host confirmation, payload Gitleaks scan, operator-paid); #759 (AI review in PRs: one advisory comment, never a check; key environment limited to the default branch) | Release of v0.3.1 | Yes: authorize v0.3.1 | — |
 | E11 MCP | E11a shipping; E11b deferred | #730 | E11b (code execution through MCP) deferred by the founder on 2026-11-13; read-only MCP tools stay | No | None |
-| E7 containment | T0 stated and proven natively; T1 research started, **not claimed** | #756: capability probes on Linux, macOS, Windows show all four capabilities ALLOWED under T0; `FD4_T1_ISOLATION_RESEARCH.md` | Per-host T1 designs (private spec), native DENIED evidence, independent human security review | Human security review before any T1 claim | T1-ENV, then T1-FS on Linux |
+| E7 containment | T0 stated and proven natively; T1 research started, **not claimed** | #756: capability probes in CI on Linux, macOS and Windows show all four capabilities ALLOWED under T0, and a probe report can't fake a denial; `FD4_T1_ISOLATION_RESEARCH.md` | Per-host T1 designs (private spec), native DENIED evidence, independent human security review | Human security review before any T1 claim | T1-ENV, then T1-FS on Linux |
 | FD-8 / historical PRs | Main-rooted; superseded PRs closed | Founder decision 2026-11-13. Closed with explanations, branches kept: #577–#588, #597, #599, #600, #603–#605, #607, #614, #635, #651 | #653 stays a draft until a genuine human R1; AI review never satisfies R1 | Yes: human R1 of #653 | — |
 | Salvaged #614 perf | Done | #746: 20 stat-dirty files start 2 `hash-object` processes instead of 40; fail-closed guards exercised | None | No | — |
 | CLI reliability | Done | #743 (SHA-256 `--pr-head`, checked in a real SHA-256 repository), #744 (`--help`, `--version`, truthful `init`) | None | No | — |
@@ -77,7 +77,7 @@ Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with 
 | Dependencies | Production: 0 advisories; Dependabot alerts on | #752 overrides `minimatch` under Jest's `glob` (alert #3 fixed). The development-only `deepmerge` alert (#1) has no fixed version (4.3.1 is the latest) and is documented | No upstream `deepmerge` fix | No | Revisit when one exists |
 | `ASCOUT_PR_TRUSTED_ACTORS` | Set to `TheHalfMoon` only (2026-11-13) | Repository variable | None | No | — |
 | Package scope | Audited; nothing removed | `PACKAGE_SCOPE_AUDIT_2026-11-14.md`: 98 modules no entry point reaches, all used by tests, one a documented deep import; none proven unused | Shipping only reachable modules would break deep imports | Yes, if that trade is wanted | — |
-| Release | v0.3.0 published; v0.3.1 candidate to be qualified, **not published** | Run 43338782772 | Founder authorization of the exact v0.3.1 candidate | Yes, each one | Qualify the candidate after E10c and E10f land |
+| Release | v0.3.0 published; **v0.3.1 qualified, not published** | #760 (version and changelog); run [43545268017](https://github.com/TheHalfMoon/Ascout/actions/runs/43545268017) on `main` at `32e080a`, `attest: false`: the same tarball on all six lanes, SHA-256 `67b6273bd8c0dc5296aa7279f5e71cf31140c9aeb8e88ce1d2694a3f540cfea1` | Founder authorization of this exact candidate | Yes, each one | On authorization: attest, tag, GitHub Release (no npm) |
 
 ### Open decisions for the founder
 
@@ -97,6 +97,6 @@ Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with 
 - BYOAI: E10c, E10d and E10f were approved on 2026-11-13 with conditions (off by default, operator-paid, advisory only). Still open: whether to rename `authorized_by_founder` to `operator_authorized`.
 - GitHub integration: `ASCOUT_PR_TRUSTED_ACTORS` is set to `TheHalfMoon`. Still open: whether to add a team policy for this repository; without one, every check is required, and review and security report incomplete (exit 4) here.
 - Package scope: whether to ship only the modules the entry points reach (see the audit). That would break any undocumented deep import.
-- v0.3.1: authorization to publish the exact qualified candidate, once it exists.
+- **v0.3.1: authorize publication of the exact qualified candidate.** Run [43545268017](https://github.com/TheHalfMoon/Ascout/actions/runs/43545268017) on `main` at `32e080a` (`attest: false`) built `thehalfmoon-ascout-0.3.1.tgz` on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24. All six lanes are qualified with one digest, SHA-256 `67b6273bd8c0dc5296aa7279f5e71cf31140c9aeb8e88ce1d2694a3f540cfea1`. It adds E10c, E10d and E10f (all off by default and advisory), the FD-4 probes, and the fixes listed in the CHANGELOG. Nothing breaks compatibility. Publishing means the build-provenance attestation, the tag and a GitHub Release (no npm). No human reviewed it.
 
 `ROADMAP.md` is the closed record of the REA engineering maintenance run (spec 018) and is kept as history.
