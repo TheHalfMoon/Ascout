@@ -3,13 +3,11 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
-## 0.3.1 (release candidate, not published)
+## 0.3.1 (2026-11-14)
 
-Not released. Publication, tagging, and build-provenance attestation wait for the founder's explicit
-authorization of this exact candidate. When published, it ships as GitHub Releases only, not on npm.
-Nothing here breaks compatibility. Every AI review path is off by default, advisory only, and never
-counts as human review. Qualified on 2026-11-14 by run 43545268017 at `32e080a`: one tarball on all six
-lanes, SHA-256 `67b6273bd8c0dc5296aa7279f5e71cf31140c9aeb8e88ce1d2694a3f540cfea1`. Changes on `main` since `v0.3.0`:
+Released on GitHub only, not on npm: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.1. Tarball SHA-256 `67b6273bd8c0dc5296aa7279f5e71cf31140c9aeb8e88ce1d2694a3f540cfea1`, with a
+build-provenance attestation. Nothing here breaks compatibility. Every AI review path is off by
+default, advisory only, and never counts as human review. Changes since `v0.3.0`:
 
 - FD-4 research: native capability probes (`src/assurance/containment/capability-probes.ts`) run in CI
   on Linux, macOS and Windows. They prove that under T0, code Ascout runs can read and write outside
