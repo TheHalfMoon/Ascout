@@ -108,10 +108,12 @@ its own it is not T1.
      Technique-level probes and their results are in the private Linux host spec. A Linux T1-FS
      claim still needs an independent human security review.
    - **macOS (research runner built):** `src/assurance/containment/macos-fs-sandbox.ts` builds a
-     profile for the system's `sandbox-exec` (taken from `/usr/bin/sandbox-exec` only). File reads
-     and writes are denied by default. Reads are allowed only under the system trees and of the Node
-     binary; reads and writes only under the workspace. File *metadata* stays readable, so a task can
-     see that a path exists. `network: "none"` adds `(deny network*)`.
+     profile for the system's `sandbox-exec` (taken from `/usr/bin/sandbox-exec` only). Writes are
+     denied everywhere except the workspace. Reads are denied under the trees where user and temporary
+     data lives (`/Users`, `/Volumes`, the temporary trees, the home folder), except the workspace and
+     the Node binary. System files and file *metadata* stay readable, so a task can see that a path
+     exists. (A default-deny read policy stopped the dynamic loader before Node started.)
+     `network: "none"` adds `(deny network*)`.
      - macOS CI requires the native probes to show read and write of an outside sibling DENIED, and
        all four DENIED with the network denied and an allowlisted environment.
      - `sandbox-exec` is deprecated by Apple and its profile language is undocumented, so this is

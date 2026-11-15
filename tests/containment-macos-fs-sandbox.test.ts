@@ -42,14 +42,19 @@ describe("the macOS workspace", () => {
 });
 
 describe("the sandbox profile", () => {
-  it("denies file reads and writes by default, allowing reads of system trees and Node, and the workspace", () => {
+  it("denies writes everywhere and reads of user data, then allows the Node binary and the workspace", () => {
     const profile = macosSandboxProfileV1("/Users/u/src/repo", "/opt/node/bin/node", HOME);
-    const lines = profile.trim().split("\n");
-    expect(lines.slice(0, 3)).toEqual(["(version 1)", "(allow default)", "(deny file-read-data file-write*)"]);
-    expect(lines[3]).toContain('(subpath "/System")');
-    expect(lines[3]).toContain('(literal "/opt/node/bin/node")');
-    expect(lines[3]).not.toContain("/Users");
-    expect(lines[4]).toBe('(allow file-read-data file-write* (subpath "/Users/u/src/repo"))');
+    expect(profile.trim().split("\n")).toEqual([
+      "(version 1)",
+      "(allow default)",
+      '(deny file-read-data (subpath "/Users") (subpath "/Volumes") (subpath "/private/tmp") (subpath "/private/var/folders") (subpath "/private/var/root") (subpath "/Users/u"))',
+      "(deny file-write*)",
+      '(allow file-read-data (literal "/opt/node/bin/node"))',
+      '(allow file-read-data file-write* (subpath "/Users/u/src/repo"))',
+      '(allow file-write-data (literal "/dev/null") (literal "/dev/tty"))',
+    ]);
+    // Later rules win in a sandbox profile, so the allows must come after the denies.
+    expect(profile.indexOf("(allow file-read-data file-write*")).toBeGreaterThan(profile.indexOf("(deny file-write*)"));
     expect(profile).not.toContain("network");
   });
 
@@ -155,8 +160,19 @@ describe.runIf(process.platform === "darwin")("native capability probes under sa
       const workspace = realpathSync(mkdtempSync(`${tmpdir()}/ascout-sandbox-diag-`));
       try {
         const profile = macosSandboxProfileV1(workspace, realpathSync(process.execPath), realpathSync(homedir()), network);
-        const run = spawnSync(SANDBOX_EXEC, ["-p", profile, realpathSync(process.execPath), "-e", "process.stdout.write('ok')"], { cwd: workspace, env: {}, encoding: "utf8" });
-        throw new Error(`the sandbox is required here but refused: ${made.refused}; status ${run.status} signal ${run.signal} stdout ${JSON.stringify(run.stdout)} stderr ${JSON.stringify(run.stderr.slice(0, 2000))} execPath ${realpathSync(process.execPath)} workspace ${workspace}`);
+        // Try narrower profiles too, so one CI run shows which rule stops Node.
+        const node = realpathSync(process.execPath);
+        const variants: Record<string, string> = {
+          full: profile,
+          allowAll: "(version 1)\n(allow default)\n",
+          denyWritesOnly: `(version 1)\n(allow default)\n(deny file-write*)\n(allow file-read-data file-write* (subpath "${workspace}"))\n(allow file-write-data (literal "/dev/null"))\n`,
+          denyDataReadsOnly: `(version 1)\n(allow default)\n${profile.split("\n")[2]}\n(allow file-read-data (literal "${node}"))\n(allow file-read-data (subpath "${workspace}"))\n`,
+        };
+        const results = Object.entries(variants).map(([name, text]) => {
+          const run = spawnSync(SANDBOX_EXEC, ["-p", text, node, "-e", "process.stdout.write('ok')"], { cwd: workspace, env: {}, encoding: "utf8" });
+          return `${name}: status ${run.status} signal ${run.signal} stdout ${JSON.stringify(run.stdout)} stderr ${JSON.stringify(run.stderr.slice(0, 600))}`;
+        });
+        throw new Error(`the sandbox is required here but refused: ${made.refused}; node ${node}; workspace ${workspace}; ${results.join(" | ")}`);
       } finally {
         rmSync(workspace, { recursive: true, force: true });
       }
