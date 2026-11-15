@@ -116,6 +116,11 @@ its own it is not T1.
        all four DENIED with the network denied and an allowlisted environment.
      - `sandbox-exec` is deprecated by Apple and its profile language is undocumented, so this is
        research evidence only.
+   - **Windows (design only, not built):** every mechanism that denies a task its user's files
+     (AppContainer, a Low-integrity or restricted token) needs native API calls that neither Node nor
+     the built-in command line offers. A runner would need a small, separately signed native helper,
+     which changes how Ascout is built and shipped. That is a founder decision. The host-specific
+     design is in the private Windows host spec.
 4. **T1-NET.** Network isolation per host.
    - **Linux (research option built):** the bubblewrap runner takes `network: "none"`, which gives
      the task its own empty network namespace. It then reaches neither the host's loopback TCP and UDP
