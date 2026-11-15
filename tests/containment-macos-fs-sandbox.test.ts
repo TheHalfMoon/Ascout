@@ -35,6 +35,10 @@ describe("the macOS workspace", () => {
   ])("may not be %j", (workspace, reason) => {
     expect(macosWorkspaceRefusalV1(workspace, HOME)).toContain(reason);
   });
+
+  it("may not contain the home folder, wherever it is", () => {
+    expect(macosWorkspaceRefusalV1("/data", "/data/users/u")).toBe("the workspace may not be or contain /data/users/u");
+  });
 });
 
 describe("the sandbox profile", () => {
