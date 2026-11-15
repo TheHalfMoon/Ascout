@@ -201,6 +201,7 @@ describe("the real Windows dependencies", () => {
     try {
       writeFileSync(join(dir, "f.txt"), "text");
       expect(realWindowsSandboxDepsV1.readText(join(dir, "f.txt"))).toBe("text");
+      expect(realWindowsSandboxDepsV1.host.realpath(join(dir, "f.txt")).toLowerCase().endsWith("f.txt")).toBe(true);
       const a = realWindowsSandboxDepsV1.randomName();
       expect(a).toMatch(/^ascout\.sandbox\.[a-z0-9]+$/u);
       expect(realWindowsSandboxDepsV1.randomName()).not.toBe(a);
