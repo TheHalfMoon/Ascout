@@ -5,6 +5,11 @@ break compatibility, and each breaking change is listed under **Breaking**.
 
 ## Unreleased
 
+- FD-4 T1-FS and T1-NET research on Windows: an AppContainer runner
+  (`src/assurance/containment/windows-appcontainer-sandbox.ts`), driven from Windows PowerShell 5.1 so no
+  native binary ships. Windows CI requires the native capability probes to show the filesystem and
+  loopback denied, and all four denied with an allowlisted environment. Research evidence only: no
+  command uses it, and the containment tier stays T0.
 - FD-4 T1-FS and T1-NET research on macOS: a `sandbox-exec` profile runner
   (`src/assurance/containment/macos-fs-sandbox.ts`).
   - It denies direct writes outside the workspace, reads of user-data trees, starting other programs,

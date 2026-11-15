@@ -73,6 +73,8 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         env:
           TMPDIR: ${{ runner.temp }}
+          # The AppContainer must start, so its native evidence can't silently skip.
+          ASCOUT_REQUIRE_WINDOWS_SANDBOX: "1"
         run: npm test -- --maxWorkers=1
       - name: Build
         if: ${{ !cancelled() }}
