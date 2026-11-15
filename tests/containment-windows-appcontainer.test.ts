@@ -9,6 +9,7 @@ import { currentContainmentV1 } from "../src/assurance/containment/containment-t
 import type { LinuxFsHostV1 } from "../src/assurance/containment/linux-fs-sandbox.js";
 import { allowlistedTaskEnvironmentV1 } from "../src/assurance/containment/task-environment.js";
 import {
+  APPCONTAINER_CLEANUP_SCRIPT,
   APPCONTAINER_SCRIPT,
   environmentBlockV1,
   realWindowsSandboxDepsV1,
@@ -47,8 +48,16 @@ describe("the Windows building blocks", () => {
     }
     // No network capabilities unless asked; the grant and the profile are always removed.
     expect(APPCONTAINER_SCRIPT).toContain("if ($env:ASCOUT_AC_NETWORK -eq 'shared') { $caps = @('S-1-15-3-1', 'S-1-15-3-3') }");
-    expect(APPCONTAINER_SCRIPT).toMatch(/\} finally \{\n {2}foreach \(\$path in \$granted\)[^\n]*\/remove[^\n]*\n {2}\[AscoutAc\]::DeleteAppContainerProfile\(\$name\)/u);
+    expect(APPCONTAINER_SCRIPT).toMatch(/\} finally \{\n {2}foreach \(\$path in \$granted\)[^\n]*\/remove[^\n]*\n {2}if \(\[AscoutAc\]::DeleteAppContainerProfile\(\$name\) -ne 0\)/u);
     expect(APPCONTAINER_SCRIPT).toContain("Join-Path $env:SystemRoot 'System32\\icacls.exe'");
+    // The task runs suspended into a kill-on-close job, inherits only its two handles, and the
+    // workspace is recorded before the grant so a partial grant is still removed.
+    expect(APPCONTAINER_SCRIPT).toContain("AssignProcessToJobObject(job, pi.hProcess)");
+    expect(APPCONTAINER_SCRIPT).toContain("limits.Basic.LimitFlags = 0x2000;");
+    expect(APPCONTAINER_SCRIPT).toContain("(IntPtr)0x00020002, handles");
+    expect(APPCONTAINER_SCRIPT.indexOf("$granted += $workspace")).toBeLessThan(APPCONTAINER_SCRIPT.indexOf("& $icacls $workspace /grant"));
+    expect(APPCONTAINER_CLEANUP_SCRIPT).toContain("DeleteAppContainerProfile($env:ASCOUT_AC_NAME)");
+    expect(APPCONTAINER_CLEANUP_SCRIPT).toContain("@($env:ASCOUT_AC_WORKSPACE, $env:ASCOUT_AC_NODE, $env:ASCOUT_AC_SCRIPTFILE)");
   });
 });
 
@@ -75,6 +84,8 @@ describe("the Windows workspace", () => {
     ["C:\\Users\\u\\AppData\\Roaming\\x", "inside C:\\Users\\u\\AppData"],
     ["C:\\Users\\u\\AppData\\Local\\Temp", "inside C:\\Users\\u\\AppData"],
     ["C:\\Users\\u\\.ssh", "inside C:\\Users\\u\\.ssh"],
+    ["C:\\Users\\other\\repo", "another profile"],
+    ["C:\\Users\\Public\\repo", "another profile"],
   ])("may not be %j", (workspace, reason) => {
     expect(windowsWorkspaceRefusalV1(workspace, HOME, ROOT)).toContain(reason);
   });
@@ -113,6 +124,7 @@ describe("the AppContainer probe runner", () => {
     readText: () => reply,
     randomName: () => "ascout.sandbox.test",
     startupEnv: { LOCALAPPDATA: "L", USERPROFILE: "U", TEMP: "T", TMP: "T", SECRET: "s" },
+    taskTimeoutMs: 1000,
     ...overrides,
   });
 
@@ -167,8 +179,16 @@ describe("the AppContainer probe runner", () => {
     if (!("runner" in made)) throw new Error("expected a runner");
     const task = { canaryPath: "C:\\o\\c", writePath: "C:\\o\\w", port: 1, envName: "X" };
     expect(await made.runner("script", task, { X: "1" }, "C:\\build\\ws")).toBe("sandbox-ok");
-    const call = calls[1]!;
-    expect(call.env).toMatchObject({ ASCOUT_AC_WORKSPACE: "C:\\build\\ws", ASCOUT_AC_SCRIPTFILE: "C:\\build\\ws\\.ascout-sandbox-task.js", ASCOUT_AC_NETWORK: "shared" });
+    // calls[0] and calls[1] are the self-test's run and its second cleanup.
+    const call = calls[2]!;
+    expect(call.env).toMatchObject({ ASCOUT_AC_WORKSPACE: "C:\\build\\ws", ASCOUT_AC_NETWORK: "shared", ASCOUT_AC_TIMEOUT_MS: "1000" });
+    // The task script and its output live in the scratch folder, never in the workspace.
+    expect(String(call.env.ASCOUT_AC_SCRIPTFILE)).toMatch(/^C:\\Users\\u\\AppData\\Local\\Temp\\t\d+\\task\.js$/u);
+    expect(String(call.env.ASCOUT_AC_STDOUT)).toMatch(/^C:\\Users\\u\\AppData\\Local\\Temp\\t\d+\\stdout\.txt$/u);
+    // The outer limit leaves time for PowerShell to kill the tree and clean up; then a second cleanup runs.
+    expect(call.timeoutMs).toBe(61_000);
+    expect(calls[3]!.argv.at(-1)).toBe(APPCONTAINER_CLEANUP_SCRIPT);
+    expect(calls[3]!.env).toEqual(call.env);
     expect(Buffer.from(String(call.env.ASCOUT_AC_TASK), "base64").toString("utf8")).toBe(JSON.stringify(task));
     expect(Buffer.from(String(call.env.ASCOUT_AC_ENV), "base64").toString("utf8")).toBe("X=1\0\0");
   });

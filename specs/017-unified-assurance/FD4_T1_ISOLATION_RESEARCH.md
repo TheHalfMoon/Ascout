@@ -134,16 +134,22 @@ its own it is not T1.
    - **Windows (research runner built):** `src/assurance/containment/windows-appcontainer-sandbox.ts`
      runs a task in a fresh AppContainer. The Win32 calls come from Windows PowerShell 5.1, at its
      fixed system path, through `Add-Type`, so no native binary ships.
-     - **Grants:** the workspace is the only folder granted to the container. The Node binary gets
-       read and execute only when app containers can't already read it.
+     - **Grants:** the workspace is the only *user* folder granted to the container. The Node binary
+       gets read and execute only when app containers can't already read it. Whatever every app
+       container may read stays readable: Windows, Program Files, some registry keys, and objects
+       with open access lists.
      - **Network:** with no network capabilities, the network is denied. Windows also blocks an app
        container's loopback even with capabilities.
-     - **Cleanup:** the workspace grant and the container profile are removed after every run.
+     - **Process tree:** the task starts suspended inside a job that kills its whole process tree at
+       the end or on timeout, and it inherits only its output handle and NUL. Its script and output
+       live outside the workspace.
+     - **Cleanup:** the grants and the container profile are removed by the PowerShell script, and
+       again by an independent cleanup from Node that also covers a killed PowerShell host.
      - **CI:** Windows CI requires the native probes to show read and write outside the workspace and
        loopback DENIED, and all four DENIED with an allowlisted environment.
      - **Limits:** application control (WDAC, Constrained Language Mode) can block PowerShell, and
-       the runner then refuses. A timeout stops the task's own process, not its descendants. A
-       signed native helper remains an alternative, which is a founder decision.
+       the runner then refuses. A signed native helper remains an alternative, which is a founder
+       decision.
 4. **T1-NET.** Network isolation per host.
    - **Linux (research option built):** the bubblewrap runner takes `network: "none"`, which gives
      the task its own empty network namespace. It then reaches neither the host's loopback TCP and UDP

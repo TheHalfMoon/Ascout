@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { win32 } from "node:path";
 
 import type { ProbeRunnerV1 } from "./capability-probes.js";
@@ -7,15 +7,22 @@ import { execFileTextV1, realLinuxFsHostV1, type ExecFileTextV1, type LinuxFsHos
 /**
  * FD-4 T1-FS and T1-NET, Windows, research (founder decision 2026-11-13: research and implementation,
  * not certification). Runs a task in a fresh AppContainer: an identity with no access to the user's
- * files. The workspace is the only folder granted to it (and the Node binary, read and execute, when
- * app containers can't already read it). Without network capabilities an app container can't reach
- * the network, the host's loopback included. With `network: "shared"` it gets the client and
- * private-network capabilities, but Windows still blocks an app container's loopback.
+ * files. The workspace is the only user folder granted to it (the Node binary gets read and execute
+ * when app containers can't already read it). Whatever every app container may read stays readable:
+ * Windows, Program Files, some registry keys, and objects with open access lists. Without network
+ * capabilities an app container can't reach the network, the host's loopback included. With
+ * `network: "shared"` it gets the client and private-network capabilities, but Windows still blocks
+ * an app container's loopback.
+ *
+ * The task starts suspended inside a job that kills every process in it when the run ends or times
+ * out, and it inherits only its output handle and NUL.
  *
  * The Win32 calls are made from Windows PowerShell 5.1 (at its fixed system path) through Add-Type, so
  * no native binary ships. Application-control policy (WDAC, Constrained Language Mode) can block that;
  * the runner then refuses. Every input reaches PowerShell as an environment variable, never as script
- * text. After each run the workspace grant and the container profile are removed.
+ * text. After each run the grants and the container profile are removed, by the PowerShell script
+ * itself and again by an independent cleanup from Node, which also covers a PowerShell host that was
+ * killed.
  *
  * Nothing in Ascout runs tasks through this, the containment tier stays T0 (containment-tier.ts), and a
  * Windows claim needs an independent human security review. Technique-level probes are kept privately.
@@ -44,6 +51,13 @@ public static class AscoutAc {
   [DllImport("kernel32.dll", SetLastError = true)] static extern bool UpdateProcThreadAttribute(IntPtr list, uint flags, IntPtr attr, IntPtr value, IntPtr size, IntPtr prev, IntPtr retSize);
   [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool CreateProcess(string app, StringBuilder cmd, IntPtr pa, IntPtr ta, bool inherit, uint flags, IntPtr env, string cwd, ref STARTUPINFOEX si, out PROCESS_INFORMATION pi);
   [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern IntPtr CreateFile(string name, uint access, uint share, ref SECURITY_ATTRIBUTES sa, uint disp, uint flags, IntPtr tmpl);
+  [StructLayout(LayoutKind.Sequential)] struct JOBOBJECT_BASIC_LIMIT_INFORMATION { public long PerProcessUserTimeLimit, PerJobUserTimeLimit; public uint LimitFlags; public UIntPtr MinimumWorkingSetSize, MaximumWorkingSetSize; public uint ActiveProcessLimit; public UIntPtr Affinity; public uint PriorityClass, SchedulingClass; }
+  [StructLayout(LayoutKind.Sequential)] struct IO_COUNTERS { public ulong a, b, c, d, e, f; }
+  [StructLayout(LayoutKind.Sequential)] struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION { public JOBOBJECT_BASIC_LIMIT_INFORMATION Basic; public IO_COUNTERS Io; public UIntPtr ProcessMemoryLimit, JobMemoryLimit, PeakProcessMemoryUsed, PeakJobMemoryUsed; }
+  [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr CreateJobObject(IntPtr sa, string name);
+  [DllImport("kernel32.dll", SetLastError = true)] static extern bool SetInformationJobObject(IntPtr job, int cls, ref JOBOBJECT_EXTENDED_LIMIT_INFORMATION info, uint size);
+  [DllImport("kernel32.dll", SetLastError = true)] static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+  [DllImport("kernel32.dll", SetLastError = true)] static extern uint ResumeThread(IntPtr thread);
   [DllImport("kernel32.dll")] static extern uint WaitForSingleObject(IntPtr h, uint ms);
   [DllImport("kernel32.dll")] static extern bool TerminateProcess(IntPtr h, uint code);
   [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
@@ -62,8 +76,8 @@ public static class AscoutAc {
       Marshal.StructureToPtr(new SID_AND_ATTRIBUTES { Sid = capSid, Attributes = 4 }, capsArray + i * entry, false);
     }
     var caps = new SECURITY_CAPABILITIES { AppContainerSid = sid, Capabilities = capsArray, CapabilityCount = (uint)n };
-    IntPtr size = IntPtr.Zero; InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref size);
-    IntPtr list = Marshal.AllocHGlobal(size); if (!InitializeProcThreadAttributeList(list, 1, 0, ref size)) throw new Exception("attributes " + Marshal.GetLastWin32Error());
+    IntPtr size = IntPtr.Zero; InitializeProcThreadAttributeList(IntPtr.Zero, 2, 0, ref size);
+    IntPtr list = Marshal.AllocHGlobal(size); if (!InitializeProcThreadAttributeList(list, 2, 0, ref size)) throw new Exception("attributes " + Marshal.GetLastWin32Error());
     IntPtr capsPtr = Marshal.AllocHGlobal(Marshal.SizeOf(caps)); Marshal.StructureToPtr(caps, capsPtr, false);
     // PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES
     if (!UpdateProcThreadAttribute(list, 0, (IntPtr)0x00020009, capsPtr, (IntPtr)Marshal.SizeOf(caps), IntPtr.Zero, IntPtr.Zero)) throw new Exception("attribute " + Marshal.GetLastWin32Error());
@@ -71,13 +85,27 @@ public static class AscoutAc {
     // The output file lives outside the workspace; the task writes it only through this inherited handle.
     IntPtr outH = CreateFile(stdoutPath, 0x40000000, 3, ref sa, 2, 0x80, IntPtr.Zero);
     IntPtr nulH = CreateFile("NUL", 0xC0000000, 3, ref sa, 3, 0x80, IntPtr.Zero);
+    // Only these two handles are inherited, never anything else PowerShell holds.
+    IntPtr handles = Marshal.AllocHGlobal(IntPtr.Size * 2); Marshal.WriteIntPtr(handles, outH); Marshal.WriteIntPtr(handles + IntPtr.Size, nulH);
+    // PROC_THREAD_ATTRIBUTE_HANDLE_LIST
+    if (!UpdateProcThreadAttribute(list, 0, (IntPtr)0x00020002, handles, (IntPtr)(IntPtr.Size * 2), IntPtr.Zero, IntPtr.Zero)) throw new Exception("handle list " + Marshal.GetLastWin32Error());
+    // A job that kills every process in it, descendants included, when its handle closes.
+    IntPtr job = CreateJobObject(IntPtr.Zero, null); if (job == IntPtr.Zero) throw new Exception("job " + Marshal.GetLastWin32Error());
+    var limits = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION(); limits.Basic.LimitFlags = 0x2000; // JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    if (!SetInformationJobObject(job, 9, ref limits, (uint)Marshal.SizeOf(limits))) throw new Exception("job limits " + Marshal.GetLastWin32Error());
     var si = new STARTUPINFOEX(); si.StartupInfo.cb = Marshal.SizeOf(si); si.lpAttributeList = list;
     si.StartupInfo.dwFlags = 0x100; si.StartupInfo.hStdInput = nulH; si.StartupInfo.hStdOutput = outH; si.StartupInfo.hStdError = nulH;
     IntPtr envPtr = Marshal.StringToHGlobalUni(env);
     PROCESS_INFORMATION pi;
-    // EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW
-    if (!CreateProcess(app, new StringBuilder(cmdline), IntPtr.Zero, IntPtr.Zero, true, 0x80000 | 0x400 | 0x08000000, envPtr, cwd, ref si, out pi)) throw new Exception("CreateProcess " + Marshal.GetLastWin32Error());
-    if (WaitForSingleObject(pi.hProcess, timeoutMs) != 0) TerminateProcess(pi.hProcess, 1);
+    // EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW | CREATE_SUSPENDED
+    if (!CreateProcess(app, new StringBuilder(cmdline), IntPtr.Zero, IntPtr.Zero, true, 0x80000 | 0x400 | 0x08000000 | 0x4, envPtr, cwd, ref si, out pi)) throw new Exception("CreateProcess " + Marshal.GetLastWin32Error());
+    // In the job before it runs a single instruction, so nothing it starts escapes the job.
+    if (!AssignProcessToJobObject(job, pi.hProcess)) { TerminateProcess(pi.hProcess, 1); throw new Exception("assign job " + Marshal.GetLastWin32Error()); }
+    ResumeThread(pi.hThread);
+    WaitForSingleObject(pi.hProcess, timeoutMs);
+    // Closing the job kills the whole tree; wait for the task itself to be gone before cleanup.
+    CloseHandle(job);
+    WaitForSingleObject(pi.hProcess, 10000);
     CloseHandle(pi.hThread); CloseHandle(pi.hProcess); CloseHandle(outH); CloseHandle(nulH);
   }
 }
@@ -90,9 +118,14 @@ $icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
 $sid = [AscoutAc]::Create($name)
 $granted = @()
 try {
+  # Recorded first, so even a grant that fails halfway is removed.
+  $granted += $workspace
   & $icacls $workspace /grant "*$($sid):(OI)(CI)M" | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'could not grant the workspace' }
-  $granted += $workspace
+  # The task script lives outside the workspace, readable but not writable by the container.
+  $granted += $env:ASCOUT_AC_SCRIPTFILE
+  & $icacls $env:ASCOUT_AC_SCRIPTFILE /grant "*$($sid):R" | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'could not grant the task script' }
   # Best effort: under Program Files, app containers can already read Node, and the grant is refused.
   try { & $icacls $node /grant "*$($sid):RX" 2>&1 | Out-Null; if ($LASTEXITCODE -eq 0) { $granted += $node } } catch { }
   $caps = @()
@@ -102,11 +135,35 @@ try {
   # node -e reads the script by its full path: running a file would make Node resolve every parent
   # folder, which the container can't see.
   $cmd = '"' + $node + '" -e "eval(require(''node:fs'').readFileSync(process.argv[1], ''utf8''))" "' + $env:ASCOUT_AC_SCRIPTFILE + '" ' + $env:ASCOUT_AC_TASK
-  [AscoutAc]::Run($name, $caps, $node, $cmd, $workspace, $envBlock, $out, 20000)
+  [AscoutAc]::Run($name, $caps, $node, $cmd, $workspace, $envBlock, $out, [uint32]$env:ASCOUT_AC_TIMEOUT_MS)
 } finally {
   foreach ($path in $granted) { try { & $icacls $path /remove "*$sid" 2>&1 | Out-Null } catch { } }
-  [AscoutAc]::DeleteAppContainerProfile($name) | Out-Null
+  if ([AscoutAc]::DeleteAppContainerProfile($name) -ne 0) { [Console]::Error.WriteLine('the container profile was not deleted') }
 }
+`;
+
+/**
+ * A second, independent cleanup, run from Node after every run whatever happened to the first: the
+ * container SID is derived again from its name, its grants are removed, and its profile is deleted.
+ * It covers a PowerShell host that was killed before its own cleanup ran.
+ */
+export const APPCONTAINER_CLEANUP_SCRIPT = String.raw`
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class AscoutAcCleanup {
+  [DllImport("userenv.dll", CharSet = CharSet.Unicode)] static extern int DeriveAppContainerSidFromAppContainerName(string name, out IntPtr sid);
+  [DllImport("userenv.dll", CharSet = CharSet.Unicode)] public static extern int DeleteAppContainerProfile(string name);
+  [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool ConvertSidToStringSid(IntPtr sid, out string s);
+  public static string Sid(string name) { IntPtr sid; if (DeriveAppContainerSidFromAppContainerName(name, out sid) != 0) return null; string s; ConvertSidToStringSid(sid, out s); return s; }
+}
+'@
+$icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
+$sid = [AscoutAcCleanup]::Sid($env:ASCOUT_AC_NAME)
+if ($sid) {
+  foreach ($path in @($env:ASCOUT_AC_WORKSPACE, $env:ASCOUT_AC_NODE, $env:ASCOUT_AC_SCRIPTFILE)) { try { & $icacls $path /remove "*$sid" 2>&1 | Out-Null } catch { } }
+}
+[AscoutAcCleanup]::DeleteAppContainerProfile($env:ASCOUT_AC_NAME) | Out-Null
 `;
 
 /** The Windows system folder, from the environment, or its usual place when that names none. */
@@ -138,6 +195,9 @@ export function windowsWorkspaceRefusalV1(workspace: string, home: string, syste
   if (!win32.isAbsolute(workspace) || !/^[A-Za-z]:\\/u.test(workspace) || win32.normalize(workspace) !== workspace || /["\u0000-\u001f]/u.test(workspace)) return "the workspace must be an absolute, normalized drive path";
   if (/^[A-Za-z]:\\$/u.test(workspace)) return "the workspace may not be a drive root";
   if (lower(workspace) === lower(home) || insideWin(home, workspace)) return `the workspace may not be or contain ${home}`;
+  // Other users' profiles and Public sit beside the home folder.
+  const profiles = win32.dirname(home);
+  if (insideWin(workspace, profiles) && !insideWin(workspace, home)) return `the workspace may not be in another profile under ${profiles}`;
   const drive = workspace.slice(0, 3);
   for (const parent of [systemRoot, win32.join(drive, "Program Files"), win32.join(drive, "Program Files (x86)"), win32.join(drive, "ProgramData")]) {
     if (lower(workspace) === lower(parent) || insideWin(workspace, parent)) return `the workspace may not be inside ${parent}`;
@@ -161,17 +221,21 @@ export interface WindowsSandboxDepsV1 {
   readonly randomName: () => string;
   /** Where the profile variables Windows needs to start a contained process come from. */
   readonly startupEnv: NodeJS.ProcessEnv;
+  /** How long the task may run before its whole process tree is killed. */
+  readonly taskTimeoutMs: number;
 }
 
 export const realWindowsSandboxDepsV1: WindowsSandboxDepsV1 = {
   platform: process.platform,
-  host: realLinuxFsHostV1,
+  // Native resolution expands 8.3 short names (PROGRA~1), so the refusal rules see real paths.
+  host: { ...realLinuxFsHostV1, realpath: (path) => realpathSync.native(path) },
   exec: execFileTextV1,
   execPath: process.execPath,
   systemRoot: systemRootV1(process.env),
   readText: (path) => readFileSync(path, "utf8"),
   randomName: () => `ascout.sandbox.${Math.random().toString(36).slice(2, 12)}`,
   startupEnv: process.env,
+  taskTimeoutMs: 20_000,
 };
 
 /** The probe script as a file: argv[2] carries the task, base64-encoded so no quoting can break it. */
@@ -192,29 +256,35 @@ export async function windowsAppContainerProbeRunnerV1(deps: WindowsSandboxDepsV
     const refusal = windowsWorkspaceRefusalV1(workspace, home, deps.systemRoot);
     if (refusal !== null) throw new Error(`${refusal}: ${JSON.stringify(workspace)}`);
     const scratch = deps.host.realpath(deps.host.makeTempDir());
+    // The task script and its output live in the scratch folder, never in the user's workspace.
+    const scriptFile = win32.join(scratch, "task.js");
+    const stdout = win32.join(scratch, "stdout.txt");
+    const psEnv = {
+      SystemRoot: deps.systemRoot,
+      // So PowerShell treats .exe files as programs; icacls itself is called by its full path.
+      PATHEXT: ".COM;.EXE",
+      ASCOUT_AC_NAME: deps.randomName(),
+      ASCOUT_AC_WORKSPACE: workspace,
+      ASCOUT_AC_NODE: node,
+      ASCOUT_AC_STDOUT: stdout,
+      ASCOUT_AC_SCRIPTFILE: scriptFile,
+      ASCOUT_AC_TASK: Buffer.from(task, "utf8").toString("base64"),
+      ASCOUT_AC_ENV: Buffer.from(environmentBlockV1(env), "utf8").toString("base64"),
+      ASCOUT_AC_NETWORK: network,
+      ASCOUT_AC_TIMEOUT_MS: String(deps.taskTimeoutMs),
+    };
+    const args = (script: string) => ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script];
     try {
-      const scriptFile = win32.join(workspace, ".ascout-sandbox-task.js");
-      const stdout = win32.join(scratch, "stdout.txt");
       deps.host.writeFile(scriptFile, wrap(script));
-      await deps.exec(powershell, ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", APPCONTAINER_SCRIPT], {
-        cwd: scratch,
-        env: {
-          SystemRoot: deps.systemRoot,
-          // So PowerShell treats .exe files as programs; icacls itself is called by its full path.
-          PATHEXT: ".COM;.EXE",
-          ASCOUT_AC_NAME: deps.randomName(),
-          ASCOUT_AC_WORKSPACE: workspace,
-          ASCOUT_AC_NODE: node,
-          ASCOUT_AC_STDOUT: stdout,
-          ASCOUT_AC_SCRIPTFILE: scriptFile,
-          ASCOUT_AC_TASK: Buffer.from(task, "utf8").toString("base64"),
-          ASCOUT_AC_ENV: Buffer.from(environmentBlockV1(env), "utf8").toString("base64"),
-          ASCOUT_AC_NETWORK: network,
-        },
-      });
+      // The outer limit leaves PowerShell time to start, kill the task's tree, and clean up.
+      await deps.exec(powershell, args(APPCONTAINER_SCRIPT), { cwd: scratch, env: psEnv, timeoutMs: deps.taskTimeoutMs + 60_000 });
       return deps.host.exists(stdout) ? deps.readText(stdout) : "";
     } finally {
-      deps.host.removeDir(scratch);
+      try {
+        await deps.exec(powershell, args(APPCONTAINER_CLEANUP_SCRIPT), { cwd: scratch, env: psEnv, timeoutMs: 60_000 });
+      } finally {
+        deps.host.removeDir(scratch);
+      }
     }
   };
   const root = deps.host.realpath(deps.host.makeTempDir());
