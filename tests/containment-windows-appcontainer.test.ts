@@ -212,6 +212,8 @@ describe("the real Windows dependencies", () => {
 
 // Native evidence. CI sets ASCOUT_REQUIRE_WINDOWS_SANDBOX=1 on Windows, so a container that can't start
 // fails the run there instead of silently skipping.
+// Each run starts PowerShell twice and compiles its Win32 bindings each time, which a busy CI runner
+// can take minutes over, so these tests allow five.
 describe.runIf(process.platform === "win32")("native capability probes in an AppContainer", () => {
   async function runner(network: "shared" | "none") {
     const made = await windowsAppContainerProbeRunnerV1(undefined, network);
@@ -226,7 +228,7 @@ describe.runIf(process.platform === "win32")("native capability probes in an App
     const expected: Record<string, string> = { read_outside_workspace: "DENIED", write_outside_workspace: "DENIED", loopback_network: "DENIED", environment_secret: "ALLOWED" };
     expect(report.results.map((result) => [result.id, result.verdict])).toEqual(CAPABILITY_PROBE_IDS.map((id) => [id, expected[id]]));
     expect(currentContainmentV1()).toMatchObject({ tier: "T0", filesystem_isolation: "NONE" });
-  }, 90_000);
+  }, 300_000);
 
   it("with no network capabilities and an allowlisted environment, deny all four; the tier still stays T0", async (ctx) => {
     const made = await runner("none");
@@ -236,5 +238,5 @@ describe.runIf(process.platform === "win32")("native capability probes in an App
     expect(report.results.map((result) => [result.id, result.verdict])).toEqual(CAPABILITY_PROBE_IDS.map((id) => [id, "DENIED"]));
     expect(report.all_denied).toBe(true);
     expect(currentContainmentV1()).toMatchObject({ tier: "T0", filesystem_isolation: "NONE", network_isolation: "NONE" });
-  }, 90_000);
+  }, 300_000);
 });
