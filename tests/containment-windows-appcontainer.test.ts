@@ -57,6 +57,7 @@ describe("the Windows building blocks", () => {
     expect(APPCONTAINER_SCRIPT).toContain("(IntPtr)0x00020002, handles");
     expect(APPCONTAINER_SCRIPT.indexOf("$granted += $workspace")).toBeLessThan(APPCONTAINER_SCRIPT.indexOf("& $icacls $workspace /grant"));
     expect(APPCONTAINER_CLEANUP_SCRIPT).toContain("DeleteAppContainerProfile($env:ASCOUT_AC_NAME)");
+    expect(APPCONTAINER_CLEANUP_SCRIPT).toContain("$icacls = Join-Path $env:SystemRoot 'System32\\icacls.exe'");
     expect(APPCONTAINER_CLEANUP_SCRIPT).toContain("@($env:ASCOUT_AC_WORKSPACE, $env:ASCOUT_AC_NODE, $env:ASCOUT_AC_SCRIPTFILE)");
   });
 });
