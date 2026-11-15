@@ -128,10 +128,10 @@ export function linuxFsSandboxArgsV1(workspace: string, nodeBinary: string | nul
 }
 
 /** Runs a file and returns its standard output, whatever its exit status. */
-export type ExecFileTextV1 = (file: string, argv: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv }) => Promise<string>;
+export type ExecFileTextV1 = (file: string, argv: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs?: number }) => Promise<string>;
 
-export const execFileTextV1: ExecFileTextV1 = (file, argv, options) => new Promise((resolveRun) => {
-  execFile(file, [...argv], { ...options, encoding: "utf8", timeout: 20_000, windowsHide: true }, (_error, stdout) => resolveRun(stdout));
+export const execFileTextV1: ExecFileTextV1 = (file, argv, { cwd, env, timeoutMs = 20_000 }) => new Promise((resolveRun) => {
+  execFile(file, [...argv], { cwd, env, encoding: "utf8", timeout: timeoutMs, windowsHide: true }, (_error, stdout) => resolveRun(stdout));
 });
 
 export interface LinuxFsSandboxDepsV1 {
