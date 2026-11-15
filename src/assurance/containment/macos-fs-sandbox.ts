@@ -5,12 +5,17 @@ import { execFileTextV1, realLinuxFsHostV1, type ExecFileTextV1, type LinuxFsHos
 
 /**
  * FD-4 phase T1-FS (and the T1-NET option), macOS, research (founder decision 2026-11-13: research and
- * implementation, not certification). A sandbox profile for the system's `sandbox-exec`: writes are
- * denied everywhere except the workspace; reads are denied under the trees where user and temporary
- * data lives (UNREADABLE_DATA_TREES and the home folder) except the workspace and the Node binary.
- * System files and file metadata stay readable, so a task can see that a path exists but not read
- * user data or change anything outside the workspace. With `network: "none"`, network access is
- * denied too.
+ * implementation, not certification). A sandbox profile for the system's `sandbox-exec`:
+ * - direct file writes are denied everywhere except the workspace;
+ * - direct file reads are denied under the trees where user and temporary data lives
+ *   (UNREADABLE_DATA_TREES and the home folder), except the workspace and the Node binary;
+ * - starting any program other than Node is denied, so a task can't hand work to a program running
+ *   outside the sandbox (open, launchctl, osascript, defaults, security);
+ * - looking up system services is denied, so a task can't ask a daemon to read or write for it;
+ * - executable code may be mapped only from system locations and the Node binary, so a native addon
+ *   written into the workspace can't be loaded.
+ * System files, extended attributes, and file metadata elsewhere stay readable. Other processes of the
+ * same user can still be signalled. With `network: "none"`, network access is denied too.
  *
  * `sandbox-exec` is deprecated by Apple and its profile language is undocumented, so this is research
  * evidence only. Nothing in Ascout runs tasks through it, the containment tier stays T0
@@ -26,13 +31,22 @@ export const SANDBOX_EXEC = "/usr/bin/sandbox-exec";
  * Node binary. System files elsewhere stay readable, as they are to every user. (A default-deny read
  * policy stopped the dynamic loader before Node started; macOS CI showed it, 2026-11-15.)
  */
-export const UNREADABLE_DATA_TREES = ["/Users", "/Volumes", "/private/tmp", "/private/var/folders", "/private/var/root"] as const;
+export const UNREADABLE_DATA_TREES = ["/Users", "/Volumes", "/private/tmp", "/private/var/tmp", "/private/var/folders", "/private/var/root"] as const;
+
+/** Where executable code may be mapped from, besides the Node binary: the OS and its libraries. */
+const EXECUTABLE_TREES = ["/System", "/usr/lib", "/usr/libexec", "/Library/Apple", "/private/var/db/dyld"] as const;
+
+/** A path that can go into a sandbox profile as a string literal. */
+const PROFILE_SAFE = /^\/[^"\\\u0000-\u001f\u007f]*$/u;
 
 /** Host locations a workspace may be neither, nor contain. */
 const PROTECTED_LOCATIONS = ["/", "/Users", "/System", "/Library", "/Applications", "/Volumes", "/private", "/private/var", "/private/tmp", "/private/etc", "/usr", "/bin", "/sbin", "/dev", "/opt", "/cores"] as const;
 
 /** Trees a workspace may not lie inside. */
-const FORBIDDEN_PARENTS = ["/System", "/Library", "/usr", "/bin", "/sbin", "/dev", "/private/etc"] as const;
+const FORBIDDEN_PARENTS = ["/System", "/Library", "/Applications", "/usr", "/bin", "/sbin", "/dev", "/private/etc"] as const;
+
+/** Per-user temporary folders live four levels below this; anything shallower holds every user's. */
+const TEMP_ROOT = "/private/var/folders";
 
 const inside = (path: string, parent: string): boolean => parent === "/" || path.startsWith(`${parent}/`);
 
@@ -49,6 +63,13 @@ export function macosWorkspaceRefusalV1(workspace: string, home: string): string
   for (const parent of FORBIDDEN_PARENTS) {
     if (inside(workspace, parent)) return `the workspace may not be inside ${parent}`;
   }
+  if (inside(workspace, "/private/var") && !(inside(workspace, TEMP_ROOT) && workspace.slice(TEMP_ROOT.length + 1).split("/").length > 3)) {
+    return "the workspace may not be inside /private/var, except deep inside a per-user temporary folder";
+  }
+  if (inside(workspace, home)) {
+    const first = workspace.slice(home.length + 1).split("/")[0]!;
+    if (first.startsWith(".") || first === "Library") return `the workspace may not be inside ${home}/${first}`;
+  }
   return null;
 }
 
@@ -56,12 +77,19 @@ export function macosWorkspaceRefusalV1(workspace: string, home: string): string
 export function macosSandboxProfileV1(workspace: string, nodeBinary: string, home: string, network: SandboxNetworkV1 = "shared"): string {
   const refusal = macosWorkspaceRefusalV1(workspace, home);
   if (refusal !== null) throw new Error(`${refusal}: ${JSON.stringify(workspace)}`);
-  if (!posix.isAbsolute(nodeBinary) || /["\\\u0000-\u001f\u007f]/u.test(nodeBinary)) throw new Error(`the Node binary path can't go into a sandbox profile: ${JSON.stringify(nodeBinary)}`);
+  if (!PROFILE_SAFE.test(nodeBinary)) throw new Error(`the Node binary path can't go into a sandbox profile: ${JSON.stringify(nodeBinary)}`);
+  if (!PROFILE_SAFE.test(home)) throw new Error(`the home folder path can't go into a sandbox profile: ${JSON.stringify(home)}`);
+  if (inside(nodeBinary, workspace)) throw new Error("the Node binary may not be inside the workspace, where the task could change it");
   const lines = [
     "(version 1)",
     "(allow default)",
     `(deny file-read-data ${[...UNREADABLE_DATA_TREES, home].map((tree) => `(subpath "${tree}")`).join(" ")})`,
     "(deny file-write*)",
+    "(deny process-exec*)",
+    "(deny mach-lookup)",
+    "(deny file-map-executable)",
+    `(allow process-exec* (literal "${nodeBinary}"))`,
+    `(allow file-map-executable ${EXECUTABLE_TREES.map((tree) => `(subpath "${tree}")`).join(" ")} (literal "${nodeBinary}"))`,
     `(allow file-read-data (literal "${nodeBinary}"))`,
     `(allow file-read-data file-write* (subpath "${workspace}"))`,
     '(allow file-write-data (literal "/dev/null") (literal "/dev/tty"))',

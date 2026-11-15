@@ -12,7 +12,7 @@ import { allowlistedTaskEnvironmentV1 } from "../src/assurance/containment/task-
 const HOME = "/Users/u";
 
 describe("the macOS workspace", () => {
-  it.each(["/Users/u/src/repo", "/Users/runner/work/_temp/ascout-probe-workspace-1", "/private/var/folders/x/T/ascout-probe-workspace-1", "/opt/build/repo"])("may be %s", (workspace) => {
+  it.each(["/Users/u/src/repo", "/Users/runner/work/_temp/ascout-probe-workspace-1", "/private/var/folders/xx/yy/T/ascout-probe-workspace-1", "/opt/build/repo", "/Users/u/Library-notes/repo"])("may be %s", (workspace) => {
     expect(macosWorkspaceRefusalV1(workspace, HOME)).toBeNull();
   });
 
@@ -32,6 +32,14 @@ describe("the macOS workspace", () => {
     ["/System/Library/x", "inside /System"],
     ["/usr/local/src", "inside /usr"],
     ["/private/etc/app", "inside /private/etc"],
+    ["/Applications/X.app", "inside /Applications"],
+    ["/private/var/folders/xx", "inside /private/var"],
+    ["/private/var/folders/xx/yy/T", "inside /private/var"],
+    ["/private/var/db/x", "inside /private/var"],
+    ["/Users/u/.ssh", "inside /Users/u/.ssh"],
+    ["/Users/u/.config/app", "inside /Users/u/.config"],
+    ["/Users/u/Library", "inside /Users/u/Library"],
+    ["/Users/u/Library/Keychains", "inside /Users/u/Library"],
   ])("may not be %j", (workspace, reason) => {
     expect(macosWorkspaceRefusalV1(workspace, HOME)).toContain(reason);
   });
@@ -42,13 +50,18 @@ describe("the macOS workspace", () => {
 });
 
 describe("the sandbox profile", () => {
-  it("denies writes everywhere and reads of user data, then allows the Node binary and the workspace", () => {
+  it("denies writes, user-data reads, starting programs, system services, and foreign code; then allows Node and the workspace", () => {
     const profile = macosSandboxProfileV1("/Users/u/src/repo", "/opt/node/bin/node", HOME);
     expect(profile.trim().split("\n")).toEqual([
       "(version 1)",
       "(allow default)",
-      '(deny file-read-data (subpath "/Users") (subpath "/Volumes") (subpath "/private/tmp") (subpath "/private/var/folders") (subpath "/private/var/root") (subpath "/Users/u"))',
+      '(deny file-read-data (subpath "/Users") (subpath "/Volumes") (subpath "/private/tmp") (subpath "/private/var/tmp") (subpath "/private/var/folders") (subpath "/private/var/root") (subpath "/Users/u"))',
       "(deny file-write*)",
+      "(deny process-exec*)",
+      "(deny mach-lookup)",
+      "(deny file-map-executable)",
+      '(allow process-exec* (literal "/opt/node/bin/node"))',
+      '(allow file-map-executable (subpath "/System") (subpath "/usr/lib") (subpath "/usr/libexec") (subpath "/Library/Apple") (subpath "/private/var/db/dyld") (literal "/opt/node/bin/node"))',
       '(allow file-read-data (literal "/opt/node/bin/node"))',
       '(allow file-read-data file-write* (subpath "/Users/u/src/repo"))',
       '(allow file-write-data (literal "/dev/null") (literal "/dev/tty"))',
@@ -66,6 +79,8 @@ describe("the sandbox profile", () => {
     expect(() => macosSandboxProfileV1("/Users/u", "/opt/node", HOME)).toThrow(/may not be or contain \/Users\/u/u);
     expect(() => macosSandboxProfileV1("/Users/u/r", "node", HOME)).toThrow(/Node binary path/u);
     expect(() => macosSandboxProfileV1("/Users/u/r", '/opt/"x', HOME)).toThrow(/Node binary path/u);
+    expect(() => macosSandboxProfileV1("/data/r", "/opt/node", '/a")) (allow file-read-data (subpath "/Users')).toThrow(/home folder path/u);
+    expect(() => macosSandboxProfileV1("/Users/u/r", "/Users/u/r/bin/node", HOME)).toThrow(/Node binary may not be inside the workspace/u);
   });
 });
 
@@ -76,7 +91,7 @@ describe("the macOS probe runner", () => {
       symlinkTarget: () => null,
       realpath: (path) => path,
       home: () => HOME,
-      makeTempDir: () => "/private/var/folders/t/selftest",
+      makeTempDir: () => "/private/var/folders/xx/yy/T/selftest",
       makeDir: (path) => {
         log.push(`mkdir ${path}`);
       },
@@ -111,11 +126,11 @@ describe("the macOS probe runner", () => {
     calls.length = 0;
     const log: string[] = [];
     await macosFsSandboxProbeRunnerV1(deps({}, "sandbox-ok", log));
-    expect(log).toEqual(["mkdir /private/var/folders/t/selftest/workspace", "write /private/var/folders/t/selftest/outside-marker", "rm /private/var/folders/t/selftest"]);
-    expect(calls[0]).toMatchObject({ file: SANDBOX_EXEC, cwd: "/private/var/folders/t/selftest/workspace", env: {} });
+    expect(log).toEqual(["mkdir /private/var/folders/xx/yy/T/selftest/workspace", "write /private/var/folders/xx/yy/T/selftest/outside-marker", "rm /private/var/folders/xx/yy/T/selftest"]);
+    expect(calls[0]).toMatchObject({ file: SANDBOX_EXEC, cwd: "/private/var/folders/xx/yy/T/selftest/workspace", env: {} });
     expect(calls[0]!.argv[0]).toBe("-p");
-    expect(calls[0]!.argv[1]).toContain('(subpath "/private/var/folders/t/selftest/workspace")');
-    expect(calls[0]!.argv.at(-1)).toContain('readFileSync("/private/var/folders/t/selftest/outside-marker")');
+    expect(calls[0]!.argv[1]).toContain('(subpath "/private/var/folders/xx/yy/T/selftest/workspace")');
+    expect(calls[0]!.argv.at(-1)).toContain('readFileSync("/private/var/folders/xx/yy/T/selftest/outside-marker")');
   });
 
   it.each([
@@ -124,13 +139,13 @@ describe("the macOS probe runner", () => {
   ])("refuses when the self-test prints %j, and still removes its folder", async (reply, refused) => {
     const log: string[] = [];
     expect(await macosFsSandboxProbeRunnerV1(deps({}, reply, log))).toEqual({ refused });
-    expect(log.at(-1)).toBe("rm /private/var/folders/t/selftest");
+    expect(log.at(-1)).toBe("rm /private/var/folders/xx/yy/T/selftest");
   });
 
   it("removes the self-test folder even when sandbox-exec can't be run", async () => {
     const log: string[] = [];
     await expect(macosFsSandboxProbeRunnerV1(deps({ exec: async () => { throw new Error("spawn failed"); } }, "", log))).rejects.toThrow("spawn failed");
-    expect(log.at(-1)).toBe("rm /private/var/folders/t/selftest");
+    expect(log.at(-1)).toBe("rm /private/var/folders/xx/yy/T/selftest");
   });
 
   it("runs the probe under the profile for its own workspace, with the network denied only when asked", async () => {
@@ -162,11 +177,12 @@ describe.runIf(process.platform === "darwin")("native capability probes under sa
         const profile = macosSandboxProfileV1(workspace, realpathSync(process.execPath), realpathSync(homedir()), network);
         // Try narrower profiles too, so one CI run shows which rule stops Node.
         const node = realpathSync(process.execPath);
+        const without = (rule: string) => profile.split("\n").filter((line) => !line.startsWith(rule)).join("\n");
         const variants: Record<string, string> = {
           full: profile,
-          allowAll: "(version 1)\n(allow default)\n",
-          denyWritesOnly: `(version 1)\n(allow default)\n(deny file-write*)\n(allow file-read-data file-write* (subpath "${workspace}"))\n(allow file-write-data (literal "/dev/null"))\n`,
-          denyDataReadsOnly: `(version 1)\n(allow default)\n${profile.split("\n")[2]}\n(allow file-read-data (literal "${node}"))\n(allow file-read-data (subpath "${workspace}"))\n`,
+          noMachDeny: without("(deny mach-lookup)"),
+          noMapExecDeny: without("(deny file-map-executable)"),
+          noExecDeny: without("(deny process-exec*)"),
         };
         const results = Object.entries(variants).map(([name, text]) => {
           const run = spawnSync(SANDBOX_EXEC, ["-p", text, node, "-e", "process.stdout.write('ok')"], { cwd: workspace, env: {}, encoding: "utf8" });
@@ -180,22 +196,37 @@ describe.runIf(process.platform === "darwin")("native capability probes under sa
     return made;
   }
 
-  it("deny reading and writing a sibling outside the workspace; network and environment stay allowed; the tier stays T0", async () => {
+  it("deny reading and writing a sibling outside the workspace; network and environment stay allowed; the tier stays T0", async (ctx) => {
     const made = await runner("shared");
-    if ("refused" in made) return;
+    if ("refused" in made) return ctx.skip();
     const report = await runCapabilityProbesV1("T1-FS-macos-sandbox-exec", made.runner);
     const expected: Record<string, string> = { read_outside_workspace: "DENIED", write_outside_workspace: "DENIED", loopback_network: "ALLOWED", environment_secret: "ALLOWED" };
     expect(report.results.map((result) => [result.id, result.verdict])).toEqual(CAPABILITY_PROBE_IDS.map((id) => [id, expected[id]]));
     expect(currentContainmentV1()).toMatchObject({ tier: "T0", filesystem_isolation: "NONE" });
   }, 60_000);
 
-  it("with the network denied and an allowlisted environment, deny all four; the tier still stays T0", async () => {
+  it("with the network denied and an allowlisted environment, deny all four; the tier still stays T0", async (ctx) => {
     const made = await runner("none");
-    if ("refused" in made) return;
+    if ("refused" in made) return ctx.skip();
     const isolated: ProbeRunnerV1 = (script, task, env, cwd) => made.runner(script, task, allowlistedTaskEnvironmentV1(env, process.platform), cwd);
     const report = await runCapabilityProbesV1("T1-FS+NET+ENV-macos-sandbox-exec", isolated);
     expect(report.results.map((result) => [result.id, result.verdict])).toEqual(CAPABILITY_PROBE_IDS.map((id) => [id, "DENIED"]));
     expect(report.all_denied).toBe(true);
     expect(currentContainmentV1()).toMatchObject({ tier: "T0", filesystem_isolation: "NONE", network_isolation: "NONE" });
+  }, 60_000);
+
+  it("deny starting any other program, so work can't be handed to one outside the sandbox", async (ctx) => {
+    const made = await runner("shared");
+    if ("refused" in made) return ctx.skip();
+    const script = `const r = require("node:child_process").spawnSync("/usr/bin/true"); process.stdout.write(JSON.stringify({ status: r.status, error: r.error ? r.error.code : null }))`;
+    const { mkdtempSync, realpathSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const workspace = realpathSync(mkdtempSync(`${tmpdir()}/ascout-sandbox-exec-`));
+    try {
+      const out = JSON.parse(await made.runner(script, { canaryPath: "/x", writePath: "/x", port: 1, envName: "X" }, {}, workspace)) as { status: number | null; error: string | null };
+      expect(out.status === 0 && out.error === null).toBe(false);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
   }, 60_000);
 });

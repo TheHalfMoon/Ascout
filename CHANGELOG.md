@@ -6,9 +6,13 @@ break compatibility, and each breaking change is listed under **Breaking**.
 ## Unreleased
 
 - FD-4 T1-FS and T1-NET research on macOS: a `sandbox-exec` profile runner
-  (`src/assurance/containment/macos-fs-sandbox.ts`). macOS CI requires the native capability probes to
-  show the filesystem denied, and all four denied with the network denied and an allowlisted
-  environment. Research evidence only: no command uses it, and the containment tier stays T0.
+  (`src/assurance/containment/macos-fs-sandbox.ts`).
+  - It denies direct writes outside the workspace, reads of user-data trees, starting other programs,
+    system-service lookups, and loading foreign code.
+  - macOS CI requires the native probes to show the filesystem denied, all four denied with the
+    network denied and an allowlisted environment, and starting another program denied.
+  - Research evidence only: no command uses it, system files stay readable, and the containment tier
+    stays T0.
 - FD-4 phase T1-NET research on Linux: the bubblewrap runner's `network: "none"` option gives a task an
   empty network namespace. With it, the filesystem sandbox and an allowlisted environment, Linux CI
   requires all four native capability probes DENIED. Research evidence only: no command uses it, and

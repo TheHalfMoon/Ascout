@@ -108,21 +108,36 @@ its own it is not T1.
      Technique-level probes and their results are in the private Linux host spec. A Linux T1-FS
      claim still needs an independent human security review.
    - **macOS (research runner built):** `src/assurance/containment/macos-fs-sandbox.ts` builds a
-     profile for the system's `sandbox-exec` (taken from `/usr/bin/sandbox-exec` only). Writes are
-     denied everywhere except the workspace. Reads are denied under the trees where user and temporary
-     data lives (`/Users`, `/Volumes`, the temporary trees, the home folder), except the workspace and
-     the Node binary. System files and file *metadata* stay readable, so a task can see that a path
-     exists. (A default-deny read policy stopped the dynamic loader before Node started.)
-     `network: "none"` adds `(deny network*)`.
+     profile for the system's `sandbox-exec` (taken from `/usr/bin/sandbox-exec` only). The profile
+     starts from "allow" and denies, for the task:
+     - direct file writes everywhere except the workspace;
+     - direct file reads under the trees where user and temporary data lives (`/Users`, `/Volumes`,
+       the temporary trees, the home folder), except the workspace and the Node binary;
+     - starting any program other than Node, which blocks handing work to a program outside the
+       sandbox;
+     - looking up system services, which blocks asking a daemon to read or write on its behalf;
+     - mapping executable code from anywhere but system locations and the Node binary;
+     - with `network: "none"`, the network.
+
+     A default-deny read policy stopped the dynamic loader before Node started, which is why reads
+     are denied by tree.
+     - **Still readable:** system files, including `/Library`, `/private/etc`, logs and databases
+       under `/private/var`, and Homebrew's prefixes; extended attributes and file metadata
+       everywhere; and other processes' information.
+     - **Still allowed:** signalling other processes of the same user.
+     - **Probe scope:** the native read probe proves denial only because its canary lies in a
+       denied tree.
      - macOS CI requires the native probes to show read and write of an outside sibling DENIED, and
        all four DENIED with the network denied and an allowlisted environment.
      - `sandbox-exec` is deprecated by Apple and its profile language is undocumented, so this is
        research evidence only.
-   - **Windows (design only, not built):** every mechanism that denies a task its user's files
-     (AppContainer, a Low-integrity or restricted token) needs native API calls that neither Node nor
-     the built-in command line offers. A runner would need a small, separately signed native helper,
-     which changes how Ascout is built and shipped. That is a founder decision. The host-specific
-     design is in the private Windows host spec.
+   - **Windows (design only, not built):** the mechanism that denies a task its user's files is an
+     AppContainer. A Low-integrity token only stops writes; reads stay open. Launching either takes
+     Win32 calls Node doesn't expose.
+     - **Ways to make those calls:** PowerShell can make them, though application control can block
+       that. A small, separately signed native helper is the other route; it changes how Ascout is
+       built and shipped, so it is a founder decision.
+     - **Design:** the host-specific design is in the private Windows host spec.
 4. **T1-NET.** Network isolation per host.
    - **Linux (research option built):** the bubblewrap runner takes `network: "none"`, which gives
      the task its own empty network namespace. It then reaches neither the host's loopback TCP and UDP
