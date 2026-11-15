@@ -67,6 +67,7 @@ jobs:
           TMPDIR: ${{ runner.temp }}
           # On Linux the sandbox must start, so its native evidence can't silently skip.
           ASCOUT_REQUIRE_LINUX_SANDBOX: ${{ runner.os == 'Linux' && '1' || '' }}
+          ASCOUT_REQUIRE_MACOS_SANDBOX: ${{ runner.os == 'macOS' && '1' || '' }}
         run: npm test
       - name: Test (Windows bounded workers)
         if: ${{ runner.os == 'Windows' }}

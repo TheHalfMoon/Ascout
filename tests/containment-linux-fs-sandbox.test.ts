@@ -244,11 +244,11 @@ describe("the real host helpers", () => {
 // fails the run there instead of silently skipping. Elsewhere on Linux without bubblewrap, it passes
 // without evidence.
 describe.runIf(process.platform === "linux")("native capability probes inside the Linux filesystem sandbox", () => {
-  it("deny reading and writing a sibling outside the workspace; network and environment stay allowed, so the tier stays T0", async () => {
+  it("deny reading and writing a sibling outside the workspace; network and environment stay allowed, so the tier stays T0", async (ctx) => {
     const made = await linuxFsSandboxProbeRunnerV1();
     if ("refused" in made) {
       if (process.env.ASCOUT_REQUIRE_LINUX_SANDBOX === "1") throw new Error(`the sandbox is required here but refused: ${made.refused}`);
-      return;
+      return ctx.skip();
     }
     const report = await runCapabilityProbesV1("T1-FS-linux-bwrap", made.runner);
     const expected: Record<string, string> = { read_outside_workspace: "DENIED", write_outside_workspace: "DENIED", loopback_network: "ALLOWED", environment_secret: "ALLOWED" };
@@ -257,11 +257,11 @@ describe.runIf(process.platform === "linux")("native capability probes inside th
     expect(currentContainmentV1()).toMatchObject({ tier: "T0", filesystem_isolation: "NONE" });
   }, 60_000);
 
-  it("with the network isolated and an allowlisted environment, deny all four capabilities; the tier still stays T0", async () => {
+  it("with the network isolated and an allowlisted environment, deny all four capabilities; the tier still stays T0", async (ctx) => {
     const made = await linuxFsSandboxProbeRunnerV1(undefined, "none");
     if ("refused" in made) {
       if (process.env.ASCOUT_REQUIRE_LINUX_SANDBOX === "1") throw new Error(`the sandbox is required here but refused: ${made.refused}`);
-      return;
+      return ctx.skip();
     }
     const isolated: ProbeRunnerV1 = (script, task, env, cwd) => made.runner(script, task, allowlistedTaskEnvironmentV1(env, process.platform), cwd);
     const report = await runCapabilityProbesV1("T1-FS+NET+ENV-linux-bwrap", isolated);
