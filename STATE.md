@@ -81,22 +81,33 @@ Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with 
 
 ### Open decisions for the founder
 
+- **Delegated decisions (2026-11-16).** The founder said, "choose the best for me, do not wait for my decision". Under that delegation, the engineering agent chose the most conservative, reversible option for each open item:
+  - **Package scope:** keep shipping every module. This preserves the founder's "preserve compatibility" decision, and no module is proven unused (`PACKAGE_SCOPE_AUDIT_2026-11-14.md`). Revisit only with a deprecation note in a release.
+  - **C1c comparison** (without the Commit statuses permission): not run. It is optional. The pinned-App forgery rejection is already proven live. Running it would mean changing the founder's App settings for no added protection.
+  - **A GitHub App for Ascout itself:** not now. It is an account and identity step for the founder, and the test App already proves C1.
+  - **Team policy for this repository:** none. Every check stays required, so Ascout's own PR check stays truthful (review and security report incomplete here) instead of being relaxed to go green.
+  - **Renaming `authorized_by_founder`:** not in version 1. The local-review config keeps it so existing configs keep working; the remote-review config (version 2) already uses `operator_authorized`.
+  - **#359 (brand and UI freeze, a draft):** left open. Its own text parks it until substantial implementation is complete, and nothing supersedes it.
+  - **Windows T1 mechanism:** PowerShell `Add-Type`, so no native binary ships (#770).
+  - **Paid offering:** no changes. No payment processor, pricing, or licensing step is taken without the founder.
+  - **Cannot be delegated:** the human R1 of #653, and the independent human security review before any T1 claim or any wiring of a sandbox into `check`. The founder said on 2026-11-16 that they will arrange the security review. A private brief for the reviewer is prepared.
+
 - **v0.3.0 is published (2026-11-13), on the founder's explicit authorization.**
   - The release-candidate run [43338782772](https://github.com/TheHalfMoon/Ascout/actions/runs/43338782772), on `main` at `d85b640` with `attest: true`, built and qualified the tarball on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24. The digest was identical on all six lanes, and equal to the earlier dry run at `81d5c3d`; only docs changed between the two.
   - The `release-attest` deployment was approved through the founder's account on that instruction, after the digest was checked. The attestation verifies against the published download.
   - The release notes disclose one known limitation: in a Jest repository, a change only outside the test graph makes `check` exit 2. The fix is on `main` (#738), not in a release.
   - No human reviewed the release; the release notes say so.
 
-- FD-4 was decided on 2026-11-13: research and implementation, not certification. Any T1 claim needs native evidence and an independent human security review.
+- FD-4 was decided on 2026-11-13: research and implementation, not certification. Research runners now exist for Linux, macOS and Windows, with native CI evidence (#764, #766, #768, #770). Any T1 claim still needs an independent human security review, which the founder is arranging (2026-11-16).
 - FD-8 was decided on 2026-11-13: main-rooted; #651 and the superseded PRs are closed. #653 still needs a genuine human R1.
 - Repository settings: private vulnerability reporting and a `main` ruleset (PRs, linear history, the 13 required checks, no force push or deletion) are on as of 2026-11-10. Dependabot alerts are on as of 2026-11-13.
 - Human R1 of the reconciled adoption packet (#653), and optionally of the E8 packets (#703, #707–#709), which merged on the founder's go-ahead without a line-level R1.
 - MCP (E11b) is deferred (2026-11-13); running repository code stays CLI-only.
-- C1 GitHub App gate: the dedicated test App was registered and installed, three `ascout-publish` environment secrets were confirmed by name, and the pinned-source forgery rejection was proven on 2026-11-13. The optional comparison without Commit statuses permission and the decision to register an App for Ascout itself remain open. Evidence: `specs/017-unified-assurance/C1C_LIVE_APP_GATE_PROOF_2026-11-13.md`.
+- C1 GitHub App gate: the dedicated test App was registered and installed, three `ascout-publish` environment secrets were confirmed by name, and the pinned-source forgery rejection was proven on 2026-11-13. The optional permission comparison and an App for Ascout itself were decided against on 2026-11-16 (see the delegated decisions). Evidence: `specs/017-unified-assurance/C1C_LIVE_APP_GATE_PROOF_2026-11-13.md`.
 - Paid offering (`docs/PAID_OFFERING_DESIGN.md`): the principles, what stays free, the pricing model, the licensing boundary, names, and maintenance ownership. Decision 3 is made: C1 is free core. A payment processor is a separate, later decision.
-- BYOAI: E10c, E10d and E10f were approved on 2026-11-13 with conditions (off by default, operator-paid, advisory only). Still open: whether to rename `authorized_by_founder` to `operator_authorized`.
-- GitHub integration: `ASCOUT_PR_TRUSTED_ACTORS` is set to `TheHalfMoon`. Still open: whether to add a team policy for this repository; without one, every check is required, and review and security report incomplete (exit 4) here.
-- Package scope: whether to ship only the modules the entry points reach (see the audit). That would break any undocumented deep import.
+- BYOAI: E10c, E10d and E10f were approved on 2026-11-13 with conditions (off by default, operator-paid, advisory only), and are shipped in v0.3.1.
+- GitHub integration: `ASCOUT_PR_TRUSTED_ACTORS` is set to `TheHalfMoon`. No team policy (delegated decision, 2026-11-16): every check is required, and review and security report incomplete (exit 4) here.
+- Package scope: every module keeps shipping (delegated decision, 2026-11-16).
 - **v0.3.1 is published (2026-11-14), on the founder's explicit authorization of that exact candidate.** The attested run [43547266200](https://github.com/TheHalfMoon/Ascout/actions/runs/43547266200), on `main` at `32e080a`, reproduced the qualified digest `67b6273bd8c0dc5296aa7279f5e71cf31140c9aeb8e88ce1d2694a3f540cfea1` on all six lanes before the `release-attest` deployment was approved. The attestation verifies against the published download. No npm publication. No human reviewed the release, and the release notes say so.
 
 `ROADMAP.md` is the closed record of the REA engineering maintenance run (spec 018) and is kept as history.
