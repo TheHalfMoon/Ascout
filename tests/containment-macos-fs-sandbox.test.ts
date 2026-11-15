@@ -147,7 +147,20 @@ describe("the macOS probe runner", () => {
 describe.runIf(process.platform === "darwin")("native capability probes under sandbox-exec", () => {
   async function runner(network: "shared" | "none") {
     const made = await macosFsSandboxProbeRunnerV1(undefined, network);
-    if ("refused" in made && process.env.ASCOUT_REQUIRE_MACOS_SANDBOX === "1") throw new Error(`the sandbox is required here but refused: ${made.refused}`);
+    if ("refused" in made && process.env.ASCOUT_REQUIRE_MACOS_SANDBOX === "1") {
+      // Say why: rerun the self-test's shape and report what sandbox-exec and Node printed.
+      const { mkdtempSync, realpathSync, rmSync } = await import("node:fs");
+      const { tmpdir, homedir } = await import("node:os");
+      const { spawnSync } = await import("node:child_process");
+      const workspace = realpathSync(mkdtempSync(`${tmpdir()}/ascout-sandbox-diag-`));
+      try {
+        const profile = macosSandboxProfileV1(workspace, realpathSync(process.execPath), realpathSync(homedir()), network);
+        const run = spawnSync(SANDBOX_EXEC, ["-p", profile, realpathSync(process.execPath), "-e", "process.stdout.write('ok')"], { cwd: workspace, env: {}, encoding: "utf8" });
+        throw new Error(`the sandbox is required here but refused: ${made.refused}; status ${run.status} signal ${run.signal} stdout ${JSON.stringify(run.stdout)} stderr ${JSON.stringify(run.stderr.slice(0, 2000))} execPath ${realpathSync(process.execPath)} workspace ${workspace}`);
+      } finally {
+        rmSync(workspace, { recursive: true, force: true });
+      }
+    }
     return made;
   }
 
