@@ -101,11 +101,15 @@ describe("preparing the task sandbox", () => {
   it("refuses a .git whose hooks folder is a link or whose configuration includes other files", async () => {
     const withHooks = fakeHost([...present, `${REPO}/.git/hooks`], { [`${REPO}/.git/hooks`]: "../hooks" });
     expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: withHooks }))).toMatchObject({ refused: expect.stringMatching(/hooks is a link/u) });
-    for (const config of ["[include]\n\tpath = ../conf\n", "  [includeIf \"gitdir:/x/\"]\n\tpath = y\n", "[INCLUDE]\npath=z\n"]) {
+    // A link to a path that doesn't exist yet is still a link.
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: fakeHost(present, { [`${REPO}/.git/hooks`]: "../not-yet" }) }))).toMatchObject({ refused: expect.stringMatching(/hooks is a link/u) });
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: fakeHost(present, { [`${REPO}/.git/config`]: "../conf" }) }))).toMatchObject({ refused: expect.stringMatching(/config is a link/u) });
+    expect(gitReachRefusalV1(`${REPO}/.git`, { exists: () => false, symlinkTarget: () => { throw new Error("ENOENT"); } }, () => null)).toBeNull();
+    for (const config of ["[include]\n\tpath = ../conf\n", "  [includeIf \"gitdir:/x/\"]\n\tpath = y\n", "[INCLUDE]\npath=z\n", "[core][include]\n\tpath = inc.cfg\n"]) {
       expect(await prepareLinuxTaskSandboxV1(REPO, deps({ readText: () => config })), config).toMatchObject({ refused: expect.stringMatching(/includes other files/u) });
     }
     expect(gitReachRefusalV1(`${REPO}/.git`, fakeHost([`${REPO}/.git/hooks`]), () => null)).toBeNull();
-    expect(gitReachRefusalV1(`${REPO}/.git`, fakeHost([]), () => "[core]\n[remote \"origin\"]\n\turl = x\n")).toBeNull();
+    for (const clean of ["[core]\n[remote \"origin\"]\n\turl = x\n", "[includeX]\n", "[include \"x\"]\n"]) expect(gitReachRefusalV1(`${REPO}/.git`, fakeHost([]), () => clean), clean).toBeNull();
   });
 
   it("refuses off Linux, without bubblewrap, for a refused repository or Node folder", async () => {

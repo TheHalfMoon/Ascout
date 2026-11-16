@@ -136,10 +136,21 @@ const realReadText = (path: string): string | null => {
  * Why `.git` would let the writable tree reach Git's own settings, or null: a hooks folder that is a
  * link, or a configuration include, either of which can point into the repository the task writes.
  */
+function linkTarget(host: Pick<LinuxFsHostV1, "symlinkTarget">, path: string): string | null {
+  try {
+    return host.symlinkTarget(path);
+  } catch {
+    return null;
+  }
+}
+
 export function gitReachRefusalV1(gitDir: string, host: Pick<LinuxFsHostV1, "symlinkTarget" | "exists">, readText: (path: string) => string | null): string | null {
-  const hooks = posix.join(gitDir, "hooks");
-  if (host.exists(hooks) && host.symlinkTarget(hooks) !== null) return "the repository's .git/hooks is a link, which could point into the writable tree";
-  if (/^\s*\[\s*include(If\b|\s*\])/imu.test(readText(posix.join(gitDir, "config")) ?? "")) return "the repository's Git configuration includes other files, which could lie in the writable tree";
+  // symlinkTarget reads the link itself, so a link to a path that doesn't exist yet is caught too.
+  for (const name of ["hooks", "config"]) {
+    if (linkTarget(host, posix.join(gitDir, name)) !== null) return `the repository's .git/${name} is a link, which could point into the writable tree`;
+  }
+  // Git starts a section at any "[", even after another header on the same line.
+  if (/(^|\])\s*\[\s*include(if\b|\s*\])/imu.test(readText(posix.join(gitDir, "config")) ?? "")) return "the repository's Git configuration includes other files, which could lie in the writable tree";
   return null;
 }
 
