@@ -55,6 +55,8 @@ Audited at `main` f860661.
 - **Known defect, not fixed here:** `browser/playwright-adapter` imports `playwright` at the top level.
   `playwright` is a development dependency, so importing that shipped file from an installed package
   fails. Nothing documented imports it.
+  - **Fixed 2026-11-16:** the adapter now loads Playwright only when it is available and imports cleanly
+    from an installed package (`tests/browser-playwright-optional.test.ts`).
 
 ## Decision and options
 
