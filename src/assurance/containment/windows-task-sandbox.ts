@@ -205,6 +205,8 @@ $tmp = Join-Path $acDir 'Temp'
 foreach ($name2 in @('TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE', 'HOME')) { $vars[$name2] = $tmp }
 $entries = @($vars.Keys | Sort-Object | ForEach-Object { "$_=$($vars[$_])" })
 $block = ($entries -join [char]0) + [char]0 + [char]0
+# After the task's environment is captured: PowerShell needs .EXE in PATHEXT to run icacls as a program.
+$env:PATHEXT = '.COM;.EXE'
 $icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
 $sid = [AscoutAcTask]::Sid($name)
 $writable = @((& $dec $writable64) -split '\|' | Where-Object { $_ })
