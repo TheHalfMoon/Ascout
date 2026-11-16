@@ -77,6 +77,14 @@ const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp"
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const CLEAN_ENV_FLAG = "--clean-env";
 const PASS_ENV_FLAG = "--pass-env";
+
+/** Says what --clean-env is and isn't: one capability removed, and no isolation claimed. */
+const CLEAN_ENV_NOTICE = "Tasks ran without inheriting your environment (--clean-env). Containment is still T0: tasks run with your full rights, can read and write files (including credential files in your home folder), reach the network, and can still read Ascout's own environment from the operating system.";
+
+/** The allowlisted task environment when the invocation asked for one. */
+function taskEnvironmentFor(invocation: CliInvocation): NodeJS.ProcessEnv | undefined {
+  return invocation.cleanEnv ? allowlistedTaskEnvironmentV1(process.env, process.platform, invocation.passEnv) : undefined;
+}
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
 const PLAN_FLAG = "--plan";
@@ -202,6 +210,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   if (commandToken === "pr-evidence") {
     let skipTests = false;
     let prHead: string | undefined;
+    let evidenceCleanEnv = false;
+    const evidencePassEnv: string[] = [];
     for (let index = 0; index < rest.length; index += 1) {
       const token = rest[index]!;
       if (token === "--skip-tests" && !skipTests) {
@@ -209,11 +219,24 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       } else if (token === "--pr-head" && prHead === undefined && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(rest[index + 1] ?? "")) {
         prHead = rest[index + 1]!;
         index += 1;
+      } else if (token === CLEAN_ENV_FLAG && !evidenceCleanEnv) {
+        evidenceCleanEnv = true;
+      } else if (token === PASS_ENV_FLAG && PASS_ENV_NAME.test(rest[index + 1] ?? "")) {
+        evidencePassEnv.push(rest[index + 1]!);
+        index += 1;
       } else {
-        throw new CliUsageError("ascout pr-evidence accepts --skip-tests and --pr-head <sha>, a lowercase 40- or 64-hex commit ID.");
+        throw new CliUsageError(`ascout pr-evidence accepts --skip-tests, --pr-head <sha> (a lowercase 40- or 64-hex commit ID), and ${CLEAN_ENV_FLAG} [${PASS_ENV_FLAG} NAME]...`);
       }
     }
-    return { command: "pr-evidence", allowChangedCommandSurface: false, ...(skipTests ? { skipTests: true as const } : {}), ...(prHead === undefined ? {} : { prHead }) };
+    if (evidencePassEnv.length > 0 && !evidenceCleanEnv) throw new CliUsageError(`${PASS_ENV_FLAG} is valid only with ${CLEAN_ENV_FLAG}.`);
+    return {
+      command: "pr-evidence",
+      allowChangedCommandSurface: false,
+      ...(skipTests ? { skipTests: true as const } : {}),
+      ...(prHead === undefined ? {} : { prHead }),
+      ...(evidenceCleanEnv ? { cleanEnv: true as const } : {}),
+      ...(evidencePassEnv.length > 0 ? { passEnv: evidencePassEnv } : {}),
+    };
   }
 
   if (commandToken === "mcp" && rest.length > 0) {
@@ -247,7 +270,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     }
 
     if (token === CLEAN_ENV_FLAG || token === PASS_ENV_FLAG) {
-      if (commandToken !== "check") throw new CliUsageError(`${token} is valid only with the check command.`);
+      if (commandToken !== "check" && commandToken !== "test") throw new CliUsageError(`${token} is valid only with the check, test, and pr-evidence commands.`);
       if (token === CLEAN_ENV_FLAG) {
         if (cleanEnv) throw new CliUsageError(`${CLEAN_ENV_FLAG} may be supplied only once.`);
         cleanEnv = true;
@@ -436,8 +459,8 @@ export function usageText(): string {
     `  ascout doctor [${FORMAT_FLAG} json|terminal]`,
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${CLEAN_ENV_FLAG} [${PASS_ENV_FLAG} NAME]...] [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${LOCAL_MODEL_FLAG} | ${REMOTE_MODEL_FLAG} [${DRY_RUN_FLAG}] | ${EXPORT_TASK_FLAG} <path> | ${INGEST_FLAG} <findings.json>] [${FORMAT_FLAG} json|terminal]`,
-    `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${FORMAT_FLAG} json|terminal]`,
-    "  ascout pr-evidence [--skip-tests] [--pr-head <sha>]",
+    `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${CLEAN_ENV_FLAG} [${PASS_ENV_FLAG} NAME]...] [${FORMAT_FLAG} json|terminal]`,
+    "  ascout pr-evidence [--skip-tests] [--pr-head <sha>] [--clean-env [--pass-env NAME]...]",
     "  ascout pr-publish <bundle>",
     "  ascout pr-ai-review",
     "  ascout pr-ai-publish <artifact>",
@@ -636,7 +659,7 @@ export function runDelegatedIngest(repositoryRoot: string, path: string, format:
   return result.exit_code;
 }
 
-async function runTest(profile: TestProfile, planOnly: boolean, format: TestFormat | undefined): Promise<number> {
+async function runTest(profile: TestProfile, planOnly: boolean, format: TestFormat | undefined, taskEnvironment?: NodeJS.ProcessEnv): Promise<number> {
   if (planOnly) {
     const result = computeTestPlanV1(profile);
     if (result.kind === "error") return result.exit_code;
@@ -672,7 +695,8 @@ async function runTest(profile: TestProfile, planOnly: boolean, format: TestForm
   }
   readRepositoryPrefix(root);
   refuseUnsupportedRepository(root);
-  const outcome = await withRunCancellation((signal) => runCheck(root, { signal }));
+  const outcome = await withRunCancellation((signal) => runCheck(root, { signal, ...(taskEnvironment === undefined ? {} : { taskEnvironment }) }));
+  if (taskEnvironment !== undefined) console.error(CLEAN_ENV_NOTICE);
   const result = testRunResultFromReceiptV1(profile, outcome.receipt);
   if (result.kind === "error") {
     // Exit 2 keeps stdout empty (A07); the check receipt stays in its run directory.
@@ -724,13 +748,10 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       refuseUnsupportedRepository(process.cwd());
       const outcome = await withRunCancellation((signal) => runCheck(process.cwd(), {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
-        ...(invocation.cleanEnv ? { taskEnvironment: allowlistedTaskEnvironmentV1(process.env, process.platform, invocation.passEnv) } : {}),
+        ...(invocation.cleanEnv ? { taskEnvironment: taskEnvironmentFor(invocation)! } : {}),
         signal,
       }));
-      if (invocation.cleanEnv) {
-        // Says what it is and isn't: one capability removed, and no isolation claimed.
-        console.error("Tasks ran without inheriting your environment (--clean-env). Containment is still T0: tasks run with your full rights, can read and write files (including credential files in your home folder), reach the network, and can still read Ascout's own environment from the operating system.");
-      }
+      if (invocation.cleanEnv) console.error(CLEAN_ENV_NOTICE);
       if (invocation.format === "json") {
         process.stdout.write(renderReceiptJson(outcome.receipt));
       } else if (invocation.format === "agent") {
@@ -755,7 +776,9 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // The PR evidence bundle for the GitHub integration, as JSON on stdout. Runs the repository's
       // own tests unless --skip-tests (T0 trusted-local); exits with the overall A07 code.
       const root = realpathSync.native(process.cwd());
-      const evidence = await withRunCancellation((signal) => collectPrEvidenceV1({ root, gitleaksPath: configuredGitleaksPathV1(), runTests: invocation.skipTests !== true, ...(invocation.prHead === undefined ? {} : { prHead: invocation.prHead }), signal }));
+      const taskEnvironment = taskEnvironmentFor(invocation);
+      const evidence = await withRunCancellation((signal) => collectPrEvidenceV1({ root, gitleaksPath: configuredGitleaksPathV1(), runTests: invocation.skipTests !== true, ...(invocation.prHead === undefined ? {} : { prHead: invocation.prHead }), ...(taskEnvironment === undefined ? {} : { taskEnvironment }), signal }));
+      if (taskEnvironment !== undefined) console.error(CLEAN_ENV_NOTICE);
       process.stdout.write(`${JSON.stringify(evidence, null, 2)}
 `);
       return evidence.overall.exit_code;
@@ -797,7 +820,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // parseCliArgs admits only json|terminal for the test command,
       // so this narrowing reflects parser-guaranteed input.
       const testFormat = invocation.format as TestFormat | undefined;
-      return await runTest(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, invocation.plan === true, testFormat);
+      return await runTest(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, invocation.plan === true, testFormat, taskEnvironmentFor(invocation));
     }
     if (invocation.command === "security") {
       const gitleaksPath = configuredGitleaksPathV1();

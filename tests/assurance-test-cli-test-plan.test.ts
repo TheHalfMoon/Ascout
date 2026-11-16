@@ -43,7 +43,7 @@ describe("UA-P05-T09 additive test command", { timeout: 60_000 }, () => {
       profile: "QUICK",
     });
     expect(usageText()).toContain(
-      "ascout test [--plan] [--profile quick|standard|deep|release] [--format json|terminal]",
+      "ascout test [--plan] [--profile quick|standard|deep|release] [--clean-env [--pass-env NAME]...] [--format json|terminal]",
     );
   });
 
