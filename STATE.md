@@ -79,6 +79,31 @@ Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with 
 | Package scope | Audited; nothing removed | `PACKAGE_SCOPE_AUDIT_2026-11-14.md`: 98 modules no entry point reaches, all used by tests, one a documented deep import; none proven unused | Shipping only reachable modules would break deep imports | Yes, if that trade is wanted | — |
 | Release | **v0.3.1 published** (2026-11-14) | https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.1: tag at `32e080a`; SHA-256 `67b6273bd8c0dc5296aa7279f5e71cf31140c9aeb8e88ce1d2694a3f540cfea1`; qualified by run [43545268017](https://github.com/TheHalfMoon/Ascout/actions/runs/43545268017), attested by run [43547266200](https://github.com/TheHalfMoon/Ascout/actions/runs/43547266200) (same digest on all six lanes), public download checked and the attestation verified | Further releases | Yes, each one | — |
 
+### Engineering after v0.3.1 (2026-11-16)
+
+These changes are on `main` and are **not released**. A release needs the founder's authorization. Evidence is the same as above: exact-head CI on all 14 required checks, and, for code, Ascout's own receipt (COMPLETE, every changed line and branch exercised). Each PR also had an independent AI review, which is advisory and never human R1. No human read any of these heads.
+
+| PR | Change | Merge commit |
+| --- | --- | --- |
+| #772 | State: records the delegated decisions of 2026-11-16 as the agent's reversible choices | `5aac45d` |
+| #773 | Human R1 reviewer package for #653 (questions, criteria, staleness sources, blank sign-off) | `5d629f1` |
+| #774 | The browser adapter imports from an installed package without Playwright, and says the browser engine is missing only when a browser is driven | `7e8da26` |
+| #776 | README and GitHub integration guide: v0.3.1 current, full CLI usage, C1c proof stated exactly | `d2bbc0d` |
+| #779 | Design note: statement-level coverage and the receipt version (design only; needs an A07 amendment) | `dc20bb3` |
+| #780 | Tests: `check` under Git attribute and config changes made during the run (#591); positive control; #591 stays open | `1c58606` |
+| #775 | PR publish workflow and templates skip a cancelled collect run instead of failing on a missing artifact | `035541c` |
+| #777 | `--clean-env [--pass-env NAME]...` on `test` and `pr-evidence`, as on `check` (inheritance only; tier stays T0) | `c61a7ee` |
+| #778 | `ascout mcp` supports protocol 2025-11-25; tool arguments are a readable tool error there, a protocol error in earlier versions | `a1c75e5` |
+
+**Still blocked on people, not engineering:**
+
+- human R1 of #653: the reviewer package is `specs/017-unified-assurance/PR653_HUMAN_R1_REVIEWER_PACKAGE.md`;
+- an independent human security review before any T1 claim or any wiring of a sandbox into `check` (the founder is arranging it; the brief is private);
+- a founder-ratified A07 amendment before statement-level coverage can change receipts (#779 recommends Option A);
+- any release.
+
+**Can proceed without the founder:** smaller CI and reliability fixes, docs accuracy, and native evidence for the research runners, all without enabling them in `check`. Issue #591 stays open: #780 characterizes three cases, but the check-then-use window is unchanged.
+
 ### Open decisions for the founder
 
 - **Delegated decisions (2026-11-16).** The founder said, "choose the best for me, do not wait for my decision". Under that delegation, the engineering agent (not the founder) chose the most conservative, reversible option for each open item. The founder may reverse any of them:
