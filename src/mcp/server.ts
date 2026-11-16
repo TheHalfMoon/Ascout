@@ -21,8 +21,13 @@ import { computeLastCheckToolV1, computePolicyToolV1 } from "./read-tools.js";
 export const ASCOUT_PACKAGE_VERSION = "0.3.1";
 export const MCP_MAX_MESSAGE_BYTES = 64 * 1024;
 export const MCP_MAX_RESULT_BYTES = 4 * 1024 * 1024;
-export const MCP_PROTOCOL_VERSION = "2025-06-18";
-const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
+export const MCP_PROTOCOL_VERSION = "2025-11-25";
+const SUPPORTED_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
+/**
+ * From 2025-11-25 (SEP-1303), invalid tool input is a tool execution error the model can read and
+ * correct, not a protocol error. Earlier versions keep the protocol error they always had.
+ */
+const TOOL_INPUT_ERRORS_AS_RESULTS = new Set(["2025-11-25"]);
 
 export const MCP_TOOL_LIMITS_MS = Object.freeze({
   ascout_test_plan: 5_000,
@@ -88,6 +93,8 @@ export function serveMcpV1(options: McpServerOptionsV1): Promise<number> {
   const fail = (id: JsonRpcId, code: number, message: string): void => send({ jsonrpc: "2.0", id, error: { code, message } });
 
   let inFlight: { id: string | number; controller: AbortController } | null = null;
+  /** The protocol version agreed at initialize, or null before it. */
+  let negotiated: string | null = null;
 
   const defaultRunTool = (name: ToolName, signal: AbortSignal): Promise<CommandResultV1<unknown>> => {
     switch (name) {
@@ -117,7 +124,9 @@ export function serveMcpV1(options: McpServerOptionsV1): Promise<number> {
     }
     const args = record.arguments;
     if (args !== undefined && (typeof args !== "object" || args === null || Array.isArray(args) || Object.keys(args).length > 0)) {
-      fail(id, -32602, "Ascout tools take no arguments");
+      // Nothing runs either way; only how the refusal is reported depends on the protocol version.
+      if (negotiated !== null && TOOL_INPUT_ERRORS_AS_RESULTS.has(negotiated)) reply(id, { isError: true, content: [{ type: "text", text: "Ascout tools take no arguments; call it with no arguments" }] });
+      else fail(id, -32602, "Ascout tools take no arguments");
       return;
     }
     if (inFlight !== null) {
@@ -212,6 +221,7 @@ export function serveMcpV1(options: McpServerOptionsV1): Promise<number> {
       case "initialize": {
         const requested = (params as { protocolVersion?: unknown } | undefined)?.protocolVersion;
         const protocolVersion = typeof requested === "string" && SUPPORTED_PROTOCOL_VERSIONS.includes(requested) ? requested : MCP_PROTOCOL_VERSION;
+        negotiated = protocolVersion;
         reply(id, {
           protocolVersion,
           capabilities: { tools: {} },
