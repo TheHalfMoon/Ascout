@@ -141,7 +141,7 @@ Bubblewrap must be installed at `/usr/bin/bwrap` or `/bin/bwrap`, and unprivileg
 - you are on another OS.
 
 Limits:
-- **Tier:** the containment tier is still reported as T0 until this sandbox is qualified.
+- **Tier:** a sandboxed Linux run reports containment tier T1, internally qualified under Amendment A09: four independent AI security reviews of its final commits found no remaining Critical, High or Medium issue (PR #789). That is not an external certification or a human audit. Runs without `--sandbox` stay T0, and Ascout still supports only repositories you trust.
 - **Repository files:** they stay writable, and you may later run them yourself.
 - **Resources:** there is no memory or CPU limit beyond Ascout's timeouts.
 - **System calls:** there is no seccomp filter, so a task shares your session keyring.
