@@ -21,6 +21,8 @@ afterEach(() => {
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
+// The fixture has a typecheck task but no test task, so an honest run is incomplete (exit 4), never 0.
+const CONTROL_EXIT = 4;
 const posix = (path: string): string => path.replaceAll("\\", "/");
 
 function git(root: string, home: string, ...args: string[]): void {
@@ -50,7 +52,6 @@ function repository(mutation: string, setup: (root: string, home: string) => voi
     "const fs = require('node:fs'); const cp = require('node:child_process');",
     `const root = ${JSON.stringify(root)}; const marker = ${JSON.stringify(posix(marker))};`,
     mutation,
-    "setTimeout(() => {}, 300);",
   ].join(" ");
   writeFileSync(join(root, "ascout.config.json"), JSON.stringify({ version: 1, tasks: { typecheck: { command: [process.execPath, "-e", task] } } }));
   for (const args of [["init", "-q"], ["config", "user.name", "Ascout Race Fixture"], ["config", "user.email", "race@example.invalid"], ["config", "commit.gpgsign", "false"]]) git(root, home, ...args);
@@ -63,45 +64,59 @@ function repository(mutation: string, setup: (root: string, home: string) => voi
 // The repository-selected helper: a filter driver that only creates the marker.
 const DEFINE_FILTER = "cp.execFileSync('git', ['config', 'filter.evil.clean', 'touch \"' + marker + '\" && cat'], { cwd: root }); cp.execFileSync('git', ['config', 'filter.evil.smudge', 'touch \"' + marker + '\" && cat'], { cwd: root });";
 
-/** The run's exit code; a refusal to read the repository is the CLI's exit 2. */
-async function outcome(root: string): Promise<number> {
+/** The run's exit code and why: a refusal to read the repository is the CLI's exit 2. */
+async function outcome(root: string): Promise<{ exit: number; refused: boolean }> {
   try {
     const { receipt } = await runCheck(root);
-    return receipt.summary.exit_code;
+    return { exit: receipt.summary.exit_code, refused: false };
   } catch (error) {
     expect(String(error)).toMatch(/refusing to read this repository: .* filter attribute/u);
-    return 2;
+    return { exit: 2, refused: true };
   }
 }
 
+describe("the planted Git filter driver (positive control)", () => {
+  it("runs under plain Git, so the marker assertions below are meaningful", () => {
+    const { root, marker } = repository("void 0;");
+    const home = join(root, "..", "home");
+    const sh = (...args: string[]) => git(root, home, ...args);
+    sh("config", "filter.evil.clean", `touch "${posix(marker)}" && cat`);
+    writeFileSync(join(root, ".gitattributes"), "*.js filter=evil\n");
+    writeFileSync(join(root, "a.js"), "export const a = 2;\n");
+    sh("add", "a.js");
+    expect(existsSync(marker)).toBe(true);
+  });
+});
+
 describe("check under Git attribute and configuration changes during the run (#591)", () => {
-  it("a filter attribute and driver added mid-run: no helper runs, and the run is not COMPLETE", async () => {
+  it("a filter attribute and driver added mid-run: no helper runs; Ascout refuses (exit 2)", async () => {
     const { root, marker } = repository(`${DEFINE_FILTER} fs.writeFileSync(root + '/.gitattributes', '*.js filter=evil\\n');`);
-    const exit = await outcome(root);
+    const result = await outcome(root);
     expect(existsSync(marker)).toBe(false);
-    expect([2, 3]).toContain(exit);
+    expect(result).toEqual({ exit: 2, refused: true });
   });
 
-  it("an attributes file redirected through repository config mid-run: no helper runs, and the run is not COMPLETE", async () => {
+  it("an attributes file redirected through repository config mid-run: no helper runs; Ascout refuses (exit 2), which drift can't explain", async () => {
     const { root, marker } = repository(`${DEFINE_FILTER} fs.writeFileSync(root + '/../redirected-attributes', '*.js filter=evil\\n'); cp.execFileSync('git', ['config', 'core.attributesFile', root + '/../redirected-attributes'], { cwd: root });`);
-    const exit = await outcome(root);
+    const result = await outcome(root);
     expect(existsSync(marker)).toBe(false);
-    expect([2, 3]).toContain(exit);
+    expect(result).toEqual({ exit: 2, refused: true });
   });
 
-  it("an existing attributes file edited mid-run to add a filter: no helper runs, and the run is not COMPLETE", async () => {
+  it("an existing attributes file edited mid-run to add a filter: no helper runs; Ascout refuses (exit 2)", async () => {
     const { root, marker } = repository(`${DEFINE_FILTER} fs.appendFileSync(root + '/.gitattributes', '*.js filter=evil\\n');`, (fixtureRoot) => {
       writeFileSync(join(fixtureRoot, ".gitattributes"), "*.js text eol=lf\n");
     });
-    const exit = await outcome(root);
+    const result = await outcome(root);
     expect(existsSync(marker)).toBe(false);
-    expect([2, 3]).toContain(exit);
+    expect(result).toEqual({ exit: 2, refused: true });
   });
 
-  it("a control: the same task without the change completes normally, so the cases above test the change", async () => {
+  it("a control: the same task without the change is not refused, so the cases above test the change", async () => {
     const { root, marker } = repository("void 0;");
-    const exit = await outcome(root);
+    const result = await outcome(root);
     expect(existsSync(marker)).toBe(false);
-    expect(exit).not.toBe(2);
+    expect(result.refused).toBe(false);
+    expect(result.exit).toBe(CONTROL_EXIT);
   });
 });

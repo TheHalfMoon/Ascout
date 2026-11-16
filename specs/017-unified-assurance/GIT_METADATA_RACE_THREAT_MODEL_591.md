@@ -22,7 +22,7 @@ Exploit payloads are not kept here. The tests use synthetic markers only.
   - code a task runs itself, which is T0 by definition (the task can already run anything);
   - kernel and filesystem races below Git.
 
-## What Ascout guarantees (characterized)
+## What was observed (characterized, not guaranteed)
 
 `tests/git-race-591.integration.test.ts` makes the change during the run, from the repository's own
 task. It runs on Linux, macOS and Windows in CI. Three cases are covered:
@@ -30,12 +30,17 @@ task. It runs on Linux, macOS and Windows in CI. Three cases are covered:
 2. an attributes file redirected through `core.attributesFile`;
 3. an existing `.gitattributes` edited to add a filter.
 
-**Observed and required in every case:**
-- the repository-selected driver never runs: its marker file is never created;
-- the run is never COMPLETE with exit 0. Ascout's end-of-run observation refuses to read a repository
-  with a filter attribute, which the CLI reports as exit 2, or reports drift (exit 3).
+**Observed in these three cases, and required by the tests:**
+- the repository-selected driver did not run (its marker file was never created);
+- the run was not COMPLETE. In each case, Ascout's end-of-run observation refused to read a
+  repository with a filter attribute; the CLI reports that as exit 2. In the redirected-attributes
+  case, drift can't explain it.
 
-A control case, the same task without the change, runs normally, so the cases test the change itself.
+A positive control shows that plain `git add` does run the planted driver, so "never created" is a
+meaningful assertion. A control case, the same task without the change, is not refused.
+
+These results cover the three cases tested. They are not a general guarantee. The check-then-use
+window itself is unchanged, and #591 stays open.
 
 ## What stays open
 
