@@ -217,7 +217,7 @@ describe.runIf(process.platform === "linux")("native: a check task inside the Li
     const t = await setUp();
     if (t === null) return ctx.skip();
     try {
-      const late = (marker: string) => `require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => require('fs').writeFileSync(${JSON.stringify(marker)}, 'x'), 1500)"], { detached: true, stdio: "ignore" }).unref(); process.stdout.write("started")`;
+      const late = (marker: string) => `require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => require('fs').writeFileSync('${marker}', 'x'), 1500)"], { detached: true, stdio: "ignore" }).unref(); process.stdout.write("started")`;
       expect(await run(t.sandbox, t.ws, late(join(t.ws, "late-inside")))).toBe("started");
       expect(await run(null, t.ws, late(join(t.ws, "late-control")))).toBe("started");
       await new Promise((resolve) => setTimeout(resolve, 3500));
