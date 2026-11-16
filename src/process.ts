@@ -5,7 +5,7 @@ import {
   type SpawnSyncOptions,
 } from "node:child_process";
 import { createRequire } from "node:module";
-import { win32 as pathWin32 } from "node:path";
+import { isAbsolute as pathIsAbsolute, resolve as pathResolve, win32 as pathWin32 } from "node:path";
 
 import { trustedCommandExecutable } from "./git.js";
 
@@ -50,6 +50,12 @@ export interface ProcessRunRequest {
    * so no lookup searches the working directory. Unresolved, nothing starts.
    */
   readonly resolve_bare_file_outside?: string;
+  /**
+   * Runs the command through a sandbox launcher. It is applied after any bare-name resolution, to an
+   * absolute command path (a relative one resolves against cwd), and the launcher it returns is started
+   * exactly as named. If it throws, nothing starts.
+   */
+  readonly wrap?: (file: string, argv: readonly string[]) => { readonly file: string; readonly argv: readonly string[] };
 }
 
 function isBareCommand(file: string): boolean {
@@ -453,9 +459,17 @@ export async function runProcess(request: ProcessRunRequest): Promise<ProcessRun
 
   let child: ChildProcess;
   try {
-    child = request.exact_executable === true
-      ? spawn(file, [...request.argv], spawnOptions(request))
-      : crossSpawn(file, [...request.argv], spawnOptions(request));
+    let argv = request.argv;
+    let exact = request.exact_executable === true;
+    if (request.wrap !== undefined) {
+      const wrapped = request.wrap(pathIsAbsolute(file) ? file : pathResolve(request.cwd, file), argv);
+      file = wrapped.file;
+      argv = wrapped.argv;
+      exact = true;
+    }
+    child = exact
+      ? spawn(file, [...argv], spawnOptions(request))
+      : crossSpawn(file, [...argv], spawnOptions(request));
   } catch (error) {
     const normalized = error instanceof Error ? error : new Error("process launch threw a non-Error value");
     return errorResult(target, normalized, emptyCapture(), emptyCapture(), false, true);
