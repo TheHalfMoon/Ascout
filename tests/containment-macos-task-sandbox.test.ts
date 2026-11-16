@@ -20,6 +20,13 @@ const PLAN = { workspace: REPO, privateDir: "/private/var/folders/xy/T/ascout-1"
 describe("the macOS task profile", () => {
   const lines = macosTaskSandboxProfileV1(PLAN, [RESULTS]).trim().split("\n");
 
+  it("denies launchd jobs, hard links and clones, other processes' details, and devices but the few tools need", () => {
+    for (const rule of ["(deny job-creation)", "(deny mach-register)", "(deny mach-priv*)", "(deny file-link)", "(deny file-clone)", "(deny process-info*)", "(allow process-info* (target self))", '(deny sysctl-read (sysctl-name-prefix "kern.procargs"))', '(deny file-read-data file-write* (subpath "/dev"))']) expect(lines, rule).toContain(rule);
+    const devices = lines.find((line) => line.startsWith("(allow file-read-data file-write-data (literal \"/dev/null\")"))!;
+    expect(lines.indexOf(devices)).toBeGreaterThan(lines.indexOf('(deny file-read-data file-write* (subpath "/dev"))'));
+    expect(devices).not.toContain("ttys");
+  });
+
   it("denies data reads, writes, services, network, and outside signals, then opens the repository, the private folder, and Node's entry points", () => {
     expect(lines.slice(0, 2)).toEqual(["(version 1)", "(allow default)"]);
     expect(lines).toContain("(deny network*)");
@@ -41,7 +48,8 @@ describe("the macOS task profile", () => {
 
   it("has no .git rule without a .git folder or a results rule without result folders, and refuses unsafe input", () => {
     const bare = macosTaskSandboxProfileV1({ ...PLAN, gitDir: null });
-    expect(bare).not.toContain(".git");
+    // Without a .git folder, creating one is still denied.
+    expect(bare).toContain(`(deny file-write* (subpath "${REPO}/.git"))`);
     expect(bare).not.toContain(".ascout/runs");
     expect(() => macosTaskSandboxProfileV1({ ...PLAN, workspace: "/Users" })).toThrow();
     expect(() => macosTaskSandboxProfileV1({ ...PLAN, privateDir: '/tmp/a"b' })).toThrow(/private folder/u);
@@ -86,7 +94,19 @@ describe("preparing the macOS task sandbox", () => {
     writeFile: () => undefined,
     removeDir: (path) => removed.push(path),
   });
-  const deps = (overrides: Partial<MacosTaskSandboxDepsV1> = {}): MacosTaskSandboxDepsV1 => ({ platform: "darwin", host: host(present), exec: async () => JSON.stringify(MACOS_SELF_TEST_EXPECTED), execPath: "/opt/homebrew/Cellar/node/22/bin/node", loopbackPort: async () => null, ...overrides });
+  // What the task itself reports; launchdJob is judged from outside, by the host.
+  const { launchdJob: _judgedOutside, ...reported } = MACOS_SELF_TEST_EXPECTED;
+  const deps = (overrides: Partial<MacosTaskSandboxDepsV1> = {}): MacosTaskSandboxDepsV1 => ({
+    platform: "darwin",
+    host: host(present),
+    exec: async () => "",
+    execBoth: async () => ({ stdout: JSON.stringify(reported), stderr: "" }),
+    execPath: "/opt/homebrew/Cellar/node/22/bin/node",
+    loopbackPort: async () => ({ port: 4242, close: () => undefined }),
+    randomName: () => "abc",
+    launchdWaitMs: 0,
+    ...overrides,
+  });
 
   it("refuses off macOS, without sandbox-exec, for a refused workspace, and for a Node folder that would expose the home folder", async () => {
     expect(await prepareMacosTaskSandboxV1(REPO, deps({ platform: "linux" }))).toEqual({ refused: "the sandbox-exec task sandbox is macOS only" });
@@ -102,11 +122,13 @@ describe("preparing the macOS task sandbox", () => {
   });
 
   it("refuses unless the self-test, run in the real task configuration, reports every expected denial, and removes the private folder then", async () => {
-    expect(await prepareMacosTaskSandboxV1(REPO, deps({ exec: async () => "" }))).toMatchObject({ refused: expect.stringMatching(/did not start/u) });
-    for (const key of Object.keys(MACOS_SELF_TEST_EXPECTED)) {
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async () => ({ stdout: "", stderr: "sandbox-exec: unbound variable" }) }))).toEqual({ refused: "the sandbox-exec task sandbox did not start (sandbox-exec: unbound variable)" });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async () => ({ stdout: "", stderr: "" }) }))).toEqual({ refused: "the sandbox-exec task sandbox did not start" });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ loopbackPort: async () => null }))).toMatchObject({ refused: expect.stringMatching(/could not bind a host loopback port/u) });
+    for (const key of Object.keys(reported)) {
       removed.length = 0;
-      const broken = { ...MACOS_SELF_TEST_EXPECTED, [key]: "something-else" };
-      expect(await prepareMacosTaskSandboxV1(REPO, deps({ exec: async () => JSON.stringify(broken) })), key).toMatchObject({ refused: expect.stringMatching(/self-test did not hold/u) });
+      const broken = { ...reported, [key]: "something-else" };
+      expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async () => ({ stdout: JSON.stringify(broken), stderr: "" }) })), key).toMatchObject({ refused: expect.stringMatching(/self-test did not hold/u) });
       expect(removed).toContain("/private/var/folders/xy/T/ascout-1");
     }
   });
@@ -114,11 +136,18 @@ describe("preparing the macOS task sandbox", () => {
   it("runs the self-test through sandbox-exec with a real result folder and a host loopback port", async () => {
     const calls: (readonly string[])[] = [];
     let closed = false;
-    await prepareMacosTaskSandboxV1(REPO, deps({ exec: async (_file, argv) => { calls.push(argv); return JSON.stringify(MACOS_SELF_TEST_EXPECTED); }, loopbackPort: async () => ({ port: 4242, close: () => { closed = true; } }) }));
+    await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async (_file, argv) => { calls.push(argv); return { stdout: JSON.stringify(reported), stderr: "" }; }, loopbackPort: async () => ({ port: 4242, close: () => { closed = true; } }) }));
     expect(calls).toHaveLength(1);
     expect(calls[0]![1]).toContain("/private/var/folders/xy/T/ascout-1/repo/.ascout/runs/selftest/raw/test");
     expect(calls[0]!.join(" ")).toContain("4242");
     expect(closed).toBe(true);
+  });
+
+  it("refuses when launchd ran the job the task submitted, judged by its marker outside the sandbox, and removes that job", async () => {
+    const calls: (readonly string[])[] = [];
+    const escaped = host([...present, "/private/var/folders/xy/T/ascout-1/launchd-job-ran"]);
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: escaped, execBoth: async (file, argv) => { calls.push([file, ...argv]); return { stdout: JSON.stringify(reported), stderr: "" }; } }))).toMatchObject({ refused: expect.stringMatching(/"launchdJob":"ran"/u) });
+    expect(calls.at(-1)).toEqual(["/bin/launchctl", "remove", "ascout.selftest.abc"]);
   });
 
   it("refuses when a path can't be resolved, instead of throwing", async () => {

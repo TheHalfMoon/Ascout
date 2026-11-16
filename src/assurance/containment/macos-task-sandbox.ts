@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { createServer } from "node:net";
 import { posix } from "node:path";
 
@@ -36,7 +37,9 @@ import { SANDBOX_EXEC, UNREADABLE_DATA_TREES, macosWorkspaceRefusalV1 } from "./
  *   sandboxed);
  * - there is no memory or CPU limit beyond Ascout's timeout and output caps;
  * - file metadata inside `.ascout` (whether a guessed name exists, its size and times) stays visible;
- *   its contents and folder listings do not.
+ *   its contents and folder listings do not;
+ * - a descendant that detaches can keep running after the task and change the result folders after
+ *   Ascout checked them; check.ts must not trust them on macOS beyond that check.
  */
 
 /** A path that can go into a sandbox profile as a string literal. */
@@ -93,15 +96,29 @@ export function macosTaskSandboxProfileV1(plan: MacosTaskSandboxPlanV1, writable
     `(deny file-read-data ${[...UNREADABLE_DATA_TREES, plan.home].map((tree) => `(subpath "${tree}")`).join(" ")})`,
     "(deny file-write*)",
     "(deny mach-lookup)",
+    // launchd would otherwise accept a job from the task and run it outside the sandbox.
+    "(deny job-creation)",
+    "(deny mach-register)",
+    "(deny mach-priv*)",
     "(deny network*)",
     "(deny signal)",
     "(allow signal (target self))",
     "(allow signal (target children))",
+    // Hard links and clones would let a protected file be reached under a name inside the repository.
+    "(deny file-link)",
+    "(deny file-clone)",
+    // Other processes' arguments and environments (ps -E) stay unreadable.
+    "(deny process-info*)",
+    "(allow process-info* (target self))",
+    '(deny sysctl-read (sysctl-name-prefix "kern.procargs"))',
     `(allow file-read-data ${plan.nodeReads.map((read) => `(subpath "${read}")`).join(" ")})`,
     `(allow file-read-data file-write* (subpath "${plan.workspace}") (subpath "${plan.privateDir}"))`,
-    '(allow file-write-data (literal "/dev/null") (literal "/dev/tty"))',
+    // Devices are closed except the few tools need, so the user's terminals can't be read.
+    '(deny file-read-data file-write* (subpath "/dev"))',
+    '(allow file-read-data file-write-data (literal "/dev/null") (literal "/dev/zero") (literal "/dev/random") (literal "/dev/urandom") (literal "/dev/tty") (literal "/dev/dtracehelper") (subpath "/dev/fd"))',
   ];
-  if (plan.gitDir !== null) lines.push(`(deny file-write* (subpath "${plan.gitDir}"))`);
+  // Always, so a task can't create a .git, with hooks, where there was none.
+  lines.push(`(deny file-write* (subpath "${plan.gitDir ?? posix.join(plan.workspace, ".git")}"))`);
   // The same operations the repository rule allows: sandbox-exec let that specific file-read-data allow
   // win over a broader file-read* deny (macOS CI, 2026-11-16).
   lines.push(`(deny file-read-data file-write* (subpath "${evidence}"))`);
@@ -128,9 +145,19 @@ export interface MacosTaskSandboxDepsV1 {
   readonly host: LinuxFsHostV1;
   readonly exec: ExecFileTextV1;
   readonly execPath: string;
-  /** A host loopback port nothing inside the sandbox may reach, for the self-test; null to skip it. */
+  /** A host loopback port nothing inside the sandbox may reach, for the self-test; null when none can be bound. */
   readonly loopbackPort: () => Promise<{ port: number; close: () => void } | null>;
+  /** Runs a file and returns both output streams, so a failed self-test can say why. */
+  readonly execBoth: (file: string, argv: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs?: number }) => Promise<{ stdout: string; stderr: string }>;
+  /** A random suffix for the self-test's probe names. */
+  readonly randomName: () => string;
+  /** How long the self-test gives launchd to run a submitted job before judging that it didn't. */
+  readonly launchdWaitMs: number;
 }
+
+export const realExecBothV1: MacosTaskSandboxDepsV1["execBoth"] = (file, argv, { cwd, env, timeoutMs = 20_000 }) => new Promise((resolve) => {
+  execFile(file, [...argv], { cwd, env, encoding: "utf8", timeout: timeoutMs }, (_error, stdout, stderr) => resolve({ stdout, stderr }));
+});
 
 const realLoopback = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
   const server = createServer((socket) => socket.end("host"));
@@ -138,10 +165,10 @@ const realLoopback = (): Promise<{ port: number; close: () => void } | null> => 
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });
 
-const realDeps: MacosTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopback };
+const realDeps: MacosTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopback, execBoth: realExecBothV1, randomName: () => Math.random().toString(36).slice(2, 12), launchdWaitMs: 1500 };
 
 /** What the self-test task must report, in the exact configuration tasks run in. */
-export const MACOS_SELF_TEST_EXPECTED = { outside: "EPERM", git: "EPERM", evidence: "EPERM", results: "allowed", loopback: "denied" } as const;
+export const MACOS_SELF_TEST_EXPECTED = { outside: "EPERM", git: "EPERM", evidence: "EPERM", results: "allowed", link: "EPERM", parentEnvironment: "hidden", loopback: "denied", launchdJob: "refused" } as const;
 
 /**
  * The task sandbox for `workspace`, or why it can't be used. It refuses, never falls back to running
@@ -190,37 +217,58 @@ export async function prepareMacosTaskSandboxV1(workspace: string, deps: MacosTa
 async function selfTest(plan: MacosTaskSandboxPlanV1, deps: MacosTaskSandboxDepsV1): Promise<string | null> {
   const root = deps.host.realpath(deps.host.makeTempDir());
   const loopback = await deps.loopbackPort();
+  if (loopback === null) {
+    deps.host.removeDir(root);
+    return "the self-test could not bind a host loopback port to prove the network is denied";
+  }
+  const suffix = deps.randomName();
+  const canaryName = `ASCOUT_SELFTEST_CANARY_${suffix.toUpperCase()}`;
+  const label = `ascout.selftest.${suffix}`;
+  const jobMarker = posix.join(root, "launchd-job-ran");
+  process.env[canaryName] = "visible";
   try {
     const ws = posix.join(root, "repo");
     const results = posix.join(ws, ".ascout", "runs", "selftest", "raw", "test");
     const marker = posix.join(root, "outside-marker");
     for (const dir of [ws, posix.join(ws, ".git"), posix.join(ws, ".ascout"), posix.join(ws, ".ascout", "runs"), posix.join(ws, ".ascout", "runs", "selftest"), posix.join(ws, ".ascout", "runs", "selftest", "raw"), results]) deps.host.makeDir(dir);
     deps.host.writeFile(marker, "outside");
+    deps.host.writeFile(posix.join(ws, ".git", "config"), "[core]\n");
     deps.host.writeFile(posix.join(ws, ".ascout", "earlier-evidence"), "evidence");
     const testPlan: MacosTaskSandboxPlanV1 = { ...plan, workspace: ws, gitDir: posix.join(ws, ".git") };
     const script = `
 const fs = require("node:fs");
+const cp = require("node:child_process");
 const attempt = (fn) => { try { fn(); return "allowed"; } catch (e) { return e.code || String(e); } };
 const out = {
   outside: attempt(() => fs.readFileSync(${JSON.stringify(marker)})),
   git: attempt(() => fs.writeFileSync(".git/config", "x")),
   evidence: attempt(() => fs.readFileSync(".ascout/earlier-evidence")),
   results: attempt(() => fs.writeFileSync(${JSON.stringify(posix.join(results, "probe"))}, "x")),
+  link: attempt(() => fs.linkSync(".git/config", "linked-config")),
+  parentEnvironment: (() => { const ps = cp.spawnSync("/bin/ps", ["-E", "-ww", "-p", String(process.ppid)], { encoding: "utf8" }); return (ps.stdout || "").includes(${JSON.stringify(canaryName)}) ? "visible" : "hidden"; })(),
 };
+cp.spawnSync("/bin/launchctl", ["submit", "-l", ${JSON.stringify(label)}, "--", "/usr/bin/touch", ${JSON.stringify(jobMarker)}]);
 const finish = (r) => { out.loopback = r; process.stdout.write(JSON.stringify(out)); process.exit(0); };
-${loopback === null ? 'finish("denied");' : `const s = require("node:net").connect(${loopback.port}, "127.0.0.1"); s.on("data", () => finish("allowed")); s.on("error", () => finish("denied")); setTimeout(() => finish("denied"), 3000);`}
+const s = require("node:net").connect(${loopback.port}, "127.0.0.1"); s.on("data", () => finish("allowed")); s.on("error", () => finish("denied")); setTimeout(() => finish("denied"), 3000);
 `;
-    const output = await deps.exec(SANDBOX_EXEC, macosTaskSandboxArgvV1(testPlan, deps.host.realpath(deps.execPath), ["-e", script], ws, [results]), { cwd: ws, env: {} });
-    let seen: unknown;
+    const { stdout: output, stderr } = await deps.execBoth(SANDBOX_EXEC, macosTaskSandboxArgvV1(testPlan, deps.host.realpath(deps.execPath), ["-e", script], ws, [results]), { cwd: ws, env: {} });
+    let seen: Record<string, unknown>;
     try {
-      seen = JSON.parse(output);
+      seen = JSON.parse(output) as Record<string, unknown>;
     } catch {
-      return "the sandbox-exec task sandbox did not start";
+      const detail = `${output}\n${stderr}`.replace(/\s+/gu, " ").trim().slice(-600);
+      return `the sandbox-exec task sandbox did not start${detail === "" ? "" : ` (${detail})`}`;
     }
+    // Whether launchd ran the job is judged from outside: its marker must never appear.
+    await new Promise((resolve) => setTimeout(resolve, deps.launchdWaitMs));
+    seen.launchdJob = deps.host.exists(jobMarker) ? "ran" : "refused";
     if (JSON.stringify(seen) !== JSON.stringify(MACOS_SELF_TEST_EXPECTED)) return `the sandbox-exec task sandbox started but its self-test did not hold: ${JSON.stringify(seen)}`;
     return null;
   } finally {
-    loopback?.close();
+    delete process.env[canaryName];
+    loopback.close();
+    // Only if the escape worked is there a job to remove; removing a missing label does nothing.
+    if (deps.host.exists(jobMarker)) await deps.execBoth("/bin/launchctl", ["remove", label], { cwd: root, env: {} });
     deps.host.removeDir(root);
   }
 }
