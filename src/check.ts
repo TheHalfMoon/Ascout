@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { testRunnerEnvironmentV1 } from "./assurance/containment/task-environment.js";
 import { createHash, randomBytes } from "node:crypto";
-import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   FIXED_SEMANTIC_TASKS,
@@ -279,10 +279,47 @@ export interface CheckRunOptions {
    * line only, never from configuration the repository controls.
    */
   readonly taskEnvironment?: NodeJS.ProcessEnv;
+  /**
+   * Every task command runs inside this sandbox. Like taskEnvironment, it comes from the command line
+   * for one run only, never from repository configuration.
+   */
+  readonly taskSandbox?: CheckTaskSandboxV1;
 }
 
 /** The current run's task environment, if the operator asked for an allowlisted one. */
 const runTaskEnvironment = new AsyncLocalStorage<NodeJS.ProcessEnv | undefined>();
+
+/** Runs a resolved task command inside an OS sandbox (FD-4 T1); see src/assurance/containment. */
+export interface CheckTaskSandboxV1 {
+  readonly mechanism: string;
+  /** `writable` names the result folders, inside .ascout, the task may write; the rest of .ascout is hidden. */
+  readonly wrap: (file: string, argv: readonly string[], cwd: string, writable: readonly string[]) => { readonly file: string; readonly argv: readonly string[] };
+}
+
+/** The result folders a sandboxed task may write: where test runners put their machine results and coverage. */
+function sandboxResultFolders(rawPath: string): string[] {
+  return [join(rawPath, "test"), join(rawPath, "pytest")];
+}
+
+/**
+ * The first link inside a sandboxed task's result folders, or null. Ascout reads and writes those folders
+ * after the task from outside the sandbox, so a link there could point it at any host file.
+ */
+export function sandboxResultLink(folders: readonly string[]): string | null {
+  const pending = [...folders];
+  while (pending.length > 0) {
+    const path = pending.pop()!;
+    const stat = lstatSync(path, { throwIfNoEntry: false });
+    if (stat === undefined) continue;
+    if (stat.isSymbolicLink()) return path;
+    if (stat.isDirectory()) for (const name of readdirSync(path)) pending.push(join(path, name));
+  }
+  return null;
+}
+
+const runTaskSandbox = new AsyncLocalStorage<CheckTaskSandboxV1 | undefined>();
+/** Sandboxed runs in progress, so a task launched without its sandbox context fails instead of running unsandboxed. */
+let sandboxedRunsActive = 0;
 
 function testTaskEnvironment(): NodeJS.ProcessEnv {
   return testRunnerEnvironmentV1(runTaskEnvironment.getStore(), process.env);
@@ -648,10 +685,16 @@ async function executePlannedTask(
   const startedAt = new Date(startedMs).toISOString();
   const cancellation = runCancellation.getStore();
   const taskEnv = options.env ?? runTaskEnvironment.getStore();
+  const sandbox = runTaskSandbox.getStore();
+  if (sandbox === undefined && sandboxedRunsActive > 0) throw new Error("a sandboxed run lost its sandbox before launching a task; nothing was started");
+  const cwd = workingDirectoryPath(repositoryRoot, plan.workingDirectory);
+  const resultFolders = sandboxResultFolders(rawPath);
+  if (sandbox !== undefined) for (const folder of resultFolders) mkdirSync(folder, { recursive: true });
   const result = await runProcess({
     file: plan.argv[0]!,
     argv: plan.argv.slice(1),
-    cwd: workingDirectoryPath(repositoryRoot, plan.workingDirectory),
+    cwd,
+    ...(sandbox === undefined ? {} : { wrap: (file: string, argv: readonly string[]) => sandbox.wrap(file, argv, cwd, resultFolders) }),
     resolve_bare_file_outside: repositoryRoot,
     // A descendant left running could rewrite this run's evidence after the runner exits.
     require_tree_exit: true,
@@ -661,6 +704,11 @@ async function executePlannedTask(
     termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
     capture_cap_bytes: TASK_CAPTURE_CAP_BYTES,
   });
+  if (sandbox !== undefined) {
+    // Nothing the task started is still running (the sandbox ends its whole tree), so this check holds.
+    const link = sandboxResultLink(resultFolders);
+    if (link !== null) throw new Error(`a sandboxed task left a link at ${link}; Ascout won't read or write through it, so the run stops`);
+  }
   const finishedMs = Date.now();
   const finishedAt = new Date(finishedMs).toISOString();
   const durationMs = finishedMs - startedMs;
@@ -1092,8 +1140,10 @@ async function executePytestWithResults(
 
   let xml: string | null;
   try {
-    const bytes = readFileSync(join(rawPath, "pytest", "pytest-results.xml"));
-    xml = bytes.byteLength > PYTEST_RESULTS_MAX_BYTES ? null : bytes.toString("utf8");
+    // Only a regular file of bounded size: a task could leave a FIFO or a huge sparse file here.
+    const reportPath = join(rawPath, "pytest", "pytest-results.xml");
+    const report = lstatSync(reportPath, { throwIfNoEntry: false });
+    xml = report === undefined || !report.isFile() || report.size > PYTEST_RESULTS_MAX_BYTES ? null : readFileSync(reportPath).toString("utf8");
   } catch {
     xml = null;
   }
@@ -1790,7 +1840,14 @@ export async function runCheck(
   repositoryRoot: string,
   options: CheckRunOptions = {},
 ): Promise<CheckOutcome> {
-  return runCancellation.run(options.signal, () => runTaskEnvironment.run(options.taskEnvironment, () => runCheckWithinCancellation(repositoryRoot, options)));
+  const run = () => runCancellation.run(options.signal, () => runTaskEnvironment.run(options.taskEnvironment, () => runTaskSandbox.run(options.taskSandbox, () => runCheckWithinCancellation(repositoryRoot, options))));
+  if (options.taskSandbox === undefined) return run();
+  sandboxedRunsActive += 1;
+  try {
+    return await run();
+  } finally {
+    sandboxedRunsActive -= 1;
+  }
 }
 
 async function runCheckWithinCancellation(

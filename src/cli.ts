@@ -4,7 +4,8 @@ import { closeSync, fstatSync, openSync, readFileSync, realpathSync, existsSync,
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
-import { runCheck } from "./check.js";
+import { runCheck, type CheckTaskSandboxV1 } from "./check.js";
+import { prepareLinuxTaskSandboxV1 as prepareTaskSandbox } from "./assurance/containment/linux-task-sandbox.js";
 import { collectDiscoveredProject } from "./discovery.js";
 import { loadConfig, composeSourceState } from "./check.js";
 import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./discovery.js";
@@ -76,6 +77,9 @@ import type { TestProfile } from "./assurance/test/profile-policy.js";
 const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp", "pr-evidence", "pr-publish", "pr-ai-review", "pr-ai-publish"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const CLEAN_ENV_FLAG = "--clean-env";
+const SANDBOX_FLAG = "--sandbox";
+/** Printed after a sandboxed run. The tier stays T0 until a sandbox is qualified under Amendment A09. */
+const SANDBOX_NOTICE = "Tasks ran in the Linux bubblewrap sandbox (--sandbox): they could write only the repository (not its .git, with .ascout hidden) and this run's result folders, with no network and an allowlisted environment. The containment tier is still reported as T0: this sandbox is not yet qualified, and the repository's own files stay writable.";
 const PASS_ENV_FLAG = "--pass-env";
 
 /** Says what --clean-env is and isn't: one capability removed, and no isolation claimed. */
@@ -83,7 +87,7 @@ const CLEAN_ENV_NOTICE = "Tasks ran without inheriting your environment (--clean
 
 /** The allowlisted task environment when the invocation asked for one. */
 function taskEnvironmentFor(invocation: CliInvocation): NodeJS.ProcessEnv | undefined {
-  return invocation.cleanEnv ? allowlistedTaskEnvironmentV1(process.env, process.platform, invocation.passEnv) : undefined;
+  return invocation.cleanEnv || invocation.sandbox ? allowlistedTaskEnvironmentV1(process.env, process.platform, invocation.passEnv) : undefined;
 }
 const FORMAT_FLAG = "--format";
 const PROFILE_FLAG = "--profile";
@@ -114,6 +118,8 @@ export interface CliInvocation {
   command: CliCommand;
   allowChangedCommandSurface: boolean;
   cleanEnv?: true;
+  /** `check --sandbox`: every task runs inside the OS sandbox, with the allowlisted environment. */
+  sandbox?: true;
   passEnv?: readonly string[];
   format?: CheckFormat | ReviewFormat | TestFormat | SecurityFormat;
   profile?: TestProfile;
@@ -182,6 +188,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
 
   let allowChangedCommandSurface = false;
   let cleanEnv = false;
+  let sandbox = false;
   const passEnv: string[] = [];
   let format: CheckFormat | ReviewFormat | TestFormat | SecurityFormat | undefined;
   let profile: TestProfile | undefined;
@@ -266,6 +273,13 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
         throw new CliUsageError(`${ALLOW_CHANGED_COMMAND_SURFACE} may be supplied only once.`);
       }
       allowChangedCommandSurface = true;
+      continue;
+    }
+
+    if (token === SANDBOX_FLAG) {
+      if (commandToken !== "check") throw new CliUsageError(`${SANDBOX_FLAG} is valid only with the check command.`);
+      if (sandbox) throw new CliUsageError(`${SANDBOX_FLAG} may be supplied only once.`);
+      sandbox = true;
       continue;
     }
 
@@ -432,14 +446,15 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   if (dryRun && !remoteModel) {
     throw new CliUsageError(`${DRY_RUN_FLAG} is valid only with ${REMOTE_MODEL_FLAG}.`);
   }
-  if (passEnv.length > 0 && !cleanEnv) {
-    throw new CliUsageError(`${PASS_ENV_FLAG} is valid only with ${CLEAN_ENV_FLAG}.`);
+  if (passEnv.length > 0 && !cleanEnv && !sandbox) {
+    throw new CliUsageError(`${PASS_ENV_FLAG} is valid only with ${CLEAN_ENV_FLAG} or ${SANDBOX_FLAG}.`);
   }
 
   return {
     command: commandToken,
     allowChangedCommandSurface,
     ...(cleanEnv ? { cleanEnv: true as const } : {}),
+    ...(sandbox ? { sandbox: true as const } : {}),
     ...(passEnv.length > 0 ? { passEnv } : {}),
     ...(format === undefined ? {} : { format }),
     ...(profile === undefined ? {} : { profile }),
@@ -457,7 +472,7 @@ export function usageText(): string {
     "Usage:",
     "  ascout init",
     `  ascout doctor [${FORMAT_FLAG} json|terminal]`,
-    `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${CLEAN_ENV_FLAG} [${PASS_ENV_FLAG} NAME]...] [${FORMAT_FLAG} json|agent]`,
+    `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${CLEAN_ENV_FLAG} | ${SANDBOX_FLAG}] [${PASS_ENV_FLAG} NAME]... [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${LOCAL_MODEL_FLAG} | ${REMOTE_MODEL_FLAG} [${DRY_RUN_FLAG}] | ${EXPORT_TASK_FLAG} <path> | ${INGEST_FLAG} <findings.json>] [${FORMAT_FLAG} json|terminal]`,
     `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${CLEAN_ENV_FLAG} [${PASS_ENV_FLAG} NAME]...] [${FORMAT_FLAG} json|terminal]`,
     "  ascout pr-evidence [--skip-tests] [--pr-head <sha>] [--clean-env [--pass-env NAME]...]",
@@ -746,12 +761,24 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     }
     if (invocation.command === "check") {
       refuseUnsupportedRepository(process.cwd());
+      let taskSandbox: CheckTaskSandboxV1 | undefined;
+      if (invocation.sandbox) {
+        const prepared = await prepareTaskSandbox(process.cwd());
+        if ("refused" in prepared) {
+          console.error(`ascout check ${SANDBOX_FLAG} refused: ${prepared.refused}. Nothing ran: Ascout never falls back to running tasks outside the sandbox.`);
+          return 2;
+        }
+        taskSandbox = prepared.sandbox;
+      }
+      const taskEnvironment = taskEnvironmentFor(invocation);
       const outcome = await withRunCancellation((signal) => runCheck(process.cwd(), {
         allowChangedCommandSurface: invocation.allowChangedCommandSurface,
-        ...(invocation.cleanEnv ? { taskEnvironment: taskEnvironmentFor(invocation)! } : {}),
+        ...(taskEnvironment === undefined ? {} : { taskEnvironment }),
+        ...(taskSandbox === undefined ? {} : { taskSandbox }),
         signal,
       }));
-      if (invocation.cleanEnv) console.error(CLEAN_ENV_NOTICE);
+      if (invocation.sandbox) console.error(SANDBOX_NOTICE);
+      else if (invocation.cleanEnv) console.error(CLEAN_ENV_NOTICE);
       if (invocation.format === "json") {
         process.stdout.write(renderReceiptJson(outcome.receipt));
       } else if (invocation.format === "agent") {

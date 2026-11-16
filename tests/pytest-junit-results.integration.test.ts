@@ -60,7 +60,9 @@ async function checkWithReport(report: string | null): Promise<Awaited<ReturnTyp
     "if (arg && report !== null) {",
     '  const target = arg.slice("--junitxml=".length);',
     "  fs.mkdirSync(path.dirname(target), { recursive: true });",
-    "  fs.writeFileSync(target, report);",
+    '  if (report === "<folder>") fs.mkdirSync(target);',
+    '  else if (report === "<oversized>") fs.writeFileSync(target, Buffer.alloc(8 * 1024 * 1024 + 1, 32));',
+    "  else fs.writeFileSync(target, report);",
     "}",
     "process.exit(0);",
   ].join("\n"));
@@ -87,6 +89,13 @@ describe("check with pytest's JUnit report", () => {
     const { receipt } = await checkWithReport(null);
     expect(receipt.tasks.find(({ task_id }) => task_id === "pytestBasic")).toMatchObject({ status: "ERROR", reason_code: "pytest_results_missing" });
   }, 30_000);
+
+  it("treats a report that is not a regular file, or is too large, as missing, and never reads it", async () => {
+    for (const report of ["<folder>", "<oversized>"]) {
+      const { receipt } = await checkWithReport(report);
+      expect(receipt.tasks.find(({ task_id }) => task_id === "pytestBasic"), report).toMatchObject({ status: "ERROR", reason_code: "pytest_results_missing" });
+    }
+  }, 60_000);
 
   it("still passes pytest when its report is clean", async () => {
     const { receipt } = await checkWithReport(CLEAN);

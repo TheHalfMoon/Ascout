@@ -112,7 +112,7 @@ The last command prints usage and exits with a usage error because a command is 
 ```text
 ascout init
 ascout doctor [--format json|terminal]
-ascout check [--allow-changed-command-surface] [--clean-env [--pass-env NAME]...] [--format json|agent]
+ascout check [--allow-changed-command-surface] [--clean-env | --sandbox] [--pass-env NAME]... [--format json|agent]
 ascout review [--local-model | --remote-model [--dry-run] | --export-task <path> | --ingest <findings.json>] [--format json|terminal]
 ascout test [--plan] [--profile quick|standard|deep|release] [--clean-env [--pass-env NAME]...] [--format json|terminal]
 ascout pr-evidence [--skip-tests] [--pr-head <sha>] [--clean-env [--pass-env NAME]...]
@@ -129,6 +129,23 @@ ascout --help | --version
 **Current command semantics (v0.3.2 and `main`; see `CHANGELOG.md`):** `ascout check` executes supported local verification tasks and produces an evidence receipt, and must run from the repository root. `ascout review` reports unreviewed working-tree and index changes; it does **not** run a code-review engine unless you opt in, with `--local-model`, `--remote-model`, or the delegated `--export-task`/`--ingest` pair, as described below, and it does not consider committed changes or ignored files. `ascout test` runs `check` for the `standard` (default), `deep`, and `release` profiles, so inside a repository it executes the same admitted verification commands as `ascout check` and returns its result. `deep` and `release` also require mutation, property-fuzz, browser, and other engines that do not run yet, so they exit `4` unless `check` found a failure or drift. `quick` has no qualified engine and runs nothing. `ascout security` runs no scanner unless you opt in to Gitleaks, as described below. Without an engine, these commands exit `4` because required verification did not run, and that exit status is never an assurance PASS. `ascout test --plan` renders a plan labeled `NON_ASSURANCE_PLAN` and exits `0`; that is not a test result.
 
 **`check --clean-env`.** Every task runs with an allowlisted environment instead of inheriting yours. It keeps the search path, the home and temporary folders, the locale, and, on Windows, the system folders, and sets `CI=1`. Add `--pass-env NAME` for each variable your tests need, such as `--pass-env DATABASE_URL`. This keeps credentials and tokens away from tools that log, report or upload their environment. **It does not protect them from code that goes looking.** Ascout's own process still holds your environment, and a task running as you can read it from the operating system. Tasks can also read credential files in your home folder (such as `~/.npmrc` or `~/.aws/credentials`), write files, and reach the network with your full rights. So the containment tier stays **T0**, and Ascout is still only for code you trust. The option is per-invocation and is never read from repository configuration. `check`, `test` and `pr-evidence` accept it.
+
+**`check --sandbox` (Linux).** Every task runs inside a bubblewrap sandbox, with the allowlisted environment of `--clean-env`, and `--pass-env NAME` works the same way:
+- **Filesystem:** the repository is writable, but its `.git` is read-only, so a task can't plant hooks or configuration that later run on your machine. Ascout's own `.ascout` folder is hidden, apart from this run's result folders. If a task leaves a link in a result folder, Ascout stops the run with exit `2` before reading it. System folders and Node's entry points are read-only. `/tmp` and the home folder are fresh.
+- **Network:** none at all, not even your machine's loopback services.
+- **Processes:** the task can't see your other processes, holds no capabilities, and no process it starts outlives it.
+
+Bubblewrap must be installed at `/usr/bin/bwrap` or `/bin/bwrap`, and unprivileged user namespaces must be allowed. `check --sandbox` exits `2` and runs nothing in any of these cases; it never falls back to running tasks outside the sandbox:
+- the sandbox can't start, or its self-test (run in the exact task configuration) fails;
+- the repository is a worktree, has submodules, or has a `.git/hooks` link or Git configuration includes, any of which could reach into the writable tree;
+- you are on another OS.
+
+Limits:
+- **Tier:** the containment tier is still reported as T0 until this sandbox is qualified.
+- **Repository files:** they stay writable, and you may later run them yourself.
+- **Resources:** there is no memory or CPU limit beyond Ascout's timeouts.
+- **System calls:** there is no seccomp filter, so a task shares your session keyring.
+- **Receipt:** it records the task's own command, not the sandbox.
 
 When running directly from a source checkout rather than an installed release asset, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
 
