@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -7,7 +7,6 @@ import { join, win32 } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { WINDOWS_SELF_TEST_EXPECTED, prepareWindowsTaskSandboxV1, quoteWindowsArgV1, windowsCommandLineV1, type WindowsTaskSandboxDepsV1, type WindowsTaskSandboxV1 } from "../src/assurance/containment/windows-task-sandbox.js";
-import { runProcess } from "../src/process.js";
 
 // FD-4 T1 on Windows: an AppContainer for `check` tasks. The native tests run only where CI requires
 // the Windows sandbox (ASCOUT_REQUIRE_WINDOWS_SANDBOX=1): they create containers and change access
@@ -178,9 +177,18 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
     return { root, ws, outside, sandbox: made.sandbox };
   }
 
+  // The wrapped command is started directly, as the Linux and macOS native tests do: runProcess has
+  // no wrap hook on this branch, so passing one there would silently run the task unsandboxed.
   async function run(sandbox: WindowsTaskSandboxV1 | null, cwd: string, file: string, argv: readonly string[], env: NodeJS.ProcessEnv = { SystemRoot: process.env.SystemRoot, PATH: process.env.PATH }, writable: readonly string[] = []) {
-    const result = await runProcess({ file, argv, cwd, env, timeout_ms: 60_000, termination_grace_ms: 1000, capture_cap_bytes: 1 << 20, require_tree_exit: true, ...(sandbox === null ? {} : { wrap: (f: string, a: readonly string[]) => sandbox.wrap(f, a, cwd, writable) }) });
-    return { code: result.exit_code, stdout: Buffer.from(result.stdout.bytes).toString(), stderr: Buffer.from(result.stderr.bytes).toString(), outcome: result.outcome };
+    const launch = sandbox === null ? { file, argv } : sandbox.wrap(file, argv, cwd, writable);
+    return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
+      const child = spawn(launch.file, [...launch.argv], { cwd, env, windowsHide: true });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
+      child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+      child.on("close", (code) => resolve({ code, stdout, stderr }));
+    });
   }
 
   const script = (body: string) => ["-e", `let r = "allowed"; try { ${body} } catch (e) { r = e.code || String(e); } process.stdout.write(r)`];
