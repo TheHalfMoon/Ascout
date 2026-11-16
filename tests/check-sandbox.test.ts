@@ -243,6 +243,7 @@ describe("check --sandbox from the command line", () => {
     expect(stderr).not.toContain("--clean-env");
     expect(stderr).toContain("not externally certified or human-audited");
     expect(stderr).toContain("Ascout still supports only repositories you trust");
+    for (const limit of ["files stay writable", "Unix socket", "/usr and /etc stay readable", "no seccomp filter", "no CPU or memory limit", "race the sandbox's teardown"]) expect(stderr, limit).toContain(limit);
   });
 
   it("is not prepared, and nothing is wrapped, without the flag", async () => {

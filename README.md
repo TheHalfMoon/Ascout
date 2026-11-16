@@ -132,7 +132,7 @@ ascout --help | --version
 
 **`check --sandbox` (Linux).** Every task runs inside a bubblewrap sandbox, with the allowlisted environment of `--clean-env`, and `--pass-env NAME` works the same way:
 - **Filesystem:** the repository is writable, but its `.git` is read-only, so a task can't plant hooks or configuration that later run on your machine. Ascout's own `.ascout` folder is hidden, apart from this run's result folders. If a task leaves a link in a result folder, Ascout stops the run with exit `2` before reading it. System folders and Node's entry points are read-only. `/tmp` and the home folder are fresh.
-- **Network:** none at all, not even your machine's loopback services.
+- **Network:** its own empty network namespace, so no other host and none of your machine's loopback services. A Unix socket that a host process placed inside the repository can still be reached.
 - **Processes:** the task can't see your other processes, holds no capabilities, and no process it starts outlives it.
 
 Bubblewrap must be installed at `/usr/bin/bwrap` or `/bin/bwrap`, and unprivileged user namespaces must be allowed. `check --sandbox` exits `2` and runs nothing in any of these cases; it never falls back to running tasks outside the sandbox:
@@ -141,10 +141,12 @@ Bubblewrap must be installed at `/usr/bin/bwrap` or `/bin/bwrap`, and unprivileg
 - you are on another OS.
 
 Limits:
-- **Tier:** a sandboxed Linux run reports containment tier T1, internally qualified under Amendment A09: four independent AI security reviews of its final commits found no remaining Critical, High or Medium issue (PR #789). That is not an external certification or a human audit. Runs without `--sandbox` stay T0, and Ascout still supports only repositories you trust.
+- **Tier:** a sandboxed Linux run reports containment tier T1, internally qualified under Amendment A09: five independent AI security reviews, the last on the merged tree, left no unresolved Critical or High finding, and the remaining Medium and Low findings are the limits listed here (PR #789). That is not an external certification or a human audit. Runs without `--sandbox` stay T0, and Ascout still supports only repositories you trust.
 - **Repository files:** they stay writable, and you may later run them yourself.
 - **Resources:** there is no memory or CPU limit beyond Ascout's timeouts.
 - **System calls:** there is no seccomp filter, so a task shares your session keyring.
+- **System files:** `/usr` and `/etc` stay readable.
+- **Timeouts:** after a task is stopped on timeout, the result-folder link check can race the sandbox's teardown; a stopped task's results are never read.
 - **Receipt:** it records the task's own command, not the sandbox.
 
 When running directly from a source checkout rather than an installed release asset, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.
