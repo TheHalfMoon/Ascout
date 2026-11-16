@@ -14,8 +14,10 @@ import { execFileTextV1, realLinuxFsHostV1, type ExecFileTextV1, type LinuxFsHos
  * - looking up system services is denied, so a task can't ask a daemon to read or write for it;
  * - executable code may be mapped only from system locations and the Node binary, so a native addon
  *   written into the workspace can't be loaded;
- * - sending signals to any process other than itself is denied, so a task can't stop or disrupt the
- *   user's other processes.
+ * - the profile denies sending signals to any process other than itself, so a task can't stop or
+ *   disrupt the user's other processes (CI checks a same-user process outside the sandbox). This also
+ *   stops a task signalling its own children or process group, which tools that kill timed-out child
+ *   processes rely on; wiring the runner into `check` would have to account for that.
  * System files, extended attributes, and file metadata elsewhere stay readable. With `network: "none"`,
  * network access is denied too.
  *

@@ -254,7 +254,7 @@ describe.runIf(process.platform === "darwin")("native capability probes under sa
       const profile = macosSandboxProfileV1(workspace, node, realpathSync(homedir()));
       const without = profile.split("\n").filter((line) => line !== "(deny signal (target others))").join("\n");
       expect(without).not.toContain("signal");
-      const control = spawnSync(SANDBOX_EXEC, ["-p", without, node, "-e", script], { cwd: workspace, env: {}, encoding: "utf8" });
+      const control = spawnSync(SANDBOX_EXEC, ["-p", without, node, "-e", script], { cwd: workspace, env: {}, encoding: "utf8", timeout: 20_000 });
       expect(control.stdout).toBe("signalled");
       expect(await exited).toBe("SIGTERM");
     } finally {

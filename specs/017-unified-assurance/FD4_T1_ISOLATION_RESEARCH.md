@@ -125,9 +125,13 @@ its own it is not T1.
      - **Still readable:** system files, including `/Library`, `/private/etc`, logs and databases
        under `/private/var`, and Homebrew's prefixes; extended attributes and file metadata
        everywhere; and other processes' information.
-     - **No longer allowed (2026-11-16):** signalling other processes of the same user. macOS CI
-       requires a signal to an outside process to fail with `EPERM`, and requires the same profile
-       without that rule to deliver it.
+     - **No longer allowed (2026-11-16):** signalling other processes of the same user. The profile
+       denies signals to every process but the task itself. macOS CI checks one case: a signal to a
+       same-user process outside the sandbox must fail with `EPERM`, and the same profile without that
+       rule must deliver it.
+     - **Side effect:** a task also can't signal its own children or process group. Test runners that
+       kill timed-out workers rely on that, so wiring this runner into `check` would have to account
+       for it.
      - **Probe scope:** the native read probe proves denial only because its canary lies in a
        denied tree.
      - macOS CI requires the native probes to show read and write of an outside sibling DENIED, and
