@@ -286,6 +286,7 @@ describe("workflows that follow Ascout PR Collect", () => {
     const text = readFileSync(resolve(file), "utf8");
     const conditions = [...text.matchAll(/^ {4}if: (.*)$/gmu)].map((match) => match[1] as string);
     expect(conditions.length).toBeGreaterThan(0);
-    expect(conditions[0]).toContain("github.event.workflow_run.conclusion != 'cancelled'");
+    // An AND-ed clause of the one job condition: an OR or a negation would defeat it.
+    expect(conditions[0]).toMatch(/^\$\{\{ [^|!]*&& github\.event\.workflow_run\.conclusion != 'cancelled'[^|]* \}\}$/u);
   });
 });
