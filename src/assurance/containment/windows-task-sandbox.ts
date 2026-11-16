@@ -98,6 +98,9 @@ foreach ($dir in (Get-ChildItem -LiteralPath $env:ASCOUT_AC_WORKSPACE -Force -Di
   & $icacls $dir.FullName /grant "*$($sid):(OI)(CI)M" | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'could not grant a repository folder' }
 }
+# The Node folder itself, without inheritance: cmd.exe must list it to start a .cmd file there.
+& $icacls $env:ASCOUT_AC_NODEFOLDER /grant "*$($sid):RX" | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'could not grant the Node folder' }
 foreach ($file in ($env:ASCOUT_AC_NODEFILES -split '\|' | Where-Object { $_ })) {
   & $icacls $file /grant "*$($sid):RX" | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'could not grant a Node entry point' }
@@ -276,6 +279,7 @@ export async function prepareWindowsTaskSandboxV1(workspace: string, deps: Windo
   if (!deps.host.exists(powershell)) return { refused: `Windows PowerShell is not installed at ${powershell}` };
   let root: string;
   let gitDir: string | null;
+  let nodeFolder: string;
   let nodeFiles: string[];
   let nodeDirs: string[];
   try {
@@ -286,6 +290,7 @@ export async function prepareWindowsTaskSandboxV1(workspace: string, deps: Windo
     const execPath = deps.host.realpath(deps.execPath);
     const nodePrefix = win32.dirname(execPath);
     if (/^[A-Za-z]:\\?$/u.test(nodePrefix) || insideWin(home, nodePrefix)) return { refused: `the Node install folder can't be granted: ${JSON.stringify(nodePrefix)}` };
+    nodeFolder = nodePrefix;
     nodeFiles = [...new Set([execPath, ...NODE_FILE_ENTRIES.map((name) => win32.join(nodePrefix, name)).filter((path) => deps.host.exists(path))])];
     nodeDirs = NODE_DIR_ENTRIES.map((name) => win32.join(nodePrefix, name)).filter((path) => deps.host.exists(path));
     const gitPath = win32.join(root, ".git");
@@ -314,9 +319,10 @@ export async function prepareWindowsTaskSandboxV1(workspace: string, deps: Windo
     ASCOUT_AC_WORKSPACE: root,
     ASCOUT_AC_GITDIR: gitDir ?? "",
     ASCOUT_AC_EVIDENCE: evidence,
+    ASCOUT_AC_NODEFOLDER: nodeFolder,
     ASCOUT_AC_NODEFILES: nodeFiles.join("|"),
     ASCOUT_AC_NODEDIRS: nodeDirs.join("|"),
-    ASCOUT_AC_PATHS: [root, ...(gitDir === null ? [] : [gitDir]), evidence, ...nodeFiles, ...nodeDirs].join("|"),
+    ASCOUT_AC_PATHS: [root, ...(gitDir === null ? [] : [gitDir]), evidence, nodeFolder, ...nodeFiles, ...nodeDirs].join("|"),
   };
   const dispose = async (): Promise<void> => {
     try {

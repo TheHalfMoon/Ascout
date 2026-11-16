@@ -133,7 +133,7 @@ describe("preparing the Windows task sandbox", () => {
     const prepared = await prepareWindowsTaskSandboxV1(REPO, deps({ loopbackPort: async () => ({ port: 4242, close: () => { closed = true; } }) }));
     if (!("sandbox" in prepared)) throw new Error(prepared.refused);
     const setup = runs.find((run) => (run.argv.at(-1) ?? "").includes("AscoutAcSetup"))!;
-    expect(setup.env).toMatchObject({ ASCOUT_AC_WORKSPACE: REPO, ASCOUT_AC_GITDIR: `${REPO}\\.git`, ASCOUT_AC_EVIDENCE: `${REPO}\\.ascout`, ASCOUT_AC_NODEFILES: "C:\\Program Files\\nodejs\\node.exe|C:\\Program Files\\nodejs\\npm.cmd", ASCOUT_AC_NODEDIRS: "C:\\Program Files\\nodejs\\node_modules\\npm" });
+    expect(setup.env).toMatchObject({ ASCOUT_AC_WORKSPACE: REPO, ASCOUT_AC_GITDIR: `${REPO}\\.git`, ASCOUT_AC_EVIDENCE: `${REPO}\\.ascout`, ASCOUT_AC_NODEFOLDER: "C:\\Program Files\\nodejs", ASCOUT_AC_NODEFILES: "C:\\Program Files\\nodejs\\node.exe|C:\\Program Files\\nodejs\\npm.cmd", ASCOUT_AC_NODEDIRS: "C:\\Program Files\\nodejs\\node_modules\\npm" });
     expect(made).toContain(`${REPO}\\.ascout`);
     const selfTest = runs.find((run) => run.argv.includes("-File"))!;
     expect(Buffer.from(selfTest.argv.at(-1)!, "base64").toString()).toMatch(/\\\.ascout\\selftest-ascout\.sandbox\.x\\raw\\test$/u);
@@ -156,7 +156,7 @@ describe("preparing the Windows task sandbox", () => {
     removed.length = 0;
     await prepared.sandbox.dispose();
     expect(cleanups()).toHaveLength(1);
-    expect(cleanups()[0]!.env.ASCOUT_AC_PATHS).toBe([REPO, `${REPO}\\.git`, `${REPO}\\.ascout`, "C:\\Program Files\\nodejs\\node.exe", "C:\\Program Files\\nodejs\\npm.cmd", "C:\\Program Files\\nodejs\\node_modules\\npm"].join("|"));
+    expect(cleanups()[0]!.env.ASCOUT_AC_PATHS).toBe([REPO, `${REPO}\\.git`, `${REPO}\\.ascout`, "C:\\Program Files\\nodejs", "C:\\Program Files\\nodejs\\node.exe", "C:\\Program Files\\nodejs\\npm.cmd", "C:\\Program Files\\nodejs\\node_modules\\npm"].join("|"));
     expect(removed).toEqual(["C:\\Users\\u\\AppData\\Local\\Temp\\ascout-1"]);
   });
 });
@@ -233,7 +233,8 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
       const results = join(t.ws, ".ascout", "runs", "r1", "raw", "test");
       mkdirSync(results, { recursive: true });
       writeFileSync(join(t.ws, ".ascout", "earlier-evidence"), "evidence");
-      const readEvidence = script(`require("fs").readFileSync(".ascout\\earlier-evidence"); r = "read"`);
+      // Forward slashes: inside this script a backslash would start a JavaScript escape.
+      const readEvidence = script(`require("fs").readFileSync(".ascout/earlier-evidence"); r = "read"`);
       const writeResults = script(`require("fs").writeFileSync(${JSON.stringify(join(results, "results.json"))}, "{}")`);
       // The container can't even look inside .ascout, so Windows may report the file as absent.
       expect(["EPERM", "ENOENT"]).toContain((await run(t.sandbox, t.ws, node, readEvidence)).stdout);
