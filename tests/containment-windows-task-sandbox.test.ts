@@ -85,6 +85,10 @@ describe("preparing the Windows task sandbox", () => {
     startupEnv: {},
     taskTimeoutMs: 1000,
     loopbackPort: async () => null,
+    execBoth: async (file, argv, options) => {
+      runs.push({ file, argv, env: options.env });
+      return { stdout: opts.selfTest ?? JSON.stringify(WINDOWS_SELF_TEST_EXPECTED), stderr: opts.selfTest === "" ? "Add-Type failed" : "" };
+    },
     ...overrides,
   });
   const cleanups = () => runs.filter((run) => (run.argv.at(-1) ?? "").includes("AscoutAcTaskCleanup"));
@@ -114,7 +118,8 @@ describe("preparing the Windows task sandbox", () => {
       expect(await prepareWindowsTaskSandboxV1(REPO, deps({}, { selfTest: broken })), key).toMatchObject({ refused: expect.stringMatching(/self-test did not hold/u) });
       expect(cleanups()).toHaveLength(1);
     }
-    expect(await prepareWindowsTaskSandboxV1(REPO, deps({}, { selfTest: "" }))).toMatchObject({ refused: expect.stringMatching(/did not start/u) });
+    expect(await prepareWindowsTaskSandboxV1(REPO, deps({}, { selfTest: "" }))).toEqual({ refused: "the AppContainer task sandbox did not start (Add-Type failed)" });
+    expect(await prepareWindowsTaskSandboxV1(REPO, deps({ execBoth: async () => ({ stdout: "", stderr: "" }) }))).toEqual({ refused: "the AppContainer task sandbox did not start" });
   });
 
   it("refuses when a path can't be resolved, instead of throwing", async () => {

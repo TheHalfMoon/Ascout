@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { win32 } from "node:path";
@@ -234,7 +235,13 @@ const b64 = (text: string): string => Buffer.from(text, "utf8").toString("base64
 export type WindowsTaskSandboxDepsV1 = WindowsSandboxDepsV1 & {
   /** A host loopback port nothing inside the container may reach, for the self-test; null to skip it. */
   readonly loopbackPort: () => Promise<{ port: number; close: () => void } | null>;
+  /** Runs a file and returns both output streams, so a failed self-test can say why. */
+  readonly execBoth: (file: string, argv: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number }) => Promise<{ stdout: string; stderr: string }>;
 };
+
+const realExecBoth: WindowsTaskSandboxDepsV1["execBoth"] = (file, argv, { cwd, env, timeoutMs }) => new Promise((resolve) => {
+  execFile(file, [...argv], { cwd, env, encoding: "utf8", timeout: timeoutMs, windowsHide: true }, (_error, stdout, stderr) => resolve({ stdout, stderr }));
+});
 
 const realLoopback = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
   const server = createServer((socket) => socket.end("host"));
@@ -242,7 +249,7 @@ const realLoopback = (): Promise<{ port: number; close: () => void } | null> => 
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });
 
-const realTaskDeps: WindowsTaskSandboxDepsV1 = { ...realWindowsSandboxDepsV1, loopbackPort: realLoopback };
+const realTaskDeps: WindowsTaskSandboxDepsV1 = { ...realWindowsSandboxDepsV1, loopbackPort: realLoopback, execBoth: realExecBoth };
 
 const NODE_FILE_ENTRIES = ["node.exe", "npm.cmd", "npx.cmd", "corepack.cmd", "pnpm.cmd", "yarn.cmd", "npm", "npx", "corepack"] as const;
 const NODE_DIR_ENTRIES = ["node_modules\\npm", "node_modules\\corepack", "node_modules\\pnpm", "node_modules\\yarn"] as const;
@@ -353,12 +360,13 @@ async function selfTest(deps: WindowsTaskSandboxDepsV1, wrap: (file: string, arg
       loopback === null ? 'finish("denied");' : `const s = require("node:net").connect(${loopback.port}, "127.0.0.1"); s.on("data", () => finish("allowed")); s.on("error", () => finish("denied")); setTimeout(() => finish("denied"), 3000);`,
     ].join(" ");
     const launch = wrap(deps.host.realpath(deps.execPath), ["-e", script], root, [results]);
-    const output = await deps.exec(launch.file, launch.argv, { cwd: root, env: { SystemRoot: deps.systemRoot }, timeoutMs: 120_000 });
+    const { stdout: output, stderr } = await deps.execBoth(launch.file, launch.argv, { cwd: root, env: { SystemRoot: deps.systemRoot }, timeoutMs: 120_000 });
     let seen: unknown;
     try {
       seen = JSON.parse(output);
     } catch {
-      return "the AppContainer task sandbox did not start";
+      const detail = `${output}\n${stderr}`.replace(/\s+/gu, " ").trim().slice(-600);
+      return `the AppContainer task sandbox did not start${detail === "" ? "" : ` (${detail})`}`;
     }
     if (JSON.stringify(seen) !== JSON.stringify(WINDOWS_SELF_TEST_EXPECTED)) return `the AppContainer task sandbox started but its self-test did not hold: ${JSON.stringify(seen)}`;
     return null;
