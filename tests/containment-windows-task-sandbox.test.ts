@@ -306,8 +306,9 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
       // either way it must not outlive the task.
       const late = (marker: string) => ["-e", `let c; try { c = require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => require('fs').writeFileSync('${marker.replaceAll("\\", "\\\\\\\\")}', 'x'), 1500)"], { detached: true, stdio: "ignore" }); } catch (e) { process.stdout.write("refused:" + e.code); process.exit(0); } c.on("error", (e) => process.stdout.write("refused:" + e.code)); c.on("spawn", () => { c.unref(); process.stdout.write("started"); }); setTimeout(() => process.exit(0), 500);`];
       // An ordinary child, as test runners start, still works inside the container.
-      const child = await run(t.sandbox, t.ws, node, ["-e", `process.stdout.write(require("child_process").spawnSync(process.execPath, ["-e", "process.stdout.write('child-ran')"], { encoding: "utf8" }).stdout)`]);
-      expect(child.stdout, JSON.stringify(child)).toBe("child-ran");
+      const child = await run(t.sandbox, t.ws, node, ["-e", `const r = require("child_process").spawnSync(process.execPath, ["-e", "process.stdout.write('child-ran')"], { encoding: "utf8", timeout: 20000 }); process.stdout.write(JSON.stringify({ status: r.status, signal: r.signal, error: r.error ? r.error.code : null, stdout: r.stdout }))`]);
+      console.log(`T1-WINDOWS-CHILD ${JSON.stringify(child)}`);
+      expect(JSON.parse(child.stdout || "{}").stdout, JSON.stringify(child)).toBe("child-ran");
       const started = await run(t.sandbox, t.ws, node, late(join(t.ws, "late-inside")));
       expect(started.stdout, JSON.stringify(started)).toMatch(/^(started|refused:\w+)$/u);
       await new Promise((resolve) => setTimeout(resolve, 3500));
