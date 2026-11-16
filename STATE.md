@@ -23,7 +23,7 @@ Ascout v0.3.1 is released on GitHub: https://github.com/TheHalfMoon/Ascout/relea
 
 | Capability | State |
 | --- | --- |
-| CLI `init`, `doctor`, `check`, `review`, `test`, `security`, `mcp` | **Shipping** in v0.3.0 (GitHub Release only, not npm). |
+| CLI `init`, `doctor`, `check`, `review`, `test`, `security`, `mcp` | **Shipping** since v0.3.0; current release v0.3.1 (GitHub Release only, not npm). |
 | GitHub PR integration: `ascout pr-evidence`, `ascout pr-publish`, collect and publish workflows (#716–#718) | **Shipping** in v0.3.0. It runs on this repository's own PRs. It is customer-run on the customer's runners, and Ascout operates no service. PR code runs only in the read-only collect job, and the privileged publish job runs default-branch code only. |
 | Per-repository team policy, `.github/ascout-policy.json` (#719) | **Shipping** in v0.3.0. It is read only from the default branch, and an invalid policy fails closed. A finding, error or source change in any check always fails. |
 | Ascout identity guard on every CLI and MCP output, including no internal `UA-P` labels (#715, #720) | **Shipping** in v0.3.0. |
@@ -84,7 +84,7 @@ Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with 
 - **v0.3.0 is published (2026-11-13), on the founder's explicit authorization.**
   - The release-candidate run [43338782772](https://github.com/TheHalfMoon/Ascout/actions/runs/43338782772), on `main` at `d85b640` with `attest: true`, built and qualified the tarball on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24. The digest was identical on all six lanes, and equal to the earlier dry run at `81d5c3d`; only docs changed between the two.
   - The `release-attest` deployment was approved through the founder's account on that instruction, after the digest was checked. The attestation verifies against the published download.
-  - The release notes disclose one known limitation: in a Jest repository, a change only outside the test graph makes `check` exit 2. The fix is on `main` (#738), not in a release.
+  - The release notes disclose one known limitation: in a Jest repository, a change only outside the test graph makes `check` exit 2. The fix (#738) shipped in v0.3.1.
   - No human reviewed the release; the release notes say so.
 
 - FD-4 was decided on 2026-11-13: research and implementation, not certification. Any T1 claim needs native evidence and an independent human security review.
