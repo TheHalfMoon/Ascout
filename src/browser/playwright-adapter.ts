@@ -26,7 +26,6 @@
 
 import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
-import { chromium } from "playwright";
 import type { Browser, BrowserContext, Page } from "playwright";
 import {
   createActionResponse,
@@ -45,6 +44,21 @@ import type {
 export const PINNED_PLAYWRIGHT_VERSION = "1.63.0";
 
 const require = createRequire(import.meta.url);
+
+/**
+ * Playwright is a development dependency: an installed Ascout package doesn't carry it, and no shipped
+ * entry point loads this module. Loading it here, and tolerating its absence, keeps this file importable
+ * from an installed package; only code that actually drives a browser needs it, and that code says so.
+ */
+const playwright: typeof import("playwright") | null = await import("playwright").catch(() => null);
+
+/** Thrown when browser automation is used without Playwright installed. */
+export const PLAYWRIGHT_MISSING_TEXT = "the browser engine needs playwright@1.63.0, a development dependency that an installed Ascout package does not include";
+
+function chromiumOrThrow(): typeof import("playwright").chromium {
+  if (playwright === null) throw new Error(PLAYWRIGHT_MISSING_TEXT);
+  return playwright.chromium;
+}
 
 /** Returns a Playwright selector for a user-facing target (P016-06 owns policy). */
 export type TargetResolver = (target: string) => string;
@@ -106,7 +120,7 @@ export function assertPinnedPlaywrightVersion(actual: unknown): void {
  * event loop for minutes, so it is an explicit developer step, as CI already does.
  */
 export function ensureChromiumInstalled(): string {
-  const executablePath = chromium.executablePath();
+  const executablePath = chromiumOrThrow().executablePath();
   if (!existsSync(executablePath)) {
     throw new Error(
       `Chromium for Playwright ${PINNED_PLAYWRIGHT_VERSION} is not installed; install it with \`npx playwright install chromium\``,
@@ -271,7 +285,7 @@ export async function launchPlaywrightSession(
 ): Promise<PlaywrightRuntime> {
   assertPinnedPlaywrightVersion(loadedPlaywrightVersion());
   const executable_path = ensureChromiumInstalled();
-  const browser: Browser = await chromium.launch({
+  const browser: Browser = await chromiumOrThrow().launch({
     headless: options?.headless ?? true,
     // Playwright launches Chromium with --no-sandbox unless told otherwise. A renderer exploit
     // on a page under test must stay inside the sandbox, not run as the developer.
