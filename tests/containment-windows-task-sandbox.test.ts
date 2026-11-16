@@ -6,7 +6,7 @@ import { join, win32 } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { WINDOWS_SELF_TEST_EXPECTED, prepareWindowsTaskSandboxV1, quoteWindowsArgV1, windowsCommandLineV1, type WindowsTaskSandboxDepsV1, type WindowsTaskSandboxV1 } from "../src/assurance/containment/windows-task-sandbox.js";
+import { WINDOWS_SELF_TEST_EXPECTED, prepareWindowsTaskSandboxV1, realExecBothV1, realLoopbackPortV1, quoteWindowsArgV1, windowsCommandLineV1, type WindowsTaskSandboxDepsV1, type WindowsTaskSandboxV1 } from "../src/assurance/containment/windows-task-sandbox.js";
 
 // FD-4 T1 on Windows: an AppContainer for `check` tasks. The native tests run only where CI requires
 // the Windows sandbox (ASCOUT_REQUIRE_WINDOWS_SANDBOX=1): they create containers and change access
@@ -56,6 +56,19 @@ describe("Windows command lines", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the real helpers the Windows task sandbox uses", () => {
+  it("run a file and return both output streams", async () => {
+    expect(await realExecBothV1(process.execPath, ["-e", "process.stdout.write('o'); process.stderr.write('e')"], { cwd: process.cwd(), env: {}, timeoutMs: 20_000 })).toEqual({ stdout: "o", stderr: "e" });
+  });
+
+  it("open a host loopback port and close it", async () => {
+    const loopback = await realLoopbackPortV1();
+    if (loopback === null) throw new Error("no loopback port");
+    expect(loopback.port).toBeGreaterThan(0);
+    loopback.close();
   });
 });
 
@@ -129,9 +142,26 @@ describe("preparing the Windows task sandbox", () => {
     expect(await prepareWindowsTaskSandboxV1(REPO, deps({ execBoth: async () => ({ stdout: "", stderr: "" }) }))).toEqual({ refused: "the AppContainer task sandbox did not start" });
   });
 
-  it("refuses when a path can't be resolved, instead of throwing", async () => {
+  it("refuses when a path can't be resolved, instead of throwing, whatever was thrown", async () => {
     const base = deps();
     expect(await prepareWindowsTaskSandboxV1(REPO, { ...base, host: { ...base.host, realpath: () => { throw new Error("ENOENT"); } } })).toEqual({ refused: "ENOENT" });
+    expect(await prepareWindowsTaskSandboxV1(REPO, { ...base, host: { ...base.host, realpath: () => { throw "not an Error"; } } })).toEqual({ refused: "not an Error" });
+  });
+
+  it("refuses when the AppContainer probe runner's own self-test fails", async () => {
+    expect(await prepareWindowsTaskSandboxV1(REPO, deps({ readText: () => "" }))).toMatchObject({ refused: expect.stringMatching(/did not start/u) });
+  });
+
+  it("works for a folder without .git, and reuses an existing .ascout", async () => {
+    runs.length = 0;
+    made.length = 0;
+    const exists = (path: string) => (present(path) && !path.startsWith(`${REPO}\\.git`)) || path === `${REPO}\\.ascout`;
+    const prepared = await prepareWindowsTaskSandboxV1(REPO, deps({}, { exists }));
+    if (!("sandbox" in prepared)) throw new Error(prepared.refused);
+    const setup = runs.find((run) => (run.argv.at(-1) ?? "").includes("AscoutAcSetup"))!;
+    expect(setup.env.ASCOUT_AC_GITDIR).toBe("");
+    expect(setup.env.ASCOUT_AC_PATHS).not.toContain(".git");
+    expect(made).not.toContain(`${REPO}\\.ascout`);
   });
 
   it("closes .ascout and grants only Node's entry points at setup, runs the self-test through the run script with a loopback port, and wraps tasks with their result folders", async () => {

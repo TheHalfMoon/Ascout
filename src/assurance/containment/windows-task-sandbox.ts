@@ -287,17 +287,17 @@ export type WindowsTaskSandboxDepsV1 = WindowsSandboxDepsV1 & {
   readonly execBoth: (file: string, argv: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number }) => Promise<{ stdout: string; stderr: string }>;
 };
 
-const realExecBoth: WindowsTaskSandboxDepsV1["execBoth"] = (file, argv, { cwd, env, timeoutMs }) => new Promise((resolve) => {
+export const realExecBothV1: WindowsTaskSandboxDepsV1["execBoth"] = (file, argv, { cwd, env, timeoutMs }) => new Promise((resolve) => {
   execFile(file, [...argv], { cwd, env, encoding: "utf8", timeout: timeoutMs, windowsHide: true }, (_error, stdout, stderr) => resolve({ stdout, stderr }));
 });
 
-const realLoopback = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
+export const realLoopbackPortV1 = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
   const server = createServer((socket) => socket.end("host"));
   server.once("error", () => resolve(null));
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });
 
-const realTaskDeps: WindowsTaskSandboxDepsV1 = { ...realWindowsSandboxDepsV1, loopbackPort: realLoopback, execBoth: realExecBoth };
+const realTaskDeps: WindowsTaskSandboxDepsV1 = { ...realWindowsSandboxDepsV1, loopbackPort: realLoopbackPortV1, execBoth: realExecBothV1 };
 
 const NODE_FILE_ENTRIES = ["node.exe", "npm.cmd", "npx.cmd", "corepack.cmd", "pnpm.cmd", "yarn.cmd", "npm", "npx", "corepack"] as const;
 const NODE_DIR_ENTRIES = ["node_modules\\npm", "node_modules\\corepack", "node_modules\\pnpm", "node_modules\\yarn"] as const;
