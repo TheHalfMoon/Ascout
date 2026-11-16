@@ -9,12 +9,12 @@ import { realWindowsSandboxDepsV1, windowsAppContainerProbeRunnerV1, windowsPowe
  * FD-4 T1 on Windows: an AppContainer for `check` tasks, rather than for a probe.
  *
  * One container serves the whole run. Before the first task it is created and granted:
- * - modify access to the repository;
- * - an explicit deny of writes to `.git`, so a task can't plant hooks or configuration that later run
- *   on the host;
- * - an explicit deny of all access to `.ascout`, Ascout's evidence folder. Each task's result folders
- *   are granted for that task only, and after the task Ascout refuses to read them if they contain a
- *   link (see check.ts);
+ * - modify access to the repository root and the files directly in it, and to every top-level folder
+ *   except `.git` and `.ascout`, skipping links and junctions. `.git` gets nothing, so a task can't
+ *   plant hooks or configuration that later run on the host. `.ascout`, Ascout's evidence folder, gets
+ *   nothing either; each task's result folders are granted for that task only, and after the task
+ *   Ascout refuses to read them if they contain a link (see check.ts). (Deny entries don't work here:
+ *   an app container's access check ignored them.);
  * - read and execute access to the Node and package-manager entry points only.
  *
  * It refuses a repository whose `.git` is not a real folder (a worktree's gitfile could be repointed),
@@ -33,6 +33,7 @@ import { realWindowsSandboxDepsV1, windowsAppContainerProbeRunnerV1, windowsPowe
  * - whatever every app container may read stays readable: Windows, Program Files, and objects with
  *   open access lists;
  * - granting the repository rewrites its access lists for the run, which is slow on very large trees;
+ * - a folder a task creates at the repository's top level isn't granted to it;
  * - the repository's own files stay writable;
  * - there is no memory or CPU limit beyond Ascout's timeout and output caps.
  */
@@ -88,14 +89,15 @@ public static class AscoutAcSetup {
 $icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
 $made = [AscoutAcSetup]::Create($env:ASCOUT_AC_NAME)
 $sid = $made[0]
-& $icacls $env:ASCOUT_AC_WORKSPACE /grant "*$($sid):(OI)(CI)M" | Out-Null
+# No deny entries: an app container's access check ignored them (Windows CI, 2026-11-16). Instead the
+# root is granted for itself and the files directly in it, and every top-level folder except .git and
+# .ascout is granted with inheritance. Links and junctions are skipped, so no grant leaves the repository.
+& $icacls $env:ASCOUT_AC_WORKSPACE /grant "*$($sid):(OI)(NP)M" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'could not grant the repository' }
-if ($env:ASCOUT_AC_GITDIR) {
-  & $icacls $env:ASCOUT_AC_GITDIR /deny "*$($sid):(OI)(CI)(W,D,DC,WDAC,WO)" | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw 'could not protect .git' }
+foreach ($dir in (Get-ChildItem -LiteralPath $env:ASCOUT_AC_WORKSPACE -Force -Directory | Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $_.Name -ne '.git' -and $_.Name -ne '.ascout' })) {
+  & $icacls $dir.FullName /grant "*$($sid):(OI)(CI)M" | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'could not grant a repository folder' }
 }
-& $icacls $env:ASCOUT_AC_EVIDENCE /deny "*$($sid):(OI)(CI)F" | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'could not close .ascout' }
 foreach ($file in ($env:ASCOUT_AC_NODEFILES -split '\|' | Where-Object { $_ })) {
   & $icacls $file /grant "*$($sid):RX" | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'could not grant a Node entry point' }
@@ -122,7 +124,8 @@ public static class AscoutAcTaskCleanup {
 $icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
 $sid = [AscoutAcTaskCleanup]::Sid($env:ASCOUT_AC_NAME)
 if ($sid) {
-  foreach ($path in ($env:ASCOUT_AC_PATHS -split '\|' | Where-Object { $_ })) { try { & $icacls $path /remove "*$sid" 2>&1 | Out-Null } catch { } }
+  $folders = @(Get-ChildItem -LiteralPath $env:ASCOUT_AC_WORKSPACE -Force -Directory -ErrorAction SilentlyContinue | Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) } | ForEach-Object { $_.FullName })
+  foreach ($path in @(($env:ASCOUT_AC_PATHS -split '\|' | Where-Object { $_ }) + $folders)) { try { & $icacls $path /remove "*$sid" 2>&1 | Out-Null } catch { } }
 }
 [AscoutAcTaskCleanup]::DeleteAppContainerProfile($env:ASCOUT_AC_NAME) | Out-Null
 `;
