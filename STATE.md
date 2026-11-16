@@ -64,11 +64,11 @@ Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with 
 
 | Item | State | Evidence | Remaining blocker | Founder needed? | Next action |
 | --- | --- | --- | --- | --- | --- |
-| C1 App gate | App-pinned check-source forgery rejection proven live in test repo; v0.3.0 ships App mode | Proof PR #2 `BLOCKED` with forged GitHub Actions success, PR #1 `CLEAN` with App success; ruleset 27227819, publish runs 43495937215 and 43496649056; linked C1c live proof note | Human R1 of the C1 design remains outstanding. The optional no-Commit-statuses comparison was not run (delegated decision, 2026-11-16) | App for this proof repo registered and installed; no App for Ascout itself for now (delegated decision, 2026-11-16; founder may reverse) | Keep the pinned test rule |
+| C1 App gate | App-pinned check-source forgery rejection proven live in test repo; v0.3.0 ships App mode | Proof PR #2 `BLOCKED` with forged GitHub Actions success, PR #1 `CLEAN` with App success; ruleset 27227819, publish runs 43495937215 and 43496649056; linked C1c live proof note | An independent review of the C1 design under A09 has not been done. The optional no-Commit-statuses comparison was not run (delegated decision, 2026-11-16) | App for this proof repo registered and installed; no App for Ascout itself for now (delegated decision, 2026-11-16; founder may reverse) | Keep the pinned test rule |
 | E10 BYOAI | E10a–E10d and E10f released in v0.3.1 | #723, #724; #753 (delegated review: offline export and ingest, never human review); #755 (remote review: off by default, per-run host confirmation, payload Gitleaks scan, operator-paid); #759 (AI review in PRs: one advisory comment, never a check; key environment limited to the default branch) | None | No | — |
 | E11 MCP | E11a shipping; E11b deferred | #730 | E11b (code execution through MCP) deferred by the founder on 2026-11-13; read-only MCP tools stay | No | None |
-| E7 containment | T0 stated and proven natively; T1-ENV built; T1-FS and T1-NET research runners built and natively evidenced on Linux, macOS and Windows; **no T1 claim** | #756: capability probes on all three OSes show all four capabilities ALLOWED under T0, and a report can't fake a denial. #762: `check --clean-env` (inheritance only). #764 and #766 (Linux bubblewrap), #768 (macOS sandbox-exec), #770 (Windows AppContainer via PowerShell): with network isolation and an allowlisted environment, CI requires all four native probes DENIED on each OS. Known gaps per OS (Linux path sockets in bound paths; macOS readable system files; signals to other processes are denied since 2026-11-16; Windows app-container-readable system objects) are documented. No command uses any runner. Technique-level probes and evidence are in private host specs. `FD4_T1_ISOLATION_RESEARCH.md` | Independent human security review of the private specs and evidence; wiring a runner into `check` | Yes: human security review before any T1 claim | Founder arranges the review |
-| FD-8 / historical PRs | Main-rooted; superseded PRs closed | Founder decision 2026-11-13. Closed with explanations, branches kept: #577–#588, #597, #599, #600, #603–#605, #607, #614, #635, #651 | #653 stays a draft until a genuine human R1; AI review never satisfies R1 | Yes: human R1 of #653 | — |
+| E7 containment | T0 stated and proven natively; T1-ENV built; T1-FS and T1-NET research runners built and natively evidenced on Linux, macOS and Windows; **no T1 claim** | #756: capability probes on all three OSes show all four capabilities ALLOWED under T0, and a report can't fake a denial. #762: `check --clean-env` (inheritance only). #764 and #766 (Linux bubblewrap), #768 (macOS sandbox-exec), #770 (Windows AppContainer via PowerShell): with network isolation and an allowlisted environment, CI requires all four native probes DENIED on each OS. Known gaps per OS (Linux path sockets in bound paths; macOS readable system files; signals to other processes are denied since 2026-11-16; Windows app-container-readable system objects) are documented. No command uses any runner. Technique-level probes and evidence are in private host specs. `FD4_T1_ISOLATION_RESEARCH.md` | Completing T1 engineering and an independent review under A09 (2026-11-16) on the final commit; wiring a runner into `check` | Yes: human security review before any T1 claim | Founder arranges the review |
+| FD-8 / historical PRs | Main-rooted; superseded PRs closed | Founder decision 2026-11-13. Closed with explanations, branches kept: #577–#588, #597, #599, #600, #603–#605, #607, #614, #635, #651 | #653 closed as superseded on 2026-11-16 (founder decision, after a founder-delegated ChatGPT review; not human R1); branch `plan/ascout-v2-main-ready-20261106` kept | Yes: human R1 of #653 | — |
 | Salvaged #614 perf | Done | #746: 20 stat-dirty files start 2 `hash-object` processes instead of 40; fail-closed guards exercised | None | No | — |
 | CLI reliability | Done | #743 (SHA-256 `--pr-head`, checked in a real SHA-256 repository), #744 (`--help`, `--version`, truthful `init`) | None | No | — |
 | Install footprint | Done | #745 (`playwright` dev-only; receipt can't be COMPLETE for a `package.json` change, so merged on the 14 checks and local release qualification) | None | No | — |
@@ -99,12 +99,13 @@ These changes shipped in **v0.3.2** (2026-11-16). Evidence is the same as above:
 
 The draft Amendment A08 for statement-level evidence (#784, `c6a75e7`) is recorded as a proposal. It is not ratified.
 
-**Still blocked on people, not engineering:**
+**Review policy changed (2026-11-16).** Amendment A09 (constitution 1.5.0, founder-ratified; record: `docs/governance/A09_INDEPENDENT_REVIEW_POLICY_RATIFICATION_2026-11-16.md`) removes mandatory human R1 and human security sign-off. An independent review under A09 now meets those gates. Such a review inspects the exact commit, its boundaries, tests and evidence, and is labeled truthfully; AI reviews are never presented as human. #653 was closed as superseded the same day.
 
-- human R1 of #653: the reviewer package is `specs/017-unified-assurance/PR653_HUMAN_R1_REVIEWER_PACKAGE.md`;
-- an independent human security review before any T1 claim or any wiring of a sandbox into `check` (the founder is arranging it; the brief is private);
-- a founder-ratified A07 amendment before statement-level coverage can change receipts (#779 recommends Option A);
-- any further release.
+**Still reserved to the founder:**
+
+- ratifying A08 before statement-level coverage can change receipts (#779 recommends Option A);
+- any further release;
+- admitting untrusted repositories (Principle IV), even after a T1 tier qualifies.
 
 **Can proceed without the founder:** smaller CI and reliability fixes, docs accuracy, and native evidence for the research runners, all without enabling them in `check`. Issue #591 stays open: #780 characterizes three cases, but the check-then-use window is unchanged.
 
@@ -119,7 +120,7 @@ The draft Amendment A08 for statement-level evidence (#784, `c6a75e7`) is record
   - **#359 (brand and UI freeze, a draft):** left open. Its own text parks it until substantial implementation is complete, and nothing supersedes it.
   - **Windows T1 mechanism:** PowerShell `Add-Type`, so no native binary ships (#770).
   - **Paid offering:** no changes. No payment processor, pricing, or licensing step is taken without the founder.
-  - **Cannot be delegated:** the human R1 of #653, and the independent human security review before any T1 claim or any wiring of a sandbox into `check`. The founder said on 2026-11-16 that they will arrange the security review. A private brief for the reviewer is prepared.
+  - **Superseded the same day by A09:** the founder removed mandatory human R1 and human security review. #653 closed as superseded; T1 work proceeds under A09 independent review.
 
 - **v0.3.0 is published (2026-11-13), on the founder's explicit authorization.**
   - The release-candidate run [43338782772](https://github.com/TheHalfMoon/Ascout/actions/runs/43338782772), on `main` at `d85b640` with `attest: true`, built and qualified the tarball on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24. The digest was identical on all six lanes, and equal to the earlier dry run at `81d5c3d`; only docs changed between the two.
@@ -127,10 +128,9 @@ The draft Amendment A08 for statement-level evidence (#784, `c6a75e7`) is record
   - The release notes disclose one known limitation: in a Jest repository, a change only outside the test graph makes `check` exit 2. The fix (#738) shipped in v0.3.1.
   - No human reviewed the release; the release notes say so.
 
-- FD-4 was decided on 2026-11-13: research and implementation, not certification. Research runners now exist for Linux, macOS and Windows, with native CI evidence (#764, #766, #768, #770). Any T1 claim still needs an independent human security review, which the founder is arranging (2026-11-16).
-- FD-8 was decided on 2026-11-13: main-rooted; #651 and the superseded PRs are closed. #653 still needs a genuine human R1.
+- FD-4 was decided on 2026-11-13: research and implementation, not certification. Research runners now exist for Linux, macOS and Windows, with native CI evidence (#764, #766, #768, #770). Any T1 claim needs native evidence and an independent review under A09 (2026-11-16) on the final commit.
+- FD-8 was decided on 2026-11-13: main-rooted; #651 and the superseded PRs are closed. #653 was closed as superseded on 2026-11-16.
 - Repository settings: private vulnerability reporting and a `main` ruleset (PRs, linear history, the 13 required checks, no force push or deletion) are on as of 2026-11-10. Dependabot alerts are on as of 2026-11-13.
-- Human R1 of the reconciled adoption packet (#653), and optionally of the E8 packets (#703, #707–#709), which merged on the founder's go-ahead without a line-level R1.
 - MCP (E11b) is deferred (2026-11-13); running repository code stays CLI-only.
 - C1 GitHub App gate: the dedicated test App was registered and installed, three `ascout-publish` environment secrets were confirmed by name, and the pinned-source forgery rejection was proven on 2026-11-13. The optional permission comparison and an App for Ascout itself were decided against on 2026-11-16 (see the delegated decisions). Evidence: `specs/017-unified-assurance/C1C_LIVE_APP_GATE_PROOF_2026-11-13.md`.
 - Paid offering (`docs/PAID_OFFERING_DESIGN.md`): the principles, what stays free, the pricing model, the licensing boundary, names, and maintenance ownership. Decision 3 is made: C1 is free core. A payment processor is a separate, later decision.

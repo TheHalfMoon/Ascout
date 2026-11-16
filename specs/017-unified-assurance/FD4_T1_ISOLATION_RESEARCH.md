@@ -7,9 +7,12 @@ the code it describes, changes that. Ascout will not claim T1, or say that it ca
 code, until both of these exist:
 
 1. native evidence from the probes below, on each host, showing every capability denied; and
-2. an independent human security review of the host-specific design and its evidence.
+2. an independent review under Amendment A09 (2026-11-16) of the host-specific design, the exact
+   final commit, and its native evidence.
 
-An AI review does not count toward either.
+A review is never evidence by itself (A09 clause 4). A tier that passes both may be called
+"internally qualified under A09" for the named host and threat model, never externally certified
+or independently human-audited (A09 clause 5).
 
 This document is public on purpose and stays generic. The host-specific T1 spec includes
 technique-level probes, and it stays private, as the T0 spec requires
@@ -106,7 +109,7 @@ its own it is not T1.
      - Kernel exploits are out of scope.
 
      Technique-level probes and their results are in the private Linux host spec. A Linux T1-FS
-     claim still needs an independent human security review.
+     claim still needs an independent review under A09.
    - **macOS (research runner built):** `src/assurance/containment/macos-fs-sandbox.ts` builds a
      profile for the system's `sandbox-exec` (taken from `/usr/bin/sandbox-exec` only). The profile
      starts from "allow" and denies, for the task:
@@ -169,17 +172,19 @@ its own it is not T1.
      four** native capability probes DENIED (`all_denied: true`). CI checks loopback TCP. Abstract
      sockets and external hosts were checked by the private probes, not CI.
    - That is research evidence, not a claim. The tier stays T0, and nothing in Ascout uses it yet.
-     A claim still needs the independent human security review in step 5.
-5. **Review and claim.** When every probe is DENIED natively on a host, and an independent human
-   security review accepts that host's design and evidence, the tier record may say T1 for that
-   host only. Until then it says T0.
+     A claim still needs the independent review in step 5.
+5. **Review and claim.** When every probe is DENIED natively on a host, and an independent review
+   under A09 accepts that host's design, its final commit and its evidence, the tier record may say
+   T1 for that host only, as internally qualified under A09. Until then it says T0.
 
 ## Evidence bar for a T1 claim
 
 - Every probe `DENIED` with the parent's agreement (`all_denied: true`), natively on that host in
   CI, on every supported Node version.
 - The private technique-level probes are also denied.
-- An independent human security review of the design and evidence, recorded with the reviewer's
-  identity. AI review does not satisfy it.
+- An independent review under A09 of the design, the exact final commit, and its evidence, recorded
+  with the reviewer's identity (for example "Claude, fresh-context agent"). Every critical and high
+  finding is fixed before the claim. The claim says "internally qualified under A09", never
+  "certified" or "human-audited".
 - The claim names its host, its mechanism, and its known limits.
 - Any regression in a probe fails CI and withdraws the claim.

@@ -82,8 +82,8 @@ A repository can choose which checks a pull request must complete, in
 **Status: shipped since v0.3.0, and proven live in a test repository (C1c, 2026-11-13).** In
 `TheHalfMoon/ascout-c1c-proof`, under a ruleset pinned to the dedicated App, a forged same-named
 check from GitHub Actions did not satisfy the rule (the PR showed BLOCKED) while the App's own check
-passed. Evidence: `specs/017-unified-assurance/C1C_LIVE_APP_GATE_PROOF_2026-11-13.md`. Not done: a
-human review of the C1 design; an optional comparison without the Commit statuses permission (not
+passed. Evidence: `specs/017-unified-assurance/C1C_LIVE_APP_GATE_PROOF_2026-11-13.md`. Not done: an
+independent review of the C1 design under Amendment A09; an optional comparison without the Commit statuses permission (not
 run; see `STATE.md`); an actual merge attempt; and tests of bypass actors, classic branch protection,
 and a compromised App key.
 

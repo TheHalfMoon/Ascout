@@ -150,6 +150,27 @@ Ratified by A07 Implementation Authorization (Issue #655, PR #656, effective on 
 8. This amendment adds no engine, sandbox, network, service, or dependency, and no isolation claim. An exit code is one field of the evidence contract and is not proof of correctness.
 9. For the semantics above only, this amendment supersedes the statement in Amendment A05 clause 2 that existing `check` and `test` execution behavior is preserved, the statement in Amendment A05 clause 8 that `ascout check` remains unchanged, and the statement in Amendment A06 clause 5 that `ascout check`, `ascout review`, and `ascout test` remain unchanged. "Additive only" in those clauses concerned effects on other commands. Those clauses otherwise stay in force.
 
+### Amendment A09 — Independent review policy
+
+Ratified by the founder's explicit decision of 2026-11-16, given in writing to the engineering agent and recorded in `docs/governance/A09_INDEPENDENT_REVIEW_POLICY_RATIFICATION_2026-11-16.md`. Scope is how engineering work is reviewed before it is merged, qualified, or claimed. All M1 principles, A04–A07, and Principle IV remain in force.
+
+1. No Ascout gate requires a human R1 review or a human security sign-off. Wherever a specification, plan, decision record, or `STATE.md` requires "human R1", "independent human review", or "independent human security review", that requirement is met by an independent review under clause 2, and by nothing less.
+2. An independent review MUST:
+   - be performed by a reviewer that did not write the change under review: a fresh-context AI agent, a separate model or tool, or a person;
+   - inspect the exact commit under review by its full SHA, together with the security boundaries it touches, its tests, and the actual evidence (CI results, native test output, receipts);
+   - record every finding with a severity, and record what was not reviewed or not tested.
+
+   Every critical and high finding MUST be fixed, or the claim it blocks withdrawn. Any material change after a reviewed commit needs a new review of the final commit.
+3. Every review MUST be identified truthfully: who or what performed it (for example "Claude, fresh-context agent" or "ChatGPT"). An AI review MUST NOT be presented as a human review, a human signature or approval, an external certification, or an independent human audit. A founder decision or delegation does not imply that the founder examined any code.
+4. A review is an opinion about evidence, never evidence itself. A review MUST NOT turn a failing, incomplete, simulated, or missing test result into a pass. Containment and isolation claims additionally require native tests on each claimed platform that show the denial, with a control showing the same test detects the capability when the protection is absent.
+5. A containment tier above T0 that passes clause 2 and clause 4 on its final commit may be described as **internally qualified under A09**, with its exact supported platforms, mechanisms, and threat-model limits. It MUST NOT be described as externally certified or independently human-audited. Qualification does not by itself admit untrusted repositories: Principle IV's trusted-local scope changes only by a separate founder authorization.
+6. These remain reserved to explicit founder authorization: constitutional amendments (including A08); public releases, tags, and build-provenance signing; npm or other publication; payments, pricing, and paid offerings; creating accounts, GitHub Apps, or credentials; and changes to repository protection rules.
+7. Unchanged by this amendment:
+   - runtime security and fail-closed behaviour;
+   - test, coverage, and exact-head CI requirements;
+   - A07 exit semantics and receipt schema v1.0;
+   - Principle IV's per-invocation human admission of a changed command surface. That admission is a runtime authority decision by the caller, not a review gate.
+
 ## Development Workflow and Quality Gates
 
 All product work MUST follow the canonical founding sequence unless a constitutional amendment explicitly changes it:
@@ -163,8 +184,8 @@ All product work MUST follow the canonical founding sequence unless a constituti
 7. implementation tasks;
 8. requirements-quality checklist;
 9. cross-artifact analysis;
-10. independent final plan audit;
-11. fresh exact-HEAD cross-artifact consistency and branch-purity review;
+10. independent final plan audit (an independent review under Amendment A09);
+11. fresh exact-HEAD cross-artifact consistency and branch-purity review (an independent review under Amendment A09);
 12. explicit implementation authorization.
 
 A stale audit MUST NOT authorize implementation or merge. Any material mutation after an audited head requires reconciliation of affected claims and a new exact-HEAD review.
@@ -189,4 +210,4 @@ Principles protecting evidence integrity, no-green-by-omission, source binding, 
 
 Ponytail/YAGNI is a complexity gate, not an architecture generator. GitHub Spec Kit is the canonical specification workflow, pinned initially by `.specify/PROVENANCE.md`.
 
-**Version**: 1.4.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-11-06
+**Version**: 1.5.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-11-16

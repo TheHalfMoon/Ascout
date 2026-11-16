@@ -12,7 +12,7 @@ Background: `STATEMENT_COVERAGE_RECEIPT_DESIGN_2026-11-16.md` (#779), sections 3
 
 On ratification:
 - add the amendment below after Amendment A07;
-- increment the constitution version from 1.4.0 to 1.5.0;
+- increment the constitution version from 1.5.0 to 1.6.0 (A09 took 1.5.0 on 2026-11-16);
 - update "Last Amended";
 - reconcile `STATE.md` and the affected specs (Governance item 5).
 
@@ -119,7 +119,7 @@ These are the agent's assessments, for the founder to check:
 
 Record one of these. The agent records nothing here.
 
-- [ ] Ratify as written (constitution 1.5.0).
+- [ ] Ratify as written (constitution 1.6.0).
 - [ ] Ratify with changes: ______
 - [ ] Reject; receipts stay as they are.
 

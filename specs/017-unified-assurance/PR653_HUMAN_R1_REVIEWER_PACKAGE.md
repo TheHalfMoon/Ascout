@@ -1,5 +1,8 @@
 # PR #653: human R1 reviewer package
 
+> **Historical (2026-11-16).** Not used. #653 was closed as superseded on the founder's decision, after a founder-delegated ChatGPT review, and Amendment A09 removed the mandatory human R1. No R1 outcome was recorded.
+
+
 **Purpose:** everything an independent human reviewer needs to perform R1 on
 [PR #653](https://github.com/TheHalfMoon/Ascout/pull/653). It is not a review, holds no outcome, and
 names no reviewer. AI and model reviews of #653 exist and are listed below; they are **advisory and
