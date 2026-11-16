@@ -75,7 +75,8 @@ jobs:
           TMPDIR: ${{ runner.temp }}
           # The AppContainer must start, so its native evidence can't silently skip.
           ASCOUT_REQUIRE_WINDOWS_SANDBOX: "1"
-        run: npm test -- --maxWorkers=1
+        # Two workers: one worker took 24-36 minutes on shared runners (2026-11-16), near the limit.
+        run: npm test -- --maxWorkers=2
       - name: Build
         if: ${{ !cancelled() }}
         run: npm run build
