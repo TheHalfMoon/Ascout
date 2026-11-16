@@ -185,6 +185,17 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
 
   const script = (body: string) => ["-e", `let r = "allowed"; try { ${body} } catch (e) { r = e.code || String(e); } process.stdout.write(r)`];
 
+  it("reports what a sandboxed task sees (diagnostic, always passes)", async () => {
+    const t = await setUp();
+    try {
+      const probe = await run(t.sandbox, t.ws, node, ["-e", `const fs = require("fs"); let outside = "allowed"; try { fs.readFileSync(${JSON.stringify(t.outside)}); } catch (e) { outside = e.code; } process.stdout.write(JSON.stringify({ cwd: process.cwd(), temp: process.env.TEMP, envKeys: Object.keys(process.env).sort(), outside, gitConfig: (() => { try { fs.appendFileSync(".git\\\\config", ""); return "allowed"; } catch (e) { return e.code; } })() }))`]);
+      console.log(`T1-WINDOWS-DIAGNOSTIC ${JSON.stringify(probe)}`);
+    } finally {
+      await t.sandbox.dispose();
+      rmSync(t.root, { recursive: true, force: true });
+    }
+  }, 600_000);
+
   it("keeps the repository writable but .git, outside files, and host loopback out of reach; the controls reach all of them", async () => {
     const t = await setUp();
     const server = createServer((socket) => socket.end("hi"));
