@@ -279,10 +279,23 @@ export interface CheckRunOptions {
    * line only, never from configuration the repository controls.
    */
   readonly taskEnvironment?: NodeJS.ProcessEnv;
+  /**
+   * Every task command runs inside this sandbox. Like taskEnvironment, it comes from the command line
+   * for one run only, never from repository configuration.
+   */
+  readonly taskSandbox?: CheckTaskSandboxV1;
 }
 
 /** The current run's task environment, if the operator asked for an allowlisted one. */
 const runTaskEnvironment = new AsyncLocalStorage<NodeJS.ProcessEnv | undefined>();
+
+/** Runs a resolved task command inside an OS sandbox (FD-4 T1); see src/assurance/containment. */
+export interface CheckTaskSandboxV1 {
+  readonly mechanism: string;
+  readonly wrap: (file: string, argv: readonly string[], cwd: string) => { readonly file: string; readonly argv: readonly string[] };
+}
+
+const runTaskSandbox = new AsyncLocalStorage<CheckTaskSandboxV1 | undefined>();
 
 function testTaskEnvironment(): NodeJS.ProcessEnv {
   return testRunnerEnvironmentV1(runTaskEnvironment.getStore(), process.env);
@@ -648,10 +661,13 @@ async function executePlannedTask(
   const startedAt = new Date(startedMs).toISOString();
   const cancellation = runCancellation.getStore();
   const taskEnv = options.env ?? runTaskEnvironment.getStore();
+  const sandbox = runTaskSandbox.getStore();
+  const cwd = workingDirectoryPath(repositoryRoot, plan.workingDirectory);
   const result = await runProcess({
     file: plan.argv[0]!,
     argv: plan.argv.slice(1),
-    cwd: workingDirectoryPath(repositoryRoot, plan.workingDirectory),
+    cwd,
+    ...(sandbox === undefined ? {} : { wrap: (file: string, argv: readonly string[]) => sandbox.wrap(file, argv, cwd) }),
     resolve_bare_file_outside: repositoryRoot,
     // A descendant left running could rewrite this run's evidence after the runner exits.
     require_tree_exit: true,
@@ -1790,7 +1806,7 @@ export async function runCheck(
   repositoryRoot: string,
   options: CheckRunOptions = {},
 ): Promise<CheckOutcome> {
-  return runCancellation.run(options.signal, () => runTaskEnvironment.run(options.taskEnvironment, () => runCheckWithinCancellation(repositoryRoot, options)));
+  return runCancellation.run(options.signal, () => runTaskEnvironment.run(options.taskEnvironment, () => runTaskSandbox.run(options.taskSandbox, () => runCheckWithinCancellation(repositoryRoot, options))));
 }
 
 async function runCheckWithinCancellation(
