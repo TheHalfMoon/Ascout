@@ -318,6 +318,8 @@ export function sandboxResultLink(folders: readonly string[]): string | null {
 }
 
 const runTaskSandbox = new AsyncLocalStorage<CheckTaskSandboxV1 | undefined>();
+/** Sandboxed runs in progress, so a task launched without its sandbox context fails instead of running unsandboxed. */
+let sandboxedRunsActive = 0;
 
 function testTaskEnvironment(): NodeJS.ProcessEnv {
   return testRunnerEnvironmentV1(runTaskEnvironment.getStore(), process.env);
@@ -684,6 +686,7 @@ async function executePlannedTask(
   const cancellation = runCancellation.getStore();
   const taskEnv = options.env ?? runTaskEnvironment.getStore();
   const sandbox = runTaskSandbox.getStore();
+  if (sandbox === undefined && sandboxedRunsActive > 0) throw new Error("a sandboxed run lost its sandbox before launching a task; nothing was started");
   const cwd = workingDirectoryPath(repositoryRoot, plan.workingDirectory);
   const resultFolders = sandboxResultFolders(rawPath);
   if (sandbox !== undefined) for (const folder of resultFolders) mkdirSync(folder, { recursive: true });
@@ -1137,8 +1140,10 @@ async function executePytestWithResults(
 
   let xml: string | null;
   try {
-    const bytes = readFileSync(join(rawPath, "pytest", "pytest-results.xml"));
-    xml = bytes.byteLength > PYTEST_RESULTS_MAX_BYTES ? null : bytes.toString("utf8");
+    // Only a regular file of bounded size: a task could leave a FIFO or a huge sparse file here.
+    const reportPath = join(rawPath, "pytest", "pytest-results.xml");
+    const report = lstatSync(reportPath, { throwIfNoEntry: false });
+    xml = report === undefined || !report.isFile() || report.size > PYTEST_RESULTS_MAX_BYTES ? null : readFileSync(reportPath).toString("utf8");
   } catch {
     xml = null;
   }
@@ -1835,7 +1840,14 @@ export async function runCheck(
   repositoryRoot: string,
   options: CheckRunOptions = {},
 ): Promise<CheckOutcome> {
-  return runCancellation.run(options.signal, () => runTaskEnvironment.run(options.taskEnvironment, () => runTaskSandbox.run(options.taskSandbox, () => runCheckWithinCancellation(repositoryRoot, options))));
+  const run = () => runCancellation.run(options.signal, () => runTaskEnvironment.run(options.taskEnvironment, () => runTaskSandbox.run(options.taskSandbox, () => runCheckWithinCancellation(repositoryRoot, options))));
+  if (options.taskSandbox === undefined) return run();
+  sandboxedRunsActive += 1;
+  try {
+    return await run();
+  } finally {
+    sandboxedRunsActive -= 1;
+  }
 }
 
 async function runCheckWithinCancellation(

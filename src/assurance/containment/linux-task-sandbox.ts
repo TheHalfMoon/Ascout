@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { posix } from "node:path";
 
@@ -27,9 +28,15 @@ import { execFileTextV1, findBwrapV1, linuxFsSandboxArgsV1, realLinuxFsHostV1, w
  * The command must already be an absolute path resolved outside the repository: bubblewrap would
  * otherwise search the task's PATH, which a repository can influence.
  *
+ * It also refuses a `.git` whose hooks folder is a link or whose configuration includes other files,
+ * since either could point into the writable tree.
+ *
  * Known limits:
  * - the repository's own files stay writable, and the user may later run them on the host,
  *   including a `.git` planted in a subfolder;
+ * - when a task is stopped on timeout or cancellation, its namespace dies asynchronously, so the
+ *   result-folder link check can run a moment before the last process exits. Results of a stopped
+ *   task are never read;
  * - a Unix socket a host process created inside the repository can be reached;
  * - there is no seccomp filter, so the task shares the caller's session keyring and may create
  *   nested user namespaces;
@@ -113,6 +120,27 @@ export interface LinuxTaskSandboxDepsV1 {
   readonly execPath: string;
   /** A host loopback port nothing inside the sandbox may reach, for the self-test; null to skip it. */
   readonly loopbackPort: () => Promise<{ port: number; close: () => void } | null>;
+  /** A file's text, or null when it can't be read. */
+  readonly readText: (path: string) => string | null;
+}
+
+const realReadText = (path: string): string | null => {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Why `.git` would let the writable tree reach Git's own settings, or null: a hooks folder that is a
+ * link, or a configuration include, either of which can point into the repository the task writes.
+ */
+export function gitReachRefusalV1(gitDir: string, host: Pick<LinuxFsHostV1, "symlinkTarget" | "exists">, readText: (path: string) => string | null): string | null {
+  const hooks = posix.join(gitDir, "hooks");
+  if (host.exists(hooks) && host.symlinkTarget(hooks) !== null) return "the repository's .git/hooks is a link, which could point into the writable tree";
+  if (/^\s*\[\s*include(If\b|\s*\])/imu.test(readText(posix.join(gitDir, "config")) ?? "")) return "the repository's Git configuration includes other files, which could lie in the writable tree";
+  return null;
 }
 
 const realLoopback = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
@@ -121,7 +149,7 @@ const realLoopback = (): Promise<{ port: number; close: () => void } | null> => 
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });
 
-const realDeps: LinuxTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopback };
+const realDeps: LinuxTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopback, readText: realReadText };
 
 /** What the self-test task must report, in the exact configuration tasks run in. */
 export const LINUX_SELF_TEST_EXPECTED = { outside: false, git: "EROFS", evidence: false, results: "allowed", capEff: "0000000000000000", loopback: "denied" } as const;
@@ -147,6 +175,10 @@ export async function prepareLinuxTaskSandboxV1(workspace: string, deps: LinuxTa
       return { refused: "the repository's .git is not a real folder (a worktree or a link), which --sandbox can't protect" };
     }
     if (deps.host.exists(posix.join(root, ".gitmodules"))) return { refused: "the repository has submodules, whose .git files --sandbox can't protect" };
+    if (deps.host.exists(gitPath)) {
+      const reach = gitReachRefusalV1(gitPath, deps.host, deps.readText);
+      if (reach !== null) return { refused: reach };
+    }
     plan = { bwrap, workspace: root, nodeBinds: nodeBindsV1(deps.host.realpath(deps.execPath), deps.host), gitDir: deps.host.exists(gitPath) ? gitPath : null };
   } catch (error) {
     return { refused: error instanceof Error ? error.message : String(error) };

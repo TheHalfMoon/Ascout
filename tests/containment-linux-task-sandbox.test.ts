@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { LinuxFsHostV1 } from "../src/assurance/containment/linux-fs-sandbox.js";
-import { LINUX_SELF_TEST_EXPECTED, SANDBOX_HOME, linuxTaskSandboxArgvV1, nodeBindsV1, prepareLinuxTaskSandboxV1, type LinuxTaskSandboxDepsV1, type LinuxTaskSandboxV1 } from "../src/assurance/containment/linux-task-sandbox.js";
+import { LINUX_SELF_TEST_EXPECTED, SANDBOX_HOME, gitReachRefusalV1, linuxTaskSandboxArgvV1, nodeBindsV1, prepareLinuxTaskSandboxV1, type LinuxTaskSandboxDepsV1, type LinuxTaskSandboxV1 } from "../src/assurance/containment/linux-task-sandbox.js";
 
 // FD-4 T1 on Linux: the bubblewrap sandbox for `check` tasks. The native tests at the end are the
 // evidence; each pairs a denial with a control showing the same probe detects the capability without
@@ -94,7 +94,18 @@ describe("preparing the task sandbox", () => {
     exec: async () => JSON.stringify(LINUX_SELF_TEST_EXPECTED),
     execPath: "/opt/node/bin/node",
     loopbackPort: async () => null,
+    readText: () => "[core]\n\tbare = false\n",
     ...overrides,
+  });
+
+  it("refuses a .git whose hooks folder is a link or whose configuration includes other files", async () => {
+    const withHooks = fakeHost([...present, `${REPO}/.git/hooks`], { [`${REPO}/.git/hooks`]: "../hooks" });
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: withHooks }))).toMatchObject({ refused: expect.stringMatching(/hooks is a link/u) });
+    for (const config of ["[include]\n\tpath = ../conf\n", "  [includeIf \"gitdir:/x/\"]\n\tpath = y\n", "[INCLUDE]\npath=z\n"]) {
+      expect(await prepareLinuxTaskSandboxV1(REPO, deps({ readText: () => config })), config).toMatchObject({ refused: expect.stringMatching(/includes other files/u) });
+    }
+    expect(gitReachRefusalV1(`${REPO}/.git`, fakeHost([`${REPO}/.git/hooks`]), () => null)).toBeNull();
+    expect(gitReachRefusalV1(`${REPO}/.git`, fakeHost([]), () => "[core]\n[remote \"origin\"]\n\turl = x\n")).toBeNull();
   });
 
   it("refuses off Linux, without bubblewrap, for a refused repository or Node folder", async () => {

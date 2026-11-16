@@ -137,7 +137,7 @@ ascout --help | --version
 
 Bubblewrap must be installed at `/usr/bin/bwrap` or `/bin/bwrap`, and unprivileged user namespaces must be allowed. `check --sandbox` exits `2` and runs nothing in any of these cases; it never falls back to running tasks outside the sandbox:
 - the sandbox can't start, or its self-test (run in the exact task configuration) fails;
-- the repository is a worktree, or has submodules;
+- the repository is a worktree, has submodules, or has a `.git/hooks` link or Git configuration includes, any of which could reach into the writable tree;
 - you are on another OS.
 
 Limits:

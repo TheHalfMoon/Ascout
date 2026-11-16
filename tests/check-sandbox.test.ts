@@ -181,6 +181,28 @@ describe("check with a sandboxed task that plants a link in its result folder", 
   });
 });
 
+describe("a task launched while a sandboxed run is in progress", () => {
+  it("fails without starting when it has lost its sandbox, instead of running unsandboxed", async () => {
+    const dir = scratch();
+    const slow = join(dir, "slow.cjs");
+    writeFileSync(slow, `setTimeout(() => process.exit(0), 3000);\n`);
+    const held: CheckTaskSandboxV1 = { mechanism: "slow", wrap: (_file, _argv) => ({ file: process.execPath, argv: [slow] }) };
+    mkdirSync(join(dir, "a"));
+    mkdirSync(join(dir, "b"));
+    const first = repository(join(dir, "a"), [process.execPath]);
+    const second = repository(join(dir, "b"), [process.execPath]);
+    const sandboxed = runCheck(first.root, { taskSandbox: held });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const unsandboxed = await runCheck(second.root).then(() => "ran", (error: Error) => error.message);
+    await sandboxed;
+    expect(unsandboxed).toBe("a sandboxed run lost its sandbox before launching a task; nothing was started");
+    expect(existsSync(second.seen)).toBe(false);
+    // Once the sandboxed run is over, a plain run works again.
+    await runCheck(second.root);
+    expect(existsSync(second.seen)).toBe(true);
+  });
+});
+
 describe("check --sandbox from the command line", () => {
   async function inRepo(root: string, argv: readonly string[]): Promise<{ code: number; stderr: string }> {
     const previous = process.cwd();
