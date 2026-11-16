@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LinuxFsHostV1 } from "../src/assurance/containment/linux-fs-sandbox.js";
 import { SANDBOX_EXEC } from "../src/assurance/containment/macos-fs-sandbox.js";
-import { MACOS_SELF_TEST_EXPECTED, macosNodeReadsV1, macosTaskSandboxArgvV1, macosTaskSandboxProfileV1, prepareMacosTaskSandboxV1, type MacosTaskSandboxDepsV1, type MacosTaskSandboxV1 } from "../src/assurance/containment/macos-task-sandbox.js";
+import { MACOS_SELF_TEST_EXPECTED, macosNodeReadsV1, realExecBothV1, realLoopbackPortV1, realSpawnCanaryHolderV1, macosTaskSandboxArgvV1, macosTaskSandboxProfileV1, prepareMacosTaskSandboxV1, type MacosTaskSandboxDepsV1, type MacosTaskSandboxV1 } from "../src/assurance/containment/macos-task-sandbox.js";
 
 // FD-4 T1 on macOS: the sandbox-exec profile for `check` tasks. The native tests pair each denial with
 // a control that shows the same probe detects the capability without the sandbox.
@@ -78,6 +78,26 @@ describe("Node's entry points on macOS", () => {
     ]);
     expect(() => macosNodeReadsV1("/Users/u/bin/node", host([]))).toThrow(/expose the home folder/u);
     expect(() => macosNodeReadsV1("node", host([]))).toThrow(/absolute/u);
+  });
+});
+
+describe("the real helpers the macOS task sandbox uses", () => {
+  it("run a file and return both output streams", async () => {
+    const out = await realExecBothV1(process.execPath, ["-e", "process.stdout.write('o'); process.stderr.write('e')"], { cwd: process.cwd(), env: {} });
+    expect(out).toEqual({ stdout: "o", stderr: "e" });
+  });
+
+  it("open a host loopback port and close it", async () => {
+    const loopback = await realLoopbackPortV1();
+    if (loopback === null) throw new Error("no loopback port");
+    expect(loopback.port).toBeGreaterThan(0);
+    loopback.close();
+  });
+
+  it("start a canary holder, or report pid -1 without crashing when it can't start", () => {
+    const holder = realSpawnCanaryHolderV1("ASCOUT_TEST_CANARY");
+    expect(typeof holder.pid).toBe("number");
+    holder.close();
   });
 });
 
@@ -153,6 +173,12 @@ describe("preparing the macOS task sandbox", () => {
     expect(calls[0]![1]).toContain("/private/var/folders/xy/T/ascout-1/repo/.ascout/runs/selftest/raw/test");
     expect(calls[0]!.join(" ")).toContain("4242");
     expect(closed).toBe(true);
+  });
+
+  it("refuses when the control loses sight of the canary process after the probe", async () => {
+    let psCalls = 0;
+    const flaky = deps({ execBoth: async (file) => (file === "/bin/ps" ? { stdout: (psCalls += 1) === 1 ? "ASCOUT_SELFTEST_CANARY_ABC" : "", stderr: "" } : { stdout: JSON.stringify(reported), stderr: "" }) });
+    expect(await prepareMacosTaskSandboxV1(REPO, flaky)).toMatchObject({ refused: expect.stringMatching(/lost sight of the canary/u) });
   });
 
   it("refuses when launchd ran the job the task submitted, judged by its marker outside the sandbox, and removes that job", async () => {

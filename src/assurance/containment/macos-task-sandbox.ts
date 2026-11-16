@@ -151,7 +151,7 @@ export interface MacosTaskSandboxDepsV1 {
   readonly execBoth: (file: string, argv: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs?: number }) => Promise<{ stdout: string; stderr: string }>;
   /** A random suffix for the self-test's probe names. */
   readonly randomName: () => string;
-  /** How long the self-test gives launchd to run a submitted job before judging that it didn't. */
+  /** How long the self-test watches for launchd to run a submitted job before judging that it didn't. */
   readonly launchdWaitMs: number;
   /** Starts a host process, outside the sandbox, whose starting environment holds `name`. */
   readonly spawnCanaryHolder: (name: string) => { pid: number; close: () => void };
@@ -159,20 +159,22 @@ export interface MacosTaskSandboxDepsV1 {
 
 export const realSpawnCanaryHolderV1: MacosTaskSandboxDepsV1["spawnCanaryHolder"] = (name) => {
   const child = spawn("/bin/sleep", ["60"], { env: { [name]: "visible" }, stdio: "ignore" });
-  return { pid: child.pid ?? -1, close: () => { child.kill("SIGKILL"); } };
+  // A failed start leaves pid -1, which makes the control miss the canary, so the sandbox refuses.
+  child.on("error", () => undefined);
+  return { pid: child.pid ?? -1, close: () => { try { child.kill("SIGKILL"); } catch { /* it never started */ } } };
 };
 
 export const realExecBothV1: MacosTaskSandboxDepsV1["execBoth"] = (file, argv, { cwd, env, timeoutMs = 20_000 }) => new Promise((resolve) => {
   execFile(file, [...argv], { cwd, env, encoding: "utf8", timeout: timeoutMs }, (_error, stdout, stderr) => resolve({ stdout, stderr }));
 });
 
-const realLoopback = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
+export const realLoopbackPortV1 = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
   const server = createServer((socket) => socket.end("host"));
   server.once("error", () => resolve(null));
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });
 
-const realDeps: MacosTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopback, execBoth: realExecBothV1, randomName: () => Math.random().toString(36).slice(2, 12), launchdWaitMs: 1500, spawnCanaryHolder: realSpawnCanaryHolderV1 };
+const realDeps: MacosTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopbackPortV1, execBoth: realExecBothV1, randomName: () => Math.random().toString(36).slice(2, 12), launchdWaitMs: 5000, spawnCanaryHolder: realSpawnCanaryHolderV1 };
 
 /** What the self-test task must report, in the exact configuration tasks run in. */
 export const MACOS_SELF_TEST_EXPECTED = { outside: "EPERM", git: "EPERM", evidence: "EPERM", caseEvidence: "EPERM", firmlink: "EPERM", results: "allowed", link: "EPERM", linkOutside: "EPERM", otherEnvironment: "hidden", loopback: "denied", launchdJob: "refused" } as const;
@@ -277,9 +279,13 @@ const s = require("node:net").connect(${loopback.port}, "127.0.0.1"); s.on("data
       const detail = `${output}\n${stderr}`.replace(/\s+/gu, " ").trim().slice(-600);
       return `the sandbox-exec task sandbox did not start${detail === "" ? "" : ` (${detail})`}`;
     }
-    // Whether launchd ran the job is judged from outside: its marker must never appear.
-    await new Promise((resolve) => setTimeout(resolve, deps.launchdWaitMs));
+    // Whether launchd ran the job is judged from outside: its marker must never appear, watched for the
+    // whole wait (as long as the native control allows launchd to run a job).
+    for (let waited = 0; waited < deps.launchdWaitMs && !deps.host.exists(jobMarker); waited += 250) await new Promise((resolve) => setTimeout(resolve, 250));
     seen.launchdJob = deps.host.exists(jobMarker) ? "ran" : "refused";
+    // The holder must still be visible from outside, so "hidden" inside wasn't a dead or missing process.
+    const after = await deps.execBoth("/bin/ps", ["-E", "-ww", "-p", String(holder.pid)], { cwd: root, env: {} });
+    if (!after.stdout.includes(canaryName)) return "the self-test's control lost sight of the canary process, so its result proves nothing";
     if (JSON.stringify(seen) !== JSON.stringify(MACOS_SELF_TEST_EXPECTED)) return `the sandbox-exec task sandbox started but its self-test did not hold: ${JSON.stringify(seen)}`;
     return null;
   } finally {
