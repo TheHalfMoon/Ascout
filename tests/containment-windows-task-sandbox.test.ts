@@ -258,6 +258,8 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
     }
   }, 600_000);
 
+  // The canary below is never passed to PowerShell (run() gives it an explicit environment), so this
+  // checks only that the test's own variables don't leak; the environment is not an allowlist yet.
   it("passes exit codes and separate output streams, gives the container's own temp folder, and drops what it wasn't given", async () => {
     const t = await setUp();
     process.env.ASCOUT_T1_CANARY = "host-only";

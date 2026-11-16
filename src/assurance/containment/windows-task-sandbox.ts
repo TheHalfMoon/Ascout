@@ -21,11 +21,13 @@ import { realWindowsSandboxDepsV1, windowsAppContainerProbeRunnerV1, windowsPowe
  * and a repository with submodules. Before the first task, a self-test runs in that container and
  * requires every expected denial.
  *
- * Each task then starts suspended in the container, inside a job that kills its whole tree when the
- * task ends or Ascout stops it. Its output goes straight to Ascout's own pipes, and it inherits nothing
- * else. Its temporary, AppData and home variables point at the container's own folder. It has no
- * network capabilities, so it reaches no network, the host's loopback included. After the run, every
- * grant is removed and the container profile is deleted.
+ * Each task then starts suspended in the container, inside a job meant to kill its whole tree when the
+ * task ends or Ascout stops it. Its output goes straight to Ascout's own pipes, and it inherits no other
+ * handle. Its temporary, AppData and home variables point at the container's own folder; the rest of
+ * its environment is PowerShell's, which is the caller's environment plus what Windows adds (not an
+ * allowlist). It has no network capabilities, so it reaches no network, the host's loopback included.
+ * After the run, the container's entries are removed from the repository's root, top-level folders,
+ * .git, .ascout and the Node files, and the container profile is deleted.
  *
  * The Win32 calls are made from Windows PowerShell 5.1 at its fixed path, so no native binary ships.
  *
@@ -38,12 +40,22 @@ import { realWindowsSandboxDepsV1, windowsAppContainerProbeRunnerV1, windowsPowe
  *   fs.realpathSync fails (it reads every parent folder from the drive root), so tools that depend
  *   on real paths can fail there; such a task fails, it never runs outside the container;
  * - a Node child process started with pipes hangs inside the container (Windows CI, 2026-11-16), so
- *   test runners that start workers can't run there yet. A detached child is refused outright.
- *
- * Because of the last two, this sandbox is not wired into `ascout check`: its isolation is evidenced
- * natively, but common JavaScript test tasks can't run inside it yet.
+ *   test runners that start workers can't run there yet;
  * - the repository's own files stay writable;
- * - there is no memory or CPU limit beyond Ascout's timeout and output caps.
+ * - there is no memory or CPU limit beyond Ascout's timeout and output caps;
+ * - setup changes the access lists of the Node install's entry points for the run (an install under
+ *   Program Files needs administrator rights, otherwise setup refuses).
+ *
+ * This sandbox is NOT wired into `ascout check`, and makes no T1 claim. Its isolation checks pass
+ * natively, but common JavaScript test tasks can't run inside it yet, and wiring would also need (from
+ * the independent A09 review of 17b64e9):
+ * - refusing hard links in the repository (a link to an outside file would share the container's grant);
+ * - native evidence that nested junctions don't carry grants outside the repository;
+ * - removing a task's result-folder grant from Node even if PowerShell is killed, and one task at a time
+ *   (or a container per task);
+ * - an allowlisted environment built inside the run script, tested with a canary that reaches it;
+ * - native evidence of the kill-on-close job with a control, and a self-test that refuses without a
+ *   loopback port and probes more denials.
  */
 
 const crossSpawn = createRequire(import.meta.url)("cross-spawn") as { _parse: (file: string, args: readonly string[], options: object) => { command: string; args: string[]; options: { windowsVerbatimArguments?: boolean } } };
@@ -87,7 +99,7 @@ export function windowsCommandLineV1(file: string, argv: readonly string[], node
   return { app: file, commandLine: [file, ...argv].map(quoteWindowsArgV1).join(" ") };
 }
 
-/** Creates the container and grants it the repository, a write deny on .git, and the Node folder. */
+/** Creates the container and grants it the repository (except .git and .ascout) and the Node entry points. */
 export const WINDOWS_TASK_SETUP_SCRIPT = String.raw`
 $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
@@ -246,7 +258,7 @@ $sid = [AscoutAcTask]::Sid($name)
 $writable = @((& $dec $writable64) -split '\|' | Where-Object { $_ })
 $code = 1
 try {
-  # This task's result folders only, explicitly, which overrides the deny they inherit from .ascout.
+  # This task's result folders only, granted for the task and removed after it.
   foreach ($dir in $writable) {
     & $icacls $dir /grant "*$($sid):(OI)(CI)M" | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'could not grant a result folder' }
