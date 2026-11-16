@@ -198,6 +198,18 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
     try {
       const probe = await run(t.sandbox, t.ws, node, ["-e", `const fs = require("fs"); let outside = "allowed"; try { fs.readFileSync(${JSON.stringify(t.outside)}); } catch (e) { outside = e.code; } process.stdout.write(JSON.stringify({ cwd: process.cwd(), temp: process.env.TEMP, envKeys: Object.keys(process.env).sort(), outside, gitConfig: (() => { try { fs.appendFileSync(".git\\\\config", ""); return "allowed"; } catch (e) { return e.code; } })() }))`]);
       console.log(`T1-WINDOWS-DIAGNOSTIC ${JSON.stringify(probe)}`);
+      const cmd = win32.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe");
+      const prefix = win32.dirname(node);
+      for (const [label, argv] of [
+        ["echo", ["/d", "/c", "echo hi"]],
+        ["dir-prefix", ["/d", "/c", `dir "${prefix}"`]],
+        ["type-npm", ["/d", "/c", `type "${win32.join(prefix, "npm.cmd")}"`]],
+        ["npm-noargs", ["/d", "/c", `"${win32.join(prefix, "npm.cmd")}"`]],
+        ["node-version", ["/d", "/c", `"${node}" --version`]],
+      ] as const) {
+        const result = await run(t.sandbox, t.ws, cmd, argv);
+        console.log(`T1-WINDOWS-CMD ${label} ${JSON.stringify({ code: result.code, stdout: result.stdout.slice(0, 300), stderr: result.stderr.slice(0, 300) })}`);
+      }
     } finally {
       await t.sandbox.dispose();
       rmSync(t.root, { recursive: true, force: true });
