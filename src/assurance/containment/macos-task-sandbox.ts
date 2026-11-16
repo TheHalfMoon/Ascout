@@ -34,7 +34,9 @@ import { SANDBOX_EXEC, UNREADABLE_DATA_TREES, macosWorkspaceRefusalV1 } from "./
  * - the repository's own files stay writable, and the user may later run them on the host;
  * - there is no process namespace, so a descendant that detaches can outlive the task (it stays
  *   sandboxed);
- * - there is no memory or CPU limit beyond Ascout's timeout and output caps.
+ * - there is no memory or CPU limit beyond Ascout's timeout and output caps;
+ * - file metadata inside `.ascout` (whether a guessed name exists, its size and times) stays visible;
+ *   its contents and folder listings do not.
  */
 
 /** A path that can go into a sandbox profile as a string literal. */
@@ -100,8 +102,10 @@ export function macosTaskSandboxProfileV1(plan: MacosTaskSandboxPlanV1, writable
     '(allow file-write-data (literal "/dev/null") (literal "/dev/tty"))',
   ];
   if (plan.gitDir !== null) lines.push(`(deny file-write* (subpath "${plan.gitDir}"))`);
-  lines.push(`(deny file-read* file-write* (subpath "${evidence}"))`);
-  if (writable.length > 0) lines.push(`(allow file-read* file-write* ${writable.map((dir) => `(subpath "${dir}")`).join(" ")})`);
+  // The same operations the repository rule allows: sandbox-exec let that specific file-read-data allow
+  // win over a broader file-read* deny (macOS CI, 2026-11-16).
+  lines.push(`(deny file-read-data file-write* (subpath "${evidence}"))`);
+  if (writable.length > 0) lines.push(`(allow file-read-data file-write* ${writable.map((dir) => `(subpath "${dir}")`).join(" ")})`);
   return `${lines.join("\n")}\n`;
 }
 

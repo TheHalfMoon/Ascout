@@ -32,8 +32,8 @@ describe("the macOS task profile", () => {
   it("keeps .git read-only and .ascout closed but this run's result folders, each after the repository allow", () => {
     const repoAllow = lines.findIndex((line) => line.startsWith("(allow file-read-data file-write*"));
     const git = lines.indexOf(`(deny file-write* (subpath "${REPO}/.git"))`);
-    const evidence = lines.indexOf(`(deny file-read* file-write* (subpath "${REPO}/.ascout"))`);
-    const results = lines.indexOf(`(allow file-read* file-write* (subpath "${RESULTS}"))`);
+    const evidence = lines.indexOf(`(deny file-read-data file-write* (subpath "${REPO}/.ascout"))`);
+    const results = lines.indexOf(`(allow file-read-data file-write* (subpath "${RESULTS}"))`);
     expect(git).toBeGreaterThan(repoAllow);
     expect(evidence).toBeGreaterThan(repoAllow);
     expect(results).toBeGreaterThan(evidence);
@@ -42,7 +42,7 @@ describe("the macOS task profile", () => {
   it("has no .git rule without a .git folder or a results rule without result folders, and refuses unsafe input", () => {
     const bare = macosTaskSandboxProfileV1({ ...PLAN, gitDir: null });
     expect(bare).not.toContain(".git");
-    expect(bare).not.toContain("(allow file-read* file-write*");
+    expect(bare).not.toContain(".ascout/runs");
     expect(() => macosTaskSandboxProfileV1({ ...PLAN, workspace: "/Users" })).toThrow();
     expect(() => macosTaskSandboxProfileV1({ ...PLAN, privateDir: '/tmp/a"b' })).toThrow(/private folder/u);
     expect(() => macosTaskSandboxProfileV1({ ...PLAN, nodeReads: ["relative"] })).toThrow(/Node entry point/u);
