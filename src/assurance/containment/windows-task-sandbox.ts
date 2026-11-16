@@ -205,7 +205,10 @@ $dec = { param($s) [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($
 $vars = [Environment]::GetEnvironmentVariables('Process')
 foreach ($drop in @('PSModulePath')) { $vars.Remove($drop) }
 $tmp = Join-Path $acDir 'Temp'
-foreach ($name2 in @('TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE', 'HOME')) { $vars[$name2] = $tmp }
+# Windows itself points an app container's TEMP and TMP at LOCALAPPDATA\Packages\<name>\AC\Temp, so
+# LOCALAPPDATA must stay the real one: three levels above the container's AC folder.
+$vars['LOCALAPPDATA'] = Split-Path (Split-Path (Split-Path $acDir -Parent) -Parent) -Parent
+foreach ($name2 in @('TEMP', 'TMP', 'APPDATA', 'USERPROFILE', 'HOME')) { $vars[$name2] = $tmp }
 $entries = @($vars.Keys | Sort-Object | ForEach-Object { "$_=$($vars[$_])" })
 $block = ($entries -join [char]0) + [char]0 + [char]0
 # After the task's environment is captured: PowerShell needs .EXE in PATHEXT to run icacls as a program.

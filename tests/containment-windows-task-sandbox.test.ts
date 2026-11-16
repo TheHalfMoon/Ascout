@@ -235,7 +235,8 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
       writeFileSync(join(t.ws, ".ascout", "earlier-evidence"), "evidence");
       const readEvidence = script(`require("fs").readFileSync(".ascout\\earlier-evidence"); r = "read"`);
       const writeResults = script(`require("fs").writeFileSync(${JSON.stringify(join(results, "results.json"))}, "{}")`);
-      expect((await run(t.sandbox, t.ws, node, readEvidence)).stdout).toBe("EPERM");
+      // The container can't even look inside .ascout, so Windows may report the file as absent.
+      expect(["EPERM", "ENOENT"]).toContain((await run(t.sandbox, t.ws, node, readEvidence)).stdout);
       expect((await run(t.sandbox, t.ws, node, writeResults, undefined, [results])).stdout).toBe("allowed");
       expect(readFileSync(join(results, "results.json"), "utf8")).toBe("{}");
       // The grant lasted for that task only.
@@ -269,7 +270,10 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
     const t = await setUp();
     try {
       const npm = win32.join(win32.dirname(node), "npm.cmd");
-      if (existsSync(npm)) expect((await run(t.sandbox, t.ws, npm, ["--version"])).stdout.trim()).toMatch(/^\d+\.\d+\.\d+$/u);
+      if (existsSync(npm)) {
+        const version = await run(t.sandbox, t.ws, npm, ["--version"]);
+        expect(version.stdout.trim(), JSON.stringify(version)).toMatch(/^\d+\.\d+\.\d+$/u);
+      }
       const late = (marker: string) => ["-e", `require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => require('fs').writeFileSync('${marker.replaceAll("\\", "\\\\\\\\")}', 'x'), 1500)"], { detached: true, stdio: "ignore" }).unref(); process.stdout.write("started")`];
       expect((await run(t.sandbox, t.ws, node, late(join(t.ws, "late-inside")))).stdout).toBe("started");
       await new Promise((resolve) => setTimeout(resolve, 3500));
