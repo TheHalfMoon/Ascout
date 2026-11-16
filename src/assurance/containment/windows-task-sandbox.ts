@@ -37,6 +37,11 @@ import { realWindowsSandboxDepsV1, windowsAppContainerProbeRunnerV1, windowsPowe
  * - Node inside the container runs with --preserve-symlinks and --preserve-symlinks-main, and
  *   fs.realpathSync fails (it reads every parent folder from the drive root), so tools that depend
  *   on real paths can fail there; such a task fails, it never runs outside the container;
+ * - a Node child process started with pipes hangs inside the container (Windows CI, 2026-11-16), so
+ *   test runners that start workers can't run there yet. A detached child is refused outright.
+ *
+ * Because of the last two, this sandbox is not wired into `ascout check`: its isolation is evidenced
+ * natively, but common JavaScript test tasks can't run inside it yet.
  * - the repository's own files stay writable;
  * - there is no memory or CPU limit beyond Ascout's timeout and output caps.
  */
