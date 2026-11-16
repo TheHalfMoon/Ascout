@@ -5,6 +5,11 @@ break compatibility, and each breaking change is listed under **Breaking**.
 
 ## Unreleased
 
+- FD-4 research on macOS: the `sandbox-exec` runner now also denies sending signals to any process but
+  itself. macOS CI requires a signal to an outside process to fail, and requires the same profile without
+  the rule to deliver it. Research evidence only: no command uses the runner, and the containment tier
+  stays T0.
+
 ## 0.3.2 (2026-11-16)
 
 Published on GitHub Releases on the founder's explicit authorization of this exact candidate; not on

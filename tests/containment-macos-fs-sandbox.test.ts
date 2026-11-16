@@ -50,7 +50,7 @@ describe("the macOS workspace", () => {
 });
 
 describe("the sandbox profile", () => {
-  it("denies writes, user-data reads, starting programs, system services, and foreign code; then allows Node and the workspace", () => {
+  it("denies writes, user-data reads, starting programs, system services, foreign code, and signals to others; then allows Node and the workspace", () => {
     const profile = macosSandboxProfileV1("/Users/u/src/repo", "/opt/node/bin/node", HOME);
     expect(profile.trim().split("\n")).toEqual([
       "(version 1)",
@@ -60,6 +60,7 @@ describe("the sandbox profile", () => {
       "(deny process-exec*)",
       "(deny mach-lookup)",
       "(deny file-map-executable)",
+      "(deny signal (target others))",
       '(allow process-exec* (literal "/opt/node/bin/node"))',
       '(allow file-map-executable (subpath "/System") (subpath "/usr/lib") (subpath "/usr/libexec") (subpath "/Library/Apple") (subpath "/private/var/db/dyld") (literal "/opt/node/bin/node"))',
       '(allow file-read-data (literal "/opt/node/bin/node"))',
@@ -69,6 +70,8 @@ describe("the sandbox profile", () => {
     // Later rules win in a sandbox profile, so the allows must come after the denies.
     expect(profile.indexOf("(allow file-read-data file-write*")).toBeGreaterThan(profile.indexOf("(deny file-write*)"));
     expect(profile).not.toContain("network");
+    // No later rule allows signals, so the deny stands.
+    expect(profile).not.toMatch(/\(allow[^\n]*signal/u);
   });
 
   it("denies the network only when asked", () => {
@@ -226,6 +229,36 @@ describe.runIf(process.platform === "darwin")("native capability probes under sa
       const out = JSON.parse(await made.runner(script, { canaryPath: "/x", writePath: "/x", port: 1, envName: "X" }, {}, workspace)) as { status: number | null; error: string | null };
       expect(out.status === 0 && out.error === null).toBe(false);
     } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it("deny signalling a process outside the sandbox, which the same profile without that rule can signal", async (ctx) => {
+    const made = await runner("shared");
+    if ("refused" in made) return ctx.skip();
+    const { mkdtempSync, realpathSync, rmSync } = await import("node:fs");
+    const { tmpdir, homedir } = await import("node:os");
+    const { spawn, spawnSync } = await import("node:child_process");
+    const workspace = realpathSync(mkdtempSync(`${tmpdir()}/ascout-sandbox-signal-`));
+    const target = spawn("/bin/sleep", ["60"], { stdio: "ignore" });
+    const exited = new Promise<NodeJS.Signals | null>((resolve) => target.once("exit", (_code, signal) => resolve(signal)));
+    try {
+      const pid = target.pid as number;
+      const script = `let r = "signalled"; try { process.kill(${pid}, "SIGTERM"); } catch (e) { r = e.code; } process.stdout.write(r)`;
+      const out = await made.runner(script, { canaryPath: "/x", writePath: "/x", port: 1, envName: "X" }, {}, workspace);
+      expect(out).toBe("EPERM");
+      expect(target.exitCode).toBeNull();
+      expect(target.signalCode).toBeNull();
+      // Positive control: the same profile without the signal rule lets the task stop the process.
+      const node = realpathSync(process.execPath);
+      const profile = macosSandboxProfileV1(workspace, node, realpathSync(homedir()));
+      const without = profile.split("\n").filter((line) => line !== "(deny signal (target others))").join("\n");
+      expect(without).not.toContain("signal");
+      const control = spawnSync(SANDBOX_EXEC, ["-p", without, node, "-e", script], { cwd: workspace, env: {}, encoding: "utf8" });
+      expect(control.stdout).toBe("signalled");
+      expect(await exited).toBe("SIGTERM");
+    } finally {
+      target.kill("SIGKILL");
       rmSync(workspace, { recursive: true, force: true });
     }
   }, 60_000);

@@ -117,6 +117,7 @@ its own it is not T1.
        sandbox;
      - looking up system services, which blocks asking a daemon to read or write on its behalf;
      - mapping executable code from anywhere but system locations and the Node binary;
+     - sending signals to any process but itself (2026-11-16);
      - with `network: "none"`, the network.
 
      A default-deny read policy stopped the dynamic loader before Node started, which is why reads
@@ -124,7 +125,9 @@ its own it is not T1.
      - **Still readable:** system files, including `/Library`, `/private/etc`, logs and databases
        under `/private/var`, and Homebrew's prefixes; extended attributes and file metadata
        everywhere; and other processes' information.
-     - **Still allowed:** signalling other processes of the same user.
+     - **No longer allowed (2026-11-16):** signalling other processes of the same user. macOS CI
+       requires a signal to an outside process to fail with `EPERM`, and requires the same profile
+       without that rule to deliver it.
      - **Probe scope:** the native read probe proves denial only because its canary lies in a
        denied tree.
      - macOS CI requires the native probes to show read and write of an outside sibling DENIED, and

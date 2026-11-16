@@ -13,9 +13,11 @@ import { execFileTextV1, realLinuxFsHostV1, type ExecFileTextV1, type LinuxFsHos
  *   outside the sandbox (open, launchctl, osascript, defaults, security);
  * - looking up system services is denied, so a task can't ask a daemon to read or write for it;
  * - executable code may be mapped only from system locations and the Node binary, so a native addon
- *   written into the workspace can't be loaded.
- * System files, extended attributes, and file metadata elsewhere stay readable. Other processes of the
- * same user can still be signalled. With `network: "none"`, network access is denied too.
+ *   written into the workspace can't be loaded;
+ * - sending signals to any process other than itself is denied, so a task can't stop or disrupt the
+ *   user's other processes.
+ * System files, extended attributes, and file metadata elsewhere stay readable. With `network: "none"`,
+ * network access is denied too.
  *
  * `sandbox-exec` is deprecated by Apple and its profile language is undocumented, so this is research
  * evidence only. Nothing in Ascout runs tasks through it, the containment tier stays T0
@@ -88,6 +90,7 @@ export function macosSandboxProfileV1(workspace: string, nodeBinary: string, hom
     "(deny process-exec*)",
     "(deny mach-lookup)",
     "(deny file-map-executable)",
+    "(deny signal (target others))",
     `(allow process-exec* (literal "${nodeBinary}"))`,
     `(allow file-map-executable ${EXECUTABLE_TREES.map((tree) => `(subpath "${tree}")`).join(" ")} (literal "${nodeBinary}"))`,
     `(allow file-read-data (literal "${nodeBinary}"))`,
