@@ -33,8 +33,8 @@ describe("Windows command lines", () => {
   });
 
   it("run npm's and npx's shims from the Node folder as node.exe on npm's own script, and nothing else that way", () => {
-    expect(windowsCommandLineV1("C:\\nodejs\\npm.cmd", ["run", "a b"], "C:\\nodejs")).toEqual({ app: "C:\\nodejs\\node.exe", commandLine: 'C:\\nodejs\\node.exe C:\\nodejs\\node_modules\\npm\\bin\\npm-cli.js run "a b"' });
-    expect(windowsCommandLineV1("C:\\nodejs\\NPX.CMD", ["vitest"], "C:\\NodeJS").commandLine).toBe("C:\\NodeJS\\node.exe C:\\NodeJS\\node_modules\\npm\\bin\\npx-cli.js vitest");
+    expect(windowsCommandLineV1("C:\\nodejs\\npm.cmd", ["run", "a b"], "C:\\nodejs")).toEqual({ app: "C:\\nodejs\\node.exe", commandLine: 'C:\\nodejs\\node.exe --preserve-symlinks --preserve-symlinks-main C:\\nodejs\\node_modules\\npm\\bin\\npm-cli.js run "a b"' });
+    expect(windowsCommandLineV1("C:\\nodejs\\NPX.CMD", ["vitest"], "C:\\NodeJS").commandLine).toBe("C:\\NodeJS\\node.exe --preserve-symlinks --preserve-symlinks-main C:\\NodeJS\\node_modules\\npm\\bin\\npx-cli.js vitest");
     // An npm.cmd anywhere else (say, inside the repository) is not treated as npm's shim.
     expect(windowsCommandLineV1("C:\\repo\\npm.cmd", [], "C:\\nodejs").app).not.toBe("C:\\nodejs\\node.exe");
     expect(windowsCommandLineV1("C:\\nodejs\\npm.cmd", []).app).not.toBe("C:\\nodejs\\node.exe");
@@ -270,6 +270,25 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
       expect(seen.writable).toBe(true);
     } finally {
       delete process.env.ASCOUT_T1_CANARY;
+      await t.sandbox.dispose();
+      rmSync(t.root, { recursive: true, force: true });
+    }
+  }, 600_000);
+
+  it("reports whether Node scripts run inside the container (diagnostic, always passes)", async () => {
+    const t = await setUp();
+    try {
+      writeFileSync(join(t.ws, "hello.js"), "process.stdout.write('script-ran')");
+      for (const [label, argv] of [
+        ["script", [join(t.ws, "hello.js")]],
+        ["script-preserve", ["--preserve-symlinks", "--preserve-symlinks-main", join(t.ws, "hello.js")]],
+        ["realpath-js", ["-e", "try { process.stdout.write(require('fs').realpathSync('.')) } catch (e) { process.stdout.write(e.code) }"]],
+        ["realpath-native", ["-e", "try { process.stdout.write(require('fs').realpathSync.native('.')) } catch (e) { process.stdout.write(e.code) }"]],
+      ] as const) {
+        const result = await run(t.sandbox, t.ws, node, argv);
+        console.log(`T1-WINDOWS-NODE ${label} ${JSON.stringify({ code: result.code, stdout: result.stdout.slice(0, 200), stderr: result.stderr.slice(0, 200) })}`);
+      }
+    } finally {
       await t.sandbox.dispose();
       rmSync(t.root, { recursive: true, force: true });
     }

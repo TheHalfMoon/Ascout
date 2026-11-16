@@ -70,7 +70,9 @@ export function windowsCommandLineV1(file: string, argv: readonly string[], node
   const script = NPM_SHIMS[win32.basename(file).toLowerCase()];
   if (nodeFolder !== undefined && script !== undefined && win32.dirname(file).toLowerCase() === nodeFolder.toLowerCase()) {
     const node = win32.join(nodeFolder, "node.exe");
-    return { app: node, commandLine: [node, win32.join(nodeFolder, "node_modules", "npm", "bin", script), ...argv].map(quoteWindowsArgV1).join(" ") };
+    // Node resolves a script's real path by reading every parent folder from the drive root, which
+    // the container can't; these flags make it use the path as given.
+    return { app: node, commandLine: [node, "--preserve-symlinks", "--preserve-symlinks-main", win32.join(nodeFolder, "node_modules", "npm", "bin", script), ...argv].map(quoteWindowsArgV1).join(" ") };
   }
   const parsed = crossSpawn._parse(file, argv, {});
   if (parsed.options.windowsVerbatimArguments === true) return { app: parsed.command, commandLine: [quoteWindowsArgV1(parsed.command), ...parsed.args].join(" ") };
