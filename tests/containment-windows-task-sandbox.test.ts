@@ -32,6 +32,14 @@ describe("Windows command lines", () => {
     expect(JSON.parse(viaCmd.stdout)).toEqual(args);
   });
 
+  it("run npm's and npx's shims from the Node folder as node.exe on npm's own script, and nothing else that way", () => {
+    expect(windowsCommandLineV1("C:\\nodejs\\npm.cmd", ["run", "a b"], "C:\\nodejs")).toEqual({ app: "C:\\nodejs\\node.exe", commandLine: 'C:\\nodejs\\node.exe C:\\nodejs\\node_modules\\npm\\bin\\npm-cli.js run "a b"' });
+    expect(windowsCommandLineV1("C:\\nodejs\\NPX.CMD", ["vitest"], "C:\\NodeJS").commandLine).toBe("C:\\NodeJS\\node.exe C:\\NodeJS\\node_modules\\npm\\bin\\npx-cli.js vitest");
+    // An npm.cmd anywhere else (say, inside the repository) is not treated as npm's shim.
+    expect(windowsCommandLineV1("C:\\repo\\npm.cmd", [], "C:\\nodejs").app).not.toBe("C:\\nodejs\\node.exe");
+    expect(windowsCommandLineV1("C:\\nodejs\\npm.cmd", []).app).not.toBe("C:\\nodejs\\node.exe");
+  });
+
   it("run an executable directly and a batch file through cmd.exe, and refuse a PATH command", () => {
     expect(windowsCommandLineV1("C:\\Program Files\\nodejs\\node.exe", ["-e", "x y"])).toEqual({ app: "C:\\Program Files\\nodejs\\node.exe", commandLine: '"C:\\Program Files\\nodejs\\node.exe" -e "x y"' });
     expect(() => windowsCommandLineV1("npx", [])).toThrow(/absolute path/u);
@@ -198,18 +206,6 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
     try {
       const probe = await run(t.sandbox, t.ws, node, ["-e", `const fs = require("fs"); let outside = "allowed"; try { fs.readFileSync(${JSON.stringify(t.outside)}); } catch (e) { outside = e.code; } process.stdout.write(JSON.stringify({ cwd: process.cwd(), temp: process.env.TEMP, envKeys: Object.keys(process.env).sort(), outside, gitConfig: (() => { try { fs.appendFileSync(".git\\\\config", ""); return "allowed"; } catch (e) { return e.code; } })() }))`]);
       console.log(`T1-WINDOWS-DIAGNOSTIC ${JSON.stringify(probe)}`);
-      const cmd = win32.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "cmd.exe");
-      const prefix = win32.dirname(node);
-      for (const [label, argv] of [
-        ["echo", ["/d", "/c", "echo hi"]],
-        ["dir-prefix", ["/d", "/c", `dir "${prefix}"`]],
-        ["type-npm", ["/d", "/c", `type "${win32.join(prefix, "npm.cmd")}"`]],
-        ["npm-noargs", ["/d", "/c", `"${win32.join(prefix, "npm.cmd")}"`]],
-        ["node-version", ["/d", "/c", `"${node}" --version`]],
-      ] as const) {
-        const result = await run(t.sandbox, t.ws, cmd, argv);
-        console.log(`T1-WINDOWS-CMD ${label} ${JSON.stringify({ code: result.code, stdout: result.stdout.slice(0, 300), stderr: result.stderr.slice(0, 300) })}`);
-      }
     } finally {
       await t.sandbox.dispose();
       rmSync(t.root, { recursive: true, force: true });

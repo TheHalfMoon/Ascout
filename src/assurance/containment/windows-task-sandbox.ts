@@ -56,12 +56,22 @@ export function quoteWindowsArgV1(arg: string): string {
   return `${out}${"\\".repeat(backslashes * 2)}"`;
 }
 
+/** npm's own batch shims and the script each one runs with node.exe. */
+const NPM_SHIMS: Readonly<Record<string, string>> = { "npm.cmd": "npm-cli.js", "npx.cmd": "npx-cli.js" };
+
 /**
- * The program and full command line for CreateProcess. Batch files run through cmd.exe, escaped
- * exactly as cross-spawn escapes them for Node's own launches.
+ * The program and full command line for CreateProcess. npm's and npx's batch shims in the Node folder
+ * run as node.exe on npm's own script, which is all the shims do: inside the container cmd.exe can't
+ * use the Node folder (Windows CI, 2026-11-16). Other batch files run through cmd.exe, escaped exactly
+ * as cross-spawn escapes them for Node's own launches.
  */
-export function windowsCommandLineV1(file: string, argv: readonly string[]): { app: string; commandLine: string } {
+export function windowsCommandLineV1(file: string, argv: readonly string[], nodeFolder?: string): { app: string; commandLine: string } {
   if (!win32.isAbsolute(file)) throw new Error(`a sandboxed command must be an absolute path resolved outside the repository: ${JSON.stringify(file)}`);
+  const script = NPM_SHIMS[win32.basename(file).toLowerCase()];
+  if (nodeFolder !== undefined && script !== undefined && win32.dirname(file).toLowerCase() === nodeFolder.toLowerCase()) {
+    const node = win32.join(nodeFolder, "node.exe");
+    return { app: node, commandLine: [node, win32.join(nodeFolder, "node_modules", "npm", "bin", script), ...argv].map(quoteWindowsArgV1).join(" ") };
+  }
   const parsed = crossSpawn._parse(file, argv, {});
   if (parsed.options.windowsVerbatimArguments === true) return { app: parsed.command, commandLine: [quoteWindowsArgV1(parsed.command), ...parsed.args].join(" ") };
   return { app: file, commandLine: [file, ...argv].map(quoteWindowsArgV1).join(" ") };
@@ -342,7 +352,7 @@ export async function prepareWindowsTaskSandboxV1(workspace: string, deps: Windo
     for (const dir of writable) {
       if (win32.normalize(dir) !== dir || !insideWin(dir, evidence) || dir.toLowerCase() === evidence.toLowerCase() || dir.includes("|")) throw new Error(`a sandboxed result folder must lie inside .ascout: ${JSON.stringify(dir)}`);
     }
-    const { app, commandLine } = windowsCommandLineV1(file, argv);
+    const { app, commandLine } = windowsCommandLineV1(file, argv, nodeFolder);
     return { file: powershell, argv: ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", runScript, name, b64(app), b64(commandLine), b64(cwd), acDir, b64(writable.join("|"))] };
   };
   const failed = await selfTest(deps, wrap, root, evidence, scratch);
