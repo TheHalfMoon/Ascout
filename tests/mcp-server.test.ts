@@ -350,3 +350,55 @@ describe("E2E-1: ascout mcp over stdio matches the CLI", () => {
     }
   }, 300_000);
 });
+
+describe("MCP protocol 2025-11-25", () => {
+  const init = (version: string) => ({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: version, capabilities: {}, clientInfo: { name: "t", version: "1" } } });
+
+  it("is agreed when asked for, and offered when the client asks for a version Ascout doesn't know", async () => {
+    for (const [asked, agreed] of [["2025-11-25", "2025-11-25"], ["2099-01-01", "2025-11-25"], ["2025-06-18", "2025-06-18"]] as const) {
+      const s = session(repo);
+      s.send(init(asked));
+      const [reply] = await s.waitFor(1);
+      expect(reply!.result.protocolVersion).toBe(agreed);
+      s.input.end();
+    }
+  });
+
+  it("reports tool arguments as a tool execution error the model can read (SEP-1303), and still runs nothing", async () => {
+    let ran = 0;
+    const s = session(repo, async () => { ran += 1; return { kind: "report", report: {}, exit_code: 0 }; });
+    s.send(init("2025-11-25"));
+    s.send(call(2, "ascout_review", { path: "/" }));
+    s.send(call(3, "nope"));
+    const [, refused, unknown] = await s.waitFor(3);
+    expect(refused!.error).toBeUndefined();
+    expect(refused!.result).toMatchObject({ isError: true, content: [{ type: "text", text: expect.stringContaining("no arguments") }] });
+    // An unknown tool is still a protocol error in this version.
+    expect(unknown!.error).toMatchObject({ code: -32602 });
+    expect(ran).toBe(0);
+    s.input.end();
+  });
+
+  it("keeps a malformed (non-object) arguments value a protocol error, and calls before initialize too", async () => {
+    const s = session(repo);
+    s.send(call(1, "ascout_review", { path: "/" }));
+    s.send(init("2025-11-25"));
+    s.send(call(3, "ascout_review", "x"));
+    s.send(call(4, "ascout_review", ["x"]));
+    const replies = await s.waitFor(4);
+    const byId = (id: number) => replies.find((reply) => reply!.id === id)!;
+    expect(byId(1).error).toMatchObject({ code: -32602 });
+    expect(byId(3).error).toMatchObject({ code: -32602 });
+    expect(byId(4).error).toMatchObject({ code: -32602 });
+    s.input.end();
+  });
+
+  it("keeps the protocol error for the same arguments under 2025-06-18", async () => {
+    const s = session(repo);
+    s.send(init("2025-06-18"));
+    s.send(call(2, "ascout_review", { path: "/" }));
+    const [, refused] = await s.waitFor(2);
+    expect(refused!.error).toMatchObject({ code: -32602 });
+    s.input.end();
+  });
+});

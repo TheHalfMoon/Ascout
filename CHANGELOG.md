@@ -13,6 +13,10 @@ break compatibility, and each breaking change is listed under **Breaking**.
   Nothing is posted either way.
 - `ascout test` and `ascout pr-evidence` accept `--clean-env [--pass-env NAME]...` like `check`: the repository's
   tasks run without inheriting the caller's environment. Opt-in, per invocation, and the containment tier stays T0.
+- `ascout mcp` supports MCP protocol `2025-11-25` and offers it by default. In a `2025-11-25` session, tool
+  arguments (Ascout's tools take none) are refused as a tool execution error the model can read (SEP-1303), not a
+  protocol error; earlier protocol versions keep the protocol error. The six read-only tools are unchanged, and
+  E11b (code execution) stays deferred.
 - FD-4 T1-FS and T1-NET research on Windows: an AppContainer runner
   (`src/assurance/containment/windows-appcontainer-sandbox.ts`), driven from Windows PowerShell 5.1 so no
   native binary ships. Windows CI requires the native capability probes to show the filesystem and
