@@ -66,7 +66,39 @@ async function checkIn(root: string, argv: readonly string[]): Promise<{ code: n
   }
 }
 
+/** A repository whose typecheck task plants a link to a host file in its result folder. */
+function linkPlantingRepository(): { root: string; canary: string } {
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-check-sandbox-link-")));
+  scratches.push(dir);
+  const root = join(dir, "repo");
+  const canary = join(dir, "host-file.txt");
+  writeFileSync(canary, "host file");
+  mkdirSync(root);
+  const task = `
+const fs = require("node:fs");
+const run = fs.readdirSync(".ascout/runs")[0];
+fs.symlinkSync(${JSON.stringify(canary)}, ".ascout/runs/" + run + "/raw/test/vitest-results.json");
+fs.symlinkSync(${JSON.stringify(dir)}, ".ascout/runs/" + run + "/raw/test/pass-2");
+`;
+  writeFileSync(join(root, ".gitignore"), ".ascout/\n");
+  writeFileSync(join(root, "ascout.config.json"), JSON.stringify({ version: 1, tasks: { typecheck: { command: ["node", "-e", task] } } }));
+  for (const argv of [["init", "-q"], ["config", "user.name", "Ascout Sandbox Fixture"], ["config", "user.email", "sandbox@example.invalid"], ["config", "commit.gpgsign", "false"], ["add", "."], ["commit", "-qm", "baseline"]]) git(root, argv);
+  return { root, canary };
+}
+
 describe("ascout check --sandbox with the real OS sandbox", () => {
+  it.runIf(process.platform === "linux")("on Linux, stops the run when a task plants a link in its result folder, before Ascout touches it", async (ctx) => {
+    const { root, canary } = linkPlantingRepository();
+    const { code, stderr } = await checkIn(root, ["check", "--sandbox"]);
+    if (code === 2 && stderr.includes("--sandbox refused")) {
+      if (process.env.ASCOUT_REQUIRE_LINUX_SANDBOX === "1") throw new Error(`the sandbox is required here but refused: ${stderr}`);
+      return ctx.skip();
+    }
+    expect(code).toBe(2);
+    expect(stderr).toMatch(/a sandboxed task left a link at .*raw[\/]test/u);
+    expect(readFileSync(canary, "utf8")).toBe("host file");
+  });
+
   it.runIf(process.platform !== "linux")("refuses off Linux and runs nothing", async () => {
     const { root } = hostileRepository(1);
     const { code, stderr } = await checkIn(root, ["check", "--sandbox"]);

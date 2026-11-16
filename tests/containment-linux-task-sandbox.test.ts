@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { LinuxFsHostV1 } from "../src/assurance/containment/linux-fs-sandbox.js";
-import { SANDBOX_HOME, linuxTaskSandboxArgvV1, nodePrefixToBindV1, prepareLinuxTaskSandboxV1, type LinuxTaskSandboxDepsV1, type LinuxTaskSandboxV1 } from "../src/assurance/containment/linux-task-sandbox.js";
+import { LINUX_SELF_TEST_EXPECTED, SANDBOX_HOME, linuxTaskSandboxArgvV1, nodeBindsV1, prepareLinuxTaskSandboxV1, type LinuxTaskSandboxDepsV1, type LinuxTaskSandboxV1 } from "../src/assurance/containment/linux-task-sandbox.js";
 
 // FD-4 T1 on Linux: the bubblewrap sandbox for `check` tasks. The native tests at the end are the
 // evidence; each pairs a denial with a control showing the same probe detects the capability without
@@ -26,89 +26,127 @@ function fakeHost(present: readonly string[], links: Record<string, string> = {}
   };
 }
 
-const PLAN = { bwrap: "/usr/bin/bwrap", workspace: "/home/u/src/repo", nodePrefix: "/opt/node", gitDir: "/home/u/src/repo/.git" };
+const REPO = "/home/u/src/repo";
+const RESULTS = `${REPO}/.ascout/runs/r1/raw/test`;
+const PLAN = { bwrap: "/usr/bin/bwrap", workspace: REPO, nodeBinds: [{ kind: "bind" as const, path: "/opt/node/bin/node" }, { kind: "symlink" as const, path: "/opt/node/bin/npx", target: "../lib/node_modules/npm/bin/npx-cli.js" }, { kind: "bind" as const, path: "/opt/node/lib/node_modules/npm" }], gitDir: `${REPO}/.git` };
 const HOST = fakeHost(["/usr/bin/bwrap", "/bin", "/lib"], { "/bin": "usr/bin", "/lib": "usr/lib" });
 
-describe("the Node install folder", () => {
-  it("is not bound when Node lives in a system folder", () => {
-    expect(nodePrefixToBindV1("/usr/bin/node", "/home/u")).toBeNull();
-    expect(nodePrefixToBindV1("/bin/node", "/home/u")).toBeNull();
+describe("the Node entry points", () => {
+  it("are not bound when Node lives in a system folder", () => {
+    expect(nodeBindsV1("/usr/bin/node", HOST)).toEqual([]);
+    expect(nodeBindsV1("/bin/node", HOST)).toEqual([]);
   });
 
-  it("is the folder two levels above the binary, which may sit inside the home folder", () => {
-    expect(nodePrefixToBindV1("/opt/hostedtoolcache/node/22.1.0/x64/bin/node", "/home/u")).toBe("/opt/hostedtoolcache/node/22.1.0/x64");
-    expect(nodePrefixToBindV1("/home/u/.nvm/versions/node/v22.1.0/bin/node", "/home/u")).toBe("/home/u/.nvm/versions/node/v22.1.0");
+  it("are only node and the package managers, bound read-only, with their symlinks recreated as they are", () => {
+    const host = fakeHost(["/opt/node/bin/node", "/opt/node/bin/npx", "/opt/node/lib/node_modules/npm", "/opt/node/etc/npmrc"], { "/opt/node/bin/npx": "../lib/node_modules/npm/bin/npx-cli.js" });
+    expect(nodeBindsV1("/opt/node/bin/node", host)).toEqual([
+      { kind: "bind", path: "/opt/node/bin/node" },
+      { kind: "symlink", path: "/opt/node/bin/npx", target: "../lib/node_modules/npm/bin/npx-cli.js" },
+      { kind: "bind", path: "/opt/node/lib/node_modules/npm" },
+    ]);
   });
 
-  it("is refused when it is the home folder, a protected location, or relative", () => {
-    expect(() => nodePrefixToBindV1("/home/u/bin/node", "/home/u")).toThrow(/home\/u/u);
-    expect(() => nodePrefixToBindV1("/opt/bin/node", "/home/u")).toThrow(/\/opt/u);
-    expect(() => nodePrefixToBindV1("node", "/home/u")).toThrow(/absolute/u);
+  it("always include the running binary, and may sit inside the home folder, but never be it or contain it", () => {
+    expect(nodeBindsV1("/home/u/.nvm/versions/node/v22/bin/node", fakeHost([]))).toEqual([{ kind: "bind", path: "/home/u/.nvm/versions/node/v22/bin/node" }]);
+    expect(() => nodeBindsV1("/home/u/bin/node", HOST)).toThrow(/home\/u/u);
+    expect(() => nodeBindsV1("/opt/bin/node", HOST)).toThrow(/\/opt/u);
+    expect(() => nodeBindsV1("node", HOST)).toThrow(/absolute/u);
   });
 });
 
 describe("the task sandbox command line", () => {
-  it("isolates the network, binds .git read-only after the writable repository, drops capabilities, and starts in the task's folder", () => {
-    const argv = linuxTaskSandboxArgvV1(PLAN, "/opt/node/bin/npx", ["vitest", "run"], "/home/u/src/repo/pkg", HOST);
-    const at = (flag: string, value: string) => argv.findIndex((item, index) => item === flag && argv[index + 1] === value);
+  const argv = linuxTaskSandboxArgvV1(PLAN, "/opt/node/bin/npx", ["vitest", "run"], `${REPO}/pkg`, [RESULTS], HOST);
+  const at = (flag: string, value: string) => argv.findIndex((item, index) => item === flag && argv[index + 1] === value);
+
+  it("isolates the network, keeps .git read-only, hides .ascout but this run's result folders, drops capabilities, and starts in the task's folder", () => {
     expect(argv).toContain("--unshare-net");
-    expect(at("--bind", "/home/u/src/repo")).toBeGreaterThan(-1);
-    expect(at("--ro-bind", "/home/u/src/repo/.git")).toBeGreaterThan(at("--bind", "/home/u/src/repo"));
-    expect(at("--ro-bind", "/opt/node")).toBeGreaterThan(argv.indexOf("/tmp"));
+    expect(at("--ro-bind", `${REPO}/.git`)).toBeGreaterThan(at("--bind", REPO));
+    expect(at("--tmpfs", `${REPO}/.ascout`)).toBeGreaterThan(at("--bind", REPO));
+    expect(at("--bind", RESULTS)).toBeGreaterThan(at("--tmpfs", `${REPO}/.ascout`));
     expect(argv.slice(argv.indexOf("--setenv"), argv.indexOf("--setenv") + 3)).toEqual(["--setenv", "HOME", SANDBOX_HOME]);
     expect(argv.slice(argv.indexOf("--cap-drop"), argv.indexOf("--cap-drop") + 2)).toEqual(["--cap-drop", "ALL"]);
-    // The last --chdir wins, and the command follows the separator unchanged.
-    expect(argv[argv.lastIndexOf("--chdir") + 1]).toBe("/home/u/src/repo/pkg");
+    expect(argv[argv.lastIndexOf("--chdir") + 1]).toBe(`${REPO}/pkg`);
     expect(argv.slice(argv.indexOf("--"))).toEqual(["--", "/opt/node/bin/npx", "vitest", "run"]);
   });
 
-  it("binds neither a Node folder nor .git when there is none", () => {
-    const argv = linuxTaskSandboxArgvV1({ ...PLAN, nodePrefix: null, gitDir: null }, "/usr/bin/python3", ["-m", "pytest"], PLAN.workspace, HOST);
+  it("binds Node's entry points after the fresh /tmp, recreating symlinks, and nothing else of its folder", () => {
+    expect(at("--ro-bind", "/opt/node/bin/node")).toBeGreaterThan(argv.indexOf("/tmp"));
+    expect(argv.slice(at("--symlink", "../lib/node_modules/npm/bin/npx-cli.js"), at("--symlink", "../lib/node_modules/npm/bin/npx-cli.js") + 3)).toEqual(["--symlink", "../lib/node_modules/npm/bin/npx-cli.js", "/opt/node/bin/npx"]);
     expect(argv).not.toContain("/opt/node");
-    expect(argv).not.toContain("/home/u/src/repo/.git");
   });
 
-  it("refuses a command found on PATH, and a starting folder outside the repository", () => {
-    expect(() => linuxTaskSandboxArgvV1(PLAN, "npx", [], PLAN.workspace, HOST)).toThrow(/absolute path/u);
-    expect(() => linuxTaskSandboxArgvV1(PLAN, "/usr/bin/true", [], "/home/u/src/other", HOST)).toThrow(/inside the repository/u);
-    expect(() => linuxTaskSandboxArgvV1(PLAN, "/usr/bin/true", [], "/home/u/src/repo/../other", HOST)).toThrow(/inside the repository/u);
-    expect(() => linuxTaskSandboxArgvV1(PLAN, "/usr/bin/true", [], "/home/u/src/repository", HOST)).toThrow(/inside the repository/u);
+  it("binds no .git when there is none", () => {
+    expect(linuxTaskSandboxArgvV1({ ...PLAN, nodeBinds: [], gitDir: null }, "/usr/bin/python3", [], REPO, [], HOST)).not.toContain(`${REPO}/.git`);
+  });
+
+  it("refuses a command found on PATH, a starting folder outside the repository, and a result folder outside .ascout", () => {
+    expect(() => linuxTaskSandboxArgvV1(PLAN, "npx", [], REPO, [], HOST)).toThrow(/absolute path/u);
+    for (const cwd of ["/home/u/src/other", `${REPO}/../other`, "/home/u/src/repository"]) expect(() => linuxTaskSandboxArgvV1(PLAN, "/usr/bin/true", [], cwd, [], HOST)).toThrow(/inside the repository/u);
+    for (const dir of [`${REPO}/src`, `${REPO}/.ascout`, `${REPO}/.ascout/../src`, "/tmp/x"]) expect(() => linuxTaskSandboxArgvV1(PLAN, "/usr/bin/true", [], REPO, [dir], HOST)).toThrow(/inside \.ascout/u);
   });
 });
 
 describe("preparing the task sandbox", () => {
+  const present = ["/usr/bin/bwrap", `${REPO}/.git`, `${REPO}/.git/HEAD`];
   const deps = (overrides: Partial<LinuxTaskSandboxDepsV1> = {}): LinuxTaskSandboxDepsV1 => ({
     platform: "linux",
-    host: fakeHost(["/usr/bin/bwrap", "/home/u/src/repo/.git"]),
-    exec: async () => "sandbox-ok",
+    host: fakeHost(present),
+    exec: async () => JSON.stringify(LINUX_SELF_TEST_EXPECTED),
     execPath: "/opt/node/bin/node",
+    loopbackPort: async () => null,
     ...overrides,
   });
 
-  it("refuses off Linux, without bubblewrap, for a refused repository or Node folder, and when the self-test fails", async () => {
-    expect(await prepareLinuxTaskSandboxV1("/home/u/src/repo", deps({ platform: "darwin" }))).toEqual({ refused: "the bubblewrap task sandbox is Linux only" });
-    expect(await prepareLinuxTaskSandboxV1("/home/u/src/repo", deps({ host: fakeHost([]) }))).toEqual({ refused: "bubblewrap is not installed at /usr/bin/bwrap or /bin/bwrap" });
+  it("refuses off Linux, without bubblewrap, for a refused repository or Node folder", async () => {
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ platform: "darwin" }))).toEqual({ refused: "the bubblewrap task sandbox is Linux only" });
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: fakeHost([]) }))).toEqual({ refused: "bubblewrap is not installed at /usr/bin/bwrap or /bin/bwrap" });
     expect(await prepareLinuxTaskSandboxV1("/home", deps())).toMatchObject({ refused: expect.stringMatching(/may not be or contain/u) });
-    expect(await prepareLinuxTaskSandboxV1("/home/u/src/repo", deps({ execPath: "/home/u/bin/node" }))).toMatchObject({ refused: expect.stringMatching(/Node install folder/u) });
-    expect(await prepareLinuxTaskSandboxV1("/home/u/src/repo", deps({ exec: async () => "" }))).toMatchObject({ refused: expect.stringMatching(/did not start/u) });
-    expect(await prepareLinuxTaskSandboxV1("/home/u/src/repo", deps({ exec: async () => "escaped" }))).toMatchObject({ refused: expect.stringMatching(/did not hide/u) });
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ execPath: "/home/u/bin/node" }))).toMatchObject({ refused: expect.stringMatching(/Node install folder/u) });
+  });
+
+  it("refuses a worktree's .git file, a linked .git, and a repository with submodules", async () => {
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: fakeHost(["/usr/bin/bwrap", `${REPO}/.git`]) }))).toMatchObject({ refused: expect.stringMatching(/not a real folder/u) });
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: fakeHost(present, { [`${REPO}/.git`]: "/elsewhere" }) }))).toMatchObject({ refused: expect.stringMatching(/not a real folder/u) });
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: fakeHost(present, {}, { [`${REPO}/.git`]: "/elsewhere/.git" }) }))).toMatchObject({ refused: expect.stringMatching(/not a real folder/u) });
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: fakeHost([...present, `${REPO}/.gitmodules`]) }))).toMatchObject({ refused: expect.stringMatching(/submodules/u) });
+  });
+
+  it("refuses unless the self-test, run in the real task configuration, reports every expected denial", async () => {
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ exec: async () => "" }))).toMatchObject({ refused: expect.stringMatching(/did not start/u) });
+    for (const key of Object.keys(LINUX_SELF_TEST_EXPECTED)) {
+      const broken = { ...LINUX_SELF_TEST_EXPECTED, [key]: "allowed-instead" };
+      expect(await prepareLinuxTaskSandboxV1(REPO, deps({ exec: async () => JSON.stringify(broken) })), key).toMatchObject({ refused: expect.stringMatching(/self-test did not hold/u) });
+    }
+  });
+
+  it("runs the self-test through the task command line, with a real result folder and a host loopback port", async () => {
+    const calls: { file: string; argv: readonly string[] }[] = [];
+    let closed = false;
+    await prepareLinuxTaskSandboxV1(REPO, deps({
+      exec: async (file, argv) => { calls.push({ file, argv }); return JSON.stringify(LINUX_SELF_TEST_EXPECTED); },
+      loopbackPort: async () => ({ port: 4242, close: () => { closed = true; } }),
+    }));
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.file).toBe("/usr/bin/bwrap");
+    expect(calls[0]!.argv).toContain("--unshare-net");
+    expect(calls[0]!.argv).toContain("/tmp/selftest/repo/.ascout/runs/selftest/raw/test");
+    expect(calls[0]!.argv.join(" ")).toContain("4242");
+    expect(closed).toBe(true);
   });
 
   it("refuses when a path can't be resolved, instead of throwing", async () => {
     const host = { ...fakeHost(["/usr/bin/bwrap"]), realpath: () => { throw new Error("ENOENT: no such file"); } };
-    expect(await prepareLinuxTaskSandboxV1("/home/u/src/repo", deps({ host }))).toEqual({ refused: "ENOENT: no such file" });
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host }))).toEqual({ refused: "ENOENT: no such file" });
   });
 
-  it("wraps a command through bubblewrap, binding .git read-only only when it is a real folder", async () => {
-    const made = await prepareLinuxTaskSandboxV1("/home/u/src/repo", deps());
+  it("wraps a command through bubblewrap, with the result folders it is given", async () => {
+    const made = await prepareLinuxTaskSandboxV1(REPO, deps());
     if (!("sandbox" in made)) throw new Error(made.refused);
     expect(made.sandbox.mechanism).toBe("linux-bubblewrap");
-    const wrapped = made.sandbox.wrap("/usr/bin/python3", ["-m", "pytest"], "/home/u/src/repo");
+    const wrapped = made.sandbox.wrap("/usr/bin/python3", ["-m", "pytest"], REPO, [RESULTS]);
     expect(wrapped.file).toBe("/usr/bin/bwrap");
-    expect(wrapped.argv).toContain("/home/u/src/repo/.git");
-    const linked = await prepareLinuxTaskSandboxV1("/home/u/src/repo", deps({ host: fakeHost(["/usr/bin/bwrap", "/home/u/src/repo/.git"], { "/home/u/src/repo/.git": "/elsewhere" }) }));
-    if (!("sandbox" in linked)) throw new Error(linked.refused);
-    expect(linked.sandbox.wrap("/usr/bin/true", [], "/home/u/src/repo").argv).not.toContain("/home/u/src/repo/.git");
+    expect(wrapped.argv).toContain(`${REPO}/.git`);
+    expect(wrapped.argv).toContain(RESULTS);
   });
 });
 
@@ -122,7 +160,10 @@ describe.runIf(process.platform === "linux")("native: a check task inside the Li
     const ws = join(root, "ws");
     mkdirSync(join(ws, ".git"), { recursive: true });
     mkdirSync(join(ws, "sub"));
+    mkdirSync(join(ws, ".ascout", "runs", "r1", "raw", "test"), { recursive: true });
+    writeFileSync(join(ws, ".ascout", "earlier-evidence"), "evidence");
     writeFileSync(join(ws, ".git", "config"), "[core]\n");
+    writeFileSync(join(ws, ".git", "HEAD"), "ref: refs/heads/main\n");
     const outside = join(root, "outside.txt");
     writeFileSync(outside, "host secret");
     const made = await prepareLinuxTaskSandboxV1(ws);
@@ -135,7 +176,7 @@ describe.runIf(process.platform === "linux")("native: a check task inside the Li
   }
 
   function run(sandbox: LinuxTaskSandboxV1 | null, cwd: string, script: string, env: NodeJS.ProcessEnv = { PATH: "/usr/bin:/bin" }): Promise<string> {
-    const { file, argv } = sandbox === null ? { file: node, argv: ["-e", script] } : sandbox.wrap(node, ["-e", script], cwd);
+    const { file, argv } = sandbox === null ? { file: node, argv: ["-e", script] } : sandbox.wrap(node, ["-e", script], cwd, [join(cwd.split("/ws")[0]!, "ws", ".ascout", "runs", "r1", "raw", "test")]);
     return new Promise((resolve) => execFile(file, [...argv], { cwd, env, encoding: "utf8", timeout: 20_000 }, (_error, stdout) => resolve(stdout)));
   }
 
@@ -152,6 +193,22 @@ describe.runIf(process.platform === "linux")("native: a check task inside the Li
       expect(readFileSync(join(t.ws, ".git", "config"), "utf8")).toBe("[core]\n");
       // Control: the same append works outside the sandbox.
       appendFileSync(join(t.ws, ".git", "config"), "");
+    } finally {
+      rmSync(t.root, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it("sees no earlier evidence in .ascout, but can write this run's result folder", async (ctx) => {
+    const t = await setUp();
+    if (t === null) return ctx.skip();
+    try {
+      expect(await run(t.sandbox, t.ws, attempt(`require("fs").readFileSync(".ascout/earlier-evidence"); r = "read"`))).toBe("ENOENT");
+      expect(await run(t.sandbox, t.ws, attempt(`require("fs").writeFileSync(".ascout/planted", "x")`))).toBe("allowed");
+      // The write landed on the sandbox's own empty .ascout, never the host's.
+      expect(existsSync(join(t.ws, ".ascout", "planted"))).toBe(false);
+      expect(await run(t.sandbox, t.ws, attempt(`require("fs").writeFileSync(".ascout/runs/r1/raw/test/results.json", "{}")`))).toBe("allowed");
+      expect(readFileSync(join(t.ws, ".ascout", "runs", "r1", "raw", "test", "results.json"), "utf8")).toBe("{}");
+      expect(await run(null, t.ws, attempt(`require("fs").readFileSync(".ascout/earlier-evidence"); r = "read"`))).toBe("read");
     } finally {
       rmSync(t.root, { recursive: true, force: true });
     }

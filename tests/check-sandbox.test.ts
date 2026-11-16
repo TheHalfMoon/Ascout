@@ -1,11 +1,11 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { runCheck, type CheckTaskSandboxV1 } from "../src/check.js";
+import { runCheck, sandboxResultLink, type CheckTaskSandboxV1 } from "../src/check.js";
 import { CliUsageError, parseCliArgs, runCli } from "../src/cli.js";
 import { runProcess } from "../src/process.js";
 
@@ -132,6 +132,52 @@ describe("check with a task sandbox", () => {
     expect(receipt.tasks.find((task) => task.task_id === "typecheck")?.status).toBe("PASS");
     // The receipt records the task's own command, never the launcher.
     expect(receipt.tasks.find((task) => task.task_id === "typecheck")?.argv[0]).toBe("node");
+  });
+});
+
+describe("the result-folder link check", () => {
+  it("finds a link at any depth, ignores missing folders, and passes plain files and folders", () => {
+    const dir = scratch();
+    const results = join(dir, "test");
+    mkdirSync(join(results, "deep", "er"), { recursive: true });
+    writeFileSync(join(results, "deep", "er", "results.json"), "{}");
+    expect(sandboxResultLink([results, join(dir, "missing")])).toBeNull();
+    const link = join(results, "deep", "er", "coverage");
+    try {
+      symlinkSync(dir, link, "junction");
+    } catch {
+      return;
+    }
+    expect(sandboxResultLink([results])).toBe(link);
+  });
+});
+
+describe("check with a sandboxed task that plants a link in its result folder", () => {
+  it("stops the run before reading through the link", async () => {
+    const dir = scratch();
+    const target = join(dir, "host-file.txt");
+    writeFileSync(target, "host file");
+    const { sandbox } = recordingSandbox(dir);
+    let plantedLink = false;
+    const planting: CheckTaskSandboxV1 = {
+      mechanism: "planting",
+      wrap: (file, argv, cwd, writable) => {
+        try {
+          symlinkSync(dir, join(writable[0]!, "pass-2"), "junction");
+          plantedLink = true;
+        } catch {
+          // Without link rights the wrapper can't plant one; the check below then has nothing to find.
+        }
+        return sandbox.wrap(file, argv, cwd, writable);
+      },
+    };
+    const { root } = repository(dir, [process.execPath]);
+    const planted = await runCheck(root, { taskSandbox: planting }).then(() => "finished", (error: Error) => error.message);
+    // A run that finished is acceptable only when the link could not be planted at all.
+    expect(planted === "finished").toBe(!plantedLink);
+    if (!plantedLink) return;
+    expect(planted).toMatch(/a sandboxed task left a link at .*pass-2; Ascout won't read or write through it/u);
+    expect(readFileSync(target, "utf8")).toBe("host file");
   });
 });
 

@@ -131,16 +131,20 @@ ascout --help | --version
 **`check --clean-env`.** Every task runs with an allowlisted environment instead of inheriting yours. It keeps the search path, the home and temporary folders, the locale, and, on Windows, the system folders, and sets `CI=1`. Add `--pass-env NAME` for each variable your tests need, such as `--pass-env DATABASE_URL`. This keeps credentials and tokens away from tools that log, report or upload their environment. **It does not protect them from code that goes looking.** Ascout's own process still holds your environment, and a task running as you can read it from the operating system. Tasks can also read credential files in your home folder (such as `~/.npmrc` or `~/.aws/credentials`), write files, and reach the network with your full rights. So the containment tier stays **T0**, and Ascout is still only for code you trust. The option is per-invocation and is never read from repository configuration. `check`, `test` and `pr-evidence` accept it.
 
 **`check --sandbox` (Linux).** Every task runs inside a bubblewrap sandbox, with the allowlisted environment of `--clean-env`, and `--pass-env NAME` works the same way:
-- **Filesystem:** the repository is the only writable host folder, and its `.git` is read-only, so a task can't plant hooks or configuration that later run on your machine. System folders and the Node install folder are read-only. `/tmp` and the home folder are fresh.
+- **Filesystem:** the repository is writable, but its `.git` is read-only, so a task can't plant hooks or configuration that later run on your machine. Ascout's own `.ascout` folder is hidden, apart from this run's result folders. If a task leaves a link in a result folder, Ascout stops the run with exit `2` before reading it. System folders and Node's entry points are read-only. `/tmp` and the home folder are fresh.
 - **Network:** none at all, not even your machine's loopback services.
 - **Processes:** the task can't see your other processes, holds no capabilities, and no process it starts outlives it.
 
-Bubblewrap must be installed at `/usr/bin/bwrap` or `/bin/bwrap`, and unprivileged user namespaces must be allowed. If the sandbox can't start, or you are on another OS, `check --sandbox` exits `2` and runs nothing; it never falls back to running tasks outside the sandbox.
+Bubblewrap must be installed at `/usr/bin/bwrap` or `/bin/bwrap`, and unprivileged user namespaces must be allowed. `check --sandbox` exits `2` and runs nothing in any of these cases; it never falls back to running tasks outside the sandbox:
+- the sandbox can't start, or its self-test (run in the exact task configuration) fails;
+- the repository is a worktree, or has submodules;
+- you are on another OS.
 
 Limits:
 - **Tier:** the containment tier is still reported as T0 until this sandbox is qualified.
 - **Repository files:** they stay writable, and you may later run them yourself.
 - **Resources:** there is no memory or CPU limit beyond Ascout's timeouts.
+- **System calls:** there is no seccomp filter, so a task shares your session keyring.
 - **Receipt:** it records the task's own command, not the sandbox.
 
 When running directly from a source checkout rather than an installed release asset, substitute `node /path/to/Ascout/dist/cli.js` for `ascout` in the examples below.

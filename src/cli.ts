@@ -79,7 +79,7 @@ const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const CLEAN_ENV_FLAG = "--clean-env";
 const SANDBOX_FLAG = "--sandbox";
 /** Printed after a sandboxed run. The tier stays T0 until a sandbox is qualified under Amendment A09. */
-const SANDBOX_NOTICE = "Tasks ran in the Linux bubblewrap sandbox (--sandbox): the repository was the only writable host folder, its .git read-only, with no network and an allowlisted environment. The containment tier is still reported as T0: this sandbox is not yet qualified, and the repository's own files stay writable.";
+const SANDBOX_NOTICE = "Tasks ran in the Linux bubblewrap sandbox (--sandbox): they could write only the repository (not its .git, with .ascout hidden) and this run's result folders, with no network and an allowlisted environment. The containment tier is still reported as T0: this sandbox is not yet qualified, and the repository's own files stay writable.";
 const PASS_ENV_FLAG = "--pass-env";
 
 /** Says what --clean-env is and isn't: one capability removed, and no isolation claimed. */
