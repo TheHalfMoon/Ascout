@@ -50,14 +50,34 @@ const require = createRequire(import.meta.url);
  * entry point loads this module. Loading it here, and tolerating its absence, keeps this file importable
  * from an installed package; only code that actually drives a browser needs it, and that code says so.
  */
-const playwright: typeof import("playwright") | null = await import("playwright").catch(() => null);
+/**
+ * Loads Playwright, or null when the package itself is absent. A broken installation is not a missing
+ * one: anything else (a failing dependency inside it, a syntax error) is rethrown with its real cause.
+ */
+export async function loadPlaywrightV1(load: () => Promise<typeof import("playwright")> = () => import("playwright")): Promise<typeof import("playwright") | null> {
+  try {
+    return await load();
+  } catch (error) {
+    if (isMissingPlaywright(error)) return null;
+    throw error;
+  }
+}
+
+const playwright = await loadPlaywrightV1();
+
+/** True only when the playwright package itself can't be found, not when something inside it fails. */
+export function isMissingPlaywright(error: unknown): boolean {
+  const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
+  return (code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND") && /['"]playwright['"]/u.test(String(message));
+}
 
 /** Thrown when browser automation is used without Playwright installed. */
 export const PLAYWRIGHT_MISSING_TEXT = "the browser engine needs playwright@1.63.0, a development dependency that an installed Ascout package does not include";
 
-function chromiumOrThrow(): typeof import("playwright").chromium {
-  if (playwright === null) throw new Error(PLAYWRIGHT_MISSING_TEXT);
-  return playwright.chromium;
+/** The Chromium launcher from a loaded Playwright, or the missing-engine error. */
+export function chromiumOrThrowV1(loaded: typeof import("playwright") | null): typeof import("playwright").chromium {
+  if (loaded === null) throw new Error(PLAYWRIGHT_MISSING_TEXT);
+  return loaded.chromium;
 }
 
 /** Returns a Playwright selector for a user-facing target (P016-06 owns policy). */
@@ -120,7 +140,7 @@ export function assertPinnedPlaywrightVersion(actual: unknown): void {
  * event loop for minutes, so it is an explicit developer step, as CI already does.
  */
 export function ensureChromiumInstalled(): string {
-  const executablePath = chromiumOrThrow().executablePath();
+  const executablePath = chromiumOrThrowV1(playwright).executablePath();
   if (!existsSync(executablePath)) {
     throw new Error(
       `Chromium for Playwright ${PINNED_PLAYWRIGHT_VERSION} is not installed; install it with \`npx playwright install chromium\``,
@@ -283,9 +303,11 @@ export async function launchPlaywrightSession(
   session: BrowserSessionIdentity,
   options: { readonly headless: boolean } | null,
 ): Promise<PlaywrightRuntime> {
+  // First, so a missing engine says so plainly instead of failing inside the version check.
+  const chromium = chromiumOrThrowV1(playwright);
   assertPinnedPlaywrightVersion(loadedPlaywrightVersion());
   const executable_path = ensureChromiumInstalled();
-  const browser: Browser = await chromiumOrThrow().launch({
+  const browser: Browser = await chromium.launch({
     headless: options?.headless ?? true,
     // Playwright launches Chromium with --no-sandbox unless told otherwise. A renderer exploit
     // on a page under test must stay inside the sandbox, not run as the developer.
