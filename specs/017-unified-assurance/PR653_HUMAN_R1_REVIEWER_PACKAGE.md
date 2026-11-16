@@ -54,13 +54,16 @@ implementation.
 #653's merge base is `d6f7982`. It is **66 commits behind `main`**. Its current-state text dates from
 2026-11-09, and several statements no longer match `main`:
 
-| #653 says | `main` now (see `STATE.md`) |
+| #653 says (source file in #653) | `main` now (see `STATE.md`) |
 |---|---|
-| E7 containment "Still BLOCKED"; "FD-4 has no recorded disposition" | FD-4 decided 2026-11-13: research and implementation, not certification. Research runners on Linux, macOS and Windows with native CI evidence (#764, #766, #768, #770). Still T0; no T1 claim |
-| E8 MCP and E2E "Still BLOCKED" | E8 shipped (`ascout mcp`, read-only tools); E11a shipped; E11b deferred |
-| E9 distribution "Still BLOCKED"; "the only release is v0.1.0" | v0.2.0, v0.3.0 and v0.3.1 published as GitHub releases with attestations; nothing on npm |
-| The FD table "NEEDS FOUNDER" for every row | FD-1 (A07), FD-4 and FD-8 decided; E10c, E10d and E10f approved; delegated decisions recorded 2026-11-16 |
-| "six commands" | The CLI now also has `mcp`, `pr-evidence`, `pr-publish`, `pr-ai-review` and `pr-ai-publish` |
+| E7 containment "Still BLOCKED"; FD-4 has no recorded disposition (`CURRENT_STATE_RECONCILIATION_2026-11-09.md`) | FD-4 decided 2026-11-13: research and implementation, not certification. Research runners on Linux, macOS and Windows with native CI evidence (#764, #766, #768, #770). Still T0; no T1 claim |
+| E8 MCP and E2E "Still BLOCKED" (`CURRENT_STATE_RECONCILIATION_2026-11-09.md`) | E8 shipped (`ascout mcp`, read-only tools); E11a shipped; E11b deferred |
+| E9 distribution "Still BLOCKED"; "the only release is v0.1.0" (`CURRENT_STATE_RECONCILIATION_2026-11-09.md`) | v0.2.0, v0.3.0 and v0.3.1 published as GitHub releases with attestations; nothing on npm |
+| Every FD row "NEEDS FOUNDER" (`REVIEW_AND_RATIFICATION.md`) | FD-1 decided as Amendment A07 (constitution v1.4.0; #656, #657, #658). FD-4 and FD-8 decided 2026-11-13; E10c, E10d and E10f approved. Decisions the founder delegated on 2026-11-16 are proposed for the record in #772 |
+| "six commands" (`IMPLEMENTATION_FREEZE.md`, kept there as the historical proposal) | The CLI now also has `mcp`, `pr-evidence`, `pr-publish`, `pr-ai-review` and `pr-ai-publish` |
+
+#653's own reconciliation note says it governs current-state statements. That covers the historical
+text in its other files, but the note itself predates everything in the right-hand column.
 
 The reviewer decides whether these require a refresh commit on #653 before approval. That refresh
 would be a reconciliation note, not new scope.
