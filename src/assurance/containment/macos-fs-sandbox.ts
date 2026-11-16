@@ -92,12 +92,13 @@ export function macosSandboxProfileV1(workspace: string, nodeBinary: string, hom
     "(deny process-exec*)",
     "(deny mach-lookup)",
     "(deny file-map-executable)",
-    "(deny signal (target others))",
+    "(deny signal)",
     `(allow process-exec* (literal "${nodeBinary}"))`,
     `(allow file-map-executable ${EXECUTABLE_TREES.map((tree) => `(subpath "${tree}")`).join(" ")} (literal "${nodeBinary}"))`,
     `(allow file-read-data (literal "${nodeBinary}"))`,
     `(allow file-read-data file-write* (subpath "${workspace}"))`,
     '(allow file-write-data (literal "/dev/null") (literal "/dev/tty"))',
+    "(allow signal (target self))",
   ];
   if (network === "none") lines.push("(deny network*)");
   return `${lines.join("\n")}\n`;

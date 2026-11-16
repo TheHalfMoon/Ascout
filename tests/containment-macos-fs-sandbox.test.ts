@@ -60,18 +60,19 @@ describe("the sandbox profile", () => {
       "(deny process-exec*)",
       "(deny mach-lookup)",
       "(deny file-map-executable)",
-      "(deny signal (target others))",
+      "(deny signal)",
       '(allow process-exec* (literal "/opt/node/bin/node"))',
       '(allow file-map-executable (subpath "/System") (subpath "/usr/lib") (subpath "/usr/libexec") (subpath "/Library/Apple") (subpath "/private/var/db/dyld") (literal "/opt/node/bin/node"))',
       '(allow file-read-data (literal "/opt/node/bin/node"))',
       '(allow file-read-data file-write* (subpath "/Users/u/src/repo"))',
       '(allow file-write-data (literal "/dev/null") (literal "/dev/tty"))',
+      "(allow signal (target self))",
     ]);
     // Later rules win in a sandbox profile, so the allows must come after the denies.
     expect(profile.indexOf("(allow file-read-data file-write*")).toBeGreaterThan(profile.indexOf("(deny file-write*)"));
     expect(profile).not.toContain("network");
-    // No later rule allows signals, so the deny stands.
-    expect(profile).not.toMatch(/\(allow[^\n]*signal/u);
+    // The only signal allowed afterwards is to the task itself.
+    expect(profile.split("\n").filter((line) => line.includes("signal"))).toEqual(["(deny signal)", "(allow signal (target self))"]);
   });
 
   it("denies the network only when asked", () => {
@@ -245,14 +246,23 @@ describe.runIf(process.platform === "darwin")("native capability probes under sa
     try {
       const pid = target.pid as number;
       const script = `let r = "signalled"; try { process.kill(${pid}, "SIGTERM"); } catch (e) { r = e.code; } process.stdout.write(r)`;
-      const out = await made.runner(script, { canaryPath: "/x", writePath: "/x", port: 1, envName: "X" }, {}, workspace);
-      expect(out).toBe("EPERM");
-      expect(target.exitCode).toBeNull();
-      expect(target.signalCode).toBeNull();
-      // Positive control: the same profile without the signal rule lets the task stop the process.
       const node = realpathSync(process.execPath);
       const profile = macosSandboxProfileV1(workspace, node, realpathSync(homedir()));
-      const without = profile.split("\n").filter((line) => line !== "(deny signal (target others))").join("\n");
+      const without = profile.split("\n").filter((line) => !line.includes("signal")).join("\n");
+      // Which signal rules hold on this macOS, reported if the assertion below fails. Signal 0 only
+      // checks permission, so these runs leave the target alive.
+      const probe = `let r = "signalled"; try { process.kill(${pid}, 0); } catch (e) { r = e.code; } process.stdout.write(r)`;
+      const variants: Record<string, string> = {
+        profile,
+        targetOthers: `${without}\n(deny signal (target others))\n`,
+        denyAll: `${without}\n(deny signal)\n`,
+      };
+      const seen = Object.entries(variants).map(([name, text]) => `${name}: ${spawnSync(SANDBOX_EXEC, ["-p", text, node, "-e", probe], { cwd: workspace, env: {}, encoding: "utf8", timeout: 20_000 }).stdout}`).join("; ");
+      const out = await made.runner(script, { canaryPath: "/x", writePath: "/x", port: 1, envName: "X" }, {}, workspace);
+      expect(out, seen).toBe("EPERM");
+      expect(target.exitCode).toBeNull();
+      expect(target.signalCode).toBeNull();
+      // Positive control: the same profile without the signal rules lets the task stop the process.
       expect(without).not.toContain("signal");
       const control = spawnSync(SANDBOX_EXEC, ["-p", without, node, "-e", script], { cwd: workspace, env: {}, encoding: "utf8", timeout: 20_000 });
       expect(control.stdout).toBe("signalled");
