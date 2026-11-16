@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -252,6 +252,13 @@ describe("--clean-env on test and pr-evidence", () => {
     const { stdout } = await inRepo(root, () => runCli(["pr-evidence", "--pr-head", head, "--clean-env"]));
     expect(names(seen)).not.toContain("ASCOUT_T1ENV_PROBE_SECRET");
     expect((JSON.parse(stdout) as { head_sha: string }).head_sha).toBe(head);
+  });
+
+  it("pr-evidence --clean-env --skip-tests runs no task, so it gives no notice", async () => {
+    const { root, seen } = repository();
+    const { stderr } = await inRepo(root, () => runCli(["pr-evidence", "--clean-env", "--skip-tests"]));
+    expect(existsSync(seen)).toBe(false);
+    expect(stderr).not.toContain("Containment is still T0");
   });
 
   it("pr-evidence without the flag keeps inheriting, as before", async () => {

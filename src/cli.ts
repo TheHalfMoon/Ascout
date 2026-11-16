@@ -778,7 +778,8 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       const root = realpathSync.native(process.cwd());
       const taskEnvironment = taskEnvironmentFor(invocation);
       const evidence = await withRunCancellation((signal) => collectPrEvidenceV1({ root, gitleaksPath: configuredGitleaksPathV1(), runTests: invocation.skipTests !== true, ...(invocation.prHead === undefined ? {} : { prHead: invocation.prHead }), ...(taskEnvironment === undefined ? {} : { taskEnvironment }), signal }));
-      if (taskEnvironment !== undefined) console.error(CLEAN_ENV_NOTICE);
+      // Only when tasks ran: --skip-tests runs none.
+      if (taskEnvironment !== undefined && invocation.skipTests !== true) console.error(CLEAN_ENV_NOTICE);
       process.stdout.write(`${JSON.stringify(evidence, null, 2)}
 `);
       return evidence.overall.exit_code;
