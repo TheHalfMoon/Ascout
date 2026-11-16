@@ -95,6 +95,10 @@ These changes are on `main` and are **not released**. A release needs the founde
 | #777 | `--clean-env [--pass-env NAME]...` on `test` and `pr-evidence`, as on `check` (inheritance only; tier stays T0) | `c61a7ee` |
 | #778 | `ascout mcp` supports protocol 2025-11-25; tool arguments are a readable tool error there, a protocol error in earlier versions | `a1c75e5` |
 
+**Release candidate 0.3.2 (qualified, not published).** #783 (`e18fa95`) set the version to 0.3.2. Release Candidate run [43816250367](https://github.com/TheHalfMoon/Ascout/actions/runs/43816250367) on `main` at `e18fa95`, with `attest: false`, built and qualified the tarball on Linux, macOS and Windows with Node 22 and 24. The SHA-256 was `f73676ea1bc460c062a025291f416056b2e6f2e09139cfdf922fa3f636620af6` on all six lanes. Nothing was tagged, signed or published. Publishing needs the founder's yes on this exact digest; an attested run must then reproduce it before `release-attest` is approved.
+
+The draft Amendment A08 for statement-level evidence (#784, `c6a75e7`) is recorded as a proposal. It is not ratified.
+
 **Still blocked on people, not engineering:**
 
 - human R1 of #653: the reviewer package is `specs/017-unified-assurance/PR653_HUMAN_R1_REVIEWER_PACKAGE.md`;
