@@ -3,7 +3,12 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
-## Unreleased
+## 0.3.2 (release candidate, not published)
+
+Not released. Publication, tagging, and build-provenance attestation wait for the founder's explicit
+authorization of this exact candidate. When published, it ships as GitHub Releases only, not on npm.
+Nothing here breaks compatibility. No T1 containment is claimed: the FD-4 runners are research only and
+no command uses them. Changes on `main` since `v0.3.1`:
 
 - The browser adapter (`dist/browser/playwright-adapter.js`) no longer fails to import from an installed
   package. It loads Playwright, a development dependency, only when available, and says the browser engine is
