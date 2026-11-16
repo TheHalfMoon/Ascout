@@ -175,6 +175,21 @@ describe("preparing the macOS task sandbox", () => {
     expect(closed).toBe(true);
   });
 
+  it("watches for the launchd job for the whole wait, and stops early when it appears", async () => {
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ launchdWaitMs: 300 }))).toMatchObject({ sandbox: expect.anything() });
+    const escaped = host([...present, "/private/var/folders/xy/T/ascout-1/launchd-job-ran"]);
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: escaped, launchdWaitMs: 300 }))).toMatchObject({ refused: expect.stringMatching(/"launchdJob":"ran"/u) });
+  });
+
+  it("removes the private folder and refuses when the plan is refused after it was made, whatever was thrown", async () => {
+    removed.length = 0;
+    const unsafe = { ...host(present), makeTempDir: () => '/private/var/folders/xy/T/a"b' };
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: unsafe }))).toMatchObject({ refused: expect.stringMatching(/private folder/u) });
+    expect(removed).toContain('/private/var/folders/xy/T/a"b');
+    const odd = { ...host(present), realpath: () => { throw "not an Error"; } };
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: odd }))).toEqual({ refused: "not an Error" });
+  });
+
   it("refuses when the control loses sight of the canary process after the probe", async () => {
     let psCalls = 0;
     const flaky = deps({ execBoth: async (file) => (file === "/bin/ps" ? { stdout: (psCalls += 1) === 1 ? "ASCOUT_SELFTEST_CANARY_ABC" : "", stderr: "" } : { stdout: JSON.stringify(reported), stderr: "" }) });

@@ -205,7 +205,8 @@ export async function prepareMacosTaskSandboxV1(workspace: string, deps: MacosTa
     // The task could otherwise replace the Node or package-manager files the host runs next.
     if (nodeReads.some((read) => within(read, root))) return { refused: "the Node install folder is inside the repository, where a task could change it" };
     privateDir = deps.host.realpath(deps.host.makeTempDir());
-    const plan: MacosTaskSandboxPlanV1 = { workspace: root, privateDir, home, nodeReads, gitDir: deps.host.exists(gitPath) ? gitPath : null };
+    // A repository without .git was refused above, so .git exists here.
+    const plan: MacosTaskSandboxPlanV1 = { workspace: root, privateDir, home, nodeReads, gitDir: gitPath };
     macosTaskSandboxProfileV1(plan);
     const failed = await selfTest(plan, deps);
     if (failed !== null) {
