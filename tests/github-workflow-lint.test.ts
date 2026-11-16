@@ -278,3 +278,15 @@ describe("the App-mode lint rule", () => {
     expect(publishModeProblems(text).length).toBeGreaterThan(0);
   });
 });
+
+describe("workflows that follow Ascout PR Collect", () => {
+  // A cancelled collect run (superseded by a newer push) leaves no evidence. Publishing then would
+  // fail on a missing artifact; skipping posts nothing either way, without a failed run.
+  it.each([".github/workflows/ascout-pr-publish.yml", "docs/examples/ascout-pr-publish-app.yml", "docs/examples/ascout-pr-ai-review.yml"])("%s skips a cancelled collect run", (file) => {
+    const text = readFileSync(resolve(file), "utf8");
+    const conditions = [...text.matchAll(/^ {4}if: (.*)$/gmu)].map((match) => match[1] as string);
+    expect(conditions.length).toBeGreaterThan(0);
+    // An AND-ed clause of the one job condition: an OR or a negation would defeat it.
+    expect(conditions[0]).toMatch(/^\$\{\{ [^|!]*&& github\.event\.workflow_run\.conclusion != 'cancelled'[^|]* \}\}$/u);
+  });
+});
