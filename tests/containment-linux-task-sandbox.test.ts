@@ -1,13 +1,13 @@
 import { execFile, spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { createServer } from "node:net";
+import { createConnection, createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import type { LinuxFsHostV1 } from "../src/assurance/containment/linux-fs-sandbox.js";
-import { LINUX_SELF_TEST_EXPECTED, SANDBOX_HOME, gitReachRefusalV1, linuxTaskSandboxArgvV1, nodeBindsV1, prepareLinuxTaskSandboxV1, type LinuxTaskSandboxDepsV1, type LinuxTaskSandboxV1 } from "../src/assurance/containment/linux-task-sandbox.js";
+import { LINUX_SELF_TEST_EXPECTED, SANDBOX_HOME, gitReachRefusalV1, linuxTaskSandboxArgvV1, realLoopbackPortV1, realReadTextV1, nodeBindsV1, prepareLinuxTaskSandboxV1, type LinuxTaskSandboxDepsV1, type LinuxTaskSandboxV1 } from "../src/assurance/containment/linux-task-sandbox.js";
 
 // FD-4 T1 on Linux: the bubblewrap sandbox for `check` tasks. The native tests at the end are the
 // evidence; each pairs a denial with a control showing the same probe detects the capability without
@@ -86,6 +86,32 @@ describe("the task sandbox command line", () => {
   });
 });
 
+describe("the real helpers the task sandbox uses", () => {
+  it("read a file's text, or null when it can't be read", () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "ascout-readtext-")));
+    try {
+      writeFileSync(join(dir, "config"), "[core]\n");
+      expect(realReadTextV1(join(dir, "config"))).toBe("[core]\n");
+      expect(realReadTextV1(join(dir, "missing"))).toBeNull();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("open a host loopback port for the self-test and close it again", async () => {
+    const loopback = await realLoopbackPortV1();
+    if (loopback === null) throw new Error("no loopback port");
+    expect(loopback.port).toBeGreaterThan(0);
+    const reply = await new Promise<string>((resolve) => {
+      const socket = createConnection(loopback.port, "127.0.0.1");
+      socket.on("data", (data) => resolve(data.toString()));
+      socket.on("error", (error) => resolve(String(error)));
+    });
+    expect(reply).toBe("host");
+    loopback.close();
+  });
+});
+
 describe("preparing the task sandbox", () => {
   const present = ["/usr/bin/bwrap", `${REPO}/.git`, `${REPO}/.git/HEAD`];
   const deps = (overrides: Partial<LinuxTaskSandboxDepsV1> = {}): LinuxTaskSandboxDepsV1 => ({
@@ -149,9 +175,17 @@ describe("preparing the task sandbox", () => {
     expect(closed).toBe(true);
   });
 
-  it("refuses when a path can't be resolved, instead of throwing", async () => {
+  it("refuses when a path can't be resolved, instead of throwing, whatever was thrown", async () => {
     const host = { ...fakeHost(["/usr/bin/bwrap"]), realpath: () => { throw new Error("ENOENT: no such file"); } };
     expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host }))).toEqual({ refused: "ENOENT: no such file" });
+    const odd = { ...fakeHost(["/usr/bin/bwrap"]), realpath: () => { throw "not an Error"; } };
+    expect(await prepareLinuxTaskSandboxV1(REPO, deps({ host: odd }))).toEqual({ refused: "not an Error" });
+  });
+
+  it("binds no .git for a folder without one", async () => {
+    const made = await prepareLinuxTaskSandboxV1(REPO, deps({ host: fakeHost(["/usr/bin/bwrap"]) }));
+    if (!("sandbox" in made)) throw new Error(made.refused);
+    expect(made.sandbox.wrap("/usr/bin/true", [], REPO, []).argv).not.toContain(`${REPO}/.git`);
   });
 
   it("wraps a command through bubblewrap, with the result folders it is given", async () => {

@@ -124,7 +124,7 @@ export interface LinuxTaskSandboxDepsV1 {
   readonly readText: (path: string) => string | null;
 }
 
-const realReadText = (path: string): string | null => {
+export const realReadTextV1 = (path: string): string | null => {
   try {
     return readFileSync(path, "utf8");
   } catch {
@@ -154,13 +154,13 @@ export function gitReachRefusalV1(gitDir: string, host: Pick<LinuxFsHostV1, "sym
   return null;
 }
 
-const realLoopback = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
+export const realLoopbackPortV1 = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
   const server = createServer((socket) => socket.end("host"));
   server.once("error", () => resolve(null));
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });
 
-const realDeps: LinuxTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopback, readText: realReadText };
+const realDeps: LinuxTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopbackPortV1, readText: realReadTextV1 };
 
 /** What the self-test task must report, in the exact configuration tasks run in. */
 export const LINUX_SELF_TEST_EXPECTED = { outside: false, git: "EROFS", evidence: false, results: "allowed", capEff: "0000000000000000", loopback: "denied" } as const;
