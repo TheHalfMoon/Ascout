@@ -48,7 +48,8 @@ no command uses them. Changes on `main` since `v0.3.1`:
   environment, only an allowlist plus named variables and `CI=1`. This keeps secrets from tools that
   log or upload their environment. It is not protection from hostile code, which can still read
   Ascout's own environment from the operating system and credential files under the home folder.
-  Per invocation only, never from repository configuration, and `check` only. The tier stays T0.
+  Per invocation only, never from repository configuration. The tier stays T0. (`test` and
+  `pr-evidence` accept it too; see above.)
 
 ## 0.3.1 (2026-11-14)
 
