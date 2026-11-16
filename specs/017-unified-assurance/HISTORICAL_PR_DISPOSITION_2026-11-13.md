@@ -19,7 +19,7 @@ as is. These were AI-prepared findings; no human has reviewed them.
 | #614 | Batch `git hash-object` and HEAD identity queries (draft) | Half. The HEAD half landed as `e855b16` through #643. The hash-object half did not: `main` still runs one `git hash-object` per modified file when it fingerprints the tree. Its base PR #589 was closed unmerged. | **Salvage the hash-object batch** as a fresh change on `main` (a cherry-pick conflicts), keeping its fail-closed checks and its CRLF test. | None: engineering |
 | #635 | UA-P07 deep security audit authorization | No. Largely overtaken by E10 (BYOAI) and A07. | Close candidate; the branch keeps the content. | Its D1–D4; older-PR disposition |
 | #651 | EGM handoff and V2-to-`main` reconciliation (draft) | No. Its own body says #653 supersedes it. | Keep open as the historical record. **Never merge into `main`.** | FD-8 |
-| #653 | `main`-rooted V2 adoption packet | No. Most of its E1–E9 has since shipped, so parts are now stale against v0.3.0. | Keep open. | Human R1 ratification |
+| #653 | `main`-rooted V2 adoption packet | No. Most of its E1–E9 has since shipped, so parts are now stale against v0.3.0. | Keep open. | Human R1 ratification | *Closed as superseded on 2026-11-16 (founder decision; not human R1).*
 
 ## What can happen without a founder decision
 

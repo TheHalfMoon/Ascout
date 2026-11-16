@@ -1,7 +1,7 @@
 # E8 Design: Local MCP Server and End-to-End Proof
 
 **Status:** design, revision 2, for review. It authorizes no implementation. Before E8 code lands,
-this design needs human R1 and the adoption-plan gate: core real-engine claims qualified (E5 and
+this design needed human R1 (since 2026-11-16, an independent review under Amendment A09) and the adoption-plan gate: core real-engine claims qualified (E5 and
 E6 are) and a reviewed protocol spec, which this document is meant to become. Model reviews of it
 are advisory and are listed at the end.
 

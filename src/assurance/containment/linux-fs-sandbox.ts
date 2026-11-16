@@ -18,8 +18,8 @@ import type { ProbeRunnerV1 } from "./capability-probes.js";
  * other host.
  *
  * Nothing in Ascout runs tasks through this yet, and the containment tier stays T0
- * (containment-tier.ts). A T1 claim for Linux needs native evidence and an independent human security
- * review. The host-specific design and its technique-level probes are kept privately, as the T0 spec
+ * (containment-tier.ts). A T1 claim for Linux needs native evidence and an independent review under
+ * Amendment A09. The host-specific design and its technique-level probes are kept privately, as the T0 spec
  * requires; this module holds only the generic mechanism.
  */
 

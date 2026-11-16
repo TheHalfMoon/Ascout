@@ -25,7 +25,7 @@ import { execFileTextV1, realLinuxFsHostV1, type ExecFileTextV1, type LinuxFsHos
  * killed.
  *
  * Nothing in Ascout runs tasks through this, the containment tier stays T0 (containment-tier.ts), and a
- * Windows claim needs an independent human security review. Technique-level probes are kept privately.
+ * Windows claim needs an independent review under Amendment A09. Technique-level probes are kept privately.
  */
 
 /** The C# and PowerShell that create the container, grant access, run Node, and clean up. */

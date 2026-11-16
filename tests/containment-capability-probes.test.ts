@@ -13,7 +13,7 @@ import { currentContainmentV1 } from "../src/assurance/containment/containment-t
 // 24, so each run is native evidence of what T0 actually allows on that host. Under T0 every
 // capability must be ALLOWED and confirmed by the parent: T0 isolates nothing, and these tests keep
 // that statement true. A T1 runner would have to make every probe DENIED, with the parent's agreement,
-// before any T1 claim, and the claim would still need an independent human security review.
+// before any T1 claim, and the claim would still need an independent review under Amendment A09.
 describe("capability probes under T0", () => {
   it("prove natively that code Ascout runs can read, write, connect, and see secrets outside its workspace", async () => {
     const report = await runCapabilityProbesV1("T0", t0ProbeRunnerV1);
