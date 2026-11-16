@@ -1,7 +1,7 @@
 # Ascout GitHub integration
 
 **Status:** the collector (`ascout pr-evidence`), the publisher (`ascout pr-publish`), and two workflows
-ship in v0.3.0, and this repository runs them on its own pull requests. v0.2.0 and earlier don't
+ship from v0.3.0 on (current release v0.3.1), and this repository runs them on its own pull requests. v0.2.0 and earlier don't
 include these commands.
 
 ## Design
@@ -79,8 +79,13 @@ A repository can choose which checks a pull request must complete, in
 
 ## GitHub App mode: an exclusive check (C1)
 
-**Status: in v0.3.0, but not yet proven live.** App mode stays unproven until C1c: a live test on a
-repository whose App the founder registers. Until then, don't rely on it as your only gate.
+**Status: shipped since v0.3.0, and proven live in a test repository (C1c, 2026-11-13).** In
+`TheHalfMoon/ascout-c1c-proof`, under a ruleset pinned to the dedicated App, a forged same-named
+check from GitHub Actions did not satisfy the rule (the PR showed BLOCKED) while the App's own check
+passed. Evidence: `specs/017-unified-assurance/C1C_LIVE_APP_GATE_PROOF_2026-11-13.md`. Not done: a
+human review of the C1 design; an optional comparison without the Commit statuses permission (not
+run; see `STATE.md`); an actual merge attempt; and tests of bypass actors, classic branch protection,
+and a compromised App key.
 
 By default the check is posted with the workflow's `GITHUB_TOKEN`, which belongs to the GitHub
 Actions app. Any workflow a PR adds can use that same app to post a check of the same name. In App
@@ -229,7 +234,7 @@ trust itself, from the trusted event:
   never trusted.
 - **The check name is not exclusive.** A job a PR adds to its own workflow can create a check run
   with the same name through the GitHub Actions app. GitHub App mode (above) closes this. It ships
-  in v0.3.0, and it waits for a live proof.
+  from v0.3.0 on; in a test repository on 2026-11-13, a forged check did not satisfy the pinned rule.
 - **Several open PRs from one branch are ambiguous**, so the publisher annotates none of them.
 - **Honest collection can't be green under the default policy.** Review without a model and
   Gitleaks on a clean scan both exit 4. A repository that wants a pass on tests alone has to say so in
