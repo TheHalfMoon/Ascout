@@ -8,6 +8,9 @@ break compatibility, and each breaking change is listed under **Breaking**.
 - The browser adapter (`dist/browser/playwright-adapter.js`) no longer fails to import from an installed
   package. It loads Playwright, a development dependency, only when available, and says the browser engine is
   missing when a browser is actually driven.
+- The PR publish workflow and the App-mode and AI-review templates skip a collect run that was cancelled
+  (superseded by a newer push). Such a run leaves no evidence, and publishing then failed on a missing artifact.
+  Nothing is posted either way.
 - FD-4 T1-FS and T1-NET research on Windows: an AppContainer runner
   (`src/assurance/containment/windows-appcontainer-sandbox.ts`), driven from Windows PowerShell 5.1 so no
   native binary ships. Windows CI requires the native capability probes to show the filesystem and

@@ -30,7 +30,7 @@ permissions:
 jobs:
   ai:
     name: ascout ai review (advisory)
-    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.path == '.github/workflows/ascout-pr-collect.yml' && github.event.workflow_run.head_repository.full_name == github.repository }}
+    if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.path == '.github/workflows/ascout-pr-collect.yml' && github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.head_repository.full_name == github.repository }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: ascout-ai-review
