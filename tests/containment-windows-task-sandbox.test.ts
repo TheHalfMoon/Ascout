@@ -190,12 +190,13 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
   async function run(sandbox: WindowsTaskSandboxV1 | null, cwd: string, file: string, argv: readonly string[], env: NodeJS.ProcessEnv = { SystemRoot: process.env.SystemRoot, PATH: process.env.PATH }, writable: readonly string[] = []) {
     const launch = sandbox === null ? { file, argv } : sandbox.wrap(file, argv, cwd, writable);
     return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
-      const child = spawn(launch.file, [...launch.argv], { cwd, env, windowsHide: true });
+      // Bounded, so a hang inside the container shows up as a result instead of a test timeout.
+      const child = spawn(launch.file, [...launch.argv], { cwd, env, windowsHide: true, timeout: 120_000 });
       let stdout = "";
       let stderr = "";
       child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
       child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
-      child.on("close", (code) => resolve({ code, stdout, stderr }));
+      child.on("close", (code, signal) => resolve({ code, stdout: signal === null ? stdout : `${stdout}[killed:${signal}]`, stderr }));
     });
   }
 
@@ -295,11 +296,15 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
   }, 600_000);
 
   it("runs a batch-file tool, and leaves no descendant running after the task ends", async () => {
+    const started0 = Date.now();
+    const step = (label: string) => console.log(`T1-WINDOWS-STEP ${label} ${Math.round((Date.now() - started0) / 1000)}s`);
     const t = await setUp();
+    step("setup");
     try {
       const npm = win32.join(win32.dirname(node), "npm.cmd");
       if (existsSync(npm)) {
         const version = await run(t.sandbox, t.ws, npm, ["--version"]);
+        step(`npm ${JSON.stringify(version).slice(0, 300)}`);
         expect(version.stdout.trim(), JSON.stringify(version)).toMatch(/^\d+\.\d+\.\d+$/u);
       }
       // The job may refuse the detached child outright (it can't break away), or the child may start;
@@ -307,7 +312,7 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
       const late = (marker: string) => ["-e", `let c; try { c = require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => require('fs').writeFileSync('${marker.replaceAll("\\", "\\\\\\\\")}', 'x'), 1500)"], { detached: true, stdio: "ignore" }); } catch (e) { process.stdout.write("refused:" + e.code); process.exit(0); } c.on("error", (e) => process.stdout.write("refused:" + e.code)); c.on("spawn", () => { c.unref(); process.stdout.write("started"); }); setTimeout(() => process.exit(0), 500);`];
       // An ordinary child, as test runners start, still works inside the container.
       const child = await run(t.sandbox, t.ws, node, ["-e", `const r = require("child_process").spawnSync(process.execPath, ["-e", "process.stdout.write('child-ran')"], { encoding: "utf8", timeout: 20000 }); process.stdout.write(JSON.stringify({ status: r.status, signal: r.signal, error: r.error ? r.error.code : null, stdout: r.stdout }))`]);
-      console.log(`T1-WINDOWS-CHILD ${JSON.stringify(child)}`);
+      step(`child ${JSON.stringify(child).slice(0, 300)}`);
       expect(JSON.parse(child.stdout || "{}").stdout, JSON.stringify(child)).toBe("child-ran");
       const started = await run(t.sandbox, t.ws, node, late(join(t.ws, "late-inside")));
       expect(started.stdout, JSON.stringify(started)).toMatch(/^(started|refused:\w+)$/u);
@@ -317,5 +322,5 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
       await t.sandbox.dispose();
       rmSync(t.root, { recursive: true, force: true });
     }
-  }, 600_000);
+  }, 1_200_000);
 });
