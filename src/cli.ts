@@ -78,8 +78,12 @@ const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp"
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const CLEAN_ENV_FLAG = "--clean-env";
 const SANDBOX_FLAG = "--sandbox";
-/** Printed after a sandboxed run. The tier stays T0 until a sandbox is qualified under Amendment A09. */
-const SANDBOX_NOTICE = "Tasks ran in the Linux bubblewrap sandbox (--sandbox): they could write only the repository (not its .git, with .ascout hidden) and this run's result folders, with no network and an allowlisted environment. The containment tier is still reported as T0: this sandbox is not yet qualified, and the repository's own files stay writable.";
+/**
+ * Printed after a sandboxed run. The Linux sandbox passed independent review under Amendment A09
+ * (PR #789: five independent AI reviews, the last on the merged tree), so it reports T1 with its limits. Runs without
+ * --sandbox stay T0 (containment-tier.ts).
+ */
+const SANDBOX_NOTICE = "Every task in this run was confined to the Linux bubblewrap sandbox (--sandbox): containment tier T1 on Linux, internally qualified under Amendment A09 (independent AI security review; not externally certified or human-audited). They could write only the repository (not its .git, with .ascout hidden) and this run's result folders, with no network and an allowlisted environment. Limits: the repository's own files stay writable; a Unix socket a host process placed inside the repository can be reached; /usr and /etc stay readable; there is no seccomp filter (the session keyring is shared) and no CPU or memory limit; after a timeout, the result-folder link check can race the sandbox's teardown. Ascout still supports only repositories you trust.";
 const PASS_ENV_FLAG = "--pass-env";
 
 /** Says what --clean-env is and isn't: one capability removed, and no isolation claimed. */

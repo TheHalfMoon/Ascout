@@ -118,7 +118,7 @@ describe("ascout check --sandbox with the real OS sandbox", () => {
         return ctx.skip();
       }
       expect(JSON.parse(readFileSync(join(root, "result.json"), "utf8"))).toEqual({ readOutside: "ENOENT", writeGit: "EROFS", writeRepo: "allowed", loopback: expect.not.stringMatching(/^allowed$/u) });
-      expect(sandboxed.stderr).toContain("The containment tier is still reported as T0");
+      expect(sandboxed.stderr).toContain("containment tier T1 on Linux, internally qualified under Amendment A09");
       // Control: the same task under a plain check reaches all three.
       rmSync(join(root, "result.json"));
       await checkIn(root, ["check"]);

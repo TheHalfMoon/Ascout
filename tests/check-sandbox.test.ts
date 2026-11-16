@@ -239,8 +239,11 @@ describe("check --sandbox from the command line", () => {
     const names = (JSON.parse(readFileSync(seen, "utf8")) as string[]).map((name) => name.toUpperCase());
     expect(names).not.toContain("ASCOUT_SANDBOX_PROBE_SECRET");
     expect(names).toContain("ASCOUT_SANDBOX_PASSED");
-    expect(stderr).toContain("The containment tier is still reported as T0");
+    expect(stderr).toContain("containment tier T1 on Linux, internally qualified under Amendment A09");
     expect(stderr).not.toContain("--clean-env");
+    expect(stderr).toContain("not externally certified or human-audited");
+    expect(stderr).toContain("Ascout still supports only repositories you trust");
+    for (const limit of ["files stay writable", "Unix socket", "/usr and /etc stay readable", "no seccomp filter", "no CPU or memory limit", "race the sandbox's teardown"]) expect(stderr, limit).toContain(limit);
   });
 
   it("is not prepared, and nothing is wrapped, without the flag", async () => {
