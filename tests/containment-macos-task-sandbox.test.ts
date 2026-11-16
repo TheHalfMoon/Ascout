@@ -242,7 +242,7 @@ describe.runIf(process.platform === "darwin")("native: a check task inside the m
       expect(target.exitCode).toBeNull();
       expect(await run(t.sandbox, t.ws, childKill)).toBe("signalled:SIGTERM");
       // Control: outside the sandbox the same kill reaches the outside process.
-      expect(await run(null, t.ws, outsideKill)).toBe("allowed");
+      expect(await run(null, t.ws, outsideKill)).toBe("signalled");
     } finally {
       target.kill("SIGKILL");
       done(t);
