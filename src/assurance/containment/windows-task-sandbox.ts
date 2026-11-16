@@ -34,6 +34,9 @@ import { realWindowsSandboxDepsV1, windowsAppContainerProbeRunnerV1, windowsPowe
  *   open access lists;
  * - granting the repository rewrites its access lists for the run, which is slow on very large trees;
  * - a folder a task creates at the repository's top level isn't granted to it;
+ * - Node inside the container runs with --preserve-symlinks and --preserve-symlinks-main, and
+ *   fs.realpathSync fails (it reads every parent folder from the drive root), so tools that depend
+ *   on real paths can fail there; such a task fails, it never runs outside the container;
  * - the repository's own files stay writable;
  * - there is no memory or CPU limit beyond Ascout's timeout and output caps.
  */
@@ -224,6 +227,11 @@ $tmp = Join-Path $acDir 'Temp'
 # LOCALAPPDATA must stay the real one: three levels above the container's AC folder.
 $vars['LOCALAPPDATA'] = Split-Path (Split-Path (Split-Path $acDir -Parent) -Parent) -Parent
 foreach ($name2 in @('TEMP', 'TMP', 'APPDATA', 'USERPROFILE', 'HOME')) { $vars[$name2] = $tmp }
+# Node resolves each script's real path by reading every parent folder from the drive root, which the
+# container can't; with these flags it uses the path as given (Windows CI, 2026-11-16).
+$nodeKey = @($vars.Keys | Where-Object { $_ -ieq 'NODE_OPTIONS' })
+$existing = if ($nodeKey.Count -gt 0) { $vars[$nodeKey[0]]; $vars.Remove($nodeKey[0]) } else { '' }
+$vars['NODE_OPTIONS'] = ('--preserve-symlinks --preserve-symlinks-main ' + $existing).Trim()
 $entries = @($vars.Keys | Sort-Object | ForEach-Object { "$_=$($vars[$_])" })
 $block = ($entries -join [char]0) + [char]0 + [char]0
 # After the task's environment is captured: PowerShell needs .EXE in PATHEXT to run icacls as a program.

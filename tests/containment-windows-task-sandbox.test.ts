@@ -302,8 +302,11 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
         const version = await run(t.sandbox, t.ws, npm, ["--version"]);
         expect(version.stdout.trim(), JSON.stringify(version)).toMatch(/^\d+\.\d+\.\d+$/u);
       }
-      const late = (marker: string) => ["-e", `require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => require('fs').writeFileSync('${marker.replaceAll("\\", "\\\\\\\\")}', 'x'), 1500)"], { detached: true, stdio: "ignore" }).unref(); process.stdout.write("started")`];
-      expect((await run(t.sandbox, t.ws, node, late(join(t.ws, "late-inside")))).stdout).toBe("started");
+      // The job may refuse the detached child outright (it can't break away), or the child may start;
+      // either way it must not outlive the task.
+      const late = (marker: string) => ["-e", `const c = require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => require('fs').writeFileSync('${marker.replaceAll("\\", "\\\\\\\\")}', 'x'), 1500)"], { detached: true, stdio: "ignore" }); c.on("error", (e) => process.stdout.write("refused:" + e.code)); c.on("spawn", () => { c.unref(); process.stdout.write("started"); }); setTimeout(() => process.exit(0), 500);`];
+      const started = await run(t.sandbox, t.ws, node, late(join(t.ws, "late-inside")));
+      expect(started.stdout, JSON.stringify(started)).toMatch(/^(started|refused:\w+)$/u);
       await new Promise((resolve) => setTimeout(resolve, 3500));
       expect(existsSync(join(t.ws, "late-inside"))).toBe(false);
     } finally {
