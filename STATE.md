@@ -99,7 +99,7 @@ These changes shipped in **v0.3.2** (2026-11-16). Evidence is the same as above:
 
 The draft Amendment A08 for statement-level evidence (#784, `c6a75e7`) is recorded as a proposal. It is not ratified.
 
-**Review policy changed (2026-11-16).** Amendment A09 (constitution 1.5.0, founder-ratified; record: `docs/governance/A09_INDEPENDENT_REVIEW_POLICY_RATIFICATION_2026-11-16.md`) removes mandatory human R1 and human security sign-off. An independent review under A09 now meets those gates. Such a review inspects the exact commit, its boundaries, tests and evidence, and is labeled truthfully; AI reviews are never presented as human. #653 was closed as superseded the same day.
+**Review policy changed (2026-11-16).** Amendment A09 (constitution 1.5.0, adopted under the founder's written decision of 2026-11-16; record: `docs/governance/A09_INDEPENDENT_REVIEW_POLICY_RATIFICATION_2026-11-16.md`) removes mandatory human R1 and human security sign-off. An independent review under A09 now meets those gates. Such a review inspects the exact commit, its boundaries, tests and evidence, and is labeled truthfully; AI reviews are never presented as human. #653 was closed as superseded the same day.
 
 **Still reserved to the founder:**
 

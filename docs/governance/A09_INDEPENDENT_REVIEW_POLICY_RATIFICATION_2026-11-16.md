@@ -31,7 +31,7 @@ its governance passages, verbatim:
 > behavior, or test requirements.
 > Record this message as my explicit founder decision, dated November 16, 2026.
 
-Its operative points, summarized:
+Its further passages on T1 and the project ("A simulated test or an AI opinion is not evidence of successful isolation"; T1 "may be described as internally qualified under the amended AI-review policy … Do not describe it as externally certified or independently human-audited"; "No new public release is authorized by this message") are summarized below with the governance points:
 
 - Mandatory external human R1 reviews and human security sign-offs are no longer required.
 - ChatGPT, fresh-context security agents, OpenCode, and other models are authorized to perform
@@ -74,7 +74,8 @@ did.
      `docs/governance/REPOSITORY_SETTINGS_CHECKLIST.md`, and the comments in
      `src/assurance/containment/*.ts` and `tests/containment-*.test.ts`.
    - Historical records stay as written, because they describe what happened then: the v0.2.0 FD-6
-     packet, the C1 design and C1c proof ("human R1 not verified"), and the E8 decision log.
+     packet, the C1 design and C1c proof ("human R1 not verified"), the E8 decision log, and released
+     CHANGELOG entries.
    - These stay as they are on purpose. Labels that say an AI review "is not human review" stay true
      and are kept: E10, E6B and E6C, `pr-ai-review`, and the review-provider code. Principle IV's
      per-invocation human admission of a changed command surface is a runtime control, not a review
@@ -119,5 +120,18 @@ did.
      - the qualification phrase differed from the decision's wording;
      - the trust review was self-assessed.
 
-   All ten were fixed in the following commit.
-2. A re-review of the final commit is recorded in the PR.
+   All ten were addressed in commit `b94d9a5`; the re-review below checked them.
+2. **Claude Opus 5.5, fresh-context agent, 2026-11-16, commit `b94d9a5`.** It found no Critical or
+   High problems, and confirmed in the text that all ten earlier findings were fixed. It found:
+   - **Medium:**
+     - `STATE.md` still said "founder-ratified";
+     - this record claimed a re-review before one existed.
+   - **Low:**
+     - the #653 row in the disposition table was malformed;
+     - three summary points were not quoted;
+     - the E9 status was vague;
+     - the CHANGELOG was missing from the list of kept records;
+     - "all ten were fixed" was stated as fact.
+
+   All seven were addressed in the following commit, and are claimed fixed. A re-review of that
+   commit is recorded in the PR once it exists.

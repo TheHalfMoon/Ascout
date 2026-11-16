@@ -30,8 +30,8 @@ metadata npm requires.
 | Global install (`npm install -g`) on each OS | Not tested. It needs a registry or a populated cache; planned for the release dry run |
 | Containment claim | T0 only (E7-CONTAIN part one). The release notes must say "trusted-local only" |
 | Third-party notices for every shipped or invoked component | E3; re-check on the release head |
-| Independent security review of the release head (under Amendment A09 since 2026-11-16) | Per release |
-| Independent review of the release PR (under Amendment A09 since 2026-11-16) | Per release |
+| Independent security review of the release head (under Amendment A09 since 2026-11-16) | PENDING (per release) |
+| Independent review of the release PR (under Amendment A09 since 2026-11-16) | PENDING (per release) |
 | FD-6 disposition and owner release authority | PENDING |
 
 ## Signing and provenance plan (not executed)
