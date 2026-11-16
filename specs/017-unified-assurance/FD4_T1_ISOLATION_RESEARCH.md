@@ -128,7 +128,8 @@ its own it is not T1.
      - **No longer allowed (2026-11-16):** signalling other processes of the same user. The profile
        denies signals to every process but the task itself. macOS CI checks one case: a signal to a
        same-user process outside the sandbox must fail with `EPERM`, and the same profile without that
-       rule must deliver it.
+       rule must deliver it. The profile denies every signal and then allows `(target self)`:
+       `(deny signal (target others))` alone did not block that signal on macOS 15 in CI.
      - **Side effect:** a task also can't signal its own children or process group. Test runners that
        kill timed-out workers rely on that, so wiring this runner into `check` would have to account
        for it.
