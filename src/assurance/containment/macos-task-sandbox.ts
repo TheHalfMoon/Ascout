@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { posix } from "node:path";
 
@@ -153,7 +153,14 @@ export interface MacosTaskSandboxDepsV1 {
   readonly randomName: () => string;
   /** How long the self-test gives launchd to run a submitted job before judging that it didn't. */
   readonly launchdWaitMs: number;
+  /** Starts a host process, outside the sandbox, whose starting environment holds `name`. */
+  readonly spawnCanaryHolder: (name: string) => { pid: number; close: () => void };
 }
+
+export const realSpawnCanaryHolderV1: MacosTaskSandboxDepsV1["spawnCanaryHolder"] = (name) => {
+  const child = spawn("/bin/sleep", ["60"], { env: { [name]: "visible" }, stdio: "ignore" });
+  return { pid: child.pid ?? -1, close: () => { child.kill("SIGKILL"); } };
+};
 
 export const realExecBothV1: MacosTaskSandboxDepsV1["execBoth"] = (file, argv, { cwd, env, timeoutMs = 20_000 }) => new Promise((resolve) => {
   execFile(file, [...argv], { cwd, env, encoding: "utf8", timeout: timeoutMs }, (_error, stdout, stderr) => resolve({ stdout, stderr }));
@@ -165,10 +172,10 @@ const realLoopback = (): Promise<{ port: number; close: () => void } | null> => 
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });
 
-const realDeps: MacosTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopback, execBoth: realExecBothV1, randomName: () => Math.random().toString(36).slice(2, 12), launchdWaitMs: 1500 };
+const realDeps: MacosTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopback, execBoth: realExecBothV1, randomName: () => Math.random().toString(36).slice(2, 12), launchdWaitMs: 1500, spawnCanaryHolder: realSpawnCanaryHolderV1 };
 
 /** What the self-test task must report, in the exact configuration tasks run in. */
-export const MACOS_SELF_TEST_EXPECTED = { outside: "EPERM", git: "EPERM", evidence: "EPERM", results: "allowed", link: "EPERM", parentEnvironment: "hidden", loopback: "denied", launchdJob: "refused" } as const;
+export const MACOS_SELF_TEST_EXPECTED = { outside: "EPERM", git: "EPERM", evidence: "EPERM", caseEvidence: "EPERM", firmlink: "EPERM", results: "allowed", link: "EPERM", linkOutside: "EPERM", otherEnvironment: "hidden", loopback: "denied", launchdJob: "refused" } as const;
 
 /**
  * The task sandbox for `workspace`, or why it can't be used. It refuses, never falls back to running
@@ -190,7 +197,11 @@ export async function prepareMacosTaskSandboxV1(workspace: string, deps: MacosTa
       return { refused: "the repository's .git is not a real folder (a worktree or a link), which --sandbox can't protect" };
     }
     if (deps.host.exists(posix.join(root, ".gitmodules"))) return { refused: "the repository has submodules, whose .git files --sandbox can't protect" };
+    // Without one, a task could create ".GIT" on a case-insensitive volume, which the deny would miss.
+    if (!deps.host.exists(gitPath)) return { refused: "the repository has no .git folder, which --sandbox needs in order to protect it" };
     const nodeReads = macosNodeReadsV1(deps.host.realpath(deps.execPath), deps.host);
+    // The task could otherwise replace the Node or package-manager files the host runs next.
+    if (nodeReads.some((read) => within(read, root))) return { refused: "the Node install folder is inside the repository, where a task could change it" };
     privateDir = deps.host.realpath(deps.host.makeTempDir());
     const plan: MacosTaskSandboxPlanV1 = { workspace: root, privateDir, home, nodeReads, gitDir: deps.host.exists(gitPath) ? gitPath : null };
     macosTaskSandboxProfileV1(plan);
@@ -225,8 +236,12 @@ async function selfTest(plan: MacosTaskSandboxPlanV1, deps: MacosTaskSandboxDeps
   const canaryName = `ASCOUT_SELFTEST_CANARY_${suffix.toUpperCase()}`;
   const label = `ascout.selftest.${suffix}`;
   const jobMarker = posix.join(root, "launchd-job-ran");
-  process.env[canaryName] = "visible";
+  // A process outside the sandbox that started with the canary in its environment.
+  const holder = deps.spawnCanaryHolder(canaryName);
   try {
+    // Control: outside the sandbox, ps -E does see the canary, so "hidden" inside means something.
+    const control = await deps.execBoth("/bin/ps", ["-E", "-ww", "-p", String(holder.pid)], { cwd: root, env: {} });
+    if (!control.stdout.includes(canaryName)) return "the self-test's control could not read another process's environment, so it can't prove the sandbox hides it";
     const ws = posix.join(root, "repo");
     const results = posix.join(ws, ".ascout", "runs", "selftest", "raw", "test");
     const marker = posix.join(root, "outside-marker");
@@ -243,9 +258,12 @@ const out = {
   outside: attempt(() => fs.readFileSync(${JSON.stringify(marker)})),
   git: attempt(() => fs.writeFileSync(".git/config", "x")),
   evidence: attempt(() => fs.readFileSync(".ascout/earlier-evidence")),
+  caseEvidence: attempt(() => fs.readFileSync(".ASCOUT/earlier-evidence")),
+  firmlink: attempt(() => fs.readFileSync(${JSON.stringify(`/System/Volumes/Data${marker}`)})),
   results: attempt(() => fs.writeFileSync(${JSON.stringify(posix.join(results, "probe"))}, "x")),
   link: attempt(() => fs.linkSync(".git/config", "linked-config")),
-  parentEnvironment: (() => { const ps = cp.spawnSync("/bin/ps", ["-E", "-ww", "-p", String(process.ppid)], { encoding: "utf8" }); return (ps.stdout || "").includes(${JSON.stringify(canaryName)}) ? "visible" : "hidden"; })(),
+  linkOutside: attempt(() => fs.linkSync(${JSON.stringify(marker)}, "linked-outside")),
+  otherEnvironment: (() => { const ps = cp.spawnSync("/bin/ps", ["-E", "-ww", "-p", ${JSON.stringify(String(holder.pid))}], { encoding: "utf8" }); return (ps.stdout || "").includes(${JSON.stringify(canaryName)}) ? "visible" : "hidden"; })(),
 };
 cp.spawnSync("/bin/launchctl", ["submit", "-l", ${JSON.stringify(label)}, "--", "/usr/bin/touch", ${JSON.stringify(jobMarker)}]);
 const finish = (r) => { out.loopback = r; process.stdout.write(JSON.stringify(out)); process.exit(0); };
@@ -265,7 +283,7 @@ const s = require("node:net").connect(${loopback.port}, "127.0.0.1"); s.on("data
     if (JSON.stringify(seen) !== JSON.stringify(MACOS_SELF_TEST_EXPECTED)) return `the sandbox-exec task sandbox started but its self-test did not hold: ${JSON.stringify(seen)}`;
     return null;
   } finally {
-    delete process.env[canaryName];
+    holder.close();
     loopback.close();
     // Only if the escape worked is there a job to remove; removing a missing label does nothing.
     if (deps.host.exists(jobMarker)) await deps.execBoth("/bin/launchctl", ["remove", label], { cwd: root, env: {} });

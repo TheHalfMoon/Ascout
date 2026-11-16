@@ -100,7 +100,8 @@ describe("preparing the macOS task sandbox", () => {
     platform: "darwin",
     host: host(present),
     exec: async () => "",
-    execBoth: async () => ({ stdout: JSON.stringify(reported), stderr: "" }),
+    execBoth: async (file) => ({ stdout: file === "/bin/ps" ? "PID ... ASCOUT_SELFTEST_CANARY_ABC=visible" : JSON.stringify(reported), stderr: "" }),
+    spawnCanaryHolder: () => ({ pid: 777, close: () => undefined }),
     execPath: "/opt/homebrew/Cellar/node/22/bin/node",
     loopbackPort: async () => ({ port: 4242, close: () => undefined }),
     randomName: () => "abc",
@@ -115,6 +116,11 @@ describe("preparing the macOS task sandbox", () => {
     expect(await prepareMacosTaskSandboxV1(REPO, deps({ execPath: "/Users/u/bin/node" }))).toMatchObject({ refused: expect.stringMatching(/expose the home folder/u) });
   });
 
+  it("refuses a repository without .git, and a Node install inside the repository", async () => {
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host([SANDBOX_EXEC]) }))).toMatchObject({ refused: expect.stringMatching(/no \.git folder/u) });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ execPath: `${REPO}/tools/node/bin/node` }))).toMatchObject({ refused: expect.stringMatching(/Node install folder is inside the repository/u) });
+  });
+
   it("refuses a worktree's .git file, a linked .git, and submodules", async () => {
     expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host([SANDBOX_EXEC, `${REPO}/.git`]) }))).toMatchObject({ refused: expect.stringMatching(/not a real folder/u) });
     expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host(present, { [`${REPO}/.git`]: "/x" }) }))).toMatchObject({ refused: expect.stringMatching(/not a real folder/u) });
@@ -122,13 +128,16 @@ describe("preparing the macOS task sandbox", () => {
   });
 
   it("refuses unless the self-test, run in the real task configuration, reports every expected denial, and removes the private folder then", async () => {
-    expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async () => ({ stdout: "", stderr: "sandbox-exec: unbound variable" }) }))).toEqual({ refused: "the sandbox-exec task sandbox did not start (sandbox-exec: unbound variable)" });
-    expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async () => ({ stdout: "", stderr: "" }) }))).toEqual({ refused: "the sandbox-exec task sandbox did not start" });
+    const control = "ASCOUT_SELFTEST_CANARY_ABC=visible";
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async (file) => (file === "/bin/ps" ? { stdout: control, stderr: "" } : { stdout: "", stderr: "sandbox-exec: unbound variable" }) }))).toEqual({ refused: "the sandbox-exec task sandbox did not start (sandbox-exec: unbound variable)" });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async (file) => (file === "/bin/ps" ? { stdout: control, stderr: "" } : { stdout: "", stderr: "" }) }))).toEqual({ refused: "the sandbox-exec task sandbox did not start" });
+    // Without a control that can see the canary, "hidden" would prove nothing.
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async (file) => ({ stdout: file === "/bin/ps" ? "" : JSON.stringify(reported), stderr: "" }) }))).toMatchObject({ refused: expect.stringMatching(/control could not read another process's environment/u) });
     expect(await prepareMacosTaskSandboxV1(REPO, deps({ loopbackPort: async () => null }))).toMatchObject({ refused: expect.stringMatching(/could not bind a host loopback port/u) });
     for (const key of Object.keys(reported)) {
       removed.length = 0;
       const broken = { ...reported, [key]: "something-else" };
-      expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async () => ({ stdout: JSON.stringify(broken), stderr: "" }) })), key).toMatchObject({ refused: expect.stringMatching(/self-test did not hold/u) });
+      expect(await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async (file) => ({ stdout: file === "/bin/ps" ? "ASCOUT_SELFTEST_CANARY_ABC" : JSON.stringify(broken), stderr: "" }) })), key).toMatchObject({ refused: expect.stringMatching(/self-test did not hold/u) });
       expect(removed).toContain("/private/var/folders/xy/T/ascout-1");
     }
   });
@@ -136,8 +145,11 @@ describe("preparing the macOS task sandbox", () => {
   it("runs the self-test through sandbox-exec with a real result folder and a host loopback port", async () => {
     const calls: (readonly string[])[] = [];
     let closed = false;
-    await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async (_file, argv) => { calls.push(argv); return { stdout: JSON.stringify(reported), stderr: "" }; }, loopbackPort: async () => ({ port: 4242, close: () => { closed = true; } }) }));
+    let holderClosed = false;
+    await prepareMacosTaskSandboxV1(REPO, deps({ execBoth: async (file, argv) => { if (file === "/bin/ps") return { stdout: "ASCOUT_SELFTEST_CANARY_ABC", stderr: "" }; calls.push(argv); return { stdout: JSON.stringify(reported), stderr: "" }; }, loopbackPort: async () => ({ port: 4242, close: () => { closed = true; } }), spawnCanaryHolder: () => ({ pid: 777, close: () => { holderClosed = true; } }) }));
+    expect(holderClosed).toBe(true);
     expect(calls).toHaveLength(1);
+    expect(calls[0]!.join(" ")).toContain('"-p", "777"');
     expect(calls[0]![1]).toContain("/private/var/folders/xy/T/ascout-1/repo/.ascout/runs/selftest/raw/test");
     expect(calls[0]!.join(" ")).toContain("4242");
     expect(closed).toBe(true);
@@ -146,7 +158,7 @@ describe("preparing the macOS task sandbox", () => {
   it("refuses when launchd ran the job the task submitted, judged by its marker outside the sandbox, and removes that job", async () => {
     const calls: (readonly string[])[] = [];
     const escaped = host([...present, "/private/var/folders/xy/T/ascout-1/launchd-job-ran"]);
-    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: escaped, execBoth: async (file, argv) => { calls.push([file, ...argv]); return { stdout: JSON.stringify(reported), stderr: "" }; } }))).toMatchObject({ refused: expect.stringMatching(/"launchdJob":"ran"/u) });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: escaped, execBoth: async (file, argv) => { calls.push([file, ...argv]); return { stdout: file === "/bin/ps" ? "ASCOUT_SELFTEST_CANARY_ABC" : JSON.stringify(reported), stderr: "" }; } }))).toMatchObject({ refused: expect.stringMatching(/"launchdJob":"ran"/u) });
     expect(calls.at(-1)).toEqual(["/bin/launchctl", "remove", "ascout.selftest.abc"]);
   });
 
@@ -293,6 +305,20 @@ describe.runIf(process.platform === "darwin")("native: a check task inside the m
     } finally {
       delete process.env.ASCOUT_T1_CANARY;
       done(t);
+    }
+  }, 60_000);
+
+  it.runIf(process.env.ASCOUT_REQUIRE_MACOS_SANDBOX === "1")("control (CI only): without the sandbox, launchd does run a submitted job, so the self-test's refusal means something", async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "ascout-launchd-control-")));
+    const label = `ascout.control.${process.pid}`;
+    const marker = join(dir, "ran");
+    try {
+      spawnSync("/bin/launchctl", ["submit", "-l", label, "--", "/usr/bin/touch", marker]);
+      for (let i = 0; i < 20 && !existsSync(marker); i += 1) await new Promise((resolve) => setTimeout(resolve, 250));
+      expect(existsSync(marker)).toBe(true);
+    } finally {
+      spawnSync("/bin/launchctl", ["remove", label]);
+      rmSync(dir, { recursive: true, force: true });
     }
   }, 60_000);
 
