@@ -379,6 +379,20 @@ describe("MCP protocol 2025-11-25", () => {
     s.input.end();
   });
 
+  it("keeps a malformed (non-object) arguments value a protocol error, and calls before initialize too", async () => {
+    const s = session(repo);
+    s.send(call(1, "ascout_review", { path: "/" }));
+    s.send(init("2025-11-25"));
+    s.send(call(3, "ascout_review", "x"));
+    s.send(call(4, "ascout_review", ["x"]));
+    const replies = await s.waitFor(4);
+    const byId = (id: number) => replies.find((reply) => reply!.id === id)!;
+    expect(byId(1).error).toMatchObject({ code: -32602 });
+    expect(byId(3).error).toMatchObject({ code: -32602 });
+    expect(byId(4).error).toMatchObject({ code: -32602 });
+    s.input.end();
+  });
+
   it("keeps the protocol error for the same arguments under 2025-06-18", async () => {
     const s = session(repo);
     s.send(init("2025-06-18"));

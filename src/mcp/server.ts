@@ -125,7 +125,10 @@ export function serveMcpV1(options: McpServerOptionsV1): Promise<number> {
     const args = record.arguments;
     if (args !== undefined && (typeof args !== "object" || args === null || Array.isArray(args) || Object.keys(args).length > 0)) {
       // Nothing runs either way; only how the refusal is reported depends on the protocol version.
-      if (negotiated !== null && TOOL_INPUT_ERRORS_AS_RESULTS.has(negotiated)) reply(id, { isError: true, content: [{ type: "text", text: "Ascout tools take no arguments; call it with no arguments" }] });
+      // A non-object is a malformed request (a protocol error in every version); only arguments the
+      // tool doesn't accept become a tool execution error.
+      const plainObject = typeof args === "object" && args !== null && !Array.isArray(args);
+      if (plainObject && negotiated !== null && TOOL_INPUT_ERRORS_AS_RESULTS.has(negotiated)) reply(id, { isError: true, content: [{ type: "text", text: "Ascout tools take no arguments; call it with no arguments" }] });
       else fail(id, -32602, "Ascout tools take no arguments");
       return;
     }
