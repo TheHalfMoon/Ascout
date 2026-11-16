@@ -8,47 +8,76 @@ import { describe, expect, it } from "vitest";
 
 import type { LinuxFsHostV1 } from "../src/assurance/containment/linux-fs-sandbox.js";
 import { SANDBOX_EXEC } from "../src/assurance/containment/macos-fs-sandbox.js";
-import { macosTaskSandboxArgvV1, macosTaskSandboxProfileV1, prepareMacosTaskSandboxV1, type MacosTaskSandboxDepsV1, type MacosTaskSandboxV1 } from "../src/assurance/containment/macos-task-sandbox.js";
+import { MACOS_SELF_TEST_EXPECTED, macosNodeReadsV1, macosTaskSandboxArgvV1, macosTaskSandboxProfileV1, prepareMacosTaskSandboxV1, type MacosTaskSandboxDepsV1, type MacosTaskSandboxV1 } from "../src/assurance/containment/macos-task-sandbox.js";
 
 // FD-4 T1 on macOS: the sandbox-exec profile for `check` tasks. The native tests pair each denial with
 // a control that shows the same probe detects the capability without the sandbox.
 
-const PLAN = { workspace: "/Users/u/src/repo", privateDir: "/private/var/folders/xy/T/ascout-1", home: "/Users/u", nodePrefix: "/opt/homebrew/Cellar/node/22", gitDir: "/Users/u/src/repo/.git" };
+const REPO = "/Users/u/src/repo";
+const RESULTS = `${REPO}/.ascout/runs/r1/raw/test`;
+const PLAN = { workspace: REPO, privateDir: "/private/var/folders/xy/T/ascout-1", home: "/Users/u", nodeReads: ["/opt/homebrew/Cellar/node/22/bin/node", "/opt/homebrew/Cellar/node/22/lib/node_modules/npm"], gitDir: `${REPO}/.git` };
 
 describe("the macOS task profile", () => {
-  it("denies data reads, writes, services, network, and outside signals, then opens only the repository, the private folder, and Node; .git stays read-only", () => {
-    const lines = macosTaskSandboxProfileV1(PLAN).trim().split("\n");
+  const lines = macosTaskSandboxProfileV1(PLAN, [RESULTS]).trim().split("\n");
+
+  it("denies data reads, writes, services, network, and outside signals, then opens the repository, the private folder, and Node's entry points", () => {
     expect(lines.slice(0, 2)).toEqual(["(version 1)", "(allow default)"]);
     expect(lines).toContain("(deny network*)");
     expect(lines).toContain("(deny mach-lookup)");
     expect(lines.filter((line) => line.includes("signal"))).toEqual(["(deny signal)", "(allow signal (target self))", "(allow signal (target children))"]);
-    const open = lines.indexOf('(allow file-read-data file-write* (subpath "/Users/u/src/repo") (subpath "/private/var/folders/xy/T/ascout-1"))');
-    expect(open).toBeGreaterThan(lines.indexOf("(deny file-write*)"));
-    // Later rules win: the .git deny must come after the repository allow.
-    expect(lines.at(-1)).toBe('(deny file-write* (subpath "/Users/u/src/repo/.git"))');
-    expect(lines).toContain('(allow file-read-data (subpath "/opt/homebrew/Cellar/node/22"))');
+    expect(lines.indexOf(`(allow file-read-data file-write* (subpath "${REPO}") (subpath "/private/var/folders/xy/T/ascout-1"))`)).toBeGreaterThan(lines.indexOf("(deny file-write*)"));
+    expect(lines).toContain('(allow file-read-data (subpath "/opt/homebrew/Cellar/node/22/bin/node") (subpath "/opt/homebrew/Cellar/node/22/lib/node_modules/npm"))');
   });
 
-  it("has no .git rule when there is no .git folder, and refuses a refused workspace or an unsafe path", () => {
-    expect(macosTaskSandboxProfileV1({ ...PLAN, gitDir: null })).not.toContain(".git");
+  it("keeps .git read-only and .ascout closed but this run's result folders, each after the repository allow", () => {
+    const repoAllow = lines.findIndex((line) => line.startsWith("(allow file-read-data file-write*"));
+    const git = lines.indexOf(`(deny file-write* (subpath "${REPO}/.git"))`);
+    const evidence = lines.indexOf(`(deny file-read* file-write* (subpath "${REPO}/.ascout"))`);
+    const results = lines.indexOf(`(allow file-read* file-write* (subpath "${RESULTS}"))`);
+    expect(git).toBeGreaterThan(repoAllow);
+    expect(evidence).toBeGreaterThan(repoAllow);
+    expect(results).toBeGreaterThan(evidence);
+  });
+
+  it("has no .git rule without a .git folder or a results rule without result folders, and refuses unsafe input", () => {
+    const bare = macosTaskSandboxProfileV1({ ...PLAN, gitDir: null });
+    expect(bare).not.toContain(".git");
+    expect(bare).not.toContain("(allow file-read* file-write*");
     expect(() => macosTaskSandboxProfileV1({ ...PLAN, workspace: "/Users" })).toThrow();
     expect(() => macosTaskSandboxProfileV1({ ...PLAN, privateDir: '/tmp/a"b' })).toThrow(/private folder/u);
-    expect(() => macosTaskSandboxProfileV1({ ...PLAN, nodePrefix: "relative" })).toThrow(/Node install folder/u);
+    expect(() => macosTaskSandboxProfileV1({ ...PLAN, nodeReads: ["relative"] })).toThrow(/Node entry point/u);
+    for (const dir of [`${REPO}/src`, `${REPO}/.ascout`, `${REPO}/.ascout/../src`]) expect(() => macosTaskSandboxProfileV1(PLAN, [dir])).toThrow(/inside \.ascout/u);
   });
 
   it("runs the command through /usr/bin/env with HOME and TMPDIR set to the private folder, and refuses a PATH command or an outside folder", () => {
-    const argv = macosTaskSandboxArgvV1(PLAN, "/opt/homebrew/bin/npx", ["vitest"], "/Users/u/src/repo/pkg");
+    const argv = macosTaskSandboxArgvV1(PLAN, "/opt/homebrew/bin/npx", ["vitest"], `${REPO}/pkg`, [RESULTS]);
     expect(argv[0]).toBe("-p");
+    expect(argv[1]).toContain(RESULTS);
     expect(argv.slice(2)).toEqual(["/usr/bin/env", "HOME=/private/var/folders/xy/T/ascout-1", "TMPDIR=/private/var/folders/xy/T/ascout-1/", "/opt/homebrew/bin/npx", "vitest"]);
-    expect(() => macosTaskSandboxArgvV1(PLAN, "npx", [], PLAN.workspace)).toThrow(/absolute path/u);
+    expect(() => macosTaskSandboxArgvV1(PLAN, "npx", [], REPO)).toThrow(/absolute path/u);
     expect(() => macosTaskSandboxArgvV1(PLAN, "/usr/bin/true", [], "/Users/u/src/repository")).toThrow(/inside the repository/u);
+  });
+});
+
+describe("Node's entry points on macOS", () => {
+  const host = (present: readonly string[], realpaths: Record<string, string> = {}): LinuxFsHostV1 => ({ exists: (path) => present.includes(path), symlinkTarget: () => null, realpath: (path) => realpaths[path] ?? path, home: () => "/Users/u", makeTempDir: () => "/t", makeDir: () => undefined, writeFile: () => undefined, removeDir: () => undefined });
+
+  it("are the binary and the package managers that exist, resolved, and never a folder that holds the home folder", () => {
+    expect(macosNodeReadsV1("/opt/homebrew/Cellar/node/22/bin/node", host(["/opt/homebrew/Cellar/node/22/bin/npx", "/opt/homebrew/Cellar/node/22/lib/node_modules/npm"], { "/opt/homebrew/Cellar/node/22/bin/npx": "/opt/homebrew/Cellar/node/22/lib/node_modules/npm/bin/npx-cli.js" }))).toEqual([
+      "/opt/homebrew/Cellar/node/22/bin/node",
+      "/opt/homebrew/Cellar/node/22/lib/node_modules/npm/bin/npx-cli.js",
+      "/opt/homebrew/Cellar/node/22/lib/node_modules/npm",
+    ]);
+    expect(() => macosNodeReadsV1("/Users/u/bin/node", host([]))).toThrow(/expose the home folder/u);
+    expect(() => macosNodeReadsV1("node", host([]))).toThrow(/absolute/u);
   });
 });
 
 describe("preparing the macOS task sandbox", () => {
   const removed: string[] = [];
-  const host = (present: readonly string[], links: Record<string, string> = {}, home = "/Users/u"): LinuxFsHostV1 => ({
-    exists: (path) => present.includes(path),
+  const present = [SANDBOX_EXEC, `${REPO}/.git`, `${REPO}/.git/HEAD`];
+  const host = (files: readonly string[], links: Record<string, string> = {}, home = "/Users/u"): LinuxFsHostV1 => ({
+    exists: (path) => files.includes(path),
     symlinkTarget: (path) => links[path] ?? null,
     realpath: (path) => path,
     home: () => home,
@@ -57,31 +86,56 @@ describe("preparing the macOS task sandbox", () => {
     writeFile: () => undefined,
     removeDir: (path) => removed.push(path),
   });
-  const deps = (overrides: Partial<MacosTaskSandboxDepsV1> = {}): MacosTaskSandboxDepsV1 => ({ platform: "darwin", host: host([SANDBOX_EXEC, "/Users/u/src/repo/.git"]), exec: async () => "sandbox-ok", execPath: "/opt/homebrew/Cellar/node/22/bin/node", ...overrides });
+  const deps = (overrides: Partial<MacosTaskSandboxDepsV1> = {}): MacosTaskSandboxDepsV1 => ({ platform: "darwin", host: host(present), exec: async () => JSON.stringify(MACOS_SELF_TEST_EXPECTED), execPath: "/opt/homebrew/Cellar/node/22/bin/node", loopbackPort: async () => null, ...overrides });
 
-  it("refuses off macOS, without sandbox-exec, when the self-test fails, for a refused workspace, and for a Node folder that would expose the home folder", async () => {
-    expect(await prepareMacosTaskSandboxV1("/Users/u/src/repo", deps({ platform: "linux" }))).toEqual({ refused: "the sandbox-exec task sandbox is macOS only" });
-    expect(await prepareMacosTaskSandboxV1("/Users/u/src/repo", deps({ host: host([]) }))).toEqual({ refused: `sandbox-exec is not installed at ${SANDBOX_EXEC}` });
-    expect(await prepareMacosTaskSandboxV1("/Users/u/src/repo", deps({ exec: async () => "" }))).toMatchObject({ refused: expect.stringMatching(/did not start/u) });
+  it("refuses off macOS, without sandbox-exec, for a refused workspace, and for a Node folder that would expose the home folder", async () => {
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ platform: "linux" }))).toEqual({ refused: "the sandbox-exec task sandbox is macOS only" });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host([]) }))).toEqual({ refused: `sandbox-exec is not installed at ${SANDBOX_EXEC}` });
     expect(await prepareMacosTaskSandboxV1("/Users", deps())).toMatchObject({ refused: expect.any(String) });
-    removed.length = 0;
-    expect(await prepareMacosTaskSandboxV1("/Users/u/src/repo", deps({ execPath: "/Users/u/bin/node" }))).toMatchObject({ refused: expect.stringMatching(/expose the home folder/u) });
-    // The self-test removes its own folder first; the private folder is removed after the refusal.
-    expect(removed.at(-1)).toBe("/private/var/folders/xy/T/ascout-1");
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ execPath: "/Users/u/bin/node" }))).toMatchObject({ refused: expect.stringMatching(/expose the home folder/u) });
   });
 
-  it("wraps a command through sandbox-exec, protects .git only when it is a real folder, and removes the private folder on dispose", async () => {
-    const made = await prepareMacosTaskSandboxV1("/Users/u/src/repo", deps());
+  it("refuses a worktree's .git file, a linked .git, and submodules", async () => {
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host([SANDBOX_EXEC, `${REPO}/.git`]) }))).toMatchObject({ refused: expect.stringMatching(/not a real folder/u) });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host(present, { [`${REPO}/.git`]: "/x" }) }))).toMatchObject({ refused: expect.stringMatching(/not a real folder/u) });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host([...present, `${REPO}/.gitmodules`]) }))).toMatchObject({ refused: expect.stringMatching(/submodules/u) });
+  });
+
+  it("refuses unless the self-test, run in the real task configuration, reports every expected denial, and removes the private folder then", async () => {
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ exec: async () => "" }))).toMatchObject({ refused: expect.stringMatching(/did not start/u) });
+    for (const key of Object.keys(MACOS_SELF_TEST_EXPECTED)) {
+      removed.length = 0;
+      const broken = { ...MACOS_SELF_TEST_EXPECTED, [key]: "something-else" };
+      expect(await prepareMacosTaskSandboxV1(REPO, deps({ exec: async () => JSON.stringify(broken) })), key).toMatchObject({ refused: expect.stringMatching(/self-test did not hold/u) });
+      expect(removed).toContain("/private/var/folders/xy/T/ascout-1");
+    }
+  });
+
+  it("runs the self-test through sandbox-exec with a real result folder and a host loopback port", async () => {
+    const calls: (readonly string[])[] = [];
+    let closed = false;
+    await prepareMacosTaskSandboxV1(REPO, deps({ exec: async (_file, argv) => { calls.push(argv); return JSON.stringify(MACOS_SELF_TEST_EXPECTED); }, loopbackPort: async () => ({ port: 4242, close: () => { closed = true; } }) }));
+    expect(calls).toHaveLength(1);
+    expect(calls[0]![1]).toContain("/private/var/folders/xy/T/ascout-1/repo/.ascout/runs/selftest/raw/test");
+    expect(calls[0]!.join(" ")).toContain("4242");
+    expect(closed).toBe(true);
+  });
+
+  it("refuses when a path can't be resolved, instead of throwing", async () => {
+    const base = host(present);
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: { ...base, realpath: () => { throw new Error("ENOENT"); } } }))).toEqual({ refused: "ENOENT" });
+  });
+
+  it("wraps a command through sandbox-exec with the result folders it is given, and removes the private folder on dispose", async () => {
+    const made = await prepareMacosTaskSandboxV1(REPO, deps());
     if (!("sandbox" in made)) throw new Error(made.refused);
-    const wrapped = made.sandbox.wrap("/usr/bin/true", [], "/Users/u/src/repo");
+    const wrapped = made.sandbox.wrap("/usr/bin/true", [], REPO, [RESULTS]);
     expect(wrapped.file).toBe(SANDBOX_EXEC);
-    expect(wrapped.argv[1]).toContain('(deny file-write* (subpath "/Users/u/src/repo/.git"))');
+    expect(wrapped.argv[1]).toContain(`(deny file-write* (subpath "${REPO}/.git"))`);
+    expect(wrapped.argv[1]).toContain(RESULTS);
     removed.length = 0;
     made.sandbox.dispose();
     expect(removed).toEqual(["/private/var/folders/xy/T/ascout-1"]);
-    const linked = await prepareMacosTaskSandboxV1("/Users/u/src/repo", deps({ host: host([SANDBOX_EXEC, "/Users/u/src/repo/.git"], { "/Users/u/src/repo/.git": "/x" }) }));
-    if (!("sandbox" in linked)) throw new Error(linked.refused);
-    expect(linked.sandbox.wrap("/usr/bin/true", [], "/Users/u/src/repo").argv[1]).not.toContain(".git");
   });
 });
 
@@ -94,6 +148,9 @@ describe.runIf(process.platform === "darwin")("native: a check task inside the m
     const ws = join(root, "ws");
     mkdirSync(join(ws, ".git"), { recursive: true });
     writeFileSync(join(ws, ".git", "config"), "[core]\n");
+    writeFileSync(join(ws, ".git", "HEAD"), "ref: refs/heads/main\n");
+    mkdirSync(join(ws, ".ascout", "runs", "r1", "raw", "test"), { recursive: true });
+    writeFileSync(join(ws, ".ascout", "earlier-evidence"), "evidence");
     const outside = join(root, "outside.txt");
     writeFileSync(outside, "host secret");
     const made = await prepareMacosTaskSandboxV1(ws);
@@ -106,7 +163,7 @@ describe.runIf(process.platform === "darwin")("native: a check task inside the m
   }
 
   function run(sandbox: MacosTaskSandboxV1 | null, cwd: string, script: string, env: NodeJS.ProcessEnv = { PATH: "/usr/bin:/bin" }): Promise<string> {
-    const { file, argv } = sandbox === null ? { file: node, argv: ["-e", script] } : sandbox.wrap(node, ["-e", script], cwd);
+    const { file, argv } = sandbox === null ? { file: node, argv: ["-e", script] } : sandbox.wrap(node, ["-e", script], cwd, [join(cwd, ".ascout", "runs", "r1", "raw", "test")]);
     return new Promise((resolve) => execFile(file, [...argv], { cwd, env, encoding: "utf8", timeout: 20_000 }, (_error, stdout) => resolve(stdout)));
   }
 
@@ -124,6 +181,20 @@ describe.runIf(process.platform === "darwin")("native: a check task inside the m
       expect(await run(t.sandbox, t.ws, attempt(`require("fs").writeFileSync(require("path").join(process.env.TMPDIR, "t"), "ok")`))).toBe("allowed");
       expect(await run(t.sandbox, t.ws, attempt(`require("fs").appendFileSync(".git/config", "[core]\\n\\tfsmonitor = evil\\n")`))).toBe("EPERM");
       expect(readFileSync(join(t.ws, ".git", "config"), "utf8")).toBe("[core]\n");
+    } finally {
+      done(t);
+    }
+  }, 60_000);
+
+  it("can't read earlier evidence in .ascout, but can write this run's result folder", async (ctx) => {
+    const t = await setUp();
+    if (t === null) return ctx.skip();
+    try {
+      expect(await run(t.sandbox, t.ws, attempt(`require("fs").readFileSync(".ascout/earlier-evidence"); r = "read"`))).toBe("EPERM");
+      expect(await run(t.sandbox, t.ws, attempt(`require("fs").writeFileSync(".ascout/planted", "x")`))).toBe("EPERM");
+      expect(await run(t.sandbox, t.ws, attempt(`require("fs").writeFileSync(".ascout/runs/r1/raw/test/results.json", "{}")`))).toBe("allowed");
+      expect(readFileSync(join(t.ws, ".ascout", "runs", "r1", "raw", "test", "results.json"), "utf8")).toBe("{}");
+      expect(await run(null, t.ws, attempt(`require("fs").readFileSync(".ascout/earlier-evidence"); r = "read"`))).toBe("read");
     } finally {
       done(t);
     }
