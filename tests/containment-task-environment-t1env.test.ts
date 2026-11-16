@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -204,6 +204,91 @@ describe("the --clean-env and --pass-env flags", () => {
       ["check", "--clean-env", "--pass-env"],
       ["check", "--clean-env", "--pass-env", "A-B"],
       ["test", "--pass-env", "A"],
+    ]) {
+      expect(() => parseCliArgs(argv), argv.join(" ")).toThrow(CliUsageError);
+    }
+  });
+});
+
+describe("--clean-env on test and pr-evidence", () => {
+  async function inRepo<T>(root: string, run: () => Promise<T>): Promise<{ result: T; stderr: string; stdout: string }> {
+    const previous = process.cwd();
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const errWrite = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const outWrite = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    process.chdir(root);
+    try {
+      const result = await run();
+      return { result, stderr: [...stderr.mock.calls.flat(), ...errWrite.mock.calls.map((call) => String(call[0]))].join("\n"), stdout: outWrite.mock.calls.map((call) => String(call[0])).join("") };
+    } finally {
+      process.chdir(previous);
+    }
+  }
+
+  it("test --clean-env keeps the caller's secrets from every task and says the tier is still T0", async () => {
+    vi.stubEnv("ASCOUT_T1ENV_PROBE_SECRET", "s3cret");
+    vi.stubEnv("ASCOUT_T1ENV_PASSED", "fine");
+    const { root, seen } = repository();
+    const { stderr } = await inRepo(root, () => runCli(["test", "--clean-env", "--pass-env", "ASCOUT_T1ENV_PASSED"]));
+    const got = names(seen);
+    expect(got).not.toContain("ASCOUT_T1ENV_PROBE_SECRET");
+    expect(got).toContain("ASCOUT_T1ENV_PASSED");
+    expect(stderr).toContain("Containment is still T0");
+  });
+
+  it("pr-evidence --clean-env does the same, and keeps the notice out of the JSON on stdout", async () => {
+    vi.stubEnv("ASCOUT_T1ENV_PROBE_SECRET", "s3cret");
+    const { root, seen } = repository();
+    const { stderr, stdout } = await inRepo(root, () => runCli(["pr-evidence", "--clean-env"]));
+    expect(names(seen)).not.toContain("ASCOUT_T1ENV_PROBE_SECRET");
+    expect(stderr).toContain("Containment is still T0");
+    expect(() => JSON.parse(stdout)).not.toThrow();
+  });
+
+  it("pr-evidence --clean-env works with --pr-head too", async () => {
+    vi.stubEnv("ASCOUT_T1ENV_PROBE_SECRET", "s3cret");
+    const { root, seen } = repository();
+    const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
+    const { stdout } = await inRepo(root, () => runCli(["pr-evidence", "--pr-head", head, "--clean-env"]));
+    expect(names(seen)).not.toContain("ASCOUT_T1ENV_PROBE_SECRET");
+    expect((JSON.parse(stdout) as { head_sha: string }).head_sha).toBe(head);
+  });
+
+  it("pr-evidence --clean-env --skip-tests runs no task, so it gives no notice", async () => {
+    const { root, seen } = repository();
+    const { stderr } = await inRepo(root, () => runCli(["pr-evidence", "--clean-env", "--skip-tests"]));
+    expect(existsSync(seen)).toBe(false);
+    expect(stderr).not.toContain("Containment is still T0");
+  });
+
+  it("pr-evidence without the flag keeps inheriting, as before", async () => {
+    vi.stubEnv("ASCOUT_T1ENV_PROBE_SECRET", "s3cret");
+    const { root, seen } = repository();
+    const { stderr } = await inRepo(root, () => runCli(["pr-evidence"]));
+    expect(names(seen)).toContain("ASCOUT_T1ENV_PROBE_SECRET");
+    expect(stderr).not.toContain("--clean-env");
+  });
+
+  it("test without the flag keeps inheriting, as before", async () => {
+    vi.stubEnv("ASCOUT_T1ENV_PROBE_SECRET", "s3cret");
+    const { root, seen } = repository();
+    const { stderr } = await inRepo(root, () => runCli(["test"]));
+    expect(names(seen)).toContain("ASCOUT_T1ENV_PROBE_SECRET");
+    expect(stderr).not.toContain("--clean-env");
+  });
+
+  it("parses the flags on test and pr-evidence, with the same rules as check", () => {
+    expect(parseCliArgs(["test", "--clean-env", "--pass-env", "A"])).toMatchObject({ command: "test", cleanEnv: true, passEnv: ["A"] });
+    expect(parseCliArgs(["pr-evidence", "--skip-tests", "--clean-env", "--pass-env", "A", "--pass-env", "B"])).toMatchObject({ command: "pr-evidence", skipTests: true, cleanEnv: true, passEnv: ["A", "B"] });
+    expect(parseCliArgs(["pr-evidence"])).not.toHaveProperty("cleanEnv");
+    expect(parseCliArgs(["pr-evidence", "--pr-head", "a".repeat(40), "--clean-env"])).toMatchObject({ prHead: "a".repeat(40), cleanEnv: true });
+    for (const argv of [
+      ["pr-evidence", "--pass-env", "A"],
+      ["pr-evidence", "--clean-env", "--clean-env"],
+      ["pr-evidence", "--clean-env", "--pass-env", "A-B"],
+      ["pr-evidence", "--clean-env", "--pass-env"],
+      ["test", "--pass-env", "A"],
+      ["security", "--clean-env"],
     ]) {
       expect(() => parseCliArgs(argv), argv.join(" ")).toThrow(CliUsageError);
     }

@@ -29,6 +29,8 @@ export interface CollectOptionsV1 {
    */
   readonly prHead?: string;
   readonly signal?: AbortSignal;
+  /** The allowlisted environment for the repository's tasks (`--clean-env`); unset inherits the caller's. */
+  readonly taskEnvironment?: NodeJS.ProcessEnv;
   /** For tests: replaces the check run. */
   readonly runTestCheck?: (root: string, signal: AbortSignal) => Promise<CommandResultV1<{ exit_code: number; outcome: string; reason_text: string; failed_tasks: readonly string[] }>>;
 }
@@ -44,8 +46,8 @@ function errorCheck(id: CheckId, message: string): PrCheckV1 {
 
 const SEVERITY: Record<string, PrFindingV1["severity"]> = { critical: "failure", major: "failure", minor: "warning", info: "notice", unknown: "warning" };
 
-async function defaultRunTestCheck(root: string, signal: AbortSignal): ReturnType<NonNullable<CollectOptionsV1["runTestCheck"]>> {
-  const outcome = await runCheck(root, { signal });
+async function defaultRunTestCheck(root: string, signal: AbortSignal, taskEnvironment?: NodeJS.ProcessEnv): ReturnType<NonNullable<CollectOptionsV1["runTestCheck"]>> {
+  const outcome = await runCheck(root, { signal, ...(taskEnvironment === undefined ? {} : { taskEnvironment }) });
   const result = testRunResultFromReceiptV1("STANDARD", outcome.receipt);
   if (result.kind === "error") return { kind: "error", message: result.message, exit_code: 2 };
   const failed = (result.report.check?.tasks ?? []).filter((task) => task.status === "FAIL").map((task) => task.task_id);
@@ -98,7 +100,7 @@ export async function collectPrEvidenceV1(options: CollectOptionsV1): Promise<Pr
   }
 
   if (options.runTests) {
-    const test = await (options.runTestCheck ?? defaultRunTestCheck)(options.root, signal);
+    const test = await (options.runTestCheck ?? ((root: string, runSignal: AbortSignal) => defaultRunTestCheck(root, runSignal, options.taskEnvironment)))(options.root, signal);
     if (test.kind === "error") {
       checks.push(errorCheck("test", test.message));
     } else {
