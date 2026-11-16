@@ -23,7 +23,7 @@ import { execFileTextV1, realLinuxFsHostV1, type ExecFileTextV1, type LinuxFsHos
  *
  * `sandbox-exec` is deprecated by Apple and its profile language is undocumented, so this is research
  * evidence only. Nothing in Ascout runs tasks through it, the containment tier stays T0
- * (containment-tier.ts), and a macOS claim needs an independent human security review. Technique-level
+ * (containment-tier.ts), and a macOS claim needs an independent review under Amendment A09. Technique-level
  * probes are kept in the private host spec.
  */
 

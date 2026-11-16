@@ -33,7 +33,7 @@ T1, or the filesystem-only T1-FS, needs all of these:
 - founder decision **FD-4**;
 - an approved host-specific spec, kept private because it includes probe details;
 - native hostile-probe proof on each claimed OS, version, and architecture;
-- an independent human security review.
+- an independent review under Amendment A09 (2026-11-16; formerly a human security review).
 
 None exists. Until they do, no Ascout output may say "sandboxed", "contained", "isolated", or T1. Untrusted code is unsupported, and the broker refuses any engine whose descriptor requires a sandbox.
 

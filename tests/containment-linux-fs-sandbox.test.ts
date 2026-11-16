@@ -267,7 +267,7 @@ describe.runIf(process.platform === "linux")("native capability probes inside th
     const report = await runCapabilityProbesV1("T1-FS+NET+ENV-linux-bwrap", isolated);
     expect(report.results.map((result) => [result.id, result.verdict])).toEqual(CAPABILITY_PROBE_IDS.map((id) => [id, "DENIED"]));
     expect(report.all_denied).toBe(true);
-    // Research evidence only: no T1 claim without an independent human security review.
+    // Research evidence only: no T1 claim without an independent review under Amendment A09.
     expect(currentContainmentV1()).toMatchObject({ tier: "T0", filesystem_isolation: "NONE", network_isolation: "NONE" });
   }, 60_000);
 });

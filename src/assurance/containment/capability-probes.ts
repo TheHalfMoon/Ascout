@@ -10,7 +10,7 @@ import { join } from "node:path";
  * capability question, not an escape technique; technique-level probes belong in the private
  * host-specific spec. Under T0 every capability is expected to be ALLOWED, and these probes prove it
  * per OS in CI. A future T1 runner must turn each one DENIED, natively, before any T1 claim; even then
- * the claim also needs an independent human security review. Nothing here changes the containment
+ * the claim also needs an independent review under Amendment A09. Nothing here changes the containment
  * tier, which stays T0 (src/assurance/containment/containment-tier.ts).
  *
  * The probe's own report is never trusted alone. The parent observes every effect independently: the

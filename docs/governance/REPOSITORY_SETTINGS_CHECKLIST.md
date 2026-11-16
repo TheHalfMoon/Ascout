@@ -44,7 +44,7 @@ Now: `main` is **not protected**, and the repository has **0 rulesets**. Create 
 | Block force pushes | On |
 | Require linear history | On, which matches squash merges |
 | Require a pull request before merging | On |
-| Required approvals | **0** while you are the only maintainer: GitHub doesn't let an author approve their own PR. Raise it to 1 when a second reviewer exists. Human R1 stays a governance rule, recorded in the PR either way. |
+| Required approvals | **0** while you are the only maintainer: GitHub doesn't let an author approve their own PR. Raise it to 1 when a second reviewer exists. Independent review under Amendment A09 stays a governance rule, recorded in the PR either way. |
 | Dismiss stale approvals on new commits | On |
 | Require conversation resolution | On |
 | Require status checks to pass | On, with "require branches to be up to date" on |

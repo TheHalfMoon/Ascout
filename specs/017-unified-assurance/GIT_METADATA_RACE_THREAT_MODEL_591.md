@@ -46,7 +46,7 @@ window itself is unchanged, and #591 stays open.
 
 - **Item 2:** removing the check-then-use window entirely. One way is to read Git objects through an
   interface that cannot invoke helpers. Another is running Git inside a verified containment tier.
-  That needs FD-4 T1, with a human security review before any claim.
+  That needs FD-4 T1, with an independent review under Amendment A09 before any claim.
 - **Further characterization worth adding:** concurrent changes to textconv or `diff.external`
   configuration, and attribute changes inside submodules (submodules are refused today). Each would
   follow the same "no helper runs, never COMPLETE" rule.
