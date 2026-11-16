@@ -3,11 +3,14 @@
 Ascout follows [Semantic Versioning](https://semver.org) for 0.x releases: a minor version may
 break compatibility, and each breaking change is listed under **Breaking**.
 
-## 0.3.2 (release candidate, not published)
+## Unreleased
 
-Not released. Publication, tagging, and build-provenance attestation wait for the founder's explicit
-authorization of this exact candidate. When published, it ships as GitHub Releases only, not on npm.
-Nothing here breaks compatibility. No T1 containment is claimed: the FD-4 runners are research only and
+## 0.3.2 (2026-11-16)
+
+Published on GitHub Releases on the founder's explicit authorization of this exact candidate; not on
+npm. Tag `v0.3.2` at `c6a75e7`; tarball SHA-256
+`f73676ea1bc460c062a025291f416056b2e6f2e09139cfdf922fa3f636620af6`, with a build-provenance
+attestation. No human reviewed the release. Nothing here breaks compatibility. No T1 containment is claimed: the FD-4 runners are research only and
 no command uses them. Changes on `main` since `v0.3.1`:
 
 - The browser adapter (`dist/browser/playwright-adapter.js`) no longer fails to import from an installed

@@ -1,7 +1,7 @@
 # Ascout GitHub integration
 
 **Status:** the collector (`ascout pr-evidence`), the publisher (`ascout pr-publish`), and two workflows
-ship from v0.3.0 on (current release v0.3.1), and this repository runs them on its own pull requests. v0.2.0 and earlier don't
+ship from v0.3.0 on (current release v0.3.2), and this repository runs them on its own pull requests. v0.2.0 and earlier don't
 include these commands.
 
 ## Design
