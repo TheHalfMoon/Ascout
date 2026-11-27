@@ -1,8 +1,31 @@
-Last updated: 2026-11-14 Asia/Riyadh · Branch: main
+Last updated: 2026-11-27 Asia/Riyadh · Branch: main
 
-## Where Ascout stands
+## Master Execution Program (2026-11-27, Amendment A10)
 
-Ascout v0.3.1 is released on GitHub: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.1 (published 2026-11-14, tag `v0.3.1` at `32e080a`, tarball SHA-256 `67b6273bd8c0dc5296aa7279f5e71cf31140c9aeb8e88ce1d2694a3f540cfea1`, with a verified GitHub build-provenance attestation from run 43547266200). It is not on npm. `v0.3.0` (2026-11-13), `v0.2.0` (2026-11-10) and `v0.1.0` (2026-09-12) are superseded.
+On 2026-11-27, under the founder's written Master Execution Directive ("ASCOUT — MASTER EXECUTION DIRECTIVE"), Amendment A10 (Constitution `1.6.0`, drafted by an AI agent under the founder's written directive and not line-inspected by the founder; record: `docs/governance/A10_MASTER_EXECUTION_DIRECTIVE_2026-11-27.md`) authorizes autonomous engineering across all 13 Ascout capability domains. Obsolete M1/M2/UA-P06 implementation freezes and historical frontier-exhaustion records (Issues #296 "Frontier assessment - no further canonical work currently justifiable", #628 "Founder decision packet: FD8-B", and #634 "UA-P07 authorization ledger — Deep Security Audit orchestration") are superseded by this directive while preserving all security, evidence, fail-closed, A07, exact-head CI, A09 independent-review, and A09 clause 6 founder-reserved gates.
+
+### Live Execution Registry
+
+| Unit | Scope | Status |
+| --- | --- | --- |
+| PR #791 | macOS `sandbox-exec` task sandbox (unwired research) | **Merged** (`fed9134`) |
+| PR #792 | Windows AppContainer task sandbox (unwired research) | **In progress** (fixing loopback `ECONNRESET` in test server) |
+| PR 0 | Amendment A10 & governance simplification | **Under A09 review** |
+| PR 1 | Core hardening & Git #591 race elimination | **Queued** |
+| PR 2 | Unified `CheckTaskSandboxV1` lifecycle + Linux/macOS wiring + `test --sandbox` | **Queued** |
+| PR 3 | Windows AppContainer pipe/realpath & A09 wiring | **Queued** |
+| PR 4 | Ascout Evidence (CAS `.ascout/objects/sha256/`, integrity verify, diff, export) | **Queued** |
+| PR 5 | Ascout Review (deterministic review engine, scoped ranges, remove donor leak) | **Queued** |
+| PR 6 | Ascout Security (deterministic deep security audit + clean SARIF, remove donor leak) | **Queued** |
+| PR 7 | Ascout Test (profiles, budgets, diff-scoped mutation, property/fuzz, contract) | **Queued** |
+| PR 8a/8b | Ascout Browser (real Chromium journeys/assertions) & Ascout Runtime (process/HTTP) | **Queued** |
+| PR 9 | Ascout Verify (agent claim verification) & Ascout Release (read-only readiness verdict) | **Queued** |
+| PR 10 | Ascout Connect (`serve` optional authenticated loopback API + zero-option read-only MCP) & Ascout Studio UI | **Queued** |
+| PR 11 | Ascout Benchmark (reproducible offline evaluation) & final qualification | **Queued** |
+
+## Where Ascout stands (v0.3.2 baseline)
+
+Ascout v0.3.2 is released on GitHub: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.2 (published 2026-11-16, tag `v0.3.2` at `c6a75e7`, SHA-256 `f73676ea1bc460c062a025291f416056b2e6f2e09139cfdf922fa3f636620af6`). It is not on npm. `v0.3.1`, `v0.3.0`, `v0.2.0` and `v0.1.0` are superseded.
 
 ### Adoption plan (execution-first V0–V9)
 
@@ -15,15 +38,15 @@ Ascout v0.3.1 is released on GitHub: https://github.com/TheHalfMoon/Ascout/relea
 | E5 Gitleaks | Done. `ascout security` runs Gitleaks 8.30.1 on Linux x64, macOS arm64, and Windows x64, qualified on real binaries in CI. |
 | E6 test | Done. `ascout test` runs `check`; deep and release profiles report the engines that don't run yet. |
 | E6 review | Advisory, opt-in. The founder authorized a local model on 2026-11-09. `ascout review --local-model` sends the changed lines only to Ollama on loopback (`qwen2.5-coder:7b` locally), never to a hosted service (#699, #700). Output is advisory and never human R1. Without the flag, or without the founder's config, review stays not run (exit 4). CI has no model and tests against a fake server. |
-| E7 containment | **Linux: `check --sandbox` is T1, internally qualified under A09** (#789, merged `b1d5cc4`; five independent AI reviews, the last on the merged tree, and native Linux CI; not externally certified or human-audited). Runs without `--sandbox`, and macOS and Windows, stay T0; their task sandboxes are in progress (#791, #792). Every `ascout test` report carries a T0 trusted-local record (no filesystem or network isolation), and no profile predicts isolated execution (#702). FD-4 was decided on 2026-11-13 (research and implementation, not certification): capability probes (#756), `check --clean-env` (#762), a Linux bubblewrap filesystem sandbox research runner (#764), its network-isolation option (#766), a macOS sandbox-exec research runner (#768), and a Windows AppContainer research runner driven from PowerShell, with no native binary (#770). A T1 claim needs native evidence and an independent review under A09 of the final commit. |
+| E7 containment | **Linux: `check --sandbox` is T1, internally qualified under A09** (#789, merged `b1d5cc4`; five independent AI reviews, the last on the merged tree, and native Linux CI; not externally certified or human-audited). Runs without `--sandbox`, and macOS and Windows, stay T0; macOS unwired task sandbox merged (#791, `fed9134`), Windows unwired task sandbox in progress (#792), and cross-platform wiring is authorized under A10. Every `ascout test` report carries a T0 trusted-local record (no filesystem or network isolation), and no profile predicts isolated execution (#702). FD-4 was decided on 2026-11-13 (research and implementation, not certification): capability probes (#756), `check --clean-env` (#762), a Linux bubblewrap filesystem sandbox research runner (#764), its network-isolation option (#766), a macOS sandbox-exec research runner (#768), and a Windows AppContainer research runner driven from PowerShell, with no native binary (#770). A T1 claim needs native evidence and an independent review under A09 of the final commit. |
 | E8 optional MCP and end-to-end | Done. `ascout mcp` is a stdio MCP server with no socket and no options, offering four read-only tools (review without a model, security, doctor, test plan); E11a added two more, six in v0.3.0. It does not expose `check`, `test`, `init`, or the local model. Every result carries the CLI's JSON report unchanged and an `assurance` field, where a plan is never COMPLETE. Packets: design #703, command functions #707, server and M-1..M-15 plus E2E-1 #708, real Gitleaks over MCP on 3 OSes #709. The founder authorized proceeding on 2026-11-10; no line-level human R1 is recorded. |
-| E9 distribution | Released v0.3.1 on GitHub only (2026-11-14, run 43547266200, on the founder's explicit authorization of the exact digest), after v0.3.0 (2026-11-13, run 43338782772) and v0.2.0 (#712, run 42874746620). None is on npm. The tarball is bit-identical on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24, and qualified on each. A build-provenance attestation (SLSA v1) is verified. The founder waived human review of each release; none was performed. |
+| E9 distribution | Released v0.3.2 on GitHub only (2026-11-16, tag `c6a75e7`, attested run 43819307720, on the founder's explicit authorization of the exact digest), superseding v0.3.1 (2026-11-14), v0.3.0 (2026-11-13), and v0.2.0 (2026-11-10). None is on npm. The tarball is bit-identical on Linux x64, macOS arm64 and Windows x64 with Node 22 and 24, and qualified on each. A build-provenance attestation (SLSA v1) is verified. The founder waived human review of each release; none was performed. |
 
-### Capability ledger (2026-11-11)
+### Capability ledger (2026-11-27)
 
 | Capability | State |
 | --- | --- |
-| CLI `init`, `doctor`, `check`, `review`, `test`, `security`, `mcp` | **Shipping** since v0.3.0; current release v0.3.1 (GitHub Release only, not npm). |
+| CLI `init`, `doctor`, `check`, `review`, `test`, `security`, `mcp` | **Shipping** since v0.3.0; current release v0.3.2 (GitHub Release only, not npm). |
 | GitHub PR integration: `ascout pr-evidence`, `ascout pr-publish`, collect and publish workflows (#716–#718) | **Shipping** in v0.3.0. It runs on this repository's own PRs. It is customer-run on the customer's runners, and Ascout operates no service. PR code runs only in the read-only collect job, and the privileged publish job runs default-branch code only. |
 | Per-repository team policy, `.github/ascout-policy.json` (#719) | **Shipping** in v0.3.0. It is read only from the default branch, and an invalid policy fails closed. A finding, error or source change in any check always fails. |
 | Ascout identity guard on every CLI and MCP output, including no internal `UA-P` labels (#715, #720) | **Shipping** in v0.3.0. |
@@ -31,7 +54,7 @@ Ascout v0.3.1 is released on GitHub: https://github.com/TheHalfMoon/Ascout/relea
 | Bring-your-own-AI provider interface (customer-supplied model; Ascout pays for no inference and sends no code without explicit opt-in) | **Shipping in v0.3.1** (E10a–E10d and E10f). Design: `specs/017-unified-assurance/E10_BYOAI_PROVIDER_DESIGN.md`.<br>- **E10a (#723), done:** the provider interface, plus fixes for gaps found in E6. The config location comes from the OS account, proxies are ignored, untracked and secret-named files are never sent, and the model's reply is redacted.<br>- **E10b (#724), done:** local servers that speak the OpenAI-compatible API, loopback only.<br>- **E10c (#755), done:** remote providers, off by default; per-run host confirmation, a payload Gitleaks scan, a pinned public address, operator-paid.<br>- **E10d (#753), done:** delegated review, offline export and ingest; never human review.<br>- **E10f (#759), done:** AI review in PRs, one advisory comment and never a check. |
 | Wider MCP tools | **Partly shipping since v0.3.0** (E11a). Design: `specs/017-unified-assurance/E11_SAFE_MCP_EXPANSION_DESIGN.md`.<br>- **E11a, done:** two read-only tools, `ascout_policy` and `ascout_last_check`. Both have assurance `NONE` and run no repository code.<br>- **E11b, not built:** a run tool that would ask for confirmation through MCP elicitation, which is host-mediated consent rather than proof that a person approved. Deferred by the founder on 2026-11-13. |
 | Paid Teams, Business and Enterprise offerings | **Proposed, not built.** There is no billing, no payment processor, no contracts and no commercial terms, and none may start without separate founder approval. The core stays free under Apache-2.0, with no account, telemetry or cloud requirement.<br>Competitor research (CodeRabbit, cubic, Greptile) as input to that design: `docs/COMPETITOR_RESEARCH_2026-11-11.md`.<br>Design proposal (nothing priced, approved or built): `docs/PAID_OFFERING_DESIGN.md`. |
-| T1 isolated execution | **Blocked** on FD-4 (see E7). |
+| T1 isolated execution | **Linux `check --sandbox` T1 (internally qualified under A09, #789/#793);** macOS unwired sandbox merged (#791, `fed9134`), Windows unwired sandbox in progress (#792); cross-platform wiring authorized under A10 (PR 2 / PR 3 queued). |
 
 ### Security review (2026-11-08)
 
@@ -67,7 +90,7 @@ Evidence is exact-head CI (14 required checks on Linux, macOS, and Windows with 
 | C1 App gate | App-pinned check-source forgery rejection proven live in test repo; v0.3.0 ships App mode | Proof PR #2 `BLOCKED` with forged GitHub Actions success, PR #1 `CLEAN` with App success; ruleset 27227819, publish runs 43495937215 and 43496649056; linked C1c live proof note | An independent review of the C1 design under A09 has not been done. The optional no-Commit-statuses comparison was not run (delegated decision, 2026-11-16) | App for this proof repo registered and installed; no App for Ascout itself for now (delegated decision, 2026-11-16; founder may reverse) | Keep the pinned test rule |
 | E10 BYOAI | E10a–E10d and E10f released in v0.3.1 | #723, #724; #753 (delegated review: offline export and ingest, never human review); #755 (remote review: off by default, per-run host confirmation, payload Gitleaks scan, operator-paid); #759 (AI review in PRs: one advisory comment, never a check; key environment limited to the default branch) | None | No | — |
 | E11 MCP | E11a shipping; E11b deferred | #730 | E11b (code execution through MCP) deferred by the founder on 2026-11-13; read-only MCP tools stay | No | None |
-| E7 containment | T0 stated and proven natively; T1-ENV built; T1-FS and T1-NET research runners built and natively evidenced on Linux, macOS and Windows; **Linux `check --sandbox` internally qualified under A09 (#789)**; macOS and Windows task sandboxes in progress (#791, #792) | #756: capability probes on all three OSes show all four capabilities ALLOWED under T0, and a report can't fake a denial. #762: `check --clean-env` (inheritance only). #764 and #766 (Linux bubblewrap), #768 (macOS sandbox-exec), #770 (Windows AppContainer via PowerShell): with network isolation and an allowlisted environment, CI requires all four native probes DENIED on each OS. Known gaps per OS (Linux path sockets in bound paths; macOS readable system files; signals to other processes are denied since 2026-11-16; Windows app-container-readable system objects) are documented. Only Linux `check --sandbox` uses a runner (#789); macOS and Windows are not wired yet. Technique-level probes and evidence are in private host specs. `FD4_T1_ISOLATION_RESEARCH.md` | Completing T1 engineering and an independent review under A09 (2026-11-16) on the final commit; wiring the macOS and Windows runners into `check` | No: A09 independent review (2026-11-16) | Complete T1 engineering, then an A09 review of the final commit |
+| E7 containment | T0 stated and proven natively; T1-ENV built; T1-FS and T1-NET research runners built and natively evidenced on Linux, macOS and Windows; **Linux `check --sandbox` internally qualified under A09 (#789/#793)**; macOS unwired task sandbox merged (#791, `fed9134`); Windows unwired task sandbox in progress (#792) | #756: capability probes on all three OSes show all four capabilities ALLOWED under T0, and a report can't fake a denial. #762: `check --clean-env` (inheritance only). #764 and #766 (Linux bubblewrap), #768 (macOS sandbox-exec), #770 (Windows AppContainer via PowerShell): with network isolation and an allowlisted environment, CI requires all four native probes DENIED on each OS. Known gaps per OS (Linux path sockets in bound paths; macOS readable system files; signals to other processes are denied since 2026-11-16; Windows app-container-readable system objects) are documented. Only Linux `check --sandbox` uses a runner (#789); macOS and Windows wiring is authorized under A10 (PR 2 / PR 3). Technique-level probes and evidence are in private host specs. `FD4_T1_ISOLATION_RESEARCH.md` | Wiring macOS and Windows runners into `check` and `test`, native CI evidence, and an independent review under A09 on the final commit | No: A09 independent review + A10 directive | Complete cross-platform T1 wiring, then an A09 review of the final commit |
 | FD-8 / historical PRs | Main-rooted; superseded PRs closed | Founder decision 2026-11-13. Closed with explanations, branches kept: #577–#588, #597, #599, #600, #603–#605, #607, #614, #635, #651 | #653 closed as superseded on 2026-11-16 (founder decision, after a founder-delegated ChatGPT review; not human R1); branch `plan/ascout-v2-main-ready-20261106` kept | No | — |
 | Salvaged #614 perf | Done | #746: 20 stat-dirty files start 2 `hash-object` processes instead of 40; fail-closed guards exercised | None | No | — |
 | CLI reliability | Done | #743 (SHA-256 `--pr-head`, checked in a real SHA-256 repository), #744 (`--help`, `--version`, truthful `init`) | None | No | — |
@@ -101,13 +124,17 @@ The draft Amendment A08 for statement-level evidence (#784, `c6a75e7`) is record
 
 **Review policy changed (2026-11-16).** Amendment A09 (constitution 1.5.0, adopted under the founder's written decision of 2026-11-16; record: `docs/governance/A09_INDEPENDENT_REVIEW_POLICY_RATIFICATION_2026-11-16.md`) removes mandatory human R1 and human security sign-off. An independent review under A09 now meets those gates. Such a review inspects the exact commit, its boundaries, tests and evidence, and is labeled truthfully; AI reviews are never presented as human. #653 was closed as superseded the same day.
 
-**Still reserved to the founder:**
+**Still reserved to the founder (A09 clause 6 & A10 clause 5):**
 
-- ratifying A08 before statement-level coverage can change receipts (#779 recommends Option A);
-- any further release;
-- admitting untrusted repositories (Principle IV), even after a T1 tier qualifies.
+- constitutional amendments, including ratifying A08 (now targeting `1.6.0 -> 1.7.0`) before statement-level coverage can change receipt v1.0 (#779 recommends Option A);
+- public releases, tags, and build-provenance signing;
+- npm or other publication;
+- payments, pricing, and paid offerings;
+- creating accounts, GitHub Apps, or credentials;
+- changes to repository protection rules;
+- admitting untrusted repositories (Principle IV), even after all supported OS sandboxes and Git execution boundaries (#591) qualify under A09.
 
-**Can proceed without the founder:** smaller CI and reliability fixes, docs accuracy, and native evidence for the research runners, all without enabling them in `check`. Issue #591 stays open: #780 characterizes three cases, but the check-then-use window is unchanged.
+**Authorized to proceed autonomously under A10 (2026-11-27):** full engineering, testing, exact-head CI, A09 independent review, and merge across the 13 Ascout platform domains listed above (including #591 Git race elimination, cross-platform sandbox wiring, Review, Security, Test, Browser, Runtime, Agent Claim Verification, Evidence, Release readiness evaluation, Connect, Studio, and Benchmark).
 
 ### Open decisions for the founder
 
@@ -117,7 +144,7 @@ The draft Amendment A08 for statement-level evidence (#784, `c6a75e7`) is record
   - **A GitHub App for Ascout itself:** not now. It is an account and identity step for the founder, and the test App already proves C1.
   - **Team policy for this repository:** none. Every check stays required, so Ascout's own PR check stays truthful (review and security report incomplete here, exit 4) instead of being relaxed to go green.
   - **Renaming `authorized_by_founder`:** not in version 1. The local-review config keeps it so existing configs keep working; the remote-review config (version 2) already uses `operator_authorized`.
-  - **#359 (brand and UI freeze, a draft):** left open. Its own text parks it until substantial implementation is complete, and nothing supersedes it.
+  - **#359 (brand and UI freeze, a draft):** superseded as an implementation freeze by the 2026-11-27 Master Execution Directive (Amendment A10); its frozen `Scout Frame` / `Evidence Field` design system remains the visual reference for Ascout Studio (PR 10).
   - **Windows T1 mechanism:** PowerShell `Add-Type`, so no native binary ships (#770).
   - **Paid offering:** no changes. No payment processor, pricing, or licensing step is taken without the founder.
   - **Superseded the same day by A09:** the founder removed mandatory human R1 and human security review. #653 closed as superseded; T1 work proceeds under A09 independent review.
