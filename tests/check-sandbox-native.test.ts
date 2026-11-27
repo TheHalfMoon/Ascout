@@ -10,14 +10,15 @@ import { runCli } from "../src/cli.js";
 
 vi.setConfig({ testTimeout: 180_000 });
 
-// `ascout check --sandbox` with the real OS sandbox. On Linux (CI sets ASCOUT_REQUIRE_LINUX_SANDBOX=1)
-// a hostile typecheck task tries to escape and records what happened; a plain `check` of the same
-// repository is the control. Elsewhere, the command must refuse and run nothing.
+// `ascout check --sandbox` with the real OS sandbox. On Linux, macOS, and Windows (CI sets
+// ASCOUT_REQUIRE_{LINUX,MACOS,WINDOWS}_SANDBOX=1) a hostile typecheck task tries to escape and
+// records what happened; a plain `check` of the same repository is the control. On unwired
+// platforms, the command must refuse and run nothing.
 
 const scratches: string[] = [];
 afterEach(() => {
   vi.restoreAllMocks();
-  for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true });
+  for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 });
 
 function git(root: string, argv: readonly string[]): void {
@@ -33,20 +34,17 @@ function hostileRepository(port: number): { root: string; canary: string } {
   const canary = join(dir, "host-secret.txt");
   writeFileSync(canary, "host secret");
   mkdirSync(root);
-  const task = `
-const fs = require("node:fs");
-const attempt = (fn) => { try { fn(); return "allowed"; } catch (e) { return e.code || String(e); } };
-const out = {
-  readOutside: attempt(() => fs.readFileSync(${JSON.stringify(canary)})),
-  writeGit: attempt(() => fs.appendFileSync(".git/config", "")),
-  writeRepo: attempt(() => fs.writeFileSync("written.txt", "ok")),
-};
-const s = require("node:net").connect(${port}, "127.0.0.1");
-const done = (r) => { out.loopback = r; fs.writeFileSync("result.json", JSON.stringify(out)); process.exit(0); };
-s.on("connect", () => done("allowed"));
-s.on("error", (e) => done(e.code));
-setTimeout(() => done("timeout"), 5000);
-`;
+  // Single line (no CR/LF) so Windows process validation accepts argv across all platforms.
+  const task = [
+    'const fs = require("node:fs");',
+    'const attempt = (fn) => { try { fn(); return "allowed"; } catch (e) { return e.code || String(e); } };',
+    `const out = { readOutside: attempt(() => fs.readFileSync(${JSON.stringify(canary)})), writeGit: attempt(() => fs.appendFileSync(".git/config", "")), writeRepo: attempt(() => fs.writeFileSync("written.txt", "ok")) };`,
+    `const s = require("node:net").connect(${port}, "127.0.0.1");`,
+    'const done = (r) => { out.loopback = r; fs.writeFileSync("result.json", JSON.stringify(out)); process.exit(0); };',
+    's.on("connect", () => done("allowed"));',
+    's.on("error", (e) => done(e.code));',
+    'setTimeout(() => done("timeout"), 5000);',
+  ].join(" ");
   writeFileSync(join(root, ".gitignore"), ".ascout/\nresult.json\nwritten.txt\n");
   writeFileSync(join(root, "ascout.config.json"), JSON.stringify({ version: 1, tasks: { typecheck: { command: ["node", "-e", task] } } }));
   for (const argv of [["init", "-q"], ["config", "user.name", "Ascout Sandbox Fixture"], ["config", "user.email", "sandbox@example.invalid"], ["config", "commit.gpgsign", "false"], ["add", "."], ["commit", "-qm", "baseline"]]) git(root, argv);
@@ -98,7 +96,7 @@ describe("ascout check --sandbox with the real OS sandbox", () => {
     expect(readFileSync(canary, "utf8")).toBe("host file");
   });
 
-  it.runIf(process.platform !== "linux" && process.platform !== "darwin")("refuses on unwired platforms and runs nothing", async () => {
+  it.runIf(process.platform !== "linux" && process.platform !== "darwin" && process.platform !== "win32")("refuses on unwired platforms and runs nothing", async () => {
     const { root } = hostileRepository(1);
     const { code, stderr } = await checkIn(root, ["check", "--sandbox"]);
     expect(code).toBe(2);
@@ -154,4 +152,30 @@ describe("ascout check --sandbox with the real OS sandbox", () => {
       server.close();
     }
   });
+
+  it.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOWS_SANDBOX === "1")("on Windows, denies every escape via AppContainer that a plain check allows", async () => {
+    const server = createServer((socket) => { socket.on("error", Boolean); socket.end(); });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const { root } = hostileRepository((server.address() as { port: number }).port);
+      const sandboxed = await checkIn(root, ["check", "--sandbox"]);
+      if (sandboxed.code === 2 && sandboxed.stderr.includes("--sandbox refused")) {
+        throw new Error(`the Windows sandbox is required here but refused: ${sandboxed.stderr}`);
+      }
+      expect(sandboxed.code, sandboxed.stderr).not.toBe(2);
+      expect(JSON.parse(readFileSync(join(root, "result.json"), "utf8"))).toEqual({
+        readOutside: "EPERM",
+        writeGit: "EPERM",
+        writeRepo: "allowed",
+        loopback: expect.not.stringMatching(/^allowed$/u),
+      });
+      expect(sandboxed.stderr).toContain("containment tier T1 on Windows, internally qualified under Amendment A09");
+      // Control: the same task under a plain check reaches all three.
+      rmSync(join(root, "result.json"));
+      await checkIn(root, ["check"]);
+      expect(JSON.parse(readFileSync(join(root, "result.json"), "utf8"))).toEqual({ readOutside: "allowed", writeGit: "allowed", writeRepo: "allowed", loopback: "allowed" });
+    } finally {
+      server.close();
+    }
+  }, 600_000);
 });

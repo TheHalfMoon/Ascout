@@ -286,6 +286,18 @@ export interface CheckRunOptions {
    * for one run only, never from repository configuration.
    */
   readonly taskSandbox?: CheckTaskSandboxV1;
+  /**
+   * Prepares a task sandbox strictly under `.ascout/run.lock` and disposes it before the lock is
+   * released, preventing concurrent sandboxed runs from interfering with shared ACL/ledger state.
+   */
+  readonly prepareTaskSandbox?: (
+    canonicalRoot: string,
+  ) => Promise<{ readonly sandbox: CheckTaskSandboxV1 } | { readonly refused: string }>;
+}
+
+/** Thrown by `runCheck` when `prepareTaskSandbox` refuses to start the requested OS sandbox. */
+export class TaskSandboxRefusedError extends Error {
+  override readonly name = "TaskSandboxRefusedError";
 }
 
 /** The current run's task environment, if the operator asked for an allowlisted one. */
@@ -2017,6 +2029,16 @@ async function runCheckWithinCancellation(
   refuseUnsupportedRepository(startRoot);
   const lock = await acquireRunLock(startRoot);
   try {
+    let preparedSandbox: CheckTaskSandboxV1 | undefined;
+    if (options.prepareTaskSandbox !== undefined) {
+      const prepared = await options.prepareTaskSandbox(startRoot);
+      if ("refused" in prepared) {
+        throw new TaskSandboxRefusedError(prepared.refused);
+      }
+      preparedSandbox = prepared.sandbox;
+    }
+    let bodyFailed = false;
+    const executeBody = async (): Promise<CheckOutcome> => {
     // The start fingerprint comes first, so every file check reads to decide what to run lies
     // between it and the recheck below; a write in that window can't go unseen.
     const sourceStart = composeSourceState(startRoot);
@@ -2417,6 +2439,28 @@ async function runCheckWithinCancellation(
       return { receipt, terminalSummary: renderTerminalSummary(receipt) };
     } finally {
       await runDir.complete();
+    }
+    };
+    try {
+      return preparedSandbox === undefined
+        ? await executeBody()
+        : await runTaskSandbox.run(preparedSandbox, executeBody);
+    } catch (error) {
+      bodyFailed = true;
+      throw error;
+    } finally {
+      const dispose = preparedSandbox?.dispose;
+      if (dispose !== undefined) {
+        if (bodyFailed) {
+          try {
+            await dispose();
+          } catch {
+            // Preserve the primary run/security error if cleanup also fails.
+          }
+        } else {
+          await dispose();
+        }
+      }
     }
   } finally {
     await lock.release();

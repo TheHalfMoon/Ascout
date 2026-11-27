@@ -1,33 +1,38 @@
 import { execFile } from "node:child_process";
+import { lstatSync, readdirSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
-import { win32 } from "node:path";
+import { join, win32 } from "node:path";
 
+import { allowlistedTaskEnvNamesV1, PASS_ENV_NAME } from "./task-environment.js";
 import { realWindowsSandboxDepsV1, windowsAppContainerProbeRunnerV1, windowsPowerShellPathV1, windowsWorkspaceRefusalV1, type WindowsSandboxDepsV1 } from "./windows-appcontainer-sandbox.js";
 
 /**
- * FD-4 T1 on Windows: an AppContainer for `check` tasks, rather than for a probe.
+ * FD-4 T1 on Windows: an AppContainer for `check` / `test` tasks.
  *
- * One container serves the whole run. Before the first task it is created and granted:
+ * One container serves the whole run (tasks execute sequentially under `.ascout/run.lock`). Before
+ * the first task it is created and granted:
  * - modify access to the repository root and the files directly in it, and to every top-level folder
  *   except `.git` and `.ascout`, skipping links and junctions. `.git` gets nothing, so a task can't
  *   plant hooks or configuration that later run on the host. `.ascout`, Ascout's evidence folder, gets
- *   nothing either; each task's result folders are granted for that task only, and after the task
- *   Ascout refuses to read them if they contain a link (see check.ts). (Deny entries don't work here:
- *   an app container's access check ignored them.);
+ *   nothing either; each task's result folders are granted for that task only, revoked from Node in
+ *   `afterTask` even if PowerShell is killed, and sealed into host-only storage before inspection;
  * - read and execute access to the Node and package-manager entry points only.
  *
  * It refuses a repository whose `.git` is not a real folder (a worktree's gitfile could be repointed),
- * and a repository with submodules. Before the first task, a self-test runs in that container and
- * requires every expected denial.
+ * a repository with submodules, and any repository containing hard-linked files (a hard link to an
+ * outside file would share the container's grant). Before creating a container it replays any crash-
+ * recovery ACL ledger (`.ascout/pending-acl-cleanup.json`) left by an earlier interrupted run, writes
+ * a new ledger before modifying ACLs, and runs an isolation self-test requiring every denial including
+ * loopback refusal and environment allowlisting.
  *
- * Each task then starts suspended in the container, inside a job meant to kill its whole tree when the
- * task ends or Ascout stops it. Its output goes straight to Ascout's own pipes, and it inherits no other
- * handle. Its temporary, AppData and home variables point at the container's own folder; the rest of
- * its environment is PowerShell's, which is the caller's environment plus what Windows adds (not an
- * allowlist). It has no network capabilities, so it reaches no network, the host's loopback included.
- * After the run, the container's entries are removed from the repository's root, top-level folders,
- * .git, .ascout and the Node files, and the container profile is deleted.
+ * Each task starts suspended in the container inside a kill-on-close Job Object. Its output goes
+ * straight to Ascout's own pipes, and it inherits no other handle. Its environment is built inside
+ * `run-task.ps1` from an explicit allowlist (`allowlistedTaskEnvNamesV1("win32")` + `CI` + operator
+ * `--pass-env`), with temporary, AppData, and home variables redirected to the container's own folder.
+ * It has no network capabilities, so it reaches no network, the host's loopback included. After the
+ * run, `dispose()` removes the container's ACL entries, deletes the container profile, and clears the
+ * crash-recovery ledger.
  *
  * The Win32 calls are made from Windows PowerShell 5.1 at its fixed path, so no native binary ships.
  *
@@ -39,23 +44,12 @@ import { realWindowsSandboxDepsV1, windowsAppContainerProbeRunnerV1, windowsPowe
  * - Node inside the container runs with --preserve-symlinks and --preserve-symlinks-main, and
  *   fs.realpathSync fails (it reads every parent folder from the drive root), so tools that depend
  *   on real paths can fail there; such a task fails, it never runs outside the container;
- * - a Node child process started with pipes hangs inside the container (Windows CI, 2026-11-16), so
- *   test runners that start workers can't run there yet;
+ * - a Node child process started with pipes can hang inside the container (Windows CI, 2026-11-16),
+ *   so test runners that spawn piped workers fail rather than running unsandboxed;
  * - the repository's own files stay writable;
  * - there is no memory or CPU limit beyond Ascout's timeout and output caps;
  * - setup changes the access lists of the Node install's entry points for the run (an install under
  *   Program Files needs administrator rights, otherwise setup refuses).
- *
- * This sandbox is NOT wired into `ascout check`, and makes no T1 claim. Its isolation checks pass
- * natively, but common JavaScript test tasks can't run inside it yet, and wiring would also need (from
- * the independent A09 review of 17b64e9):
- * - refusing hard links in the repository (a link to an outside file would share the container's grant);
- * - native evidence that nested junctions don't carry grants outside the repository;
- * - removing a task's result-folder grant from Node even if PowerShell is killed, and one task at a time
- *   (or a container per task);
- * - an allowlisted environment built inside the run script, tested with a canary that reaches it;
- * - native evidence of the kill-on-close job with a control, and a self-test that refuses without a
- *   loopback port and probes more denials.
  */
 
 const crossSpawn = createRequire(import.meta.url)("cross-spawn") as { _parse: (file: string, args: readonly string[], options: object) => { command: string; args: string[]; options: { windowsVerbatimArguments?: boolean } } };
@@ -158,16 +152,48 @@ public static class AscoutAcTaskCleanup {
 '@
 $icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
 $sid = [AscoutAcTaskCleanup]::Sid($env:ASCOUT_AC_NAME)
+$ok = $false
 if ($sid) {
+  $ok = $true
   $folders = @(Get-ChildItem -LiteralPath $env:ASCOUT_AC_WORKSPACE -Force -Directory -ErrorAction SilentlyContinue | Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) } | ForEach-Object { $_.FullName })
-  foreach ($path in @(($env:ASCOUT_AC_PATHS -split '\|' | Where-Object { $_ }) + $folders)) { try { & $icacls $path /remove "*$sid" 2>&1 | Out-Null } catch { } }
+  foreach ($path in @(($env:ASCOUT_AC_PATHS -split '\|' | Where-Object { $_ }) + $folders)) {
+    if (Test-Path -LiteralPath $path) {
+      try { & $icacls $path /remove "*$sid" 2>&1 | Out-Null; if ($LASTEXITCODE -ne 0) { $ok = $false } } catch { $ok = $false }
+    }
+  }
 }
 [AscoutAcTaskCleanup]::DeleteAppContainerProfile($env:ASCOUT_AC_NAME) | Out-Null
+if ($ok) { [Console]::Out.Write('ASCOUT_CLEANUP_OK') }
 `;
 
-/** Runs one task in the container: args are the container name, then base64 program, command line, and folder. */
+/** Removes per-task result-folder grants from Node even if the run-task PowerShell host was killed. */
+export const WINDOWS_TASK_REVOKE_SCRIPT = String.raw`
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class AscoutAcTaskRevoke {
+  [DllImport("userenv.dll", CharSet = CharSet.Unicode)] static extern int DeriveAppContainerSidFromAppContainerName(string name, out IntPtr sid);
+  [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern bool ConvertSidToStringSid(IntPtr sid, out string s);
+  public static string Sid(string name) { IntPtr sid; if (DeriveAppContainerSidFromAppContainerName(name, out sid) != 0) return null; string s; ConvertSidToStringSid(sid, out s); return s; }
+}
+'@
+$icacls = Join-Path $env:SystemRoot 'System32\icacls.exe'
+$sid = [AscoutAcTaskRevoke]::Sid($env:ASCOUT_AC_NAME)
+$ok = $false
+if ($sid) {
+  $ok = $true
+  foreach ($dir in ($env:ASCOUT_AC_WRITABLE -split '\|' | Where-Object { $_ })) {
+    if (Test-Path -LiteralPath $dir) {
+      try { & $icacls $dir /remove:g "*$sid" 2>&1 | Out-Null; if ($LASTEXITCODE -ne 0) { $ok = $false } } catch { $ok = $false }
+    }
+  }
+}
+if ($ok) { [Console]::Out.Write('ASCOUT_REVOKE_OK') }
+`;
+
+/** Runs one task in the container: args are container name, base64 program, command line, folder, AC dir, writable dirs, and allowlisted env names. */
 export const WINDOWS_TASK_RUN_SCRIPT = String.raw`
-param([string]$name, [string]$app64, [string]$cmd64, [string]$cwd64, [string]$acDir, [string]$writable64)
+param([string]$name, [string]$app64, [string]$cmd64, [string]$cwd64, [string]$acDir, [string]$writable64, [string]$allow64)
 $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
 using System;
@@ -237,8 +263,14 @@ public static class AscoutAcTask {
 }
 '@
 $dec = { param($s) [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($s)) }
-$vars = [Environment]::GetEnvironmentVariables('Process')
-foreach ($drop in @('PSModulePath')) { $vars.Remove($drop) }
+$allowed = @{}
+foreach ($envName in ((& $dec $allow64) -split '\|' | Where-Object { $_ })) { $allowed[$envName.ToUpperInvariant()] = $true }
+$procVars = [Environment]::GetEnvironmentVariables('Process')
+$vars = @{}
+foreach ($k in $procVars.Keys) {
+  if ($allowed.ContainsKey($k.ToString().ToUpperInvariant())) { $vars[$k] = $procVars[$k] }
+}
+$vars['CI'] = '1'
 $tmp = Join-Path $acDir 'Temp'
 # Windows itself points an app container's TEMP and TMP at LOCALAPPDATA\Packages\<name>\AC\Temp, so
 # LOCALAPPDATA must stay the real one: three levels above the container's AC folder.
@@ -273,18 +305,150 @@ exit $code
 export interface WindowsTaskSandboxV1 {
   readonly mechanism: "windows-appcontainer";
   readonly wrap: (file: string, argv: readonly string[], cwd: string, writable: readonly string[]) => { readonly file: string; readonly argv: readonly string[] };
+  /** Removes per-task result-folder grants from Node even if the PowerShell host was killed. */
+  readonly afterTask: (writable: readonly string[]) => Promise<void>;
   /** Removes every grant and deletes the container; call once every task has finished. */
   readonly dispose: () => Promise<void>;
+}
+
+export interface WindowsTaskSandboxOptionsV1 {
+  readonly passEnv?: readonly string[];
 }
 
 const insideWin = (path: string, parent: string): boolean => path.toLowerCase() === parent.toLowerCase() || path.toLowerCase().startsWith(`${parent.toLowerCase().replace(/\\$/u, "")}\\`);
 const b64 = (text: string): string => Buffer.from(text, "utf8").toString("base64");
 
+/**
+ * Walks the repository tree (excluding `.git`, `.ascout`, and symlinks/junctions) and returns the
+ * first relative path with link count > 1, or null when no hard link is present.
+ */
+export function findRepositoryHardLinkV1(root: string): string | null {
+  const stack: Array<{ readonly abs: string; readonly rel: string; readonly depth: number }> = [
+    { abs: root, rel: "", depth: 0 },
+  ];
+  while (stack.length > 0) {
+    const current = stack.pop()!;
+    const entries = readdirSync(current.abs);
+    entries.sort();
+    for (const name of entries) {
+      const lower = name.toLowerCase();
+      if (current.depth === 0 && (lower === ".git" || lower === ".ascout")) continue;
+      const abs = join(current.abs, name);
+      const rel = current.rel === "" ? name : `${current.rel}/${name}`;
+      const stat = lstatSync(abs, { bigint: true });
+      if (stat.isSymbolicLink()) continue;
+      if (stat.isDirectory()) {
+        stack.push({ abs, rel, depth: current.depth + 1 });
+      } else if (stat.nlink > 1n) {
+        return rel;
+      }
+    }
+  }
+  return null;
+}
+
+export interface WindowsPathStatV1 {
+  readonly isSymbolicLink: boolean;
+  readonly isDirectory: boolean;
+  readonly isFile: boolean;
+  readonly nlink: bigint;
+}
+
+export const realLstatPathV1 = (path: string): WindowsPathStatV1 | null => {
+  const stat = lstatSync(path, { bigint: true, throwIfNoEntry: false });
+  if (stat === undefined) return null;
+  return {
+    isSymbolicLink: stat.isSymbolicLink(),
+    isDirectory: stat.isDirectory(),
+    isFile: stat.isFile(),
+    nlink: stat.nlink,
+  };
+};
+
+export const realRemoveFileV1 = (path: string): void => {
+  rmSync(path, { force: true });
+};
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Refuses `.git` layouts that could let the writable workspace reach Git hooks or config
+ * executed later by host Git calls (exact parity with Linux and macOS task sandboxes).
+ */
+export function windowsGitReachRefusalV1(
+  gitDir: string,
+  host: Pick<WindowsSandboxDepsV1["host"], "symlinkTarget" | "exists">,
+  readText: (path: string) => string,
+): string | null {
+  for (const name of ["hooks", "config"]) {
+    let target: string | null = null;
+    try {
+      target = host.symlinkTarget(win32.join(gitDir, name));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    if (target !== null) {
+      return `the repository's .git\\${name} is a link, which could point into the writable tree`;
+    }
+  }
+  const configPath = win32.join(gitDir, "config");
+  if (host.exists(configPath) && /(^|\])\s*\[\s*include(if\b|\s*\])/imu.test(readText(configPath))) {
+    return "the repository's Git configuration includes other files, which could lie in the writable tree";
+  }
+  return null;
+}
+
+interface PendingAclCleanupLedgerV1 {
+  readonly name: string;
+  readonly workspace: string;
+  readonly paths: readonly string[];
+}
+
+export function parsePendingCleanupLedgerV1(
+  raw: string,
+  expectedWorkspace: string,
+  expectedNodeFolder: string,
+): PendingAclCleanupLedgerV1 | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const record = parsed as Record<string, unknown>;
+    if (
+      typeof record.name !== "string" ||
+      !/^ascout\.sandbox\.[a-z0-9]+$/iu.test(record.name) ||
+      typeof record.workspace !== "string" ||
+      record.workspace.toLowerCase() !== expectedWorkspace.toLowerCase() ||
+      !Array.isArray(record.paths) ||
+      !record.paths.every(
+        (entry) =>
+          typeof entry === "string" &&
+          !entry.includes("|") &&
+          !entry.includes("/") &&
+          win32.normalize(entry) === entry &&
+          (insideWin(entry, expectedWorkspace) || insideWin(entry, expectedNodeFolder)),
+      )
+    ) {
+      return null;
+    }
+    return { name: record.name, workspace: record.workspace, paths: record.paths };
+  } catch {
+    return null;
+  }
+}
+
 export type WindowsTaskSandboxDepsV1 = WindowsSandboxDepsV1 & {
-  /** A host loopback port nothing inside the container may reach, for the self-test; null to skip it. */
+  /** A host loopback port nothing inside the container may reach, for the self-test; null refuses. */
   readonly loopbackPort: () => Promise<{ port: number; close: () => void } | null>;
   /** Runs a file and returns both output streams, so a failed self-test can say why. */
   readonly execBoth: (file: string, argv: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv; timeoutMs: number }) => Promise<{ stdout: string; stderr: string }>;
+  /** Returns the first hard-linked path inside the repository, or null if none exist. */
+  readonly findHardLink: (root: string) => string | null;
+  /** Non-following lstat for `.ascout` and ledger validation (catches dangling symlinks and hard links). */
+  readonly lstatPath: (path: string) => WindowsPathStatV1 | null;
+  /** Removes a single file (such as the crash-recovery ACL ledger). */
+  readonly removeFile: (path: string) => void;
 };
 
 export const realExecBothV1: WindowsTaskSandboxDepsV1["execBoth"] = (file, argv, { cwd, env, timeoutMs }) => new Promise((resolve) => {
@@ -297,21 +461,47 @@ export const realLoopbackPortV1 = (): Promise<{ port: number; close: () => void 
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });
 
-const realTaskDeps: WindowsTaskSandboxDepsV1 = { ...realWindowsSandboxDepsV1, loopbackPort: realLoopbackPortV1, execBoth: realExecBothV1 };
+const realTaskDeps: WindowsTaskSandboxDepsV1 = {
+  ...realWindowsSandboxDepsV1,
+  loopbackPort: realLoopbackPortV1,
+  execBoth: realExecBothV1,
+  findHardLink: findRepositoryHardLinkV1,
+  lstatPath: realLstatPathV1,
+  removeFile: realRemoveFileV1,
+};
 
 const NODE_FILE_ENTRIES = ["node.exe", "npm.cmd", "npx.cmd", "corepack.cmd", "pnpm.cmd", "yarn.cmd", "npm", "npx", "corepack"] as const;
 const NODE_DIR_ENTRIES = ["node_modules\\npm", "node_modules\\corepack", "node_modules\\pnpm", "node_modules\\yarn"] as const;
 
 /** What the self-test task must report, run in the real container against the real repository. */
-export const WINDOWS_SELF_TEST_EXPECTED = { outside: "EPERM", git: "EPERM", evidence: "EPERM", results: "allowed", loopback: "denied" } as const;
+export const WINDOWS_SELF_TEST_EXPECTED = {
+  outside: "EPERM",
+  outsideWrite: "EPERM",
+  git: "EPERM",
+  evidence: "EPERM",
+  results: "allowed",
+  canary: "absent",
+  loopback: "denied",
+} as const;
 
 /**
  * The task sandbox for `workspace`, or why it can't be used. It refuses, never falls back to running
- * unsandboxed: not Windows, no Windows PowerShell, a refused repository or Node folder, a worktree or
- * submodules, a failing isolation self-test, or a container that can't be created and granted.
+ * unsandboxed: not Windows, no Windows PowerShell, invalid `--pass-env`, a refused repository or Node
+ * folder, a worktree, submodules, `.git` hooks/config links or includes, hard-linked files, a symlinked
+ * `.ascout` or ledger, a failing isolation self-test (including missing loopback probe), or a container
+ * that can't be created and granted.
  */
-export async function prepareWindowsTaskSandboxV1(workspace: string, deps: WindowsTaskSandboxDepsV1 = realTaskDeps): Promise<{ sandbox: WindowsTaskSandboxV1 } | { refused: string }> {
+export async function prepareWindowsTaskSandboxV1(
+  workspace: string,
+  deps: WindowsTaskSandboxDepsV1 = realTaskDeps,
+  options: WindowsTaskSandboxOptionsV1 = {},
+): Promise<{ sandbox: WindowsTaskSandboxV1 } | { refused: string }> {
   if (deps.platform !== "win32") return { refused: "the AppContainer task sandbox is Windows only" };
+  const passEnv = options.passEnv ?? [];
+  for (const envName of passEnv) {
+    if (!PASS_ENV_NAME.test(envName)) return { refused: `invalid --pass-env name: ${JSON.stringify(envName)}` };
+  }
+  const allowedEnvNames = [...new Set([...allowlistedTaskEnvNamesV1("win32"), "CI", ...passEnv])];
   const powershell = windowsPowerShellPathV1(deps.systemRoot);
   if (!deps.host.exists(powershell)) return { refused: `Windows PowerShell is not installed at ${powershell}` };
   let root: string;
@@ -319,6 +509,10 @@ export async function prepareWindowsTaskSandboxV1(workspace: string, deps: Windo
   let nodeFolder: string;
   let nodeFiles: string[];
   let nodeDirs: string[];
+  let evidence: string;
+  let ledgerPath: string;
+  let evidenceStat: WindowsPathStatV1 | null;
+  let ledgerStat: WindowsPathStatV1 | null;
   try {
     const home = deps.host.realpath(deps.host.home());
     root = deps.host.realpath(workspace);
@@ -326,7 +520,7 @@ export async function prepareWindowsTaskSandboxV1(workspace: string, deps: Windo
     if (refusal !== null) return { refused: `${refusal}: ${JSON.stringify(root)}` };
     const execPath = deps.host.realpath(deps.execPath);
     const nodePrefix = win32.dirname(execPath);
-    if (/^[A-Za-z]:\\?$/u.test(nodePrefix) || insideWin(home, nodePrefix)) return { refused: `the Node install folder can't be granted: ${JSON.stringify(nodePrefix)}` };
+    if (/^[A-Za-z]:\\?$/u.test(nodePrefix) || insideWin(home, nodePrefix) || insideWin(nodePrefix, root)) return { refused: `the Node install folder can't be granted: ${JSON.stringify(nodePrefix)}` };
     nodeFolder = nodePrefix;
     nodeFiles = [...new Set([execPath, ...NODE_FILE_ENTRIES.map((name) => win32.join(nodePrefix, name)).filter((path) => deps.host.exists(path))])];
     nodeDirs = NODE_DIR_ENTRIES.map((name) => win32.join(nodePrefix, name)).filter((path) => deps.host.exists(path));
@@ -336,19 +530,74 @@ export async function prepareWindowsTaskSandboxV1(workspace: string, deps: Windo
       return { refused: "the repository's .git is not a real folder (a worktree or a link), which --sandbox can't protect" };
     }
     if (deps.host.exists(win32.join(root, ".gitmodules"))) return { refused: "the repository has submodules, whose .git files --sandbox can't protect" };
+    if (deps.host.exists(gitPath)) {
+      const reach = windowsGitReachRefusalV1(gitPath, deps.host, deps.readText);
+      if (reach !== null) return { refused: reach };
+    }
+    const hardLink = deps.findHardLink(root);
+    if (hardLink !== null) {
+      return { refused: `the repository contains a hard-linked file (${JSON.stringify(hardLink)}), which --sandbox can't safely grant` };
+    }
+    evidence = win32.join(root, ".ascout");
+    ledgerPath = win32.join(evidence, "pending-acl-cleanup.json");
+    evidenceStat = deps.lstatPath(evidence);
+    if (
+      evidenceStat !== null &&
+      (evidenceStat.isSymbolicLink || !evidenceStat.isDirectory || deps.host.realpath(evidence).toLowerCase() !== evidence.toLowerCase())
+    ) {
+      return { refused: "the repository's .ascout is not a real folder, which --sandbox refuses" };
+    }
+    ledgerStat = deps.lstatPath(ledgerPath);
+    if (ledgerStat !== null && (ledgerStat.isSymbolicLink || !ledgerStat.isFile || ledgerStat.nlink > 1n)) {
+      return { refused: "the ACL cleanup ledger is not a plain single-link file, which --sandbox refuses" };
+    }
     gitDir = deps.host.exists(gitPath) ? gitPath : null;
   } catch (error) {
-    return { refused: error instanceof Error ? error.message : String(error) };
+    return { refused: errorMessage(error) };
   }
   const probe = await windowsAppContainerProbeRunnerV1(deps, "none");
   if ("refused" in probe) return { refused: probe.refused };
 
-  const evidence = win32.join(root, ".ascout");
-  if (!deps.host.exists(evidence)) deps.host.makeDir(evidence);
+  if (evidenceStat === null) deps.host.makeDir(evidence);
   const name = deps.randomName();
   const scratch = deps.host.realpath(deps.host.makeTempDir());
   const runScript = win32.join(scratch, "run-task.ps1");
   const psArgs = (script: string) => ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script];
+
+  // Replay any orphaned ACL cleanup ledger left by an earlier interrupted run before creating a new container.
+  if (ledgerStat !== null) {
+    let rawLedger: string;
+    try {
+      rawLedger = deps.readText(ledgerPath);
+    } catch (error) {
+      deps.host.removeDir(scratch);
+      return { refused: errorMessage(error) };
+    }
+    const stale = parsePendingCleanupLedgerV1(rawLedger, root, nodeFolder);
+    if (stale !== null) {
+      const staleOut = (
+        await deps.exec(powershell, psArgs(WINDOWS_TASK_CLEANUP_SCRIPT), {
+          cwd: scratch,
+          env: {
+            SystemRoot: deps.systemRoot,
+            PATHEXT: ".COM;.EXE",
+            ASCOUT_AC_NAME: stale.name,
+            ASCOUT_AC_WORKSPACE: stale.workspace,
+            ASCOUT_AC_PATHS: stale.paths.join("|"),
+          },
+          timeoutMs: 120_000,
+        })
+      ).trim();
+      if (staleOut !== "ASCOUT_CLEANUP_OK") {
+        deps.host.removeDir(scratch);
+        return { refused: "could not clean up orphaned ACL grants from an earlier sandboxed run" };
+      }
+    }
+    deps.removeFile(ledgerPath);
+  }
+
+  const cleanupPaths = [root, ...(gitDir === null ? [] : [gitDir]), evidence, nodeFolder, ...nodeFiles, ...nodeDirs];
+  const grantedResultDirs = new Set<string>();
   const psEnv = {
     SystemRoot: deps.systemRoot,
     PATHEXT: ".COM;.EXE",
@@ -359,59 +608,127 @@ export async function prepareWindowsTaskSandboxV1(workspace: string, deps: Windo
     ASCOUT_AC_NODEFOLDER: nodeFolder,
     ASCOUT_AC_NODEFILES: nodeFiles.join("|"),
     ASCOUT_AC_NODEDIRS: nodeDirs.join("|"),
-    ASCOUT_AC_PATHS: [root, ...(gitDir === null ? [] : [gitDir]), evidence, nodeFolder, ...nodeFiles, ...nodeDirs].join("|"),
+    ASCOUT_AC_PATHS: cleanupPaths.join("|"),
+  };
+  const writeLedger = (): void => {
+    deps.host.writeFile(ledgerPath, JSON.stringify({ name, workspace: root, paths: [...cleanupPaths, ...grantedResultDirs] }));
+  };
+  const afterTask = async (writable: readonly string[]): Promise<void> => {
+    if (writable.length === 0) return;
+    const revokeOut = (
+      await deps.exec(powershell, psArgs(WINDOWS_TASK_REVOKE_SCRIPT), {
+        cwd: scratch,
+        env: {
+          SystemRoot: deps.systemRoot,
+          PATHEXT: ".COM;.EXE",
+          ASCOUT_AC_NAME: name,
+          ASCOUT_AC_WRITABLE: writable.join("|"),
+        },
+        timeoutMs: 60_000,
+      })
+    ).trim();
+    if (revokeOut !== "ASCOUT_REVOKE_OK") {
+      throw new Error("could not revoke task result-folder ACL grants");
+    }
+    for (const dir of writable) grantedResultDirs.delete(dir);
+    writeLedger();
   };
   const dispose = async (): Promise<void> => {
     try {
-      await deps.exec(powershell, psArgs(WINDOWS_TASK_CLEANUP_SCRIPT), { cwd: scratch, env: psEnv, timeoutMs: 120_000 });
+      const cleanupOut = (
+        await deps.exec(powershell, psArgs(WINDOWS_TASK_CLEANUP_SCRIPT), {
+          cwd: scratch,
+          env: { ...psEnv, ASCOUT_AC_PATHS: [...cleanupPaths, ...grantedResultDirs].join("|") },
+          timeoutMs: 120_000,
+        })
+      ).trim();
+      if (cleanupOut === "ASCOUT_CLEANUP_OK") {
+        deps.removeFile(ledgerPath);
+      }
     } finally {
       deps.host.removeDir(scratch);
     }
   };
+  writeLedger();
   deps.host.writeFile(runScript, WINDOWS_TASK_RUN_SCRIPT);
   const acDir = (await deps.exec(powershell, psArgs(WINDOWS_TASK_SETUP_SCRIPT), { cwd: scratch, env: psEnv, timeoutMs: 600_000 })).trim();
   if (!win32.isAbsolute(acDir)) {
     await dispose();
     return { refused: "the AppContainer for tasks could not be created and granted" };
   }
+  const allow64 = b64(allowedEnvNames.join("|"));
   const wrap = (file: string, argv: readonly string[], cwd: string, writable: readonly string[]) => {
-    if (!insideWin(cwd, root)) throw new Error(`a sandboxed task must start inside the repository: ${JSON.stringify(cwd)}`);
+    if (cwd.includes("/") || win32.normalize(cwd) !== cwd || !insideWin(cwd, root)) {
+      throw new Error(`a sandboxed task must start inside the repository: ${JSON.stringify(cwd)}`);
+    }
     for (const dir of writable) {
-      if (win32.normalize(dir) !== dir || !insideWin(dir, evidence) || dir.toLowerCase() === evidence.toLowerCase() || dir.includes("|")) throw new Error(`a sandboxed result folder must lie inside .ascout: ${JSON.stringify(dir)}`);
+      if (dir.includes("/") || win32.normalize(dir) !== dir || !insideWin(dir, evidence) || dir.toLowerCase() === evidence.toLowerCase() || dir.includes("|")) {
+        throw new Error(`a sandboxed result folder must lie inside .ascout: ${JSON.stringify(dir)}`);
+      }
+    }
+    if (writable.length > 0) {
+      for (const dir of writable) grantedResultDirs.add(dir);
+      writeLedger();
     }
     const { app, commandLine } = windowsCommandLineV1(file, argv, nodeFolder);
-    return { file: powershell, argv: ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", runScript, name, b64(app), b64(commandLine), b64(cwd), acDir, b64(writable.join("|"))] };
+    return {
+      file: powershell,
+      argv: ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", runScript, name, b64(app), b64(commandLine), b64(cwd), acDir, b64(writable.join("|")), allow64],
+    };
   };
-  const failed = await selfTest(deps, wrap, root, evidence, scratch);
+  let failed: string | null;
+  try {
+    failed = await selfTest(deps, wrap, afterTask, root, evidence, scratch);
+  } catch (error) {
+    failed = errorMessage(error);
+  }
   if (failed !== null) {
     await dispose();
     return { refused: failed };
   }
-  return { sandbox: { mechanism: "windows-appcontainer", wrap, dispose } };
+  return { sandbox: { mechanism: "windows-appcontainer", wrap, afterTask, dispose } };
 }
 
 /**
  * Runs a probe through the real run script, in the real container and repository: every attempt must
- * be denied except writing a throwaway result folder, which is removed afterwards.
+ * be denied (including outside reads/writes, `.git`, `.ascout`, env canary, and host loopback) except
+ * writing a throwaway result folder, which is revoked and removed afterwards.
  */
-async function selfTest(deps: WindowsTaskSandboxDepsV1, wrap: (file: string, argv: readonly string[], cwd: string, writable: readonly string[]) => { readonly file: string; readonly argv: readonly string[] }, root: string, evidence: string, scratch: string): Promise<string | null> {
+async function selfTest(
+  deps: WindowsTaskSandboxDepsV1,
+  wrap: (file: string, argv: readonly string[], cwd: string, writable: readonly string[]) => { readonly file: string; readonly argv: readonly string[] },
+  afterTask: (writable: readonly string[]) => Promise<void>,
+  root: string,
+  evidence: string,
+  scratch: string,
+): Promise<string | null> {
   const results = win32.join(evidence, `selftest-${deps.randomName()}`, "raw", "test");
   const marker = win32.join(scratch, "outside-marker");
+  const outsideWriteTarget = win32.join(scratch, "outside-write");
+  const canaryName = `ASCOUT_SELFTEST_CANARY_${deps.randomName().replace(/[^A-Za-z0-9]/gu, "_")}`;
   deps.host.makeDir(win32.dirname(win32.dirname(results)));
   deps.host.makeDir(win32.dirname(results));
   deps.host.makeDir(results);
   deps.host.writeFile(marker, "outside");
   const loopback = await deps.loopbackPort();
+  if (loopback === null) {
+    deps.host.removeDir(win32.dirname(win32.dirname(results)));
+    return "the AppContainer task sandbox self-test could not open a loopback probe port";
+  }
   try {
     const script = [
       'const fs = require("node:fs");',
       'const attempt = (fn) => { try { fn(); return "allowed"; } catch (e) { return e.code || String(e); } };',
-      `const out = { outside: attempt(() => fs.readFileSync(${JSON.stringify(marker)})), git: attempt(() => fs.writeFileSync(".git\\\\ascout-selftest", "x")), evidence: attempt(() => fs.readdirSync(".ascout")), results: attempt(() => fs.writeFileSync(${JSON.stringify(win32.join(results, "probe"))}, "x")) };`,
+      `const out = { outside: attempt(() => fs.readFileSync(${JSON.stringify(marker)})), outsideWrite: attempt(() => fs.writeFileSync(${JSON.stringify(outsideWriteTarget)}, "x")), git: attempt(() => fs.writeFileSync(".git\\\\ascout-selftest", "x")), evidence: attempt(() => fs.readdirSync(".ascout")), results: attempt(() => fs.writeFileSync(${JSON.stringify(win32.join(results, "probe"))}, "x")), canary: process.env[${JSON.stringify(canaryName)}] === undefined ? "absent" : "leaked" };`,
       'const finish = (r) => { out.loopback = r; process.stdout.write(JSON.stringify(out)); process.exit(0); };',
-      loopback === null ? 'finish("denied");' : `const s = require("node:net").connect(${loopback.port}, "127.0.0.1"); s.on("data", () => finish("allowed")); s.on("error", () => finish("denied")); setTimeout(() => finish("denied"), 3000);`,
+      `const s = require("node:net").connect(${loopback.port}, "127.0.0.1"); s.on("data", () => finish("allowed")); s.on("error", () => finish("denied")); setTimeout(() => finish("denied"), 3000);`,
     ].join(" ");
     const launch = wrap(deps.host.realpath(deps.execPath), ["-e", script], root, [results]);
-    const { stdout: output, stderr } = await deps.execBoth(launch.file, launch.argv, { cwd: root, env: { SystemRoot: deps.systemRoot }, timeoutMs: 120_000 });
+    const { stdout: output, stderr } = await deps.execBoth(launch.file, launch.argv, {
+      cwd: root,
+      env: { SystemRoot: deps.systemRoot, [canaryName]: "host-only" },
+      timeoutMs: 120_000,
+    });
     let seen: unknown;
     try {
       seen = JSON.parse(output);
@@ -422,7 +739,11 @@ async function selfTest(deps: WindowsTaskSandboxDepsV1, wrap: (file: string, arg
     if (JSON.stringify(seen) !== JSON.stringify(WINDOWS_SELF_TEST_EXPECTED)) return `the AppContainer task sandbox started but its self-test did not hold: ${JSON.stringify(seen)}`;
     return null;
   } finally {
-    loopback?.close();
-    deps.host.removeDir(win32.dirname(win32.dirname(results)));
+    loopback.close();
+    try {
+      await afterTask([results]);
+    } finally {
+      deps.host.removeDir(win32.dirname(win32.dirname(results)));
+    }
   }
 }
