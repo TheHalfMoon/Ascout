@@ -24,9 +24,11 @@ import {
   readTreeDigestV1,
   readUntrackedIgnoredPaths,
   readWorkingTreeComparison,
+  refuseUnsupportedRepository,
   resolveRepositoryIdentity,
   type GitChangedFile,
 } from "./git.js";
+import { ASCOUT_PACKAGE_VERSION } from "./version.js";
 import { acquireRunLock } from "./lock.js";
 import { runProcess, type ProcessRunResult } from "./process.js";
 import {
@@ -348,6 +350,10 @@ function testTaskEnvironment(): NodeJS.ProcessEnv {
 
 /** The current run's cancellation signal, reached by every task launch without threading it through. */
 const runCancellation = new AsyncLocalStorage<AbortSignal | undefined>();
+/** The current run's configured termination grace window, reached by every task launch. */
+const runTerminationGraceMs = new AsyncLocalStorage<number | undefined>();
+/** The current run's wall-clock deadline (`startedMs + config.budgetMs`), enforced on every task and rerun launch. */
+const runDeadlineMs = new AsyncLocalStorage<number | undefined>();
 
 export interface CheckOutcome {
   readonly receipt: ReceiptV1;
@@ -703,6 +709,19 @@ async function executePlannedTask(
   options: ExecutePlannedTaskOptions = {},
 ): Promise<ExecutedTask> {
   const startedMs = Date.now();
+  const deadline = runDeadlineMs.getStore();
+  const effectiveTimeoutMs = deadline === undefined ? timeoutMs : Math.min(timeoutMs, deadline - startedMs);
+  if (effectiveTimeoutMs <= 0) {
+    return nonExecutedTask(
+      taskId,
+      decision,
+      plan,
+      "NOT_RUN",
+      "run_budget_exhausted",
+      "Task was not launched because the configured run budgetMs was exhausted.",
+      secrets,
+    );
+  }
   const startedAt = new Date(startedMs).toISOString();
   const cancellation = runCancellation.getStore();
   const taskEnv = options.env ?? runTaskEnvironment.getStore();
@@ -722,8 +741,8 @@ async function executePlannedTask(
       require_tree_exit: true,
       ...(cancellation === undefined ? {} : { signal: cancellation }),
       ...(taskEnv === undefined ? {} : { env: taskEnv }),
-      timeout_ms: timeoutMs,
-      termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
+      timeout_ms: effectiveTimeoutMs,
+      termination_grace_ms: runTerminationGraceMs.getStore() ?? DEFAULT_TERMINATION_GRACE_MS,
       capture_cap_bytes: TASK_CAPTURE_CAP_BYTES,
     });
   } finally {
@@ -751,7 +770,7 @@ async function executePlannedTask(
   const persistedArgv = redactPersistedArgv(plan.argv, secrets);
   const argvRedacted = persistedArgv.some((value, index) => value !== plan.argv[index]);
 
-  const { status, reasonCode, reasonText, failures } = taskStatusFromProcess(result, timeoutMs);
+  const { status, reasonCode, reasonText, failures } = taskStatusFromProcess(result, effectiveTimeoutMs);
 
   return {
     task: {
@@ -1218,6 +1237,10 @@ function withFailureHiddenByExitCode(
   );
 }
 
+export function taskDidExecuteV1(status: TaskResultV1["status"]): boolean {
+  return status === "PASS" || status === "FAIL";
+}
+
 function withVitestEvidenceError(
   executed: ExecutedTask,
   generated: readonly PersistedTextArtifact[],
@@ -1314,7 +1337,7 @@ async function executeVitestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, branchPoints: null, selectedTestCounts: [null], machineResults: [] };
+  if (!taskDidExecuteV1(executed.task.status)) return { ...executed, coveragePoints: null, branchPoints: null, selectedTestCounts: [null], machineResults: [] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withVitestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
@@ -1450,7 +1473,7 @@ async function executeJestTask(
     executionOptions,
   );
 
-  if (executed.task.status === "ERROR") return { ...executed, coveragePoints: null, branchPoints: null, selectedTestCounts: [null], machineResults: [] };
+  if (!taskDidExecuteV1(executed.task.status)) return { ...executed, coveragePoints: null, branchPoints: null, selectedTestCounts: [null], machineResults: [] };
   if (plan.machineResultPath === null || plan.lcovPath === null) return withJestEvidenceError(executed, []);
 
   const generated: PersistedTextArtifact[] = [];
@@ -1522,24 +1545,27 @@ async function executeJestTask(
   };
 }
 
-function combineTestPasses(first: ExecutedTestTask, second: ExecutedTestTask): ExecutedTestTask {
+export function combineTestPasses(first: ExecutedTestTask, second: ExecutedTestTask): ExecutedTestTask {
   const firstStatus = first.task.status;
   const secondStatus = second.task.status;
+  const secondFailedToExecute = !taskDidExecuteV1(secondStatus);
   const status: TaskResultV1["status"] =
-    firstStatus === "ERROR" || secondStatus === "ERROR"
+    firstStatus === "ERROR" || secondFailedToExecute
       ? "ERROR"
       : firstStatus === "FAIL" || secondStatus === "FAIL"
         ? "FAIL"
         : "PASS";
-  const errorTask = secondStatus === "ERROR" ? second.task : first.task;
+  const errorTask = secondFailedToExecute ? second.task : first.task;
   const failingExitCode = [second.task.exit_code, first.task.exit_code]
     .find((value) => value !== null && value !== 0) ?? null;
   const startedAt = first.task.started_at!;
-  const finishedAt = second.task.finished_at!;
+  const finishedAt = second.task.finished_at ?? first.task.finished_at!;
 
   return {
     task: {
       ...second.task,
+      tool_name: second.task.tool_name ?? first.task.tool_name,
+      tool_version: second.task.tool_version ?? first.task.tool_version,
       status,
       reason_code: status === "ERROR" ? errorTask.reason_code : null,
       reason_text: status === "ERROR" ? errorTask.reason_text : null,
@@ -1632,17 +1658,30 @@ export function jestSelectedNoTest(runId: string, runPath: string, plan: Pick<Pl
     result.testResults.length === 0;
 }
 
+export function maybeAppendWideningPass(
+  selection: SelectionV1,
+  secondStatus: TaskResultV1["status"],
+  workingDirectory: string | null,
+): SelectionV1 {
+  return secondStatus === "NOT_RUN" ? selection : withPostRunWideningPass(selection, workingDirectory);
+}
+
 /**
  * The full pass replaces a narrowed pass that selected no test. The task's result is the full
  * pass's alone; the empty pass stays on record through its evidence, artifacts, and counts.
  */
-function replaceEmptyRelatedPass(first: ExecutedTestTask, second: ExecutedTestTask): ExecutedTestTask {
+export function replaceEmptyRelatedPass(first: ExecutedTestTask, second: ExecutedTestTask): ExecutedTestTask {
   const startedAt = first.task.started_at!;
-  const finishedAt = second.task.finished_at!;
+  const finishedAt = second.task.finished_at ?? first.task.finished_at!;
+  const status: TaskResultV1["status"] =
+    second.task.status === "NOT_RUN" ? "ERROR" : second.task.status;
   return {
     ...second,
     task: {
       ...second.task,
+      tool_name: second.task.tool_name ?? first.task.tool_name,
+      tool_version: second.task.tool_version ?? first.task.tool_version,
+      status,
       started_at: startedAt,
       finished_at: finishedAt,
       duration_ms: Date.parse(finishedAt) - Date.parse(startedAt),
@@ -1739,7 +1778,7 @@ async function executeTargetedTestObservation(
   const evidence = [...executed.evidence];
   const artifacts = [...executed.artifacts];
   const finishedAt = executed.task.finished_at;
-  if (executed.task.status === "ERROR") {
+  if (!taskDidExecuteV1(executed.task.status)) {
     return { observation: null, evidence, artifacts, finishedAt, outputTruncated: executed.task.output_truncated };
   }
 
@@ -1972,11 +2011,14 @@ async function runCheckWithinCancellation(
   repositoryRoot: string,
   options: CheckRunOptions,
 ): Promise<CheckOutcome> {
-  const lock = await acquireRunLock(repositoryRoot);
+  // Refuse subdirectories and promisor repositories before acquiring .ascout/run.lock so a refused
+  // caller never creates an untracked .ascout/ directory (Issue #591 / PR 1 LOW-1).
+  const startRoot = canonicalRepositoryRoot(repositoryRoot);
+  refuseUnsupportedRepository(startRoot);
+  const lock = await acquireRunLock(startRoot);
   try {
     // The start fingerprint comes first, so every file check reads to decide what to run lies
     // between it and the recheck below; a write in that window can't go unseen.
-    const startRoot = canonicalRepositoryRoot(repositoryRoot);
     const sourceStart = composeSourceState(startRoot);
     const { root, files, discovery } = collectDiscoveredProject(startRoot);
     const environment = observeEnvironment(root, files, discovery);
@@ -1985,7 +2027,9 @@ async function runCheckWithinCancellation(
     const runDir = await createRunDirectory(root, runId);
 
     try {
-      const runStartedAt = new Date().toISOString();
+      const runStartedMs = Date.now();
+      const runStartedAt = new Date(runStartedMs).toISOString();
+      const runDeadlineMsValue = typeof config.budgetMs === "number" ? runStartedMs + config.budgetMs : undefined;
       const gitComparison = readWorkingTreeComparison(root, sourceStart.head_sha);
       const comparison: ComparisonV1 = {
         kind: gitComparison.kind,
@@ -2071,6 +2115,8 @@ async function runCheckWithinCancellation(
       let exerciseCoveragePoints: readonly LcovLinePoint[] | null = null;
       let exerciseBranchPoints: readonly LcovBranchPoint[] | null = null;
 
+      await runDeadlineMs.run(runDeadlineMsValue, () =>
+        runTerminationGraceMs.run(config.timeouts?.terminationGraceMs, async () => {
       for (const task of FIXED_SEMANTIC_TASKS) {
         const decision = decisions[task];
 
@@ -2142,6 +2188,9 @@ async function runCheckWithinCancellation(
                   taskTimeoutMs(config, task),
                 );
           let finalExecuted = firstExecuted;
+          if (firstExecuted.task.status === "NOT_RUN") {
+            selection = { ...selection, widened: false, widen_triggers: [], passes: [] };
+          }
 
           // A narrowed pass that finds no related test observed nothing; that isn't altered evidence.
           // Vitest exits 0 with a zero-test machine result and an empty LCOV file (or, for some
@@ -2180,7 +2229,7 @@ async function runCheckWithinCancellation(
                 ? await executeJestTask(root, runId, runDir.run_path, runDir.raw_path, widerPlan as PlannedJestTask, decision, secrets, timeoutMs, 2)
                 : await executeVitestTask(root, runId, runDir.run_path, runDir.raw_path, widerPlan as PlannedVitestTask, decision, secrets, timeoutMs, 2);
               finalExecuted = replaceEmptyRelatedPass(firstExecuted, secondExecuted);
-              selection = withPostRunWideningPass(selection, widerPlan.workingDirectory);
+              selection = maybeAppendWideningPass(selection, secondExecuted.task.status, widerPlan.workingDirectory);
             } else {
               // The runner's evidence was valid; it observed no test. Say so, rather than calling it
               // missing evidence. The task stays ERROR: nothing verified the change.
@@ -2229,7 +2278,7 @@ async function runCheckWithinCancellation(
                     2,
                   );
                   finalExecuted = combineTestPasses(firstExecuted, secondExecuted);
-                  selection = withPostRunWideningPass(selection, widerPlan.workingDirectory);
+                  selection = maybeAppendWideningPass(selection, secondExecuted.task.status, widerPlan.workingDirectory);
                 }
               } else {
                 const widerPlan = planVitestTask({
@@ -2255,7 +2304,7 @@ async function runCheckWithinCancellation(
                     2,
                   );
                   finalExecuted = combineTestPasses(firstExecuted, secondExecuted);
-                  selection = withPostRunWideningPass(selection, widerPlan.workingDirectory);
+                  selection = maybeAppendWideningPass(selection, secondExecuted.task.status, widerPlan.workingDirectory);
                 }
               }
             }
@@ -2307,6 +2356,7 @@ async function runCheckWithinCancellation(
         evidence.push(...executed.evidence);
         artifacts.push(...executed.artifacts);
       }
+      }));
 
       const readChangedSource = (path: string): string | null =>
         readContainedWorktreeText(root, path, CHANGED_SOURCE_READ_CAP_BYTES);
@@ -2374,5 +2424,5 @@ async function runCheckWithinCancellation(
 }
 
 function ascoutVersion(): string {
-  return "0.1.0-m1";
+  return ASCOUT_PACKAGE_VERSION;
 }

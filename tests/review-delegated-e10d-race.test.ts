@@ -17,8 +17,18 @@ let sourceReads = 0;
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
   const isFindings = (path: unknown) => typeof path === "string" && path.endsWith("findings.json");
+  const findingsFds = new Set<number>();
   return {
     ...actual,
+    openSync: ((path: Parameters<typeof actual.openSync>[0], ...rest: unknown[]) => {
+      const fd = (actual.openSync as (...args: unknown[]) => number)(path, ...rest);
+      if (isFindings(path)) findingsFds.add(fd);
+      return fd;
+    }) as typeof actual.openSync,
+    closeSync: ((fd: number) => {
+      findingsFds.delete(fd);
+      return actual.closeSync(fd);
+    }) as typeof actual.closeSync,
     lstatSync: ((path: string, options?: object) => {
       const stats = actual.lstatSync(path, options as never);
       // "grows": the file reports a tiny size to every check, then reads past the cap.
@@ -27,8 +37,8 @@ vi.mock("node:fs", async (importOriginal) => {
     }) as typeof actual.lstatSync,
     fstatSync: ((descriptor: number, options?: object) => {
       const stats = actual.fstatSync(descriptor, options as never);
-      if (fault === "swapped") return Object.assign(Object.create(Object.getPrototypeOf(stats)), stats, { ino: -1n });
-      if (fault === "grows") return Object.assign(Object.create(Object.getPrototypeOf(stats)), stats, { size: 10n });
+      if (fault === "swapped" && findingsFds.has(descriptor)) return Object.assign(Object.create(Object.getPrototypeOf(stats)), stats, { ino: -1n });
+      if (fault === "grows" && findingsFds.has(descriptor)) return Object.assign(Object.create(Object.getPrototypeOf(stats)), stats, { size: 10n });
       return stats;
     }) as typeof actual.fstatSync,
   };
