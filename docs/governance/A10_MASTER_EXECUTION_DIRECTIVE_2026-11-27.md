@@ -35,6 +35,19 @@ On 2026-11-27, the founder gave the engineering agent, in the session prompt, a 
 > Do not introduce paid signing or distribution infrastructure without explicit founder approval.
 > Do not market Ascout as safe for hostile repositories until the complete relevant execution boundary has been independently qualified.
 
+Verbatim capability, scoped-review, and claim-verification passages from Sections 7, 9, 15, 17, 18, and 21 of the same directive:
+
+> Evaluate and improve the following proposed architecture. These are Ascout-owned capability boundaries, not a requirement to create unnecessary microservices.
+> Ascout Core ... Ascout Review ... Ascout Security ... Ascout Test ... Ascout Browser ... Ascout Runtime ... Ascout Sandbox ... Ascout Agent ... Ascout Evidence ... Ascout Benchmark ... Ascout Release ... Ascout Studio ... Ascout Connect.
+
+> Make Ascout Review a genuinely useful code intelligence and verification engine. It must support: Working-tree review. Staged changes. Commit review. Branch comparison. Pull-request review. Full repository review.
+
+> Build a structured claim-verification engine capable of returning: VERIFIED. REFUTED. PARTIALLY VERIFIED. INCOMPLETE. NOT VERIFIED. Agent confidence is not evidence. Agent output must never be allowed to override deterministic contradictory observations.
+
+> Provide a coherent command surface, such as: ascout init, ascout doctor, ascout check, ascout review, ascout security, ascout test, ascout browser, ascout runtime, ascout verify, ascout evidence, ascout report, ascout benchmark, ascout release, ascout mcp, ascout serve.
+> Provide a documented local API for automated verification and evidence retrieval. Use authenticated local access where sensitive operations are exposed.
+> Create a real, functional Ascout graphical application ... Produce a meaningful release verdict with supporting evidence.
+
 The founder has not been recorded as examining this exact drafted text or code, and this record does not claim that they did.
 
 ## 2. Governance procedure (constitution, Governance section)
@@ -57,8 +70,8 @@ The founder has not been recorded as examining this exact drafted text or code, 
    - `STATE.md`: records the Master Execution Program, updates current release baseline (`v0.3.2`) and merged PR #791 (`fed9134`), reconciles the outdated "without enabling them in check" restriction and #359 UI freeze note, and tracks the live PR queue.
 
 4. **Trust, scope, licensing, and complexity impact assessment** (authoring agent's assessment; Section 4 records independent A09 reviews):
-   - **Trust & security:** New runtime surfaces (`ascout serve`, Browser, Runtime, Studio) introduce local attack surface (DNS rebinding, CSRF, XSS-to-RCE, SSRF, arbitrary command execution). A10 clause 1 bounds these constitutionally: `serve` MUST bind loopback-only (`127.0.0.1`), default to read-only, authenticate mutating requests, and never bypass Principle IV changed-command-surface admission; `mcp` stays strictly zero-option read-only; Browser/Runtime default to loopback-only with strict scheme/origin filtering; and untrusted-repository admission remains reserved to explicit founder authorization.
-   - **Scope:** Expands authorized engineering scope from M1/M2/UA-P06 to the 13 platform domains while keeping every new surface optional for core CLI claims and keeping `ReceiptV1` schema bytes unchanged per A07.6.
+   - **Trust & security:** New runtime surfaces (`ascout serve`, Browser, Runtime, Studio) introduce local attack surface (DNS rebinding, CSRF, XSS-to-RCE, SSRF, arbitrary command execution). A10 Clause 1 bounds these constitutionally: `serve` MUST bind strictly to `127.0.0.1` (rejecting non-loopback `Host`/cross-origin requests), default to read-only, authenticate mutating/privileged requests, and never bypass Principle IV changed-command-surface admission; `mcp` stays strictly zero-option read-only; and `browser`/`runtime` MUST default to loopback-only targets with strict scheme/origin filtering. A10 Clause 5 keeps untrusted-repository admission under Principle IV reserved to separate explicit founder authorization.
+   - **Scope:** Expands authorized engineering scope from M1/M2/UA-P06 to the 13 platform domains (superseding M1 scope exclusions and Principle VIII's benchmark-gated architecture-expansion requirement for those domains only) while keeping every new surface optional for core CLI claims and keeping `ReceiptV1` schema bytes unchanged per A07.6.
    - **Licensing & provenance (Principle VIII):** Core remains Apache-2.0 with zero mandatory runtime dependency bloat (`cross-spawn@7.0.6` remains the sole runtime dependency unless a separate notice-reconciled dependency is justified). Any donor code transplant remains subject to Principle VIII separate code/rules/data license evaluation, exact revision provenance, and `THIRD_PARTY_NOTICES.md` integrity (`tests/third-party-notices.test.ts`).
    - **Complexity:** Avoids parallel microservices, external databases, or duplicate `src/` trees; consolidates new engines into existing `src/assurance/`, `src/browser/`, `src/quality/`, and modular greenfield directories (`src/evidence/`, `src/runtime/`, `src/serve/`, `src/benchmark/`), gated by exact-head CI and `self-verify` changed-code exercise checks.
 
@@ -66,16 +79,24 @@ The founder has not been recorded as examining this exact drafted text or code, 
 
 ## 3. What did not change
 
-- Proposed Amendment A08 remains unratified and reserved to the founder (now targeting `1.6.0 -> 1.7.0`).
+- All six Amendment A09 clause 6 reservations remain reserved to explicit founder authorization: constitutional amendments (including unratified Proposed Amendment A08, now targeting `1.6.0 -> 1.7.0`), public releases/tags/build-provenance signing, npm or other publication, payments/pricing/paid offerings, creating accounts/GitHub Apps/credentials, and repository protection rule changes.
+- Admitting untrusted repositories under Principle IV remains reserved to separate explicit founder authorization.
 - Receipt schema v1.0 and its bytes remain unchanged per A07 clause 6.
-- No public release, tag, npm publication, paid offering, or untrusted-repository claim is authorized by this record.
 - Exact-head CI, changed-code coverage/exercise checks, fail-closed containment, and Amendment A09 truthful AI-review labeling remain unchanged.
 
 ## 4. Independent reviews of this change
 
-1. **Fresh-context AI review subagent (read-only, no access to authoring conversation), 2026-11-27, commit `04c3f06fa565173efc03bd4b1b5dd991df419593`.** **Verdict: BLOCKED** (0 Critical, 3 High, 4 Medium, 4 Low):
+1. **Antigravity / Gemini 4 (fresh-context read-only AI review subagent, no access to authoring conversation; exact internal model build string not exposed to subagent), 2026-11-27, commit `04c3f06fa565173efc03bd4b1b5dd991df419593`.** **Verdict: BLOCKED** (0 Critical, 3 High, 4 Medium, 4 Low):
    - **High:** (H1) overclaimed founder adoption of exact drafted text and omitted verbatim directive quotes, AI-drafting disclosure, and A09 review section; (H2) A10 clause 5 omitted four A09 clause 6 reservations (constitutional amendments/A08, build-provenance signing, other publication, GitHub Apps); (H3) omitted Governance requirements 2/3/5, colliding with A08's `1.6.0` target and leaving `STATE.md` contradictions (lines 41, 93, 133, 143).
    - **Medium:** (M1) weakened A07.6 Receipt v1.0 immutability phrasing; (M2) dirty working-tree-only review ambiguity under A07.3; (M3) missing A07 exit mapping and drift-free/config/unborn-HEAD rules for `ascout verify`; (M4) unreconciled optionality/loopback/admission boundaries for `serve`/`Studio` and Principle VIII pre-authorization gate.
    - **Low:** (L1) undefined `EGM` acronym and wording drift; (L2) stale `STATE.md` entries (`v0.3.1`, `T1 blocked`, self-staling `In progress (this PR)`); (L3) external PR #791 review count and issue titles; (L4) clarifying `Ascout Release` as read-only readiness evaluation only.
 
-   All High, Medium, and Low findings were addressed in the follow-up commit on this branch, which requires a fresh A09 review on its exact SHA before merge.
+   These findings were addressed in commit `3141b4c48baf240b85fd179105573cbf42d7383e`, reviewed below.
+
+2. **Antigravity / Gemini 4 (fresh-context read-only AI review subagent, no access to authoring conversation; exact internal model build string not exposed to subagent), 2026-11-27, commit `3141b4c48baf240b85fd179105573cbf42d7383e`.** **Verdict: BLOCKED** (0 Critical, 1 High, 2 Medium, 3 Low):
+   - Confirmed H2, H3, M1, M2, M3, L1, L3, and L4 resolved.
+   - **High:** (H1) Section 1 quoted only general governance passages and omitted verbatim directive passages authorizing the 13 capability domains, scoped review, and `REFUTED` / claim verification.
+   - **Medium:** (M1) Section 2.4 described Browser/Runtime loopback/scheme filtering and `127.0.0.1`/Clause 5 rules as Clause 1 constitutional constraints not yet present in `constitution.md` Clause 1; (M2) Section 4 reviewer entry 1 omitted product/model identification required by A09 clause 3.
+   - **Low:** (L1) premature completion phrasing in `STATE.md` line 13 and Section 4; (L2) minor constitutional wording imprecision on `(except as amended below)` and `Principle VIII's pre-authorization gate`; (L3) minor `STATE.md`/Section 3 consistency nits.
+
+   All findings from Review #2 are claimed addressed in the following commit, which requires a fresh A09 independent review on its exact final SHA before merge.

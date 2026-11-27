@@ -10,7 +10,7 @@ On 2026-11-27, under the founder's written Master Execution Directive ("ASCOUT â
 | --- | --- | --- |
 | PR #791 | macOS `sandbox-exec` task sandbox (unwired research) | **Merged** (`fed9134`) |
 | PR #792 | Windows AppContainer task sandbox (unwired research) | **In progress** (fixing loopback `ECONNRESET` in test server) |
-| PR 0 | Amendment A10 & governance simplification | **Recorded** (reconciled under A09 review) |
+| PR 0 | Amendment A10 & governance simplification | **Under A09 review** |
 | PR 1 | Core hardening & Git #591 race elimination | **Queued** |
 | PR 2 | Unified `CheckTaskSandboxV1` lifecycle + Linux/macOS wiring + `test --sandbox` | **Queued** |
 | PR 3 | Windows AppContainer pipe/realpath & A09 wiring | **Queued** |
@@ -54,7 +54,7 @@ Ascout v0.3.2 is released on GitHub: https://github.com/TheHalfMoon/Ascout/relea
 | Bring-your-own-AI provider interface (customer-supplied model; Ascout pays for no inference and sends no code without explicit opt-in) | **Shipping in v0.3.1** (E10aâ€“E10d and E10f). Design: `specs/017-unified-assurance/E10_BYOAI_PROVIDER_DESIGN.md`.<br>- **E10a (#723), done:** the provider interface, plus fixes for gaps found in E6. The config location comes from the OS account, proxies are ignored, untracked and secret-named files are never sent, and the model's reply is redacted.<br>- **E10b (#724), done:** local servers that speak the OpenAI-compatible API, loopback only.<br>- **E10c (#755), done:** remote providers, off by default; per-run host confirmation, a payload Gitleaks scan, a pinned public address, operator-paid.<br>- **E10d (#753), done:** delegated review, offline export and ingest; never human review.<br>- **E10f (#759), done:** AI review in PRs, one advisory comment and never a check. |
 | Wider MCP tools | **Partly shipping since v0.3.0** (E11a). Design: `specs/017-unified-assurance/E11_SAFE_MCP_EXPANSION_DESIGN.md`.<br>- **E11a, done:** two read-only tools, `ascout_policy` and `ascout_last_check`. Both have assurance `NONE` and run no repository code.<br>- **E11b, not built:** a run tool that would ask for confirmation through MCP elicitation, which is host-mediated consent rather than proof that a person approved. Deferred by the founder on 2026-11-13. |
 | Paid Teams, Business and Enterprise offerings | **Proposed, not built.** There is no billing, no payment processor, no contracts and no commercial terms, and none may start without separate founder approval. The core stays free under Apache-2.0, with no account, telemetry or cloud requirement.<br>Competitor research (CodeRabbit, cubic, Greptile) as input to that design: `docs/COMPETITOR_RESEARCH_2026-11-11.md`.<br>Design proposal (nothing priced, approved or built): `docs/PAID_OFFERING_DESIGN.md`. |
-| T1 isolated execution | **Linux `check --sandbox` T1 (internally qualified under A09, #789/#793);** macOS unwired sandbox merged (#791, `fed9134`), Windows unwired sandbox in progress (#792); cross-platform wiring in progress under A10. |
+| T1 isolated execution | **Linux `check --sandbox` T1 (internally qualified under A09, #789/#793);** macOS unwired sandbox merged (#791, `fed9134`), Windows unwired sandbox in progress (#792); cross-platform wiring authorized under A10 (PR 2 / PR 3 queued). |
 
 ### Security review (2026-11-08)
 
@@ -128,7 +128,7 @@ The draft Amendment A08 for statement-level evidence (#784, `c6a75e7`) is record
 
 - constitutional amendments, including ratifying A08 (now targeting `1.6.0 -> 1.7.0`) before statement-level coverage can change receipt v1.0 (#779 recommends Option A);
 - public releases, tags, and build-provenance signing;
-- npm or other external registry publication;
+- npm or other publication;
 - payments, pricing, and paid offerings;
 - creating accounts, GitHub Apps, or credentials;
 - changes to repository protection rules;
