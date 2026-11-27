@@ -39,7 +39,7 @@ const EXPECTED_USAGE = [
   "  ascout doctor [--format json|terminal]",
   "  ascout check [--allow-changed-command-surface] [--clean-env | --sandbox] [--pass-env NAME]... [--format json|agent]",
   "  ascout review [--local-model | --remote-model [--dry-run] | --export-task <path> | --ingest <findings.json>] [--format json|terminal]",
-  "  ascout test [--plan] [--profile quick|standard|deep|release] [--clean-env [--pass-env NAME]...] [--format json|terminal]",
+  "  ascout test [--plan] [--profile quick|standard|deep|release] [--clean-env | --sandbox] [--pass-env NAME]... [--format json|terminal]",
   "  ascout pr-evidence [--skip-tests] [--pr-head <sha>] [--clean-env [--pass-env NAME]...]",
   "  ascout pr-publish <bundle>",
   "  ascout pr-ai-review",

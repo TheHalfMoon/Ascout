@@ -1,4 +1,7 @@
+import { closeSync, linkSync, mkdirSync, mkdtempSync, openSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { realLoopbackPortV1 as linuxRealLoopbackPort } from "../src/assurance/containment/linux-task-sandbox.js";
 import { realLoopbackPortV1 as macosRealLoopbackPort } from "../src/assurance/containment/macos-task-sandbox.js";
@@ -8,7 +11,15 @@ import {
   prepareTaskSandboxV1,
   type TaskSandboxDepsV1,
 } from "../src/assurance/containment/task-sandbox.js";
-import { isSafeGeneratedArtifactStat } from "../src/check.js";
+import {
+  isBoundSingleFileV1,
+  isSafeGeneratedArtifactStat,
+  jestSelectedNoTest,
+  openManagedGeneratedArtifact,
+  readBoundedFdBytesV1,
+  readSafeBoundedArtifactTextV1,
+  vitestSelectedNoTest,
+} from "../src/check.js";
 import { buildCheckContainmentOptions, logTaskContainmentNotice, runWithOptionalTaskSandbox } from "../src/cli.js";
 
 function depsFor(
@@ -71,6 +82,10 @@ describe("OS task sandbox dispatcher (prepareTaskSandboxV1)", () => {
 
     const other = await prepareTaskSandboxV1("/repo", depsFor("freebsd"));
     expect(other).toEqual({ refused: "no task sandbox is available for platform freebsd" });
+
+    // Direct call using default realDeps against a non-existent path refuses cleanly on every OS.
+    const defaultResult = await prepareTaskSandboxV1(join(tmpdir(), `ascout-missing-${Date.now()}`));
+    expect("refused" in defaultResult).toBe(true);
   });
 
   it("manages optional sandbox lifecycle, disposal on throw, containment options, and notices", async () => {
@@ -95,6 +110,19 @@ describe("OS task sandbox dispatcher (prepareTaskSandboxV1)", () => {
       const dispose = vi.fn(async () => undefined);
       const wrap = vi.fn(() => ({ file: "/usr/bin/sandbox-exec", argv: [] }));
       const sandbox = { mechanism: "macos-sandbox-exec", tier: "T1" as const, notice: MACOS_SANDBOX_NOTICE, wrap, dispose };
+      const linuxSandboxNoDispose = { mechanism: "linux-bubblewrap", tier: "T1" as const, notice: LINUX_SANDBOX_NOTICE, wrap };
+
+      const linuxOk = await runWithOptionalTaskSandbox(
+        true,
+        "check",
+        "/repo",
+        async (sb) => {
+          expect(sb).toBe(linuxSandboxNoDispose);
+          return "linux-done";
+        },
+        async () => ({ sandbox: linuxSandboxNoDispose }),
+      );
+      expect(linuxOk).toEqual({ ok: true, value: "linux-done", notice: LINUX_SANDBOX_NOTICE });
 
       const ok = await runWithOptionalTaskSandbox(
         true,
@@ -122,6 +150,23 @@ describe("OS task sandbox dispatcher (prepareTaskSandboxV1)", () => {
       ).rejects.toThrow("boom");
       expect(dispose).toHaveBeenCalledTimes(2);
 
+      // If run throws AND dispose throws, the primary run error must still propagate intact.
+      const failingDispose = vi.fn(async () => {
+        throw new Error("cleanup failed");
+      });
+      await expect(
+        runWithOptionalTaskSandbox(
+          true,
+          "check",
+          "/repo",
+          async () => {
+            throw new Error("primary security error");
+          },
+          async () => ({ sandbox: { ...sandbox, dispose: failingDispose } }),
+        ),
+      ).rejects.toThrow("primary security error");
+      expect(failingDispose).toHaveBeenCalledTimes(1);
+
       const env = { PATH: "/usr/bin" };
       expect(buildCheckContainmentOptions(undefined, undefined)).toEqual({});
       expect(buildCheckContainmentOptions(env, sandbox)).toEqual({ taskEnvironment: env, taskSandbox: sandbox });
@@ -140,11 +185,73 @@ describe("OS task sandbox dispatcher (prepareTaskSandboxV1)", () => {
     }
   });
 
-  it("validates generated artifact stats and exercises loopback self-test servers cleanly", async () => {
+  it("validates generated artifact stats, safe bounded reads, and loopback self-test servers cleanly", async () => {
     expect(isSafeGeneratedArtifactStat({ isFile: () => true, nlink: 1n, size: 100n }, 100)).toBe(true);
     expect(isSafeGeneratedArtifactStat({ isFile: () => false, nlink: 1n, size: 100n }, 100)).toBe(false);
     expect(isSafeGeneratedArtifactStat({ isFile: () => true, nlink: 2n, size: 100n }, 100)).toBe(false);
     expect(isSafeGeneratedArtifactStat({ isFile: () => true, nlink: 1n, size: 101n }, 100)).toBe(false);
+
+    const okOpened = { isFile: () => true, dev: 1n, ino: 2n, nlink: 1n, size: 10n };
+    const okCurrent = { dev: 1n, ino: 2n, nlink: 1n };
+    expect(isBoundSingleFileV1({ expectedPath: "/a/b", realPath: "/a/b", opened: okOpened, current: okCurrent, maxBytes: 100 })).toBe(true);
+    expect(isBoundSingleFileV1({ expectedPath: "/a/b", realPath: "/c/d", opened: okOpened, current: okCurrent, maxBytes: 100 })).toBe(false);
+    expect(isBoundSingleFileV1({ expectedPath: "/a/b", realPath: "/a/b", opened: okOpened, current: { dev: 9n, ino: 2n, nlink: 1n }, maxBytes: 100 })).toBe(false);
+    expect(isBoundSingleFileV1({ expectedPath: "/a/b", realPath: "/a/b", opened: okOpened, current: { dev: 1n, ino: 9n, nlink: 1n }, maxBytes: 100 })).toBe(false);
+    expect(isBoundSingleFileV1({ expectedPath: "/a/b", realPath: "/a/b", opened: okOpened, current: { dev: 1n, ino: 2n, nlink: 2n }, maxBytes: 100 })).toBe(false);
+
+    const dir = mkdtempSync(join(tmpdir(), "ascout-safe-read-"));
+    try {
+      const okFile = join(dir, "ok.txt");
+      writeFileSync(okFile, "hello");
+      expect(readSafeBoundedArtifactTextV1(dir, "ok.txt", 32)).toEqual({ kind: "ok", text: "hello" });
+      expect(readSafeBoundedArtifactTextV1(dir, "missing.txt", 32)).toEqual({ kind: "missing" });
+      expect(readSafeBoundedArtifactTextV1(dir, "ok.txt", 2)).toEqual({ kind: "unsafe" });
+      expect(readSafeBoundedArtifactTextV1(dir, "ok.txt", 32, () => null)).toEqual({ kind: "unsafe" });
+
+      // Hard-linked file fails single-link verification.
+      const extraLink = join(dir, "extra.txt");
+      linkSync(okFile, extraLink);
+      expect(readSafeBoundedArtifactTextV1(dir, "ok.txt", 32)).toEqual({ kind: "unsafe" });
+      rmSync(extraLink);
+
+      // readBoundedFdBytesV1 returns null when descriptor exceeds maxBytes.
+      const fd = openSync(okFile, "r");
+      try {
+        expect(readBoundedFdBytesV1(fd, 2)).toBeNull();
+        expect(readBoundedFdBytesV1(fd, 10)?.toString("utf8")).toBe("hello");
+      } finally {
+        closeSync(fd);
+      }
+
+      // Opening a directory returns unsafe (EPERM on Windows, !isFile on POSIX); symlink hits ELOOP on POSIX.
+      const subDir = join(dir, "sub");
+      mkdirSync(subDir);
+      expect(readSafeBoundedArtifactTextV1(dir, "sub", 32)).toEqual({ kind: "unsafe" });
+      if (process.platform !== "win32") {
+        symlinkSync(okFile, join(dir, "sym.txt"));
+        expect(readSafeBoundedArtifactTextV1(dir, "sym.txt", 32)).toEqual({ kind: "unsafe" });
+      }
+
+      // openManagedGeneratedArtifact rethrows non-ELOOP open errors (e.g. ENOENT).
+      expect(() => openManagedGeneratedArtifact(dir, "missing.json")).toThrow();
+
+      // vitestSelectedNoTest and jestSelectedNoTest use readSafeBoundedArtifactTextV1 cleanly.
+      const runId = "run-safe-1";
+      expect(vitestSelectedNoTest(runId, dir, { machineResultPath: "bad/path.json" })).toBe(false);
+      expect(vitestSelectedNoTest(runId, dir, { machineResultPath: `.ascout/runs/${runId}/missing.json` })).toBe(true);
+      expect(vitestSelectedNoTest(runId, dir, { machineResultPath: `.ascout/runs/${runId}/sub` })).toBe(false);
+      writeFileSync(join(dir, "vitest-zero.json"), JSON.stringify({ numTotalTests: 0, testResults: [] }));
+      expect(vitestSelectedNoTest(runId, dir, { machineResultPath: `.ascout/runs/${runId}/vitest-zero.json` })).toBe(true);
+
+      expect(jestSelectedNoTest(runId, dir, { machineResultPath: `.ascout/runs/${runId}/missing.json` })).toBe(false);
+      writeFileSync(
+        join(dir, "jest-zero.json"),
+        JSON.stringify({ numTotalTests: 0, numTotalTestSuites: 0, numFailedTestSuites: 0, numRuntimeErrorTestSuites: 0, testResults: [] }),
+      );
+      expect(jestSelectedNoTest(runId, dir, { machineResultPath: `.ascout/runs/${runId}/jest-zero.json` })).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
 
     for (const startServer of [linuxRealLoopbackPort, macosRealLoopbackPort]) {
       const loopback = await startServer();

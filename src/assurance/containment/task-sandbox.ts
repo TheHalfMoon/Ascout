@@ -10,11 +10,12 @@ export const LINUX_SANDBOX_NOTICE =
   "Every task in this run was confined to the Linux bubblewrap sandbox (--sandbox): containment tier T1 on Linux, internally qualified under Amendment A09 (independent AI security review; not externally certified or human-audited). They could write only the repository (not its .git, with .ascout hidden) and this run's task result folders, with no network and an allowlisted environment. Limits: the repository's own files stay writable; a Unix socket a host process placed inside the repository can be reached; /usr and /etc stay readable; there is no seccomp filter (the session keyring is shared) and no CPU or memory limit; after a timeout, the result-folder check can race the sandbox's teardown. Ascout still supports only repositories you trust.";
 
 /**
- * Notice printed after a macOS sandbox-exec sandboxed run. Passed Amendment A09 independent AI
- * review (PR #791) with native macOS 15 CI evidence; not externally certified or human-audited.
+ * Notice printed after a macOS sandbox-exec sandboxed run. Qualified as containment tier T1 on
+ * macOS under Amendment A09 (PR #791 sandbox implementation + PR #2 CLI/sealing wiring and native
+ * macOS 15 CI evidence; not externally certified or human-audited).
  */
 export const MACOS_SANDBOX_NOTICE =
-  "Every task in this run was confined to the macOS sandbox-exec sandbox (--sandbox): containment tier T1 on macOS, internally qualified under Amendment A09 (independent AI security review; not externally certified or human-audited). They could write only the repository (not its .git, with .ascout unreadable/unwritable) and this run's task result folders, with no network, no Mach/launchd access, and an allowlisted environment; Ascout seals task artifacts into host-only storage after capture. Limits: Apple deprecates sandbox-exec; the repository's own files stay writable; system files outside protected data trees stay readable; there is no PID namespace (detached descendants remain sandboxed) and no CPU or memory limit. Ascout still supports only repositories you trust.";
+  "Every task in this run was confined to the macOS sandbox-exec sandbox (--sandbox): containment tier T1 on macOS, internally qualified under Amendment A09 (independent AI security review; not externally certified or human-audited). They could write only the repository (not its .git, with .ascout data unreadable/unwritable) and this run's task result folders, with no network, no Mach/launchd access, and an allowlisted environment; Ascout seals task artifacts into host-only storage after capture. Limits: Apple deprecates sandbox-exec; the repository's own files stay writable; file metadata inside .ascout (names, sizes, mtimes) and system files outside protected data trees stay readable; there is no PID namespace (detached descendants remain sandboxed and could modify task result folders during the brief window before sealing) and no CPU or memory limit. Ascout still supports only repositories you trust.";
 
 export interface PreparedTaskSandboxV1 extends CheckTaskSandboxV1 {
   readonly notice: string;

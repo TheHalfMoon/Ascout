@@ -128,12 +128,16 @@ describe("ascout check --sandbox with the real OS sandbox", () => {
     }
   });
 
-  it.runIf(process.platform === "darwin")("on macOS, denies every escape via sandbox-exec that a plain check allows", async () => {
+  it.runIf(process.platform === "darwin")("on macOS, denies every escape via sandbox-exec that a plain check allows", async (ctx) => {
     const server = createServer((socket) => { socket.on("error", Boolean); socket.end(); });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     try {
       const { root } = hostileRepository((server.address() as { port: number }).port);
       const sandboxed = await checkIn(root, ["check", "--sandbox"]);
+      if (sandboxed.code === 2 && sandboxed.stderr.includes("--sandbox refused")) {
+        if (process.env.ASCOUT_REQUIRE_MACOS_SANDBOX === "1") throw new Error(`the macOS sandbox is required here but refused: ${sandboxed.stderr}`);
+        return ctx.skip();
+      }
       expect(sandboxed.code).not.toBe(2);
       expect(JSON.parse(readFileSync(join(root, "result.json"), "utf8"))).toEqual({
         readOutside: "EPERM",

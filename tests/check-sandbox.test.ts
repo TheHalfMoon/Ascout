@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +10,7 @@ import { LINUX_SANDBOX_NOTICE } from "../src/assurance/containment/task-sandbox.
 import { runCheck, sandboxResultFoldersForTask, sandboxResultLink, type CheckTaskSandboxV1 } from "../src/check.js";
 import { CliUsageError, parseCliArgs, runCli } from "../src/cli.js";
 import { runProcess } from "../src/process.js";
+import { writeNodeCommandShim } from "./helpers/native-command-shim.js";
 
 const prepare = vi.hoisted(() => vi.fn());
 vi.mock("../src/assurance/containment/task-sandbox.js", async (importOriginal) => {
@@ -149,7 +151,7 @@ describe("least-privilege result folders and result-folder entry check", () => {
     expect(sandboxResultFoldersForTask("/run/raw", "pytestBasic")).toEqual([join("/run/raw", "pytest")]);
   });
 
-  it("finds a symlink or hard link at any depth, ignores missing folders, and passes plain files and folders", () => {
+  it("finds a symlink, hard link, or socket at any depth, ignores missing folders, and passes plain files and folders", async () => {
     const dir = scratch();
     const results = join(dir, "test");
     mkdirSync(join(results, "deep", "er"), { recursive: true });
@@ -163,6 +165,18 @@ describe("least-privilege result folders and result-folder entry check", () => {
     linkSync(outside, hardlink);
     expect(sandboxResultLink([results])).toBe(hardlink);
     rmSync(hardlink);
+
+    if (process.platform !== "win32") {
+      const sockPath = join(results, "deep", "rogue.sock");
+      const server = createServer();
+      await new Promise<void>((resolve) => server.listen(sockPath, resolve));
+      try {
+        expect(sandboxResultLink([results])).toBe(sockPath);
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+      rmSync(sockPath, { force: true });
+    }
 
     const link = join(results, "deep", "er", "coverage");
     try {
@@ -347,25 +361,40 @@ process.exit(0);
       writeFileSync(join(root, "node_modules", ".bin", "vitest"), `#!/bin/sh\nexec "${process.execPath}" "${stubScript}" "$@"\n`, { mode: 0o755 });
     }
     writeFileSync(join(root, "src", "a.js"), "export const a = 1;\n");
+    writeFileSync(join(root, "pytest.ini"), "[pytest]\n");
     writeFileSync(join(root, "test_sample.py"), "def test_ok(): pass\n");
-    writeFileSync(join(root, "ascout.config.json"), JSON.stringify({
-      version: 1,
-      tasks: {
-        pytestBasic: {
-          command: [process.execPath, "-e", 'const fs = require("node:fs"); const arg = process.argv.find((a) => a.startsWith("--junitxml=")); if (arg) fs.writeFileSync(arg.slice(11), "<testsuite tests=\\"1\\" failures=\\"0\\" errors=\\"0\\"><testcase name=\\"ok\\"/></testsuite>");'],
-        },
-      },
-    }));
-    for (const argv of [["init", "-q"], ["config", "user.name", "Ascout Sandbox Fixture"], ["config", "user.email", "sandbox@example.invalid"], ["config", "commit.gpgsign", "false"], ["add", "."], ["commit", "-qm", "baseline"]]) git(root, argv);
-    writeFileSync(join(root, "src", "a.js"), "export const a = 2;\n");
+    const bin = join(dir, "bin");
+    writeNodeCommandShim(bin, "pytest", [
+      'const fs = require("node:fs");',
+      'const path = require("node:path");',
+      'const arg = process.argv.find((a) => a.startsWith("--junitxml="));',
+      'if (arg) {',
+      '  const target = arg.slice("--junitxml=".length);',
+      '  fs.mkdirSync(path.dirname(target), { recursive: true });',
+      '  fs.writeFileSync(target, \'<?xml version="1.0"?><testsuites><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1"><testcase name="ok"/></testsuite></testsuites>\');',
+      '}',
+      'process.exit(0);',
+    ].join("\n"));
+    const savedPath = process.env.PATH;
+    process.env.PATH = [bin, savedPath ?? ""].join(delimiter);
+    try {
+      for (const argv of [["init", "-q"], ["config", "user.name", "Ascout Sandbox Fixture"], ["config", "user.email", "sandbox@example.invalid"], ["config", "commit.gpgsign", "false"], ["add", "."], ["commit", "-qm", "baseline"]]) git(root, argv);
+      writeFileSync(join(root, "src", "a.js"), "export const a = 2;\n");
 
-    const { receipt } = await runCheck(root, { taskSandbox: sandbox });
-    const sealed = receipt.artifacts.filter((a) => a.relative_run_path.startsWith("raw/sealed/"));
-    expect(sealed.length).toBeGreaterThanOrEqual(2);
-    for (const artifact of sealed) {
-      expect(existsSync(join(root, ".ascout", "runs", receipt.run.run_id, ...artifact.relative_run_path.split("/")))).toBe(true);
+      const { receipt } = await runCheck(root, { taskSandbox: sandbox });
+      const sealed = receipt.artifacts.filter((a) => a.relative_run_path.startsWith("raw/sealed/"));
+      expect(sealed.length).toBeGreaterThanOrEqual(2);
+      for (const artifact of sealed) {
+        expect(existsSync(join(root, ".ascout", "runs", receipt.run.run_id, ...artifact.relative_run_path.split("/")))).toBe(true);
+      }
+      const pytestTask = receipt.tasks.find((t) => t.task_id === "pytestBasic");
+      expect(pytestTask?.authorized_by).toBe("discovery");
+      expect(pytestTask?.argv.some((arg) => arg.startsWith("--junitxml="))).toBe(true);
+      expect(pytestTask?.status).toBe("PASS");
+    } finally {
+      if (savedPath === undefined) delete process.env.PATH;
+      else process.env.PATH = savedPath;
     }
-    expect(receipt.tasks.find((t) => t.task_id === "pytestBasic")?.status).toBe("PASS");
   });
 
   it("is not prepared, and nothing is wrapped, without the flag", async () => {

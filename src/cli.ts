@@ -682,8 +682,8 @@ async function runTest(
   profile: TestProfile,
   planOnly: boolean,
   format: TestFormat | undefined,
-  taskEnvironment?: NodeJS.ProcessEnv,
-  useSandbox = false,
+  taskEnvironment: NodeJS.ProcessEnv | undefined,
+  useSandbox: boolean,
 ): Promise<number> {
   if (planOnly) {
     const result = computeTestPlanV1(profile);
@@ -757,11 +757,26 @@ export async function runWithOptionalTaskSandbox<T>(
     }
     taskSandbox = prepared.sandbox;
   }
+  let runFailed = false;
   try {
     const value = await run(taskSandbox);
     return { ok: true, value, notice: taskSandbox === undefined ? null : taskSandbox.notice };
+  } catch (error) {
+    runFailed = true;
+    throw error;
   } finally {
-    await taskSandbox?.dispose?.();
+    const dispose = taskSandbox?.dispose;
+    if (dispose !== undefined) {
+      if (runFailed) {
+        try {
+          await dispose();
+        } catch {
+          // Preserve the primary run/security error if cleanup also fails.
+        }
+      } else {
+        await dispose();
+      }
+    }
   }
 }
 

@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { testRunnerEnvironmentV1 } from "./assurance/containment/task-environment.js";
 import { createHash, randomBytes } from "node:crypto";
 import { type BigIntStats, closeSync, constants as fsConstants, fstatSync, fsyncSync, ftruncateSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   FIXED_SEMANTIC_TASKS,
   canonicalRepositoryRoot,
@@ -332,7 +332,7 @@ export function sandboxResultLink(folders: readonly string[]): string | null {
     const path = pending.pop()!;
     const stat = lstatSync(path, { bigint: true, throwIfNoEntry: false });
     if (stat === undefined) continue;
-    if (stat.isSymbolicLink() || (!stat.isDirectory() && (!stat.isFile() || stat.nlink > 1n))) {
+    if (!stat.isDirectory() && (!stat.isFile() || stat.nlink > 1n)) {
       return path;
     }
     if (stat.isDirectory()) for (const name of readdirSync(path)) pending.push(join(path, name));
@@ -843,6 +843,73 @@ export interface ManagedGeneratedArtifactHandle {
   close(): void;
 }
 
+export type SafeBoundedArtifactReadV1 =
+  | { readonly kind: "ok"; readonly text: string }
+  | { readonly kind: "missing" }
+  | { readonly kind: "unsafe" };
+
+export function isBoundSingleFileV1(check: {
+  readonly expectedPath: string;
+  readonly realPath: string;
+  readonly opened: { isFile(): boolean; readonly dev: bigint; readonly ino: bigint; readonly nlink: bigint; readonly size: bigint };
+  readonly current: { readonly dev: bigint; readonly ino: bigint; readonly nlink: bigint };
+  readonly maxBytes: number;
+}): boolean {
+  return (
+    isSafeGeneratedArtifactStat(check.opened, check.maxBytes) &&
+    check.realPath === check.expectedPath &&
+    check.opened.dev === check.current.dev &&
+    check.opened.ino === check.current.ino &&
+    check.current.nlink === 1n
+  );
+}
+
+export function readBoundedFdBytesV1(fd: number, maxBytes: number): Buffer | null {
+  const buffer = Buffer.alloc(maxBytes + 1);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const bytesRead = readSync(fd, buffer, offset, buffer.length - offset, offset);
+    if (bytesRead === 0) break;
+    offset += bytesRead;
+  }
+  return offset > maxBytes ? null : buffer.subarray(0, offset);
+}
+
+/**
+ * Safely reads a task-generated text artifact from a single O_NOFOLLOW | O_NONBLOCK descriptor:
+ * verifies single-link regular file, exact canonical path binding (defeating Windows symlinks where
+ * O_NOFOLLOW is absent), physical file identity, and reads at most `maxBytes` via bounded readSync.
+ */
+export function readSafeBoundedArtifactTextV1(
+  runPath: string,
+  relativeRunPath: string,
+  maxBytes: number,
+  readBytes: typeof readBoundedFdBytesV1 = readBoundedFdBytesV1,
+): SafeBoundedArtifactReadV1 {
+  const realRunPath = realpathSync(runPath);
+  const expectedPath = resolve(realRunPath, ...relativeRunPath.split("/"));
+  let fd: number;
+  try {
+    fd = openSync(expectedPath, OPEN_ARTIFACT_RDONLY_FLAGS);
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT"
+      ? { kind: "missing" }
+      : { kind: "unsafe" };
+  }
+  try {
+    const opened = fstatSync(fd, { bigint: true });
+    const realPath = realpathSync(expectedPath);
+    const current = statSync(expectedPath, { bigint: true });
+    if (!isBoundSingleFileV1({ expectedPath, realPath, opened, current, maxBytes })) {
+      return { kind: "unsafe" };
+    }
+    const bytes = readBytes(fd, maxBytes);
+    return bytes === null ? { kind: "unsafe" } : { kind: "ok", text: bytes.toString("utf8") };
+  } finally {
+    closeSync(fd);
+  }
+}
+
 export function openManagedGeneratedArtifact(
   runPath: string,
   relativeRunPath: string,
@@ -853,7 +920,15 @@ export function openManagedGeneratedArtifact(
 
   const realRunPath = realpathSync(runPath);
   const expectedPath = resolve(realRunPath, ...relativeRunPath.split("/"));
-  const fd = openSync(expectedPath, OPEN_ARTIFACT_RDWR_FLAGS);
+  let fd: number;
+  try {
+    fd = openSync(expectedPath, OPEN_ARTIFACT_RDWR_FLAGS);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ELOOP") {
+      throw new Error("generated artifact does not resolve to its exact managed run path");
+    }
+    throw error;
+  }
   let closed = false;
 
   const descriptorInfo = (): BigIntStats => {
@@ -1185,22 +1260,12 @@ async function executePytestWithResults(
   );
   if (executed.task.status !== "PASS") return executed;
 
-  let xml: string | null = null;
-  let reportFd: number | null = null;
-  try {
-    // Open with O_NOFOLLOW | O_NONBLOCK and verify a single-link regular file via fstat to avoid
-    // symlink, hard-link, FIFO, and lstat-to-read TOCTOU attacks.
-    const reportPath = join(rawPath, "pytest", "pytest-results.xml");
-    reportFd = openSync(reportPath, OPEN_ARTIFACT_RDONLY_FLAGS);
-    const report = fstatSync(reportFd, { bigint: true });
-    if (isSafeGeneratedArtifactStat(report, PYTEST_RESULTS_MAX_BYTES)) {
-      xml = readFileSync(reportFd).toString("utf8");
-    }
-  } catch {
-    xml = null;
-  } finally {
-    if (reportFd !== null) closeSync(reportFd);
-  }
+  const read = readSafeBoundedArtifactTextV1(
+    dirname(rawPath),
+    "raw/pytest/pytest-results.xml",
+    PYTEST_RESULTS_MAX_BYTES,
+  );
+  const xml = read.kind === "ok" ? read.text : null;
   if (xml !== null && !junitResultRecordsFailure(xml)) return executed;
   return {
     ...executed,
@@ -1520,16 +1585,16 @@ export function emptyRelatedWideningPlanV1<Plan extends VitestTaskPlan | JestTas
  */
 export function vitestSelectedNoTest(runId: string, runPath: string, plan: Pick<PlannedVitestTask, "machineResultPath">): boolean {
   if (plan.machineResultPath === null) return false;
-  let text: string;
+  let relativePath: string;
   try {
-    const path = join(runPath, runRelativeArtifactPath(runId, plan.machineResultPath));
-    const stat = lstatSync(path);
-    if (!stat.isFile() || stat.size > VITEST_ZERO_RESULT_MAX_BYTES) return false;
-    text = readFileSync(path, "utf8");
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "ENOENT";
+    relativePath = runRelativeArtifactPath(runId, plan.machineResultPath);
+  } catch {
+    return false;
   }
-  return observedSelectedTestCount(text) === 0;
+  const read = readSafeBoundedArtifactTextV1(runPath, relativePath, VITEST_ZERO_RESULT_MAX_BYTES);
+  if (read.kind === "missing") return true;
+  if (read.kind === "unsafe") return false;
+  return observedSelectedTestCount(read.text) === 0;
 }
 
 const VITEST_ZERO_RESULT_MAX_BYTES = 1024 * 1024;
@@ -1547,10 +1612,13 @@ export function jestSelectedNoTest(runId: string, runPath: string, plan: Pick<Pl
   if (plan.machineResultPath === null) return false;
   let value: unknown;
   try {
-    const path = join(runPath, runRelativeArtifactPath(runId, plan.machineResultPath));
-    const stat = lstatSync(path);
-    if (!stat.isFile() || stat.size > VITEST_ZERO_RESULT_MAX_BYTES) return false;
-    value = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    const read = readSafeBoundedArtifactTextV1(
+      runPath,
+      runRelativeArtifactPath(runId, plan.machineResultPath),
+      VITEST_ZERO_RESULT_MAX_BYTES,
+    );
+    if (read.kind !== "ok") return false;
+    value = JSON.parse(read.text) as unknown;
   } catch {
     return false;
   }

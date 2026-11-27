@@ -3,6 +3,7 @@ import { createServer } from "node:net";
 import { posix } from "node:path";
 
 import { execFileTextV1, realLinuxFsHostV1, type ExecFileTextV1, type LinuxFsHostV1 } from "./linux-fs-sandbox.js";
+import { gitReachRefusalV1, realReadTextV1 } from "./linux-task-sandbox.js";
 import { SANDBOX_EXEC, UNREADABLE_DATA_TREES, macosWorkspaceRefusalV1 } from "./macos-fs-sandbox.js";
 
 /**
@@ -155,6 +156,8 @@ export interface MacosTaskSandboxDepsV1 {
   readonly launchdWaitMs: number;
   /** Starts a host process, outside the sandbox, whose starting environment holds `name`. */
   readonly spawnCanaryHolder: (name: string) => { pid: number; close: () => void };
+  /** A file's text, or null when it can't be read. */
+  readonly readText: (path: string) => string | null;
 }
 
 export const realSpawnCanaryHolderV1: MacosTaskSandboxDepsV1["spawnCanaryHolder"] = (name) => {
@@ -174,7 +177,9 @@ export const realLoopbackPortV1 = (): Promise<{ port: number; close: () => void 
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });
 
-const realDeps: MacosTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopbackPortV1, execBoth: realExecBothV1, randomName: () => Math.random().toString(36).slice(2, 12), launchdWaitMs: 5000, spawnCanaryHolder: realSpawnCanaryHolderV1 };
+export const realRandomNameV1 = (): string => Math.random().toString(36).slice(2, 12);
+
+const realDeps: MacosTaskSandboxDepsV1 = { platform: process.platform, host: realLinuxFsHostV1, exec: execFileTextV1, execPath: process.execPath, loopbackPort: realLoopbackPortV1, execBoth: realExecBothV1, randomName: realRandomNameV1, launchdWaitMs: 5000, spawnCanaryHolder: realSpawnCanaryHolderV1, readText: realReadTextV1 };
 
 /** What the self-test task must report, in the exact configuration tasks run in. */
 export const MACOS_SELF_TEST_EXPECTED = { outside: "EPERM", git: "EPERM", evidence: "EPERM", caseEvidence: "EPERM", firmlink: "EPERM", results: "allowed", link: "EPERM", linkOutside: "EPERM", otherEnvironment: "hidden", loopback: "denied", launchdJob: "refused" } as const;
@@ -201,6 +206,8 @@ export async function prepareMacosTaskSandboxV1(workspace: string, deps: MacosTa
     if (deps.host.exists(posix.join(root, ".gitmodules"))) return { refused: "the repository has submodules, whose .git files --sandbox can't protect" };
     // Without one, a task could create ".GIT" on a case-insensitive volume, which the deny would miss.
     if (!deps.host.exists(gitPath)) return { refused: "the repository has no .git folder, which --sandbox needs in order to protect it" };
+    const gitRefusal = gitReachRefusalV1(gitPath, deps.host, deps.readText);
+    if (gitRefusal !== null) return { refused: gitRefusal };
     const nodeReads = macosNodeReadsV1(deps.host.realpath(deps.execPath), deps.host);
     // The task could otherwise replace the Node or package-manager files the host runs next.
     if (nodeReads.some((read) => within(read, root))) return { refused: "the Node install folder is inside the repository, where a task could change it" };
