@@ -406,21 +406,36 @@ describe("A07 test and security exits through the compiled CLI", { timeout: CASE
   });
 
   it("exits 4 for security inside and outside a repository", () => {
-    for (const cwd of [repository(), temporaryDirectory("ascout-a07-norepo-")]) {
-      const json = cli(cwd, ["security", "--format", "json"]);
-      expect(json.status).toBe(4);
-      const report = JSON.parse(json.stdout) as { reason_text: string };
-      expect(report).toMatchObject({
-        outcome: "NOT_RUN",
-        exit_code: 4,
-        reason_code: "ENGINE_NOT_EXECUTED_IN_UA_P06",
-        executed_count: 0,
-      });
-      expect(report.reason_text.length).toBeGreaterThan(0);
-      const terminal = cli(cwd, ["security"]);
-      expect(terminal.status).toBe(4);
-      expect(terminal.stderr).toContain("NOT_RUN");
-    }
+    const inside = repository();
+    const insideJson = cli(inside, ["security", "--format", "json"]);
+    expect(insideJson.status).toBe(4);
+    const insideReport = JSON.parse(insideJson.stdout) as { reason_text: string };
+    expect(insideReport).toMatchObject({
+      outcome: "INCOMPLETE",
+      exit_code: 4,
+      reason_code: "NO_FINDINGS_STATIC_PARTIAL_COVERAGE",
+      executed_count: 1,
+      clean_claimed: false,
+    });
+    expect(insideReport.reason_text.length).toBeGreaterThan(0);
+    const insideTerminal = cli(inside, ["security"]);
+    expect(insideTerminal.status).toBe(4);
+    expect(insideTerminal.stderr).toContain("INCOMPLETE");
+
+    const outside = temporaryDirectory("ascout-a07-norepo-");
+    const outsideJson = cli(outside, ["security", "--format", "json"]);
+    expect(outsideJson.status).toBe(4);
+    const outsideReport = JSON.parse(outsideJson.stdout) as { reason_text: string };
+    expect(outsideReport).toMatchObject({
+      outcome: "NOT_RUN",
+      exit_code: 4,
+      reason_code: "NO_REPOSITORY",
+      executed_count: 0,
+    });
+    expect(outsideReport.reason_text.length).toBeGreaterThan(0);
+    const outsideTerminal = cli(outside, ["security"]);
+    expect(outsideTerminal.status).toBe(4);
+    expect(outsideTerminal.stderr).toContain("NOT_RUN");
   });
 });
 

@@ -43,10 +43,14 @@ import {
   type ReviewReportV1,
 } from "./assurance/review/review-command.js";
 import {
-  buildSecurityCommandReportV1,
-  type SecurityCommandReportV1,
-} from "./assurance/security/security-command.js";
-import { runSecurityGitleaksV1, type SecurityGitleaksOutcomeV1 } from "./assurance/security/security-gitleaks.js";
+  runSecurityAuditV1,
+  type SecurityAuditReportV3,
+} from "./assurance/security/audit-engine.js";
+import {
+  runSecurityGitleaksV1,
+  type SecurityDriftReportV1,
+  type SecurityGitleaksOutcomeV1,
+} from "./assurance/security/security-gitleaks.js";
 import { buildTestCommandReportV1, type TestCommandReportV1 } from "./assurance/test/test-plan-command.js";
 
 /**
@@ -361,11 +365,12 @@ export async function computeRemoteReviewV1(repositoryRoot: string, options: Rem
 
 export type SecurityReportV1 =
   | { readonly engine: "gitleaks"; readonly report: Exclude<SecurityGitleaksOutcomeV1, { kind: "error" }>["report"] }
-  | { readonly engine: "none"; readonly report: SecurityCommandReportV1 };
+  | { readonly engine: "ascout-security-core"; readonly report: SecurityAuditReportV3 | SecurityDriftReportV1 };
 
 /**
- * `ascout security`. With no Gitleaks path it reads nothing and runs nothing. A null root means
- * the working directory is gone, which counts as outside a repository.
+ * `ascout security`. Runs Ascout's deterministic deep security audit (`engine:ascout-security-core`)
+ * out of the box when no external Gitleaks binary is configured; when `gitleaksPath` is supplied, runs
+ * the pinned Gitleaks engine boundary. A null root counts as outside a repository (`NOT_RUN`, exit 4).
  */
 export async function computeSecurityV1(
   root: string | null,
@@ -373,8 +378,9 @@ export async function computeSecurityV1(
   signal?: AbortSignal,
 ): Promise<CommandResultV1<SecurityReportV1>> {
   if (gitleaksPath === null) {
-    const none = buildSecurityCommandReportV1();
-    return report({ engine: "none", report: none }, none.exit_code);
+    const outcome = await runSecurityAuditV1(root, signal === undefined ? {} : { signal });
+    if (outcome.kind === "error") return failure(outcome.message);
+    return report({ engine: "ascout-security-core", report: outcome.report }, outcome.report.exit_code);
   }
   const outcome = await runSecurityGitleaksV1(root, gitleaksPath, signal === undefined ? {} : { signal });
   if (outcome.kind === "error") return failure(outcome.message);

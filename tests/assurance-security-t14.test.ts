@@ -1,4 +1,5 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,18 +31,33 @@ function capture() {
   };
 }
 
-describe("UA-P06-T14 ascout security (decision B, with exits from Amendment A07)", () => {
-  it("parses exactly security with optional --format json|terminal", () => {
+function makeCleanRepo(): string {
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-t14-repo-")));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, stdio: "ignore" });
+  git("init", "-q");
+  git("config", "user.name", "t");
+  git("config", "user.email", "t@example.invalid");
+  git("config", "commit.gpgsign", "false");
+  writeFileSync(join(dir, "index.ts"), "export const ok = 1;\n");
+  git("add", ".");
+  git("commit", "-qm", "init");
+  return dir;
+}
+
+describe("UA-P06-T14 ascout security (with deterministic engine and exits from Amendment A07)", () => {
+  it("parses security with optional --format json|terminal|sarif and --out <path>", () => {
     expect(parseCliArgs(["security"])).toEqual({ command: "security", allowChangedCommandSurface: false });
     expect(parseCliArgs(["security", "--format", "json"])).toEqual({
       command: "security", allowChangedCommandSurface: false, format: "json",
     });
     expect(parseCliArgs(["security", "--format", "terminal"]).format).toBe("terminal");
+    expect(parseCliArgs(["security", "--format", "sarif"]).format).toBe("sarif");
+    expect(parseCliArgs(["security", "--format", "sarif", "--out", "audit.sarif"]).outPath).toBe("audit.sarif");
   });
 
-  it("refuses every other option, value, and repetition (decision B)", () => {
+  it("refuses every other option, value, and repetition", () => {
     for (const argv of [
-      ["security", "--format"], ["security", "--format", "agent"], ["security", "--format", "sarif"],
+      ["security", "--format"], ["security", "--format", "agent"],
       ["security", "--format", "json", "--format", "json"], ["security", "--profile", "quick"],
       ["security", "--allow-changed-command-surface"], ["security", "--publish"], ["security", "--write"],
       ["security", "src/app.ts"], ["security", "--input", "result.sarif"],
@@ -50,42 +66,60 @@ describe("UA-P06-T14 ascout security (decision B, with exits from Amendment A07)
     }
   });
 
-  it("keeps other unimplemented verbs refused and documents exactly one new usage line", () => {
+  it("keeps other unimplemented verbs refused and documents the security usage line", () => {
     for (const command of ["cyber", "assure", "secure", "scan"]) {
       expect(() => parseCliArgs([command]), command).toThrow(CliUsageError);
     }
     const lines = usageText().split("\n");
-    expect(lines.filter(line => line.includes("ascout security"))).toEqual(["  ascout security [--format json|terminal]"]);
-    expect(lines).toContain("  ascout security [--format json|terminal]");
+    expect(lines.filter(line => line.includes("ascout security"))).toEqual(["  ascout security [--format json|terminal|sarif] [--out <path>]"]);
+    expect(lines.at(-5)).toBe("  ascout security [--format json|terminal|sarif] [--out <path>]");
     expect(lines.at(-2)).toBe("  ascout mcp");
     expect(lines.at(-1)).toBe("  ascout --help | --version");
   });
 
-  it("reports NOT_RUN on stderr and exits 4, never a pass (Amendment A07)", async () => {
-    const io = capture();
-    expect(await runCli(["security"])).toBe(4);
-    expect(io.stdout()).toBe("");
-    const text = io.stderr();
-    expect(text).toContain("=== Ascout Security (NOT_RUN) ===");
-    expect(text).toContain("ENGINE_NOT_EXECUTED_IN_UA_P06");
-    expect(text).toContain("This is not a security pass and not a clean result.");
-    expect(text).not.toMatch(/\bPASS(ED)?\b|\bCLEAN\b|\bSECURE\b/u);
-  });
+  it("reports INCOMPLETE on stderr and exits 4 on a clean repository, never a pass (Amendment A07)", async () => {
+    const repo = makeCleanRepo();
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(repo);
+    try {
+      const io = capture();
+      expect(await runCli(["security"])).toBe(4);
+      expect(io.stdout()).toBe("");
+      const text = io.stderr();
+      expect(text).toContain("=== Ascout Security (INCOMPLETE) ===");
+      expect(text).toContain("NO_FINDINGS_STATIC_PARTIAL_COVERAGE");
+      expect(text).toContain("This is not a security pass and not a clean result.");
+      expect(text).not.toMatch(/\bPASS(ED)?\b|\bCLEAN\b|\bSECURE\b/u);
+    } finally {
+      cwd.mockRestore();
+      rmSync(repo, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
+  }, 60_000);
 
-  it("emits the JSON report on stdout and exits 4", async () => {
-    const io = capture();
-    expect(await runCli(["security", "--format", "json"])).toBe(4);
-    const report = JSON.parse(io.stdout());
-    expect(report).toEqual(JSON.parse(JSON.stringify(buildSecurityCommandReportV1())));
-    expect(report).toMatchObject({
-      kind: "security", outcome: "NOT_RUN", security_pass: false, clean_claimed: false, findings_emitted: false,
-      assurance_effect: "NONE", network: "NONE", writes: "NONE", exit_code: 4, executed_count: 0, scanned_scope: [],
-      engine: { executed: false },
-    });
-    expect(report.capabilities).toHaveLength(buildSentrdelCapabilitiesV1().length);
-    expect(report.capabilities.every((c: { run: boolean }) => c.run === false)).toBe(true);
-    expect(SECURITY_COMMAND_NOT_RUN_EXIT_CODE).toBe(4);
-  });
+  it("emits the deterministic JSON report on stdout and exits 4 on a clean repository", async () => {
+    const repo = makeCleanRepo();
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(repo);
+    try {
+      const io = capture();
+      expect(await runCli(["security", "--format", "json"])).toBe(4);
+      const report = JSON.parse(io.stdout());
+      expect(report).toMatchObject({
+        schema_version: 3,
+        kind: "security",
+        outcome: "INCOMPLETE",
+        security_pass: false,
+        clean_claimed: false,
+        exit_code: 4,
+        executed_count: 1,
+        engine: { id: "engine:ascout-security-core", executed: true },
+      });
+      expect(buildSecurityCommandReportV1().capabilities).toHaveLength(buildSentrdelCapabilitiesV1().length);
+      expect(buildSecurityCommandReportV1().capabilities.every((c: { run: boolean }) => c.run === false)).toBe(true);
+      expect(SECURITY_COMMAND_NOT_RUN_EXIT_CODE).toBe(4);
+    } finally {
+      cwd.mockRestore();
+      rmSync(repo, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
+  }, 60_000);
 
   it("is deterministic, local, and read-only", async () => {
     expect(buildSecurityCommandReportV1()).toEqual(buildSecurityCommandReportV1());

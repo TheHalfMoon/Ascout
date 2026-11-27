@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -281,14 +281,29 @@ describe("ascout security with and without the variable", () => {
     else process.env[GITLEAKS_PATH_ENV] = previous;
   });
 
-  it("keeps the unconfigured NOT_RUN report and exit 4", async () => {
+  it("runs the built-in deterministic security engine without Gitleaks and still exits 4 on a clean repo", async () => {
     delete process.env[GITLEAKS_PATH_ENV];
-    const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    expect(await runCli(["security", "--format", "json"])).toBe(4);
-    const report = JSON.parse(stdout.mock.calls.map((call) => String(call[0])).join(""));
-    expect(report.schema_version).toBe(1);
-    expect(report.reason_code).toBe("ENGINE_NOT_EXECUTED_IN_UA_P06");
-  });
+    const clean = mkdtempSync(join(tmpdir(), "ascout-gl-clean-"));
+    try {
+      const git = (...args: string[]) => execFileSync("git", args, { cwd: clean, stdio: "ignore" });
+      git("init", "-q");
+      git("config", "user.name", "t");
+      git("config", "user.email", "t@example.invalid");
+      git("config", "commit.gpgsign", "false");
+      writeFileSync(join(clean, "a.ts"), "export const x = 1;\n");
+      git("add", ".");
+      git("commit", "-qm", "init");
+      vi.spyOn(process, "cwd").mockReturnValue(clean);
+      const stdout = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+      expect(await runCli(["security", "--format", "json"])).toBe(4);
+      const report = JSON.parse(stdout.mock.calls.map((call) => String(call[0])).join(""));
+      expect(report.schema_version).toBe(3);
+      expect(report.engine.id).toBe("engine:ascout-security-core");
+      expect(report.clean_claimed).toBe(false);
+    } finally {
+      rmSync(clean, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
+  }, 60_000);
 
   it("writes nothing to stdout and exits 2 when the configured file is not Gitleaks", async () => {
     process.env[GITLEAKS_PATH_ENV] = process.execPath;

@@ -42,7 +42,7 @@ type ToolName = keyof typeof MCP_TOOL_LIMITS_MS;
 const EMPTY_SCHEMA = Object.freeze({ type: "object", properties: {}, additionalProperties: false });
 const TOOLS: readonly { name: ToolName; description: string }[] = [
   { name: "ascout_review", description: "Ascout review of the working-tree changes, without a model. Reports scope and what was not reviewed." },
-  { name: "ascout_security", description: "Ascout security. Runs the pinned Gitleaks only if the server was started with ASCOUT_GITLEAKS_PATH set." },
+  { name: "ascout_security", description: "Ascout security. Runs deterministic static security audit by default, or pinned Gitleaks when ASCOUT_GITLEAKS_PATH is set." },
   { name: "ascout_doctor", description: "Ascout doctor: a diagnostic of the repository and discovered project. Runs no task." },
   { name: "ascout_test_plan", description: "Ascout test plan for the default profile. A plan, not a result: it runs nothing." },
   { name: "ascout_policy", description: "Ascout team policy as it stands in this working tree (.github/ascout-policy.json). Configuration, not verification: the publisher reads the default branch's copy." },
