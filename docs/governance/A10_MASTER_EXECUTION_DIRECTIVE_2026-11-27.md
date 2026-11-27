@@ -1,37 +1,81 @@
 # Amendment A10: Master Execution Directive & Governance Simplification (2026-11-27)
 
-**Status:** Adopted 2026-11-27 under the Founder Master Execution Directive ("ASCOUT — MASTER EXECUTION DIRECTIVE"). Constitution moves from `1.5.0` to `1.6.0`.
+**Status: Adopted on 2026-11-27 under the founder's written Master Execution Directive ("ASCOUT — MASTER EXECUTION DIRECTIVE").** The constitution moves from version `1.5.0` to `1.6.0`. The amendment text is in `.specify/memory/constitution.md`, under "Amendment A10 — Autonomous platform expansion, governance simplification, and qualified contradiction". An AI engineering agent (Antigravity / Gemini 4) drafted this record and the exact amendment text under the founder's written directive. The founder authorized the directive but did not inspect this exact constitutional text before merge, and may change it. Section 4 records every independent A09 review started for this change.
 
-## 1. Founder Authorization Summary
+## 1. The founder's directive (verbatim governance passages)
 
-On 2026-11-27, the founder of Ascout authorized autonomous end-to-end engineering to complete Ascout as an open-source, local-first, privacy-first, model-agnostic, evidence-driven verification intelligence platform under Apache-2.0 (`Verify everything AI ships. Models propose. Evidence decides.`).
+On 2026-11-27, the founder gave the engineering agent, in the session prompt, a written directive titled "ASCOUT — MASTER EXECUTION DIRECTIVE". These are its governing authorization passages, verbatim:
 
-Authorized scope:
-- Review, challenge, simplify, and improve the existing architecture and roadmap.
-- Resolve obsolete administrative/planning blockers (including M1/M2/UA-P06 implementation freezes and issues #296, #628, and #634).
-- Implement, integrate, test, review under Amendment A09, and merge properly qualified pull requests across all 13 Ascout capability domains:
-  1. **Ascout Core** (core check hardening, Git #591 elimination)
-  2. **Ascout Review** (deterministic-first code review + optional BYOAI)
-  3. **Ascout Security** (deterministic deep security audit + optional Gitleaks/AI + SARIF)
-  4. **Ascout Test** (quick/standard/deep/release profiles, budgets, mutation, property/fuzz, contract, perf/recovery)
-  5. **Ascout Browser** (real Playwright Chromium journeys, live locators, DOM/network/console/screenshot/a11y/visual diff)
-  6. **Ascout Runtime** (source-bound local process/HTTP/crash/resource/restart evidence)
-  7. **Ascout Sandbox** (Linux bubblewrap, macOS sandbox-exec, Windows AppContainer)
-  8. **Ascout Agent** (structured claim verification with Qualified Contradiction)
-  9. **Ascout Evidence** (content-addressed store, integrity verification, diff, export, pruning)
-  10. **Ascout Benchmark** (reproducible deterministic + optional-AI benchmark suite)
-  11. **Ascout Release** (release readiness gate with residual risk and verification omissions)
-  12. **Ascout Connect** (unified CLI, zero-option read-only MCP, authenticated local HTTP API, Git/CI)
-  13. **Ascout Studio** (local-first graphical UI built on the Ascout Brand/UI Design System, live data only)
-- Reuse, adapt, integrate, and rebrand authorized donor code strictly under Ascout product identity while preserving all legally required licenses, notices, and provenance.
+> You have founder authorization to:
+> - Review, challenge, simplify, and improve the existing architecture and roadmap.
+> - Resolve unnecessary administrative and historical planning blockers.
+> - Implement outstanding capabilities.
+> - Reuse, adapt, integrate, and rebrand authorized source code.
+> - Replace weak implementations with stronger existing implementations where appropriate.
+> - Create and update tests, specifications, documentation, and architectural decisions.
+> - Open, review, repair, and merge properly qualified pull requests.
+> - Perform independent AI reviews.
+> - Continue autonomously through all implementation phases.
+> - Make reasonable technical and product decisions without repeatedly requesting founder approval.
+>
+> Do not interpret an outdated planning restriction or an exhausted implementation frontier as evidence that Ascout is complete.
+> Record this directive as the updated founder authorization where necessary.
 
-## 2. Constitutional Delta (v1.5.0 -> v1.6.0)
+> Review the complete governance system and simplify it.
+> Retain: Evidence integrity. Security boundaries. Reproducibility. Independent review. Regression testing. Accurate release qualification. Source provenance. Honest reporting.
+> Remove or consolidate: Repetitive authorization requirements. Redundant planning documents. Circular approval dependencies. Unnecessary founder decision packets. Artificial implementation freezes. Duplicated acceptance criteria. Excessive procedural barriers. Documentation that does not improve the actual product.
+> The founder authorizes autonomous implementation within this directive.
+> Follow Amendment A09 and remove mandatory human-review dependencies wherever consistent with the updated project governance.
+> Independent AI agents may perform architecture reviews, security reviews, code reviews, and acceptance reviews.
+> Do not represent AI review as human review, external certification, or independent external security accreditation.
+> However, never weaken an actual security or correctness requirement merely to obtain a passing result.
 
-1. **Governance simplification:** Replaces redundant per-task authorization packets and circular planning freezes with a streamlined engineering bar: architecture review (including EGM critique where available), implementation, deterministic unit/integration tests covering changed lines and branches, exact-head 13-check CI, and independent fresh-context review under Amendment A09.
-2. **Qualified Contradiction (`REFUTED`, amending A07 clause 7):** Permits `ascout verify` to return `VERIFIED | REFUTED | PARTIALLY_VERIFIED | INCOMPLETE | NOT_VERIFIED`, restricting `REFUTED` strictly to typed structured claim predicates contradicted by deterministic, source-bound observations on the exact matching `(repository_id, head_sha, tree_digest)` with resolvable evidence refs. Raw heuristic static-scanner findings and AI opinions never emit `REFUTED`.
-3. **Scoped deterministic review (amending A07 clause 3):** Permits `ascout review` to exit `0` only with an explicit source-bound scope proof (e.g., `--base`/`--commit` where every changed file is covered by supported deterministic analyzers with zero findings); working-tree-only clean or unsupported runs retain exit `4` and A07.3 scope disclosure.
+> Ask only when an action genuinely requires unavailable credentials, external legal authority, a financial commitment, or an irreversible operation outside the authorized project scope.
+> Do not publish to an external registry unless the required package ownership and publication authority are established.
+> Do not introduce paid signing or distribution infrastructure without explicit founder approval.
+> Do not market Ascout as safe for hostile repositories until the complete relevant execution boundary has been independently qualified.
 
-## 3. Unchanged Safety & Founder-Reserved Boundaries
+The founder has not been recorded as examining this exact drafted text or code, and this record does not claim that they did.
 
-- Runtime security, fail-closed execution, no-green-by-omission, source-bound truth, `ReceiptV1` backward compatibility for default `ascout check`, exact-head CI, and Amendment A09 truthful AI-review labeling are **unchanged**.
-- Reserved to explicit founder confirmation: public releases/tags/npm publication, paid offerings/billing, external accounts/credentials, repository protection rule changes, and admitting untrusted repositories under Principle IV (until all supported OS sandboxes and Git execution boundaries in Issue #591 are natively qualified under A09).
+## 2. Governance procedure (constitution, Governance section)
+
+1. **Complete explicit constitutional delta:**
+   - Adds Amendment A10 (clauses 1–5) after Amendment A09 in `.specify/memory/constitution.md`:
+     - **Clause 1 (Authorized platform scope):** Authorizes autonomous engineering across Ascout's 13 defined capability domains — Core, Review, Security, Test, Browser, Runtime, Sandbox, Agent Claim Verification, Evidence, Benchmark, Release readiness evaluation (local verdict/gate only; never creates tags, GitHub Releases, signed attestations, or package publications), Connect, and Studio — superseding M1 scope exclusions and Principle VIII's pre-authorization gate for those domains only, while requiring optionality of new runtime surfaces, loopback-only authenticated read-only-by-default `ascout serve`, zero-option read-only `ascout mcp`, and strict preservation of Principle IV's runtime human admission boundary.
+     - **Clause 2 (Simplified engineering workflow):** Simplifies the 12-step founding sequence to architecture/design review (including multi-perspective independent critique where available), implementation, deterministic unit/integration tests covering changed lines and branches, exact-head CI, and independent A09 review.
+     - **Clause 3 (Qualified contradiction, amending A07 clause 7):** Authorizes `VERIFIED | REFUTED | PARTIALLY_VERIFIED | INCOMPLETE | NOT_VERIFIED` for `ascout verify` under A07 exit precedence (`2 > 3 > 1 > 4 > 0`), permitting `REFUTED` strictly on deterministic, drift-free, source-bound contradictions on matching `(repository_id, head_sha, tree_digest)` (and config identity where applicable), failing closed when `HEAD` is unborn/unavailable, with resolvable `contradicting_evidence_refs`, and barring heuristic scanners or AI opinions from emitting `REFUTED`.
+     - **Clause 4 (Scoped deterministic review, amending A07 clause 3):** Retains A07.3 scope disclosure and non-zero exit for every working-tree-only review (clean or dirty), permitting exit `0` only with an explicit source-bound diff scope proof (`--base`/`--commit`) covering all changed files cleanly or proving zero reviewable changes.
+     - **Clause 5 (Preserved reservations):** Explicitly preserves all A09 clause 6 reservations (constitutional amendments including A08, public releases/tags/build-provenance signing, npm or other publication, payments/pricing/paid offerings, creating accounts/GitHub Apps/credentials, repository protection rule changes), preserves separate explicit founder authorization before admitting untrusted repositories under Principle IV (even after all supported OS sandboxes and Issue #591 qualify under A09), and preserves A07 clause 6 (`Receipt schema v1.0 and its bytes remain unchanged`).
+   - Increments the constitution version from `1.5.0` to `1.6.0` and updates `Last Amended` to `2026-11-27`.
+
+2. **Rationale:** Historical M1/M2/UA-P06 authorization freezes and planning packets (including Issues #296 "Frontier assessment - no further canonical work currently justifiable", #628 "Founder decision packet: FD8-B", and #634 "UA-P07 authorization ledger — Deep Security Audit orchestration") had stalled end-to-end product completion even after Amendment A09 removed human-only review gates. Amendment A10 operationalizes the founder's 2026-11-27 directive while retaining every technical safety, evidence, security, provenance, and A09 review invariant.
+
+3. **Affected artifacts:**
+   - `.specify/memory/constitution.md`: adds Amendment A10 (v1.5.0 -> v1.6.0).
+   - `docs/governance/A10_MASTER_EXECUTION_DIRECTIVE_2026-11-27.md`: records the verbatim directive, governance delta, impact assessment, and A09 review history.
+   - `specs/017-unified-assurance/PROPOSED_AMENDMENT_A08_STATEMENT_EVIDENCE.md`: updates A08's proposed target constitution version from `1.5.0 -> 1.6.0` to `1.6.0 -> 1.7.0`.
+   - `STATE.md`: records the Master Execution Program, updates current release baseline (`v0.3.2`) and merged PR #791 (`fed9134`), reconciles the outdated "without enabling them in check" restriction and #359 UI freeze note, and tracks the live PR queue.
+
+4. **Trust, scope, licensing, and complexity impact assessment** (authoring agent's assessment; Section 4 records independent A09 reviews):
+   - **Trust & security:** New runtime surfaces (`ascout serve`, Browser, Runtime, Studio) introduce local attack surface (DNS rebinding, CSRF, XSS-to-RCE, SSRF, arbitrary command execution). A10 clause 1 bounds these constitutionally: `serve` MUST bind loopback-only (`127.0.0.1`), default to read-only, authenticate mutating requests, and never bypass Principle IV changed-command-surface admission; `mcp` stays strictly zero-option read-only; Browser/Runtime default to loopback-only with strict scheme/origin filtering; and untrusted-repository admission remains reserved to explicit founder authorization.
+   - **Scope:** Expands authorized engineering scope from M1/M2/UA-P06 to the 13 platform domains while keeping every new surface optional for core CLI claims and keeping `ReceiptV1` schema bytes unchanged per A07.6.
+   - **Licensing & provenance (Principle VIII):** Core remains Apache-2.0 with zero mandatory runtime dependency bloat (`cross-spawn@7.0.6` remains the sole runtime dependency unless a separate notice-reconciled dependency is justified). Any donor code transplant remains subject to Principle VIII separate code/rules/data license evaluation, exact revision provenance, and `THIRD_PARTY_NOTICES.md` integrity (`tests/third-party-notices.test.ts`).
+   - **Complexity:** Avoids parallel microservices, external databases, or duplicate `src/` trees; consolidates new engines into existing `src/assurance/`, `src/browser/`, `src/quality/`, and modular greenfield directories (`src/evidence/`, `src/runtime/`, `src/serve/`, `src/benchmark/`), gated by exact-head CI and `self-verify` changed-code exercise checks.
+
+5. **Reconciliation of affected canonical specs:** Performed in this PR for `PROPOSED_AMENDMENT_A08_STATEMENT_EVIDENCE.md` and `STATE.md`.
+
+## 3. What did not change
+
+- Proposed Amendment A08 remains unratified and reserved to the founder (now targeting `1.6.0 -> 1.7.0`).
+- Receipt schema v1.0 and its bytes remain unchanged per A07 clause 6.
+- No public release, tag, npm publication, paid offering, or untrusted-repository claim is authorized by this record.
+- Exact-head CI, changed-code coverage/exercise checks, fail-closed containment, and Amendment A09 truthful AI-review labeling remain unchanged.
+
+## 4. Independent reviews of this change
+
+1. **Fresh-context AI review subagent (read-only, no access to authoring conversation), 2026-11-27, commit `04c3f06fa565173efc03bd4b1b5dd991df419593`.** **Verdict: BLOCKED** (0 Critical, 3 High, 4 Medium, 4 Low):
+   - **High:** (H1) overclaimed founder adoption of exact drafted text and omitted verbatim directive quotes, AI-drafting disclosure, and A09 review section; (H2) A10 clause 5 omitted four A09 clause 6 reservations (constitutional amendments/A08, build-provenance signing, other publication, GitHub Apps); (H3) omitted Governance requirements 2/3/5, colliding with A08's `1.6.0` target and leaving `STATE.md` contradictions (lines 41, 93, 133, 143).
+   - **Medium:** (M1) weakened A07.6 Receipt v1.0 immutability phrasing; (M2) dirty working-tree-only review ambiguity under A07.3; (M3) missing A07 exit mapping and drift-free/config/unborn-HEAD rules for `ascout verify`; (M4) unreconciled optionality/loopback/admission boundaries for `serve`/`Studio` and Principle VIII pre-authorization gate.
+   - **Low:** (L1) undefined `EGM` acronym and wording drift; (L2) stale `STATE.md` entries (`v0.3.1`, `T1 blocked`, self-staling `In progress (this PR)`); (L3) external PR #791 review count and issue titles; (L4) clarifying `Ascout Release` as read-only readiness evaluation only.
+
+   All High, Medium, and Low findings were addressed in the follow-up commit on this branch, which requires a fresh A09 review on its exact SHA before merge.
