@@ -171,6 +171,16 @@ Adopted under the founder's written decision and instruction of 2026-11-16 to pr
    - A07 exit semantics and receipt schema v1.0;
    - Principle IV's per-invocation human admission of a changed command surface. That admission is a runtime authority decision by the caller, not a review gate.
 
+### Amendment A10 — Autonomous platform expansion, governance simplification, and qualified contradiction
+
+Adopted under the Founder Master Execution Directive of 2026-11-27, recorded in `docs/governance/A10_MASTER_EXECUTION_DIRECTIVE_2026-11-27.md`. Scope is autonomous implementation of the defined Ascout verification platform, governance simplification, and bounded claim-contradiction semantics. Core Principles I–VIII, A04–A07 (except as amended below), and A09 remain in force.
+
+1. **Authorized platform scope:** Autonomous engineering is authorized across Ascout's 13 defined capability domains (Core, Review, Security, Test, Browser, Runtime, Sandbox, Agent Claim Verification, Evidence, Benchmark, Release, Connect, and Studio) under Apache-2.0, local-first, privacy-first, zero-mandatory-cost, and Ascout-only product-identity rules. Obsolete M1/M2/UA-P06 implementation freezes and historical frontier-exhaustion packets do not block implementation of authorized scope.
+2. **Simplified engineering workflow:** The 12-step canonical founding sequence below is simplified for authorized platform work to: architecture/design review (including EGM/fresh-context critique where appropriate), implementation, deterministic unit/integration tests exercising changed code, exact-head CI, and independent review under Amendment A09. Redundant authorization packets and circular approval gates are removed without weakening security, fail-closed behavior, evidence integrity, provenance, or regression testing.
+3. **Qualified contradiction (`REFUTED`, amending A07 clause 7):** Ascout's structured claim-verification engine (`ascout verify`) MAY emit `VERIFIED`, `REFUTED`, `PARTIALLY_VERIFIED`, `INCOMPLETE`, or `NOT_VERIFIED`. `REFUTED` is permitted **only** under a Qualified Contradiction: a typed, structured claim predicate directly contradicted by a deterministic, source-bound observation on the exact matching `(repository_id, head_sha, tree_digest)` with resolvable `contradicting_evidence_refs`. Raw heuristic static-scanner findings and AI opinions MUST NOT emit `REFUTED`.
+4. **Scoped deterministic review (amending A07 clause 3):** `ascout review` MAY exit `0` only with an explicit source-bound scope proof (such as `--base`/`--commit` comparison where every changed file is covered by supported deterministic analyzers with zero findings). Default working-tree-only review on clean or unsupported-language trees retains A07 clause 3's scope disclosure and incomplete exit `4`.
+5. **Preserved reservations:** Explicit founder authorization remains required for public releases/tags/npm publication, paid offerings/billing, external accounts/credentials, repository protection rule changes, and admitting untrusted repositories under Principle IV (which remains blocked until all supported OS sandboxes and Git execution boundaries in Issue #591 are natively qualified under A09).
+
 ## Development Workflow and Quality Gates
 
 All product work MUST follow the canonical founding sequence unless a constitutional amendment explicitly changes it:
@@ -210,4 +220,4 @@ Principles protecting evidence integrity, no-green-by-omission, source binding, 
 
 Ponytail/YAGNI is a complexity gate, not an architecture generator. GitHub Spec Kit is the canonical specification workflow, pinned initially by `.specify/PROVENANCE.md`.
 
-**Version**: 1.5.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-11-16
+**Version**: 1.6.0 | **Ratified**: 2026-08-21 | **Last Amended**: 2026-11-27

@@ -1,8 +1,31 @@
-Last updated: 2026-11-14 Asia/Riyadh · Branch: main
+Last updated: 2026-11-27 Asia/Riyadh · Branch: main
 
-## Where Ascout stands
+## Master Execution Program (2026-11-27, Amendment A10)
 
-Ascout v0.3.1 is released on GitHub: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.1 (published 2026-11-14, tag `v0.3.1` at `32e080a`, tarball SHA-256 `67b6273bd8c0dc5296aa7279f5e71cf31140c9aeb8e88ce1d2694a3f540cfea1`, with a verified GitHub build-provenance attestation from run 43547266200). It is not on npm. `v0.3.0` (2026-11-13), `v0.2.0` (2026-11-10) and `v0.1.0` (2026-09-12) are superseded.
+On 2026-11-27, the founder authorized autonomous implementation across all 13 Ascout capability domains under Amendment A10 (`docs/governance/A10_MASTER_EXECUTION_DIRECTIVE_2026-11-27.md`, Constitution v1.6.0). Obsolete M1/M2/UA-P06 implementation freezes and historical frontier-exhaustion records (#296, #628, #634) are superseded by this directive while preserving all security, evidence, fail-closed, A07, exact-head CI, and A09 independent-review gates.
+
+### Live Execution Registry
+
+| Unit | Scope | Status |
+| --- | --- | --- |
+| PR #791 | macOS `sandbox-exec` task sandbox (unwired research) | **Merged** (`fed9134`, 13/13 CI, 5 A09 reviews) |
+| PR #792 | Windows AppContainer task sandbox (unwired research) | **In progress** (fixing loopback `ECONNRESET` in test server) |
+| PR 0 | Amendment A10 & governance simplification | **In progress** (this PR) |
+| PR 1 | Core hardening & Git #591 race elimination | **Queued** |
+| PR 2 | Unified `CheckTaskSandboxV1` lifecycle + Linux/macOS wiring + `test --sandbox` | **Queued** |
+| PR 3 | Windows AppContainer pipe/realpath & A09 wiring | **Queued** |
+| PR 4 | Ascout Evidence (CAS `.ascout/objects/sha256/`, integrity verify, diff, export) | **Queued** |
+| PR 5 | Ascout Review (deterministic review engine, scoped ranges, remove donor leak) | **Queued** |
+| PR 6 | Ascout Security (deterministic deep security audit + clean SARIF, remove donor leak) | **Queued** |
+| PR 7 | Ascout Test (profiles, budgets, diff-scoped mutation, property/fuzz, contract) | **Queued** |
+| PR 8a/8b | Ascout Browser (real Chromium journeys/assertions) & Ascout Runtime (process/HTTP) | **Queued** |
+| PR 9 | Ascout Verify (agent claim verification) & Ascout Release (readiness verdict) | **Queued** |
+| PR 10 | Ascout Connect (`serve` authenticated API + read-only MCP) & Ascout Studio UI | **Queued** |
+| PR 11 | Ascout Benchmark (reproducible offline evaluation) & final qualification | **Queued** |
+
+## Where Ascout stands (v0.3.2 baseline)
+
+Ascout v0.3.2 is released on GitHub: https://github.com/TheHalfMoon/Ascout/releases/tag/v0.3.2 (published 2026-11-16, tag `v0.3.2` at `c6a75e7`, SHA-256 `f73676ea1bc460c062a025291f416056b2e6f2e09139cfdf922fa3f636620af6`). It is not on npm. `v0.3.1`, `v0.3.0`, `v0.2.0` and `v0.1.0` are superseded.
 
 ### Adoption plan (execution-first V0–V9)
 
