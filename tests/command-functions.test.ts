@@ -92,7 +92,11 @@ describe("command functions", () => {
   it("test --plan and security without an engine read no repository and write nothing", async () => {
     const seen = silenceCheck();
     expect(computeTestPlanV1("STANDARD")).toMatchObject({ kind: "report", exit_code: 0 });
-    expect(await computeSecurityV1(null, null)).toMatchObject({ kind: "report", exit_code: 4, report: { engine: "none" } });
+    expect(await computeSecurityV1(null, null)).toMatchObject({
+      kind: "report",
+      exit_code: 4,
+      report: { engine: "ascout-security-core", report: { outcome: "NOT_RUN" } },
+    });
     expect(seen()).toEqual([]);
   });
 

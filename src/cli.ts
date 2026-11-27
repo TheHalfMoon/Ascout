@@ -66,15 +66,15 @@ import {
   type TestRunReportV2,
 } from "./assurance/test/test-run-command.js";
 import {
-  buildSecurityCommandReportV1,
-  renderSecurityJsonV1,
-  renderSecurityTerminalV1,
-} from "./assurance/security/security-command.js";
+  renderSecurityAuditTerminalV1,
+  runSecurityAuditV1,
+} from "./assurance/security/audit-engine.js";
+import { renderSecurityAuditSarifV1 } from "./assurance/security/audit-sarif.js";
 import {
   configuredGitleaksPathV1,
   renderSecurityGitleaksTerminalV1,
-  runSecurityGitleaksV1,
 } from "./assurance/security/security-gitleaks.js";
+import { writeAtomicSafeRegularFileV1 } from "./evidence/cas-store.js";
 import {
   parseEvidenceSubcommandArgsV1,
   parseReportArgsV1,
@@ -106,10 +106,11 @@ const EXPORT_TASK_FLAG = "--export-task";
 const INGEST_FLAG = "--ingest";
 const REMOTE_MODEL_FLAG = "--remote-model";
 const DRY_RUN_FLAG = "--dry-run";
+const OUT_FLAG = "--out";
 const CHECK_FORMATS = ["json", "agent"] as const;
 const REVIEW_FORMATS = ["json", "terminal"] as const;
 const TEST_FORMATS = ["json", "terminal"] as const;
-const SECURITY_FORMATS = ["json", "terminal"] as const;
+const SECURITY_FORMATS = ["json", "terminal", "sarif"] as const;
 const TEST_PROFILE_TOKENS = ["quick", "standard", "deep", "release"] as const;
 const REVIEW_WRITE_FLAGS = ["--publish", "--write", "--output", "--push"] as const;
 const OPERATIONAL_ERROR_EXIT_CODE = 2;
@@ -143,6 +144,7 @@ export interface CliInvocation {
   prHead?: string;
   evidenceSubcommand?: EvidenceSubcommandV1;
   reportOptions?: ReportCommandOptionsV1;
+  outPath?: string;
 }
 
 export class CliUsageError extends Error {
@@ -209,6 +211,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   let ingestPath: string | undefined;
   let remoteModel = false;
   let dryRun = false;
+  let outPath: string | undefined;
 
   if (commandToken === "pr-ai-review") {
     if (rest.length !== 0) throw new CliUsageError("ascout pr-ai-review takes no arguments; it reads the workflow's environment.");
@@ -353,7 +356,8 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
         continue;
       }
       if (value === undefined) {
-        throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${REVIEW_FORMATS.join("|")}.`);
+        const allowed = commandToken === "security" ? SECURITY_FORMATS : REVIEW_FORMATS;
+        throw new CliUsageError(`${FORMAT_FLAG} requires one of: ${allowed.join("|")}.`);
       }
       if (commandToken === "doctor") {
         if (!isReviewFormat(value)) {
@@ -471,6 +475,22 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       continue;
     }
 
+    if (token === OUT_FLAG) {
+      if (commandToken !== "security") {
+        throw new CliUsageError(`${OUT_FLAG} is valid only with the security command.`);
+      }
+      if (outPath !== undefined) {
+        throw new CliUsageError(`${OUT_FLAG} may be supplied only once.`);
+      }
+      const value = rest[index + 1];
+      if (value === undefined || value === "" || value.startsWith("--")) {
+        throw new CliUsageError(`${OUT_FLAG} needs a file path.`);
+      }
+      outPath = value;
+      index += 1;
+      continue;
+    }
+
     throw new CliUsageError(`Unknown argument for ${commandToken}: ${token}`);
   }
 
@@ -501,6 +521,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     ...(ingestPath === undefined ? {} : { ingestPath }),
     ...(remoteModel ? { remoteModel: true as const } : {}),
     ...(dryRun ? { dryRun: true as const } : {}),
+    ...(outPath === undefined ? {} : { outPath }),
   };
 }
 
@@ -516,7 +537,7 @@ export function usageText(): string {
     "  ascout pr-publish <bundle>",
     "  ascout pr-ai-review",
     "  ascout pr-ai-publish <artifact>",
-    `  ascout security [${FORMAT_FLAG} json|terminal]`,
+    `  ascout security [${FORMAT_FLAG} json|terminal|sarif] [${OUT_FLAG} <path>]`,
     "  ascout evidence <list|show|verify|diff|export|prune|record> [options]",
     `  ascout report [--id <id>] [${FORMAT_FLAG} terminal|json|markdown] [--out <path>]`,
     "  ascout mcp",
@@ -541,6 +562,9 @@ function reportOperationalError(message: string): void {
     // Nothing further can be reported; the exit code still carries the error.
   }
 }
+
+/** Writes a CLI report file atomically (0o600 temp file + fsync + rename) without following symlinks or overwriting non-regular targets. */
+export { writeAtomicSafeRegularFileV1 as writeSafeCliOutputFileV1 };
 
 /** Throws unless `path` is absent or a regular file, so init never writes through a link. */
 function requireAbsentOrRegularFile(path: string, name: string): void {
@@ -981,35 +1005,37 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     if (invocation.command === "security") {
       const gitleaksPath = configuredGitleaksPathV1();
       let root: string | null = null;
-      if (gitleaksPath !== null) {
-        try {
-          root = process.cwd();
-        } catch {
-          // A deleted working directory is outside a repository, as without an engine.
-          root = null;
-        }
+      try {
+        root = process.cwd();
+      } catch {
+        // A deleted working directory is outside a repository.
+        root = null;
       }
-      // Without a configured engine: local and read-only, with no repository read, process,
-      // network, or file write.
-      const result = await computeSecurityV1(root, gitleaksPath);
-      if (result.kind === "error") {
+      const resolved = invocation.format === "sarif"
+        ? await runSecurityAuditV1(root, { gitleaksPath }).then((outcome) =>
+            outcome.kind === "error"
+              ? { kind: "error" as const, message: outcome.message, exit_code: OPERATIONAL_ERROR_EXIT_CODE }
+              : { kind: "report" as const, engine: "ascout-security-core" as const, report: outcome.report, exit_code: outcome.report.exit_code },
+          )
+        : await computeSecurityV1(root, gitleaksPath).then((res) =>
+            res.kind === "error"
+              ? res
+              : { kind: "report" as const, engine: res.report.engine, report: res.report.report, exit_code: res.exit_code },
+          );
+      if (resolved.kind === "error") {
         // Exit 2 keeps stdout empty and reports no findings from the failed run (A07).
-        reportOperationalError(result.message);
-        return result.exit_code;
+        reportOperationalError(resolved.message);
+        return resolved.exit_code;
       }
-      if (result.report.engine === "gitleaks") {
-        if (invocation.format === "json") {
-          process.stdout.write(`${JSON.stringify(result.report.report, null, 2)}
-`);
-        } else {
-          console.error(renderSecurityGitleaksTerminalV1(result.report.report));
-        }
-      } else if (invocation.format === "json") {
-        process.stdout.write(renderSecurityJsonV1(result.report.report));
+      const rendered = renderSecurityCliOutcomeV1((invocation.format ?? "terminal") as SecurityFormat, resolved.engine, resolved.report);
+      if (invocation.outPath !== undefined && rendered.writeOut) {
+        writeAtomicSafeRegularFileV1(invocation.outPath, rendered.text);
+      } else if (rendered.stream === "stdout") {
+        process.stdout.write(rendered.text);
       } else {
-        console.error(renderSecurityTerminalV1(result.report.report));
+        console.error(rendered.text);
       }
-      return result.exit_code;
+      return resolved.exit_code;
     }
     console.error(`ascout ${invocation.command}: not implemented.`);
     return 2;
@@ -1022,6 +1048,30 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     reportOperationalError(describeOperationalError(error));
     return OPERATIONAL_ERROR_EXIT_CODE;
   }
+}
+
+export function renderSecurityCliOutcomeV1(
+  format: SecurityFormat,
+  engine: "gitleaks" | "ascout-security-core",
+  report: Parameters<typeof renderSecurityGitleaksTerminalV1>[0] | Parameters<typeof renderSecurityAuditTerminalV1>[0],
+): { readonly text: string; readonly stream: "stdout" | "stderr"; readonly writeOut: boolean } {
+  if (report.kind === "drift") {
+    return {
+      text: format === "json" ? `${JSON.stringify(report, null, 2)}\n` : renderSecurityAuditTerminalV1(report),
+      stream: format === "json" ? "stdout" : "stderr",
+      writeOut: false,
+    };
+  }
+  if (format === "sarif") {
+    return { text: renderSecurityAuditSarifV1(report as Parameters<typeof renderSecurityAuditSarifV1>[0]), stream: "stdout", writeOut: true };
+  }
+  if (format === "json") {
+    return { text: `${JSON.stringify(report, null, 2)}\n`, stream: "stdout", writeOut: true };
+  }
+  const text = engine === "gitleaks"
+    ? renderSecurityGitleaksTerminalV1(report as Parameters<typeof renderSecurityGitleaksTerminalV1>[0])
+    : renderSecurityAuditTerminalV1(report as Parameters<typeof renderSecurityAuditTerminalV1>[0]);
+  return { text, stream: "stderr", writeOut: true };
 }
 
 function classifyEntry(): EntryDisposition {

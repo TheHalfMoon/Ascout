@@ -92,10 +92,25 @@ export async function collectPrEvidenceV1(options: CollectOptionsV1): Promise<Pr
   if (security.kind === "error") {
     checks.push(errorCheck("security", security.message));
   } else {
-    const report = security.report.report as { outcome?: string; reason_text?: string; findings?: readonly { rule_id: string; path: string | null; start_line: number | null; end_line: number | null; message: string }[] };
+    const report = security.report.report as {
+      outcome?: string;
+      reason_text?: string;
+      findings?: readonly {
+        rule_id: string;
+        category?: string;
+        severity?: "critical" | "high" | "medium" | "low";
+        path: string | null;
+        start_line: number | null;
+        end_line: number | null;
+        message: string;
+      }[];
+    };
     checks.push(check("security", security.exit_code, report.outcome ?? "UNKNOWN", report.reason_text ?? "See the security report."));
     for (const finding of report.findings ?? []) {
-      findings.push({ check: "security", path: finding.path, start_line: finding.start_line, end_line: finding.end_line, severity: "failure", title: `Secret: ${finding.rule_id}`, message: finding.message.slice(0, 2000) });
+      const isSecret = security.report.engine === "gitleaks" || finding.category === "secrets";
+      const title = isSecret ? `Secret: ${finding.rule_id}` : `Security (${finding.category}): ${finding.rule_id}`;
+      const severity = isSecret || finding.severity === "critical" || finding.severity === "high" ? "failure" : "warning";
+      findings.push({ check: "security", path: finding.path, start_line: finding.start_line, end_line: finding.end_line, severity, title, message: finding.message.slice(0, 2000) });
     }
   }
 
