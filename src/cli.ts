@@ -5,7 +5,10 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
 import { runCheck, type CheckTaskSandboxV1 } from "./check.js";
-import { prepareLinuxTaskSandboxV1 as prepareTaskSandbox } from "./assurance/containment/linux-task-sandbox.js";
+import {
+  prepareTaskSandboxV1 as prepareTaskSandbox,
+  type PreparedTaskSandboxV1,
+} from "./assurance/containment/task-sandbox.js";
 import { collectDiscoveredProject } from "./discovery.js";
 import { loadConfig, composeSourceState } from "./check.js";
 import { classifyCommandSurfaces, type CommandSurfaceClassifyOptions } from "./discovery.js";
@@ -78,12 +81,6 @@ const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp"
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const CLEAN_ENV_FLAG = "--clean-env";
 const SANDBOX_FLAG = "--sandbox";
-/**
- * Printed after a sandboxed run. The Linux sandbox passed independent review under Amendment A09
- * (PR #789: five independent AI reviews, the last on the merged tree), so it reports T1 with its limits. Runs without
- * --sandbox stay T0 (containment-tier.ts).
- */
-const SANDBOX_NOTICE = "Every task in this run was confined to the Linux bubblewrap sandbox (--sandbox): containment tier T1 on Linux, internally qualified under Amendment A09 (independent AI security review; not externally certified or human-audited). They could write only the repository (not its .git, with .ascout hidden) and this run's result folders, with no network and an allowlisted environment. Limits: the repository's own files stay writable; a Unix socket a host process placed inside the repository can be reached; /usr and /etc stay readable; there is no seccomp filter (the session keyring is shared) and no CPU or memory limit; after a timeout, the result-folder link check can race the sandbox's teardown. Ascout still supports only repositories you trust.";
 const PASS_ENV_FLAG = "--pass-env";
 
 /** Says what --clean-env is and isn't: one capability removed, and no isolation claimed. */
@@ -281,7 +278,7 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
     }
 
     if (token === SANDBOX_FLAG) {
-      if (commandToken !== "check") throw new CliUsageError(`${SANDBOX_FLAG} is valid only with the check command.`);
+      if (commandToken !== "check" && commandToken !== "test") throw new CliUsageError(`${SANDBOX_FLAG} is valid only with the check and test commands.`);
       if (sandbox) throw new CliUsageError(`${SANDBOX_FLAG} may be supplied only once.`);
       sandbox = true;
       continue;
@@ -450,6 +447,9 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
   if (dryRun && !remoteModel) {
     throw new CliUsageError(`${DRY_RUN_FLAG} is valid only with ${REMOTE_MODEL_FLAG}.`);
   }
+  if (plan && sandbox) {
+    throw new CliUsageError(`${SANDBOX_FLAG} cannot be combined with ${PLAN_FLAG}.`);
+  }
   if (passEnv.length > 0 && !cleanEnv && !sandbox) {
     throw new CliUsageError(`${PASS_ENV_FLAG} is valid only with ${CLEAN_ENV_FLAG} or ${SANDBOX_FLAG}.`);
   }
@@ -478,7 +478,7 @@ export function usageText(): string {
     `  ascout doctor [${FORMAT_FLAG} json|terminal]`,
     `  ascout check [${ALLOW_CHANGED_COMMAND_SURFACE}] [${CLEAN_ENV_FLAG} | ${SANDBOX_FLAG}] [${PASS_ENV_FLAG} NAME]... [${FORMAT_FLAG} json|agent]`,
     `  ascout review [${LOCAL_MODEL_FLAG} | ${REMOTE_MODEL_FLAG} [${DRY_RUN_FLAG}] | ${EXPORT_TASK_FLAG} <path> | ${INGEST_FLAG} <findings.json>] [${FORMAT_FLAG} json|terminal]`,
-    `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${CLEAN_ENV_FLAG} [${PASS_ENV_FLAG} NAME]...] [${FORMAT_FLAG} json|terminal]`,
+    `  ascout test [${PLAN_FLAG}] [${PROFILE_FLAG} quick|standard|deep|release] [${CLEAN_ENV_FLAG} | ${SANDBOX_FLAG}] [${PASS_ENV_FLAG} NAME]... [${FORMAT_FLAG} json|terminal]`,
     "  ascout pr-evidence [--skip-tests] [--pr-head <sha>] [--clean-env [--pass-env NAME]...]",
     "  ascout pr-publish <bundle>",
     "  ascout pr-ai-review",
@@ -678,7 +678,13 @@ export function runDelegatedIngest(repositoryRoot: string, path: string, format:
   return result.exit_code;
 }
 
-async function runTest(profile: TestProfile, planOnly: boolean, format: TestFormat | undefined, taskEnvironment?: NodeJS.ProcessEnv): Promise<number> {
+async function runTest(
+  profile: TestProfile,
+  planOnly: boolean,
+  format: TestFormat | undefined,
+  taskEnvironment?: NodeJS.ProcessEnv,
+  useSandbox = false,
+): Promise<number> {
   if (planOnly) {
     const result = computeTestPlanV1(profile);
     if (result.kind === "error") return result.exit_code;
@@ -714,8 +720,18 @@ async function runTest(profile: TestProfile, planOnly: boolean, format: TestForm
   }
   readRepositoryPrefix(root);
   refuseUnsupportedRepository(root);
-  const outcome = await withRunCancellation((signal) => runCheck(root, { signal, ...(taskEnvironment === undefined ? {} : { taskEnvironment }) }));
-  if (taskEnvironment !== undefined) console.error(CLEAN_ENV_NOTICE);
+  const sandboxed = await runWithOptionalTaskSandbox(
+    useSandbox,
+    "test",
+    root,
+    (taskSandbox) => withRunCancellation((signal) => runCheck(root, {
+      signal,
+      ...buildCheckContainmentOptions(taskEnvironment, taskSandbox),
+    })),
+  );
+  if (!sandboxed.ok) return OPERATIONAL_ERROR_EXIT_CODE;
+  logTaskContainmentNotice(sandboxed.notice, taskEnvironment !== undefined);
+  const outcome = sandboxed.value;
   const result = testRunResultFromReceiptV1(profile, outcome.receipt);
   if (result.kind === "error") {
     // Exit 2 keeps stdout empty (A07); the check receipt stays in its run directory.
@@ -723,6 +739,48 @@ async function runTest(profile: TestProfile, planOnly: boolean, format: TestForm
     return OPERATIONAL_ERROR_EXIT_CODE;
   }
   return writeReport(result.report, outcome.terminalSummary);
+}
+
+export async function runWithOptionalTaskSandbox<T>(
+  useSandbox: boolean,
+  commandLabel: "check" | "test",
+  root: string,
+  run: (taskSandbox: CheckTaskSandboxV1 | undefined) => Promise<T>,
+  prepare: (workspace: string) => Promise<{ sandbox: PreparedTaskSandboxV1 } | { refused: string }> = prepareTaskSandbox,
+): Promise<{ readonly ok: true; readonly value: T; readonly notice: string | null } | { readonly ok: false }> {
+  let taskSandbox: PreparedTaskSandboxV1 | undefined;
+  if (useSandbox) {
+    const prepared = await prepare(root);
+    if ("refused" in prepared) {
+      console.error(`ascout ${commandLabel} ${SANDBOX_FLAG} refused: ${prepared.refused}. Nothing ran: Ascout never falls back to running tasks outside the sandbox.`);
+      return { ok: false };
+    }
+    taskSandbox = prepared.sandbox;
+  }
+  try {
+    const value = await run(taskSandbox);
+    return { ok: true, value, notice: taskSandbox === undefined ? null : taskSandbox.notice };
+  } finally {
+    await taskSandbox?.dispose?.();
+  }
+}
+
+export function buildCheckContainmentOptions(
+  taskEnvironment: ReturnType<typeof allowlistedTaskEnvironmentV1> | undefined,
+  taskSandbox: CheckTaskSandboxV1 | undefined,
+): {
+  readonly taskEnvironment?: ReturnType<typeof allowlistedTaskEnvironmentV1>;
+  readonly taskSandbox?: CheckTaskSandboxV1;
+} {
+  return {
+    ...(taskEnvironment === undefined ? {} : { taskEnvironment }),
+    ...(taskSandbox === undefined ? {} : { taskSandbox }),
+  };
+}
+
+export function logTaskContainmentNotice(sandboxNotice: string | null, cleanEnvActive: boolean): void {
+  if (sandboxNotice !== null) console.error(sandboxNotice);
+  else if (cleanEnvActive) console.error(CLEAN_ENV_NOTICE);
 }
 
 const CANCEL_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const;
@@ -765,24 +823,20 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     }
     if (invocation.command === "check") {
       refuseUnsupportedRepository(process.cwd());
-      let taskSandbox: CheckTaskSandboxV1 | undefined;
-      if (invocation.sandbox) {
-        const prepared = await prepareTaskSandbox(process.cwd());
-        if ("refused" in prepared) {
-          console.error(`ascout check ${SANDBOX_FLAG} refused: ${prepared.refused}. Nothing ran: Ascout never falls back to running tasks outside the sandbox.`);
-          return 2;
-        }
-        taskSandbox = prepared.sandbox;
-      }
       const taskEnvironment = taskEnvironmentFor(invocation);
-      const outcome = await withRunCancellation((signal) => runCheck(process.cwd(), {
-        allowChangedCommandSurface: invocation.allowChangedCommandSurface,
-        ...(taskEnvironment === undefined ? {} : { taskEnvironment }),
-        ...(taskSandbox === undefined ? {} : { taskSandbox }),
-        signal,
-      }));
-      if (invocation.sandbox) console.error(SANDBOX_NOTICE);
-      else if (invocation.cleanEnv) console.error(CLEAN_ENV_NOTICE);
+      const sandboxed = await runWithOptionalTaskSandbox(
+        invocation.sandbox === true,
+        "check",
+        process.cwd(),
+        (taskSandbox) => withRunCancellation((signal) => runCheck(process.cwd(), {
+          allowChangedCommandSurface: invocation.allowChangedCommandSurface,
+          ...buildCheckContainmentOptions(taskEnvironment, taskSandbox),
+          signal,
+        })),
+      );
+      if (!sandboxed.ok) return 2;
+      logTaskContainmentNotice(sandboxed.notice, invocation.cleanEnv === true);
+      const outcome = sandboxed.value;
       if (invocation.format === "json") {
         process.stdout.write(renderReceiptJson(outcome.receipt));
       } else if (invocation.format === "agent") {
@@ -852,7 +906,13 @@ export async function runCli(argv: readonly string[]): Promise<number> {
       // parseCliArgs admits only json|terminal for the test command,
       // so this narrowing reflects parser-guaranteed input.
       const testFormat = invocation.format as TestFormat | undefined;
-      return await runTest(invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE, invocation.plan === true, testFormat, taskEnvironmentFor(invocation));
+      return await runTest(
+        invocation.profile ?? TEST_PLAN_DEFAULT_PROFILE,
+        invocation.plan === true,
+        testFormat,
+        taskEnvironmentFor(invocation),
+        invocation.sandbox === true,
+      );
     }
     if (invocation.command === "security") {
       const gitleaksPath = configuredGitleaksPathV1();

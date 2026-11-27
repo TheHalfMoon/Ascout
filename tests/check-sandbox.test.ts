@@ -1,16 +1,20 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { runCheck, sandboxResultLink, type CheckTaskSandboxV1 } from "../src/check.js";
+import { LINUX_SANDBOX_NOTICE } from "../src/assurance/containment/task-sandbox.js";
+import { runCheck, sandboxResultFoldersForTask, sandboxResultLink, type CheckTaskSandboxV1 } from "../src/check.js";
 import { CliUsageError, parseCliArgs, runCli } from "../src/cli.js";
 import { runProcess } from "../src/process.js";
 
 const prepare = vi.hoisted(() => vi.fn());
-vi.mock("../src/assurance/containment/linux-task-sandbox.js", () => ({ prepareLinuxTaskSandboxV1: prepare }));
+vi.mock("../src/assurance/containment/task-sandbox.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/assurance/containment/task-sandbox.js")>();
+  return { ...actual, prepareTaskSandboxV1: prepare };
+});
 
 vi.setConfig({ testTimeout: 180_000 });
 
@@ -38,10 +42,10 @@ function recordingSandbox(dir: string): { sandbox: CheckTaskSandboxV1; log: stri
   const wrapper = join(dir, "wrapper.cjs");
   writeFileSync(wrapper, `const [log, cwd, file, ...args] = process.argv.slice(2);
 require("node:fs").appendFileSync(log, JSON.stringify({ file, args, cwd }) + "\\n");
-const run = require("node:child_process").spawnSync(file, args, { stdio: "inherit", cwd });
+const run = require("node:child_process").spawnSync(file, args, { stdio: "inherit", cwd, shell: process.platform === "win32" && /\\.(?:cmd|bat)$/iu.test(file) });
 process.exit(run.status ?? 1);
 `);
-  return { log, sandbox: { mechanism: "recording", wrap: (file, argv, cwd) => ({ file: process.execPath, argv: [wrapper, log, cwd, file, ...argv] }) } };
+  return { log, sandbox: { mechanism: "recording", notice: LINUX_SANDBOX_NOTICE, wrap: (file, argv, cwd) => ({ file: process.execPath, argv: [wrapper, log, cwd, file, ...argv] }) } };
 }
 
 const launches = (log: string): { file: string; args: string[]; cwd: string }[] => readFileSync(log, "utf8").trim().split("\n").map((line) => JSON.parse(line) as { file: string; args: string[]; cwd: string });
@@ -63,11 +67,13 @@ function repository(dir: string, command: readonly string[]): { root: string; se
 }
 
 describe("the --sandbox flag", () => {
-  it("parses for check only, once, with --pass-env, and needs no --clean-env", () => {
+  it("parses for check and test, once, with --pass-env, and needs no --clean-env", () => {
     expect(parseCliArgs(["check", "--sandbox"])).toMatchObject({ command: "check", sandbox: true });
     expect(parseCliArgs(["check", "--sandbox", "--pass-env", "DATABASE_URL", "--format", "json"])).toMatchObject({ sandbox: true, passEnv: ["DATABASE_URL"], format: "json" });
+    expect(parseCliArgs(["test", "--sandbox"])).toMatchObject({ command: "test", sandbox: true });
+    expect(parseCliArgs(["test", "--profile", "standard", "--sandbox", "--pass-env", "CI"])).toMatchObject({ command: "test", sandbox: true, passEnv: ["CI"] });
     expect(parseCliArgs(["check"])).not.toHaveProperty("sandbox");
-    for (const argv of [["test", "--sandbox"], ["review", "--sandbox"], ["pr-evidence", "--sandbox"], ["check", "--sandbox", "--sandbox"], ["check", "--pass-env", "A"]]) {
+    for (const argv of [["test", "--plan", "--sandbox"], ["review", "--sandbox"], ["pr-evidence", "--sandbox"], ["check", "--sandbox", "--sandbox"], ["test", "--sandbox", "--sandbox"], ["check", "--pass-env", "A"]]) {
       expect(() => parseCliArgs(argv), argv.join(" ")).toThrow(CliUsageError);
     }
   });
@@ -135,13 +141,29 @@ describe("check with a task sandbox", () => {
   });
 });
 
-describe("the result-folder link check", () => {
-  it("finds a link at any depth, ignores missing folders, and passes plain files and folders", () => {
+describe("least-privilege result folders and result-folder entry check", () => {
+  it("grants writable result folders only to test and pytestBasic tasks", () => {
+    expect(sandboxResultFoldersForTask("/run/raw", "typecheck")).toEqual([]);
+    expect(sandboxResultFoldersForTask("/run/raw", "lint")).toEqual([]);
+    expect(sandboxResultFoldersForTask("/run/raw", "test")).toEqual([join("/run/raw", "test")]);
+    expect(sandboxResultFoldersForTask("/run/raw", "pytestBasic")).toEqual([join("/run/raw", "pytest")]);
+  });
+
+  it("finds a symlink or hard link at any depth, ignores missing folders, and passes plain files and folders", () => {
     const dir = scratch();
     const results = join(dir, "test");
     mkdirSync(join(results, "deep", "er"), { recursive: true });
-    writeFileSync(join(results, "deep", "er", "results.json"), "{}");
+    const plainFile = join(results, "deep", "er", "results.json");
+    writeFileSync(plainFile, "{}");
     expect(sandboxResultLink([results, join(dir, "missing")])).toBeNull();
+
+    const outside = join(dir, "outside.txt");
+    writeFileSync(outside, "host");
+    const hardlink = join(results, "deep", "hardlinked.txt");
+    linkSync(outside, hardlink);
+    expect(sandboxResultLink([results])).toBe(hardlink);
+    rmSync(hardlink);
+
     const link = join(results, "deep", "er", "coverage");
     try {
       symlinkSync(dir, link, "junction");
@@ -153,14 +175,16 @@ describe("the result-folder link check", () => {
 });
 
 describe("check with a sandboxed task that plants a link in its result folder", () => {
-  it("stops the run before reading through the link", async () => {
+  it("stops the run before reading through the link and invokes afterTask", async () => {
     const dir = scratch();
     const target = join(dir, "host-file.txt");
     writeFileSync(target, "host file");
     const { sandbox } = recordingSandbox(dir);
     let plantedLink = false;
+    const afterTask = vi.fn();
     const planting: CheckTaskSandboxV1 = {
       mechanism: "planting",
+      afterTask,
       wrap: (file, argv, cwd, writable) => {
         try {
           symlinkSync(dir, join(writable[0]!, "pass-2"), "junction");
@@ -171,9 +195,16 @@ describe("check with a sandboxed task that plants a link in its result folder", 
         return sandbox.wrap(file, argv, cwd, writable);
       },
     };
-    const { root } = repository(dir, [process.execPath]);
+    const root = join(dir, "repo");
+    mkdirSync(root);
+    writeFileSync(join(root, ".gitignore"), ".ascout/\n");
+    writeFileSync(join(root, "ascout.config.json"), JSON.stringify({
+      version: 1,
+      tasks: { pytestBasic: { command: [process.execPath, "-e", "process.exit(0)"] } },
+    }));
+    for (const argv of [["init", "-q"], ["config", "user.name", "Ascout Sandbox Fixture"], ["config", "user.email", "sandbox@example.invalid"], ["config", "commit.gpgsign", "false"], ["add", "."], ["commit", "-qm", "baseline"]]) git(root, argv);
     const planted = await runCheck(root, { taskSandbox: planting }).then(() => "finished", (error: Error) => error.message);
-    // A run that finished is acceptable only when the link could not be planted at all.
+    expect(afterTask).toHaveBeenCalledTimes(1);
     expect(planted === "finished").toBe(!plantedLink);
     if (!plantedLink) return;
     expect(planted).toMatch(/a sandboxed task left a link at .*pass-2; Ascout won't read or write through it/u);
@@ -181,24 +212,31 @@ describe("check with a sandboxed task that plants a link in its result folder", 
   });
 });
 
-describe("a task launched while a sandboxed run is in progress", () => {
-  it("fails without starting when it has lost its sandbox, instead of running unsandboxed", async () => {
+describe("concurrent sandboxed and unsandboxed check runs", () => {
+  it("keeps each run isolated via AsyncLocalStorage without cross-run interference", async () => {
     const dir = scratch();
     const slow = join(dir, "slow.cjs");
-    writeFileSync(slow, `setTimeout(() => process.exit(0), 3000);\n`);
-    const held: CheckTaskSandboxV1 = { mechanism: "slow", wrap: (_file, _argv) => ({ file: process.execPath, argv: [slow] }) };
+    writeFileSync(slow, `setTimeout(() => process.exit(0), 500);\n`);
+    const wrapped: string[] = [];
+    const held: CheckTaskSandboxV1 = {
+      mechanism: "slow",
+      wrap: (file, _argv, _cwd, writable) => {
+        wrapped.push(file);
+        expect(writable).toEqual([]);
+        return { file: process.execPath, argv: [slow] };
+      },
+    };
     mkdirSync(join(dir, "a"));
     mkdirSync(join(dir, "b"));
     const first = repository(join(dir, "a"), [process.execPath]);
     const second = repository(join(dir, "b"), [process.execPath]);
-    const sandboxed = runCheck(first.root, { taskSandbox: held });
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    const unsandboxed = await runCheck(second.root).then(() => "ran", (error: Error) => error.message);
-    await sandboxed;
-    expect(unsandboxed).toBe("a sandboxed run lost its sandbox before launching a task; nothing was started");
-    expect(existsSync(second.seen)).toBe(false);
-    // Once the sandboxed run is over, a plain run works again.
-    await runCheck(second.root);
+    const [firstOutcome, secondOutcome] = await Promise.all([
+      runCheck(first.root, { taskSandbox: held }),
+      runCheck(second.root),
+    ]);
+    expect(wrapped).toHaveLength(1);
+    expect(firstOutcome.receipt.tasks.find((task) => task.task_id === "typecheck")?.status).toBe("PASS");
+    expect(secondOutcome.receipt.tasks.find((task) => task.task_id === "typecheck")?.status).toBe("PASS");
     expect(existsSync(second.seen)).toBe(true);
   });
 });
@@ -227,15 +265,17 @@ describe("check --sandbox from the command line", () => {
     expect(prepare).toHaveBeenCalledWith(root);
   });
 
-  it("runs every task through the sandbox with the allowlisted environment, and says the tier is still T0", async () => {
+  it("runs every task through the sandbox with the allowlisted environment, disposes it, and prints its notice", async () => {
     vi.stubEnv("ASCOUT_SANDBOX_PROBE_SECRET", "s3cret");
     vi.stubEnv("ASCOUT_SANDBOX_PASSED", "fine");
     const dir = scratch();
     const { sandbox, log } = recordingSandbox(dir);
+    const dispose = vi.fn();
     const { root, seen } = repository(dir, [process.execPath]);
-    prepare.mockResolvedValue({ sandbox });
+    prepare.mockResolvedValue({ sandbox: { ...sandbox, dispose } });
     const { stderr } = await inRepo(root, ["check", "--sandbox", "--pass-env", "ASCOUT_SANDBOX_PASSED"]);
     expect(launches(log)).toHaveLength(1);
+    expect(dispose).toHaveBeenCalledTimes(1);
     const names = (JSON.parse(readFileSync(seen, "utf8")) as string[]).map((name) => name.toUpperCase());
     expect(names).not.toContain("ASCOUT_SANDBOX_PROBE_SECRET");
     expect(names).toContain("ASCOUT_SANDBOX_PASSED");
@@ -244,6 +284,88 @@ describe("check --sandbox from the command line", () => {
     expect(stderr).toContain("not externally certified or human-audited");
     expect(stderr).toContain("Ascout still supports only repositories you trust");
     for (const limit of ["files stay writable", "Unix socket", "/usr and /etc stay readable", "no seccomp filter", "no CPU or memory limit", "race the sandbox's teardown"]) expect(stderr, limit).toContain(limit);
+  });
+
+  it("supports ascout test --sandbox, refuses cleanly on failure, and disposes after execution", async () => {
+    const dir = scratch();
+    const { root, seen } = repository(dir, [process.execPath]);
+    prepare.mockResolvedValue({ refused: "sandbox unavailable" });
+    const refused = await inRepo(root, ["test", "--sandbox"]);
+    expect(refused.code).toBe(2);
+    expect(refused.stderr).toContain("ascout test --sandbox refused: sandbox unavailable. Nothing ran");
+    expect(existsSync(seen)).toBe(false);
+
+    const { sandbox, log } = recordingSandbox(dir);
+    const dispose = vi.fn();
+    prepare.mockResolvedValue({ sandbox: { ...sandbox, notice: "CUSTOM SANDBOX NOTICE", dispose } });
+    const ran = await inRepo(root, ["test", "--sandbox", "--format", "json"]);
+    expect(ran.code).toBe(4);
+    expect(launches(log)).toHaveLength(1);
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(ran.stderr).toContain("CUSTOM SANDBOX NOTICE");
+  });
+
+  it("seals sandboxed Vitest generated artifacts into host-only raw/sealed/ and verifies pytest JUnit via single-open descriptor", async () => {
+    const dir = scratch();
+    const { sandbox } = recordingSandbox(dir);
+    const root = join(dir, "repo");
+    mkdirSync(join(root, "src"), { recursive: true });
+    mkdirSync(join(root, "node_modules", ".bin"), { recursive: true });
+    mkdirSync(join(root, "node_modules", "vitest"), { recursive: true });
+    mkdirSync(join(root, "node_modules", "@vitest", "coverage-v8"), { recursive: true });
+    writeFileSync(join(root, ".gitignore"), ".ascout/\nnode_modules/\n");
+    writeFileSync(join(root, "package.json"), JSON.stringify({
+      name: "sealed-fixture",
+      version: "1.0.0",
+      scripts: { test: "vitest run" },
+      devDependencies: { vitest: "4.0.0", "@vitest/coverage-v8": "4.0.0" },
+    }));
+    writeFileSync(join(root, "node_modules", "vitest", "package.json"), JSON.stringify({ name: "vitest", version: "4.0.0" }));
+    writeFileSync(join(root, "node_modules", "@vitest", "coverage-v8", "package.json"), JSON.stringify({ name: "@vitest/coverage-v8", version: "4.0.0" }));
+    const stubScript = join(dir, "fake-vitest.cjs");
+    writeFileSync(stubScript, `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const outArg = args.find((a) => a.startsWith("--outputFile="));
+const covArg = args.find((a) => a.startsWith("--coverage.reportsDirectory="));
+if (outArg) {
+  const outPath = outArg.slice("--outputFile=".length);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify({ success: true, numTotalTests: 1, numPassedTests: 1, numFailedTests: 0, testResults: [] }));
+}
+if (covArg) {
+  const covDir = covArg.slice("--coverage.reportsDirectory=".length);
+  fs.mkdirSync(covDir, { recursive: true });
+  fs.writeFileSync(path.join(covDir, "lcov.info"), "SF:src/a.js\\nDA:1,1\\nLF:1\\nLH:1\\nend_of_record\\n");
+}
+process.exit(0);
+`);
+    if (process.platform === "win32") {
+      writeFileSync(join(root, "node_modules", ".bin", "vitest.cmd"), `@echo off\r\n"${process.execPath}" "${stubScript}" %*\r\n`);
+    } else {
+      writeFileSync(join(root, "node_modules", ".bin", "vitest"), `#!/bin/sh\nexec "${process.execPath}" "${stubScript}" "$@"\n`, { mode: 0o755 });
+    }
+    writeFileSync(join(root, "src", "a.js"), "export const a = 1;\n");
+    writeFileSync(join(root, "test_sample.py"), "def test_ok(): pass\n");
+    writeFileSync(join(root, "ascout.config.json"), JSON.stringify({
+      version: 1,
+      tasks: {
+        pytestBasic: {
+          command: [process.execPath, "-e", 'const fs = require("node:fs"); const arg = process.argv.find((a) => a.startsWith("--junitxml=")); if (arg) fs.writeFileSync(arg.slice(11), "<testsuite tests=\\"1\\" failures=\\"0\\" errors=\\"0\\"><testcase name=\\"ok\\"/></testsuite>");'],
+        },
+      },
+    }));
+    for (const argv of [["init", "-q"], ["config", "user.name", "Ascout Sandbox Fixture"], ["config", "user.email", "sandbox@example.invalid"], ["config", "commit.gpgsign", "false"], ["add", "."], ["commit", "-qm", "baseline"]]) git(root, argv);
+    writeFileSync(join(root, "src", "a.js"), "export const a = 2;\n");
+
+    const { receipt } = await runCheck(root, { taskSandbox: sandbox });
+    const sealed = receipt.artifacts.filter((a) => a.relative_run_path.startsWith("raw/sealed/"));
+    expect(sealed.length).toBeGreaterThanOrEqual(2);
+    for (const artifact of sealed) {
+      expect(existsSync(join(root, ".ascout", "runs", receipt.run.run_id, ...artifact.relative_run_path.split("/")))).toBe(true);
+    }
+    expect(receipt.tasks.find((t) => t.task_id === "pytestBasic")?.status).toBe("PASS");
   });
 
   it("is not prepared, and nothing is wrapped, without the flag", async () => {
