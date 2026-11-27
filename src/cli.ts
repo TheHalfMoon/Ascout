@@ -75,9 +75,17 @@ import {
   renderSecurityGitleaksTerminalV1,
   runSecurityGitleaksV1,
 } from "./assurance/security/security-gitleaks.js";
+import {
+  parseEvidenceSubcommandArgsV1,
+  parseReportArgsV1,
+  runEvidenceCommandV1,
+  runReportCommandV1,
+  type EvidenceSubcommandV1,
+  type ReportCommandOptionsV1,
+} from "./evidence/cli-command.js";
 import type { TestProfile } from "./assurance/test/profile-policy.js";
 
-const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "mcp", "pr-evidence", "pr-publish", "pr-ai-review", "pr-ai-publish"] as const;
+const COMMANDS = ["init", "doctor", "check", "review", "test", "security", "evidence", "report", "mcp", "pr-evidence", "pr-publish", "pr-ai-review", "pr-ai-publish"] as const;
 const ALLOW_CHANGED_COMMAND_SURFACE = "--allow-changed-command-surface";
 const CLEAN_ENV_FLAG = "--clean-env";
 const SANDBOX_FLAG = "--sandbox";
@@ -133,6 +141,8 @@ export interface CliInvocation {
   skipTests?: true;
   bundlePath?: string;
   prHead?: string;
+  evidenceSubcommand?: EvidenceSubcommandV1;
+  reportOptions?: ReportCommandOptionsV1;
 }
 
 export class CliUsageError extends Error {
@@ -245,6 +255,29 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation {
       ...(evidenceCleanEnv ? { cleanEnv: true as const } : {}),
       ...(evidencePassEnv.length > 0 ? { passEnv: evidencePassEnv } : {}),
     };
+  }
+
+  if (commandToken === "evidence") {
+    try {
+      return {
+        command: "evidence",
+        allowChangedCommandSurface: false,
+        evidenceSubcommand: parseEvidenceSubcommandArgsV1(rest),
+      };
+    } catch (error) {
+      throw new CliUsageError((error as Error).message);
+    }
+  }
+  if (commandToken === "report") {
+    try {
+      return {
+        command: "report",
+        allowChangedCommandSurface: false,
+        reportOptions: parseReportArgsV1(rest),
+      };
+    } catch (error) {
+      throw new CliUsageError((error as Error).message);
+    }
   }
 
   if (commandToken === "mcp" && rest.length > 0) {
@@ -484,6 +517,8 @@ export function usageText(): string {
     "  ascout pr-ai-review",
     "  ascout pr-ai-publish <artifact>",
     `  ascout security [${FORMAT_FLAG} json|terminal]`,
+    "  ascout evidence <list|show|verify|diff|export|prune|record> [options]",
+    `  ascout report [--id <id>] [${FORMAT_FLAG} terminal|json|markdown] [--out <path>]`,
     "  ascout mcp",
     "  ascout --help | --version",
   ].join("\n");
@@ -928,6 +963,18 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         taskEnvironmentFor(invocation),
         invocation.sandbox === true,
       );
+    }
+    if (invocation.command === "evidence") {
+      return await runEvidenceCommandV1(process.cwd(), invocation.evidenceSubcommand!, {
+        writeStdout: (text) => { process.stdout.write(text); },
+        writeStderr: (text) => { process.stderr.write(text); },
+      });
+    }
+    if (invocation.command === "report") {
+      return runReportCommandV1(process.cwd(), invocation.reportOptions!, {
+        writeStdout: (text) => { process.stdout.write(text); },
+        writeStderr: (text) => { process.stderr.write(text); },
+      });
     }
     if (invocation.command === "security") {
       const gitleaksPath = configuredGitleaksPathV1();
