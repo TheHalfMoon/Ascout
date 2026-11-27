@@ -54,12 +54,13 @@ const archivePath = join(root, selected.name);
 writeFileSync(archivePath, bytes);
 
 const extraction = process.platform === "win32"
-  ? spawnSync(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "WindowsPowerShell", "v1.0", "powershell.exe"), [
-      "-NoProfile",
-      "-NonInteractive",
-      "-Command",
-      "Expand-Archive -LiteralPath $env:ASCOUT_ARCHIVE -DestinationPath $env:ASCOUT_DEST",
-    ], { stdio: "inherit", env: { ...process.env, ASCOUT_ARCHIVE: archivePath, ASCOUT_DEST: extracted } })
+  ? spawnSync(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe"), [
+      "-xf",
+      archivePath,
+      "-C",
+      extracted,
+      selected.binary,
+    ], { stdio: "inherit" })
   : spawnSync("/usr/bin/tar", ["-xzf", archivePath, "-C", extracted, selected.binary], { stdio: "inherit" });
 if (extraction.error || extraction.status !== 0) fail("extraction failed");
 
