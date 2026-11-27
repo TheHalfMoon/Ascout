@@ -46,6 +46,8 @@ const EXPECTED_USAGE = [
   "  ascout pr-ai-review",
   "  ascout pr-ai-publish <artifact>",
   "  ascout security [--format json|terminal]",
+  "  ascout evidence <list|show|verify|diff|export|prune|record> [options]",
+  "  ascout report [--id <id>] [--format terminal|json|markdown] [--out <path>]",
   "  ascout mcp",
   "  ascout --help | --version",
 ].join("\n");
