@@ -4,7 +4,7 @@ import { closeSync, fstatSync, openSync, readFileSync, realpathSync, existsSync,
 import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { join, resolve } from "node:path";
-import { runCheck, type CheckTaskSandboxV1 } from "./check.js";
+import { runCheck, TaskSandboxRefusedError, type CheckRunOptions } from "./check.js";
 import {
   prepareTaskSandboxV1 as prepareTaskSandbox,
   type PreparedTaskSandboxV1,
@@ -719,6 +719,7 @@ async function runTest(
   format: TestFormat | undefined,
   taskEnvironment: NodeJS.ProcessEnv | undefined,
   useSandbox: boolean,
+  passEnv?: readonly string[],
 ): Promise<number> {
   if (planOnly) {
     const result = computeTestPlanV1(profile);
@@ -759,10 +760,12 @@ async function runTest(
     useSandbox,
     "test",
     root,
-    (taskSandbox) => withRunCancellation((signal) => runCheck(root, {
+    (prepareTaskSandbox) => withRunCancellation((signal) => runCheck(root, {
       signal,
-      ...buildCheckContainmentOptions(taskEnvironment, taskSandbox),
+      ...buildCheckContainmentOptions(taskEnvironment, prepareTaskSandbox),
     })),
+    undefined,
+    passEnv,
   );
   if (!sandboxed.ok) return OPERATIONAL_ERROR_EXIT_CODE;
   logTaskContainmentNotice(sandboxed.notice, taskEnvironment !== undefined);
@@ -779,52 +782,48 @@ async function runTest(
 export async function runWithOptionalTaskSandbox<T>(
   useSandbox: boolean,
   commandLabel: "check" | "test",
-  root: string,
-  run: (taskSandbox: CheckTaskSandboxV1 | undefined) => Promise<T>,
-  prepare: (workspace: string) => Promise<{ sandbox: PreparedTaskSandboxV1 } | { refused: string }> = prepareTaskSandbox,
+  _root: string,
+  run: (prepareTaskSandbox: CheckRunOptions["prepareTaskSandbox"]) => Promise<T>,
+  prepare: (
+    workspace: string,
+    deps?: undefined,
+    options?: { readonly passEnv?: readonly string[] },
+  ) => Promise<{ sandbox: PreparedTaskSandboxV1 } | { refused: string }> = prepareTaskSandbox,
+  passEnv?: readonly string[],
 ): Promise<{ readonly ok: true; readonly value: T; readonly notice: string | null } | { readonly ok: false }> {
-  let taskSandbox: PreparedTaskSandboxV1 | undefined;
-  if (useSandbox) {
-    const prepared = await prepare(root);
-    if ("refused" in prepared) {
-      console.error(`ascout ${commandLabel} ${SANDBOX_FLAG} refused: ${prepared.refused}. Nothing ran: Ascout never falls back to running tasks outside the sandbox.`);
+  let notice: string | null = null;
+  const lockedPrepare: CheckRunOptions["prepareTaskSandbox"] = useSandbox
+    ? async (canonicalRoot: string) => {
+        const prepared = passEnv === undefined
+          ? await prepare(canonicalRoot)
+          : await prepare(canonicalRoot, undefined, { passEnv });
+        if ("refused" in prepared) return prepared;
+        notice = prepared.sandbox.notice;
+        return prepared;
+      }
+    : undefined;
+  try {
+    const value = await run(lockedPrepare);
+    return { ok: true, value, notice };
+  } catch (error) {
+    if (error instanceof TaskSandboxRefusedError) {
+      console.error(`ascout ${commandLabel} ${SANDBOX_FLAG} refused: ${error.message}. Nothing ran: Ascout never falls back to running tasks outside the sandbox.`);
       return { ok: false };
     }
-    taskSandbox = prepared.sandbox;
-  }
-  let runFailed = false;
-  try {
-    const value = await run(taskSandbox);
-    return { ok: true, value, notice: taskSandbox === undefined ? null : taskSandbox.notice };
-  } catch (error) {
-    runFailed = true;
     throw error;
-  } finally {
-    const dispose = taskSandbox?.dispose;
-    if (dispose !== undefined) {
-      if (runFailed) {
-        try {
-          await dispose();
-        } catch {
-          // Preserve the primary run/security error if cleanup also fails.
-        }
-      } else {
-        await dispose();
-      }
-    }
   }
 }
 
 export function buildCheckContainmentOptions(
   taskEnvironment: ReturnType<typeof allowlistedTaskEnvironmentV1> | undefined,
-  taskSandbox: CheckTaskSandboxV1 | undefined,
+  prepareTaskSandbox: CheckRunOptions["prepareTaskSandbox"] | undefined,
 ): {
   readonly taskEnvironment?: ReturnType<typeof allowlistedTaskEnvironmentV1>;
-  readonly taskSandbox?: CheckTaskSandboxV1;
+  readonly prepareTaskSandbox?: NonNullable<CheckRunOptions["prepareTaskSandbox"]>;
 } {
   return {
     ...(taskEnvironment === undefined ? {} : { taskEnvironment }),
-    ...(taskSandbox === undefined ? {} : { taskSandbox }),
+    ...(prepareTaskSandbox === undefined ? {} : { prepareTaskSandbox }),
   };
 }
 
@@ -878,11 +877,13 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         invocation.sandbox === true,
         "check",
         process.cwd(),
-        (taskSandbox) => withRunCancellation((signal) => runCheck(process.cwd(), {
+        (prepareTaskSandbox) => withRunCancellation((signal) => runCheck(process.cwd(), {
           allowChangedCommandSurface: invocation.allowChangedCommandSurface,
-          ...buildCheckContainmentOptions(taskEnvironment, taskSandbox),
+          ...buildCheckContainmentOptions(taskEnvironment, prepareTaskSandbox),
           signal,
         })),
+        undefined,
+        invocation.passEnv,
       );
       if (!sandboxed.ok) return 2;
       logTaskContainmentNotice(sandboxed.notice, invocation.cleanEnv === true);
@@ -962,6 +963,7 @@ export async function runCli(argv: readonly string[]): Promise<number> {
         testFormat,
         taskEnvironmentFor(invocation),
         invocation.sandbox === true,
+        invocation.passEnv,
       );
     }
     if (invocation.command === "evidence") {

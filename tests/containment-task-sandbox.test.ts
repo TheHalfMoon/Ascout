@@ -1,4 +1,5 @@
-import { closeSync, linkSync, mkdirSync, mkdtempSync, openSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { closeSync, linkSync, mkdirSync, mkdtempSync, openSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createConnection } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,19 +9,23 @@ import { realLoopbackPortV1 as macosRealLoopbackPort } from "../src/assurance/co
 import {
   LINUX_SANDBOX_NOTICE,
   MACOS_SANDBOX_NOTICE,
+  WINDOWS_SANDBOX_NOTICE,
   prepareTaskSandboxV1,
   type TaskSandboxDepsV1,
 } from "../src/assurance/containment/task-sandbox.js";
 import {
+  TaskSandboxRefusedError,
   isBoundSingleFileV1,
   isSafeGeneratedArtifactStat,
   jestSelectedNoTest,
   openManagedGeneratedArtifact,
   readBoundedFdBytesV1,
   readSafeBoundedArtifactTextV1,
+  runCheck,
   vitestSelectedNoTest,
 } from "../src/check.js";
 import { buildCheckContainmentOptions, logTaskContainmentNotice, runWithOptionalTaskSandbox } from "../src/cli.js";
+import { acquireRunLock } from "../src/lock.js";
 
 function depsFor(
   platform: NodeJS.Platform,
@@ -30,6 +35,7 @@ function depsFor(
     platform,
     prepareLinux: vi.fn(async () => ({ refused: "linux unused" })),
     prepareMacos: vi.fn(async () => ({ refused: "macos unused" })),
+    prepareWindows: vi.fn(async () => ({ refused: "windows unused" })),
     ...overrides,
   };
 }
@@ -76,9 +82,36 @@ describe("OS task sandbox dispatcher (prepareTaskSandboxV1)", () => {
     expect(refused).toEqual({ refused: "sandbox-exec missing" });
   });
 
-  it("refuses win32 (until AppContainer wiring) and unsupported platforms without fallback", async () => {
-    const win = await prepareTaskSandboxV1("C:\\repo", depsFor("win32"));
-    expect(win).toEqual({ refused: "the Windows AppContainer task sandbox is not yet wired into --sandbox" });
+  it("dispatches win32 to AppContainer with T1 notice, afterTask, dispose, passEnv, and refuses unsupported platforms without fallback", async () => {
+    const wrap = vi.fn(() => ({ file: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", argv: [] }));
+    const afterTask = vi.fn(async () => undefined);
+    const dispose = vi.fn(async () => undefined);
+    const prepareWindows = vi.fn(async () => ({
+      sandbox: { mechanism: "windows-appcontainer" as const, wrap, afterTask, dispose },
+    }));
+    const winOk = await prepareTaskSandboxV1(
+      "C:\\repo",
+      depsFor("win32", { prepareWindows }),
+      { passEnv: ["CUSTOM_TOKEN"] },
+    );
+    expect("sandbox" in winOk).toBe(true);
+    expect(prepareWindows).toHaveBeenCalledWith("C:\\repo", undefined, { passEnv: ["CUSTOM_TOKEN"] });
+    if ("sandbox" in winOk) {
+      expect(winOk.sandbox.mechanism).toBe("windows-appcontainer");
+      expect(winOk.sandbox.tier).toBe("T1");
+      expect(winOk.sandbox.notice).toBe(WINDOWS_SANDBOX_NOTICE);
+      expect(winOk.sandbox.wrap).toBe(wrap);
+      await winOk.sandbox.afterTask?.(["C:\\repo\\.ascout\\runs\\r1\\raw\\test"]);
+      expect(afterTask).toHaveBeenCalledTimes(1);
+      await winOk.sandbox.dispose?.();
+      expect(dispose).toHaveBeenCalledTimes(1);
+    }
+
+    const winRefused = await prepareTaskSandboxV1(
+      "C:\\repo",
+      depsFor("win32", { prepareWindows: async () => ({ refused: "AppContainer unavailable" }) }),
+    );
+    expect(winRefused).toEqual({ refused: "AppContainer unavailable" });
 
     const other = await prepareTaskSandboxV1("/repo", depsFor("freebsd"));
     expect(other).toEqual({ refused: "no task sandbox is available for platform freebsd" });
@@ -88,23 +121,29 @@ describe("OS task sandbox dispatcher (prepareTaskSandboxV1)", () => {
     expect("refused" in defaultResult).toBe(true);
   });
 
-  it("manages optional sandbox lifecycle, disposal on throw, containment options, and notices", async () => {
+  it("manages optional sandbox lifecycle under run.lock, disposal on throw, containment options, and notices", async () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     try {
-      const disabled = await runWithOptionalTaskSandbox(false, "check", "/repo", async (sb) => {
-        expect(sb).toBeUndefined();
+      const disabled = await runWithOptionalTaskSandbox(false, "check", "/repo", async (prepareCb) => {
+        expect(prepareCb).toBeUndefined();
         return 42;
       });
       expect(disabled).toEqual({ ok: true, value: 42, notice: null });
 
+      const refusedPrepare = vi.fn(async () => ({ refused: "sandbox unavailable" }));
       const refused = await runWithOptionalTaskSandbox(
         true,
         "test",
         "/repo",
-        async () => 1,
-        async () => ({ refused: "sandbox unavailable" }),
+        async (prepareCb) => {
+          const outcome = await prepareCb!("/repo");
+          if ("refused" in outcome) throw new TaskSandboxRefusedError(outcome.refused);
+          return 1;
+        },
+        refusedPrepare,
       );
       expect(refused).toEqual({ ok: false });
+      expect(refusedPrepare).toHaveBeenCalledWith("/repo");
       expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("ascout test --sandbox refused: sandbox unavailable"));
 
       const dispose = vi.fn(async () => undefined);
@@ -112,30 +151,36 @@ describe("OS task sandbox dispatcher (prepareTaskSandboxV1)", () => {
       const sandbox = { mechanism: "macos-sandbox-exec", tier: "T1" as const, notice: MACOS_SANDBOX_NOTICE, wrap, dispose };
       const linuxSandboxNoDispose = { mechanism: "linux-bubblewrap", tier: "T1" as const, notice: LINUX_SANDBOX_NOTICE, wrap };
 
+      const linuxPrepare = vi.fn(async () => ({ sandbox: linuxSandboxNoDispose }));
       const linuxOk = await runWithOptionalTaskSandbox(
         true,
         "check",
         "/repo",
-        async (sb) => {
-          expect(sb).toBe(linuxSandboxNoDispose);
+        async (prepareCb) => {
+          const outcome = await prepareCb!("/repo");
+          expect(outcome).toEqual({ sandbox: linuxSandboxNoDispose });
           return "linux-done";
         },
-        async () => ({ sandbox: linuxSandboxNoDispose }),
+        linuxPrepare,
       );
       expect(linuxOk).toEqual({ ok: true, value: "linux-done", notice: LINUX_SANDBOX_NOTICE });
+      expect(linuxPrepare).toHaveBeenCalledWith("/repo");
 
-      const ok = await runWithOptionalTaskSandbox(
+      const passEnvPrepare = vi.fn(async () => ({ sandbox }));
+      const withPassEnv = await runWithOptionalTaskSandbox(
         true,
         "test",
         "/repo",
-        async (sb) => {
-          expect(sb).toBe(sandbox);
+        async (prepareCb) => {
+          const outcome = await prepareCb!("/repo");
+          expect(outcome).toEqual({ sandbox });
           return "done";
         },
-        async () => ({ sandbox }),
+        passEnvPrepare,
+        ["EXTRA_FLAG"],
       );
-      expect(ok).toEqual({ ok: true, value: "done", notice: MACOS_SANDBOX_NOTICE });
-      expect(dispose).toHaveBeenCalledTimes(1);
+      expect(withPassEnv).toEqual({ ok: true, value: "done", notice: MACOS_SANDBOX_NOTICE });
+      expect(passEnvPrepare).toHaveBeenCalledWith("/repo", undefined, { passEnv: ["EXTRA_FLAG"] });
 
       await expect(
         runWithOptionalTaskSandbox(
@@ -148,28 +193,75 @@ describe("OS task sandbox dispatcher (prepareTaskSandboxV1)", () => {
           async () => ({ sandbox }),
         ),
       ).rejects.toThrow("boom");
-      expect(dispose).toHaveBeenCalledTimes(2);
 
-      // If run throws AND dispose throws, the primary run error must still propagate intact.
-      const failingDispose = vi.fn(async () => {
-        throw new Error("cleanup failed");
-      });
-      await expect(
-        runWithOptionalTaskSandbox(
-          true,
-          "check",
-          "/repo",
-          async () => {
-            throw new Error("primary security error");
-          },
-          async () => ({ sandbox: { ...sandbox, dispose: failingDispose } }),
-        ),
-      ).rejects.toThrow("primary security error");
-      expect(failingDispose).toHaveBeenCalledTimes(1);
+      // Verify runCheck acquires .ascout/run.lock BEFORE calling prepareTaskSandbox, disposes on
+      // success and failure (preserving the primary error even if dispose throws), and skips
+      // prepareTaskSandbox when the lock is already held by another run.
+      const repo = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-lock-sb-")));
+      try {
+        const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, stdio: "ignore" });
+        git("init", "-q");
+        git("config", "user.name", "t");
+        git("config", "user.email", "t@example.invalid");
+        git("config", "commit.gpgsign", "false");
+        writeFileSync(join(repo, "a.txt"), "ok\n");
+        git("add", ".");
+        git("commit", "-qm", "init");
+
+        const held = await acquireRunLock(repo);
+        const neverCalled = vi.fn(async () => ({ sandbox }));
+        try {
+          await expect(runCheck(repo, { prepareTaskSandbox: neverCalled })).rejects.toThrow(/run\.lock/u);
+          expect(neverCalled).not.toHaveBeenCalled();
+        } finally {
+          await held.release();
+        }
+
+        // Refused prepareTaskSandbox throws TaskSandboxRefusedError and releases the lock.
+        await expect(
+          runCheck(repo, { prepareTaskSandbox: async () => ({ refused: "denied under lock" }) }),
+        ).rejects.toThrow(TaskSandboxRefusedError);
+
+        // Accepted sandbox with no dispose completes cleanly.
+        const okLinux = await runCheck(repo, {
+          prepareTaskSandbox: async () => ({ sandbox: linuxSandboxNoDispose }),
+        });
+        expect(okLinux.receipt.summary.exit_code).toBe(4);
+
+        // Accepted sandbox with dispose calls dispose after body finishes.
+        const okDispose = vi.fn(async () => undefined);
+        await runCheck(repo, {
+          prepareTaskSandbox: async () => ({ sandbox: { ...sandbox, dispose: okDispose } }),
+        });
+        expect(okDispose).toHaveBeenCalledTimes(1);
+
+        // Body failure disposes sandbox and preserves primary error even when dispose throws.
+        writeFileSync(join(repo, "ascout.config.json"), "{invalid json");
+        const failDisposeOk = vi.fn(async () => undefined);
+        await expect(
+          runCheck(repo, {
+            prepareTaskSandbox: async () => ({ sandbox: { ...sandbox, dispose: failDisposeOk } }),
+          }),
+        ).rejects.toThrow();
+        expect(failDisposeOk).toHaveBeenCalledTimes(1);
+
+        const failDisposeThrow = vi.fn(async () => {
+          throw new Error("dispose exploded");
+        });
+        await expect(
+          runCheck(repo, {
+            prepareTaskSandbox: async () => ({ sandbox: { ...sandbox, dispose: failDisposeThrow } }),
+          }),
+        ).rejects.toThrow(/ascout\.config\.json|JSON/iu);
+        expect(failDisposeThrow).toHaveBeenCalledTimes(1);
+      } finally {
+        rmSync(repo, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+      }
 
       const env = { PATH: "/usr/bin" };
+      const prepareCb = async () => ({ sandbox });
       expect(buildCheckContainmentOptions(undefined, undefined)).toEqual({});
-      expect(buildCheckContainmentOptions(env, sandbox)).toEqual({ taskEnvironment: env, taskSandbox: sandbox });
+      expect(buildCheckContainmentOptions(env, prepareCb)).toEqual({ taskEnvironment: env, prepareTaskSandbox: prepareCb });
 
       errSpy.mockClear();
       logTaskContainmentNotice(MACOS_SANDBOX_NOTICE, true);
@@ -183,7 +275,7 @@ describe("OS task sandbox dispatcher (prepareTaskSandboxV1)", () => {
     } finally {
       errSpy.mockRestore();
     }
-  });
+  }, 120_000);
 
   it("validates generated artifact stats, safe bounded reads, and loopback self-test servers cleanly", async () => {
     expect(isSafeGeneratedArtifactStat({ isFile: () => true, nlink: 1n, size: 100n }, 100)).toBe(true);

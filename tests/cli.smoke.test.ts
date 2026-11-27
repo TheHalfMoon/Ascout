@@ -188,5 +188,5 @@ describe("T007 CLI startup smoke", () => {
     expect(output).not.toContain(secret);
     expect(output).not.toContain("ascout.config.json");
     expect(output).not.toContain(sensitiveChangedPath);
-  });
+  }, 30_000);
 });

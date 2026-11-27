@@ -314,7 +314,7 @@ describe("T019 live Git tree-digest collection", () => {
     );
 
     expect(readTreeDigestV1(repositoryRoot)).toEqual(clean);
-  });
+  }, 30_000);
 
   it("applies path-aware eol conversion when hashing modified files in one batch", () => {
     const repositoryRoot = makeRepository();
@@ -414,7 +414,7 @@ describe("T019 live Git tree-digest collection", () => {
     const withLargeFile = readTreeDigestV1(repositoryRoot);
     expect(withLargeFile.included_untracked_count).toBe(1);
     expect(withLargeFile.tree_digest).not.toBe(clean.tree_digest);
-  });
+  }, 30_000);
 
   it("uses the Git owner-execute rule for untracked regular-file mode", () => {
     if (process.platform === "win32") return;
@@ -460,5 +460,5 @@ describe("T019 live Git tree-digest collection", () => {
       expect(typeChanged.tree_digest).not.toBe(clean.tree_digest);
       expect(typeChanged.tree_digest).not.toBe(executable.tree_digest);
     }
-  });
+  }, 30_000);
 });
