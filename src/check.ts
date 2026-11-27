@@ -1,8 +1,8 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { testRunnerEnvironmentV1 } from "./assurance/containment/task-environment.js";
 import { createHash, randomBytes } from "node:crypto";
-import { type BigIntStats, closeSync, fstatSync, fsyncSync, ftruncateSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { type BigIntStats, closeSync, constants as fsConstants, fstatSync, fsyncSync, ftruncateSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, statSync, writeFileSync, writeSync } from "node:fs";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import {
   FIXED_SEMANTIC_TASKS,
   canonicalRepositoryRoot,
@@ -292,34 +292,55 @@ const runTaskEnvironment = new AsyncLocalStorage<NodeJS.ProcessEnv | undefined>(
 /** Runs a resolved task command inside an OS sandbox (FD-4 T1); see src/assurance/containment. */
 export interface CheckTaskSandboxV1 {
   readonly mechanism: string;
+  readonly tier?: "T1" | "T0";
+  readonly notice?: string;
   /** `writable` names the result folders, inside .ascout, the task may write; the rest of .ascout is hidden. */
   readonly wrap: (file: string, argv: readonly string[], cwd: string, writable: readonly string[]) => { readonly file: string; readonly argv: readonly string[] };
+  /** Runs after each task completes (even on failure or timeout) before Ascout inspects result folders. */
+  readonly afterTask?: (writable: readonly string[]) => Promise<void> | void;
+  /** Releases per-run sandbox resources (private temp dirs, profiles, ACLs) after all tasks finish. */
+  readonly dispose?: () => Promise<void> | void;
 }
 
-/** The result folders a sandboxed task may write: where test runners put their machine results and coverage. */
-function sandboxResultFolders(rawPath: string): string[] {
-  return [join(rawPath, "test"), join(rawPath, "pytest")];
+const OPEN_ARTIFACT_RDWR_FLAGS = [
+  fsConstants.O_RDWR,
+  fsConstants.O_NOFOLLOW,
+  fsConstants.O_NONBLOCK,
+].filter(Number.isInteger).reduce((flags, bit) => flags | bit, 0);
+
+const OPEN_ARTIFACT_RDONLY_FLAGS = [
+  fsConstants.O_RDONLY,
+  fsConstants.O_NOFOLLOW,
+  fsConstants.O_NONBLOCK,
+].filter(Number.isInteger).reduce((flags, bit) => flags | bit, 0);
+
+/** Least-privilege result folders a sandboxed task may write inside .ascout. */
+export function sandboxResultFoldersForTask(rawPath: string, taskId: SemanticTaskType): string[] {
+  if (taskId === "test") return [join(rawPath, "test")];
+  if (taskId === "pytestBasic") return [join(rawPath, "pytest")];
+  return [];
 }
 
 /**
- * The first link inside a sandboxed task's result folders, or null. Ascout reads and writes those folders
- * after the task from outside the sandbox, so a link there could point it at any host file.
+ * The first symlink, hard link (nlink > 1), or non-regular/non-directory entry (such as a FIFO or
+ * socket) inside a sandboxed task's result folders, or null. Ascout inspects those folders from
+ * outside the sandbox after the task finishes, so any unsafe entry stops the run before reading.
  */
 export function sandboxResultLink(folders: readonly string[]): string | null {
   const pending = [...folders];
   while (pending.length > 0) {
     const path = pending.pop()!;
-    const stat = lstatSync(path, { throwIfNoEntry: false });
+    const stat = lstatSync(path, { bigint: true, throwIfNoEntry: false });
     if (stat === undefined) continue;
-    if (stat.isSymbolicLink()) return path;
+    if (!stat.isDirectory() && (!stat.isFile() || stat.nlink > 1n)) {
+      return path;
+    }
     if (stat.isDirectory()) for (const name of readdirSync(path)) pending.push(join(path, name));
   }
   return null;
 }
 
 const runTaskSandbox = new AsyncLocalStorage<CheckTaskSandboxV1 | undefined>();
-/** Sandboxed runs in progress, so a task launched without its sandbox context fails instead of running unsandboxed. */
-let sandboxedRunsActive = 0;
 
 function testTaskEnvironment(): NodeJS.ProcessEnv {
   return testRunnerEnvironmentV1(runTaskEnvironment.getStore(), process.env);
@@ -686,26 +707,29 @@ async function executePlannedTask(
   const cancellation = runCancellation.getStore();
   const taskEnv = options.env ?? runTaskEnvironment.getStore();
   const sandbox = runTaskSandbox.getStore();
-  if (sandbox === undefined && sandboxedRunsActive > 0) throw new Error("a sandboxed run lost its sandbox before launching a task; nothing was started");
   const cwd = workingDirectoryPath(repositoryRoot, plan.workingDirectory);
-  const resultFolders = sandboxResultFolders(rawPath);
+  const resultFolders = sandboxResultFoldersForTask(rawPath, taskId);
   if (sandbox !== undefined) for (const folder of resultFolders) mkdirSync(folder, { recursive: true });
-  const result = await runProcess({
-    file: plan.argv[0]!,
-    argv: plan.argv.slice(1),
-    cwd,
-    ...(sandbox === undefined ? {} : { wrap: (file: string, argv: readonly string[]) => sandbox.wrap(file, argv, cwd, resultFolders) }),
-    resolve_bare_file_outside: repositoryRoot,
-    // A descendant left running could rewrite this run's evidence after the runner exits.
-    require_tree_exit: true,
-    ...(cancellation === undefined ? {} : { signal: cancellation }),
-    ...(taskEnv === undefined ? {} : { env: taskEnv }),
-    timeout_ms: timeoutMs,
-    termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
-    capture_cap_bytes: TASK_CAPTURE_CAP_BYTES,
-  });
+  let result: ProcessRunResult;
+  try {
+    result = await runProcess({
+      file: plan.argv[0]!,
+      argv: plan.argv.slice(1),
+      cwd,
+      ...(sandbox === undefined ? {} : { wrap: (file: string, argv: readonly string[]) => sandbox.wrap(file, argv, cwd, resultFolders) }),
+      resolve_bare_file_outside: repositoryRoot,
+      // A descendant left running could rewrite this run's evidence after the runner exits.
+      require_tree_exit: true,
+      ...(cancellation === undefined ? {} : { signal: cancellation }),
+      ...(taskEnv === undefined ? {} : { env: taskEnv }),
+      timeout_ms: timeoutMs,
+      termination_grace_ms: DEFAULT_TERMINATION_GRACE_MS,
+      capture_cap_bytes: TASK_CAPTURE_CAP_BYTES,
+    });
+  } finally {
+    if (sandbox !== undefined) await sandbox.afterTask?.(resultFolders);
+  }
   if (sandbox !== undefined) {
-    // Nothing the task started is still running (the sandbox ends its whole tree), so this check holds.
     const link = sandboxResultLink(resultFolders);
     if (link !== null) throw new Error(`a sandboxed task left a link at ${link}; Ascout won't read or write through it, so the run stops`);
   }
@@ -784,6 +808,13 @@ function samePhysicalFile(left: BigIntStats, right: BigIntStats): boolean {
   return left.dev === right.dev && left.ino === right.ino;
 }
 
+export function isSafeGeneratedArtifactStat(
+  stat: { isFile(): boolean; nlink: bigint; size: bigint },
+  maxBytes: number,
+): boolean {
+  return stat.isFile() && stat.nlink === 1n && stat.size <= BigInt(maxBytes);
+}
+
 function assertSafeManagedDescriptor(info: BigIntStats): void {
   if (!info.isFile() || info.nlink !== 1n) {
     throw new Error("generated artifact must be a single-link physical file");
@@ -812,6 +843,73 @@ export interface ManagedGeneratedArtifactHandle {
   close(): void;
 }
 
+export type SafeBoundedArtifactReadV1 =
+  | { readonly kind: "ok"; readonly text: string }
+  | { readonly kind: "missing" }
+  | { readonly kind: "unsafe" };
+
+export function isBoundSingleFileV1(check: {
+  readonly expectedPath: string;
+  readonly realPath: string;
+  readonly opened: { isFile(): boolean; readonly dev: bigint; readonly ino: bigint; readonly nlink: bigint; readonly size: bigint };
+  readonly current: { readonly dev: bigint; readonly ino: bigint; readonly nlink: bigint };
+  readonly maxBytes: number;
+}): boolean {
+  return (
+    isSafeGeneratedArtifactStat(check.opened, check.maxBytes) &&
+    check.realPath === check.expectedPath &&
+    check.opened.dev === check.current.dev &&
+    check.opened.ino === check.current.ino &&
+    check.current.nlink === 1n
+  );
+}
+
+export function readBoundedFdBytesV1(fd: number, maxBytes: number): Buffer | null {
+  const buffer = Buffer.alloc(maxBytes + 1);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const bytesRead = readSync(fd, buffer, offset, buffer.length - offset, offset);
+    if (bytesRead === 0) break;
+    offset += bytesRead;
+  }
+  return offset > maxBytes ? null : buffer.subarray(0, offset);
+}
+
+/**
+ * Safely reads a task-generated text artifact from a single O_NOFOLLOW | O_NONBLOCK descriptor:
+ * verifies single-link regular file, exact canonical path binding (defeating Windows symlinks where
+ * O_NOFOLLOW is absent), physical file identity, and reads at most `maxBytes` via bounded readSync.
+ */
+export function readSafeBoundedArtifactTextV1(
+  runPath: string,
+  relativeRunPath: string,
+  maxBytes: number,
+  readBytes: typeof readBoundedFdBytesV1 = readBoundedFdBytesV1,
+): SafeBoundedArtifactReadV1 {
+  const realRunPath = realpathSync(runPath);
+  const expectedPath = resolve(realRunPath, ...relativeRunPath.split("/"));
+  let fd: number;
+  try {
+    fd = openSync(expectedPath, OPEN_ARTIFACT_RDONLY_FLAGS);
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "ENOENT"
+      ? { kind: "missing" }
+      : { kind: "unsafe" };
+  }
+  try {
+    const opened = fstatSync(fd, { bigint: true });
+    const realPath = realpathSync(expectedPath);
+    const current = statSync(expectedPath, { bigint: true });
+    if (!isBoundSingleFileV1({ expectedPath, realPath, opened, current, maxBytes })) {
+      return { kind: "unsafe" };
+    }
+    const bytes = readBytes(fd, maxBytes);
+    return bytes === null ? { kind: "unsafe" } : { kind: "ok", text: bytes.toString("utf8") };
+  } finally {
+    closeSync(fd);
+  }
+}
+
 export function openManagedGeneratedArtifact(
   runPath: string,
   relativeRunPath: string,
@@ -822,7 +920,15 @@ export function openManagedGeneratedArtifact(
 
   const realRunPath = realpathSync(runPath);
   const expectedPath = resolve(realRunPath, ...relativeRunPath.split("/"));
-  const fd = openSync(expectedPath, "r+");
+  let fd: number;
+  try {
+    fd = openSync(expectedPath, OPEN_ARTIFACT_RDWR_FLAGS);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ELOOP") {
+      throw new Error("generated artifact does not resolve to its exact managed run path");
+    }
+    throw error;
+  }
   let closed = false;
 
   const descriptorInfo = (): BigIntStats => {
@@ -923,6 +1029,22 @@ function persistGeneratedTextArtifact(
     const persisted = Buffer.from(text, "utf8");
     if (!persisted.equals(raw)) handle.replace(persisted);
     handle.assertStillBound();
+    let recordedRelativePath = relativeRunPath;
+    if (runTaskSandbox.getStore() !== undefined) {
+      // Seal sandboxed generated artifacts into host-only storage outside the task's writable
+      // result folders so a detached descendant cannot alter recorded evidence after capture.
+      const sealedDir = join(runPath, "raw", "sealed");
+      mkdirSync(sealedDir, { recursive: true });
+      const sealedName = `${artifactId.replace(/[^A-Za-z0-9._-]/gu, "_")}.sealed`;
+      const sealedPath = join(sealedDir, sealedName);
+      const sealedFd = openSync(sealedPath, "wx", 0o600);
+      try {
+        writeFileSync(sealedFd, persisted);
+      } finally {
+        closeSync(sealedFd);
+      }
+      recordedRelativePath = `raw/sealed/${sealedName}`;
+    }
     const sha256 = createSha256(persisted);
     const redacted = secrets.some((secret) => rawText.includes(secret));
     return {
@@ -930,7 +1052,7 @@ function persistGeneratedTextArtifact(
       artifact: {
         artifact_id: artifactId,
         task_id: taskId,
-        relative_run_path: relativeRunPath,
+        relative_run_path: recordedRelativePath,
         kind: artifactKind,
         sha256,
         byte_length: persisted.byteLength,
@@ -1138,15 +1260,12 @@ async function executePytestWithResults(
   );
   if (executed.task.status !== "PASS") return executed;
 
-  let xml: string | null;
-  try {
-    // Only a regular file of bounded size: a task could leave a FIFO or a huge sparse file here.
-    const reportPath = join(rawPath, "pytest", "pytest-results.xml");
-    const report = lstatSync(reportPath, { throwIfNoEntry: false });
-    xml = report === undefined || !report.isFile() || report.size > PYTEST_RESULTS_MAX_BYTES ? null : readFileSync(reportPath).toString("utf8");
-  } catch {
-    xml = null;
-  }
+  const read = readSafeBoundedArtifactTextV1(
+    dirname(rawPath),
+    "raw/pytest/pytest-results.xml",
+    PYTEST_RESULTS_MAX_BYTES,
+  );
+  const xml = read.kind === "ok" ? read.text : null;
   if (xml !== null && !junitResultRecordsFailure(xml)) return executed;
   return {
     ...executed,
@@ -1466,16 +1585,16 @@ export function emptyRelatedWideningPlanV1<Plan extends VitestTaskPlan | JestTas
  */
 export function vitestSelectedNoTest(runId: string, runPath: string, plan: Pick<PlannedVitestTask, "machineResultPath">): boolean {
   if (plan.machineResultPath === null) return false;
-  let text: string;
+  let relativePath: string;
   try {
-    const path = join(runPath, runRelativeArtifactPath(runId, plan.machineResultPath));
-    const stat = lstatSync(path);
-    if (!stat.isFile() || stat.size > VITEST_ZERO_RESULT_MAX_BYTES) return false;
-    text = readFileSync(path, "utf8");
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "ENOENT";
+    relativePath = runRelativeArtifactPath(runId, plan.machineResultPath);
+  } catch {
+    return false;
   }
-  return observedSelectedTestCount(text) === 0;
+  const read = readSafeBoundedArtifactTextV1(runPath, relativePath, VITEST_ZERO_RESULT_MAX_BYTES);
+  if (read.kind === "missing") return true;
+  if (read.kind === "unsafe") return false;
+  return observedSelectedTestCount(read.text) === 0;
 }
 
 const VITEST_ZERO_RESULT_MAX_BYTES = 1024 * 1024;
@@ -1493,10 +1612,13 @@ export function jestSelectedNoTest(runId: string, runPath: string, plan: Pick<Pl
   if (plan.machineResultPath === null) return false;
   let value: unknown;
   try {
-    const path = join(runPath, runRelativeArtifactPath(runId, plan.machineResultPath));
-    const stat = lstatSync(path);
-    if (!stat.isFile() || stat.size > VITEST_ZERO_RESULT_MAX_BYTES) return false;
-    value = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    const read = readSafeBoundedArtifactTextV1(
+      runPath,
+      runRelativeArtifactPath(runId, plan.machineResultPath),
+      VITEST_ZERO_RESULT_MAX_BYTES,
+    );
+    if (read.kind !== "ok") return false;
+    value = JSON.parse(read.text) as unknown;
   } catch {
     return false;
   }
@@ -1840,14 +1962,10 @@ export async function runCheck(
   repositoryRoot: string,
   options: CheckRunOptions = {},
 ): Promise<CheckOutcome> {
-  const run = () => runCancellation.run(options.signal, () => runTaskEnvironment.run(options.taskEnvironment, () => runTaskSandbox.run(options.taskSandbox, () => runCheckWithinCancellation(repositoryRoot, options))));
-  if (options.taskSandbox === undefined) return run();
-  sandboxedRunsActive += 1;
-  try {
-    return await run();
-  } finally {
-    sandboxedRunsActive -= 1;
-  }
+  return runCancellation.run(options.signal, () =>
+    runTaskEnvironment.run(options.taskEnvironment, () =>
+      runTaskSandbox.run(options.taskSandbox, () =>
+        runCheckWithinCancellation(repositoryRoot, options))));
 }
 
 async function runCheckWithinCancellation(

@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LinuxFsHostV1 } from "../src/assurance/containment/linux-fs-sandbox.js";
 import { SANDBOX_EXEC } from "../src/assurance/containment/macos-fs-sandbox.js";
-import { MACOS_SELF_TEST_EXPECTED, macosNodeReadsV1, realExecBothV1, realLoopbackPortV1, realSpawnCanaryHolderV1, macosTaskSandboxArgvV1, macosTaskSandboxProfileV1, prepareMacosTaskSandboxV1, type MacosTaskSandboxDepsV1, type MacosTaskSandboxV1 } from "../src/assurance/containment/macos-task-sandbox.js";
+import { MACOS_SELF_TEST_EXPECTED, macosNodeReadsV1, realExecBothV1, realLoopbackPortV1, realRandomNameV1, realSpawnCanaryHolderV1, macosTaskSandboxArgvV1, macosTaskSandboxProfileV1, prepareMacosTaskSandboxV1, type MacosTaskSandboxDepsV1, type MacosTaskSandboxV1 } from "../src/assurance/containment/macos-task-sandbox.js";
 
 // FD-4 T1 on macOS: the sandbox-exec profile for `check` tasks. The native tests pair each denial with
 // a control that shows the same probe detects the capability without the sandbox.
@@ -98,6 +98,7 @@ describe("the real helpers the macOS task sandbox uses", () => {
     const holder = realSpawnCanaryHolderV1("ASCOUT_TEST_CANARY");
     expect(typeof holder.pid).toBe("number");
     holder.close();
+    expect(realRandomNameV1()).toMatch(/^[a-z0-9]+$/u);
   });
 });
 
@@ -126,6 +127,7 @@ describe("preparing the macOS task sandbox", () => {
     loopbackPort: async () => ({ port: 4242, close: () => undefined }),
     randomName: () => "abc",
     launchdWaitMs: 0,
+    readText: () => "",
     ...overrides,
   });
 
@@ -141,10 +143,14 @@ describe("preparing the macOS task sandbox", () => {
     expect(await prepareMacosTaskSandboxV1(REPO, deps({ execPath: `${REPO}/tools/node/bin/node` }))).toMatchObject({ refused: expect.stringMatching(/Node install folder is inside the repository/u) });
   });
 
-  it("refuses a worktree's .git file, a linked .git, and submodules", async () => {
+  it("refuses a worktree's .git file, a linked .git, submodules, linked .git/hooks or .git/config, and Git config includes", async () => {
     expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host([SANDBOX_EXEC, `${REPO}/.git`]) }))).toMatchObject({ refused: expect.stringMatching(/not a real folder/u) });
     expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host(present, { [`${REPO}/.git`]: "/x" }) }))).toMatchObject({ refused: expect.stringMatching(/not a real folder/u) });
     expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host([...present, `${REPO}/.gitmodules`]) }))).toMatchObject({ refused: expect.stringMatching(/submodules/u) });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host(present, { [`${REPO}/.git/hooks`]: "../hooks" }) }))).toMatchObject({ refused: expect.stringMatching(/\.git\/hooks is a link/u) });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ host: host(present, { [`${REPO}/.git/config`]: "../cfg" }) }))).toMatchObject({ refused: expect.stringMatching(/\.git\/config is a link/u) });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ readText: () => "[include]\n  path = ../x\n" }))).toMatchObject({ refused: expect.stringMatching(/includes other files/u) });
+    expect(await prepareMacosTaskSandboxV1(REPO, deps({ readText: () => '[includeIf "gitdir:./"]\n  path = ../x\n' }))).toMatchObject({ refused: expect.stringMatching(/includes other files/u) });
   });
 
   it("refuses unless the self-test, run in the real task configuration, reports every expected denial, and removes the private folder then", async () => {

@@ -66,7 +66,7 @@ async function checkIn(root: string, argv: readonly string[]): Promise<{ code: n
   }
 }
 
-/** A repository whose typecheck task plants a link to a host file in its result folder. */
+/** A repository whose pytestBasic task plants a link to a host file in its writable result folder. */
 function linkPlantingRepository(): { root: string; canary: string } {
   const dir = realpathSync.native(mkdtempSync(join(tmpdir(), "ascout-check-sandbox-link-")));
   scratches.push(dir);
@@ -77,11 +77,10 @@ function linkPlantingRepository(): { root: string; canary: string } {
   const task = `
 const fs = require("node:fs");
 const run = fs.readdirSync(".ascout/runs")[0];
-fs.symlinkSync(${JSON.stringify(canary)}, ".ascout/runs/" + run + "/raw/test/vitest-results.json");
-fs.symlinkSync(${JSON.stringify(dir)}, ".ascout/runs/" + run + "/raw/test/pass-2");
+fs.symlinkSync(${JSON.stringify(canary)}, ".ascout/runs/" + run + "/raw/pytest/pytest-results.xml");
 `;
   writeFileSync(join(root, ".gitignore"), ".ascout/\n");
-  writeFileSync(join(root, "ascout.config.json"), JSON.stringify({ version: 1, tasks: { typecheck: { command: ["node", "-e", task] } } }));
+  writeFileSync(join(root, "ascout.config.json"), JSON.stringify({ version: 1, tasks: { pytestBasic: { command: ["node", "-e", task] } } }));
   for (const argv of [["init", "-q"], ["config", "user.name", "Ascout Sandbox Fixture"], ["config", "user.email", "sandbox@example.invalid"], ["config", "commit.gpgsign", "false"], ["add", "."], ["commit", "-qm", "baseline"]]) git(root, argv);
   return { root, canary };
 }
@@ -95,20 +94,21 @@ describe("ascout check --sandbox with the real OS sandbox", () => {
       return ctx.skip();
     }
     expect(code).toBe(2);
-    expect(stderr).toMatch(/a sandboxed task left a link at .*raw[\/]test/u);
+    expect(stderr).toMatch(/a sandboxed task left a link at .*raw[\/]pytest/u);
     expect(readFileSync(canary, "utf8")).toBe("host file");
   });
 
-  it.runIf(process.platform !== "linux")("refuses off Linux and runs nothing", async () => {
+  it.runIf(process.platform !== "linux" && process.platform !== "darwin")("refuses on unwired platforms and runs nothing", async () => {
     const { root } = hostileRepository(1);
     const { code, stderr } = await checkIn(root, ["check", "--sandbox"]);
     expect(code).toBe(2);
-    expect(stderr).toContain("ascout check --sandbox refused: the bubblewrap task sandbox is Linux only. Nothing ran");
+    expect(stderr).toContain("ascout check --sandbox refused:");
+    expect(stderr).toContain("Nothing ran");
     expect(existsSync(join(root, "result.json"))).toBe(false);
   });
 
   it.runIf(process.platform === "linux")("on Linux, denies every escape the same task makes freely under a plain check", async (ctx) => {
-    const server = createServer((socket) => socket.end());
+    const server = createServer((socket) => { socket.on("error", Boolean); socket.end(); });
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     try {
       const { root } = hostileRepository((server.address() as { port: number }).port);
@@ -119,6 +119,33 @@ describe("ascout check --sandbox with the real OS sandbox", () => {
       }
       expect(JSON.parse(readFileSync(join(root, "result.json"), "utf8"))).toEqual({ readOutside: "ENOENT", writeGit: "EROFS", writeRepo: "allowed", loopback: expect.not.stringMatching(/^allowed$/u) });
       expect(sandboxed.stderr).toContain("containment tier T1 on Linux, internally qualified under Amendment A09");
+      // Control: the same task under a plain check reaches all three.
+      rmSync(join(root, "result.json"));
+      await checkIn(root, ["check"]);
+      expect(JSON.parse(readFileSync(join(root, "result.json"), "utf8"))).toEqual({ readOutside: "allowed", writeGit: "allowed", writeRepo: "allowed", loopback: "allowed" });
+    } finally {
+      server.close();
+    }
+  });
+
+  it.runIf(process.platform === "darwin")("on macOS, denies every escape via sandbox-exec that a plain check allows", async (ctx) => {
+    const server = createServer((socket) => { socket.on("error", Boolean); socket.end(); });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const { root } = hostileRepository((server.address() as { port: number }).port);
+      const sandboxed = await checkIn(root, ["check", "--sandbox"]);
+      if (sandboxed.code === 2 && sandboxed.stderr.includes("--sandbox refused")) {
+        if (process.env.ASCOUT_REQUIRE_MACOS_SANDBOX === "1") throw new Error(`the macOS sandbox is required here but refused: ${sandboxed.stderr}`);
+        return ctx.skip();
+      }
+      expect(sandboxed.code).not.toBe(2);
+      expect(JSON.parse(readFileSync(join(root, "result.json"), "utf8"))).toEqual({
+        readOutside: "EPERM",
+        writeGit: "EPERM",
+        writeRepo: "allowed",
+        loopback: expect.not.stringMatching(/^allowed$/u),
+      });
+      expect(sandboxed.stderr).toContain("containment tier T1 on macOS, internally qualified under Amendment A09");
       // Control: the same task under a plain check reaches all three.
       rmSync(join(root, "result.json"));
       await checkIn(root, ["check"]);
