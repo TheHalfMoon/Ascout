@@ -4,6 +4,7 @@ import {
   accessSync,
   closeSync,
   constants as fsConstants,
+  fstatSync,
   lstatSync,
   openSync,
   readSync,
@@ -14,6 +15,19 @@ import {
 import { basename, delimiter, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { TextDecoder } from "node:util";
 import { URL } from "node:url";
+
+import {
+  changedNewLineRangesFromBytes,
+  isBinaryBytes,
+  isConsistentOpenedWorktreeFile,
+  matchFuzzyRenames,
+  normalizeCrlfToLf,
+  parseCatFileBatchOutput,
+  parseGitCoreWorktreeConfig,
+  shouldNormalizeWorktreeEol,
+  splitLinesForDiff,
+  type GitCoreWorktreeConfig,
+} from "./git-diff.js";
 
 export type RepositoryIdentity =
   | {
@@ -111,6 +125,12 @@ const GIT_NULL_DEVICE = "/dev/null"; // Git for Windows accepts this; it rejects
 const GIT_CONFIG_OVERRIDES = [
   "core.fsmonitor=false",
   `core.hooksPath=${GIT_NULL_DEVICE}`,
+  "core.pager=cat",
+  "core.sshCommand=false",
+  "core.askPass=",
+  "core.gitProxy=",
+  "core.alternateRefsCommand=",
+  "credential.helper=",
   "diff.external=",
   "submodule.recurse=false",
   "protocol.allow=never",
@@ -119,6 +139,17 @@ const GIT_CONFIG_OVERRIDES = [
   ...["unset", "unspecified"].flatMap((name) =>
     ["clean", "smudge", "process"].map((command) => `filter.${name}.${command}=`)),
 ] as const;
+
+/**
+ * Single-open regular-file flags without platform-conditional branches: on POSIX includes
+ * O_NOFOLLOW | O_NONBLOCK (preventing symlink following and FIFO blocking); on Windows resolves
+ * to O_RDONLY paired with pre/post BigInt dev/ino verification.
+ */
+const OPEN_CONTAINED_REGULAR_FLAGS = [
+  fsConstants.O_RDONLY,
+  fsConstants.O_NOFOLLOW,
+  fsConstants.O_NONBLOCK,
+].filter(Number.isInteger).reduce((flags, bit) => flags | bit, 0);
 
 function hardenedGitArgs(argv: readonly string[]): string[] {
   return [...GIT_CONFIG_OVERRIDES.flatMap((setting) => ["-c", setting]), ...argv];
@@ -163,11 +194,13 @@ const GIT_METADATA_MAX_BUFFER_BYTES = 1024 * 1024;
 const GIT_TREE_METADATA_MAX_BUFFER_BYTES = 16 * 1024 * 1024;
 const GIT_ATTRIBUTE_QUERY_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const FILE_HASH_BUFFER_BYTES = 64 * 1024;
+const EMPTY_BLOB_SHA1 = "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391";
+const EMPTY_BLOB_SHA256 = "473a0f4c3be8a93681a267e3b1e9a7dcda1185436fe141f7749120a303721813";
 const FULL_GIT_OBJECT_ID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const SYMBOLIC_HEAD_REF = /^refs\/.+$/;
 const INDEX_MODE = /^[0-7]{6}$/;
 const INDEX_RECORD = /^([0-7]{6}) ([a-f0-9]{40}|[a-f0-9]{64}) ([0-3])\t(.+)$/s;
-const RAW_DIFF_METADATA = /^:([0-7]{6}) ([0-7]{6}) ([a-f0-9]{40}|[a-f0-9]{64}) ([a-f0-9]{40}|[a-f0-9]{64}) ([A-Z])$/;
+const LS_TREE_RECORD = /^([0-7]{6}) (blob|commit) ([a-f0-9]{40}|[a-f0-9]{64})\t(.+)$/s;
 const CANONICAL_REPOSITORY_PATH =
   /^(?!\/)(?![A-Za-z]:)(?![A-Za-z][A-Za-z0-9+.-]*:)(?![.]{1,2}(?:\/|$))(?![^]+\/[.]{1,2}(?:\/|$))[^/\\]+(?:\/[^/\\]+)*$/u;
 
@@ -179,29 +212,22 @@ function sha256Bytes(value: Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function sha256File(path: string): string {
-  const hash = createHash("sha256");
+function readAllDescriptorBytes(descriptor: number, maxBytes?: number): Buffer | null {
+  const chunks: Buffer[] = [];
   const buffer = Buffer.allocUnsafe(FILE_HASH_BUFFER_BYTES);
-  let descriptor: number | undefined;
-  try {
-    descriptor = openSync(path, "r");
-    while (true) {
-      const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
-      if (bytesRead === 0) break;
-      hash.update(buffer.subarray(0, bytesRead));
-    }
-    return hash.digest("hex");
-  } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
+  let totalBytes = 0;
+  while (true) {
+    const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
+    if (bytesRead === 0) break;
+    totalBytes += bytesRead;
+    if (maxBytes !== undefined && totalBytes > maxBytes) return null;
+    chunks.push(Buffer.from(buffer.subarray(0, bytesRead)));
   }
+  return Buffer.concat(chunks);
 }
 
 function gitBlobOidForBytes(value: Buffer, expectedOid: string): string {
-  const algorithm = expectedOid.length === 40 ? "sha1" : expectedOid.length === 64 ? "sha256" : null;
-  if (algorithm === null) {
-    throw new GitIdentityError("git_metadata_error", "unsupported Git object ID length");
-  }
-  const hash = createHash(algorithm);
+  const hash = createHash(expectedOid.length === 64 ? "sha256" : "sha1");
   hash.update(Buffer.from(`blob ${value.length}\0`, "utf8"));
   hash.update(value);
   return hash.digest("hex");
@@ -477,9 +503,18 @@ function readDetachedHead(repositoryRoot: string, runGit: GitCommandRunner): boo
   throw new GitIdentityError("git_metadata_error", "unable to determine detached HEAD state");
 }
 
-export function readGitHeadState(
+function resolveDetachedHead(
+  includeDetached: boolean,
   repositoryRoot: string,
-  runGit: GitCommandRunner = defaultGitCommandRunner,
+  runGit: GitCommandRunner,
+): boolean {
+  return includeDetached ? readDetachedHead(repositoryRoot, runGit) : false;
+}
+
+function readGitHeadStateInternal(
+  repositoryRoot: string,
+  runGit: GitCommandRunner,
+  includeDetached: boolean,
 ): GitHeadState {
   // Native Git can answer three metadata questions in one process. Only an
   // exact successful shape is accepted; the existing path classifies failures.
@@ -496,7 +531,7 @@ export function readGitHeadState(
     ) {
       return {
         head_sha: headSha,
-        detached: readDetachedHead(repositoryRoot, runGit),
+        detached: resolveDetachedHead(includeDetached, repositoryRoot, runGit),
         shallow: shallow === "true",
       };
     }
@@ -531,7 +566,7 @@ export function readGitHeadState(
     );
   }
 
-  const detached = readDetachedHead(repositoryRoot, runGit);
+  const detached = resolveDetachedHead(includeDetached, repositoryRoot, runGit);
 
   const shallowStdout = requireSuccessfulGit(
     runGit(repositoryRoot, ["rev-parse", "--is-shallow-repository"]),
@@ -544,6 +579,13 @@ export function readGitHeadState(
     detached,
     shallow: parseExactBoolean(shallowStdout, "git shallow-state query"),
   };
+}
+
+export function readGitHeadState(
+  repositoryRoot: string,
+  runGit: GitCommandRunner = defaultGitCommandRunner,
+): GitHeadState {
+  return readGitHeadStateInternal(repositoryRoot, runGit, true);
 }
 
 function compareUtf8(left: string, right: string): number {
@@ -816,32 +858,109 @@ function repositoryPath(repositoryRoot: string, path: string): string {
   return resolve(realParent, basename(logicalPath));
 }
 
-function containedRegularFilePath(repositoryRoot: string, path: string): string {
-  const candidate = repositoryPath(repositoryRoot, path);
-  let stat;
-  try {
-    stat = lstatSync(candidate);
-  } catch {
-    throw new GitIdentityError("git_metadata_error", `unable to inspect regular worktree entry: ${path}`);
+/**
+ * Resolves a tracked path inside `repositoryRoot`, returning null when any ancestor directory is
+ * missing or was replaced by a non-directory (e.g. `rm -rf dir` or `rm -rf dir && touch dir`),
+ * while failing closed if any intermediate symlink resolves outside `repositoryRoot`.
+ */
+export function resolveTrackedCandidatePath(repositoryRoot: string, path: string): string | null {
+  const canonicalPath = requireCanonicalRepositoryPath(path);
+  const root = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+  const segments = canonicalPath.split("/");
+  let current = root;
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    current = resolve(current, segments[index]!);
+    const stat = lstatSync(current, { bigint: true, throwIfNoEntry: false });
+    if (stat === undefined) return null;
+    if (stat.isSymbolicLink()) {
+      let realAncestor: string;
+      try {
+        realAncestor = realpathSync.native(current);
+      } catch {
+        throw new GitIdentityError(
+          "git_metadata_error",
+          `unable to resolve tree-digest parent path inside repository: ${path}`,
+        );
+      }
+      if (!isContainedPath(root, realAncestor)) {
+        throw new GitIdentityError(
+          "git_metadata_error",
+          `tree-digest intermediate path resolves outside repository root: ${path}`,
+        );
+      }
+      if (!lstatSync(realAncestor, { bigint: true }).isDirectory()) return null;
+      current = realAncestor;
+      continue;
+    }
+    if (!stat.isDirectory()) return null;
   }
-  if (!stat.isFile()) {
+  return resolve(current, segments[segments.length - 1]!);
+}
+
+export function openContainedRegularFile(
+  repositoryRoot: string,
+  path: string,
+  checkConsistent: typeof isConsistentOpenedWorktreeFile = isConsistentOpenedWorktreeFile,
+): { readonly fd: number; readonly mode: bigint } {
+  const candidate = repositoryPath(repositoryRoot, path);
+  const before = lstatSync(candidate, { bigint: true, throwIfNoEntry: false });
+  if (before === undefined || !before.isFile()) {
     throw new GitIdentityError("git_metadata_error", `tree-digest expected a regular file at ${path}`);
   }
-
-  let realFile: string;
+  const fd = openSync(candidate, OPEN_CONTAINED_REGULAR_FLAGS);
   try {
-    realFile = realpathSync.native(candidate);
-  } catch {
-    throw new GitIdentityError("git_metadata_error", `unable to resolve regular worktree entry: ${path}`);
+    const opened = fstatSync(fd, { bigint: true });
+    const root = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+    const realFile = realpathSync.native(candidate);
+    const after = lstatSync(realFile, { bigint: true });
+    if (!checkConsistent({
+      contained: isContainedPath(root, realFile),
+      beforeDev: before.dev,
+      beforeIno: before.ino,
+      openedIsFile: opened.isFile(),
+      openedDev: opened.dev,
+      openedIno: opened.ino,
+      afterDev: after.dev,
+      afterIno: after.ino,
+    })) {
+      throw new GitIdentityError("git_metadata_error", `worktree entry changed or escaped while opening: ${path}`);
+    }
+    return { fd, mode: opened.mode };
+  } catch (error) {
+    closeSync(fd);
+    throw error;
   }
-  const root = canonicalTreeDigestRepositoryRoot(repositoryRoot);
-  if (!isContainedPath(root, realFile)) {
-    throw new GitIdentityError(
-      "git_metadata_error",
-      `tree-digest regular file resolves outside repository root: ${path}`,
-    );
+}
+
+function streamHashContainedRegularFile(
+  repositoryRoot: string,
+  path: string,
+): { readonly digest: string; readonly mode: bigint } {
+  const { fd, mode } = openContainedRegularFile(repositoryRoot, path);
+  try {
+    const hash = createHash("sha256");
+    const chunk = Buffer.allocUnsafe(64 * 1024);
+    for (;;) {
+      const bytesRead = readSync(fd, chunk, 0, chunk.length, null);
+      if (bytesRead === 0) break;
+      hash.update(chunk.subarray(0, bytesRead));
+    }
+    return { digest: hash.digest("hex"), mode };
+  } finally {
+    closeSync(fd);
   }
-  return realFile;
+}
+
+function readContainedRegularFile(
+  repositoryRoot: string,
+  path: string,
+): { readonly bytes: Buffer; readonly mode: bigint } {
+  const { fd, mode } = openContainedRegularFile(repositoryRoot, path);
+  try {
+    return { bytes: readAllDescriptorBytes(fd)!, mode };
+  } finally {
+    closeSync(fd);
+  }
 }
 
 /**
@@ -854,24 +973,15 @@ export function readContainedWorktreeText(
   path: string,
   maxBytes: number,
 ): string | null {
-  let descriptor: number | undefined;
+  let fd: number | undefined;
   try {
-    descriptor = openSync(containedRegularFilePath(repositoryRoot, path), "r");
-    const chunks: Buffer[] = [];
-    let totalBytes = 0;
-    const buffer = Buffer.allocUnsafe(FILE_HASH_BUFFER_BYTES);
-    while (true) {
-      const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
-      if (bytesRead === 0) break;
-      totalBytes += bytesRead;
-      if (totalBytes > maxBytes) return null;
-      chunks.push(Buffer.from(buffer.subarray(0, bytesRead)));
-    }
-    return Buffer.concat(chunks).toString("utf8");
+    fd = openContainedRegularFile(repositoryRoot, path).fd;
+    const bytes = readAllDescriptorBytes(fd, maxBytes);
+    return bytes === null ? null : bytes.toString("utf8");
   } catch {
     return null;
   } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
+    if (fd !== undefined) closeSync(fd);
   }
 }
 
@@ -889,162 +999,154 @@ function readSymlinkTarget(repositoryRoot: string, path: string): Buffer {
   }
 }
 
-function digestWorktreeEntry(
-  repositoryRoot: string,
-  path: string,
-  expectedType: WorktreeEntryType,
-): string {
-  try {
-    if (expectedType === "symlink") {
-      return sha256Bytes(readSymlinkTarget(repositoryRoot, path));
-    }
-    return sha256File(containedRegularFilePath(repositoryRoot, path));
-  } catch (error) {
-    if (error instanceof GitIdentityError) throw error;
-    throw new GitIdentityError("git_metadata_error", `unable to read worktree entry for tree digest: ${path}`);
-  }
+interface GitPathEolAttributes {
+  readonly text: string;
+  readonly eol: string;
 }
 
-function worktreeGitObjectId(
+function readGitCoreWorktreeConfig(repositoryRoot: string): GitCoreWorktreeConfig {
+  const result = runGitTreeMetadata(repositoryRoot, [
+    "config",
+    "--get-regexp",
+    "^core\\.(autocrlf|filemode|symlinks)$",
+  ]);
+  if (result.error !== undefined || (result.status !== 0 && result.status !== 1)) {
+    throw new GitIdentityError("git_metadata_error", "unable to read Git core worktree settings");
+  }
+  return result.status === 0
+    ? parseGitCoreWorktreeConfig(decodeUtf8(result.stdout, "git core config output"))
+    : { autocrlf: "false", fileMode: true, symlinks: true };
+}
+
+interface ObservedWorktreeEntry {
+  readonly present: true;
+  readonly type: WorktreeEntryType;
+  readonly mode: string;
+  readonly rawBytes: Buffer;
+  readonly normalizedBytes: Buffer;
+  readonly oid: string;
+}
+
+type WorktreeObservation =
+  | ObservedWorktreeEntry
+  | { readonly present: false };
+
+function observeWorktreeTrackedEntry(
   repositoryRoot: string,
   path: string,
-  type: WorktreeEntryType,
+  referenceMode: string,
   expectedOid: string,
-): string {
-  if (type === "symlink") {
-    return gitBlobOidForBytes(readSymlinkTarget(repositoryRoot, path), expectedOid);
+  attributes: ReadonlyMap<string, GitPathEolAttributes>,
+  coreConfig: GitCoreWorktreeConfig,
+): WorktreeObservation {
+  const candidate = resolveTrackedCandidatePath(repositoryRoot, path);
+  if (candidate === null) {
+    return { present: false };
+  }
+  const stat = lstatSync(candidate, { bigint: true, throwIfNoEntry: false });
+  if (stat === undefined) {
+    return { present: false };
   }
 
-  const output = requireSuccessfulGitBuffer(
-    runGitTreeMetadata(repositoryRoot, [
-      "hash-object",
-      `--path=${path}`,
-      "--",
-      containedRegularFilePath(repositoryRoot, path),
-    ]),
-    `unable to compute Git worktree object ID for ${path}`,
-  );
-  const oid = stripOneTerminalNewline(decodeUtf8(output, "git hash-object output"));
-  if (!FULL_GIT_OBJECT_ID.test(oid) || oid.length !== expectedOid.length) {
-    throw new GitIdentityError("git_metadata_error", `Git returned an invalid worktree object ID for ${path}`);
+  if (stat.isSymbolicLink()) {
+    const rawBytes = readSymlinkTarget(repositoryRoot, path);
+    return {
+      present: true,
+      type: "symlink",
+      mode: "120000",
+      rawBytes,
+      normalizedBytes: rawBytes,
+      oid: gitBlobOidForBytes(rawBytes, expectedOid),
+    };
   }
-  return oid;
+  if (!stat.isFile()) {
+    throw new GitIdentityError("git_metadata_error", `unsupported worktree entry type at ${path}`);
+  }
+
+  const { bytes: rawBytes, mode: modeBits } = readContainedRegularFile(repositoryRoot, path);
+  // Under core.symlinks=false (e.g. Windows without symlink privilege), Git materializes 120000
+  // entries as regular files holding the symlink target text.
+  if (referenceMode === "120000" && !coreConfig.symlinks) {
+    return {
+      present: true,
+      type: "symlink",
+      mode: "120000",
+      rawBytes,
+      normalizedBytes: rawBytes,
+      oid: gitBlobOidForBytes(rawBytes, expectedOid),
+    };
+  }
+  const mode = coreConfig.fileMode
+    ? ((modeBits & 0o100n) === 0n ? "100644" : "100755")
+    : (referenceMode === "100755" ? "100755" : "100644");
+  const attr = attributes.get(path) ?? { text: "unspecified", eol: "unspecified" };
+  let normalizedBytes = !isBinaryBytes(rawBytes) &&
+    shouldNormalizeWorktreeEol(attr.text, attr.eol, coreConfig.autocrlf)
+    ? normalizeCrlfToLf(rawBytes)
+    : rawBytes;
+  let oid = gitBlobOidForBytes(normalizedBytes, expectedOid);
+  // Matches Git's `has_cr_in_index` guard: when the indexed/committed blob itself stored CRLF,
+  // Git does not treat an identical CRLF worktree checkout as modified under autocrlf/text=auto.
+  if (oid !== expectedOid && normalizedBytes !== rawBytes && gitBlobOidForBytes(rawBytes, expectedOid) === expectedOid) {
+    normalizedBytes = rawBytes;
+    oid = expectedOid;
+  }
+  return {
+    present: true,
+    type: "file",
+    mode,
+    rawBytes,
+    normalizedBytes,
+    oid,
+  };
 }
 
-/**
- * Hash many modified regular files in one `git hash-object --stdin-paths` process. Each
- * repository-relative path is both the file read and the attribute path, as in the single-file
- * `--path=<path>` form, and filter attributes were already refused for every indexed path. Each path
- * still passes the containment check first. Paths the line protocol can't carry verbatim (CR or LF,
- * or a leading quote that Git would C-unquote) are left to the single-file call. The output must hold
- * exactly one valid object ID per path, or the digest fails closed.
- *
- * The batch keeps the time budget the single-file calls had: one metadata timeout per file. Git
- * opens each path itself, so an intermediate directory swapped for a link between the containment
- * check and Git's read could redirect it; only an equal-or-not result leaves, and the second
- * observation would see the swap and refuse the digest.
- */
-function batchWorktreeGitObjectIds(
+function collectUnstagedEntries(
   repositoryRoot: string,
-  candidates: readonly { readonly path: string; readonly oldOid: string }[],
-): ReadonlyMap<string, string> {
-  const batch = candidates.filter(({ path }) => !/[\r\n]/u.test(path) && !path.startsWith("\""));
-  const oids = new Map<string, string>();
-  if (batch.length === 0) return oids;
-  for (const { path } of batch) containedRegularFilePath(repositoryRoot, path);
-  const output = decodeUtf8(requireSuccessfulGitBuffer(
-    runGitTreeMetadata(
-      repositoryRoot,
-      ["hash-object", "--stdin-paths"],
-      Buffer.from(batch.map(({ path }) => `${path}\n`).join(""), "utf8"),
-      GIT_METADATA_TIMEOUT_MS * batch.length,
-    ),
-    "unable to compute Git worktree object IDs",
-  ), "git hash-object output").split("\n");
-  if (output.length !== batch.length + 1 || output[batch.length] !== "") {
-    throw new GitIdentityError("git_metadata_error", "Git returned an unexpected number of worktree object IDs");
-  }
-  batch.forEach(({ path, oldOid }, index) => {
-    const oid = output[index]!;
-    if (!FULL_GIT_OBJECT_ID.test(oid) || oid.length !== oldOid.length) {
-      throw new GitIdentityError("git_metadata_error", `Git returned an invalid worktree object ID for ${path}`);
-    }
-    oids.set(path, oid);
-  });
-  return oids;
-}
-
-function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDigestUnstagedEntry[] {
-  const records = splitNullTerminated(buffer, "git diff-files --raw output");
-  if (records.length % 2 !== 0) {
-    throw new GitIdentityError("git_metadata_error", "Git returned an incomplete unstaged diff record");
-  }
-
-  const parsed: { path: string; status: string; oldMode: string; newMode: string; oldOid: string }[] = [];
-  for (let index = 0; index < records.length; index += 2) {
-    const metadataRecord = records[index];
-    const pathRecord = records[index + 1];
-    if (metadataRecord === undefined || pathRecord === undefined) {
-      throw new GitIdentityError("git_metadata_error", "Git returned an incomplete unstaged diff record");
-    }
-
-    const metadata = decodeUtf8(metadataRecord, "git unstaged metadata");
-    const path = requireCanonicalRepositoryPath(decodeUtf8(pathRecord, "git unstaged path"));
-    const match = RAW_DIFF_METADATA.exec(metadata);
-    if (match === null) {
-      throw new GitIdentityError("git_metadata_error", "Git returned a malformed unstaged diff record");
-    }
-
-    const oldMode = match[1];
-    const newMode = match[2];
-    const oldOid = match[3];
-    const status = match[5];
-    if (oldMode === undefined || newMode === undefined || oldOid === undefined || status === undefined) {
-      throw new GitIdentityError("git_metadata_error", "Git returned incomplete unstaged metadata");
-    }
-
-    if (status === "U") {
-      throw new GitIdentityError(
-        "git_metadata_error",
-        `tree digest does not support unmerged tracked state at ${path}`,
-      );
-    }
-    if (status !== "D" && status !== "M" && status !== "T") {
-      throw new GitIdentityError(
-        "git_metadata_error",
-        `unsupported unstaged Git status for tree digest at ${path}: ${status}`,
-      );
-    }
-    parsed.push({ path, status, oldMode, newMode, oldOid });
-  }
-
-  // Every record is validated first; then all regular-file hash candidates go to one Git process.
-  const batchedOids = batchWorktreeGitObjectIds(
-    repositoryRoot,
-    parsed.filter((entry) => entry.status === "M" && entry.oldMode === entry.newMode &&
-      worktreeTypeFromMode(entry.newMode, entry.path) !== "symlink"),
-  );
-
+  index: readonly TreeDigestIndexEntry[],
+  attributes: ReadonlyMap<string, GitPathEolAttributes>,
+  coreConfig: GitCoreWorktreeConfig,
+): TreeDigestUnstagedEntry[] {
   const entries: TreeDigestUnstagedEntry[] = [];
-  for (const { path, status, oldMode, newMode, oldOid } of parsed) {
-    if (status === "D") {
-      entries.push({ path, state: "deleted" });
+  for (const entry of index) {
+    if (entry.stage !== 0) {
+      throw new GitIdentityError(
+        "git_metadata_error",
+        `tree digest does not support unmerged tracked state at ${entry.path}`,
+      );
+    }
+    const indexType = worktreeTypeFromMode(entry.mode, entry.path);
+    const observed = observeWorktreeTrackedEntry(
+      repositoryRoot,
+      entry.path,
+      entry.mode,
+      entry.oid,
+      attributes,
+      coreConfig,
+    );
+    if (!observed.present) {
+      entries.push({ path: entry.path, state: "deleted" });
       continue;
     }
-
-    const type = worktreeTypeFromMode(newMode, path);
-    if (status === "M" && oldMode === newMode) {
-      const currentOid = batchedOids.get(path) ?? worktreeGitObjectId(repositoryRoot, path, type, oldOid);
-      if (currentOid === oldOid) continue;
+    if (observed.type !== indexType) {
+      entries.push({
+        path: entry.path,
+        state: "type_changed",
+        type: observed.type,
+        mode: observed.mode,
+        digest: sha256Bytes(observed.rawBytes),
+      });
+      continue;
     }
-
-    entries.push({
-      path,
-      state: status === "T" ? "type_changed" : "modified",
-      type,
-      mode: newMode,
-      digest: digestWorktreeEntry(repositoryRoot, path, type),
-    });
+    if (observed.mode !== entry.mode || observed.oid !== entry.oid) {
+      entries.push({
+        path: entry.path,
+        state: "modified",
+        type: observed.type,
+        mode: observed.mode,
+        digest: sha256Bytes(observed.rawBytes),
+      });
+    }
   }
   return entries;
 }
@@ -1052,7 +1154,7 @@ function parseUnstagedEntries(repositoryRoot: string, buffer: Buffer): TreeDiges
 function untrackedWorktreeEntry(repositoryRoot: string, path: string): TreeDigestUntrackedEntry {
   const absolutePath = repositoryPath(repositoryRoot, path);
   try {
-    const stat = lstatSync(absolutePath);
+    const stat = lstatSync(absolutePath, { bigint: true });
     if (stat.isSymbolicLink()) {
       return {
         path,
@@ -1063,11 +1165,12 @@ function untrackedWorktreeEntry(repositoryRoot: string, path: string): TreeDiges
       };
     }
     if (stat.isFile()) {
+      const { digest, mode } = streamHashContainedRegularFile(repositoryRoot, path);
       return {
         path,
         type: "file",
-        mode: (stat.mode & 0o100) === 0 ? "100644" : "100755",
-        digest: sha256File(containedRegularFilePath(repositoryRoot, path)),
+        mode: (mode & 0o100n) === 0n ? "100644" : "100755",
+        digest,
         ignored: false,
       };
     }
@@ -1092,19 +1195,16 @@ function parseUntrackedEntries(repositoryRoot: string, buffer: Buffer): TreeDige
   return entries;
 }
 
-// A filter attribute makes Git run a driver while reading worktree content, and
-// no option turns that off for every read. check-attr reports it without running
-// one. The attribute alone refuses, so results can't depend on whether a driver
-// happens to be configured on this machine. Submodules are refused too: Git
-// inspects them with their own config, which these checks can't see, and ignoring
-// them would stop noticing submodule changes. Callers pass listings they already
-// read, and this must run before anything that reads worktree content.
-function refuseExecutableGitFilters(
+// A filter attribute makes Git run a driver while reading worktree content. Ascout both refuses
+// any repository that configures a filter attribute (or submodule) AND never invokes a Git command
+// that reads working-tree file content, eliminating the check-then-use execution window (#591).
+function inspectGitAttributesAndRefuseFilters(
   repositoryRoot: string,
   index: readonly TreeDigestIndexEntry[],
   untrackedOutput: Buffer,
-): void {
-  const inputs: Buffer[] = [];
+  extraPaths: readonly string[] = [],
+): Map<string, GitPathEolAttributes> {
+  const uniquePaths = new Set<string>();
   for (const entry of index) {
     if (entry.mode === "160000") {
       throw new GitIdentityError(
@@ -1112,20 +1212,24 @@ function refuseExecutableGitFilters(
         `refusing to read this repository: ${JSON.stringify(entry.path)} is a Git submodule, which Ascout does not read`,
       );
     }
-    inputs.push(Buffer.from(entry.path, "utf8"), Buffer.from([0]));
+    uniquePaths.add(entry.path);
   }
-  // Ascout's own run output is outside source identity, so it can't cause a refusal.
   for (const record of splitNullTerminated(untrackedOutput, "git ls-files --others output")) {
-    if (!isAscoutRuntimePath(decodeUtf8(record, "git untracked path"))) {
-      inputs.push(record, Buffer.from([0]));
-    }
+    const path = decodeUtf8(record, "git untracked path");
+    if (!isAscoutRuntimePath(path)) uniquePaths.add(path);
   }
-  if (inputs.length === 0) {
-    return;
+  for (const path of extraPaths) uniquePaths.add(path);
+
+  const attributes = new Map<string, GitPathEolAttributes>();
+  if (uniquePaths.size === 0) return attributes;
+
+  const inputs: Buffer[] = [];
+  for (const path of uniquePaths) {
+    inputs.push(Buffer.from(path, "utf8"), Buffer.from([0]));
   }
   const records = splitNullTerminated(
     requireSuccessfulGitBuffer(
-      runGitTreeMetadata(repositoryRoot, ["check-attr", "-z", "--stdin", "filter"], Buffer.concat(inputs)),
+      runGitTreeMetadata(repositoryRoot, ["check-attr", "-z", "--stdin", "filter", "text", "eol"], Buffer.concat(inputs)),
       "unable to read Git filter attributes",
     ),
     "git check-attr output",
@@ -1133,16 +1237,22 @@ function refuseExecutableGitFilters(
   if (records.length % 3 !== 0) {
     throw new GitIdentityError("git_metadata_error", "Git returned incomplete filter attributes");
   }
-  for (let index = 0; index < records.length; index += 3) {
-    const value = decodeUtf8(records[index + 2]!, "git filter attribute value");
-    if (value !== "unspecified" && value !== "unset") {
-      const path = JSON.stringify(decodeUtf8(records[index]!, "git filter attribute path"));
+  for (let indexPos = 0; indexPos < records.length; indexPos += 3) {
+    const path = decodeUtf8(records[indexPos]!, "git filter attribute path");
+    const attrName = decodeUtf8(records[indexPos + 1]!, "git attribute name");
+    const value = decodeUtf8(records[indexPos + 2]!, "git filter attribute value");
+    if (attrName === "filter" && value !== "unspecified" && value !== "unset") {
       throw new GitIdentityError(
         "git_metadata_error",
-        `refusing to read this repository: ${path} has a Git filter attribute, and filters can run commands`,
+        `refusing to read this repository: ${JSON.stringify(path)} has a Git filter attribute, and filters can run commands`,
       );
     }
+    if (attrName === "text" || attrName === "eol") {
+      const current = attributes.get(path) ?? { text: "unspecified", eol: "unspecified" };
+      attributes.set(path, attrName === "text" ? { text: value, eol: current.eol } : { text: current.text, eol: value });
+    }
   }
+  return attributes;
 }
 
 function readIndexEntries(repositoryRoot: string): TreeDigestIndexEntry[] {
@@ -1159,24 +1269,14 @@ function readUntrackedOutput(repositoryRoot: string): Buffer {
   );
 }
 
-function collectTreeDigestV1(repositoryRoot: string, checkFilters: boolean): TreeDigestV1 {
-  const head = readGitHeadState(repositoryRoot).head_sha;
+function collectTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
+  const head = readGitHeadStateInternal(repositoryRoot, defaultGitCommandRunner, false).head_sha;
   const index = readIndexEntries(repositoryRoot);
   const untrackedOutput = readUntrackedOutput(repositoryRoot);
-  if (checkFilters) {
-    refuseExecutableGitFilters(repositoryRoot, index, untrackedOutput);
-  }
-  const unstaged = parseUnstagedEntries(repositoryRoot, requireSuccessfulGitBuffer(
-    runGitTreeMetadata(repositoryRoot, [
-      "diff-files",
-      "--raw",
-      "--no-abbrev",
-      "--no-renames",
-      "--no-ext-diff",
-      "-z",
-    ]),
-    "unable to read unstaged Git state for tree digest",
-  ));
+  const attributes = inspectGitAttributesAndRefuseFilters(repositoryRoot, index, untrackedOutput);
+  const unstaged = index.length === 0
+    ? []
+    : collectUnstagedEntries(repositoryRoot, index, attributes, readGitCoreWorktreeConfig(repositoryRoot));
   const untracked = parseUntrackedEntries(repositoryRoot, untrackedOutput);
 
   return treeDigestV1FromState({ head, index, unstaged, untracked });
@@ -1191,10 +1291,11 @@ function sameTreeDigestObservation(left: TreeDigestV1, right: TreeDigestV1): boo
 
 export function readTreeDigestV1(repositoryRoot: string): TreeDigestV1 {
   // Resolve the repository root once so a caller-provided symlink cannot retarget the Git cwd
-  // between the two complete observations.
+  // between the two complete observations. Both observations enforce filter refusal and read
+  // working-tree files directly via single-open descriptors without spawning Git worktree readers.
   const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
-  const first = collectTreeDigestV1(canonicalRoot, true);
-  const second = collectTreeDigestV1(canonicalRoot, false);
+  const first = collectTreeDigestV1(canonicalRoot);
+  const second = collectTreeDigestV1(canonicalRoot);
   if (!sameTreeDigestObservation(first, second)) {
     throw new GitIdentityError(
       "git_metadata_error",
@@ -1231,350 +1332,98 @@ export interface WorkingTreeComparison {
   readonly changed_files: readonly GitChangedFile[];
 }
 
-interface TrackedDiffEntry {
+interface CommitTreeEntry {
   readonly path: string;
-  readonly previous_path?: string;
-  readonly status: "A" | "M" | "D" | "R" | "T";
-  readonly old_mode: string;
-  readonly new_mode: string;
-  readonly old_oid: string;
-  readonly new_oid: string;
-  readonly similarity?: number;
+  readonly mode: string;
+  readonly oid: string;
 }
 
-interface WorkingTreeTrackedDiff {
-  readonly entries: readonly TrackedDiffEntry[];
-  readonly patch_blocks: readonly Buffer[];
-}
-
-interface UntrackedLineAnalysis {
-  readonly binary: boolean;
-  readonly line_count: number;
-}
-
-const WORKING_TREE_RAW_DIFF_METADATA =
-  /^:([0-7]{6}) ([0-7]{6}) ([a-f0-9]{40}|[a-f0-9]{64}) ([a-f0-9]{40}|[a-f0-9]{64}) ([A-Z])(\d{0,3})$/;
-const COMBINED_DIFF_BOUNDARY = Buffer.from("\0\0diff --git ", "ascii");
-const PATCH_BLOCK_HEADER = Buffer.from("diff --git ", "ascii");
-const PATCH_BLOCK_SEPARATOR = Buffer.from("\ndiff --git ", "ascii");
-
-function changedNewLineRangesFromZeroContextPatch(
-  patch: Buffer,
-): readonly ChangedNewLineRange[] {
-  const ranges: ChangedNewLineRange[] = [];
-  const patchText = patch.toString("latin1");
-  const hunkHeader = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@(?: .*)?$/gm;
-
-  for (const match of patchText.matchAll(hunkHeader)) {
-    const startText = match[1];
-    const countText = match[2];
-    if (startText === undefined) {
-      throw new GitIdentityError("git_metadata_error", "Git returned an incomplete zero-context hunk");
-    }
-    const start = Number(startText);
-    const count = countText === undefined ? 1 : Number(countText);
-    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(count) || count < 0) {
-      throw new GitIdentityError("git_metadata_error", "Git returned an invalid zero-context hunk");
-    }
-    if (count === 0) continue;
-    if (start < 1) {
-      throw new GitIdentityError(
-        "git_metadata_error",
-        "Git returned a nonpositive changed new-line range",
-      );
-    }
-    const end = start + count - 1;
-    if (!Number.isSafeInteger(end) || start > end) {
-      throw new GitIdentityError("git_metadata_error", "Git returned an invalid changed new-line range");
-    }
-    ranges.push([start, end]);
-  }
-  return ranges;
-}
-
-function parseWorkingTreeRawDiff(buffer: Buffer): TrackedDiffEntry[] {
-  const records = splitNullTerminated(buffer, "git working-tree raw diff output");
-  const entries: TrackedDiffEntry[] = [];
-
-  for (let index = 0; index < records.length;) {
-    const metadataRecord = records[index];
-    if (metadataRecord === undefined) {
-      throw new GitIdentityError("git_metadata_error", "Git returned an incomplete raw diff record");
-    }
-    const metadata = decodeUtf8(metadataRecord, "git working-tree raw diff metadata");
-    const match = WORKING_TREE_RAW_DIFF_METADATA.exec(metadata);
+function readCommitTreeEntries(repositoryRoot: string, sha: string): Map<string, CommitTreeEntry> {
+  const output = requireSuccessfulGitBuffer(
+    runGitTreeMetadata(repositoryRoot, ["ls-tree", "-r", "-z", "--full-tree", sha]),
+    "unable to read Git commit tree entries",
+  );
+  const records = splitNullTerminated(output, "git ls-tree output");
+  const entries = new Map<string, CommitTreeEntry>();
+  for (const record of records) {
+    const text = decodeUtf8(record, "git ls-tree record");
+    const match = LS_TREE_RECORD.exec(text);
     if (match === null) {
-      throw new GitIdentityError("git_metadata_error", "Git returned malformed working-tree raw diff metadata");
+      throw new GitIdentityError("git_metadata_error", "Git returned a malformed commit tree entry");
     }
-
-    const oldMode = match[1];
-    const newMode = match[2];
-    const oldOid = match[3];
-    const newOid = match[4];
-    const status = match[5];
-    const scoreText = match[6] ?? "";
-    if (
-      oldMode === undefined ||
-      newMode === undefined ||
-      oldOid === undefined ||
-      newOid === undefined ||
-      status === undefined
-    ) {
-      throw new GitIdentityError("git_metadata_error", "Git returned incomplete working-tree raw diff metadata");
-    }
-    if (status === "U") {
-      throw new GitIdentityError("git_metadata_error", "working-tree diff does not support unmerged state");
-    }
-    if (status !== "A" && status !== "M" && status !== "D" && status !== "R" && status !== "T") {
+    const mode = match[1]!;
+    const objectType = match[2]!;
+    const oid = match[3]!;
+    const path = requireCanonicalRepositoryPath(match[4]!);
+    if (objectType === "commit") {
       throw new GitIdentityError(
         "git_metadata_error",
-        `unsupported working-tree Git status: ${status}`,
+        `refusing to read this repository: ${JSON.stringify(path)} is a Git submodule, which Ascout does not read`,
       );
     }
-
-    if (status === "R") {
-      if (!/^\d{1,3}$/.test(scoreText)) {
-        throw new GitIdentityError("git_metadata_error", "Git rename record is missing similarity score");
-      }
-      const similarity = Number(scoreText);
-      if (!Number.isInteger(similarity) || similarity < 0 || similarity > 100) {
-        throw new GitIdentityError("git_metadata_error", "Git returned an invalid rename similarity score");
-      }
-      const previousRecord = records[index + 1];
-      const pathRecord = records[index + 2];
-      if (previousRecord === undefined || pathRecord === undefined) {
-        throw new GitIdentityError("git_metadata_error", "Git returned incomplete rename path identity");
-      }
-      const previousPath = requireCanonicalRepositoryPath(
-        decodeUtf8(previousRecord, "git rename previous path"),
-      );
-      const path = requireCanonicalRepositoryPath(decodeUtf8(pathRecord, "git rename current path"));
-      entries.push({
-        path,
-        previous_path: previousPath,
-        status,
-        old_mode: oldMode,
-        new_mode: newMode,
-        old_oid: oldOid,
-        new_oid: newOid,
-        similarity,
-      });
-      index += 3;
-      continue;
-    }
-
-    if (scoreText !== "") {
-      throw new GitIdentityError("git_metadata_error", "non-rename Git status carried a similarity score");
-    }
-    const pathRecord = records[index + 1];
-    if (pathRecord === undefined) {
-      throw new GitIdentityError("git_metadata_error", "Git returned incomplete working-tree path identity");
-    }
-    const path = requireCanonicalRepositoryPath(decodeUtf8(pathRecord, "git working-tree diff path"));
-    entries.push({
-      path,
-      status,
-      old_mode: oldMode,
-      new_mode: newMode,
-      old_oid: oldOid,
-      new_oid: newOid,
-    });
-    index += 2;
+    entries.set(path, { path, mode, oid });
   }
-
   return entries;
 }
 
-function splitTrackedPatchBlocks(patch: Buffer): Buffer[] {
-  if (patch.length === 0) return [];
-  if (!patch.subarray(0, PATCH_BLOCK_HEADER.length).equals(PATCH_BLOCK_HEADER)) {
-    throw new GitIdentityError("git_metadata_error", "Git tracked patch is missing its first diff block header");
-  }
+function readOdbBlobsBatch(
+  repositoryRoot: string,
+  oids: readonly string[],
+): Map<string, Buffer> {
+  const unique = [...new Set(oids)];
+  if (unique.length === 0) return new Map();
 
-  const blocks: Buffer[] = [];
-  let start = 0;
-  while (start < patch.length) {
-    const separator = patch.indexOf(PATCH_BLOCK_SEPARATOR, start + PATCH_BLOCK_HEADER.length);
-    if (separator < 0) {
-      blocks.push(patch.subarray(start));
-      break;
-    }
-    blocks.push(patch.subarray(start, separator + 1));
-    start = separator + 1;
+  const stdin = Buffer.from(unique.map((oid) => `${oid}\n`).join(""), "utf8");
+  const stdout = requireSuccessfulGitBuffer(
+    runGitTreeMetadata(repositoryRoot, ["cat-file", "--batch"], stdin),
+    "unable to read Git object-store blobs",
+  );
+  const parsed = parseCatFileBatchOutput(stdout, unique);
+  if (!parsed.ok) {
+    throw new GitIdentityError("git_metadata_error", parsed.reason);
   }
-  return blocks;
+  return parsed.blobs;
 }
 
-function alignTrackedPatchBlocks(
-  entries: readonly TrackedDiffEntry[],
-  rawPatchBlocks: readonly Buffer[],
-): Buffer[] {
-  const aligned: Buffer[] = [];
-  let blockIndex = 0;
-
-  for (const entry of entries) {
-    const first = rawPatchBlocks[blockIndex];
-    if (first === undefined) {
-      throw new GitIdentityError("git_metadata_error", "Git tracked patch block is missing");
-    }
-
-    if (entry.status !== "T") {
-      aligned.push(first);
-      blockIndex += 1;
-      continue;
-    }
-
-    const second = rawPatchBlocks[blockIndex + 1];
-    if (second === undefined) {
-      throw new GitIdentityError("git_metadata_error", "Git type-change patch pair is incomplete");
-    }
-    const firstText = first.toString("latin1");
-    const secondText = second.toString("latin1");
-    if (
-      !firstText.split("\n").includes(`deleted file mode ${entry.old_mode}`) ||
-      !secondText.split("\n").includes(`new file mode ${entry.new_mode}`)
-    ) {
-      throw new GitIdentityError(
-        "git_metadata_error",
-        `Git type-change patch pair does not match raw modes for ${entry.path}`,
-      );
-    }
-    aligned.push(Buffer.concat([first, second]));
-    blockIndex += 2;
-  }
-
-  if (blockIndex !== rawPatchBlocks.length) {
-    throw new GitIdentityError(
-      "git_metadata_error",
-      "Git raw and patch working-tree diff entries do not align",
-    );
-  }
-  return aligned;
-}
-
-function parseWorkingTreeTrackedDiff(output: Buffer): WorkingTreeTrackedDiff {
-  if (output.length === 0) return { entries: [], patch_blocks: [] };
-
-  const boundary = output.indexOf(COMBINED_DIFF_BOUNDARY);
-  if (boundary < 0) {
-    throw new GitIdentityError(
-      "git_metadata_error",
-      "Git combined working-tree diff is missing its raw/patch boundary",
-    );
-  }
-  const raw = output.subarray(0, boundary + 1);
-  const patch = output.subarray(boundary + 2);
-  const entries = parseWorkingTreeRawDiff(raw);
-  const patchBlocks = alignTrackedPatchBlocks(entries, splitTrackedPatchBlocks(patch));
-  return { entries, patch_blocks: patchBlocks };
-}
-
-function trackedDiffIsBinary(patch: Buffer): boolean {
-  const patchText = patch.toString("latin1");
-  return /^GIT binary patch$/m.test(patchText) || /^Binary files .* differ$/m.test(patchText);
-}
-
-function trackedEntryIsNonLineType(entry: TrackedDiffEntry): boolean {
-  return entry.status === "T" ||
-    entry.old_mode === "120000" ||
-    entry.new_mode === "120000" ||
-    entry.old_mode === "160000" ||
-    entry.new_mode === "160000";
-}
-
-function trackedEntryToChangedFile(
-  entry: TrackedDiffEntry,
-  patch: Buffer,
-): GitChangedFile {
-  const changeKind: Exclude<ChangedFileKind, "untracked"> =
-    entry.status === "A"
-      ? "added"
-      : entry.status === "M"
-        ? "modified"
-        : entry.status === "D"
-          ? "deleted"
-          : entry.status === "R"
-            ? "renamed"
-            : "type_changed";
-
-  if (entry.status === "D") {
-    return {
-      path: entry.path,
-      change_kind: "deleted",
-      line_semantics: "deleted_only",
-      changed_new_line_ranges: [],
-    };
-  }
-
-  if (trackedEntryIsNonLineType(entry)) {
-    const base = {
-      path: entry.path,
-      change_kind: changeKind,
-      line_semantics: "binary_or_non_line" as const,
-      changed_new_line_ranges: [] as const,
-    };
-    return entry.previous_path === undefined
-      ? base
-      : { ...base, previous_path: entry.previous_path };
-  }
-
-  const binary = trackedDiffIsBinary(patch);
-  const ranges = binary ? [] : changedNewLineRangesFromZeroContextPatch(patch);
-  const base = {
-    path: entry.path,
-    change_kind: changeKind,
-    line_semantics: binary ? "binary_or_non_line" as const : "text" as const,
-    changed_new_line_ranges: ranges,
-  };
-  return entry.previous_path === undefined
-    ? base
-    : { ...base, previous_path: entry.previous_path };
-}
-
-function analyzeUntrackedRegularFile(repositoryRoot: string, path: string): UntrackedLineAnalysis {
-  const absolutePath = containedRegularFilePath(repositoryRoot, path);
-  const buffer = Buffer.allocUnsafe(FILE_HASH_BUFFER_BYTES);
-  let descriptor: number | undefined;
-  let totalBytes = 0;
-  let newlineCount = 0;
-  let lastByte = -1;
-
+function streamAnalyzeUntrackedRegularFile(
+  repositoryRoot: string,
+  path: string,
+): { readonly binary: boolean; readonly lineCount: number } {
+  const { fd } = openContainedRegularFile(repositoryRoot, path);
   try {
-    descriptor = openSync(absolutePath, "r");
-    while (true) {
-      const bytesRead = readSync(descriptor, buffer, 0, buffer.length, null);
+    const chunk = Buffer.allocUnsafe(64 * 1024);
+    let inspectedForBinary = 0;
+    let totalBytes = 0;
+    let newlines = 0;
+    let lastByte = 0;
+    for (;;) {
+      const bytesRead = readSync(fd, chunk, 0, chunk.length, null);
       if (bytesRead === 0) break;
-      totalBytes += bytesRead;
-      if (!Number.isSafeInteger(totalBytes)) {
-        throw new GitIdentityError("git_metadata_error", `untracked file is too large to count lines safely: ${path}`);
+      if (inspectedForBinary < 8000) {
+        const sliceEnd = Math.min(bytesRead, 8000 - inspectedForBinary);
+        if (chunk.subarray(0, sliceEnd).includes(0)) {
+          return { binary: true, lineCount: 0 };
+        }
+        inspectedForBinary += sliceEnd;
       }
       for (let index = 0; index < bytesRead; index += 1) {
-        const byte = buffer[index];
-        if (byte === undefined) continue;
-        if (byte === 0) return { binary: true, line_count: 0 };
-        if (byte === 0x0a) newlineCount += 1;
-        lastByte = byte;
+        if (chunk[index] === 0x0a) newlines += 1;
       }
+      totalBytes += bytesRead;
+      lastByte = chunk[bytesRead - 1]!;
     }
-  } catch (error) {
-    if (error instanceof GitIdentityError) throw error;
-    throw new GitIdentityError("git_metadata_error", `unable to inspect untracked file lines: ${path}`);
+    if (totalBytes === 0) return { binary: false, lineCount: 0 };
+    return { binary: false, lineCount: lastByte === 0x0a ? newlines : newlines + 1 };
   } finally {
-    if (descriptor !== undefined) closeSync(descriptor);
+    closeSync(fd);
   }
-
-  const lineCount = totalBytes === 0 ? 0 : newlineCount + (lastByte === 0x0a ? 0 : 1);
-  if (!Number.isSafeInteger(lineCount)) {
-    throw new GitIdentityError("git_metadata_error", `untracked file line count is not safe: ${path}`);
-  }
-  return { binary: false, line_count: lineCount };
 }
 
 function untrackedPathToChangedFile(repositoryRoot: string, path: string): GitChangedFile {
   const absolutePath = repositoryPath(repositoryRoot, path);
   let stat;
   try {
-    stat = lstatSync(absolutePath);
+    stat = lstatSync(absolutePath, { bigint: true });
   } catch {
     throw new GitIdentityError("git_metadata_error", `unable to inspect untracked diff entry: ${path}`);
   }
@@ -1588,30 +1437,26 @@ function untrackedPathToChangedFile(repositoryRoot: string, path: string): GitCh
     };
   }
 
-  const analysis = analyzeUntrackedRegularFile(repositoryRoot, path);
+  const analysis = streamAnalyzeUntrackedRegularFile(repositoryRoot, path);
+  if (analysis.binary) {
+    return {
+      path,
+      change_kind: "untracked",
+      line_semantics: "binary_or_non_line",
+      changed_new_line_ranges: [],
+    };
+  }
   return {
     path,
     change_kind: "untracked",
-    line_semantics: analysis.binary ? "binary_or_non_line" : "text",
-    changed_new_line_ranges:
-      analysis.binary || analysis.line_count === 0
-        ? []
-        : [[1, analysis.line_count]],
+    line_semantics: "text",
+    changed_new_line_ranges: analysis.lineCount === 0 ? [] : [[1, analysis.lineCount]],
   };
 }
 
-function readNonignoredUntrackedPaths(repositoryRoot: string): string[] {
-  const records = splitNullTerminated(
-    requireSuccessfulGitBuffer(
-      runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]),
-      "unable to read nonignored untracked paths for working-tree comparison",
-    ),
-    "git untracked comparison output",
-  );
-  return records
-    .map((record) => requireCanonicalRepositoryPath(
-      decodeUtf8(record, "git untracked comparison path"),
-    ))
+function parseNonignoredUntrackedPaths(untrackedOutput: Buffer): string[] {
+  return splitNullTerminated(untrackedOutput, "git untracked comparison output")
+    .map((record) => requireCanonicalRepositoryPath(decodeUtf8(record, "git untracked comparison path")))
     .filter((path) => !isAscoutRuntimePath(path));
 }
 
@@ -1619,6 +1464,21 @@ function compareChangedFiles(left: GitChangedFile, right: GitChangedFile): numbe
   return compareUtf8(left.path, right.path) ||
     compareUtf8(left.previous_path ?? "", right.previous_path ?? "") ||
     compareUtf8(left.change_kind, right.change_kind);
+}
+
+interface PendingDeletedTracked {
+  readonly head: CommitTreeEntry;
+}
+
+interface PendingAddedTracked {
+  readonly path: string;
+  readonly observed: ObservedWorktreeEntry;
+}
+
+interface PendingModifiedTracked {
+  readonly path: string;
+  readonly head: CommitTreeEntry;
+  readonly observed: ObservedWorktreeEntry;
 }
 
 export function readWorkingTreeComparison(
@@ -1633,41 +1493,222 @@ export function readWorkingTreeComparison(
   }
 
   const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
-  refuseExecutableGitFilters(canonicalRoot, readIndexEntries(canonicalRoot), readUntrackedOutput(canonicalRoot));
-  const observedHead = readGitHeadState(canonicalRoot).head_sha;
+  const index = readIndexEntries(canonicalRoot);
+  const untrackedOutput = readUntrackedOutput(canonicalRoot);
+  const observedHead = readGitHeadStateInternal(canonicalRoot, defaultGitCommandRunner, false).head_sha;
   if (observedHead !== sourceStartHeadSha) {
     throw new GitIdentityError(
       "git_metadata_error",
       "working-tree comparison base does not equal the resolved source-start HEAD",
     );
   }
-
-  const combinedTracked = requireSuccessfulGitBuffer(
-    runGitTreeMetadata(canonicalRoot, [
-      "diff",
-      "--raw",
-      "--no-abbrev",
-      "-z",
-      "--patch",
-      "--unified=0",
-      "--no-ext-diff",
-      "--no-textconv",
-      "--no-color",
-      "--find-renames",
-      sourceStartHeadSha,
-      "--",
-    ]),
-    "unable to read tracked working-tree comparison",
+  const headEntries = readCommitTreeEntries(canonicalRoot, sourceStartHeadSha);
+  const attributes = inspectGitAttributesAndRefuseFilters(
+    canonicalRoot,
+    index,
+    untrackedOutput,
+    [...headEntries.keys()],
   );
-  const trackedDiff = parseWorkingTreeTrackedDiff(combinedTracked);
-  const tracked = trackedDiff.entries.map((entry, index) => {
-    const patch = trackedDiff.patch_blocks[index];
-    if (patch === undefined) {
-      throw new GitIdentityError("git_metadata_error", "Git tracked patch block is missing");
+  const coreConfig = readGitCoreWorktreeConfig(canonicalRoot);
+
+  const indexMap = new Map<string, TreeDigestIndexEntry>();
+  for (const entry of index) {
+    if (entry.stage !== 0) {
+      throw new GitIdentityError("git_metadata_error", "working-tree diff does not support unmerged state");
     }
-    return trackedEntryToChangedFile(entry, patch);
-  });
-  const untracked = readNonignoredUntrackedPaths(canonicalRoot)
+    indexMap.set(entry.path, entry);
+  }
+
+  const trackedChanges: GitChangedFile[] = [];
+  const pendingDeleted: PendingDeletedTracked[] = [];
+  const pendingAdded: PendingAddedTracked[] = [];
+  const pendingModified: PendingModifiedTracked[] = [];
+
+  for (const [path, head] of headEntries) {
+    const indexEntry = indexMap.get(path);
+    if (indexEntry === undefined) {
+      pendingDeleted.push({ head });
+      continue;
+    }
+    const observed = observeWorktreeTrackedEntry(
+      canonicalRoot,
+      path,
+      indexEntry.mode,
+      head.oid,
+      attributes,
+      coreConfig,
+    );
+    if (!observed.present) {
+      pendingDeleted.push({ head });
+      continue;
+    }
+    const headType = worktreeTypeFromMode(head.mode, path);
+    if (observed.type !== headType) {
+      trackedChanges.push({
+        path,
+        change_kind: "type_changed",
+        line_semantics: "binary_or_non_line",
+        changed_new_line_ranges: [],
+      });
+      continue;
+    }
+    if (observed.oid !== head.oid || observed.mode !== head.mode) {
+      pendingModified.push({ path, head, observed });
+    }
+  }
+
+  for (const [path, entry] of indexMap) {
+    if (headEntries.has(path)) continue;
+    const observed = observeWorktreeTrackedEntry(
+      canonicalRoot,
+      path,
+      entry.mode,
+      entry.oid,
+      attributes,
+      coreConfig,
+    );
+    if (!observed.present) continue;
+    pendingAdded.push({ path, observed });
+  }
+
+  // Rename detection matching Git's default --find-renames (50% threshold): exact OID match first,
+  // then byte-weighted line similarity on regular files.
+  const matchedDeleted = new Set<string>();
+  const matchedAdded = new Set<string>();
+  const renamedPairs: { readonly oldEntry: CommitTreeEntry; readonly added: PendingAddedTracked; readonly exact: boolean }[] = [];
+
+  for (const added of pendingAdded) {
+    if (added.observed.oid === EMPTY_BLOB_SHA1 || added.observed.oid === EMPTY_BLOB_SHA256) continue;
+    const exact = pendingDeleted.find(
+      (del) => !matchedDeleted.has(del.head.path) &&
+        del.head.oid === added.observed.oid &&
+        worktreeTypeFromMode(del.head.mode, del.head.path) === added.observed.type,
+    );
+    if (exact !== undefined) {
+      matchedDeleted.add(exact.head.path);
+      matchedAdded.add(added.path);
+      renamedPairs.push({ oldEntry: exact.head, added, exact: true });
+    }
+  }
+
+  const remainingDeletedRegular = pendingDeleted.filter(
+    (del) => !matchedDeleted.has(del.head.path) && del.head.mode !== "120000",
+  );
+  const remainingAddedRegular = pendingAdded.filter(
+    (add) => !matchedAdded.has(add.path) && add.observed.type === "file",
+  );
+
+  const oidsNeeded: string[] = [
+    ...pendingModified.filter((item) => item.observed.type === "file").map((item) => item.head.oid),
+  ];
+  const hasFuzzyCandidates = remainingDeletedRegular.length > 0 && remainingAddedRegular.length > 0;
+  if (hasFuzzyCandidates) {
+    for (const del of remainingDeletedRegular) oidsNeeded.push(del.head.oid);
+  }
+  const odbBlobs = readOdbBlobsBatch(canonicalRoot, oidsNeeded);
+
+  if (hasFuzzyCandidates) {
+    const deletedByPath = new Map(remainingDeletedRegular.map((del) => [del.head.path, del]));
+    const addedByPath = new Map(remainingAddedRegular.map((add) => [add.path, add]));
+    for (const match of matchFuzzyRenames(
+      remainingDeletedRegular.map((del) => ({ path: del.head.path, bytes: odbBlobs.get(del.head.oid)! })),
+      remainingAddedRegular.map((add) => ({ path: add.path, bytes: add.observed.normalizedBytes })),
+    )) {
+      matchedDeleted.add(match.oldPath);
+      matchedAdded.add(match.newPath);
+      renamedPairs.push({
+        oldEntry: deletedByPath.get(match.oldPath)!.head,
+        added: addedByPath.get(match.newPath)!,
+        exact: false,
+      });
+    }
+  }
+
+  for (const pair of renamedPairs) {
+    if (pair.added.observed.type === "symlink") {
+      trackedChanges.push({
+        path: pair.added.path,
+        previous_path: pair.oldEntry.path,
+        change_kind: "renamed",
+        line_semantics: "binary_or_non_line",
+        changed_new_line_ranges: [],
+      });
+      continue;
+    }
+    if (pair.exact) {
+      const binary = isBinaryBytes(pair.added.observed.normalizedBytes);
+      trackedChanges.push({
+        path: pair.added.path,
+        previous_path: pair.oldEntry.path,
+        change_kind: "renamed",
+        line_semantics: binary ? "binary_or_non_line" : "text",
+        changed_new_line_ranges: [],
+      });
+      continue;
+    }
+    const oldBytes = odbBlobs.get(pair.oldEntry.oid)!;
+    const newBytes = pair.added.observed.normalizedBytes;
+    trackedChanges.push({
+      path: pair.added.path,
+      previous_path: pair.oldEntry.path,
+      change_kind: "renamed",
+      line_semantics: "text",
+      changed_new_line_ranges: changedNewLineRangesFromBytes(oldBytes, newBytes),
+    });
+  }
+
+  for (const del of pendingDeleted) {
+    if (matchedDeleted.has(del.head.path)) continue;
+    trackedChanges.push({
+      path: del.head.path,
+      change_kind: "deleted",
+      line_semantics: "deleted_only",
+      changed_new_line_ranges: [],
+    });
+  }
+
+  for (const added of pendingAdded) {
+    if (matchedAdded.has(added.path)) continue;
+    if (added.observed.type === "symlink" || isBinaryBytes(added.observed.normalizedBytes)) {
+      trackedChanges.push({
+        path: added.path,
+        change_kind: "added",
+        line_semantics: "binary_or_non_line",
+        changed_new_line_ranges: [],
+      });
+      continue;
+    }
+    const lineCount = splitLinesForDiff(added.observed.normalizedBytes).length;
+    trackedChanges.push({
+      path: added.path,
+      change_kind: "added",
+      line_semantics: "text",
+      changed_new_line_ranges: lineCount === 0 ? [] : [[1, lineCount]],
+    });
+  }
+
+  for (const mod of pendingModified) {
+    if (mod.observed.type === "symlink") {
+      trackedChanges.push({
+        path: mod.path,
+        change_kind: "modified",
+        line_semantics: "binary_or_non_line",
+        changed_new_line_ranges: [],
+      });
+      continue;
+    }
+    const oldBytes = odbBlobs.get(mod.head.oid)!;
+    const newBytes = mod.observed.normalizedBytes;
+    const binary = isBinaryBytes(oldBytes) || isBinaryBytes(newBytes);
+    trackedChanges.push({
+      path: mod.path,
+      change_kind: "modified",
+      line_semantics: binary ? "binary_or_non_line" : "text",
+      changed_new_line_ranges: binary ? [] : changedNewLineRangesFromBytes(oldBytes, newBytes),
+    });
+  }
+
+  const untracked = parseNonignoredUntrackedPaths(untrackedOutput)
     .map((path) => untrackedPathToChangedFile(canonicalRoot, path));
 
   return {
@@ -1676,7 +1717,7 @@ export function readWorkingTreeComparison(
     includes_staged: true,
     includes_unstaged: true,
     includes_untracked_nonignored: true,
-    changed_files: [...tracked, ...untracked].sort(compareChangedFiles),
+    changed_files: [...trackedChanges, ...untracked].sort(compareChangedFiles),
   };
 }
 
@@ -1722,7 +1763,7 @@ export function readStagedChangedPaths(
   }
   const records = splitNullTerminated(
     requireSuccessfulGitBuffer(
-      runGitTreeMetadata(repositoryRoot, ["diff", "--cached", "--no-renames", "--name-status", "-z", headSha, "--"]),
+      runGitTreeMetadata(repositoryRoot, ["diff", "--cached", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-status", "-z", headSha, "--"]),
       "unable to read staged paths",
     ),
     "git staged path output",
@@ -1784,14 +1825,35 @@ export function refuseUnsupportedRepository(repositoryRoot: string): void {
  */
 export function worktreeMatchesCommitV1(repositoryRoot: string, sha: string): boolean {
   if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(sha)) return false;
-  const diff = runGitTreeMetadata(repositoryRoot, ["diff", "--quiet", "--no-ext-diff", "--no-textconv", sha, "--"]);
-  if (diff.error !== undefined || (diff.status !== 0 && diff.status !== 1)) {
-    throw new GitIdentityError("git_metadata_error", "unable to compare the working tree with the pull request head");
+  const canonicalRoot = canonicalTreeDigestRepositoryRoot(repositoryRoot);
+  refuseUnsupportedRepository(canonicalRoot);
+  const index = readIndexEntries(canonicalRoot);
+  const untrackedOutput = readUntrackedOutput(canonicalRoot);
+  const commitEntries = readCommitTreeEntries(canonicalRoot, sha);
+  const attributes = inspectGitAttributesAndRefuseFilters(
+    canonicalRoot,
+    index,
+    untrackedOutput,
+    [...commitEntries.keys()],
+  );
+  if (untrackedOutput.byteLength !== 0) return false;
+  if (index.some((entry) => entry.stage !== 0)) return false;
+  if (index.length !== commitEntries.size) return false;
+  const coreConfig = readGitCoreWorktreeConfig(canonicalRoot);
+  for (const entry of index) {
+    const expected = commitEntries.get(entry.path);
+    if (expected === undefined) return false;
+    const observed = observeWorktreeTrackedEntry(
+      canonicalRoot,
+      entry.path,
+      entry.mode,
+      expected.oid,
+      attributes,
+      coreConfig,
+    );
+    if (!observed.present || observed.mode !== expected.mode || observed.oid !== expected.oid) {
+      return false;
+    }
   }
-  if (diff.status === 1) return false;
-  const untracked = runGitTreeMetadata(repositoryRoot, ["ls-files", "--others", "--exclude-standard", "-z"]);
-  if (untracked.error !== undefined || untracked.status !== 0) {
-    throw new GitIdentityError("git_metadata_error", "unable to list untracked files");
-  }
-  return untracked.stdout.byteLength === 0;
+  return true;
 }

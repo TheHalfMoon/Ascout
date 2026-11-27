@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { lstatSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -58,7 +59,12 @@ afterEach(() => {
   }
 });
 
-function mockIndex(records: readonly Buffer[], head = HEAD, diff = Buffer.alloc(0)): void {
+function gitBlobOid(content: string, algorithm: "sha1" | "sha256" = "sha1"): string {
+  const bytes = Buffer.from(content, "utf8");
+  return createHash(algorithm).update(`blob ${bytes.length}\0`).update(bytes).digest("hex");
+}
+
+function mockIndex(records: readonly Buffer[], head = HEAD): void {
   let reads = 0;
   control.intercept = (argv, options) => {
     const encoding = (options as { encoding?: unknown }).encoding;
@@ -71,9 +77,8 @@ function mockIndex(records: readonly Buffer[], head = HEAD, diff = Buffer.alloc(
       output = argv.includes("-v") ? records[Math.min(reads++, records.length - 1)]! : Buffer.from(INDEX);
     } else if (argv[0] === "ls-files" && argv.includes("-v")) output = Buffer.from("H tracked.txt\0");
     else if (argv[0] === "ls-files" && argv.includes("--others")) output = Buffer.alloc(0);
-    else if (argv[0] === "diff-files") output = diff;
     else if (argv[0] === "check-attr") output = Buffer.alloc(0);
-    else throw new Error("Unexpected Git query in collector boundary test");
+    else throw new Error(`Unexpected Git query in collector boundary test: ${argv.join(" ")}`);
     const stdout = encoding === "utf8" ? String(output) : Buffer.from(output);
     return { status: 0, stdout, stderr: encoding === "utf8" ? "" : Buffer.alloc(0) };
   };
@@ -91,15 +96,34 @@ function expectMetadataError(read: () => unknown): void {
 
 describe("Task023 combined index boundary", () => {
   it.each([
-    { oid: OID, path: "tracked.txt", stage: 0 },
-    { oid: "c".repeat(64), path: "src/space and\ttab\nname.ts", stage: 0 },
-    { oid: OID, path: "\ufeffname.ts", stage: 1 },
-    { oid: OID, path: "src/other.ts", stage: 3 },
-  ])("preserves exact metadata for $path at stage $stage", ({ oid, path, stage }) => {
+    { algorithm: "sha1" as const, path: "tracked.txt" },
+    { algorithm: "sha256" as const, path: "src/space name.ts" },
+    { algorithm: "sha1" as const, path: "\ufeffname.ts" },
+  ])("preserves exact metadata for $path ($algorithm)", ({ algorithm, path }) => {
+    const repository = root();
+    const content = `content for ${path}\n`;
+    const filePath = join(repository, ...path.split("/"));
+    mkdirSync(dirname(filePath), { recursive: true });
+    writeFileSync(filePath, content);
+    const oid = gitBlobOid(content, algorithm);
     const head = "a".repeat(oid.length);
-    mockIndex([Buffer.from(`H 100644 ${oid} ${stage}\t${path}\0`)], head);
-    expect(readTreeDigestV1(root())).toEqual(treeDigestV1FromState({
-      head, index: [{ path, mode: "100644", oid, stage }], unstaged: [], untracked: [],
+    mockIndex([Buffer.from(`H 100644 ${oid} 0\t${path}\0`)], head);
+    expect(readTreeDigestV1(repository)).toEqual(treeDigestV1FromState({
+      head, index: [{ path, mode: "100644", oid, stage: 0 }], unstaged: [], untracked: [],
+    }));
+  });
+
+  it.skipIf(process.platform === "win32")("preserves tab and newline paths in NUL-terminated index records", () => {
+    const repository = root();
+    const path = "src/space and\ttab\nname.ts";
+    const content = "special path\n";
+    mkdirSync(join(repository, "src"), { recursive: true });
+    writeFileSync(join(repository, path), content);
+    const oid = gitBlobOid(content, "sha256");
+    const head = "a".repeat(64);
+    mockIndex([Buffer.from(`H 100644 ${oid} 0\t${path}\0`)], head);
+    expect(readTreeDigestV1(repository)).toEqual(treeDigestV1FromState({
+      head, index: [{ path, mode: "100644", oid, stage: 0 }], unstaged: [], untracked: [],
     }));
   });
 
@@ -132,13 +156,14 @@ describe("Task023 combined index boundary", () => {
   });
 
   it("refuses a changed second complete observation", () => {
+    const repository = root();
+    writeFileSync(join(repository, "tracked.txt"), "base\n");
     mockIndex([Buffer.from(`H ${INDEX}`), Buffer.from(`H 100644 ${"c".repeat(40)} 0\ttracked.txt\0`)]);
-    expectMetadataError(() => readTreeDigestV1(root()));
+    expectMetadataError(() => readTreeDigestV1(repository));
   });
 
-  it("retains unmerged worktree refusal after reading M index metadata", () => {
-    mockIndex([Buffer.from(`M 100644 ${OID} 2\ttracked.txt\0`)], HEAD,
-      Buffer.from(`:000000 100644 ${"0".repeat(40)} ${"0".repeat(40)} U\0tracked.txt\0`));
+  it.each([1, 2, 3])("retains unmerged worktree refusal for stage %s without diff-files", (stage) => {
+    mockIndex([Buffer.from(`M 100644 ${OID} ${stage}\ttracked.txt\0`)], HEAD);
     expect(() => readTreeDigestV1(root())).toThrow(/unmerged/);
   });
 
@@ -172,9 +197,9 @@ function nativeRepository(): string {
 }
 
 describe("Task023 actual native Git launch budgets", () => {
-  // E1 adds one launch per digest read, for check-attr.
-  it.each([{ modified: false, budget: 11 }, { modified: true, budget: 13 }])(
-    "uses at most $budget Git launches with modified=$modified", ({ modified, budget }) => {
+  // Zero worktree-reading Git calls (#591): no diff-files, no hash-object, and check-attr runs on both passes.
+  it.each([{ modified: false, budget: 10 }, { modified: true, budget: 10 }])(
+    "uses at most $budget Git launches with modified=$modified and zero worktree-reading Git commands", ({ modified, budget }) => {
       const value = nativeRepository();
       if (modified) writeFileSync(join(value, "tracked.txt"), "changed\n");
       control.calls = [];
@@ -182,7 +207,10 @@ describe("Task023 actual native Git launch budgets", () => {
       expect(observed.tracked_index_entry_count).toBe(1);
       expect(observed.unstaged_changed_count).toBe(modified ? 1 : 0);
       expect(control.calls.length).toBeLessThanOrEqual(budget);
-      expect(control.calls.map((call) => call[0])).toContain("check-attr");
+      const subcommands = control.calls.map((call) => call[0]);
+      expect(subcommands.filter((cmd) => cmd === "check-attr")).toHaveLength(2);
+      expect(subcommands).not.toContain("diff-files");
+      expect(subcommands).not.toContain("hash-object");
       for (const env of control.envs) {
         expect(env).toMatchObject({ GIT_NO_LAZY_FETCH: "1", GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0" });
         expect(Object.keys(env).filter((key) => key.toUpperCase().startsWith("GIT_")).sort()).toEqual(
