@@ -292,7 +292,7 @@ export const realExecBothV1: WindowsTaskSandboxDepsV1["execBoth"] = (file, argv,
 });
 
 export const realLoopbackPortV1 = (): Promise<{ port: number; close: () => void } | null> => new Promise((resolve) => {
-  const server = createServer((socket) => socket.end("host"));
+  const server = createServer((socket) => { socket.on("error", Boolean); socket.end("host"); });
   server.once("error", () => resolve(null));
   server.listen(0, "127.0.0.1", () => resolve({ port: (server.address() as { port: number }).port, close: () => server.close() }));
 });

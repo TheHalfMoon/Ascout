@@ -64,10 +64,19 @@ describe("the real helpers the Windows task sandbox uses", () => {
     expect(await realExecBothV1(process.execPath, ["-e", "process.stdout.write('o'); process.stderr.write('e')"], { cwd: process.cwd(), env: {}, timeoutMs: 20_000 })).toEqual({ stdout: "o", stderr: "e" });
   });
 
-  it("open a host loopback port and close it", async () => {
+  it("open a host loopback port, serve a connection without crashing on reset, and close it", async () => {
     const loopback = await realLoopbackPortV1();
     if (loopback === null) throw new Error("no loopback port");
     expect(loopback.port).toBeGreaterThan(0);
+    const { connect } = await import("node:net");
+    const received = await new Promise<string>((resolve, reject) => {
+      const client = connect(loopback.port, "127.0.0.1");
+      let data = "";
+      client.on("data", (chunk: Buffer) => { data += chunk.toString(); });
+      client.on("end", () => resolve(data));
+      client.on("error", reject);
+    });
+    expect(received).toBe("host");
     loopback.close();
   });
 });
@@ -245,7 +254,11 @@ describe.runIf(process.platform === "win32" && process.env.ASCOUT_REQUIRE_WINDOW
 
   it("keeps the repository writable but .git, outside files, and host loopback out of reach; the controls reach all of them", async () => {
     const t = await setUp();
-    const server = createServer((socket) => socket.end("hi"));
+    const server = createServer((socket) => {
+      socket.on("error", () => undefined);
+      socket.end("hi");
+    });
+    server.on("error", () => undefined);
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const port = (server.address() as { port: number }).port;
     try {
